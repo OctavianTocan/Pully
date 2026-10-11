@@ -1,3 +1,4 @@
+import type { ReviewDraftTarget } from '@pulls.review/core/types'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -357,8 +358,13 @@ async function reviewComment(args: unknown): Promise<Response> {
   const headSha = textOf(input?.headSha)
   if (!reviews || !path || (side !== 'additions' && side !== 'deletions') || !Number.isFinite(line) || !body || !headSha)
     return Response.json({ error: 'A line comment needs the pull request, path, side, line, head sha, and text.' }, { status: 400 })
+  // `review` adds to the viewer's pending review (or starts one), as the web composer's "Add review comment" does.
+  const mode = input?.mode === 'review' ? 'review' : 'single'
+  const startLine = Number(input?.startLine)
+  const target: ReviewDraftTarget = Number.isFinite(startLine) && startLine < line ? { path, side, line, startLine, startSide: side } : { path, side, line }
   try {
-    await reviews.addComment({ target: { path, side, line }, body, mode: 'single', headSha })
+    const pendingReview = mode === 'review' ? (await reviews.fetch()).pendingReview : undefined
+    await reviews.addComment({ target, body, mode, headSha, pendingReview })
     return Response.json({ result: true })
   }
   catch (error) {

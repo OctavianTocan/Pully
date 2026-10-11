@@ -35,11 +35,37 @@ data class ReviewFile(
     val deletions: Int,
     val sha: String = "",
     val patchLines: List<DiffLine>,
+    val previousPath: String? = null,
+    val isBinary: Boolean = false,
+    val truncated: Boolean = false,
+    val hunks: List<Hunk> = emptyList(),
 )
 
-data class DiffLine(val kind: Char, val text: String, val newLine: Int? = null, val oldLine: Int? = null)
+/**
+ * One line of a file's patch. [gapBefore] is how many unmodified lines the patch skips
+ * right before this line (the web's "N unmodified lines" separator); [hunk] is the
+ * 0-based hunk index, the one the AI file notes refer to.
+ */
+data class DiffLine(val kind: Char, val text: String, val newLine: Int? = null, val oldLine: Int? = null, val gapBefore: Int = 0, val hunk: Int = 0)
 
-data class FileGroup(val label: String, val summary: String, val paths: List<String>)
+data class Hunk(val header: String, val oldStart: Int, val oldLines: Int, val newStart: Int, val newLines: Int)
+
+/** A rule-based or AI group (`DiffGroup`): one level of children at most, like the web. */
+data class FileGroup(
+    val label: String,
+    val summary: String,
+    val paths: List<String>,
+    val key: String = label,
+    val category: String = "other",
+    val children: List<FileGroup> = emptyList(),
+) {
+    /** Every path in this group and its children, in display order. */
+    val allPaths: List<String> get() = paths + children.flatMap { it.paths }
+}
+
+data class Author(val login: String, val avatarUrl: String = "")
+
+data class CommitInfo(val sha: String, val message: String)
 
 data class OpenedReview(
     val key: String,
@@ -49,6 +75,18 @@ data class OpenedReview(
     val baseSha: String = "",
     /** The PR, compare or commit page on GitHub; empty for local diffs. */
     val url: String = "",
+    val title: String = "",
+    /** Short id after the title, e.g. `#123`. */
+    val label: String = "",
+    val author: Author? = null,
+    val baseRef: String = "",
+    val headRef: String = "",
+    /** `open`, `closed`, `merged` or `draft`; empty when the source is not a PR. */
+    val state: String = "",
+    val description: String = "",
+    val commits: List<CommitInfo> = emptyList(),
+    /** `github-pr`, `github-compare`, `github-commit`, `local` or `paste`. */
+    val refKind: String = "",
 )
 
 data class Finding(
@@ -112,11 +150,9 @@ fun JsonElement.asOpened(): OpenedReview {
     val diff = obj.getValue("diff").jsonObject
     val files = diff["files"]?.jsonArray.orEmpty().map { it.jsonObject.asFile() }
     val byPath = files.associateBy { it.path }
-    val groups = obj["groups"]?.jsonArray.orEmpty().map { group ->
-        val item = group.jsonObject
-        FileGroup(item.str("label"), item.str("summary"), item["filePaths"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content })
-    }
-    val ordered = if (groups.isEmpty()) files else groups.flatMap { group -> group.paths.mapNotNull(byPath::get) }
+    val groups = obj["groups"]?.jsonArray.orEmpty().map { it.jsonObject.asGroup() }
+    val ordered = if (groups.isEmpty()) files else groups.flatMap { group -> group.allPaths.mapNotNull(byPath::get) }
+    val authorObj = diff["author"] as? JsonObject
     return OpenedReview(
         key = obj.str("key"),
         headSha = diff["head"]?.jsonObject?.str("sha").orEmpty(),
@@ -124,23 +160,56 @@ fun JsonElement.asOpened(): OpenedReview {
         groups = groups,
         baseSha = diff["base"]?.jsonObject?.str("sha").orEmpty(),
         url = diff.str("url"),
+        title = diff.str("title"),
+        label = diff.str("label"),
+        author = authorObj?.let { Author(it.str("name"), it.str("avatarUrl")) },
+        baseRef = diff["base"]?.jsonObject?.str("ref").orEmpty(),
+        headRef = diff["head"]?.jsonObject?.str("ref").orEmpty(),
+        state = (diff["pullRequest"] as? JsonObject)?.str("state").orEmpty(),
+        description = diff.str("description"),
+        commits = diff["commits"]?.jsonArray.orEmpty().map { CommitInfo(it.jsonObject.str("sha"), it.jsonObject.str("message")) },
+        refKind = (diff["ref"] as? JsonObject)?.str("kind").orEmpty(),
     )
 }
 
+/** A `{ key, label, summary, category, filePaths, children }` group from the server. */
+fun JsonObject.asGroup(): FileGroup = FileGroup(
+    label = str("label"),
+    summary = str("summary"),
+    paths = this["filePaths"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content },
+    key = str("key").ifBlank { str("label") },
+    category = str("category").ifBlank { "other" },
+    children = this["children"]?.jsonArray.orEmpty().map { it.jsonObject.asGroup() },
+)
+
 private fun JsonObject.asFile(): ReviewFile {
     val lines = mutableListOf<DiffLine>()
-    for (hunk in this["hunks"]?.jsonArray.orEmpty()) {
-        var old = hunk.jsonObject["oldStart"]?.jsonPrimitive?.intOrNull ?: 1
-        var new = hunk.jsonObject["newStart"]?.jsonPrimitive?.intOrNull ?: 1
-        for (line in hunk.jsonObject.str("patch").lineSequence()) {
-            when {
-                line.startsWith("@@") || line.startsWith("\\") -> Unit
-                line.startsWith("+++") || line.startsWith("---") -> Unit
-                line.startsWith("+") -> lines += DiffLine('+', line.drop(1), newLine = new, oldLine = null).also { new += 1 }
-                line.startsWith("-") -> lines += DiffLine('-', line.drop(1), newLine = null, oldLine = old).also { old += 1 }
-                line.startsWith(" ") -> lines += DiffLine(' ', line.drop(1), newLine = new, oldLine = old).also { old += 1; new += 1 }
-            }
+    val hunks = mutableListOf<Hunk>()
+    // Unmodified lines between hunks, counted on the old side (the new side for an added file).
+    var nextOld = 1
+    var nextNew = 1
+    this["hunks"]?.jsonArray.orEmpty().forEachIndexed { index, element ->
+        val hunk = element.jsonObject
+        val oldStart = hunk["oldStart"]?.jsonPrimitive?.intOrNull ?: 1
+        val newStart = hunk["newStart"]?.jsonPrimitive?.intOrNull ?: 1
+        hunks += Hunk(hunk.str("header"), oldStart, hunk["oldLines"]?.jsonPrimitive?.intOrNull ?: 0, newStart, hunk["newLines"]?.jsonPrimitive?.intOrNull ?: 0)
+        var gap = if (oldStart > 0) oldStart - nextOld else newStart - nextNew
+        var old = oldStart
+        var new = newStart
+        for (line in hunk.str("patch").lineSequence()) {
+            val parsed = when {
+                line.startsWith("@@") || line.startsWith("\\") -> null
+                line.startsWith("+++") || line.startsWith("---") -> null
+                line.startsWith("+") -> DiffLine('+', line.drop(1), newLine = new, oldLine = null).also { new += 1 }
+                line.startsWith("-") -> DiffLine('-', line.drop(1), newLine = null, oldLine = old).also { old += 1 }
+                line.startsWith(" ") -> DiffLine(' ', line.drop(1), newLine = new, oldLine = old).also { old += 1; new += 1 }
+                else -> null
+            } ?: continue
+            lines += parsed.copy(gapBefore = gap.coerceAtLeast(0), hunk = index)
+            gap = 0
         }
+        nextOld = old
+        nextNew = new
     }
     return ReviewFile(
         path = str("path"),
@@ -149,6 +218,10 @@ private fun JsonObject.asFile(): ReviewFile {
         additions = this["additions"]?.jsonPrimitive?.intOrNull ?: 0,
         deletions = this["deletions"]?.jsonPrimitive?.intOrNull ?: 0,
         patchLines = lines,
+        previousPath = str("previousPath").ifBlank { null },
+        isBinary = this["isBinary"]?.jsonPrimitive?.contentOrNull == "true",
+        truncated = this["truncated"]?.jsonPrimitive?.contentOrNull == "true",
+        hunks = hunks,
     )
 }
 
