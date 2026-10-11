@@ -193,6 +193,8 @@ fun HomeScreen(nav: Nav, updateNotice: String?) {
                         )
                         ActionButton({ open() }, variant = ButtonVariant.Primary, icon = "arrow-right-bold", enabled = parsed != null) { Text(t("local.home.open")) }
                     }
+                    // The web reaches `/checkout` by typing the URL; a phone has no address bar, so link it here.
+                    ActionButton(nav.checkout, Modifier.padding(top = 8.dp), variant = ButtonVariant.Text, icon = "git-branch-duotone", small = true) { Text(t("local.picker.title")) }
                     Spacer(Modifier.height(24.dp))
                 }
 
