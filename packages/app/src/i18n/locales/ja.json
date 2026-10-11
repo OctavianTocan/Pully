@@ -716,6 +716,45 @@
     "generated": {
       "label": "生成物",
       "summary": "生成物やビルド成果物の変更。"
+    },
+    "types": {
+      "label": "型",
+      "summary": "型宣言。"
+    },
+    "data": {
+      "label": "データ",
+      "summary": "データベーススキーマとマイグレーション。"
+    },
+    "styles": {
+      "label": "スタイル",
+      "summary": "スタイルシートとスタイル設定。"
+    },
+    "scripts": {
+      "label": "スクリプト",
+      "summary": "ビルド・開発・自動化スクリプト。"
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI ワークフローとパイプライン。"
+    },
+    "i18n": {
+      "label": "翻訳",
+      "summary": "ロケールと翻訳ファイル。"
+    },
+    "assets": {
+      "label": "アセット",
+      "summary": "画像、フォント、メディア。"
+    },
+    "area": "{label} · {area}",
+    "rootArea": "リポジトリ直下",
+    "otherAreas": "その他の領域",
+    "facts": {
+      "sentence": "{blurb}{list}。",
+      "separator": "、",
+      "added": "新規 {n} 件",
+      "removed": "削除 {n} 件",
+      "renamed": "名前変更 {n} 件",
+      "pairedTests": "テスト {n} 件を対応するソースの直後に配置"
     }
   },
   "errors": {

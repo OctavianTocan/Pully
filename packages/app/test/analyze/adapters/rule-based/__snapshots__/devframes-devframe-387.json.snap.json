@@ -1,28 +1,35 @@
 {
   "groups": [
     {
-      "key": "docs",
-      "label": "Docs",
-      "summary": "Documentation updates.",
-      "category": "docs",
+      "key": "code:packages/hub",
+      "label": "Code · packages/hub",
+      "summary": "Source changes. 1 test right after its source.",
+      "category": "core",
       "filePaths": [
-        "docs/content/1.guide/17.client-context.md",
-        "docs/content/8.references/6.hub-api.md"
+        "packages/hub/src/client/host.ts",
+        "packages/hub/src/client/__tests__/host.test.ts",
+        "packages/hub/src/types/docks.ts"
       ]
     },
     {
-      "key": "code",
-      "label": "Code",
+      "key": "code:packages/hub-ui",
+      "label": "Code · packages/hub-ui",
+      "summary": "Source changes. 1 test right after its source.",
+      "category": "core",
+      "filePaths": [
+        "packages/hub-ui/src/client/state/context.ts",
+        "packages/hub-ui/src/client/state/context.test.ts",
+        "packages/hub-ui/src/client/state/setup-script.ts"
+      ]
+    },
+    {
+      "key": "code:*",
+      "label": "Code · other areas",
       "summary": "Source changes.",
       "category": "core",
       "filePaths": [
         "examples/custom-hub-next/src/client/devframe/next-devframe-hub.ts",
-        "examples/custom-hub-vite/vite.config.ts",
-        "packages/devframe/src/types/devframe.ts",
-        "packages/hub-ui/src/client/state/context.ts",
-        "packages/hub-ui/src/client/state/setup-script.ts",
-        "packages/hub/src/client/host.ts",
-        "packages/hub/src/types/docks.ts"
+        "packages/devframe/src/types/devframe.ts"
       ]
     },
     {
@@ -31,12 +38,29 @@
       "summary": "Test coverage for the change.",
       "category": "tests",
       "filePaths": [
-        "packages/hub-ui/src/client/state/client-script.integration.test.ts",
-        "packages/hub-ui/src/client/state/context.test.ts",
-        "packages/hub/src/client/__tests__/host.test.ts",
         "packages/hub/src/client/__tests__/renderers.test.ts",
+        "packages/hub-ui/src/client/state/client-script.integration.test.ts",
         "tests/__snapshots__/tsnapi/@devframes/hub/index.snapshot.d.ts",
         "tests/__snapshots__/tsnapi/devframe/index.snapshot.d.ts"
+      ]
+    },
+    {
+      "key": "config",
+      "label": "Config",
+      "summary": "Configuration changes.",
+      "category": "config",
+      "filePaths": [
+        "examples/custom-hub-vite/vite.config.ts"
+      ]
+    },
+    {
+      "key": "docs",
+      "label": "Docs",
+      "summary": "Documentation updates.",
+      "category": "docs",
+      "filePaths": [
+        "docs/content/1.guide/17.client-context.md",
+        "docs/content/8.references/6.hub-api.md"
       ]
     }
   ],

@@ -716,6 +716,45 @@
     "generated": {
       "label": "Generiert",
       "summary": "Änderungen an generierten oder Build-Dateien."
+    },
+    "types": {
+      "label": "Typen",
+      "summary": "Typdeklarationen."
+    },
+    "data": {
+      "label": "Daten",
+      "summary": "Datenbankschema und Migrationen."
+    },
+    "styles": {
+      "label": "Styles",
+      "summary": "Stylesheets und Styling-Konfiguration."
+    },
+    "scripts": {
+      "label": "Skripte",
+      "summary": "Build-, Entwicklungs- und Automatisierungsskripte."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI-Workflows und Pipelines."
+    },
+    "i18n": {
+      "label": "Übersetzungen",
+      "summary": "Sprach- und Übersetzungsdateien."
+    },
+    "assets": {
+      "label": "Assets",
+      "summary": "Bilder, Schriften und Medien."
+    },
+    "area": "{label} · {area}",
+    "rootArea": "Repo-Wurzel",
+    "otherAreas": "weitere Bereiche",
+    "facts": {
+      "sentence": "{blurb} {list}.",
+      "separator": ", ",
+      "added": "{n} neue Datei | {n} neue Dateien",
+      "removed": "{n} gelöscht",
+      "renamed": "{n} umbenannt",
+      "pairedTests": "{n} Test direkt nach seiner Quelle | {n} Tests direkt nach ihrer Quelle"
     }
   },
   "errors": {

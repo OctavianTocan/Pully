@@ -716,6 +716,45 @@
     "generated": {
       "label": "생성 파일",
       "summary": "생성물 또는 빌드 산출물 변경."
+    },
+    "types": {
+      "label": "타입",
+      "summary": "타입 선언."
+    },
+    "data": {
+      "label": "데이터",
+      "summary": "데이터베이스 스키마와 마이그레이션."
+    },
+    "styles": {
+      "label": "스타일",
+      "summary": "스타일시트와 스타일 설정."
+    },
+    "scripts": {
+      "label": "스크립트",
+      "summary": "빌드, 개발, 자동화 스크립트."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI 워크플로와 파이프라인."
+    },
+    "i18n": {
+      "label": "번역",
+      "summary": "로케일 및 번역 파일."
+    },
+    "assets": {
+      "label": "에셋",
+      "summary": "이미지, 폰트, 미디어."
+    },
+    "area": "{label} · {area}",
+    "rootArea": "저장소 루트",
+    "otherAreas": "기타 영역",
+    "facts": {
+      "sentence": "{blurb} {list}.",
+      "separator": ", ",
+      "added": "새 파일 {n}개",
+      "removed": "삭제 {n}개",
+      "renamed": "이름 변경 {n}개",
+      "pairedTests": "테스트 {n}개를 해당 소스 바로 뒤에 배치"
     }
   },
   "errors": {
