@@ -244,8 +244,10 @@ fun HomeScreen(nav: Nav, updateNotice: String?) {
                     derivedStateOf {
                         val start = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "content-start" }
                         val floor = with(density) { 16.dp.roundToPx() }
+                        // Item offsets start after the list's top content padding; the overlay is placed from the box top.
+                        val padTop = with(density) { (if (bp.md) 40.dp else 32.dp).roundToPx() }
                         when {
-                            start != null -> maxOf(start.offset, floor)
+                            start != null -> maxOf(start.offset + padTop, floor)
                             listState.layoutInfo.visibleItemsInfo.any { it.key == "title" || it.key == "url" || it.key == "filters" || it.key == "update" } -> Int.MAX_VALUE
                             else -> floor
                         }
