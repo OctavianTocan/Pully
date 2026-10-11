@@ -342,7 +342,8 @@ private fun RepoGroupSummary(group: Triage.RepoGroup, open: Boolean, toggle: () 
         Text("${group.pulls.size}", style = mono, color = c.fade)
         Spacer(Modifier.weight(1f))
         Box(Modifier.defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button, onClick = openRepo).padding(start = 8.dp), contentAlignment = Alignment.Center) {
-            Text(t("local.home.allInRepo"), style = PullsType.xs, color = c.fade, maxLines = 1)
+            // Inherits the summary's `font-mono`.
+            Text(t("local.home.allInRepo"), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade, maxLines = 1)
         }
     }
 }

@@ -75,6 +75,7 @@ function nativeCall(name: string, cwd: string, args: unknown): Promise<Response>
     'review-reply': (_cwd, input) => reviewReply(input),
     'review-resolve': (_cwd, input) => reviewResolve(input),
     'highlight': (_cwd, input) => highlight(input),
+    'repo-viewed': repoViewed,
     'review-comment': (_cwd, input) => reviewComment(input),
   }
   const call = calls[name]
@@ -196,6 +197,30 @@ const RULE_TEXT: Record<string, [string, string]> = {
 
 function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
+}
+
+/**
+ * PRs of one repo this server already opened (`loadViewed` in `pull-request-list-store.ts`):
+ * their diff size, file and group counts, and whether an AI grouping exists.
+ */
+async function repoViewed(cwd: string, input: unknown): Promise<Response> {
+  const { owner, repo } = (input ?? {}) as { owner?: unknown, repo?: unknown }
+  if (typeof owner !== 'string' || typeof repo !== 'string')
+    return Response.json({ error: 'That needs an owner and a repo.' }, { status: 400 })
+  const entries = await (await serverSession(cwd)).cache.diffs.listMatching(({ ref }) => ref.kind === 'github-pr' && ref.owner === owner && ref.repo === repo)
+  const viewed = await Promise.all(entries.map(async (entry) => {
+    const ai = entry.analyzedBy.llm ?? entry.analyzedBy['web-llm']
+    const ref = entry.diff.ref
+    return {
+      number: ref.kind === 'github-pr' ? Number(ref.number) : 0,
+      additions: entry.diff.files.reduce((sum, file) => sum + file.additions, 0),
+      deletions: entry.diff.files.reduce((sum, file) => sum + file.deletions, 0),
+      files: entry.diff.files.length,
+      groups: ai ? ai.groups.length : (await ruleGroups(entry.diff)).length,
+      hasAiResult: !!ai,
+    }
+  }))
+  return Response.json({ result: viewed })
 }
 
 /** The same deterministic groups the web app shows before any AI runs, in English. */

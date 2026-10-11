@@ -41,6 +41,6 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_PROCESS_TEXT -> intent.getStringExtra(Intent.EXTRA_PROCESS_TEXT)
             else -> intent.dataString
         }
-        return shared?.takeIf { PrLinks.parse(it) != null }
+        return shared?.takeIf { com.octaviantocan.pulls.ui.home.HomeLinks.parse(it) != null }
     }
 }

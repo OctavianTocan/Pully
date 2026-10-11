@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.serialization.json.put
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -108,6 +109,20 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
         }
     }
 
+    /** `viewed`: what the server's cache holds for PRs of this repo already opened (`loadViewed`). */
+    var viewed by mutableStateOf<Map<Int, Viewed>>(emptyMap())
+        private set
+
+    suspend fun loadViewed() {
+        runCatching { repo.call("repo-viewed") { put("owner", owner); put("repo", name) } }.onSuccess { result ->
+            viewed = (result as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { e ->
+                val o = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                fun int(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+                int("number") to Viewed(int("additions"), int("deletions"), int("groups"), (o["hasAiResult"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true")
+            }.toMap()
+        }
+    }
+
     suspend fun load() {
         val cached = items.isNotEmpty()
         if (cached) isRefreshing = true else isLoading = true
@@ -154,6 +169,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
     // Matches the order pages arrive in, so an unfinished load never looks mis-sorted.
     var sort by rememberSaveable { mutableStateOf("recently-updated") }
     LaunchedEffect(store) { store.load() }
+    // Independent of the network, like the web: viewed PRs decorate rows whenever they arrive.
+    LaunchedEffect(store) { store.loadViewed() }
     // A client-side search is only trustworthy over the full set: typing drains the remaining pages.
     LaunchedEffect(query) { if (query.isNotBlank()) store.loadAll() }
 
@@ -192,7 +209,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
                                 // The rows share one `border border-base rounded-lg` box.
                                 val shape = RoundedCornerShape(topStart = if (first) 8.dp else 0.dp, topEnd = if (first) 8.dp else 0.dp, bottomStart = if (last) 8.dp else 0.dp, bottomEnd = if (last) 8.dp else 0.dp)
                                 Box(Modifier.fillMaxWidth().clip(shape).sideBorders(c.border, first, last)) {
-                                    PullRequestRow(pr, last) { nav.openTarget(OpenTarget.Pull(owner, repo, pr.number, "github.com")) }
+                                    PullRequestRow(pr, last, store.viewed[pr.number]) { nav.openTarget(OpenTarget.Pull(owner, repo, pr.number, "github.com")) }
                                 }
                             }
                             if (rows.isEmpty() && !isSearching) item {
@@ -310,7 +327,7 @@ private fun PullsHeader(
 /** `PullRequestRow`. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PullRequestRow(pr: RepoPull, last: Boolean, onClick: () -> Unit) {
+private fun PullRequestRow(pr: RepoPull, last: Boolean, viewed: Viewed?, onClick: () -> Unit) {
     val c = LocalPullsColors.current
     val now = rememberNow()
     val opened = timeAgo(parseInstant(pr.createdAt), now)
@@ -350,8 +367,14 @@ private fun PullRequestRow(pr: RepoPull, last: Boolean, onClick: () -> Unit) {
             }
         }
         Column(Modifier.padding(top = 2.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (pr.additions != null) DiffStats(pr.additions, pr.deletions)
+            // The locally viewed diff is the one the reader will reopen, so its size wins.
+            if (viewed != null) DiffStats(viewed.additions, viewed.deletions) else if (pr.additions != null) DiffStats(pr.additions, pr.deletions)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (viewed != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (viewed.hasAiResult) PhIcon("sparkle-duotone", tint = c.accentTeal, size = 13.dp, contentDescription = t("pulls.aiAvailable"))
+                    else PhIcon("stack-duotone", tint = c.fade, size = 13.dp)
+                    Text(tc("pulls.groups", viewed.groups), style = PullsType.xs, color = c.fade)
+                }
                 pr.linkedIssues?.takeIf { it > 0 }?.let {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         DrawableIcon(R.drawable.ic_octicon_issue_closed_16, tint = c.fade, size = 13.dp, contentDescription = tc("pulls.linkedIssues", it))
@@ -404,3 +427,6 @@ private fun LabelChip(label: GhLabel) {
         maxLines = 1,
     )
 }
+
+/** `ViewedPullRequest`: the cached diff's size and grouping for a PR opened before. */
+data class Viewed(val additions: Int, val deletions: Int, val groups: Int, val hasAiResult: Boolean)

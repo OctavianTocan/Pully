@@ -42,7 +42,12 @@ fun PullsApp(initialTarget: String?) {
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
     val stack = remember {
         mutableStateListOf<Screen>(Screen.Home).apply {
-            initialTarget?.let(PrLinks::parse)?.let { add(Screen.Review(it)) }
+            // Same parsing as the home URL field: PRs, commits, compares, and repository links.
+            when (val link = initialTarget?.let(com.octaviantocan.pulls.ui.home.HomeLinks::parse)) {
+                is com.octaviantocan.pulls.ui.home.HomeLink.Target -> add(Screen.Review(link.target))
+                is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> add(Screen.Repo(link.owner, link.repo))
+                null -> {}
+            }
         }
     }
     var updateNote by remember { mutableStateOf<String?>(null) }
