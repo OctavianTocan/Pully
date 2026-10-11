@@ -215,6 +215,7 @@ async function ruleGroups(diff: import('@pulls.review/core/types').DiffsPayload)
     key: group.key,
     label: group.label,
     summary: group.summary,
+    category: group.category ?? 'other',
     filePaths: group.filePaths,
   }))
 }
@@ -244,12 +245,20 @@ async function reviewState(cwd: string, args: unknown): Promise<Response> {
     role: message.role,
     text: messageText(message.content).slice(0, 4000),
   })).filter(message => message.text)
-  const aiGroups = entry?.analyzedBy?.llm?.groups?.map(group => ({
+  const llm = entry?.analyzedBy?.llm
+  // Nested groups flatten to the web's two levels: a parent row, then its children.
+  const aiGroups = llm?.groups?.map(group => ({
+    key: group.key,
     label: group.label,
     summary: group.summary,
+    category: group.category ?? 'other',
     filePaths: group.filePaths,
+    children: (group.children ?? []).map(child => ({ key: child.key, label: child.label, summary: child.summary, category: child.category ?? group.category ?? 'other', filePaths: child.filePaths })),
   })) ?? []
-  return Response.json({ result: { threads, critique, chat, aiGroups } })
+  const analysis = llm
+    ? { overallSummary: llm.overallSummary, files: llm.files ?? [], model: llm.model, generatedAt: llm.generatedAt, sharedBy: llm.sharedBy }
+    : undefined
+  return Response.json({ result: { threads, critique, chat, aiGroups, analysis, sharedComment: entry?.sharedComment } })
 }
 
 /** GitHub review threads for one pull request, in the same shape the web diff anchors to lines. */

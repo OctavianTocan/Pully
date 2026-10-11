@@ -1,0 +1,823 @@
+{
+  "common": {
+    "cancel": "キャンセル",
+    "save": "保存",
+    "remove": "削除",
+    "retry": "再試行",
+    "close": "閉じる",
+    "dismiss": "閉じる",
+    "refresh": "更新",
+    "settings": "設定",
+    "you": "あなた",
+    "loading": "読み込み中…",
+    "send": "送信",
+    "stop": "停止",
+    "clear": "クリア",
+    "reply": "返信",
+    "submit": "送信",
+    "abort": "中止",
+    "rerun": "再実行",
+    "files": "{n} ファイル",
+    "subgroups": "{n} サブグループ",
+    "githubRepository": "GitHub リポジトリ",
+    "avatar": "{login} のアバター"
+  },
+  "keys": {
+    "title": "Keyboard shortcuts",
+    "scope": {
+      "global": "Everywhere",
+      "pr": "Pull request",
+      "home": "Pull request list",
+      "other": "More"
+    },
+    "palette": "Open the command palette",
+    "help": "Show keyboard shortcuts",
+    "home": "Go to home",
+    "top": "Scroll to top",
+    "bottom": "Scroll to bottom",
+    "refresh": "Refresh",
+    "escape": "Leave the text field or clear the selection",
+    "settings": "Open settings",
+    "theme": "Toggle dark mode",
+    "nextFile": "Next file",
+    "prevFile": "Previous file",
+    "nextHunk": "Next change",
+    "prevHunk": "Previous change",
+    "nextGroup": "Next group",
+    "prevGroup": "Previous group",
+    "toggleReviewed": "Mark file as reviewed or unreviewed",
+    "toggleFile": "Expand or collapse file",
+    "openFile": "Open file on GitHub",
+    "openPr": "Open on GitHub",
+    "copyPath": "Copy file path",
+    "copyPermalink": "Copy GitHub permalink to file",
+    "findFile": "Jump to a file",
+    "ask": "Ask about this pull request",
+    "analyze": "Analyze with AI",
+    "layout": "Switch between split and unified diffs",
+    "groupNav": "Switch group navigation between tabs and sidebar",
+    "threads": "Show or hide review comments",
+    "analyzeMode": "Switch grouping between rules and AI",
+    "nextRow": "Next pull request",
+    "prevRow": "Previous pull request",
+    "openRow": "Open pull request",
+    "search": "Filter pull requests",
+    "copied": "Copied {text}",
+    "copyFailed": "Couldn't copy to the clipboard"
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Type a command or search…",
+    "empty": "Nothing matches",
+    "more": "{n} more, keep typing to narrow down",
+    "navigate": "navigate",
+    "run": "run",
+    "close": "close",
+    "clearScope": "Search everything",
+    "group": {
+      "general": "General",
+      "pr": "Pull request",
+      "view": "View",
+      "files": "Files",
+      "groups": "Groups",
+      "pulls": "Pull requests",
+      "repos": "Repositories"
+    },
+    "jumpToFile": "Jump to {path}",
+    "jumpToGroup": "Go to group {name}",
+    "goToPull": "Go to {ref}: {title}",
+    "goToRepo": "Go to {repo}"
+  },
+  "landing": {
+    "dropHint": "ドロップして diff / .patch ファイルを読み込む",
+    "tagline": "変更ファイルをグループ化し、要点を要約して、スコープごとにレビュー。すべてブラウザ内でローカルに動作します。",
+    "documentTitle": "プルリクエストのレビューを、明快に、整理して",
+    "open": "開く",
+    "pasteHint": "GitHub の pull request URL を貼り付けるか、下のデモを選んでください。",
+    "recentlyViewed": "// 最近見たもの",
+    "recentRepositories": "// 最近見たリポジトリ",
+    "tryDemos": "// デモを試す",
+    "demoBefore": "// 変更前",
+    "demoAfter": "// 変更後",
+    "moreFiles": "... 他 {n} ファイル",
+    "demoTitle": "feat: AI 分析を PR コメントとして共有し、共有結果を読み込む",
+    "demoSummary": "API キーを持つレビュアー 1 人が分析を PR に投稿すれば、他の全員がトークンなしで読み込めます。",
+    "demoGroups": {
+      "store": "共有分析ストアとコメント契約",
+      "ui": "結果共有 UI",
+      "refactor": "ストア再構成：結果をルートへ",
+      "tests": "テスト",
+      "docs": "ドキュメントと依存関係"
+    },
+    "uploadTitle": "PR なしで diff をレビュー",
+    "uploadDescription": "unified diff をアップロードまたは貼り付けるか、{diff} / {patch} ファイルをこのページのどこかにドロップしてください。",
+    "uploadButton": "diff をアップロード",
+    "embedTitle": "github.com に埋め込んで使う",
+    "embedDescription": "{tampermonkey} または {violentmonkey} をインストールすると、すべての pull request ページに pulls.review のドロワーが表示されます。",
+    "installUserscript": "ユーザースクリプトをインストール",
+    "bookmarkletTitle": "github.com と pulls.review を行き来する",
+    "bookmarkletDescription": "拡張機能をインストールできない場合は、このブックマークレットをブックマークバーにドラッグしてください。現在のプルリクエストを pulls.review で開き、また戻れます。",
+    "bookmarkletDrag": "ブックマークバーにドラッグ",
+    "actionsTitle": "GitHub Actions で自動解析を設定する",
+    "actionsDescription": "CI で各プルリクエストを一度だけ解析し、結果を PR コメントとして投稿します。レビュアーごとにモデルのキーを用意する必要はありません。",
+    "cliTitle": "CLI でローカルの git の変更に使う",
+    "cliDescription": "push する前に、ワーキングツリー・コミット・ブランチを PR と同じようにグループ化・要約してレビューできます。",
+    "viewGuide": "ガイドを見る"
+  },
+  "guide": {
+    "userscript": {
+      "title": "pulls.review を github.com に埋め込んで使う",
+      "intro": "ユーザースクリプトは github.com のプルリクエストページに pulls.review のパネルを直接追加し、グループ化されたファイルと要約を表示します。タブを切り替える必要はありません。",
+      "manager": "ユーザースクリプトマネージャーをインストールします: {tampermonkey} または {violentmonkey}。",
+      "install": "pulls.review のユーザースクリプトをインストールします。マネージャーが確認を求めます。",
+      "open": "github.com で任意のプルリクエストを開き、\"Files changed\" の隣にある {tab} タブをクリックします。",
+      "ai": "github.com は AI 解析に必要なリクエストをブロックするため、パネルには PR コメントとして共有された解析が表示されます。新しく解析するには pulls.review で PR を開いてください。"
+    },
+    "bookmarklet": {
+      "title": "github.com と pulls.review を行き来する",
+      "intro": "ブックマークレットは小さなスクリプトを実行するブックマークです。拡張機能なしでどのブラウザでも動作し、表示中のページをもう一方のサイトで開きます。",
+      "bar": "ブックマークバーを表示します（例: {shortcut}）。",
+      "drag": "このボタンをブックマークバーにドラッグします:",
+      "use": "github.com のプルリクエスト、コミット、比較ページでブックマークをクリックすると pulls.review で開きます。もう一度クリックすると戻ります。"
+    },
+    "actions": {
+      "title": "GitHub Actions で自動解析",
+      "intro": "プルリクエストが作成・更新されるたびに、CI が一度だけ解析します。PR を開いた人は、ここでも github.com のパネルでも、同じグループ化された要約をすぐに確認できます。各自のモデルのキーは不要で、フォークからのプルリクエストにも対応します。",
+      "secret": "モデルのキーをリポジトリのシークレットとして追加します (例: {name})。",
+      "workflow": "このワークフローをリポジトリに追加します:",
+      "result": "プルリクエストを作成・更新して試してみましょう。解析結果はコメントとして届き、変更のない PR で再実行してもモデルは呼び出されません。",
+      "options": "{provider} はキーから推定されます。上書きするには {provider}、{model}、{locale} を指定します。すべてのオプションは {readme} を参照してください。"
+    },
+    "cli": {
+      "title": "CLI でローカルの git の変更をレビュー",
+      "intro": "誰かにレビューされる前に、自分の変更を見直しましょう。CLI はブランチ、コミット、未コミットの作業を pulls.review で開きます。push や PR 作成の前に、変更がグループ化・要約されてどう見えるかを確認できます。",
+      "branch": "git リポジトリ内でこれを実行すると、現在のブランチをデフォルトブランチと比較してレビューできます:",
+      "target": "または、レビューする対象を選べます:",
+      "browser": "ブラウザで {url} が開き、ローカルの変更を可視化します。ターミナルに表示されたワンタイムコードでタブを確認してください。そこから他のブランチやコミットを選んで比較することもできます。"
+    }
+  },
+  "load": {
+    "title": "diff を読み込む",
+    "description": "unified diff / .patch ファイルを貼り付けるかドロップしてレビューします。",
+    "pasteLabel": "unified diff / .patch を貼り付け",
+    "chooseFile": "または .diff/.patch ファイルを選択",
+    "loadButton": "diff を読み込む",
+    "parsing": "diff を解析中…",
+    "parseFailed": "この diff を解析できませんでした",
+    "noDiff": "diff が読み込まれていません",
+    "noDiffHint": "ホームページに戻り、アップロードボタンから diff を貼り付けるかドロップしてください。",
+    "goHome": "ホームへ"
+  },
+  "pr": {
+    "loading": "pull request を読み込み中…",
+    "loadFailed": "この pull request を読み込めませんでした",
+    "somethingWrong": "問題が発生しました",
+    "newCommits": "キャッシュ後にこの pull request に新しいコミットがあります。",
+    "autoRefreshNextTime": "次回から自動更新",
+    "endOfDiff": "diff の末尾に到達しました。",
+    "analyzeBy": "分析方法",
+    "rules": "ルール",
+    "ai": "AI",
+    "by": "作成者",
+    "sharedBy": "共有された AI 分析を表示中：",
+    "sharedAnalysis": "共有された分析を表示中",
+    "reviewedOf": "/ {total} レビュー済み",
+    "openInSite": "pulls.review で開く"
+  },
+  "overview": {
+    "tab": {
+      "conversation": "Conversation",
+      "commits": "Commits",
+      "checks": "Checks"
+    },
+    "loading": "Loading pull request details…",
+    "loadFailed": "Couldn't load the pull request details",
+    "tokenRequired": "Add a GitHub token in Settings to see the description, conversation, checks and commits here.",
+    "show": "Show pull request details",
+    "hide": "Hide pull request details",
+    "viewOnGithub": "View on GitHub",
+    "noDescription": "No description provided.",
+    "earlier": "Show {n} earlier item | Show {n} earlier items",
+    "moreOnGithub": "+{n} more on GitHub",
+    "timeline": {
+      "commented": "commented",
+      "reviewed": "reviewed",
+      "approved": "approved these changes",
+      "changesRequested": "requested changes",
+      "pushed": "added {n} commit | added {n} commits",
+      "hidden": "Hidden as {reason}",
+      "inlineComments": "{n} inline comment | {n} inline comments",
+      "outdated": "Outdated"
+    },
+    "event": {
+      "labeled": "added {label}",
+      "unlabeled": "removed {label}",
+      "assigned": "assigned {subject}",
+      "unassigned": "unassigned {subject}",
+      "ready_for_review": "marked this pull request as ready for review",
+      "convert_to_draft": "marked this pull request as draft",
+      "closed": "closed this",
+      "reopened": "reopened this",
+      "merged": "merged commit {subject} into {to}",
+      "force_pushed": "force-pushed from {from} to {to}",
+      "review_requested": "requested a review from {subject}",
+      "review_dismissed": "dismissed a review by {subject}",
+      "renamed": "changed the title from {from} to {to}"
+    },
+    "checks": {
+      "failing": "{n} failing",
+      "pending": "{n} pending",
+      "passing": "{n} successful",
+      "skipped": "{n} skipped",
+      "required": "Required",
+      "details": "Details",
+      "none": "No checks reported on the latest commit.",
+      "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
+    },
+    "commitList": {
+      "view": "View only this commit's changes",
+      "hint": "Click a commit to view only its changes. Shift-click to select a range."
+    },
+    "selection": {
+      "all": "All commits",
+      "one": "Commit {sha}",
+      "range": "{n} commit | {n} commits",
+      "picker": "Choose commits to view",
+      "showAll": "Show all changes",
+      "viewing": "Viewing {index} of {total} commits",
+      "viewingRange": "Viewing commits {start}–{end} of {total}",
+      "viewingSha": "Viewing commit {sha}",
+      "viewingShaRange": "Viewing commits {from} to {to}",
+      "previous": "Previous commit",
+      "next": "Next commit"
+    },
+    "merge": {
+      "button": "Merge",
+      "title": "Merge pull request #{n}",
+      "into": "Merge {head} into {base}",
+      "method": {
+        "merge": "Create a merge commit",
+        "squash": "Squash and merge",
+        "rebase": "Rebase and merge"
+      },
+      "commitTitle": "Commit title",
+      "commitMessage": "Commit message",
+      "rebaseHint": "The commits from this branch will be rebased onto {base} and added without a merge commit.",
+      "confirm": "Confirm merge",
+      "ready": "Ready to merge",
+      "blocked": {
+        "draft": "This pull request is still a draft.",
+        "conflicts": "This branch has conflicts that must be resolved on GitHub.",
+        "blocked": "Merging is blocked until the branch protection requirements are met.",
+        "behind": "This branch is out of date with the base branch.",
+        "checking": "Checking whether this branch can be merged…"
+      },
+      "bypass": "You can still merge as an administrator, bypassing branch protection.",
+      "unstable": "Some checks are not passing, but merging is allowed."
+    },
+    "state": {
+      "merged": "Merged {time}",
+      "closed": "Closed {time}"
+    },
+    "actions": {
+      "close": "Close pull request",
+      "reopen": "Reopen pull request",
+      "ready": "Ready for review",
+      "draft": "Convert to draft",
+      "updateBranch": "Update branch",
+      "failed": "GitHub didn't accept this: {message}"
+    },
+    "awaitingReview": "Awaiting review from {names}",
+    "file": {
+      "copyPath": "Copy file path",
+      "copyLink": "Copy GitHub link",
+      "openAtHead": "View file on GitHub",
+      "copied": "Copied"
+    }
+  },
+  "embed": {
+    "reviewChanges": "変更をレビュー",
+    "updateUserscript": "ユーザースクリプトを更新"
+  },
+  "pulls": {
+    "loading": "pull request を読み込み中…",
+    "loadFailed": "pull request を読み込めませんでした",
+    "open": "{n} 件オープン",
+    "search": "pull request を絞り込む",
+    "empty": "オープンな pull request はありません",
+    "noMatches": "検索に一致する pull request はありません",
+    "searchingAll": "{n} 件のオープンな pull request をすべて検索中…",
+    "loadingMore": "さらに読み込み中…",
+    "openedBy": "{author} が {time}に作成",
+    "milestone": "マイルストーン",
+    "comments": "{n} 件のコメント",
+    "linkedIssues": "{n} 件の関連 issue",
+    "assignedTo": "{login} に割り当て",
+    "groups": "{n} グループ",
+    "viewedHint": "このブラウザで閲覧済み",
+    "aiAvailable": "AI 分析あり",
+    "sort": {
+      "label": "並べ替え",
+      "recently-updated": "最近更新された順",
+      "least-recently-updated": "更新が古い順",
+      "newest": "新しい順",
+      "oldest": "古い順",
+      "most-commented": "コメントが多い順",
+      "least-commented": "コメントが少ない順"
+    },
+    "review": {
+      "approved": "承認済み",
+      "changes_requested": "変更が要求されています",
+      "review_required": "レビューが必要"
+    },
+    "checks": {
+      "success": "すべてのチェックに合格",
+      "failure": "一部のチェックが失敗",
+      "pending": "一部のチェックが未完了"
+    }
+  },
+  "triage": {
+    "queue": {
+      "needs-review": "Needs my review",
+      "ci-failing": "CI failing",
+      "changes-requested": "Changes requested",
+      "ready-to-merge": "Ready to merge",
+      "stale": "Stale",
+      "all": "All"
+    },
+    "hint": {
+      "needs-review": "Your review is requested",
+      "ci-failing": "A check failed on the latest commit",
+      "changes-requested": "A reviewer asked for changes",
+      "ready-to-merge": "Approved, checks passing and no conflicts",
+      "stale": "No activity for {n} days or more",
+      "all": "Every pull request in the list"
+    },
+    "empty": "Nothing in this queue right now",
+    "requested": "Your review",
+    "conflict": "Conflicts",
+    "conflictHint": "This branch has conflicts that must be resolved",
+    "files": "{n} file | {n} files"
+  },
+  "analyze": {
+    "setup": "Set up AI",
+    "setupTitle": "Pick an AI provider in Settings",
+    "analyzing": "分析中…",
+    "analyzingFor": "Analyzing… {duration}",
+    "failed": "分析に失敗",
+    "failedTitle": "AI 分析に失敗しました：{message}",
+    "reanalyze": "再分析",
+    "withAi": "AI で分析",
+    "statusTitle": "AI 分析",
+    "starting": "開始中…",
+    "thinking": "思考中…（ステップ {step}）",
+    "reading": "{n} ファイルを読み取り中：{first}",
+    "organizing": "グループを整理中…",
+    "notConfigured": "AI analysis is not configured: pick Claude Code or Codex in Settings",
+    "chatFailed": "チャットのリクエストに失敗しました",
+    "done": "Sorted the changes into {n} group | Sorted the changes into {n} groups",
+    "resumed": "This analysis was already running on the server; following it from here."
+  },
+  "share": {
+    "button": "結果を共有",
+    "updateButton": "共有コメントを更新",
+    "sharing": "共有中…",
+    "tooltip": "この分析を pull request のコメントとして投稿し、他の人が読み込めるようにします",
+    "needsToken": "共有には書き込み権限のある GitHub トークンが必要です",
+    "failed": "共有に失敗しました：{message}",
+    "titleUpdate": "共有した分析を更新",
+    "titleShare": "この分析を GitHub で共有",
+    "willUpdate": "この pull request 上の既存の{comment}を、あなたの GitHub トークンで {user} として更新します。",
+    "willPost": "この pull request に、あなたの GitHub トークンで {user} として公開コメントを投稿します。",
+    "commentLink": "コメント",
+    "contains": "コメントの内容：",
+    "containsLink": "{site} でこのレビューを開くリンク",
+    "containsJson": "この AI 分析のグループ分けと要約（折りたたみブロック内の JSON）",
+    "excludes": "チャットのメッセージ、API キー、その他設定の内容は含まれません。",
+    "anyoneCanLoad": "この pull request を見る誰でも共有された分析を読み込めます。",
+    "englishRecommended": "公開プロジェクトで作業している場合は、コミュニティの役に立つよう英語で結果を共有することをおすすめします。",
+    "share": "共有",
+    "update": "更新",
+    "shareAnyway": "このまま共有",
+    "updateAnyway": "このまま更新",
+    "loadReplaces": "共有された AI 分析を読み込みますか？あなたの分析は置き換えられます：",
+    "available": "この pull request に共有された AI 分析があります：",
+    "staleTitle": "最新のコミットより前に分析",
+    "outdated": "（古い）",
+    "inLanguage": "{language}で分析",
+    "notShared": "{login} はこの pull request の分析を共有していません。"
+  },
+  "group": {
+    "toggle": "グループを開閉",
+    "filesReviewed": "{reviewed} / {total} ファイルをレビュー済み",
+    "subgroupsOf": "サブグループ：",
+    "hideSubgroups": "サブグループを隠す",
+    "showSubgroups": "サブグループを表示",
+    "navTabs": "グループをタブで表示",
+    "navSidebar": "グループをサイドバーで表示",
+    "uncategorized": "未分類",
+    "uncategorizedSummary": "現在の分析に含まれていないファイル。"
+  },
+  "file": {
+    "markReviewed": "レビュー済みにする",
+    "markFolderReviewed": "{name} 内のすべてのファイルをレビュー済みにする",
+    "changedSinceReviewed": "このファイルはレビュー済みでしたが、その後のコミットで変更されました",
+    "resolved": "{n} 件解決済み",
+    "binary": "バイナリファイル",
+    "binaryNotShown": "バイナリファイルは表示されません。",
+    "tooLarge": "差分が大きすぎるため表示できません。",
+    "loadFailed": "読み込み失敗",
+    "loadFull": "ファイル全体を読み込む",
+    "expand": "ファイルを展開",
+    "collapse": "ファイルを折りたたむ",
+    "moreActions": "その他の操作",
+    "noLongerInDiff": "この diff にはもう含まれていません",
+    "removed": "削除済み"
+  },
+  "reviewProgress": {
+    "title": "レビューの進捗",
+    "markAll": "すべてレビュー済みにする",
+    "reset": "レビュー状態をリセット",
+    "invert": "レビュー状態を反転",
+    "status": {
+      "reviewed": "レビュー済み",
+      "changed": "レビュー後に変更あり",
+      "unreviewed": "未レビュー"
+    }
+  },
+  "fileStatus": {
+    "added": "追加",
+    "removed": "削除",
+    "modified": "変更",
+    "renamed": "リネーム",
+    "copied": "コピー"
+  },
+  "prState": {
+    "open": "オープン",
+    "draft": "ドラフト",
+    "closed": "クローズ",
+    "merged": "マージ済み"
+  },
+  "category": {
+    "ui": "UI",
+    "api": "API",
+    "core": "コア",
+    "data": "データ",
+    "cli": "CLI",
+    "security": "セキュリティ",
+    "tests": "テスト",
+    "docs": "ドキュメント",
+    "examples": "サンプル",
+    "deps": "依存関係",
+    "build": "ビルド",
+    "scripts": "スクリプト",
+    "config": "設定",
+    "i18n": "i18n",
+    "assets": "アセット",
+    "other": "その他"
+  },
+  "review": {
+    "addReview": "レビューを追加",
+    "hideComments": "レビューコメントを隠す",
+    "showComments": "レビューコメントを表示",
+    "reviews": "レビュー",
+    "approved": "承認",
+    "changesRequested": "変更をリクエスト",
+    "commented": "コメント",
+    "dismissed": "レビューを取り下げ",
+    "reviewChanges": "変更をレビュー",
+    "includesPending": "送信には保留中のコメント {n} 件が含まれます。",
+    "summaryPlaceholder": "まとめを書く（承認の場合は省略可）",
+    "comment": "コメント",
+    "approve": "承認",
+    "requestChanges": "変更をリクエスト",
+    "discard": "レビューを破棄",
+    "leaveComment": "コメントを書く",
+    "addSingle": "単独コメントを追加",
+    "addToReview": "レビューコメントを追加",
+    "startReview": "レビューを開始",
+    "pending": "保留中",
+    "editComment": "コメントを編集",
+    "deleteComment": "コメントを削除",
+    "replyPlaceholder": "返信…",
+    "resolve": "解決済みにする"
+  },
+  "critique": {
+    "title": "AI review",
+    "run": "Review with AI",
+    "rerun": "Re-review",
+    "running": "Reviewing… {time}",
+    "runTitle": "Have Claude Code or Codex review this diff for bugs and risks",
+    "withLens": "Reviewed through the {lens} skill",
+    "usage": "Cost, tokens in and out, and time taken",
+    "findingCount": "{n} finding | {n} findings",
+    "noFindings": "No bugs or risks found.",
+    "allFiltered": "No findings of the selected severities.",
+    "dropped": "{n} finding was left out: it pointed outside the diff or repeated another. | {n} findings were left out: they pointed outside the diff or repeated others.",
+    "outdated": "This review is of an older commit; review again to post its findings.",
+    "lensMissing": "No skill named \"{name}\" was found.",
+    "filter": "Filter by severity",
+    "selectAll": "Select all",
+    "selectFinding": "Include in the review",
+    "jumpToLine": "Jump to the line",
+    "suggestion": "Suggested change",
+    "fileSummary": "AI summary of this file",
+    "bodyPlaceholder": "Review summary (optional)",
+    "joinsPending": "Your pending review ({n} draft comment) is submitted along with these. | Your pending review ({n} draft comments) is submitted along with these.",
+    "post": "Post {n} selected as a review",
+    "postedFinding": "Posted",
+    "postedCount": "{n} finding posted | {n} findings posted",
+    "severity": {
+      "bug": "Bug",
+      "risk": "Risk",
+      "nit": "Nit"
+    }
+  },
+  "ask": {
+    "action": "Ask AI",
+    "placeholder": "Ask about these lines…",
+    "followUpPlaceholder": "Ask a follow-up…",
+    "hint": "Enter to send, Shift+Enter for a new line",
+    "close": "Close question",
+    "stopped": "Stopped.",
+    "unavailable": "Asking about lines needs Claude Code or Codex, set in the AI settings.",
+    "copyLocation": "Copy file and lines",
+    "copyLink": "Copy GitHub link",
+    "copied": "Copied"
+  },
+  "lens": {
+    "pick": "Review with a skill",
+    "title": "Review with",
+    "description": "Run the AI review through one of your skills.",
+    "search": "Search skills…",
+    "general": "General",
+    "generalDescription": "Bugs, risks and nits across the whole diff",
+    "loading": "Loading skills…",
+    "loadFailed": "Could not load skills: {error}",
+    "none": "No skills found.",
+    "noMatch": "No skills match."
+  },
+  "chat": {
+    "title": "この PR について質問",
+    "collapse": "折りたたむ",
+    "reanalyzeToEnable": "チャットを有効にするには再分析してください",
+    "thinking": "思考中…",
+    "placeholder": "この PR について質問…",
+    "updatedGrouping": "グループ分けを更新：{n} グループ",
+    "readFiles": "{n} ファイルを読み取り",
+    "updatingGrouping": "グループ分けを更新中…",
+    "submittingGrouping": "グループ分けを送信中…",
+    "requestFailed": "リクエストに失敗しました",
+    "stopped": "停止"
+  },
+  "ai": {
+    "loading": "Loading…",
+    "workingFor": "Working for {duration}",
+    "workedFor": "Worked for {duration}",
+    "stoppedAfter": "Stopped after {duration}",
+    "failedAfter": "Failed after {duration}",
+    "activeNow": "Active now",
+    "activeAgo": "Active {since} ago",
+    "idleFor": "No activity for {since}",
+    "elapsed": "{elapsed} elapsed",
+    "more": "+{n} more",
+    "showLess": "Show less",
+    "stopped": "Stopped",
+    "groups": {
+      "command": "Ran {n} command | Ran {n} commands",
+      "edit": "Edited {n} file | Edited {n} files",
+      "read": "Read {n} file | Read {n} files",
+      "search": "Ran {n} search | Ran {n} searches",
+      "other": "Used {n} tool | Used {n} tools"
+    },
+    "verb": {
+      "thinking": {
+        "now": "Thinking",
+        "past": "Thought"
+      },
+      "writing": {
+        "now": "Writing",
+        "past": "Wrote"
+      },
+      "readFiles": {
+        "now": "Reading {n} file | Reading {n} files",
+        "past": "Read {n} file | Read {n} files"
+      },
+      "organizing": {
+        "now": "Organizing the groups",
+        "past": "Organized the groups"
+      }
+    },
+    "usage": {
+      "input": "{n} in",
+      "output": "{n} out",
+      "cacheRead": "{n} cached",
+      "cacheWrite": "{n} cache write",
+      "reasoning": "{n} reasoning"
+    },
+    "effort": {
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra High",
+      "max": "Max",
+      "ultra": "Ultra"
+    }
+  },
+  "settings": {
+    "layout": "diff レイアウト",
+    "unified": "統合",
+    "split": "分割",
+    "cached": "キャッシュされた pull request",
+    "autoRefresh": "新しいコミットが見つかったら自動更新",
+    "language": "言語",
+    "token": {
+      "label": "GitHub 個人アクセストークン",
+      "optional": "公開リポジトリでは任意。非公開リポジトリやレビュー投稿には必須です。",
+      "scopes": "レビューには {repo} スコープ（クラシックトークン）または {fineGrained}（fine-grained トークン）が必要です",
+      "storedLocally": "このブラウザにのみ保存されます。",
+      "generate": "GitHub で生成 →",
+      "fineGrained": "fine-grained トークン（クラシックスコープなし）",
+      "updated": "更新",
+      "expires": "有効期限",
+      "neverExpires": "無期限",
+      "change": "トークンを変更",
+      "checking": "トークンを確認中…",
+      "couldNotVerify": "このトークンを検証できませんでした。"
+    },
+    "llm": {
+      "title": "AI 分析",
+      "description": "モデルプロバイダーを設定すると AI 生成の要約が有効になります。このブラウザにのみ保存され、選択したプロバイダーにのみ送信されます。",
+      "localDescription": "Claude Code and Codex run on this machine under their own sign-in, so no API key is needed.",
+      "provider": "プロバイダー",
+      "engine": "Engine",
+      "baseUrl": "Base URL",
+      "baseUrlDescription": "OpenAI 互換の chat completions エンドポイント（OpenAI 本体、ローカルサーバーなど）。",
+      "apiKey": "API キー",
+      "gatewayHint": "{link} のトークン。1 つのトークンで対応するすべてのベンダーにアクセスできます。",
+      "anthropicHint": "{link}。このブラウザから直接呼び出します（gateway なし）。",
+      "anthropicLink": "Anthropic API キー",
+      "openaiHint": "上記エンドポイントの API キー。",
+      "createKey": "{provider} で作成 →",
+      "configured": "設定済み",
+      "changeKey": "キーを変更",
+      "model": "モデル",
+      "modelListFailed": "モデル一覧を読み込めませんでした（{error}）。モデル id を手動で入力してください。",
+      "catalogFailed": "Couldn't load models from the CLI: {message}",
+      "refreshModels": "Reload the model list",
+      "effort": "Reasoning effort",
+      "effortDefault": "CLI default",
+      "effortDefaultNamed": "CLI default ({effort})",
+      "effortHint": "How long the model thinks before it acts. Higher is slower and uses more tokens.",
+      "askTitle": "Ask about the PR",
+      "askDescription": "The engine that answers your questions in the chat. It can differ from the one that analyzes the PR.",
+      "askSame": "Same as analysis",
+      "embedUnavailable": "埋め込みモードでは AI 機能を利用できません",
+      "embedReason": "github.com の厳しい CSP により、AI 機能に必要なリクエストがブロックされます。利用するには{link}。",
+      "goToWebsite": "ウェブサイトへ"
+    },
+    "models": {
+      "placeholder": "モデル id",
+      "loading": "モデルを読み込み中…",
+      "search": "モデルを検索…",
+      "noMatch": "一致するモデルがありません",
+      "useCustom": "「{id}」を使う",
+      "free": "無料",
+      "priceTitle": "入力 {input}/M · 出力 {output}/M トークン",
+      "default": "Default"
+    }
+  },
+  "rules": {
+    "allFiles": "すべてのファイル",
+    "code": {
+      "label": "コード",
+      "summary": "ソースコードの変更。"
+    },
+    "other": {
+      "label": "その他",
+      "summary": "既存の分類に当てはまらないその他の変更。"
+    },
+    "docs": {
+      "label": "ドキュメント",
+      "summary": "ドキュメントの更新。"
+    },
+    "tests": {
+      "label": "テスト",
+      "summary": "この変更に対するテスト。"
+    },
+    "config": {
+      "label": "設定",
+      "summary": "設定の変更。"
+    },
+    "deps": {
+      "label": "依存関係",
+      "summary": "依存関係のバージョン変更。"
+    },
+    "generated": {
+      "label": "生成物",
+      "summary": "生成物やビルド成果物の変更。"
+    },
+    "types": {
+      "label": "型",
+      "summary": "型宣言。"
+    },
+    "data": {
+      "label": "データ",
+      "summary": "データベーススキーマとマイグレーション。"
+    },
+    "styles": {
+      "label": "スタイル",
+      "summary": "スタイルシートとスタイル設定。"
+    },
+    "scripts": {
+      "label": "スクリプト",
+      "summary": "ビルド・開発・自動化スクリプト。"
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI ワークフローとパイプライン。"
+    },
+    "i18n": {
+      "label": "翻訳",
+      "summary": "ロケールと翻訳ファイル。"
+    },
+    "assets": {
+      "label": "アセット",
+      "summary": "画像、フォント、メディア。"
+    },
+    "area": "{label} · {area}",
+    "rootArea": "リポジトリ直下",
+    "otherAreas": "その他の領域",
+    "facts": {
+      "sentence": "{blurb}{list}。",
+      "separator": "、",
+      "added": "新規 {n} 件",
+      "removed": "削除 {n} 件",
+      "renamed": "名前変更 {n} 件",
+      "pairedTests": "テスト {n} 件を対応するソースの直後に配置"
+    }
+  },
+  "errors": {
+    "tokenRequired": "この pull request に書き込むには GitHub トークンが必要です。",
+    "diffNotLoaded": "diff の読み込みがまだ完了していません。",
+    "noViewer": "このトークンの GitHub ユーザーを特定できませんでした。",
+    "tokenRejected": "GitHub がこのトークンを拒否しました（401）。完全に貼り付けられているか、取り消されていないか確認してください。",
+    "tooLarge": "分析が大きすぎてコメントとして共有できません（{n} 文字）。"
+  },
+  "local": {
+    "home": {
+      "title": "Your pull requests",
+      "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
+      "search": "Filter by repo, title, author or label",
+      "allInRepo": "All pull requests",
+      "state": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "urlPlaceholder": "Paste a GitHub pull request or repository URL",
+      "open": "Open",
+      "loading": "Loading your pull requests…",
+      "failed": "Couldn't load your pull requests",
+      "refresh": "Refresh",
+      "empty": "No open pull requests here",
+      "all": "All",
+      "draft": "draft",
+      "role": {
+        "review-requested": "Review requested",
+        "authored": "Authored",
+        "involved": "Involved",
+        "owned": "In your repos"
+      },
+      "queues": "Queues",
+      "roles": "Roles",
+      "updating": "Updating…",
+      "updatedAgo": "Updated {time}",
+      "updateFailed": "Couldn't update: {message}"
+    },
+    "snapshot": {
+      "offline": "Couldn't reach the server or GitHub. This is the copy saved on this device and may be out of date."
+    },
+    "loading": "ローカルの変更を読み込み中…",
+    "loadFailed": "これらの変更を読み込めませんでした",
+    "auth": {
+      "title": "ターミナルに表示されたコードを入力",
+      "hint": "pulls.review は実行中のターミナルに 6 桁のコードを表示しました。",
+      "invalid": "このコードは使用できませんでした。ターミナルを確認して、もう一度お試しください。",
+      "submit": "続ける"
+    },
+    "picker": {
+      "tagline": "ローカルのブランチ、範囲、未コミットの変更をプルリクエストのようにレビュー。グループ化して要約し、1 つずつ確認できます。",
+      "title": "ローカルの変更をレビュー",
+      "base": "ベース",
+      "head": "ヘッド",
+      "compare": "比較",
+      "shortcuts": "ショートカット",
+      "worktree": "コミットされていない変更",
+      "recentCommits": "最近のコミット",
+      "branches": "ブランチ",
+      "against": "{base} に対して",
+      "current": "チェックアウト中"
+    }
+  }
+}

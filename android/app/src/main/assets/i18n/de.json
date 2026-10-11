@@ -1,0 +1,823 @@
+{
+  "common": {
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "remove": "Entfernen",
+    "retry": "Erneut versuchen",
+    "close": "Schließen",
+    "dismiss": "Ausblenden",
+    "refresh": "Aktualisieren",
+    "settings": "Einstellungen",
+    "you": "du",
+    "loading": "Wird geladen…",
+    "send": "Senden",
+    "stop": "Stopp",
+    "clear": "Leeren",
+    "reply": "Antworten",
+    "submit": "Absenden",
+    "abort": "Abbrechen",
+    "rerun": "Erneut ausführen",
+    "files": "{n} Datei | {n} Dateien",
+    "subgroups": "{n} Untergruppe | {n} Untergruppen",
+    "githubRepository": "GitHub-Repository",
+    "avatar": "Avatar von {login}"
+  },
+  "keys": {
+    "title": "Keyboard shortcuts",
+    "scope": {
+      "global": "Everywhere",
+      "pr": "Pull request",
+      "home": "Pull request list",
+      "other": "More"
+    },
+    "palette": "Open the command palette",
+    "help": "Show keyboard shortcuts",
+    "home": "Go to home",
+    "top": "Scroll to top",
+    "bottom": "Scroll to bottom",
+    "refresh": "Refresh",
+    "escape": "Leave the text field or clear the selection",
+    "settings": "Open settings",
+    "theme": "Toggle dark mode",
+    "nextFile": "Next file",
+    "prevFile": "Previous file",
+    "nextHunk": "Next change",
+    "prevHunk": "Previous change",
+    "nextGroup": "Next group",
+    "prevGroup": "Previous group",
+    "toggleReviewed": "Mark file as reviewed or unreviewed",
+    "toggleFile": "Expand or collapse file",
+    "openFile": "Open file on GitHub",
+    "openPr": "Open on GitHub",
+    "copyPath": "Copy file path",
+    "copyPermalink": "Copy GitHub permalink to file",
+    "findFile": "Jump to a file",
+    "ask": "Ask about this pull request",
+    "analyze": "Analyze with AI",
+    "layout": "Switch between split and unified diffs",
+    "groupNav": "Switch group navigation between tabs and sidebar",
+    "threads": "Show or hide review comments",
+    "analyzeMode": "Switch grouping between rules and AI",
+    "nextRow": "Next pull request",
+    "prevRow": "Previous pull request",
+    "openRow": "Open pull request",
+    "search": "Filter pull requests",
+    "copied": "Copied {text}",
+    "copyFailed": "Couldn't copy to the clipboard"
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Type a command or search…",
+    "empty": "Nothing matches",
+    "more": "{n} more, keep typing to narrow down",
+    "navigate": "navigate",
+    "run": "run",
+    "close": "close",
+    "clearScope": "Search everything",
+    "group": {
+      "general": "General",
+      "pr": "Pull request",
+      "view": "View",
+      "files": "Files",
+      "groups": "Groups",
+      "pulls": "Pull requests",
+      "repos": "Repositories"
+    },
+    "jumpToFile": "Jump to {path}",
+    "jumpToGroup": "Go to group {name}",
+    "goToPull": "Go to {ref}: {title}",
+    "goToRepo": "Go to {repo}"
+  },
+  "landing": {
+    "dropHint": "Loslassen, um deine diff- / .patch-Datei zu laden",
+    "tagline": "Gruppiert geänderte Dateien, fasst das Wesentliche zusammen und lässt dich Bereich für Bereich reviewen. Alles läuft lokal in deinem Browser.",
+    "documentTitle": "Pull-Request-Reviews klar und übersichtlich",
+    "open": "Öffnen",
+    "pasteHint": "Füge eine beliebige GitHub-Pull-Request-URL ein oder wähle unten eine Demo.",
+    "recentlyViewed": "// zuletzt angesehen",
+    "recentRepositories": "// zuletzt angesehene Repositories",
+    "tryDemos": "// Demos ausprobieren",
+    "demoBefore": "// vorher",
+    "demoAfter": "// nachher",
+    "moreFiles": "... {n} weitere Dateien",
+    "demoTitle": "feat: KI-Analyse als PR-Kommentar teilen und geteilte Ergebnisse laden",
+    "demoSummary": "Ein Reviewer mit API-Key postet seine Analyse in den PR; alle anderen laden sie ohne Token.",
+    "demoGroups": {
+      "store": "Store für geteilte Analysen & Kommentarvertrag",
+      "ui": "UI zum Teilen des Ergebnisses",
+      "refactor": "Store-Refactoring: Ergebnis auf Root-Ebene",
+      "tests": "Tests",
+      "docs": "Doku & Abhängigkeiten"
+    },
+    "uploadTitle": "Ein Diff ohne PR reviewen",
+    "uploadDescription": "Lade ein Unified Diff hoch oder füge es ein, oder ziehe eine {diff}- / {patch}-Datei irgendwo auf diese Seite.",
+    "uploadButton": "Diff hochladen",
+    "embedTitle": "Eingebettet auf github.com nutzen",
+    "embedDescription": "Mit installiertem {tampermonkey} oder {violentmonkey} erscheint auf jeder Pull-Request-Seite ein pulls.review-Panel.",
+    "installUserscript": "Userscript installieren",
+    "bookmarkletTitle": "Zwischen github.com und pulls.review wechseln",
+    "bookmarkletDescription": "Keine Erweiterungen erlaubt? Zieh dieses Bookmarklet in deine Lesezeichenleiste, um den aktuellen Pull Request auf pulls.review zu öffnen, und zurück.",
+    "bookmarkletDrag": "In die Lesezeichenleiste ziehen",
+    "actionsTitle": "Automatische Analyse mit GitHub Actions einrichten",
+    "actionsDescription": "Jeden Pull Request einmal in der CI analysieren und das Ergebnis als PR-Kommentar posten, damit nicht jeder Reviewer einen eigenen Modell-Key braucht.",
+    "cliTitle": "Lokale Git-Änderungen mit der CLI prüfen",
+    "cliDescription": "Prüfe Working Tree, einen Commit oder einen Branch vor dem Push, gruppiert und zusammengefasst wie ein PR.",
+    "viewGuide": "Anleitung ansehen"
+  },
+  "guide": {
+    "userscript": {
+      "title": "pulls.review eingebettet auf github.com nutzen",
+      "intro": "Das Userscript fügt Pull-Request-Seiten auf github.com direkt eine pulls.review-Seitenleiste mit gruppierten Dateien und Zusammenfassungen hinzu, sodass du keinen Tab wechseln musst.",
+      "manager": "Installiere einen Userscript-Manager: {tampermonkey} oder {violentmonkey}.",
+      "install": "Installiere das pulls.review-Userscript. Dein Manager fragt nach einer Bestätigung.",
+      "open": "Öffne einen beliebigen Pull Request auf github.com und klicke auf den Tab {tab} neben \"Files changed\".",
+      "ai": "github.com blockiert die Anfragen, die die KI-Analyse braucht. Die Seitenleiste zeigt daher als PR-Kommentar geteilte Analysen. Öffne den PR auf pulls.review, um eine neue zu starten."
+    },
+    "bookmarklet": {
+      "title": "Zwischen github.com und pulls.review wechseln",
+      "intro": "Ein Bookmarklet ist ein Lesezeichen, das ein kleines Skript ausführt. Es funktioniert in jedem Browser ohne Erweiterung und öffnet die aktuelle Seite auf der jeweils anderen Website.",
+      "bar": "Blende deine Lesezeichenleiste ein, zum Beispiel mit {shortcut}.",
+      "drag": "Zieh diesen Button in die Lesezeichenleiste:",
+      "use": "Klicke auf einer Pull-Request-, Commit- oder Compare-Seite auf github.com auf das Lesezeichen, um sie auf pulls.review zu öffnen. Klicke erneut, um zurückzukehren."
+    },
+    "actions": {
+      "title": "Automatische Analyse mit GitHub Actions",
+      "intro": "Lass die CI jeden Pull Request einmal analysieren, sobald er geöffnet oder aktualisiert wird. Alle, die den PR öffnen, hier oder in der Seitenleiste auf github.com, sehen sofort dieselbe gruppierte Zusammenfassung. Niemand braucht einen eigenen Modell-Key, und auch Pull Requests aus Forks bekommen sie.",
+      "secret": "Lege deinen Modell-Key als Repository-Secret an, zum Beispiel {name}.",
+      "workflow": "Füge diesen Workflow zum Repository hinzu:",
+      "result": "Öffne oder aktualisiere einen Pull Request, um es auszuprobieren. Die Analyse kommt als Kommentar, und erneute Läufe auf einem unveränderten PR überspringen den Modellaufruf.",
+      "options": "Der {provider} wird aus dem Key abgeleitet. Setze {provider}, {model} oder {locale}, um das zu überschreiben. Alle Optionen stehen in der {readme}."
+    },
+    "cli": {
+      "title": "Lokale Git-Änderungen mit der CLI prüfen",
+      "intro": "Prüfe deine eigene Änderung, bevor es andere tun. Die CLI öffnet deinen Branch, einen Commit oder deine nicht committete Arbeit in pulls.review. So siehst du gruppiert und zusammengefasst, wie sich die Änderung liest, bevor du pushst oder einen PR öffnest.",
+      "branch": "Führe das in einem Git-Repository aus, um deinen aktuellen Branch gegen den Standard-Branch zu prüfen:",
+      "target": "Oder wähle, was du prüfen willst:",
+      "browser": "Sie öffnet {url} im Browser und zeigt deine lokalen Änderungen an. Bestätige den Tab mit dem Einmalcode aus deinem Terminal. Dort kannst du auch andere Branches oder Commits zum Vergleichen auswählen."
+    }
+  },
+  "load": {
+    "title": "Diff laden",
+    "description": "Füge ein Unified Diff / eine .patch-Datei ein oder ziehe sie hierher, um sie zu reviewen.",
+    "pasteLabel": "Unified Diff / .patch einfügen",
+    "chooseFile": "Oder eine .diff-/.patch-Datei wählen",
+    "loadButton": "Diff laden",
+    "parsing": "Diff wird geparst…",
+    "parseFailed": "Dieses Diff konnte nicht geparst werden",
+    "noDiff": "Kein Diff geladen",
+    "noDiffHint": "Gehe zur Startseite und nutze den Upload-Button, um ein Diff einzufügen oder abzulegen.",
+    "goHome": "Zur Startseite"
+  },
+  "pr": {
+    "loading": "Pull Request wird geladen…",
+    "loadFailed": "Dieser Pull Request konnte nicht geladen werden",
+    "somethingWrong": "Etwas ist schiefgelaufen",
+    "newCommits": "Dieser Pull Request hat seit dem Zwischenspeichern neue Commits.",
+    "autoRefreshNextTime": "Nächstes Mal automatisch aktualisieren",
+    "endOfDiff": "Du hast das Ende des Diffs erreicht.",
+    "analyzeBy": "Analysieren mit",
+    "rules": "Regeln",
+    "ai": "KI",
+    "by": "von",
+    "sharedBy": "Geteilte KI-Analyse von",
+    "sharedAnalysis": "Geteilte Analyse",
+    "reviewedOf": "/ {total} reviewt",
+    "openInSite": "In pulls.review öffnen"
+  },
+  "overview": {
+    "tab": {
+      "conversation": "Conversation",
+      "commits": "Commits",
+      "checks": "Checks"
+    },
+    "loading": "Loading pull request details…",
+    "loadFailed": "Couldn't load the pull request details",
+    "tokenRequired": "Add a GitHub token in Settings to see the description, conversation, checks and commits here.",
+    "show": "Show pull request details",
+    "hide": "Hide pull request details",
+    "viewOnGithub": "View on GitHub",
+    "noDescription": "No description provided.",
+    "earlier": "Show {n} earlier item | Show {n} earlier items",
+    "moreOnGithub": "+{n} more on GitHub",
+    "timeline": {
+      "commented": "commented",
+      "reviewed": "reviewed",
+      "approved": "approved these changes",
+      "changesRequested": "requested changes",
+      "pushed": "added {n} commit | added {n} commits",
+      "hidden": "Hidden as {reason}",
+      "inlineComments": "{n} inline comment | {n} inline comments",
+      "outdated": "Outdated"
+    },
+    "event": {
+      "labeled": "added {label}",
+      "unlabeled": "removed {label}",
+      "assigned": "assigned {subject}",
+      "unassigned": "unassigned {subject}",
+      "ready_for_review": "marked this pull request as ready for review",
+      "convert_to_draft": "marked this pull request as draft",
+      "closed": "closed this",
+      "reopened": "reopened this",
+      "merged": "merged commit {subject} into {to}",
+      "force_pushed": "force-pushed from {from} to {to}",
+      "review_requested": "requested a review from {subject}",
+      "review_dismissed": "dismissed a review by {subject}",
+      "renamed": "changed the title from {from} to {to}"
+    },
+    "checks": {
+      "failing": "{n} failing",
+      "pending": "{n} pending",
+      "passing": "{n} successful",
+      "skipped": "{n} skipped",
+      "required": "Required",
+      "details": "Details",
+      "none": "No checks reported on the latest commit.",
+      "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
+    },
+    "commitList": {
+      "view": "View only this commit's changes",
+      "hint": "Click a commit to view only its changes. Shift-click to select a range."
+    },
+    "selection": {
+      "all": "All commits",
+      "one": "Commit {sha}",
+      "range": "{n} commit | {n} commits",
+      "picker": "Choose commits to view",
+      "showAll": "Show all changes",
+      "viewing": "Viewing {index} of {total} commits",
+      "viewingRange": "Viewing commits {start}–{end} of {total}",
+      "viewingSha": "Viewing commit {sha}",
+      "viewingShaRange": "Viewing commits {from} to {to}",
+      "previous": "Previous commit",
+      "next": "Next commit"
+    },
+    "merge": {
+      "button": "Merge",
+      "title": "Merge pull request #{n}",
+      "into": "Merge {head} into {base}",
+      "method": {
+        "merge": "Create a merge commit",
+        "squash": "Squash and merge",
+        "rebase": "Rebase and merge"
+      },
+      "commitTitle": "Commit title",
+      "commitMessage": "Commit message",
+      "rebaseHint": "The commits from this branch will be rebased onto {base} and added without a merge commit.",
+      "confirm": "Confirm merge",
+      "ready": "Ready to merge",
+      "blocked": {
+        "draft": "This pull request is still a draft.",
+        "conflicts": "This branch has conflicts that must be resolved on GitHub.",
+        "blocked": "Merging is blocked until the branch protection requirements are met.",
+        "behind": "This branch is out of date with the base branch.",
+        "checking": "Checking whether this branch can be merged…"
+      },
+      "bypass": "You can still merge as an administrator, bypassing branch protection.",
+      "unstable": "Some checks are not passing, but merging is allowed."
+    },
+    "state": {
+      "merged": "Merged {time}",
+      "closed": "Closed {time}"
+    },
+    "actions": {
+      "close": "Close pull request",
+      "reopen": "Reopen pull request",
+      "ready": "Ready for review",
+      "draft": "Convert to draft",
+      "updateBranch": "Update branch",
+      "failed": "GitHub didn't accept this: {message}"
+    },
+    "awaitingReview": "Awaiting review from {names}",
+    "file": {
+      "copyPath": "Copy file path",
+      "copyLink": "Copy GitHub link",
+      "openAtHead": "View file on GitHub",
+      "copied": "Copied"
+    }
+  },
+  "embed": {
+    "reviewChanges": "Änderungen reviewen",
+    "updateUserscript": "Userscript aktualisieren"
+  },
+  "pulls": {
+    "loading": "Pull Requests werden geladen…",
+    "loadFailed": "Pull Requests konnten nicht geladen werden",
+    "open": "{n} offen",
+    "search": "Pull Requests filtern",
+    "empty": "Es gibt keine offenen Pull Requests",
+    "noMatches": "Keine Pull Requests passen zu deiner Suche",
+    "searchingAll": "Alle {n} offenen Pull Requests werden durchsucht…",
+    "loadingMore": "Mehr wird geladen…",
+    "openedBy": "eröffnet {time} von {author}",
+    "milestone": "Meilenstein",
+    "comments": "{n} Kommentar | {n} Kommentare",
+    "linkedIssues": "{n} verknüpftes Issue | {n} verknüpfte Issues",
+    "assignedTo": "Zugewiesen an {login}",
+    "groups": "{n} Gruppe | {n} Gruppen",
+    "viewedHint": "In diesem Browser angesehen",
+    "aiAvailable": "KI-Analyse verfügbar",
+    "sort": {
+      "label": "Sortieren",
+      "recently-updated": "Zuletzt aktualisiert",
+      "least-recently-updated": "Am längsten nicht aktualisiert",
+      "newest": "Neueste",
+      "oldest": "Älteste",
+      "most-commented": "Meiste Kommentare",
+      "least-commented": "Wenigste Kommentare"
+    },
+    "review": {
+      "approved": "Genehmigt",
+      "changes_requested": "Änderungen angefordert",
+      "review_required": "Review erforderlich"
+    },
+    "checks": {
+      "success": "Alle Checks bestanden",
+      "failure": "Einige Checks waren nicht erfolgreich",
+      "pending": "Einige Checks sind noch nicht abgeschlossen"
+    }
+  },
+  "triage": {
+    "queue": {
+      "needs-review": "Needs my review",
+      "ci-failing": "CI failing",
+      "changes-requested": "Changes requested",
+      "ready-to-merge": "Ready to merge",
+      "stale": "Stale",
+      "all": "All"
+    },
+    "hint": {
+      "needs-review": "Your review is requested",
+      "ci-failing": "A check failed on the latest commit",
+      "changes-requested": "A reviewer asked for changes",
+      "ready-to-merge": "Approved, checks passing and no conflicts",
+      "stale": "No activity for {n} days or more",
+      "all": "Every pull request in the list"
+    },
+    "empty": "Nothing in this queue right now",
+    "requested": "Your review",
+    "conflict": "Conflicts",
+    "conflictHint": "This branch has conflicts that must be resolved",
+    "files": "{n} file | {n} files"
+  },
+  "analyze": {
+    "setup": "Set up AI",
+    "setupTitle": "Pick an AI provider in Settings",
+    "analyzing": "Analysiere…",
+    "analyzingFor": "Analyzing… {duration}",
+    "failed": "Analyse fehlgeschlagen",
+    "failedTitle": "KI-Analyse fehlgeschlagen: {message}",
+    "reanalyze": "Erneut analysieren",
+    "withAi": "Mit KI analysieren",
+    "statusTitle": "KI-Analyse",
+    "starting": "Startet…",
+    "thinking": "Denke nach… (Schritt {step})",
+    "reading": "Lese {n} Datei: {first} | Lese {n} Dateien: {first}",
+    "organizing": "Gruppen werden geordnet…",
+    "notConfigured": "AI analysis is not configured: pick Claude Code or Codex in Settings",
+    "chatFailed": "Chat-Anfrage fehlgeschlagen",
+    "done": "Sorted the changes into {n} group | Sorted the changes into {n} groups",
+    "resumed": "This analysis was already running on the server; following it from here."
+  },
+  "share": {
+    "button": "Ergebnis teilen",
+    "updateButton": "Geteilten Kommentar aktualisieren",
+    "sharing": "Wird geteilt…",
+    "tooltip": "Diese Analyse als Kommentar im Pull Request veröffentlichen, damit andere sie laden können",
+    "needsToken": "Zum Teilen ist ein GitHub-Token mit Schreibzugriff erforderlich",
+    "failed": "Teilen fehlgeschlagen: {message}",
+    "titleUpdate": "Deine geteilte Analyse aktualisieren",
+    "titleShare": "Diese Analyse auf GitHub teilen",
+    "willUpdate": "Dein bestehender {comment} zu diesem Pull Request wird als {user} mit deinem GitHub-Token aktualisiert.",
+    "willPost": "Ein öffentlicher Kommentar wird als {user} mit deinem GitHub-Token zu diesem Pull Request veröffentlicht.",
+    "commentLink": "Kommentar",
+    "contains": "Der Kommentar enthält:",
+    "containsLink": "einen Link, um dieses Review auf {site} zu öffnen",
+    "containsJson": "die Gruppierung und Zusammenfassungen dieser KI-Analyse als JSON in einem eingeklappten Block",
+    "excludes": "Deine Chat-Nachrichten, API-Key oder andere Daten aus deinen Einstellungen werden nicht enthalten sein.",
+    "anyoneCanLoad": "Jeder, der den Pull Request ansieht, kann die geteilte Analyse laden.",
+    "englishRecommended": "Wenn du an einem öffentlichen Projekt arbeitest, empfehlen wir, das Ergebnis auf Englisch zu teilen, damit es der Community nützt.",
+    "share": "Teilen",
+    "update": "Aktualisieren",
+    "shareAnyway": "Trotzdem teilen",
+    "updateAnyway": "Trotzdem aktualisieren",
+    "loadReplaces": "Geteilte KI-Analyse laden? Sie ersetzt deine:",
+    "available": "Geteilte KI-Analysen zu diesem Pull Request verfügbar:",
+    "staleTitle": "Vor den neuesten Commits analysiert",
+    "outdated": "(veraltet)",
+    "inLanguage": "Analysiert auf {language}",
+    "notShared": "{login} hat keine Analyse dieses Pull Requests geteilt."
+  },
+  "group": {
+    "toggle": "Gruppe ein-/ausklappen",
+    "filesReviewed": "{reviewed} / {total} Dateien reviewt",
+    "subgroupsOf": "Untergruppen von",
+    "hideSubgroups": "Untergruppen ausblenden",
+    "showSubgroups": "Untergruppen anzeigen",
+    "navTabs": "Gruppen als Tabs anzeigen",
+    "navSidebar": "Gruppen als Seitenleiste anzeigen",
+    "uncategorized": "Nicht kategorisiert",
+    "uncategorizedSummary": "Dateien, die die aktuelle Analyse nicht abdeckt."
+  },
+  "file": {
+    "markReviewed": "Als reviewt markieren",
+    "markFolderReviewed": "Alle Dateien in {name} als reviewt markieren",
+    "changedSinceReviewed": "Diese Datei wurde bereits reviewt, hat sich aber in späteren Commits geändert",
+    "resolved": "{n} gelöst",
+    "binary": "Binärdatei",
+    "binaryNotShown": "Binärdatei wird nicht angezeigt.",
+    "tooLarge": "Diff zu groß zum Anzeigen.",
+    "loadFailed": "Laden fehlgeschlagen",
+    "loadFull": "Vollständigen Dateiinhalt laden",
+    "expand": "Datei ausklappen",
+    "collapse": "Datei einklappen",
+    "moreActions": "Weitere Aktionen",
+    "noLongerInDiff": "Nicht mehr in diesem Diff",
+    "removed": "entfernt"
+  },
+  "reviewProgress": {
+    "title": "Review-Fortschritt",
+    "markAll": "Alle als reviewt markieren",
+    "reset": "Review-Status zurücksetzen",
+    "invert": "Review-Status umkehren",
+    "status": {
+      "reviewed": "Reviewt",
+      "changed": "Seit dem Review geändert",
+      "unreviewed": "Nicht reviewt"
+    }
+  },
+  "fileStatus": {
+    "added": "hinzugefügt",
+    "removed": "entfernt",
+    "modified": "geändert",
+    "renamed": "umbenannt",
+    "copied": "kopiert"
+  },
+  "prState": {
+    "open": "offen",
+    "draft": "Entwurf",
+    "closed": "geschlossen",
+    "merged": "gemergt"
+  },
+  "category": {
+    "ui": "UI",
+    "api": "API",
+    "core": "Kern",
+    "data": "Daten",
+    "cli": "CLI",
+    "security": "Sicherheit",
+    "tests": "Tests",
+    "docs": "Doku",
+    "examples": "Beispiele",
+    "deps": "Abhängigkeiten",
+    "build": "Build",
+    "scripts": "Skripte",
+    "config": "Konfiguration",
+    "i18n": "i18n",
+    "assets": "Assets",
+    "other": "Sonstiges"
+  },
+  "review": {
+    "addReview": "Review hinzufügen",
+    "hideComments": "Review-Kommentare ausblenden",
+    "showComments": "Review-Kommentare anzeigen",
+    "reviews": "Reviews",
+    "approved": "hat genehmigt",
+    "changesRequested": "hat Änderungen angefordert",
+    "commented": "hat kommentiert",
+    "dismissed": "Review verworfen",
+    "reviewChanges": "Änderungen reviewen",
+    "includesPending": "Beim Absenden wird dein {n} ausstehender Kommentar einbezogen. | Beim Absenden werden deine {n} ausstehenden Kommentare einbezogen.",
+    "summaryPlaceholder": "Zusammenfassung hinterlassen (optional beim Genehmigen)",
+    "comment": "Kommentieren",
+    "approve": "Genehmigen",
+    "requestChanges": "Änderungen anfordern",
+    "discard": "Review verwerfen",
+    "leaveComment": "Kommentar hinterlassen",
+    "addSingle": "Einzelnen Kommentar hinzufügen",
+    "addToReview": "Review-Kommentar hinzufügen",
+    "startReview": "Review beginnen",
+    "pending": "Ausstehend",
+    "editComment": "Kommentar bearbeiten",
+    "deleteComment": "Kommentar löschen",
+    "replyPlaceholder": "Antworten…",
+    "resolve": "Lösen"
+  },
+  "critique": {
+    "title": "AI review",
+    "run": "Review with AI",
+    "rerun": "Re-review",
+    "running": "Reviewing… {time}",
+    "runTitle": "Have Claude Code or Codex review this diff for bugs and risks",
+    "withLens": "Reviewed through the {lens} skill",
+    "usage": "Cost, tokens in and out, and time taken",
+    "findingCount": "{n} finding | {n} findings",
+    "noFindings": "No bugs or risks found.",
+    "allFiltered": "No findings of the selected severities.",
+    "dropped": "{n} finding was left out: it pointed outside the diff or repeated another. | {n} findings were left out: they pointed outside the diff or repeated others.",
+    "outdated": "This review is of an older commit; review again to post its findings.",
+    "lensMissing": "No skill named \"{name}\" was found.",
+    "filter": "Filter by severity",
+    "selectAll": "Select all",
+    "selectFinding": "Include in the review",
+    "jumpToLine": "Jump to the line",
+    "suggestion": "Suggested change",
+    "fileSummary": "AI summary of this file",
+    "bodyPlaceholder": "Review summary (optional)",
+    "joinsPending": "Your pending review ({n} draft comment) is submitted along with these. | Your pending review ({n} draft comments) is submitted along with these.",
+    "post": "Post {n} selected as a review",
+    "postedFinding": "Posted",
+    "postedCount": "{n} finding posted | {n} findings posted",
+    "severity": {
+      "bug": "Bug",
+      "risk": "Risk",
+      "nit": "Nit"
+    }
+  },
+  "ask": {
+    "action": "Ask AI",
+    "placeholder": "Ask about these lines…",
+    "followUpPlaceholder": "Ask a follow-up…",
+    "hint": "Enter to send, Shift+Enter for a new line",
+    "close": "Close question",
+    "stopped": "Stopped.",
+    "unavailable": "Asking about lines needs Claude Code or Codex, set in the AI settings.",
+    "copyLocation": "Copy file and lines",
+    "copyLink": "Copy GitHub link",
+    "copied": "Copied"
+  },
+  "lens": {
+    "pick": "Review with a skill",
+    "title": "Review with",
+    "description": "Run the AI review through one of your skills.",
+    "search": "Search skills…",
+    "general": "General",
+    "generalDescription": "Bugs, risks and nits across the whole diff",
+    "loading": "Loading skills…",
+    "loadFailed": "Could not load skills: {error}",
+    "none": "No skills found.",
+    "noMatch": "No skills match."
+  },
+  "chat": {
+    "title": "Fragen zu diesem PR",
+    "collapse": "Einklappen",
+    "reanalyzeToEnable": "Erneut analysieren, um den Chat zu aktivieren",
+    "thinking": "Denke nach…",
+    "placeholder": "Frage zu diesem PR…",
+    "updatedGrouping": "Gruppierung aktualisiert: {n} Gruppen",
+    "readFiles": "{n} Datei gelesen | {n} Dateien gelesen",
+    "updatingGrouping": "Gruppierung wird aktualisiert…",
+    "submittingGrouping": "Gruppierung wird gesendet…",
+    "requestFailed": "Anfrage fehlgeschlagen",
+    "stopped": "gestoppt"
+  },
+  "ai": {
+    "loading": "Loading…",
+    "workingFor": "Working for {duration}",
+    "workedFor": "Worked for {duration}",
+    "stoppedAfter": "Stopped after {duration}",
+    "failedAfter": "Failed after {duration}",
+    "activeNow": "Active now",
+    "activeAgo": "Active {since} ago",
+    "idleFor": "No activity for {since}",
+    "elapsed": "{elapsed} elapsed",
+    "more": "+{n} more",
+    "showLess": "Show less",
+    "stopped": "Stopped",
+    "groups": {
+      "command": "Ran {n} command | Ran {n} commands",
+      "edit": "Edited {n} file | Edited {n} files",
+      "read": "Read {n} file | Read {n} files",
+      "search": "Ran {n} search | Ran {n} searches",
+      "other": "Used {n} tool | Used {n} tools"
+    },
+    "verb": {
+      "thinking": {
+        "now": "Thinking",
+        "past": "Thought"
+      },
+      "writing": {
+        "now": "Writing",
+        "past": "Wrote"
+      },
+      "readFiles": {
+        "now": "Reading {n} file | Reading {n} files",
+        "past": "Read {n} file | Read {n} files"
+      },
+      "organizing": {
+        "now": "Organizing the groups",
+        "past": "Organized the groups"
+      }
+    },
+    "usage": {
+      "input": "{n} in",
+      "output": "{n} out",
+      "cacheRead": "{n} cached",
+      "cacheWrite": "{n} cache write",
+      "reasoning": "{n} reasoning"
+    },
+    "effort": {
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra High",
+      "max": "Max",
+      "ultra": "Ultra"
+    }
+  },
+  "settings": {
+    "layout": "Diff-Layout",
+    "unified": "Einheitlich",
+    "split": "Geteilt",
+    "cached": "Zwischengespeicherte Pull Requests",
+    "autoRefresh": "Automatisch aktualisieren, wenn neue Commits gefunden werden",
+    "language": "Sprache",
+    "token": {
+      "label": "GitHub Personal Access Token",
+      "optional": "Optional für öffentliche Repositories; erforderlich für private Repositories oder zum Reviewen.",
+      "scopes": "Reviews benötigen den Scope {repo} (klassisches Token) oder {fineGrained} (feingranulares Token)",
+      "storedLocally": "Nur in diesem Browser gespeichert.",
+      "generate": "Eines auf GitHub erstellen →",
+      "fineGrained": "Feingranulares Token (keine klassischen Scopes)",
+      "updated": "Aktualisiert",
+      "expires": "Läuft ab",
+      "neverExpires": "Läuft nie ab",
+      "change": "Token ändern",
+      "checking": "Token wird geprüft…",
+      "couldNotVerify": "Dieses Token konnte nicht überprüft werden."
+    },
+    "llm": {
+      "title": "KI-Analyse",
+      "description": "Konfiguriere einen Modellanbieter, um KI-generierte Zusammenfassungen zu aktivieren. Nur in diesem Browser gespeichert und nur an den gewählten Anbieter gesendet.",
+      "localDescription": "Claude Code and Codex run on this machine under their own sign-in, so no API key is needed.",
+      "provider": "Anbieter",
+      "engine": "Engine",
+      "baseUrl": "Basis-URL",
+      "baseUrlDescription": "Ein beliebiger OpenAI-kompatibler Chat-Completions-Endpoint (OpenAI selbst, ein lokaler Server usw.).",
+      "apiKey": "API-Key",
+      "gatewayHint": "Ein {link}-Token, das mit einem einzigen Token alle unterstützten Anbieter erreicht.",
+      "anthropicHint": "Ein {link}, direkt aus diesem Browser aufgerufen (ohne Gateway).",
+      "anthropicLink": "Anthropic-API-Key",
+      "openaiHint": "Der API-Key für den obigen Endpoint.",
+      "createKey": "Eine auf {provider} erstellen →",
+      "configured": "Konfiguriert",
+      "changeKey": "Key ändern",
+      "model": "Modell",
+      "modelListFailed": "Die Modellliste konnte nicht geladen werden ({error}). Gib eine Modell-ID manuell ein.",
+      "catalogFailed": "Couldn't load models from the CLI: {message}",
+      "refreshModels": "Reload the model list",
+      "effort": "Reasoning effort",
+      "effortDefault": "CLI default",
+      "effortDefaultNamed": "CLI default ({effort})",
+      "effortHint": "How long the model thinks before it acts. Higher is slower and uses more tokens.",
+      "askTitle": "Ask about the PR",
+      "askDescription": "The engine that answers your questions in the chat. It can differ from the one that analyzes the PR.",
+      "askSame": "Same as analysis",
+      "embedUnavailable": "KI-Funktionen sind im eingebetteten Modus nicht verfügbar",
+      "embedReason": "Die strikte CSP von github.com blockiert die Anfragen, die KI-Funktionen hier benötigen. {link}, um sie zu nutzen.",
+      "goToWebsite": "Zur Website"
+    },
+    "models": {
+      "placeholder": "Modell-ID",
+      "loading": "Modelle werden geladen…",
+      "search": "Modelle suchen…",
+      "noMatch": "Kein passendes Modell",
+      "useCustom": "„{id}“ verwenden",
+      "free": "Kostenlos",
+      "priceTitle": "Eingabe {input}/M · Ausgabe {output}/M Tokens",
+      "default": "Default"
+    }
+  },
+  "rules": {
+    "allFiles": "Alle Dateien",
+    "code": {
+      "label": "Code",
+      "summary": "Änderungen am Quellcode."
+    },
+    "other": {
+      "label": "Sonstiges",
+      "summary": "Andere Änderungen, die in keine bestehende Kategorie passen."
+    },
+    "docs": {
+      "label": "Doku",
+      "summary": "Aktualisierungen der Dokumentation."
+    },
+    "tests": {
+      "label": "Tests",
+      "summary": "Testabdeckung für die Änderung."
+    },
+    "config": {
+      "label": "Konfiguration",
+      "summary": "Konfigurationsänderungen."
+    },
+    "deps": {
+      "label": "Abhängigkeiten",
+      "summary": "Versionsänderungen von Abhängigkeiten."
+    },
+    "generated": {
+      "label": "Generiert",
+      "summary": "Änderungen an generierten oder Build-Dateien."
+    },
+    "types": {
+      "label": "Typen",
+      "summary": "Typdeklarationen."
+    },
+    "data": {
+      "label": "Daten",
+      "summary": "Datenbankschema und Migrationen."
+    },
+    "styles": {
+      "label": "Styles",
+      "summary": "Stylesheets und Styling-Konfiguration."
+    },
+    "scripts": {
+      "label": "Skripte",
+      "summary": "Build-, Entwicklungs- und Automatisierungsskripte."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI-Workflows und Pipelines."
+    },
+    "i18n": {
+      "label": "Übersetzungen",
+      "summary": "Sprach- und Übersetzungsdateien."
+    },
+    "assets": {
+      "label": "Assets",
+      "summary": "Bilder, Schriften und Medien."
+    },
+    "area": "{label} · {area}",
+    "rootArea": "Repo-Wurzel",
+    "otherAreas": "weitere Bereiche",
+    "facts": {
+      "sentence": "{blurb} {list}.",
+      "separator": ", ",
+      "added": "{n} neue Datei | {n} neue Dateien",
+      "removed": "{n} gelöscht",
+      "renamed": "{n} umbenannt",
+      "pairedTests": "{n} Test direkt nach seiner Quelle | {n} Tests direkt nach ihrer Quelle"
+    }
+  },
+  "errors": {
+    "tokenRequired": "Zum Schreiben in diesen Pull Request ist ein GitHub-Token erforderlich.",
+    "diffNotLoaded": "Das Diff ist noch nicht fertig geladen.",
+    "noViewer": "Der GitHub-Benutzer dieses Tokens konnte nicht ermittelt werden.",
+    "tokenRejected": "GitHub hat dieses Token abgelehnt (401). Prüfe, ob es vollständig eingefügt wurde und nicht widerrufen ist.",
+    "tooLarge": "Die Analyse ist zu groß, um als Kommentar geteilt zu werden ({n} Zeichen)."
+  },
+  "local": {
+    "home": {
+      "title": "Your pull requests",
+      "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
+      "search": "Filter by repo, title, author or label",
+      "allInRepo": "All pull requests",
+      "state": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "urlPlaceholder": "Paste a GitHub pull request or repository URL",
+      "open": "Open",
+      "loading": "Loading your pull requests…",
+      "failed": "Couldn't load your pull requests",
+      "refresh": "Refresh",
+      "empty": "No open pull requests here",
+      "all": "All",
+      "draft": "draft",
+      "role": {
+        "review-requested": "Review requested",
+        "authored": "Authored",
+        "involved": "Involved",
+        "owned": "In your repos"
+      },
+      "queues": "Queues",
+      "roles": "Roles",
+      "updating": "Updating…",
+      "updatedAgo": "Updated {time}",
+      "updateFailed": "Couldn't update: {message}"
+    },
+    "snapshot": {
+      "offline": "Couldn't reach the server or GitHub. This is the copy saved on this device and may be out of date."
+    },
+    "loading": "Lokale Änderungen werden geladen…",
+    "loadFailed": "Diese Änderungen konnten nicht geladen werden",
+    "auth": {
+      "title": "Code aus dem Terminal eingeben",
+      "hint": "pulls.review hat im Terminal, in dem es läuft, einen 6-stelligen Code ausgegeben.",
+      "invalid": "Dieser Code hat nicht funktioniert. Prüfe das Terminal und versuche es erneut.",
+      "submit": "Weiter"
+    },
+    "picker": {
+      "tagline": "Reviewe lokale Branches, Bereiche und nicht committete Änderungen wie einen Pull Request: gruppiert, zusammengefasst, ein Bereich nach dem anderen.",
+      "title": "Lokale Änderungen reviewen",
+      "base": "Basis",
+      "head": "Head",
+      "compare": "Vergleichen",
+      "shortcuts": "Schnellzugriff",
+      "worktree": "Nicht committete Änderungen",
+      "recentCommits": "Letzte Commits",
+      "branches": "Branches",
+      "against": "gegen {base}",
+      "current": "Ausgecheckt"
+    }
+  }
+}

@@ -6,12 +6,18 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.octaviantocan.pulls.ui.design.DarkPullsColors
+import com.octaviantocan.pulls.ui.design.LightPullsColors
+import com.octaviantocan.pulls.ui.design.LocalMessages
+import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.Messages
+import com.octaviantocan.pulls.ui.design.PullsType
 
 // Web app palette: dark surface from main.css, accent trio from uno.config.ts.
 private val Teal = Color(0xFF5FC2A4)
 private val TealDeep = Color(0xFF1F8F72)
 private val Orange = Color(0xFFF57A4F)
-private val Ink = Color(0xFF121212)
+private val Ink = Color(0xFF111111)
 
 private val Dark = darkColorScheme(
     primary = Teal,
@@ -45,10 +51,21 @@ private val Light = lightColorScheme(
     errorContainer = Color(0xFFFDE8E6),
 )
 
+/**
+ * Material for the few stock widgets left (menus, dialogs), the web tokens
+ * ([PullsColors]) and the web's i18n messages for everything else. `dark` follows the
+ * app's own setting when one is saved, the system otherwise, like the web `DarkToggle`.
+ */
 @Composable
-fun PullsTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) Dark else Light,
-        content = content,
-    )
+fun PullsTheme(dark: Boolean = isSystemInDarkTheme(), locale: String = Messages.detect(), content: @Composable () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val messages = androidx.compose.runtime.remember(locale) { Messages.load(context, locale) }
+    MaterialTheme(colorScheme = if (dark) Dark else Light) {
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalPullsColors provides if (dark) DarkPullsColors else LightPullsColors,
+            LocalMessages provides messages,
+            androidx.compose.material3.LocalTextStyle provides PullsType.base,
+            content = content,
+        )
+    }
 }

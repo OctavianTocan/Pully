@@ -1,0 +1,823 @@
+{
+  "common": {
+    "cancel": "取消",
+    "save": "儲存",
+    "remove": "移除",
+    "retry": "重試",
+    "close": "關閉",
+    "dismiss": "關閉",
+    "refresh": "重新整理",
+    "settings": "設定",
+    "you": "你",
+    "loading": "載入中…",
+    "send": "傳送",
+    "stop": "停止",
+    "clear": "清除",
+    "reply": "回覆",
+    "submit": "送出",
+    "abort": "中止",
+    "rerun": "重新執行",
+    "files": "{n} 個檔案",
+    "subgroups": "{n} 個子群組",
+    "githubRepository": "GitHub 儲存庫",
+    "avatar": "{login} 的頭像"
+  },
+  "keys": {
+    "title": "Keyboard shortcuts",
+    "scope": {
+      "global": "Everywhere",
+      "pr": "Pull request",
+      "home": "Pull request list",
+      "other": "More"
+    },
+    "palette": "Open the command palette",
+    "help": "Show keyboard shortcuts",
+    "home": "Go to home",
+    "top": "Scroll to top",
+    "bottom": "Scroll to bottom",
+    "refresh": "Refresh",
+    "escape": "Leave the text field or clear the selection",
+    "settings": "Open settings",
+    "theme": "Toggle dark mode",
+    "nextFile": "Next file",
+    "prevFile": "Previous file",
+    "nextHunk": "Next change",
+    "prevHunk": "Previous change",
+    "nextGroup": "Next group",
+    "prevGroup": "Previous group",
+    "toggleReviewed": "Mark file as reviewed or unreviewed",
+    "toggleFile": "Expand or collapse file",
+    "openFile": "Open file on GitHub",
+    "openPr": "Open on GitHub",
+    "copyPath": "Copy file path",
+    "copyPermalink": "Copy GitHub permalink to file",
+    "findFile": "Jump to a file",
+    "ask": "Ask about this pull request",
+    "analyze": "Analyze with AI",
+    "layout": "Switch between split and unified diffs",
+    "groupNav": "Switch group navigation between tabs and sidebar",
+    "threads": "Show or hide review comments",
+    "analyzeMode": "Switch grouping between rules and AI",
+    "nextRow": "Next pull request",
+    "prevRow": "Previous pull request",
+    "openRow": "Open pull request",
+    "search": "Filter pull requests",
+    "copied": "Copied {text}",
+    "copyFailed": "Couldn't copy to the clipboard"
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Type a command or search…",
+    "empty": "Nothing matches",
+    "more": "{n} more, keep typing to narrow down",
+    "navigate": "navigate",
+    "run": "run",
+    "close": "close",
+    "clearScope": "Search everything",
+    "group": {
+      "general": "General",
+      "pr": "Pull request",
+      "view": "View",
+      "files": "Files",
+      "groups": "Groups",
+      "pulls": "Pull requests",
+      "repos": "Repositories"
+    },
+    "jumpToFile": "Jump to {path}",
+    "jumpToGroup": "Go to group {name}",
+    "goToPull": "Go to {ref}: {title}",
+    "goToRepo": "Go to {repo}"
+  },
+  "landing": {
+    "dropHint": "拖放以載入 diff / .patch 檔案",
+    "tagline": "將變更檔案分組、摘要重點，一個範圍一個範圍地審閱。所有內容都在你的瀏覽器本機執行。",
+    "documentTitle": "清晰有序的拉取請求審閱",
+    "open": "開啟",
+    "pasteHint": "貼上任意 GitHub pull request 網址，或選擇下方的範例。",
+    "recentlyViewed": "// 最近檢視",
+    "recentRepositories": "// 最近查看的儲存庫",
+    "tryDemos": "// 試試範例",
+    "demoBefore": "// 之前",
+    "demoAfter": "// 之後",
+    "moreFiles": "... 還有 {n} 個檔案",
+    "demoTitle": "feat: 將 AI 分析作為 PR 留言分享並載入已分享的結果",
+    "demoSummary": "一位擁有 API key 的審閱者將分析發布到 PR；其他所有人無需 token 即可載入。",
+    "demoGroups": {
+      "store": "共享分析儲存與留言契約",
+      "ui": "分享結果介面",
+      "refactor": "儲存重構：結果上移至根",
+      "tests": "測試",
+      "docs": "文件與相依套件"
+    },
+    "uploadTitle": "不需 PR 也能審閱 diff",
+    "uploadDescription": "上傳或貼上 unified diff，或將 {diff} / {patch} 檔案拖放到本頁任意位置。",
+    "uploadButton": "上傳 diff",
+    "embedTitle": "嵌入到 github.com 中使用",
+    "embedDescription": "安裝 {tampermonkey} 或 {violentmonkey} 後，每個 pull request 頁面都會出現 pulls.review 側欄。",
+    "installUserscript": "安裝使用者腳本",
+    "bookmarkletTitle": "在 github.com 與 pulls.review 之間切換",
+    "bookmarkletDescription": "無法安裝擴充功能？將此書籤小工具拖曳到書籤列，即可在 pulls.review 開啟目前的 Pull Request，並隨時切換回來。",
+    "bookmarkletDrag": "拖曳到書籤列",
+    "actionsTitle": "透過 GitHub Actions 設定自動分析",
+    "actionsDescription": "在 CI 中對每個拉取請求分析一次，並將結果以 PR 留言發布，審閱者不需各自準備模型金鑰。",
+    "cliTitle": "透過 CLI 用於本機 git 變更",
+    "cliDescription": "在推送之前，像審閱 PR 一樣分組並摘要你的工作目錄、某個提交或某個分支。",
+    "viewGuide": "查看指南"
+  },
+  "guide": {
+    "userscript": {
+      "title": "將 pulls.review 嵌入到 github.com 中使用",
+      "intro": "使用者腳本會直接在 github.com 的拉取請求頁面中加入 pulls.review 面板，顯示分組後的檔案與摘要，不必切換分頁。",
+      "manager": "安裝使用者腳本管理器：{tampermonkey} 或 {violentmonkey}。",
+      "install": "安裝 pulls.review 使用者腳本，管理器會請你確認。",
+      "open": "在 github.com 上開啟任一拉取請求，點擊 \"Files changed\" 旁的 {tab} 分頁。",
+      "ai": "github.com 會阻擋 AI 分析所需的請求，因此面板只顯示以 PR 留言分享的分析。如需重新分析，請在 pulls.review 上開啟該 PR。"
+    },
+    "bookmarklet": {
+      "title": "在 github.com 與 pulls.review 之間切換",
+      "intro": "書籤小工具是一個執行小段指令碼的書籤。它適用於任何瀏覽器，無需安裝擴充功能，可在另一個網站開啟目前的頁面。",
+      "bar": "顯示書籤列，例如按 {shortcut}。",
+      "drag": "將此按鈕拖曳到書籤列：",
+      "use": "在 github.com 的 Pull Request、提交或比較頁面上點擊該書籤，即可在 pulls.review 開啟。再次點擊即可返回。"
+    },
+    "actions": {
+      "title": "透過 GitHub Actions 自動分析",
+      "intro": "讓 CI 在拉取請求建立或更新時分析一次。任何人開啟該 PR，無論在這裡或在 github.com 的面板中，都能立即看到同一份分組摘要。不需每人準備模型金鑰，來自 fork 的拉取請求也同樣適用。",
+      "secret": "將模型金鑰新增為儲存庫 secret，例如 {name}。",
+      "workflow": "將此 workflow 加入儲存庫：",
+      "result": "建立或更新一個拉取請求即可體驗。分析會以留言形式發布，PR 未變動時重新執行會略過模型呼叫。",
+      "options": "{provider} 會依金鑰推斷。可設定 {provider}、{model} 或 {locale} 進行覆寫。所有選項請見 {readme}。"
+    },
+    "cli": {
+      "title": "透過 CLI 審閱本機 git 變更",
+      "intro": "在別人之前先審閱自己的變更。CLI 會在 pulls.review 中開啟你的分支、某個提交或尚未提交的變更，讓你在推送或建立 PR 之前，就看到變更分組與摘要後的樣子。",
+      "branch": "在 git 儲存庫中執行以下指令，將目前分支與預設分支進行比較審閱：",
+      "target": "或者選擇要審閱的內容：",
+      "browser": "它會在瀏覽器中開啟 {url}，以視覺化方式呈現你的本機變更。請用終端機中顯示的一次性驗證碼確認該分頁。你也可以在頁面中選擇其他分支或提交進行比較。"
+    }
+  },
+  "load": {
+    "title": "載入 diff",
+    "description": "貼上或拖放 unified diff / .patch 檔案進行審閱。",
+    "pasteLabel": "貼上 unified diff / .patch",
+    "chooseFile": "或選擇 .diff/.patch 檔案",
+    "loadButton": "載入 diff",
+    "parsing": "正在解析 diff…",
+    "parseFailed": "無法解析此 diff",
+    "noDiff": "尚未載入 diff",
+    "noDiffHint": "回到首頁，使用上傳按鈕貼上或拖放 diff。",
+    "goHome": "回到首頁"
+  },
+  "pr": {
+    "loading": "正在載入 pull request…",
+    "loadFailed": "無法載入此 pull request",
+    "somethingWrong": "發生了一些問題",
+    "newCommits": "自快取以來，此 pull request 有新的提交。",
+    "autoRefreshNextTime": "下次自動重新整理",
+    "endOfDiff": "你已到達 diff 結尾。",
+    "analyzeBy": "分析方式",
+    "rules": "規則",
+    "ai": "AI",
+    "by": "作者",
+    "sharedBy": "正在檢視由以下使用者分享的 AI 分析",
+    "sharedAnalysis": "正在檢視共享的分析",
+    "reviewedOf": "/ {total} 已審閱",
+    "openInSite": "在 pulls.review 中開啟"
+  },
+  "overview": {
+    "tab": {
+      "conversation": "Conversation",
+      "commits": "Commits",
+      "checks": "Checks"
+    },
+    "loading": "Loading pull request details…",
+    "loadFailed": "Couldn't load the pull request details",
+    "tokenRequired": "Add a GitHub token in Settings to see the description, conversation, checks and commits here.",
+    "show": "Show pull request details",
+    "hide": "Hide pull request details",
+    "viewOnGithub": "View on GitHub",
+    "noDescription": "No description provided.",
+    "earlier": "Show {n} earlier item | Show {n} earlier items",
+    "moreOnGithub": "+{n} more on GitHub",
+    "timeline": {
+      "commented": "commented",
+      "reviewed": "reviewed",
+      "approved": "approved these changes",
+      "changesRequested": "requested changes",
+      "pushed": "added {n} commit | added {n} commits",
+      "hidden": "Hidden as {reason}",
+      "inlineComments": "{n} inline comment | {n} inline comments",
+      "outdated": "Outdated"
+    },
+    "event": {
+      "labeled": "added {label}",
+      "unlabeled": "removed {label}",
+      "assigned": "assigned {subject}",
+      "unassigned": "unassigned {subject}",
+      "ready_for_review": "marked this pull request as ready for review",
+      "convert_to_draft": "marked this pull request as draft",
+      "closed": "closed this",
+      "reopened": "reopened this",
+      "merged": "merged commit {subject} into {to}",
+      "force_pushed": "force-pushed from {from} to {to}",
+      "review_requested": "requested a review from {subject}",
+      "review_dismissed": "dismissed a review by {subject}",
+      "renamed": "changed the title from {from} to {to}"
+    },
+    "checks": {
+      "failing": "{n} failing",
+      "pending": "{n} pending",
+      "passing": "{n} successful",
+      "skipped": "{n} skipped",
+      "required": "Required",
+      "details": "Details",
+      "none": "No checks reported on the latest commit.",
+      "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
+    },
+    "commitList": {
+      "view": "View only this commit's changes",
+      "hint": "Click a commit to view only its changes. Shift-click to select a range."
+    },
+    "selection": {
+      "all": "All commits",
+      "one": "Commit {sha}",
+      "range": "{n} commit | {n} commits",
+      "picker": "Choose commits to view",
+      "showAll": "Show all changes",
+      "viewing": "Viewing {index} of {total} commits",
+      "viewingRange": "Viewing commits {start}–{end} of {total}",
+      "viewingSha": "Viewing commit {sha}",
+      "viewingShaRange": "Viewing commits {from} to {to}",
+      "previous": "Previous commit",
+      "next": "Next commit"
+    },
+    "merge": {
+      "button": "Merge",
+      "title": "Merge pull request #{n}",
+      "into": "Merge {head} into {base}",
+      "method": {
+        "merge": "Create a merge commit",
+        "squash": "Squash and merge",
+        "rebase": "Rebase and merge"
+      },
+      "commitTitle": "Commit title",
+      "commitMessage": "Commit message",
+      "rebaseHint": "The commits from this branch will be rebased onto {base} and added without a merge commit.",
+      "confirm": "Confirm merge",
+      "ready": "Ready to merge",
+      "blocked": {
+        "draft": "This pull request is still a draft.",
+        "conflicts": "This branch has conflicts that must be resolved on GitHub.",
+        "blocked": "Merging is blocked until the branch protection requirements are met.",
+        "behind": "This branch is out of date with the base branch.",
+        "checking": "Checking whether this branch can be merged…"
+      },
+      "bypass": "You can still merge as an administrator, bypassing branch protection.",
+      "unstable": "Some checks are not passing, but merging is allowed."
+    },
+    "state": {
+      "merged": "Merged {time}",
+      "closed": "Closed {time}"
+    },
+    "actions": {
+      "close": "Close pull request",
+      "reopen": "Reopen pull request",
+      "ready": "Ready for review",
+      "draft": "Convert to draft",
+      "updateBranch": "Update branch",
+      "failed": "GitHub didn't accept this: {message}"
+    },
+    "awaitingReview": "Awaiting review from {names}",
+    "file": {
+      "copyPath": "Copy file path",
+      "copyLink": "Copy GitHub link",
+      "openAtHead": "View file on GitHub",
+      "copied": "Copied"
+    }
+  },
+  "embed": {
+    "reviewChanges": "審查變更",
+    "updateUserscript": "更新使用者腳本"
+  },
+  "pulls": {
+    "loading": "正在載入 pull request…",
+    "loadFailed": "無法載入 pull request",
+    "open": "{n} 個開放",
+    "search": "篩選 pull request",
+    "empty": "沒有開放的 pull request",
+    "noMatches": "沒有符合搜尋條件的 pull request",
+    "searchingAll": "正在搜尋全部 {n} 個開放的 pull request…",
+    "loadingMore": "正在載入更多…",
+    "openedBy": "由 {author} 於 {time}建立",
+    "milestone": "里程碑",
+    "comments": "{n} 則留言",
+    "linkedIssues": "{n} 個關聯 issue",
+    "assignedTo": "已指派給 {login}",
+    "groups": "{n} 個分組",
+    "viewedHint": "已在此瀏覽器中查看",
+    "aiAvailable": "有 AI 分析",
+    "sort": {
+      "label": "排序",
+      "recently-updated": "最近更新",
+      "least-recently-updated": "最久未更新",
+      "newest": "最新",
+      "oldest": "最早",
+      "most-commented": "留言最多",
+      "least-commented": "留言最少"
+    },
+    "review": {
+      "approved": "已核准",
+      "changes_requested": "已要求變更",
+      "review_required": "需要審查"
+    },
+    "checks": {
+      "success": "所有檢查已通過",
+      "failure": "部分檢查未通過",
+      "pending": "部分檢查尚未完成"
+    }
+  },
+  "triage": {
+    "queue": {
+      "needs-review": "Needs my review",
+      "ci-failing": "CI failing",
+      "changes-requested": "Changes requested",
+      "ready-to-merge": "Ready to merge",
+      "stale": "Stale",
+      "all": "All"
+    },
+    "hint": {
+      "needs-review": "Your review is requested",
+      "ci-failing": "A check failed on the latest commit",
+      "changes-requested": "A reviewer asked for changes",
+      "ready-to-merge": "Approved, checks passing and no conflicts",
+      "stale": "No activity for {n} days or more",
+      "all": "Every pull request in the list"
+    },
+    "empty": "Nothing in this queue right now",
+    "requested": "Your review",
+    "conflict": "Conflicts",
+    "conflictHint": "This branch has conflicts that must be resolved",
+    "files": "{n} file | {n} files"
+  },
+  "analyze": {
+    "setup": "Set up AI",
+    "setupTitle": "Pick an AI provider in Settings",
+    "analyzing": "分析中…",
+    "analyzingFor": "Analyzing… {duration}",
+    "failed": "分析失敗",
+    "failedTitle": "AI 分析失敗：{message}",
+    "reanalyze": "重新分析",
+    "withAi": "使用 AI 分析",
+    "statusTitle": "AI 分析",
+    "starting": "正在啟動…",
+    "thinking": "思考中…（第 {step} 步）",
+    "reading": "正在讀取 {n} 個檔案：{first}",
+    "organizing": "正在整理群組…",
+    "notConfigured": "AI analysis is not configured: pick Claude Code or Codex in Settings",
+    "chatFailed": "對話請求失敗",
+    "done": "Sorted the changes into {n} group | Sorted the changes into {n} groups",
+    "resumed": "This analysis was already running on the server; following it from here."
+  },
+  "share": {
+    "button": "分享結果",
+    "updateButton": "更新已分享的留言",
+    "sharing": "分享中…",
+    "tooltip": "將此分析以留言形式發布到 pull request，供他人載入",
+    "needsToken": "分享需要具有寫入權限的 GitHub token",
+    "failed": "分享失敗：{message}",
+    "titleUpdate": "更新你分享的分析",
+    "titleShare": "在 GitHub 上分享此分析",
+    "willUpdate": "將使用你的 GitHub token，以 {user} 的身分更新你在此 pull request 上既有的 {comment}。",
+    "willPost": "將使用你的 GitHub token，以 {user} 的身分在此 pull request 上發布一則公開留言。",
+    "commentLink": "留言",
+    "contains": "留言包含：",
+    "containsLink": "在 {site} 上開啟此審閱的連結",
+    "containsJson": "此 AI 分析的分組與摘要，以 JSON 形式放在折疊區塊中",
+    "excludes": "你的對話訊息、API key 或設定中的其他內容都不會包含在內。",
+    "anyoneCanLoad": "任何檢視此 pull request 的人都可以載入分享的分析。",
+    "englishRecommended": "如果你參與的是公開專案，我們建議以英文分享結果，對社群更有幫助。",
+    "share": "分享",
+    "update": "更新",
+    "shareAnyway": "仍然分享",
+    "updateAnyway": "仍然更新",
+    "loadReplaces": "載入分享的 AI 分析？它將取代你的分析：",
+    "available": "此 pull request 有可用的 AI 分析分享：",
+    "staleTitle": "在最新提交之前分析",
+    "outdated": "（已過期）",
+    "inLanguage": "以 {language} 分析",
+    "notShared": "{login} 尚未分享此 pull request 的分析。"
+  },
+  "group": {
+    "toggle": "展開/折疊群組",
+    "filesReviewed": "已審閱 {reviewed} / {total} 個檔案",
+    "subgroupsOf": "子群組，屬於",
+    "hideSubgroups": "隱藏子群組",
+    "showSubgroups": "顯示子群組",
+    "navTabs": "以分頁顯示群組",
+    "navSidebar": "以側邊欄顯示群組",
+    "uncategorized": "未分類",
+    "uncategorizedSummary": "目前分析未涵蓋的檔案。"
+  },
+  "file": {
+    "markReviewed": "標記為已審閱",
+    "markFolderReviewed": "將 {name} 中的所有檔案標記為已審閱",
+    "changedSinceReviewed": "此檔案之前已審閱，但在後續提交中發生了變更",
+    "resolved": "{n} 已解決",
+    "binary": "二進位檔案",
+    "binaryNotShown": "不顯示二進位檔案。",
+    "tooLarge": "差異過大，無法顯示。",
+    "loadFailed": "載入失敗",
+    "loadFull": "載入完整檔案內容",
+    "expand": "展開檔案",
+    "collapse": "折疊檔案",
+    "moreActions": "更多操作",
+    "noLongerInDiff": "已不在此 diff 中",
+    "removed": "已移除"
+  },
+  "reviewProgress": {
+    "title": "審閱進度",
+    "markAll": "全部標記為已審閱",
+    "reset": "重設審閱狀態",
+    "invert": "反轉審閱狀態",
+    "status": {
+      "reviewed": "已審閱",
+      "changed": "審閱後已變更",
+      "unreviewed": "未審閱"
+    }
+  },
+  "fileStatus": {
+    "added": "新增",
+    "removed": "刪除",
+    "modified": "修改",
+    "renamed": "重新命名",
+    "copied": "複製"
+  },
+  "prState": {
+    "open": "開放",
+    "draft": "草稿",
+    "closed": "已關閉",
+    "merged": "已合併"
+  },
+  "category": {
+    "ui": "介面",
+    "api": "API",
+    "core": "核心",
+    "data": "資料",
+    "cli": "命令列",
+    "security": "安全",
+    "tests": "測試",
+    "docs": "文件",
+    "examples": "範例",
+    "deps": "相依套件",
+    "build": "建置",
+    "scripts": "指令碼",
+    "config": "設定",
+    "i18n": "國際化",
+    "assets": "資源",
+    "other": "其他"
+  },
+  "review": {
+    "addReview": "新增審查",
+    "hideComments": "隱藏審查留言",
+    "showComments": "顯示審查留言",
+    "reviews": "審查",
+    "approved": "已核准",
+    "changesRequested": "要求修改",
+    "commented": "已留言",
+    "dismissed": "審查已撤銷",
+    "reviewChanges": "審查變更",
+    "includesPending": "送出將包含你的 {n} 則待發布留言。",
+    "summaryPlaceholder": "寫一段總結（核准時可省略）",
+    "comment": "留言",
+    "approve": "核准",
+    "requestChanges": "要求修改",
+    "discard": "放棄審查",
+    "leaveComment": "留下留言",
+    "addSingle": "新增單則留言",
+    "addToReview": "新增審查留言",
+    "startReview": "開始審查",
+    "pending": "待發布",
+    "editComment": "編輯留言",
+    "deleteComment": "刪除留言",
+    "replyPlaceholder": "回覆…",
+    "resolve": "標記為已解決"
+  },
+  "critique": {
+    "title": "AI review",
+    "run": "Review with AI",
+    "rerun": "Re-review",
+    "running": "Reviewing… {time}",
+    "runTitle": "Have Claude Code or Codex review this diff for bugs and risks",
+    "withLens": "Reviewed through the {lens} skill",
+    "usage": "Cost, tokens in and out, and time taken",
+    "findingCount": "{n} finding | {n} findings",
+    "noFindings": "No bugs or risks found.",
+    "allFiltered": "No findings of the selected severities.",
+    "dropped": "{n} finding was left out: it pointed outside the diff or repeated another. | {n} findings were left out: they pointed outside the diff or repeated others.",
+    "outdated": "This review is of an older commit; review again to post its findings.",
+    "lensMissing": "No skill named \"{name}\" was found.",
+    "filter": "Filter by severity",
+    "selectAll": "Select all",
+    "selectFinding": "Include in the review",
+    "jumpToLine": "Jump to the line",
+    "suggestion": "Suggested change",
+    "fileSummary": "AI summary of this file",
+    "bodyPlaceholder": "Review summary (optional)",
+    "joinsPending": "Your pending review ({n} draft comment) is submitted along with these. | Your pending review ({n} draft comments) is submitted along with these.",
+    "post": "Post {n} selected as a review",
+    "postedFinding": "Posted",
+    "postedCount": "{n} finding posted | {n} findings posted",
+    "severity": {
+      "bug": "Bug",
+      "risk": "Risk",
+      "nit": "Nit"
+    }
+  },
+  "ask": {
+    "action": "Ask AI",
+    "placeholder": "Ask about these lines…",
+    "followUpPlaceholder": "Ask a follow-up…",
+    "hint": "Enter to send, Shift+Enter for a new line",
+    "close": "Close question",
+    "stopped": "Stopped.",
+    "unavailable": "Asking about lines needs Claude Code or Codex, set in the AI settings.",
+    "copyLocation": "Copy file and lines",
+    "copyLink": "Copy GitHub link",
+    "copied": "Copied"
+  },
+  "lens": {
+    "pick": "Review with a skill",
+    "title": "Review with",
+    "description": "Run the AI review through one of your skills.",
+    "search": "Search skills…",
+    "general": "General",
+    "generalDescription": "Bugs, risks and nits across the whole diff",
+    "loading": "Loading skills…",
+    "loadFailed": "Could not load skills: {error}",
+    "none": "No skills found.",
+    "noMatch": "No skills match."
+  },
+  "chat": {
+    "title": "詢問此 PR",
+    "collapse": "收合",
+    "reanalyzeToEnable": "重新分析以啟用對話",
+    "thinking": "思考中…",
+    "placeholder": "詢問此 PR…",
+    "updatedGrouping": "已更新分組：{n} 個群組",
+    "readFiles": "讀取了 {n} 個檔案",
+    "updatingGrouping": "正在更新分組…",
+    "submittingGrouping": "正在送出分組…",
+    "requestFailed": "請求失敗",
+    "stopped": "已停止"
+  },
+  "ai": {
+    "loading": "Loading…",
+    "workingFor": "Working for {duration}",
+    "workedFor": "Worked for {duration}",
+    "stoppedAfter": "Stopped after {duration}",
+    "failedAfter": "Failed after {duration}",
+    "activeNow": "Active now",
+    "activeAgo": "Active {since} ago",
+    "idleFor": "No activity for {since}",
+    "elapsed": "{elapsed} elapsed",
+    "more": "+{n} more",
+    "showLess": "Show less",
+    "stopped": "Stopped",
+    "groups": {
+      "command": "Ran {n} command | Ran {n} commands",
+      "edit": "Edited {n} file | Edited {n} files",
+      "read": "Read {n} file | Read {n} files",
+      "search": "Ran {n} search | Ran {n} searches",
+      "other": "Used {n} tool | Used {n} tools"
+    },
+    "verb": {
+      "thinking": {
+        "now": "Thinking",
+        "past": "Thought"
+      },
+      "writing": {
+        "now": "Writing",
+        "past": "Wrote"
+      },
+      "readFiles": {
+        "now": "Reading {n} file | Reading {n} files",
+        "past": "Read {n} file | Read {n} files"
+      },
+      "organizing": {
+        "now": "Organizing the groups",
+        "past": "Organized the groups"
+      }
+    },
+    "usage": {
+      "input": "{n} in",
+      "output": "{n} out",
+      "cacheRead": "{n} cached",
+      "cacheWrite": "{n} cache write",
+      "reasoning": "{n} reasoning"
+    },
+    "effort": {
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra High",
+      "max": "Max",
+      "ultra": "Ultra"
+    }
+  },
+  "settings": {
+    "layout": "Diff 版面",
+    "unified": "統一",
+    "split": "分欄",
+    "cached": "已快取的 pull request",
+    "autoRefresh": "發現新提交時自動重新整理",
+    "language": "語言",
+    "token": {
+      "label": "GitHub Personal Access Token",
+      "optional": "公開儲存庫可省略；私有儲存庫或提交審查時必需。",
+      "scopes": "審查需要 {repo} scope（classic token）或 {fineGrained}（fine-grained token）",
+      "storedLocally": "僅儲存在此瀏覽器中。",
+      "generate": "在 GitHub 上產生 →",
+      "fineGrained": "fine-grained token（無 classic scope）",
+      "updated": "更新於",
+      "expires": "到期於",
+      "neverExpires": "永不到期",
+      "change": "更換 token",
+      "checking": "正在檢查 token…",
+      "couldNotVerify": "無法驗證此 token。"
+    },
+    "llm": {
+      "title": "AI 分析",
+      "description": "設定模型供應商以啟用 AI 產生的摘要。僅儲存在此瀏覽器中，且只傳送給你選擇的供應商。",
+      "localDescription": "Claude Code and Codex run on this machine under their own sign-in, so no API key is needed.",
+      "provider": "供應商",
+      "engine": "Engine",
+      "baseUrl": "Base URL",
+      "baseUrlDescription": "任何相容 OpenAI 的 chat completions endpoint（OpenAI 本身、本機伺服器等）。",
+      "apiKey": "API key",
+      "gatewayHint": "一個 {link} token，憑單一 token 即可存取其支援的所有廠商。",
+      "anthropicHint": "一個 {link}，直接從此瀏覽器呼叫（不經過 gateway）。",
+      "anthropicLink": "Anthropic API key",
+      "openaiHint": "上述 endpoint 的 API key。",
+      "createKey": "在 {provider} 上建立 →",
+      "configured": "已設定",
+      "changeKey": "更換 key",
+      "model": "模型",
+      "modelListFailed": "無法載入模型清單（{error}）。請手動輸入模型 id。",
+      "catalogFailed": "Couldn't load models from the CLI: {message}",
+      "refreshModels": "Reload the model list",
+      "effort": "Reasoning effort",
+      "effortDefault": "CLI default",
+      "effortDefaultNamed": "CLI default ({effort})",
+      "effortHint": "How long the model thinks before it acts. Higher is slower and uses more tokens.",
+      "askTitle": "Ask about the PR",
+      "askDescription": "The engine that answers your questions in the chat. It can differ from the one that analyzes the PR.",
+      "askSame": "Same as analysis",
+      "embedUnavailable": "嵌入模式下無法使用 AI 功能",
+      "embedReason": "github.com 嚴格的 CSP 會阻擋 AI 功能所需的請求。{link} 即可使用。",
+      "goToWebsite": "前往網站"
+    },
+    "models": {
+      "placeholder": "模型 id",
+      "loading": "正在載入模型…",
+      "search": "搜尋模型…",
+      "noMatch": "沒有符合的模型",
+      "useCustom": "使用「{id}」",
+      "free": "免費",
+      "priceTitle": "輸入 {input}/M · 輸出 {output}/M tokens",
+      "default": "Default"
+    }
+  },
+  "rules": {
+    "allFiles": "所有檔案",
+    "code": {
+      "label": "程式碼",
+      "summary": "原始碼變更。"
+    },
+    "other": {
+      "label": "其他",
+      "summary": "不屬於現有分類的其他變更。"
+    },
+    "docs": {
+      "label": "文件",
+      "summary": "文件更新。"
+    },
+    "tests": {
+      "label": "測試",
+      "summary": "針對此變更的測試覆蓋。"
+    },
+    "config": {
+      "label": "設定",
+      "summary": "設定變更。"
+    },
+    "deps": {
+      "label": "相依套件",
+      "summary": "相依套件版本變更。"
+    },
+    "generated": {
+      "label": "產生檔案",
+      "summary": "產生或建置產物的變更。"
+    },
+    "types": {
+      "label": "型別",
+      "summary": "型別宣告。"
+    },
+    "data": {
+      "label": "資料",
+      "summary": "資料庫結構與遷移。"
+    },
+    "styles": {
+      "label": "樣式",
+      "summary": "樣式表與樣式設定。"
+    },
+    "scripts": {
+      "label": "腳本",
+      "summary": "建置、開發與自動化腳本。"
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI 工作流程與管線。"
+    },
+    "i18n": {
+      "label": "翻譯",
+      "summary": "語系與翻譯檔案。"
+    },
+    "assets": {
+      "label": "資源",
+      "summary": "圖片、字型與媒體。"
+    },
+    "area": "{label} · {area}",
+    "rootArea": "儲存庫根目錄",
+    "otherAreas": "其他區域",
+    "facts": {
+      "sentence": "{blurb}{list}。",
+      "separator": "，",
+      "added": "{n} 個新檔案",
+      "removed": "{n} 個已刪除",
+      "renamed": "{n} 個已重新命名",
+      "pairedTests": "{n} 個測試緊接在其原始檔之後"
+    }
+  },
+  "errors": {
+    "tokenRequired": "寫入此 pull request 需要 GitHub token。",
+    "diffNotLoaded": "diff 尚未載入完成。",
+    "noViewer": "無法判斷此 token 對應的 GitHub 使用者。",
+    "tokenRejected": "GitHub 拒絕了此 token（401）。請確認已完整貼上且未被撤銷。",
+    "tooLarge": "分析內容過大，無法以留言分享（{n} 個字元）。"
+  },
+  "local": {
+    "home": {
+      "title": "Your pull requests",
+      "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
+      "search": "Filter by repo, title, author or label",
+      "allInRepo": "All pull requests",
+      "state": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "urlPlaceholder": "Paste a GitHub pull request or repository URL",
+      "open": "Open",
+      "loading": "Loading your pull requests…",
+      "failed": "Couldn't load your pull requests",
+      "refresh": "Refresh",
+      "empty": "No open pull requests here",
+      "all": "All",
+      "draft": "draft",
+      "role": {
+        "review-requested": "Review requested",
+        "authored": "Authored",
+        "involved": "Involved",
+        "owned": "In your repos"
+      },
+      "queues": "Queues",
+      "roles": "Roles",
+      "updating": "Updating…",
+      "updatedAgo": "Updated {time}",
+      "updateFailed": "Couldn't update: {message}"
+    },
+    "snapshot": {
+      "offline": "Couldn't reach the server or GitHub. This is the copy saved on this device and may be out of date."
+    },
+    "loading": "正在載入本機變更…",
+    "loadFailed": "無法載入這些變更",
+    "auth": {
+      "title": "輸入終端機中顯示的代碼",
+      "hint": "pulls.review 已在其執行的終端機中印出一組 6 位數代碼。",
+      "invalid": "此代碼無效。請檢查終端機後再試一次。",
+      "submit": "繼續"
+    },
+    "picker": {
+      "tagline": "像審查 Pull Request 一樣審查本機分支、範圍和未提交的變更：分組、摘要、逐一範圍檢視。",
+      "title": "審查本機變更",
+      "base": "基準",
+      "head": "頭部",
+      "compare": "比較",
+      "shortcuts": "捷徑",
+      "worktree": "未提交的變更",
+      "recentCommits": "最近的提交",
+      "branches": "分支",
+      "against": "對比 {base}",
+      "current": "目前分支"
+    }
+  }
+}

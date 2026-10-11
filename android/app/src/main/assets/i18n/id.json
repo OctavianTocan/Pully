@@ -1,0 +1,823 @@
+{
+  "common": {
+    "cancel": "Batal",
+    "save": "Simpan",
+    "remove": "Hapus",
+    "retry": "Coba lagi",
+    "close": "Tutup",
+    "dismiss": "Tutup",
+    "refresh": "Muat ulang",
+    "settings": "Pengaturan",
+    "you": "Anda",
+    "loading": "Memuat…",
+    "send": "Kirim",
+    "stop": "Berhenti",
+    "clear": "Bersihkan",
+    "reply": "Balas",
+    "submit": "Kirim",
+    "abort": "Batalkan",
+    "rerun": "Jalankan ulang",
+    "files": "{n} berkas",
+    "subgroups": "{n} subgrup",
+    "githubRepository": "Repositori GitHub",
+    "avatar": "Avatar {login}"
+  },
+  "keys": {
+    "title": "Keyboard shortcuts",
+    "scope": {
+      "global": "Everywhere",
+      "pr": "Pull request",
+      "home": "Pull request list",
+      "other": "More"
+    },
+    "palette": "Open the command palette",
+    "help": "Show keyboard shortcuts",
+    "home": "Go to home",
+    "top": "Scroll to top",
+    "bottom": "Scroll to bottom",
+    "refresh": "Refresh",
+    "escape": "Leave the text field or clear the selection",
+    "settings": "Open settings",
+    "theme": "Toggle dark mode",
+    "nextFile": "Next file",
+    "prevFile": "Previous file",
+    "nextHunk": "Next change",
+    "prevHunk": "Previous change",
+    "nextGroup": "Next group",
+    "prevGroup": "Previous group",
+    "toggleReviewed": "Mark file as reviewed or unreviewed",
+    "toggleFile": "Expand or collapse file",
+    "openFile": "Open file on GitHub",
+    "openPr": "Open on GitHub",
+    "copyPath": "Copy file path",
+    "copyPermalink": "Copy GitHub permalink to file",
+    "findFile": "Jump to a file",
+    "ask": "Ask about this pull request",
+    "analyze": "Analyze with AI",
+    "layout": "Switch between split and unified diffs",
+    "groupNav": "Switch group navigation between tabs and sidebar",
+    "threads": "Show or hide review comments",
+    "analyzeMode": "Switch grouping between rules and AI",
+    "nextRow": "Next pull request",
+    "prevRow": "Previous pull request",
+    "openRow": "Open pull request",
+    "search": "Filter pull requests",
+    "copied": "Copied {text}",
+    "copyFailed": "Couldn't copy to the clipboard"
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Type a command or search…",
+    "empty": "Nothing matches",
+    "more": "{n} more, keep typing to narrow down",
+    "navigate": "navigate",
+    "run": "run",
+    "close": "close",
+    "clearScope": "Search everything",
+    "group": {
+      "general": "General",
+      "pr": "Pull request",
+      "view": "View",
+      "files": "Files",
+      "groups": "Groups",
+      "pulls": "Pull requests",
+      "repos": "Repositories"
+    },
+    "jumpToFile": "Jump to {path}",
+    "jumpToGroup": "Go to group {name}",
+    "goToPull": "Go to {ref}: {title}",
+    "goToRepo": "Go to {repo}"
+  },
+  "landing": {
+    "dropHint": "Lepaskan untuk memuat berkas diff / .patch Anda",
+    "tagline": "Mengelompokkan berkas yang berubah, merangkum yang penting, dan meninjaunya satu lingkup sekaligus. Semuanya berjalan lokal di browser Anda.",
+    "documentTitle": "Tinjauan pull request yang jelas dan teratur",
+    "open": "Buka",
+    "pasteHint": "Tempel URL pull request GitHub mana pun, atau pilih demo di bawah.",
+    "recentlyViewed": "// baru dilihat",
+    "recentRepositories": "// repositori yang baru dilihat",
+    "tryDemos": "// coba beberapa demo",
+    "demoBefore": "// sebelum",
+    "demoAfter": "// sesudah",
+    "moreFiles": "... {n} berkas lainnya",
+    "demoTitle": "feat: bagikan analisis AI sebagai komentar PR dan muat hasil yang dibagikan",
+    "demoSummary": "Satu peninjau dengan API key mengirim analisisnya ke PR; semua orang lain memuatnya tanpa token.",
+    "demoGroups": {
+      "store": "Store analisis bersama & kontrak komentar",
+      "ui": "UI berbagi hasil",
+      "refactor": "Refactor store: hasil ke root",
+      "tests": "Pengujian",
+      "docs": "Dokumentasi & dependensi"
+    },
+    "uploadTitle": "Tinjau diff tanpa PR",
+    "uploadDescription": "Unggah atau tempel unified diff, atau seret berkas {diff} / {patch} ke mana saja di halaman ini.",
+    "uploadButton": "Unggah diff",
+    "embedTitle": "Gunakan tertanam di github.com",
+    "embedDescription": "Dengan {tampermonkey} atau {violentmonkey} terpasang, panel pulls.review muncul di setiap halaman pull request.",
+    "installUserscript": "Pasang userscript",
+    "bookmarkletTitle": "Berpindah antara github.com dan pulls.review",
+    "bookmarkletDescription": "Tidak bisa memasang ekstensi? Seret bookmarklet ini ke bilah bookmark untuk membuka pull request saat ini di pulls.review, dan kembali.",
+    "bookmarkletDrag": "Seret saya ke bilah bookmark",
+    "actionsTitle": "Siapkan analisis otomatis dengan GitHub Actions",
+    "actionsDescription": "Analisis setiap pull request sekali di CI dan kirim hasilnya sebagai komentar PR, jadi setiap reviewer tidak perlu kunci model sendiri.",
+    "cliTitle": "Jalankan pada perubahan git lokal dengan CLI",
+    "cliDescription": "Tinjau working tree, sebuah commit, atau branch sebelum push, dikelompokkan dan diringkas seperti PR.",
+    "viewGuide": "Lihat panduan"
+  },
+  "guide": {
+    "userscript": {
+      "title": "Gunakan pulls.review tertanam di github.com",
+      "intro": "Userscript menambahkan panel pulls.review langsung ke halaman pull request di github.com, lengkap dengan file yang dikelompokkan dan ringkasan, sehingga Anda tidak perlu berpindah tab.",
+      "manager": "Pasang pengelola userscript: {tampermonkey} atau {violentmonkey}.",
+      "install": "Pasang userscript pulls.review. Pengelola Anda akan meminta konfirmasi.",
+      "open": "Buka pull request apa pun di github.com lalu klik tab {tab} di samping \"Files changed\".",
+      "ai": "github.com memblokir permintaan yang dibutuhkan analisis AI, jadi panel menampilkan analisis yang dibagikan sebagai komentar PR. Buka PR di pulls.review untuk menjalankan analisis baru."
+    },
+    "bookmarklet": {
+      "title": "Berpindah antara github.com dan pulls.review",
+      "intro": "Bookmarklet adalah bookmark yang menjalankan skrip kecil. Bookmarklet bekerja di browser apa pun tanpa perlu memasang ekstensi, dan membuka halaman saat ini di situs lainnya.",
+      "bar": "Tampilkan bilah bookmark, misalnya dengan {shortcut}.",
+      "drag": "Seret tombol ini ke bilah bookmark:",
+      "use": "Di halaman pull request, commit, atau compare di github.com, klik bookmark untuk membukanya di pulls.review. Klik lagi untuk kembali."
+    },
+    "actions": {
+      "title": "Analisis otomatis dengan GitHub Actions",
+      "intro": "Biarkan CI menganalisis setiap pull request sekali, begitu dibuka atau diperbarui. Semua yang membuka PR, di sini atau di panel github.com, langsung melihat ringkasan yang sama. Tidak ada yang perlu kunci model sendiri, dan pull request dari fork juga mendapatkannya.",
+      "secret": "Tambahkan kunci model Anda sebagai secret repositori, misalnya {name}.",
+      "workflow": "Tambahkan workflow ini ke repositori:",
+      "result": "Buka atau perbarui pull request untuk mencobanya. Analisis muncul sebagai komentar, dan menjalankan ulang pada PR yang tidak berubah melewati panggilan model.",
+      "options": "{provider} disimpulkan dari kunci. Atur {provider}, {model}, atau {locale} untuk menggantinya. Lihat {readme} untuk semua opsi."
+    },
+    "cli": {
+      "title": "Tinjau perubahan git lokal dengan CLI",
+      "intro": "Tinjau perubahan Anda sendiri sebelum orang lain. CLI membuka branch Anda, sebuah commit, atau pekerjaan yang belum di-commit di pulls.review, sehingga Anda bisa melihat perubahan dalam bentuk kelompok dan ringkasan sebelum push atau membuka PR.",
+      "branch": "Di repositori git, jalankan ini untuk meninjau branch saat ini terhadap branch default:",
+      "target": "Atau pilih apa yang ingin ditinjau:",
+      "browser": "CLI membuka {url} di browser untuk menampilkan perubahan lokal Anda. Konfirmasi tab dengan kode sekali pakai yang tercetak di terminal. Di sana Anda juga bisa memilih branch atau commit lain untuk dibandingkan."
+    }
+  },
+  "load": {
+    "title": "Muat diff",
+    "description": "Tempel atau seret berkas unified diff / .patch untuk meninjaunya.",
+    "pasteLabel": "Tempel unified diff / .patch",
+    "chooseFile": "Atau pilih berkas .diff/.patch",
+    "loadButton": "Muat diff",
+    "parsing": "Mengurai diff…",
+    "parseFailed": "Diff ini tidak dapat diurai",
+    "noDiff": "Belum ada diff yang dimuat",
+    "noDiffHint": "Kembali ke halaman utama dan gunakan tombol unggah untuk menempel atau menyeret diff.",
+    "goHome": "Ke halaman utama"
+  },
+  "pr": {
+    "loading": "Memuat pull request…",
+    "loadFailed": "Pull request ini tidak dapat dimuat",
+    "somethingWrong": "Terjadi kesalahan",
+    "newCommits": "Pull request ini memiliki commit baru sejak disimpan di cache.",
+    "autoRefreshNextTime": "Muat ulang otomatis lain kali",
+    "endOfDiff": "Anda telah mencapai akhir diff.",
+    "analyzeBy": "Analisis dengan",
+    "rules": "Aturan",
+    "ai": "AI",
+    "by": "oleh",
+    "sharedBy": "Melihat analisis AI yang dibagikan oleh",
+    "sharedAnalysis": "Melihat analisis bersama",
+    "reviewedOf": "/ {total} ditinjau",
+    "openInSite": "Buka di pulls.review"
+  },
+  "overview": {
+    "tab": {
+      "conversation": "Conversation",
+      "commits": "Commits",
+      "checks": "Checks"
+    },
+    "loading": "Loading pull request details…",
+    "loadFailed": "Couldn't load the pull request details",
+    "tokenRequired": "Add a GitHub token in Settings to see the description, conversation, checks and commits here.",
+    "show": "Show pull request details",
+    "hide": "Hide pull request details",
+    "viewOnGithub": "View on GitHub",
+    "noDescription": "No description provided.",
+    "earlier": "Show {n} earlier item | Show {n} earlier items",
+    "moreOnGithub": "+{n} more on GitHub",
+    "timeline": {
+      "commented": "commented",
+      "reviewed": "reviewed",
+      "approved": "approved these changes",
+      "changesRequested": "requested changes",
+      "pushed": "added {n} commit | added {n} commits",
+      "hidden": "Hidden as {reason}",
+      "inlineComments": "{n} inline comment | {n} inline comments",
+      "outdated": "Outdated"
+    },
+    "event": {
+      "labeled": "added {label}",
+      "unlabeled": "removed {label}",
+      "assigned": "assigned {subject}",
+      "unassigned": "unassigned {subject}",
+      "ready_for_review": "marked this pull request as ready for review",
+      "convert_to_draft": "marked this pull request as draft",
+      "closed": "closed this",
+      "reopened": "reopened this",
+      "merged": "merged commit {subject} into {to}",
+      "force_pushed": "force-pushed from {from} to {to}",
+      "review_requested": "requested a review from {subject}",
+      "review_dismissed": "dismissed a review by {subject}",
+      "renamed": "changed the title from {from} to {to}"
+    },
+    "checks": {
+      "failing": "{n} failing",
+      "pending": "{n} pending",
+      "passing": "{n} successful",
+      "skipped": "{n} skipped",
+      "required": "Required",
+      "details": "Details",
+      "none": "No checks reported on the latest commit.",
+      "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
+    },
+    "commitList": {
+      "view": "View only this commit's changes",
+      "hint": "Click a commit to view only its changes. Shift-click to select a range."
+    },
+    "selection": {
+      "all": "All commits",
+      "one": "Commit {sha}",
+      "range": "{n} commit | {n} commits",
+      "picker": "Choose commits to view",
+      "showAll": "Show all changes",
+      "viewing": "Viewing {index} of {total} commits",
+      "viewingRange": "Viewing commits {start}–{end} of {total}",
+      "viewingSha": "Viewing commit {sha}",
+      "viewingShaRange": "Viewing commits {from} to {to}",
+      "previous": "Previous commit",
+      "next": "Next commit"
+    },
+    "merge": {
+      "button": "Merge",
+      "title": "Merge pull request #{n}",
+      "into": "Merge {head} into {base}",
+      "method": {
+        "merge": "Create a merge commit",
+        "squash": "Squash and merge",
+        "rebase": "Rebase and merge"
+      },
+      "commitTitle": "Commit title",
+      "commitMessage": "Commit message",
+      "rebaseHint": "The commits from this branch will be rebased onto {base} and added without a merge commit.",
+      "confirm": "Confirm merge",
+      "ready": "Ready to merge",
+      "blocked": {
+        "draft": "This pull request is still a draft.",
+        "conflicts": "This branch has conflicts that must be resolved on GitHub.",
+        "blocked": "Merging is blocked until the branch protection requirements are met.",
+        "behind": "This branch is out of date with the base branch.",
+        "checking": "Checking whether this branch can be merged…"
+      },
+      "bypass": "You can still merge as an administrator, bypassing branch protection.",
+      "unstable": "Some checks are not passing, but merging is allowed."
+    },
+    "state": {
+      "merged": "Merged {time}",
+      "closed": "Closed {time}"
+    },
+    "actions": {
+      "close": "Close pull request",
+      "reopen": "Reopen pull request",
+      "ready": "Ready for review",
+      "draft": "Convert to draft",
+      "updateBranch": "Update branch",
+      "failed": "GitHub didn't accept this: {message}"
+    },
+    "awaitingReview": "Awaiting review from {names}",
+    "file": {
+      "copyPath": "Copy file path",
+      "copyLink": "Copy GitHub link",
+      "openAtHead": "View file on GitHub",
+      "copied": "Copied"
+    }
+  },
+  "embed": {
+    "reviewChanges": "Tinjau Perubahan",
+    "updateUserscript": "Perbarui userscript"
+  },
+  "pulls": {
+    "loading": "Memuat pull request…",
+    "loadFailed": "Tidak dapat memuat pull request",
+    "open": "{n} terbuka",
+    "search": "Filter pull request",
+    "empty": "Tidak ada pull request yang terbuka",
+    "noMatches": "Tidak ada pull request yang cocok dengan pencarian Anda",
+    "searchingAll": "Mencari di semua {n} pull request terbuka…",
+    "loadingMore": "Memuat lebih banyak…",
+    "openedBy": "dibuka {time} oleh {author}",
+    "milestone": "Milestone",
+    "comments": "{n} komentar | {n} komentar",
+    "linkedIssues": "{n} issue terkait | {n} issue terkait",
+    "assignedTo": "Ditugaskan kepada {login}",
+    "groups": "{n} grup | {n} grup",
+    "viewedHint": "Dilihat di browser ini",
+    "aiAvailable": "Analisis AI tersedia",
+    "sort": {
+      "label": "Urutkan",
+      "recently-updated": "Baru diperbarui",
+      "least-recently-updated": "Paling lama diperbarui",
+      "newest": "Terbaru",
+      "oldest": "Terlama",
+      "most-commented": "Paling banyak komentar",
+      "least-commented": "Paling sedikit komentar"
+    },
+    "review": {
+      "approved": "Disetujui",
+      "changes_requested": "Perubahan diminta",
+      "review_required": "Perlu review"
+    },
+    "checks": {
+      "success": "Semua pemeriksaan lolos",
+      "failure": "Beberapa pemeriksaan gagal",
+      "pending": "Beberapa pemeriksaan belum selesai"
+    }
+  },
+  "triage": {
+    "queue": {
+      "needs-review": "Needs my review",
+      "ci-failing": "CI failing",
+      "changes-requested": "Changes requested",
+      "ready-to-merge": "Ready to merge",
+      "stale": "Stale",
+      "all": "All"
+    },
+    "hint": {
+      "needs-review": "Your review is requested",
+      "ci-failing": "A check failed on the latest commit",
+      "changes-requested": "A reviewer asked for changes",
+      "ready-to-merge": "Approved, checks passing and no conflicts",
+      "stale": "No activity for {n} days or more",
+      "all": "Every pull request in the list"
+    },
+    "empty": "Nothing in this queue right now",
+    "requested": "Your review",
+    "conflict": "Conflicts",
+    "conflictHint": "This branch has conflicts that must be resolved",
+    "files": "{n} file | {n} files"
+  },
+  "analyze": {
+    "setup": "Set up AI",
+    "setupTitle": "Pick an AI provider in Settings",
+    "analyzing": "Menganalisis…",
+    "analyzingFor": "Analyzing… {duration}",
+    "failed": "Analisis gagal",
+    "failedTitle": "Analisis AI gagal: {message}",
+    "reanalyze": "Analisis ulang",
+    "withAi": "Analisis dengan AI",
+    "statusTitle": "Analisis AI",
+    "starting": "Memulai…",
+    "thinking": "Berpikir… (langkah {step})",
+    "reading": "Membaca {n} berkas: {first}",
+    "organizing": "Menyusun grup…",
+    "notConfigured": "AI analysis is not configured: pick Claude Code or Codex in Settings",
+    "chatFailed": "Permintaan chat gagal",
+    "done": "Sorted the changes into {n} group | Sorted the changes into {n} groups",
+    "resumed": "This analysis was already running on the server; following it from here."
+  },
+  "share": {
+    "button": "Bagikan hasil",
+    "updateButton": "Perbarui komentar yang dibagikan",
+    "sharing": "Membagikan…",
+    "tooltip": "Kirim analisis ini sebagai komentar di pull request agar orang lain dapat memuatnya",
+    "needsToken": "Membagikan memerlukan token GitHub dengan akses tulis",
+    "failed": "Gagal membagikan: {message}",
+    "titleUpdate": "Perbarui analisis yang Anda bagikan",
+    "titleShare": "Bagikan analisis ini di GitHub",
+    "willUpdate": "{comment} Anda yang sudah ada di pull request ini akan diperbarui sebagai {user} dengan token GitHub Anda.",
+    "willPost": "Komentar publik akan dikirim ke pull request ini sebagai {user} dengan token GitHub Anda.",
+    "commentLink": "Komentar",
+    "contains": "Komentar berisi:",
+    "containsLink": "tautan untuk membuka tinjauan ini di {site}",
+    "containsJson": "pengelompokan dan ringkasan analisis AI ini sebagai JSON di dalam blok yang dilipat",
+    "excludes": "Pesan chat, API key, atau apa pun dari pengaturan Anda tidak akan disertakan.",
+    "anyoneCanLoad": "Siapa pun yang melihat pull request dapat memuat analisis yang dibagikan.",
+    "englishRecommended": "Jika Anda mengerjakan proyek publik, kami menyarankan membagikan hasil dalam bahasa Inggris agar bermanfaat bagi komunitas.",
+    "share": "Bagikan",
+    "update": "Perbarui",
+    "shareAnyway": "Tetap bagikan",
+    "updateAnyway": "Tetap perbarui",
+    "loadReplaces": "Muat analisis AI yang dibagikan? Ini akan menggantikan milik Anda:",
+    "available": "Analisis AI yang dibagikan untuk pull request ini tersedia:",
+    "staleTitle": "Dianalisis sebelum commit terbaru",
+    "outdated": "(usang)",
+    "inLanguage": "Dianalisis dalam {language}",
+    "notShared": "{login} belum membagikan analisis pull request ini."
+  },
+  "group": {
+    "toggle": "Buka/tutup grup",
+    "filesReviewed": "{reviewed} / {total} berkas ditinjau",
+    "subgroupsOf": "subgrup dari",
+    "hideSubgroups": "Sembunyikan subgrup",
+    "showSubgroups": "Tampilkan subgrup",
+    "navTabs": "Tampilkan grup sebagai tab",
+    "navSidebar": "Tampilkan grup sebagai bilah samping",
+    "uncategorized": "Tanpa kategori",
+    "uncategorizedSummary": "Berkas yang tidak tercakup oleh analisis saat ini."
+  },
+  "file": {
+    "markReviewed": "Tandai sudah ditinjau",
+    "markFolderReviewed": "Tandai semua berkas di {name} sudah ditinjau",
+    "changedSinceReviewed": "Berkas ini sudah pernah ditinjau, tetapi berubah di commit berikutnya",
+    "resolved": "{n} terselesaikan",
+    "binary": "Berkas biner",
+    "binaryNotShown": "Berkas biner tidak ditampilkan.",
+    "tooLarge": "Diff terlalu besar untuk ditampilkan.",
+    "loadFailed": "Gagal memuat",
+    "loadFull": "Muat isi berkas lengkap",
+    "expand": "Buka berkas",
+    "collapse": "Tutup berkas",
+    "moreActions": "Tindakan lainnya",
+    "noLongerInDiff": "Tidak lagi ada di diff ini",
+    "removed": "dihapus"
+  },
+  "reviewProgress": {
+    "title": "Progres tinjauan",
+    "markAll": "Tandai semua sudah ditinjau",
+    "reset": "Atur ulang status tinjauan",
+    "invert": "Balik status tinjauan",
+    "status": {
+      "reviewed": "Sudah ditinjau",
+      "changed": "Berubah sejak ditinjau",
+      "unreviewed": "Belum ditinjau"
+    }
+  },
+  "fileStatus": {
+    "added": "ditambahkan",
+    "removed": "dihapus",
+    "modified": "diubah",
+    "renamed": "diganti nama",
+    "copied": "disalin"
+  },
+  "prState": {
+    "open": "terbuka",
+    "draft": "draf",
+    "closed": "ditutup",
+    "merged": "digabungkan"
+  },
+  "category": {
+    "ui": "UI",
+    "api": "API",
+    "core": "inti",
+    "data": "data",
+    "cli": "CLI",
+    "security": "keamanan",
+    "tests": "pengujian",
+    "docs": "dokumentasi",
+    "examples": "contoh",
+    "deps": "dependensi",
+    "build": "build",
+    "scripts": "skrip",
+    "config": "konfigurasi",
+    "i18n": "i18n",
+    "assets": "aset",
+    "other": "lainnya"
+  },
+  "review": {
+    "addReview": "Tambah tinjauan",
+    "hideComments": "Sembunyikan komentar tinjauan",
+    "showComments": "Tampilkan komentar tinjauan",
+    "reviews": "Tinjauan",
+    "approved": "menyetujui",
+    "changesRequested": "meminta perubahan",
+    "commented": "berkomentar",
+    "dismissed": "tinjauan dibatalkan",
+    "reviewChanges": "Tinjau perubahan",
+    "includesPending": "Pengiriman menyertakan {n} komentar tertunda Anda.",
+    "summaryPlaceholder": "Tulis ringkasan (opsional untuk menyetujui)",
+    "comment": "Komentar",
+    "approve": "Setujui",
+    "requestChanges": "Minta perubahan",
+    "discard": "Buang tinjauan",
+    "leaveComment": "Tulis komentar",
+    "addSingle": "Tambah satu komentar",
+    "addToReview": "Tambah komentar tinjauan",
+    "startReview": "Mulai tinjauan",
+    "pending": "Tertunda",
+    "editComment": "Edit komentar",
+    "deleteComment": "Hapus komentar",
+    "replyPlaceholder": "Balas…",
+    "resolve": "Selesaikan"
+  },
+  "critique": {
+    "title": "AI review",
+    "run": "Review with AI",
+    "rerun": "Re-review",
+    "running": "Reviewing… {time}",
+    "runTitle": "Have Claude Code or Codex review this diff for bugs and risks",
+    "withLens": "Reviewed through the {lens} skill",
+    "usage": "Cost, tokens in and out, and time taken",
+    "findingCount": "{n} finding | {n} findings",
+    "noFindings": "No bugs or risks found.",
+    "allFiltered": "No findings of the selected severities.",
+    "dropped": "{n} finding was left out: it pointed outside the diff or repeated another. | {n} findings were left out: they pointed outside the diff or repeated others.",
+    "outdated": "This review is of an older commit; review again to post its findings.",
+    "lensMissing": "No skill named \"{name}\" was found.",
+    "filter": "Filter by severity",
+    "selectAll": "Select all",
+    "selectFinding": "Include in the review",
+    "jumpToLine": "Jump to the line",
+    "suggestion": "Suggested change",
+    "fileSummary": "AI summary of this file",
+    "bodyPlaceholder": "Review summary (optional)",
+    "joinsPending": "Your pending review ({n} draft comment) is submitted along with these. | Your pending review ({n} draft comments) is submitted along with these.",
+    "post": "Post {n} selected as a review",
+    "postedFinding": "Posted",
+    "postedCount": "{n} finding posted | {n} findings posted",
+    "severity": {
+      "bug": "Bug",
+      "risk": "Risk",
+      "nit": "Nit"
+    }
+  },
+  "ask": {
+    "action": "Ask AI",
+    "placeholder": "Ask about these lines…",
+    "followUpPlaceholder": "Ask a follow-up…",
+    "hint": "Enter to send, Shift+Enter for a new line",
+    "close": "Close question",
+    "stopped": "Stopped.",
+    "unavailable": "Asking about lines needs Claude Code or Codex, set in the AI settings.",
+    "copyLocation": "Copy file and lines",
+    "copyLink": "Copy GitHub link",
+    "copied": "Copied"
+  },
+  "lens": {
+    "pick": "Review with a skill",
+    "title": "Review with",
+    "description": "Run the AI review through one of your skills.",
+    "search": "Search skills…",
+    "general": "General",
+    "generalDescription": "Bugs, risks and nits across the whole diff",
+    "loading": "Loading skills…",
+    "loadFailed": "Could not load skills: {error}",
+    "none": "No skills found.",
+    "noMatch": "No skills match."
+  },
+  "chat": {
+    "title": "Tanya tentang PR ini",
+    "collapse": "Lipat",
+    "reanalyzeToEnable": "Analisis ulang untuk mengaktifkan chat",
+    "thinking": "Berpikir…",
+    "placeholder": "Tanya tentang PR ini…",
+    "updatedGrouping": "Pengelompokan diperbarui: {n} grup",
+    "readFiles": "Membaca {n} berkas",
+    "updatingGrouping": "Memperbarui pengelompokan…",
+    "submittingGrouping": "Mengirim pengelompokan…",
+    "requestFailed": "Permintaan gagal",
+    "stopped": "dihentikan"
+  },
+  "ai": {
+    "loading": "Loading…",
+    "workingFor": "Working for {duration}",
+    "workedFor": "Worked for {duration}",
+    "stoppedAfter": "Stopped after {duration}",
+    "failedAfter": "Failed after {duration}",
+    "activeNow": "Active now",
+    "activeAgo": "Active {since} ago",
+    "idleFor": "No activity for {since}",
+    "elapsed": "{elapsed} elapsed",
+    "more": "+{n} more",
+    "showLess": "Show less",
+    "stopped": "Stopped",
+    "groups": {
+      "command": "Ran {n} command | Ran {n} commands",
+      "edit": "Edited {n} file | Edited {n} files",
+      "read": "Read {n} file | Read {n} files",
+      "search": "Ran {n} search | Ran {n} searches",
+      "other": "Used {n} tool | Used {n} tools"
+    },
+    "verb": {
+      "thinking": {
+        "now": "Thinking",
+        "past": "Thought"
+      },
+      "writing": {
+        "now": "Writing",
+        "past": "Wrote"
+      },
+      "readFiles": {
+        "now": "Reading {n} file | Reading {n} files",
+        "past": "Read {n} file | Read {n} files"
+      },
+      "organizing": {
+        "now": "Organizing the groups",
+        "past": "Organized the groups"
+      }
+    },
+    "usage": {
+      "input": "{n} in",
+      "output": "{n} out",
+      "cacheRead": "{n} cached",
+      "cacheWrite": "{n} cache write",
+      "reasoning": "{n} reasoning"
+    },
+    "effort": {
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra High",
+      "max": "Max",
+      "ultra": "Ultra"
+    }
+  },
+  "settings": {
+    "layout": "Tata letak diff",
+    "unified": "Gabungan",
+    "split": "Terpisah",
+    "cached": "Pull request di cache",
+    "autoRefresh": "Muat ulang otomatis saat ada commit baru",
+    "language": "Bahasa",
+    "token": {
+      "label": "GitHub Personal Access Token",
+      "optional": "Opsional untuk repositori publik; wajib untuk repositori privat atau untuk memberikan tinjauan.",
+      "scopes": "Tinjauan memerlukan scope {repo} (token klasik) atau {fineGrained} (token fine-grained)",
+      "storedLocally": "Hanya disimpan di browser ini.",
+      "generate": "Buat di GitHub →",
+      "fineGrained": "Token fine-grained (tanpa scope klasik)",
+      "updated": "Diperbarui",
+      "expires": "Berakhir",
+      "neverExpires": "Tidak pernah berakhir",
+      "change": "Ganti token",
+      "checking": "Memeriksa token…",
+      "couldNotVerify": "Token ini tidak dapat diverifikasi."
+    },
+    "llm": {
+      "title": "Analisis AI",
+      "description": "Konfigurasikan penyedia model untuk mengaktifkan ringkasan buatan AI. Hanya disimpan di browser ini dan hanya dikirim ke penyedia yang Anda pilih.",
+      "localDescription": "Claude Code and Codex run on this machine under their own sign-in, so no API key is needed.",
+      "provider": "Penyedia",
+      "engine": "Engine",
+      "baseUrl": "URL dasar",
+      "baseUrlDescription": "Endpoint chat completions apa pun yang kompatibel dengan OpenAI (OpenAI sendiri, server lokal, dll.).",
+      "apiKey": "API key",
+      "gatewayHint": "Token {link}, yang menjangkau semua vendor yang didukung dengan satu token.",
+      "anthropicHint": "{link}, dipanggil langsung dari browser ini (tanpa gateway).",
+      "anthropicLink": "API key Anthropic",
+      "openaiHint": "API key untuk endpoint di atas.",
+      "createKey": "Buat di {provider} →",
+      "configured": "Terkonfigurasi",
+      "changeKey": "Ganti kunci",
+      "model": "Model",
+      "modelListFailed": "Daftar model tidak dapat dimuat ({error}). Masukkan id model secara manual.",
+      "catalogFailed": "Couldn't load models from the CLI: {message}",
+      "refreshModels": "Reload the model list",
+      "effort": "Reasoning effort",
+      "effortDefault": "CLI default",
+      "effortDefaultNamed": "CLI default ({effort})",
+      "effortHint": "How long the model thinks before it acts. Higher is slower and uses more tokens.",
+      "askTitle": "Ask about the PR",
+      "askDescription": "The engine that answers your questions in the chat. It can differ from the one that analyzes the PR.",
+      "askSame": "Same as analysis",
+      "embedUnavailable": "Fitur AI tidak tersedia dalam mode tersemat",
+      "embedReason": "CSP github.com yang ketat memblokir permintaan yang dibutuhkan fitur AI di sini. {link} untuk menggunakannya.",
+      "goToWebsite": "Kunjungi situs web"
+    },
+    "models": {
+      "placeholder": "id model",
+      "loading": "Memuat model…",
+      "search": "Cari model…",
+      "noMatch": "Tidak ada model yang cocok",
+      "useCustom": "Gunakan “{id}”",
+      "free": "Gratis",
+      "priceTitle": "Input {input}/M · Output {output}/M token",
+      "default": "Default"
+    }
+  },
+  "rules": {
+    "allFiles": "Semua berkas",
+    "code": {
+      "label": "Kode",
+      "summary": "Perubahan kode sumber."
+    },
+    "other": {
+      "label": "Lainnya",
+      "summary": "Perubahan lain yang tidak cocok dengan kategori yang ada."
+    },
+    "docs": {
+      "label": "Dokumentasi",
+      "summary": "Pembaruan dokumentasi."
+    },
+    "tests": {
+      "label": "Pengujian",
+      "summary": "Cakupan pengujian untuk perubahan ini."
+    },
+    "config": {
+      "label": "Konfigurasi",
+      "summary": "Perubahan konfigurasi."
+    },
+    "deps": {
+      "label": "Dependensi",
+      "summary": "Perubahan versi dependensi."
+    },
+    "generated": {
+      "label": "Hasil generate",
+      "summary": "Perubahan berkas hasil generate atau build."
+    },
+    "types": {
+      "label": "Tipe",
+      "summary": "Deklarasi tipe."
+    },
+    "data": {
+      "label": "Data",
+      "summary": "Skema basis data dan migrasi."
+    },
+    "styles": {
+      "label": "Gaya",
+      "summary": "Stylesheet dan konfigurasi gaya."
+    },
+    "scripts": {
+      "label": "Skrip",
+      "summary": "Skrip build, pengembangan, dan otomasi."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "Workflow dan pipeline CI."
+    },
+    "i18n": {
+      "label": "Terjemahan",
+      "summary": "Berkas bahasa dan terjemahan."
+    },
+    "assets": {
+      "label": "Aset",
+      "summary": "Gambar, font, dan media."
+    },
+    "area": "{label} · {area}",
+    "rootArea": "akar repo",
+    "otherAreas": "area lain",
+    "facts": {
+      "sentence": "{blurb} {list}.",
+      "separator": ", ",
+      "added": "{n} berkas baru",
+      "removed": "{n} dihapus",
+      "renamed": "{n} diganti nama",
+      "pairedTests": "{n} pengujian tepat setelah sumbernya"
+    }
+  },
+  "errors": {
+    "tokenRequired": "Token GitHub diperlukan untuk menulis ke pull request ini.",
+    "diffNotLoaded": "Diff belum selesai dimuat.",
+    "noViewer": "Pengguna GitHub untuk token ini tidak dapat ditentukan.",
+    "tokenRejected": "GitHub menolak token ini (401). Pastikan token ditempel lengkap dan belum dicabut.",
+    "tooLarge": "Analisis terlalu besar untuk dibagikan sebagai komentar ({n} karakter)."
+  },
+  "local": {
+    "home": {
+      "title": "Your pull requests",
+      "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
+      "search": "Filter by repo, title, author or label",
+      "allInRepo": "All pull requests",
+      "state": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "urlPlaceholder": "Paste a GitHub pull request or repository URL",
+      "open": "Open",
+      "loading": "Loading your pull requests…",
+      "failed": "Couldn't load your pull requests",
+      "refresh": "Refresh",
+      "empty": "No open pull requests here",
+      "all": "All",
+      "draft": "draft",
+      "role": {
+        "review-requested": "Review requested",
+        "authored": "Authored",
+        "involved": "Involved",
+        "owned": "In your repos"
+      },
+      "queues": "Queues",
+      "roles": "Roles",
+      "updating": "Updating…",
+      "updatedAgo": "Updated {time}",
+      "updateFailed": "Couldn't update: {message}"
+    },
+    "snapshot": {
+      "offline": "Couldn't reach the server or GitHub. This is the copy saved on this device and may be out of date."
+    },
+    "loading": "Memuat perubahan lokal…",
+    "loadFailed": "Tidak dapat memuat perubahan ini",
+    "auth": {
+      "title": "Masukkan kode dari terminal Anda",
+      "hint": "pulls.review menampilkan kode 6 digit di terminal tempat ia berjalan.",
+      "invalid": "Kode itu tidak berhasil. Periksa terminal dan coba lagi.",
+      "submit": "Lanjutkan"
+    },
+    "picker": {
+      "tagline": "Tinjau branch lokal, rentang, dan perubahan yang belum di-commit seperti pull request: dikelompokkan, diringkas, satu cakupan setiap kali.",
+      "title": "Tinjau perubahan lokal",
+      "base": "Basis",
+      "head": "Head",
+      "compare": "Bandingkan",
+      "shortcuts": "Pintasan",
+      "worktree": "Perubahan yang belum di-commit",
+      "recentCommits": "Commit terbaru",
+      "branches": "Branch",
+      "against": "terhadap {base}",
+      "current": "Branch saat ini"
+    }
+  }
+}
