@@ -33,6 +33,7 @@ data class Usage(
     val inputTokens: Long? = null,
     val outputTokens: Long? = null,
     val cacheReadTokens: Long? = null,
+    val cacheWriteTokens: Long? = null,
     val reasoningTokens: Long? = null,
     val costUsd: Double? = null,
     val durationMs: Long? = null,
@@ -40,7 +41,7 @@ data class Usage(
 )
 
 fun JsonObject?.asUsage(): Usage? = this?.let {
-    Usage(it.l("inputTokens"), it.l("outputTokens"), it.l("cacheReadTokens"), it.l("reasoningTokens"), it.d("costUsd"), it.l("durationMs"), it.sOrNull("model"))
+    Usage(it.l("inputTokens"), it.l("outputTokens"), it.l("cacheReadTokens"), cacheWriteTokens = it.l("cacheWriteTokens"), reasoningTokens = it.l("reasoningTokens"), costUsd = it.d("costUsd"), durationMs = it.l("durationMs"), model = it.sOrNull("model"))
 }
 
 /** `AiActivity`: one work-log entry; entries update in place, merge by [id]. */

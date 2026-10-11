@@ -151,6 +151,7 @@ internal fun AiUsageLine(usage: Usage?, modifier: Modifier = Modifier, durationM
         tokens("input", u.inputTokens),
         tokens("output", u.outputTokens),
         tokens("cacheRead", u.cacheReadTokens),
+        tokens("cacheWrite", u.cacheWriteTokens),
         tokens("reasoning", u.reasoningTokens),
         // Codex reports no cost at all; an unset or zero cost is unknown, not free.
         u.costUsd?.takeIf { it > 0 }?.let(::formatCost),

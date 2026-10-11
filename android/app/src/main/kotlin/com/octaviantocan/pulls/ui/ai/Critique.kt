@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -355,11 +356,14 @@ private fun FindingCard(finding: CritiqueFinding, posted: Boolean, selected: Boo
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                 SeverityBadge(finding.severity)
                 Text(finding.title, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-                Text(
-                    location,
-                    Modifier.defaultMinSize(minHeight = 32.dp).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button, onClickLabel = t("critique.jumpToLine"), onClick = onJump).padding(vertical = 6.dp),
-                    style = PullsType.xs.copy(fontFamily = PullsType.mono, textDecoration = TextDecoration.Underline), color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
+                // `ml-auto truncate text-xs font-mono op-fade`: pushed to the row's end, no underline (hover-only on the web).
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                    Text(
+                        location,
+                        Modifier.defaultMinSize(minHeight = 32.dp).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button, onClickLabel = t("critique.jumpToLine"), onClick = onJump).padding(vertical = 6.dp),
+                        style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Markdown(finding.body, Modifier.fillMaxWidth())
             finding.suggestion?.let { suggestion ->
