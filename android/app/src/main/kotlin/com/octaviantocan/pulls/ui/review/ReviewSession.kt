@@ -93,6 +93,15 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     val hasAiResult: Boolean get() = saved?.aiGroups?.isNotEmpty() == true
 
+    /** The server's GitHub token may write reviews here (web `reviews.canWrite`). */
+    val canWrite: Boolean get() = reviewData?.canWrite == true
+
+    /** Severities the critique panel shows; the diff's inline findings follow the same filter. */
+    var findingSeverities by mutableStateOf<Set<String>?>(null)
+
+    val visibleFindings: List<CritiqueFinding>
+        get() = saved?.critique?.findings.orEmpty().filter { finding -> findingSeverities?.contains(finding.severity) ?: true }
+
     fun load() {
         scope.launch {
             loading = true
@@ -105,8 +114,11 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         pull?.let { reloadOverview(); reloadReviews() }
     }
 
-    /** Refetches the diff, the overview and the reviews; AI results stay (they are keyed by the diff). */
-    fun refresh() = load()
+    /** Refetches the diff, the overview and the reviews; AI results stay. A commit selection is dropped. */
+    fun refresh() {
+        selection = null
+        load()
+    }
 
     private suspend fun afterOpen() {
         val key = opened?.key ?: return
@@ -151,9 +163,13 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     }
 
     /** Narrows the diff to commits `from..to` of the PR (web `CommitPicker`); null restores all commits. */
+    private var selectSeq = 0
+
     fun selectCommits(range: Pair<String, String>?) {
         val pull = pull ?: return
+        val seq = ++selectSeq
         selection = range
+        loadError = null
         if (range == null) {
             opened = prOpened
             scope.launch { afterOpen() }
@@ -163,7 +179,10 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         else OpenTarget.Compare(pull.owner, pull.repo, "${range.first}^", range.second)
         scope.launch {
             loading = true
-            runCatching { repo.open(narrowed) }.onSuccess { opened = it; afterOpen() }.onFailure { loadError = it.message }
+            val result = runCatching { repo.open(narrowed) }
+            // A newer selection (fast previous/next taps) wins; drop this answer.
+            if (seq != selectSeq) return@launch
+            result.onSuccess { opened = it; afterOpen() }.onFailure { loadError = it.message }
             loading = false
         }
     }
@@ -178,16 +197,18 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      * Starts a server task and follows it; [onDone] runs after it settles and the saved
      * state has been reloaded. It keeps running on the server if the page goes away.
      */
-    fun startTask(kind: String, extra: JsonObjectBuilder.() -> Unit = {}, onDone: (TaskState) -> Unit = {}) {
+    fun startTask(kind: String, extra: JsonObjectBuilder.() -> Unit = {}, onStarted: (String) -> Unit = {}, onDone: (TaskState) -> Unit = {}) {
         val key = key ?: return
         scope.launch {
             val id = runCatching { repo.startTask(kind, key, extra) }.getOrElse { error ->
                 val failed = TaskState(id = "failed-${System.nanoTime()}", kind = kind, key = key, status = "failed", error = error.message, startedAt = System.currentTimeMillis())
                 tasks[failed.id] = failed
+                onStarted(failed.id)
                 onDone(failed)
                 return@launch
             }
             tasks[id] = TaskState(id = id, kind = kind, key = key, startedAt = System.currentTimeMillis())
+            onStarted(id)
             follow(id, onDone)
         }
     }

@@ -172,8 +172,8 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   /** Every review thread (outdated ones included, flagged), review summaries, and the viewer's pending review. */
   'review-data': async function (_cwd, args) {
     const data = await (await prReviews(args)).fetch()
-    const meta = await fetchGithubTokenMeta(await token()).catch(() => undefined)
-    return { ...data, viewer: meta?.login }
+    const viewer = await createGithubSource({ kind: 'github-pr', ...pullOf(args) }, staticCredentials(await token())).viewer?.().catch(() => undefined)
+    return { ...data, viewer: viewer?.login, canWrite: viewer?.canWrite ?? false }
   },
 
   'review-submit': async function (_cwd, args) {

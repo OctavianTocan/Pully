@@ -168,7 +168,7 @@ private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: Re
     val threads = visibleThreads(session.reviewData?.threads.orEmpty(), path, session.settings.showThreads, includeResolved = true)
     val ai = aiAnchors(
         file,
-        session.saved?.critique?.findings.orEmpty(),
+        session.visibleFindings,
         session.saved?.analysis?.files?.firstOrNull { it.path == path },
         session.saved?.asks.orEmpty(),
     )

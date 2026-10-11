@@ -253,7 +253,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
             if (result.findings.isEmpty()) Text(t("critique.noFindings"), style = PullsType.sm, color = c.fade)
             else {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, itemVerticalAlignment = Alignment.CenterVertically) {
-                    SeverityFilter(result, ui.severities) { ui.severities = it }
+                    SeverityFilter(result, ui.severities) { ui.severities = it; session.findingSeverities = it }
                     if (selectable.isNotEmpty()) AiCheckbox(allSelected, { value ->
                         ui.selected = if (value) ui.selected + selectable.map { it.id } else ui.selected - selectable.map { it.id }.toSet()
                     }, label = t("critique.selectAll"))

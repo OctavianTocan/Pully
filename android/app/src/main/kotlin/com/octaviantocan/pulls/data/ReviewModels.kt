@@ -217,7 +217,7 @@ data class ReviewThread(
 data class ReviewSummary(val id: Long, val author: String, val avatarUrl: String?, val state: String, val body: String, val submittedAt: String?, val url: String?)
 
 /** `ReviewData` plus who the server's token acts as. */
-data class ReviewData(val threads: List<ReviewThread>, val summaries: List<ReviewSummary>, val pendingReviewId: Long?, val viewer: String?) {
+data class ReviewData(val threads: List<ReviewThread>, val summaries: List<ReviewSummary>, val pendingReviewId: Long?, val viewer: String?, val canWrite: Boolean = false) {
     val pendingCount: Int get() = threads.sumOf { t -> t.comments.count { it.pending } }
 }
 
@@ -234,6 +234,7 @@ fun JsonElement.asReviewData(): ReviewData {
         summaries = o.arr("summaries").map { r -> ReviewSummary(r.l("id") ?: 0, r.obj("author")?.s("login") ?: "ghost", r.obj("author")?.sOrNull("avatarUrl"), r.s("state"), r.s("body"), r.sOrNull("submittedAt"), r.sOrNull("url")) },
         pendingReviewId = o.obj("pendingReview")?.l("id"),
         viewer = o.sOrNull("viewer"),
+        canWrite = o.b("canWrite"),
     )
 }
 

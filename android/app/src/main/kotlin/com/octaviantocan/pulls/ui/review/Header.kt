@@ -430,7 +430,7 @@ fun PrMeta(session: ReviewSession, top: ReviewTopUi, modifier: Modifier = Modifi
             Text("$reviewedCount", style = PullsType.sm, color = c.text)
             Text(t("pr.reviewedOf", "total" to files.size), style = PullsType.xs, color = c.text.copy(alpha = 0.5f), maxLines = 1)
         }
-        if (session.pull != null && session.reviewData?.viewer != null) {
+        if (session.pull != null && session.canWrite) {
             val pending = session.reviewData?.pendingCount ?: 0
             Box {
                 ActionButton({ top.reviewOpen = true }, icon = "chat-centered-text-duotone", small = true) {

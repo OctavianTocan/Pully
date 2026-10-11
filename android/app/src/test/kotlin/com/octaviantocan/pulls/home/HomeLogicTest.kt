@@ -262,11 +262,12 @@ class CheckoutLogicTest {
 
     @Test
     fun mapsADefaultBranchCompareToABranchTarget() {
-        assertEquals(OpenTarget.Branch("feat/a"), info.compareTarget("origin/main", "feat/a"))
-        assertEquals(OpenTarget.Branch("feat/a"), info.compareTarget("main", " feat/a "))
-        assertNull(info.compareTarget("feat/b", "feat/a"))
+        assertEquals(OpenTarget.Local("origin/main...feat/a"), info.compareTarget("origin/main", "feat/a"))
+        assertEquals(OpenTarget.Local("main...feat/a"), info.compareTarget("main", " feat/a "))
+        assertEquals(OpenTarget.Local("feat/b...feat/a"), info.compareTarget("feat/b", "feat/a"))
         assertNull(info.compareTarget("", "feat/a"))
-        assertNull(RepoInfo(null, null, emptyList(), emptyList(), emptyList()).compareTarget("main", "x"))
+        assertNull(info.compareTarget("-x", "feat/a"))
+        assertEquals(OpenTarget.Local("main...x"), RepoInfo(null, null, emptyList(), emptyList(), emptyList()).compareTarget("main", "x"))
     }
 }
 

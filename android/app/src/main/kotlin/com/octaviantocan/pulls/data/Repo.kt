@@ -44,6 +44,7 @@ class Repo(private val context: Context) {
             val base = call("repo-info").jsonObject.obj("defaultBranch")?.s("ref")?.ifBlank { null } ?: "HEAD"
             call("local-diff") { put("target", "$base...${target.name}") }.asOpened()
         }
+        is OpenTarget.Local -> call("local-diff") { put("target", target.target) }.asOpened()
         OpenTarget.Worktree -> call("local-diff") { put("target", "") }.asOpened()
     }
 

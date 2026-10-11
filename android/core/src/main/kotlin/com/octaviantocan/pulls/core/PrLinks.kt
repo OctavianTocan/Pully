@@ -38,6 +38,15 @@ sealed class OpenTarget {
         override val serverTarget = "$owner/$repo/commit/$sha"
     }
 
+    /**
+     * A local git target in the server's own syntax (`core/src/local/target.ts`):
+     * `A...B` a merge-base range, `A..B` a tree diff, anything else one commit.
+     */
+    data class Local(val target: String) : OpenTarget() {
+        override val label = target
+        override val serverTarget = "local/$target"
+    }
+
     data object Worktree : OpenTarget() {
         override val label = "Worktree"
         override val serverTarget = ""

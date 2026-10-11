@@ -96,7 +96,7 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
     val actions = remember(session, thread.rootId) { ThreadActions(session) }
     var open by rememberSaveable(thread.rootId) { mutableStateOf(!thread.resolved) }
     val viewer = session.reviewData?.viewer
-    val canWrite = viewer != null && session.pull != null
+    val canWrite = session.canWrite && session.pull != null
     val canResolve = canWrite && thread.threadId != null && !thread.pending && !thread.resolved
     CardBox(modifier) {
         if (!open) {
@@ -253,7 +253,7 @@ fun CommentComposer(session: ReviewSession, draft: DraftTarget, onDone: () -> Un
 /** The draft box under the last selected line: selection actions (AI) and, with write access, the composer. */
 @Composable
 fun DraftBox(session: ReviewSession, draft: DraftTarget, binary: Boolean, onDone: () -> Unit) {
-    val canComment = session.reviewData?.viewer != null && session.pull != null && !binary
+    val canComment = session.canWrite && session.pull != null && !binary
     CardBox {
         if (!binary) {
             com.octaviantocan.pulls.ui.ai.SelectionActions(session, draft.path, draft.side, draft.startLine ?: draft.line, draft.line, onDone)

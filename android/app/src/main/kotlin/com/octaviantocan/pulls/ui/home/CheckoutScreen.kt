@@ -84,17 +84,12 @@ data class RepoInfo(
     /** Most recently committed first, without the default branch; [limit] of them. */
     fun pickerBranches(limit: Int = 10): List<String> = branches.filter { it != defaultBranch?.first }.take(limit)
 
-    /**
-     * What a `base...head` compare opens on the phone. The core `OpenTarget` has no local
-     * range or local commit kind, only [OpenTarget.Branch] (the default branch `...` a
-     * branch) and the worktree, so only a compare against the default branch maps.
-     */
+    /** What a `base...head` compare opens: a merge-base range on the server's checkout (`checkout.vue`). */
     fun compareTarget(base: String, head: String): OpenTarget? {
         val b = base.trim()
         val h = head.trim()
-        if (b.isEmpty() || h.isEmpty()) return null
-        val default = defaultBranch ?: return null
-        return if (b == default.second || b == default.first) OpenTarget.Branch(h) else null
+        if (b.isEmpty() || h.isEmpty() || b.startsWith("-") || h.startsWith("-")) return null
+        return OpenTarget.Local("$b...$h")
     }
 }
 
@@ -200,13 +195,8 @@ fun CheckoutScreen(nav: Nav) {
                                     }
                                 }
                                 if (i.commits.isNotEmpty()) Section(t("local.picker.recentCommits")) {
-                                    val clipboard = LocalClipboardManager.current
                                     i.commits.forEach { (sha, subject) ->
-                                        // No local-commit OpenTarget exists yet: a tap copies the sha.
-                                        ListRow({
-                                            clipboard.setText(AnnotatedString(sha))
-                                            Toast.makeText(context, sha.take(7), Toast.LENGTH_SHORT).show()
-                                        }) {
+                                        ListRow({ nav.openTarget(OpenTarget.Local(sha)) }) {
                                             Text(sha.take(7), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade)
                                             Text(subject, Modifier.weight(1f), style = PullsType.sm, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }

@@ -105,15 +105,10 @@ internal fun ReviewSession.startAiTask(
     onDone: (TaskState) -> Unit = {},
 ) {
     val ui = aiUi(this)
-    val before = tasks.keys.toSet()
-    startTask(kind, extra, onDone)
-    scope.launch {
-        val task = withTimeoutOrNull(30_000) {
-            snapshotFlow { tasks.values.firstOrNull { it.id !in before && it.kind == kind } }.first { it != null }
-        } ?: return@launch
-        ui.startedHere = ui.startedHere + task.id
-        ui.watched = ui.watched + task.id
+    startTask(kind, extra, onStarted = { id ->
+        ui.startedHere = ui.startedHere + id
+        ui.watched = ui.watched + id
         // `ReviewSession.startTask` records a start the server refused as a settled `failed-…` task.
-        if (task.id.startsWith("failed-")) onStartError?.invoke(task.error ?: "Request failed") else afterStart?.invoke()
-    }
+        if (id.startsWith("failed-")) onStartError?.invoke(tasks[id]?.error ?: "Request failed") else afterStart?.invoke()
+    }, onDone = onDone)
 }
