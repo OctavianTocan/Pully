@@ -11,43 +11,50 @@ import com.octaviantocan.pulls.ui.review.ReviewSession
  * `components/critique`, `components/chat`, `components/ask`, `DiffAnalyzeButton`,
  * `AnalyzeStatusModal`, `DiffShareButton`, `ShareResultModal`, `SharedAnalysisBanner`.
  * Callers outside ui/ai use only the functions below; their signatures are the contract.
+ *
+ * Files: `Analyze.kt` (analyze button + status sheet, share, shared banner), `Critique.kt`
+ * (review button, lens picker, panel, finding cards), `Ask.kt` (selection actions, threads),
+ * `Chat.kt` (chat widget), `AiParts.kt` (activity log, usage line, sheet, shimmer),
+ * `AiState.kt` (page-local AI state), and the pure ports `AiFormat.kt`, `AiActivity.kt`,
+ * `AskSelection.kt`.
  */
 
 /** `DiffAnalyzeButton`: Analyze with AI / Analyzing… {time} / Re-analyze, opening the status sheet. */
 @Composable
-fun AnalyzeButton(session: ReviewSession, modifier: Modifier = Modifier) {}
+fun AnalyzeButton(session: ReviewSession, modifier: Modifier = Modifier) = AnalyzeButtonImpl(session, modifier)
 
 /** `CritiqueButton` + `LensPicker`: Review with AI, with a lens menu. */
 @Composable
-fun CritiqueButton(session: ReviewSession, modifier: Modifier = Modifier) {}
+fun CritiqueButton(session: ReviewSession, modifier: Modifier = Modifier) = CritiqueButtonImpl(session, modifier)
 
 /** `DiffShareButton` + `ShareResultModal`. Renders nothing when there is no own AI result. */
 @Composable
-fun ShareButton(session: ReviewSession, modifier: Modifier = Modifier) {}
+fun ShareButton(session: ReviewSession, modifier: Modifier = Modifier) = ShareButtonImpl(session, modifier)
 
 /** `CritiquePanel` (with `FindingCard`s). Renders nothing until a critique runs or exists. */
 @Composable
-fun CritiquePanel(session: ReviewSession, modifier: Modifier = Modifier) {}
+fun CritiquePanel(session: ReviewSession, modifier: Modifier = Modifier) = CritiquePanelImpl(session, modifier)
 
 /** `SharedAnalysisBanner` when the shown analysis was shared by someone. */
 @Composable
-fun SharedAnalysisBanner(session: ReviewSession, modifier: Modifier = Modifier) {}
+fun SharedAnalysisBanner(session: ReviewSession, modifier: Modifier = Modifier) = SharedAnalysisBannerImpl(session, modifier)
 
 /** `ChatWidget`: floating button bottom-right, opening the PR chat as a bottom sheet. Draw it over the page. */
 @Composable
-fun ChatWidget(session: ReviewSession, modifier: Modifier = Modifier) {}
+fun ChatWidget(session: ReviewSession, modifier: Modifier = Modifier) = ChatWidgetImpl(session, modifier)
 
 /** `AskThread`: a saved question thread about some lines, shown under its last line. */
 @Composable
-fun AskThreadCard(session: ReviewSession, thread: AskThread, modifier: Modifier = Modifier) {}
+fun AskThreadCard(session: ReviewSession, thread: AskThread, modifier: Modifier = Modifier) = AskThreadCardImpl(session, thread, modifier)
 
 /**
  * `SelectionActions` + a new `AskThread`: for selected lines, Ask AI / Copy file and lines /
  * Copy GitHub link. [onDone] closes it.
  */
 @Composable
-fun SelectionActions(session: ReviewSession, path: String, side: String, startLine: Int, endLine: Int, onDone: () -> Unit, modifier: Modifier = Modifier) {}
+fun SelectionActions(session: ReviewSession, path: String, side: String, startLine: Int, endLine: Int, onDone: () -> Unit, modifier: Modifier = Modifier) =
+    SelectionActionsImpl(session, path, side, startLine, endLine, onDone, modifier)
 
 /** `AiActivityLog`: the work log of a task, grouped and timed like the web. */
 @Composable
-fun AiActivityLog(activities: List<Activity>, running: Boolean, modifier: Modifier = Modifier) {}
+fun AiActivityLog(activities: List<Activity>, running: Boolean, modifier: Modifier = Modifier) = AiActivityLogFull(activities, running, modifier)
