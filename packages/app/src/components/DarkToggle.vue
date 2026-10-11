@@ -1,15 +1,9 @@
 <script setup lang="ts">
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
-import { watchEffect } from 'vue'
 import { isDark } from '../state/dark'
 
-// No Nuxt `useHead` here - a dedicated meta tag (unconditional, unlike index.html's
-// static prefers-color-scheme pair) that mirrors the app's actual dark-mode state.
-const themeColorMeta = document.head.appendChild(document.createElement('meta'))
-themeColorMeta.name = 'theme-color'
-watchEffect(() => {
-  themeColorMeta.content = isDark.value ? '#222222' : '#ffffff'
-})
+// The browser-chrome colour follows `isDark` from `main.ts` (`state/theme-color.ts`), on
+// every page, not only the ones that show this toggle.
 
 function toggleDark() {
   isDark.value = !isDark.value

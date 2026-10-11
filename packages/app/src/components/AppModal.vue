@@ -51,7 +51,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
          Below `sm` the dialog is a bottom sheet: full width, clear of the notch and home indicator. -->
     <div
       v-if="open"
-      class="fixed inset-0 flex items-end justify-center pt-[max(1rem,env(safe-area-inset-top))] sm:items-center sm:p-4"
+      class="fixed inset-0 flex items-end justify-center pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[max(1rem,env(safe-area-inset-top))] sm:(items-center pb-4 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))])"
       :class="teleportTarget === 'body' ? 'z-modal' : 'z-[2147483002]'"
     >
       <div class="fixed inset-0 z-modal-backdrop bg-[#ddd]/40 backdrop-blur-sm dark:bg-black/40" @click="close" />

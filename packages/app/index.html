@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta
       name="description"
       content="A better way to review a GitHub pull request’s diff: grouped, summarized, and fast."
@@ -21,8 +24,10 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://pulls.review/og.png" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="white" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#222222" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- The sticky headers' `bg-base` in each scheme; `src/state/theme-color.ts` keeps both on the app's own dark toggle. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111111" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Pull reviews made clear and organized - pulls.review</title>

@@ -98,6 +98,13 @@ body {
   }
 }
 
+/* `@antfu/design`'s `FeedbackToasts` stack sits `bottom-4 right-4` with no inset of its
+   own; keep it above the home indicator and clear of the notch in landscape. */
+.z-toast.fixed[role='region'] {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+}
+
 /* Phones: `text-sm` (body copy, labels) reads at 16px and `text-xs` (meta) at 13px.
    Both utilities read these variables (see `uno.config.ts`), so desktop keeps its
    14px/12px. */
