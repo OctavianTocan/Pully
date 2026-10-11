@@ -5,7 +5,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.octaviantocan.pulls.core.PrLinks
+import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.PullsApp
 import com.octaviantocan.pulls.ui.theme.PullsTheme
 
@@ -13,8 +15,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val settings = AppSettings.get(this)
         setContent {
-            PullsTheme {
+            val dark = when (settings.theme) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
+            PullsTheme(dark = dark, locale = settings.locale) {
                 PullsApp(initialTarget = readTarget(intent))
             }
         }
