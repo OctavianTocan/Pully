@@ -309,6 +309,7 @@ export function createMockDiffsStore(input: {
           resumed: input.llmResumed ?? false,
           reanalyze,
           abort,
+          detach: abort,
           chat,
         })
       : undefined,

@@ -38,6 +38,27 @@ A pnpm workspace of three packages (`plans/08-core-and-cli.md`):
   the GitHub token comes from the server. It MUST NOT take over the
   Actions entry point, and the public site MUST NOT bundle the devframe client.
 
+## AI work outlives the page (`packages/cli/src/ai/tasks.ts`)
+
+On the local server, every Claude Code or Codex run the page starts - an analysis,
+an AI review, a question about selected lines, a chat reply - is a server *task*
+(`LOCAL_RPC.aiTaskStart`), not a browser-held promise. The task reads the diff from
+the shared cache by its key, runs, and writes its result where the page reads it:
+`analyzedBy.llm` + `llmSession` of the diff entry, `critiques` under its variant, or
+the diff's saved question threads (`ask-threads:<key>`). Contract:
+
+- Reloading, closing the tab or a phone sleeping MUST NOT stop or lose a task.
+  Stores therefore have two ways out: `abort()` cancels the task (the Stop button),
+  `detach()` only stops following it (page dispose, a refetched diff).
+- Opening a diff lists its tasks (`aiTaskList`) and follows the running ones again;
+  finished results are already in the cache. A running task doing the same work
+  (same kind and diff, same critique variant or ask thread) is joined, not started twice.
+- devframe's socket does not reconnect, so the local build reloads the page once the
+  connection drops and the tab is visible again; nothing is lost because the work is
+  on the server.
+- Browser-run providers (gateway, Anthropic, OpenAI-compatible) and builds without a
+  local server keep the in-page path.
+
 ## Invariants
 
 - Nothing is proxied through a server we run. There is no backend — no server

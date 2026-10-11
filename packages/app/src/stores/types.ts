@@ -41,8 +41,10 @@ export interface DiffsStoreLlm {
   /** Whether the current run was already going on the server when this page opened. */
   readonly resumed: boolean
   reanalyze: () => Promise<void>
-  /** Stops the in-flight run (and any chat) - leaves `error` unset. */
+  /** Stops the in-flight run (and any chat) - leaves `error` unset. A server task is cancelled. */
   abort: () => void
+  /** Stops following the run without stopping it: a server task still finishes and saves its result. */
+  detach: () => void
   readonly chat: {
     readonly available: boolean
     readonly messages: AgentMessage[]
@@ -154,8 +156,10 @@ export interface DiffsStoreCritique {
   listLenses: () => Promise<ReviewLens[]>
   /** Shows the saved critique for `lens` at this head, or runs one; `force` always runs. */
   run: (options?: { lens?: string, force?: boolean }) => Promise<void>
-  /** Stops following the running review; leaves `error` unset. */
+  /** Stops the running review, on the server too; leaves `error` unset. */
   abort: () => void
+  /** Stops following the running review; a server task still finishes and saves it. */
+  detach: () => void
   setSeverities: (severities: CritiqueSeverity[]) => void
   setSelected: (id: string, selected: boolean) => void
   /** Picks or unpicks every visible finding. */

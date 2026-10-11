@@ -31,6 +31,28 @@ async function ensureTrusted(client: Awaited<ReturnType<typeof connectLocal>>['c
 }
 
 /**
+ * devframe's socket never reconnects, and a phone drops it whenever the tab sleeps. Every AI
+ * task runs and saves on the server, so reloading once the tab is visible again loses nothing
+ * and picks the running ones back up.
+ */
+function reloadAfterDisconnect(client: Awaited<ReturnType<typeof connectLocal>>['client']): void {
+  let lost = false
+  const reloadWhenVisible = () => {
+    if (lost && document.visibilityState === 'visible')
+      location.reload()
+  }
+  client.events.on('connection:status', (status) => {
+    if (status !== 'disconnected' && status !== 'error')
+      return
+    lost = true
+    // A short pause rides out a server restart instead of reloading into a refused connection.
+    setTimeout(reloadWhenVisible, 1500)
+  })
+  document.addEventListener('visibilitychange', reloadWhenVisible)
+  window.addEventListener('online', reloadWhenVisible)
+}
+
+/**
  * Wires a `PR_LOCAL` build to the `pulls.review` server: the cache lives in the repo
  * (over RPC), the GitHub token comes from the server's environment, `/` picks refs and
  * `/compare`, `/branch`, `/worktree` and `/commit` review them.
@@ -38,6 +60,7 @@ async function ensureTrusted(client: Awaited<ReturnType<typeof connectLocal>>['c
 export async function installLocal(app: App, router: Router): Promise<void> {
   const { client, rpc } = await connectLocal()
   await ensureTrusted(client)
+  reloadAfterDisconnect(client)
 
   installAppContext(app, {
     cache: createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) })),

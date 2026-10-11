@@ -1,11 +1,11 @@
 import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import type { CacheRepositories, LlmSession } from '@pulls.review/core/cache'
-import type { AiActivity, AiJobSnapshot, AiUsage } from '@pulls.review/core/local-rpc'
+import type { AiActivity, AiJobSnapshot, AiTaskSnapshot, AiUsage } from '@pulls.review/core/local-rpc'
 import type { DiffsPayload, GroupedResult } from '@pulls.review/core/types'
 import type { Ref } from 'vue'
 import type { TrackedActivity } from '../components/ai/ai-activity'
 import type { DiffsStoreLlm, LlmProgress } from './types'
-import { resolveModel } from '@pulls.review/core/analyze'
+import { resolveAskModel, resolveModel } from '@pulls.review/core/analyze'
 import { LLM_ENGINES } from '@pulls.review/core/local-rpc'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { llmAdapter, runLlmAnalysis } from '../analyze/adapters/llm'
@@ -15,8 +15,10 @@ import { t } from '../i18n'
 import { describeProgress, localizeError } from '../i18n/core-messages'
 import { listAiJobs } from '../local/ai-jobs'
 import { getAiRpc } from '../local/ai-rpc'
+import { cancelAiTask, followAiTask, listAiTasks, startAiTask, taskModelOf } from '../local/ai-tasks'
 import { settings } from '../state/settings'
 import { analysisJobKey, analysisJobLabel, buildPrContext, runUsage } from './ai-job'
+import { isAbortError } from './run-errors'
 
 export interface LlmStoreOptions {
   cache: CacheRepositories
@@ -75,12 +77,119 @@ export function createLlmStore(opts: LlmStoreOptions): DiffsStoreLlm {
       await opts.cache.diffs.setAnalyzedResult(key, 'llm', result)
   }
 
+  /** Rereads what a server task saved: the chat session and the AI grouping. */
+  async function reloadSaved(key: string) {
+    const entry = await opts.cache.diffs.get(key).catch(() => undefined)
+    if (opts.getCacheKey() !== key || !entry)
+      return
+    if (entry.llmSession)
+      opts.session.value = entry.llmSession as LlmSession
+    if (entry.analyzedBy.llm)
+      opts.setResult(entry.analyzedBy.llm)
+  }
+
   const chat = useLlmChat({
     diff: opts.diff,
     session: opts.session,
     onSessionChange: setSession,
     onGroupingUpdate: setResult,
+    server: {
+      target: () => {
+        const rpc = getAiRpc()
+        const key = opts.getCacheKey()
+        const model = taskModelOf(resolveAskModel(settings.value.llm))
+        return rpc && key && model ? { rpc, key, model } : undefined
+      },
+      reload: () => {
+        const key = opts.getCacheKey()
+        return key ? reloadSaved(key) : Promise.resolve()
+      },
+    },
   })
+
+  // Server tasks keep running when the page goes away; `following` is only this page watching one.
+  let following: AbortController | undefined
+  let serverTaskId: string | undefined
+
+  function serverTarget() {
+    const rpc = getAiRpc()
+    const key = opts.getCacheKey()
+    const model = taskModelOf(resolveModel(settings.value.llm))
+    return rpc && key && model ? { rpc, key, model } : undefined
+  }
+
+  async function followTask(rpc: NonNullable<ReturnType<typeof getAiRpc>>, key: string, task: Pick<AiTaskSnapshot, 'id' | 'startedAt' | 'engine'>, isResume: boolean) {
+    following?.abort()
+    const controller = new AbortController()
+    following = controller
+    serverTaskId = task.id
+    const isCurrent = () => following === controller
+    error.value = undefined
+    transcript.value = []
+    cliActivities.value = []
+    jobUsage.value = undefined
+    engine.value = task.engine
+    startedAt.value = task.startedAt
+    endedAt.value = undefined
+    cancelled.value = false
+    resumed.value = isResume
+    isAnalyzing.value = true
+    let finished = false
+    try {
+      const done = await followAiTask(rpc, task.id, {
+        signal: controller.signal,
+        onActivity: (next) => {
+          if (isCurrent())
+            cliActivities.value = upsertActivities(cliActivities.value, next)
+        },
+      })
+      if (!isCurrent())
+        return
+      endedAt.value = done.endedAt ?? Date.now()
+      jobUsage.value = done.usage
+      if (done.status === 'done') {
+        if (done.result)
+          opts.setResult(JSON.parse(done.result) as GroupedResult)
+        await reloadSaved(key)
+        finished = true
+      }
+      else if (done.status === 'cancelled') {
+        cancelled.value = true
+      }
+      else {
+        error.value = new Error(done.error ?? t('analyze.failed'))
+      }
+    }
+    catch (err) {
+      if (isCurrent() && !isAbortError(err))
+        error.value = localizeError(err)
+    }
+    finally {
+      if (isCurrent()) {
+        following = undefined
+        serverTaskId = undefined
+        endedAt.value ??= Date.now()
+        progress.value = undefined
+        isAnalyzing.value = false
+      }
+    }
+    if (finished)
+      await opts.showLlmResult()
+  }
+
+  async function runOnServer(target: NonNullable<ReturnType<typeof serverTarget>>) {
+    chat.stop()
+    error.value = undefined
+    let id: string
+    try {
+      id = await startAiTask(target.rpc, { kind: 'analyze', key: target.key, model: target.model, locale: settings.value.locale })
+    }
+    catch (err) {
+      error.value = localizeError(err)
+      return
+    }
+    await followTask(target.rpc, target.key, { id, startedAt: Date.now(), engine: target.model.engine }, false)
+  }
 
   // `cli-stream` hands over what the CLI reported minus reasoning tokens and wall time; the job list has all of it.
   async function loadJobUsage(match: (job: AiJobSnapshot) => boolean): Promise<AiUsage | undefined> {
@@ -92,6 +201,10 @@ export function createLlmStore(opts: LlmStoreOptions): DiffsStoreLlm {
     const currentDiff = opts.diff.value
     if (!currentDiff)
       return
+    // The local server runs CLI analyses as tasks that outlive this page.
+    const target = resumeFrom ? undefined : serverTarget()
+    if (target)
+      return runOnServer(target)
     chat.stop()
     const resolved = resolveModel(settings.value.llm)
     const key = resolved && analysisJobKey(currentDiff, resolved)
@@ -158,32 +271,51 @@ export function createLlmStore(opts: LlmStoreOptions): DiffsStoreLlm {
     await run()
   }
 
-  const checkedJobKeys = new Set<string>()
-
-  // A reload mid-run would otherwise leave the server's job unseen; rerunning with its key follows it instead.
-  async function resumeRunningJob(diff: DiffsPayload) {
+  // Opening (or reloading) a page picks up the server tasks still working on its diff.
+  let checkedDiff: DiffsPayload | undefined
+  async function resumeServerTasks(diff: DiffsPayload) {
     const rpc = getAiRpc()
-    const resolved = resolveModel(settings.value.llm)
-    if (!rpc || !resolved || !isCliEngine(resolved.model.provider) || isAnalyzing.value)
+    const key = opts.getCacheKey()
+    if (!rpc || !key || checkedDiff === diff)
       return
-    const key = analysisJobKey(diff, resolved)
-    if (checkedJobKeys.has(key))
+    checkedDiff = diff
+    const tasks = await listAiTasks(rpc, key).catch(() => [])
+    if (opts.diff.value !== diff || opts.getCacheKey() !== key)
       return
-    checkedJobKeys.add(key)
-    const jobs = await listAiJobs(rpc).catch(() => [])
-    const job = jobs.find(candidate => candidate.status === 'running' && candidate.key === key)
-    if (job && !isAnalyzing.value && opts.diff.value === diff)
-      await run(job)
+    const analysis = tasks.find(task => task.kind === 'analyze' && task.status === 'running')
+    if (analysis && !isAnalyzing.value)
+      void followTask(rpc, key, analysis, true)
+    const reply = tasks.find(task => task.kind === 'chat' && task.status === 'running')
+    if (reply)
+      chat.resume(reply)
   }
 
   watch(opts.diff, (diff) => {
     if (diff)
-      void resumeRunningJob(diff)
+      void resumeServerTasks(diff)
   }, { immediate: true })
 
+  /** Stops the run: a server task is cancelled, not just left. */
   function abort() {
     chat.stop()
+    const rpc = getAiRpc()
+    if (rpc && serverTaskId)
+      void cancelAiTask(rpc, serverTaskId)
     abortController?.abort()
+  }
+
+  /** Stops watching without stopping: a server task finishes and saves on its own. */
+  function detach() {
+    chat.detach()
+    abortController?.abort()
+    if (following) {
+      following.abort()
+      following = undefined
+      serverTaskId = undefined
+      isAnalyzing.value = false
+      progress.value = undefined
+    }
+    checkedDiff = undefined
   }
 
   return reactive({
@@ -202,5 +334,6 @@ export function createLlmStore(opts: LlmStoreOptions): DiffsStoreLlm {
     reanalyze,
     chat: reactive(chat),
     abort,
+    detach,
   }) as DiffsStoreLlm
 }

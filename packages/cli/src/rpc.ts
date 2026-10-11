@@ -1,13 +1,17 @@
 import type { Env } from '@pulls.review/core/env'
-import type { AiJobSnapshot, CliModelCatalog, MyPull } from '@pulls.review/core/local-rpc'
+import type { AiAskThread, AiJobSnapshot, AiTaskRequest, AiTaskSnapshot, CliModelCatalog, MyPull } from '@pulls.review/core/local-rpc'
 import type { Driver } from 'unstorage'
+import type { TaskManager } from './ai/tasks'
+import { createCacheRepositories } from '@pulls.review/core/cache'
 import { createLocalSource, readRepoInfo } from '@pulls.review/core/local'
 import { LLM_ENGINES, LOCAL_RPC, MY_PULL_STATES, REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
 import { DiffsPayloadSchema } from '@pulls.review/core/types'
 import { defineRpcFunction } from 'devframe'
+import { createStorage } from 'unstorage'
 import * as v from 'valibot'
 import { listCliModels } from './ai/catalog'
 import { cancelAiJob, listAiJobs, runAiJob, startAiJob, waitAiJob } from './ai/jobs'
+import { createTaskManager, defaultTaskRunners } from './ai/tasks'
 import { resolveGithubToken } from './credentials'
 import { getLens, listLenses } from './lenses'
 import { cachedMyPulls, listMyPulls } from './my-pulls'
@@ -18,6 +22,8 @@ export interface LocalRpcOptions {
   /** Where the browser's cache lives (see `createRepoCacheDriver`). */
   driver: Driver
   env: Env
+  /** Runs AI tasks that outlive the page; built over `driver` when left out. */
+  tasks?: TaskManager
 }
 
 const target = v.object({ target: v.string() })
@@ -52,12 +58,25 @@ const aiJobRequest = v.object({
   })),
 })
 
+const taskModel = v.object({ engine: v.picklist(LLM_ENGINES), model: v.optional(v.string()), effort: v.optional(v.string()) })
+const taskSelection = v.object({ path: v.string(), side: v.picklist(['additions', 'deletions']), startLine: v.number(), endLine: v.number() })
+const taskBase = { key: v.pipe(v.string(), v.minLength(1)), model: taskModel }
+const aiTaskRequest = v.variant('kind', [
+  v.object({ kind: v.literal('analyze'), ...taskBase, locale: v.string() }),
+  v.object({ kind: v.literal('critique'), ...taskBase, variant: v.string(), lens: v.optional(v.pipe(v.string(), v.regex(REVIEW_LENS_NAME))) }),
+  v.object({ kind: v.literal('ask'), ...taskBase, threadId: v.pipe(v.string(), v.regex(/^[\w-]{1,80}$/)), selection: taskSelection, question: v.pipe(v.string(), v.trim(), v.minLength(1)) }),
+  v.object({ kind: v.literal('chat'), ...taskBase, locale: v.string(), text: v.optional(v.string()), retry: v.optional(v.boolean()) }),
+])
+const diffKey = v.object({ key: v.string() })
+
 /**
  * Every function the `PR_LOCAL` SPA calls. Only a client devframe has trusted
  * reaches them; inputs are still validated, since they decide what `git` runs.
  */
-export function localRpcFunctions({ cwd, driver, env }: LocalRpcOptions) {
+export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: LocalRpcOptions) {
   const source = (text: string) => createLocalSource({ cwd, target: text })
+  const storage = createStorage({ driver })
+  const tasks = givenTasks ?? createTaskManager({ cache: createCacheRepositories(storage), storage, runners: defaultTaskRunners(getLens) })
   return [
     defineRpcFunction({ name: LOCAL_RPC.repoInfo, type: 'query', handler: () => readRepoInfo(cwd) }),
     defineRpcFunction({ name: LOCAL_RPC.sourceKey, type: 'query', args: [target], returns: v.string(), handler: ({ target }) => source(target).key() }),
@@ -152,6 +171,24 @@ export function localRpcFunctions({ cwd, driver, env }: LocalRpcOptions) {
       args: [v.object({ state: v.picklist(MY_PULL_STATES) })],
       returns: v.unknown(),
       handler: async ({ state }) => cachedMyPulls(state),
+    }),
+    defineRpcFunction({ name: LOCAL_RPC.aiTaskStart, type: 'action', args: [aiTaskRequest], returns: v.string(), handler: request => tasks.start(request as AiTaskRequest) }),
+    defineRpcFunction({
+      name: LOCAL_RPC.aiTaskWait,
+      type: 'query',
+      args: [v.object({ id: v.string(), after: v.number() })],
+      returns: trusted<AiTaskSnapshot>(),
+      handler: ({ id, after }) => tasks.wait(id, after),
+    }),
+    defineRpcFunction({ name: LOCAL_RPC.aiTaskCancel, type: 'action', args: [v.object({ id: v.string() })], returns: v.boolean(), handler: ({ id }) => tasks.cancel(id) }),
+    defineRpcFunction({ name: LOCAL_RPC.aiTaskList, type: 'query', args: [diffKey], returns: trusted<AiTaskSnapshot[]>(), handler: ({ key }) => tasks.list(key) }),
+    defineRpcFunction({ name: LOCAL_RPC.askThreads, type: 'query', args: [diffKey], returns: trusted<AiAskThread[]>(), handler: ({ key }) => tasks.threads(key) }),
+    defineRpcFunction({
+      name: LOCAL_RPC.askThreadClose,
+      type: 'action',
+      args: [v.object({ key: v.string(), threadId: v.string() })],
+      returns: v.void(),
+      handler: ({ key, threadId }) => tasks.closeThread(key, threadId),
     }),
     defineRpcFunction({
       name: LOCAL_RPC.storageGetItems,

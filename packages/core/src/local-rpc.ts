@@ -44,6 +44,17 @@ export const LOCAL_RPC = {
   /** Batched `storage-get-item` / `storage-set-item`: one round trip for many keys. */
   storageGetItems: 'storage-get-items',
   storageSetItems: 'storage-set-items',
+  /** Starts an analysis, review, question or chat reply that runs and saves its result on the server. */
+  aiTaskStart: 'ai-task-start',
+  /** Long-polls a task for work-log entries newer than a revision. */
+  aiTaskWait: 'ai-task-wait',
+  aiTaskCancel: 'ai-task-cancel',
+  /** One diff's tasks, running or recently finished, newest first. */
+  aiTaskList: 'ai-task-list',
+  /** One diff's saved question threads. */
+  askThreads: 'ask-threads',
+  /** Drops a question thread and stops its running answer. */
+  askThreadClose: 'ask-thread-close',
 } as const
 
 /** A skill offered as a point of view for an AI review. */
@@ -219,4 +230,90 @@ export interface MyPullsSnapshot {
   fetchedAt: number
   /** A newer list is being fetched right now. */
   refreshing: boolean
+}
+
+/** What a server task does; each saves its result where the page reads it back. */
+export const AI_TASK_KINDS = ['analyze', 'critique', 'ask', 'chat'] as const
+export type AiTaskKind = typeof AI_TASK_KINDS[number]
+
+/** The CLI, model and effort a task runs with, resolved by the page from its settings. */
+export interface AiTaskModel {
+  engine: LlmEngine
+  model?: string
+  effort?: string
+}
+
+/** Lines of one file a question is about; mirrors core's `AskSelection`. */
+export interface AiTaskSelection {
+  path: string
+  side: 'additions' | 'deletions'
+  startLine: number
+  endLine: number
+}
+
+interface AiTaskRequestBase {
+  /** The diff's cache key; the server reads the diff from the cache under it. */
+  key: string
+  model: AiTaskModel
+}
+
+/**
+ * A server task. It keeps running when the page reloads or closes, and writes its
+ * result into the shared cache: the AI grouping and chat session of the diff entry,
+ * the critique cache, or the diff's saved question threads.
+ */
+export type AiTaskRequest
+  = | AiTaskRequestBase & { kind: 'analyze', locale: string }
+    | AiTaskRequestBase & { kind: 'critique', variant: string, lens?: string }
+    | AiTaskRequestBase & { kind: 'ask', threadId: string, selection: AiTaskSelection, question: string }
+    | AiTaskRequestBase & { kind: 'chat', locale: string, text?: string, retry?: boolean }
+
+/** A task as of revision `rev`; `activities` holds only entries changed since the caller's `after`. */
+export interface AiTaskSnapshot {
+  id: string
+  kind: AiTaskKind
+  key: string
+  label: string
+  engine: LlmEngine
+  model?: string
+  effort?: string
+  status: AiJobStatus
+  rev: number
+  activities: AiActivity[]
+  error?: string
+  usage?: AiUsage
+  /** Once `done`: `ask` the answer; `analyze` the `GroupedResult` and `critique` the `CritiqueResult`, as JSON. */
+  result?: string
+  startedAt: number
+  endedAt?: number
+  /** `critique`: the cache variant the review is saved under. */
+  variant?: string
+  lens?: string
+  /** `ask`: the thread the question belongs to. */
+  threadId?: string
+  /** `ask`: the question; `chat`: the message sent. */
+  text?: string
+}
+
+/** One saved question of a thread and its answer. */
+export interface AiAskTurn {
+  question: string
+  answer?: string
+  error?: string
+  usage?: AiUsage
+  activities?: AiActivity[]
+  startedAt?: number
+  /** Unset while the answer is coming. */
+  outcome?: 'done' | 'failed' | 'stopped'
+  /** The server task answering it. */
+  taskId?: string
+}
+
+/** Questions about one selection of lines, saved on the server per diff. */
+export interface AiAskThread {
+  id: string
+  selection: AiTaskSelection
+  /** The selection as `path:L10-L20`. */
+  label: string
+  turns: AiAskTurn[]
 }

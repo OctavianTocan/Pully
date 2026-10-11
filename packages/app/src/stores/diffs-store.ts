@@ -51,9 +51,6 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
   const llmSession = shallowRef<LlmSession>()
   const llm = shallowRef<DiffsStoreLlm>()
 
-  if (getCurrentScope())
-    onScopeDispose(() => llm.value?.abort())
-
   // SWR seeds for the sub-stores, set when a cached PR entry carries them.
   let cachedReviewData: ReviewData | undefined
   let cachedSharedComment: PrCacheEntry['sharedComment']
@@ -98,6 +95,14 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
   // saved for when the diff is opened again.
   const critique = shallowRef<DiffsStoreCritique>()
   const ask = shallowRef<DiffsStoreAsk>()
+
+  // Leaving the page only stops watching: a server task finishes and saves on its own.
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      llm.value?.detach()
+      critique.value?.detach()
+    })
+  }
   const ownerScope = getCurrentScope()
   const localAiReady = import.meta.env.PR_LOCAL
     ? Promise.all([import('./critique-store'), import('./ask-store'), import('../local/lenses')])
@@ -216,8 +221,9 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
   }
 
   async function analyzeAndStore(key: string, freshDiff: DiffsPayload) {
-    // An in-flight run analyzed the diff being replaced; the last persisted result stands.
-    llm.value?.abort()
+    // An in-flight browser run analyzed the diff being replaced; the last persisted result stands.
+    // A server task keeps going and is picked up again once the new diff is installed.
+    llm.value?.detach()
     const entry = await cache.diffs.putDiff(key, freshDiff, freshDiff.head?.sha ?? '')
     await install(key, entry)
     saveSnapshot(key, entry)
