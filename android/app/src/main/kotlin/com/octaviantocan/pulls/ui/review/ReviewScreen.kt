@@ -88,7 +88,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
                         listState.layoutInfo.visibleItemsInfo.mapNotNull { (it.key as? String)?.takeIf { key -> key.startsWith("group:") }?.removePrefix("group:") }.toSet()
                     }
                 }
-                LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                // Inset the list itself so pinned file headers stop below the status bar; the header's own inset is consumed here.
+                LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars), state = listState) {
                     item(key = "top:header") {
                         ReviewHeader(session, top, data, nav, visibleGroups.ifEmpty { setOfNotNull(session.focusGroupKey) })
                     }
