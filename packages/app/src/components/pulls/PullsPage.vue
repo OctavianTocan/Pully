@@ -37,7 +37,7 @@ const isSearching = computed(() => query.value.trim() !== '' && props.store.hasM
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-base color-base">
+  <div class="flex flex-col bg-base color-base min-h-dvh">
     <PullsHeader v-model:query="query" v-model:sort="sort" :store="store" :scroll-y="scrollY" />
 
     <main class="mxa max-w-6xl w-full flex flex-1 flex-col">

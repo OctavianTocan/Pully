@@ -89,13 +89,13 @@ function labelChipStyle(color: string) {
       <li v-for="commit in item.commits" :key="commit.oid" class="flex items-center gap-2 text-xs">
         <button
           type="button"
-          class="min-w-0 truncate text-left op-fade hover:underline hover:op-100"
+          class="min-w-0 truncate text-left op-fade coarse:py-2.5 hover:underline hover:op-100"
           :title="$t('overview.commitList.view')"
           @click="emit('selectCommit', commit.oid)"
         >
           {{ commit.headline }}
         </button>
-        <a :href="commit.url" target="_blank" rel="noopener" class="ml-auto shrink-0 font-mono op-mute hover:underline">{{ commit.abbreviatedOid }}</a>
+        <a :href="commit.url" target="_blank" rel="noopener" class="ml-auto shrink-0 font-mono op-mute coarse:(py-2.5 pl-2) hover:underline">{{ commit.abbreviatedOid }}</a>
       </li>
     </ul>
   </li>
@@ -125,7 +125,7 @@ function labelChipStyle(color: string) {
     </div>
 
     <div v-if="item.kind === 'review' && item.commentCount" class="border-t border-base px-3 py-1.5 text-sm">
-      <button type="button" class="flex items-center gap-1 op-fade hover:op-100" :aria-expanded="showInline" @click="showInline = !showInline">
+      <button type="button" class="flex items-center gap-1 op-fade coarse:min-h-11 hover:op-100" :aria-expanded="showInline" @click="showInline = !showInline">
         <span :class="showInline ? 'i-ph:caret-down' : 'i-ph:caret-right'" aria-hidden="true" />
         {{ $t('overview.timeline.inlineComments', { n: item.commentCount }, item.commentCount) }}
       </button>

@@ -40,7 +40,7 @@ function pick(locale: Locale) {
         type="button"
         role="option"
         :aria-selected="locale.code === settings.locale"
-        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none transition focus-visible:bg-hover hover:bg-hover"
+        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none transition coarse:min-h-11 focus-visible:bg-hover hover:bg-hover"
         :class="locale.code === settings.locale ? 'color-active' : 'color-base'"
         @click="pick(locale.code)"
       >

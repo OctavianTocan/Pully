@@ -36,7 +36,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
   <div ref="root" class="relative">
     <button
       type="button"
-      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition hover:bg-hover"
+      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition coarse:min-h-11 hover:bg-hover"
       :class="selection ? 'color-active' : 'op-fade hover:op-100'"
       :aria-label="$t('overview.selection.picker')"
       :aria-expanded="open"
@@ -57,11 +57,11 @@ function pick(selection: CommitSelection | undefined, extend = false) {
     </button>
     <div
       v-if="open"
-      class="absolute left-0 top-full z-dropdown mt-1 max-h-[60vh] w-[min(32rem,calc(100vw-2rem))] flex flex-col overflow-auto border border-base rounded-lg bg-base p-1 shadow-lg"
+      class="absolute left-0 top-full z-dropdown mt-1 max-h-[60dvh] w-[min(32rem,calc(100vw-2rem))] flex flex-col overflow-auto overscroll-contain border border-base rounded-lg bg-base p-1 shadow-lg"
     >
       <button
         type="button"
-        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition hover:bg-hover"
+        class="press-tint flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition coarse:min-h-11 hover:bg-hover"
         :class="selection ? 'color-base' : 'color-active'"
         @click="pick(undefined)"
       >

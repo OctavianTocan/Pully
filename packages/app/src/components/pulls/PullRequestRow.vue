@@ -49,7 +49,7 @@ const REVIEW_ICON: Record<ReviewDecision, string> = {
 <template>
   <RouterLink
     :to="routeForRef({ kind: 'github-pr', owner, repo, number: String(pr.number) })"
-    class="flex items-start gap-3 border-b border-base px-4 py-3 transition hover:bg-hover"
+    class="press-tint flex items-start gap-3 border-b border-base px-4 py-3 transition hover:bg-hover"
   >
     <PrStatusIcon :state="pr.state" class="mt-0.5" />
 

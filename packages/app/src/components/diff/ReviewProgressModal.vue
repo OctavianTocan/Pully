@@ -69,7 +69,8 @@ function jumpTo(sha: string) {
             :aria-label="$t('file.markReviewed')"
             @update="store.setReviewed([file.sha], $event)"
           />
-          <button type="button" class="min-w-0 flex-1 text-left" @click="jumpTo(file.sha)">
+          <!-- Phones: the path wraps, so the file name at its end is never the part cut off. -->
+          <button type="button" class="min-w-0 flex-1 text-left coarse:min-h-11 max-sm:[&_.truncate]:(whitespace-normal break-all)" @click="jumpTo(file.sha)">
             <DisplayFilePath :path="file.path" class="min-w-0" />
           </button>
           <span

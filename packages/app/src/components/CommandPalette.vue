@@ -169,7 +169,10 @@ watch(paletteOpen, async (isOpen) => {
           type="text"
           role="combobox"
           autocomplete="off"
+          autocapitalize="none"
+          autocorrect="off"
           spellcheck="false"
+          enterkeyhint="go"
           aria-autocomplete="list"
           aria-expanded="true"
           :aria-controls="`${id}-list`"
@@ -180,7 +183,7 @@ watch(paletteOpen, async (isOpen) => {
           @keydown="onKeydown"
         >
       </div>
-      <div :id="`${id}-list`" ref="list" role="listbox" class="max-h-[min(60vh,28rem)] overflow-auto py-1">
+      <div :id="`${id}-list`" ref="list" role="listbox" class="max-h-[min(60dvh,28rem)] overflow-auto overscroll-contain py-1">
         <div v-if="!results.length" class="px-3 py-6 text-center text-sm op-fade">
           {{ t('palette.empty') }}
         </div>
@@ -194,7 +197,7 @@ watch(paletteOpen, async (isOpen) => {
             :key="command.id"
             role="option"
             :aria-selected="index === selected"
-            class="mx-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
+            class="mx-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm coarse:min-h-11"
             :class="index === selected ? 'bg-active color-base' : 'color-base op-fade'"
             @mousemove="selected = index"
             @click="run(command)"
@@ -210,7 +213,8 @@ watch(paletteOpen, async (isOpen) => {
       </div>
     </div>
     <template #footer>
-      <div class="flex flex-1 items-center gap-4 px-1 text-xs op-fade">
+      <!-- Key hints mean nothing without a keyboard. -->
+      <div class="flex flex-1 items-center gap-4 px-1 text-xs op-fade coarse:hidden">
         <span class="flex items-center gap-1"><DisplayKbd keys="up" /><DisplayKbd keys="down" />{{ t('palette.navigate') }}</span>
         <span class="flex items-center gap-1"><DisplayKbd keys="enter" />{{ t('palette.run') }}</span>
         <span class="flex items-center gap-1"><DisplayKbd keys="esc" />{{ t('palette.close') }}</span>

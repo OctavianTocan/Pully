@@ -2,6 +2,7 @@
 import type { CliModel } from '@pulls.review/core/local-rpc'
 import FormTextInput from '@antfu/design/components/Form/FormTextInput.vue'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { FIELD, vField } from '../../directives/field'
 
 // In-flow like `ModelPicker`: a teleported popper would escape the embed's shadow root unstyled.
 const props = defineProps<{
@@ -49,7 +50,7 @@ function pick(id: string) {
 
 <template>
   <div v-if="error" class="flex flex-col gap-1">
-    <FormTextInput v-model="modelId" :placeholder="$t('settings.models.placeholder')" />
+    <FormTextInput v-model="modelId" v-field="FIELD.identifier" :placeholder="$t('settings.models.placeholder')" />
     <p class="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
       <span class="i-ph:warning mt-0.5 shrink-0" aria-hidden="true" />
       <span class="break-words">{{ $t('settings.llm.catalogFailed', { message: error }) }}</span>
@@ -79,6 +80,7 @@ function pick(id: string) {
       <div class="p-1.5">
         <FormTextInput
           v-model="query"
+          v-field="FIELD.search"
           size="sm"
           icon="i-ph:magnifying-glass"
           :placeholder="$t('settings.models.search')"
@@ -86,7 +88,7 @@ function pick(id: string) {
           class="w-full"
         />
       </div>
-      <div class="max-h-64 of-y-auto pb-1" role="listbox">
+      <div class="max-h-64 of-y-auto overscroll-contain pb-1" role="listbox">
         <div v-if="loading && !models" class="px-3 py-4 text-center text-sm op-mute">
           {{ $t('settings.models.loading') }}
         </div>

@@ -40,6 +40,9 @@ function onFileInput(event: Event) {
       <textarea
         v-model="text"
         rows="10"
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck="false"
         placeholder="diff --git a/foo b/foo…"
         class="w-full resize-y border border-base rounded bg-raised p-2 text-sm font-mono outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         :class="{ 'border-primary-500 ring-2 ring-primary-500/40': isDragging }"

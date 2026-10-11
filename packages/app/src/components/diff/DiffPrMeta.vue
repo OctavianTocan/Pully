@@ -30,7 +30,7 @@ const progressModalOpen = ref(false)
     <DiffStats :additions="additions" :deletions="deletions" />
     <button
       type="button"
-      class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-1.5 py-0.5 transition -mx-1.5 hover:bg-hover"
+      class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-1.5 py-0.5 transition -mx-1.5 coarse:min-h-11 hover:bg-hover"
       :title="$t('reviewProgress.title')"
       :aria-expanded="progressModalOpen"
       @click="progressModalOpen = true"

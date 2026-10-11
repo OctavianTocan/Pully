@@ -24,7 +24,7 @@ const QUEUE_ICON: Record<TriageQueue, string> = {
 
 const ROLES: (MyPullRole | 'all')[] = ['all', ...ROLE_ORDER]
 
-const ITEM = 'flex shrink-0 items-center gap-2 whitespace-nowrap border border-base rounded-full px-3 py-1 text-xs transition hover:bg-hover md:border-none md:rounded-md md:px-2 md:py-1.5 md:text-left md:text-sm'
+const ITEM = 'flex shrink-0 snap-start items-center gap-2 whitespace-nowrap border border-base rounded-full px-3 py-1 text-sm transition coarse:min-h-11 hover:bg-hover md:border-none md:rounded-md md:px-2 md:py-1.5 md:text-left'
 </script>
 
 <template>
@@ -33,7 +33,7 @@ const ITEM = 'flex shrink-0 items-center gap-2 whitespace-nowrap border border-b
       <h2 class="hidden px-2 text-xs font-medium op-fade md:block">
         {{ $t('local.home.queues') }}
       </h2>
-      <div class="flex gap-1.5 overflow-x-auto pb-1 md:flex-col md:gap-0.5 md:overflow-visible md:pb-0">
+      <div class="flex snap-x snap-mandatory gap-1.5 overflow-x-auto overscroll-x-contain pb-1 md:(flex-col snap-none gap-0.5 overflow-visible pb-0)">
         <button
           v-for="item in TRIAGE_QUEUES"
           :key="item"
@@ -54,7 +54,7 @@ const ITEM = 'flex shrink-0 items-center gap-2 whitespace-nowrap border border-b
       <h2 class="hidden px-2 text-xs font-medium op-fade md:block">
         {{ $t('local.home.roles') }}
       </h2>
-      <div class="flex gap-1.5 overflow-x-auto pb-1 md:flex-col md:gap-0.5 md:overflow-visible md:pb-0">
+      <div class="flex snap-x snap-mandatory gap-1.5 overflow-x-auto overscroll-x-contain pb-1 md:(flex-col snap-none gap-0.5 overflow-visible pb-0)">
         <button
           v-for="item in ROLES"
           :key="item"

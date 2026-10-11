@@ -4,6 +4,7 @@ import type { DiffsStore } from '../../stores/types'
 import DisplayFileIcon from '@antfu/design/components/Display/DisplayFileIcon.vue'
 import DisplayFilePath from '@antfu/design/components/Display/DisplayFilePath.vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
+import { useMediaQuery } from '@vueuse/core'
 import { computed, useTemplateRef } from 'vue'
 import DiffStats from './DiffStats.vue'
 import FileStatus from './FileStatus.vue'
@@ -106,16 +107,23 @@ function folderStatus(files: FileChange[]): 'reviewed' | 'partial' | 'unreviewed
 
 const scrollElRef = useTemplateRef<HTMLDivElement>('scrollEl')
 
+// Rows are a fixed height; on a touch screen each one is a 44px target.
+const isCoarse = useMediaQuery('(pointer: coarse)')
+const rowHeight = computed(() => isCoarse.value ? 44 : 24)
+const isNarrow = useMediaQuery('(max-width: 767.9px)')
+const indent = computed(() => isNarrow.value ? 0.6 : 1)
+
 const virtualizer = useVirtualizer(computed(() => ({
   count: rows.value.length,
   getScrollElement: () => scrollElRef.value,
-  estimateSize: () => 24,
+  estimateSize: () => rowHeight.value,
   overscan: 10,
 })))
 </script>
 
 <template>
-  <div ref="scrollEl" class="overflow-auto">
+  <!-- Phones stack the tree above the diffs: cap it so a large PR's tree doesn't push them screens away. -->
+  <div ref="scrollEl" class="overflow-auto overscroll-contain max-md:max-h-[60dvh]">
     <div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
       <div
         v-for="row in virtualizer.getVirtualItems().map(item => ({ item, row: rows[item.index]! }))"
@@ -129,7 +137,7 @@ const virtualizer = useVirtualizer(computed(() => ({
           width: '100%',
           height: `${row.item.size}px`,
           transform: `translateY(${row.item.start}px)`,
-          paddingLeft: `${0.5 + row.row.depth}em`,
+          paddingLeft: `${0.5 + row.row.depth * indent}em`,
         }"
       >
         <template v-if="row.row.type === 'folder'">
@@ -149,7 +157,7 @@ const virtualizer = useVirtualizer(computed(() => ({
           />
           <button
             type="button"
-            class="min-w-0 flex flex-1 items-center gap-1.5 text-left"
+            class="press-tint min-w-0 flex flex-1 items-center self-stretch gap-1.5 rounded text-left"
             :title="reviewStatus(store, row.row.file) === 'changed' ? $t('file.changedSinceReviewed') : undefined"
             @click="emit('navigate', row.row.file.sha)"
           >

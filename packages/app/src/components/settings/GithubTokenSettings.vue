@@ -8,6 +8,7 @@ import DisplayDate from '@antfu/design/components/Display/DisplayDate.vue'
 import FormField from '@antfu/design/components/Form/FormField.vue'
 import FormTextInput from '@antfu/design/components/Form/FormTextInput.vue'
 import { ref, watch } from 'vue'
+import { FIELD, vField } from '../../directives/field'
 
 const props = defineProps<{
   /** A token is saved in settings (the meta may still be resolving). */
@@ -61,6 +62,7 @@ function remove() {
     <div class="flex items-center gap-2">
       <FormTextInput
         v-model="draft"
+        v-field="FIELD.secret"
         type="password"
         icon="i-ph-key-duotone"
         placeholder="ghp_…"

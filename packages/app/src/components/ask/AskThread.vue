@@ -5,6 +5,7 @@ import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.v
 import FormTextarea from '@antfu/design/components/Form/FormTextarea.vue'
 import { Markdown } from '@comark/vue'
 import { onMounted, ref, useTemplateRef } from 'vue'
+import { FIELD, vField } from '../../directives/field'
 import AiActivityLog from '../ai/AiActivityLog.vue'
 import AiUsageLine from '../ai/AiUsageLine.vue'
 
@@ -74,6 +75,7 @@ onMounted(() => {
         <FormTextarea
           ref="input"
           v-model="question"
+          v-field="FIELD.message"
           :rows="2"
           :resize="false"
           :placeholder="thread.turns.length ? $t('ask.followUpPlaceholder') : $t('ask.placeholder')"

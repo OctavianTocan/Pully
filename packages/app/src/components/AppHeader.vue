@@ -15,8 +15,8 @@ useEventListener(() => props.document ?? document, 'scroll', (event) => {
 </script>
 
 <template>
-  <header class="sticky top-0 z-nav h-14 flex items-center gap-3 border-b bg-base bg-glass px-4 transition-all" :class="scrollY > 10 ? 'border-base' : 'border-transparent'">
-    <RouterLink to="/" class="shrink-0 text-lg font-mono">
+  <header class="sticky top-0 z-nav h-[calc(3.5rem+env(safe-area-inset-top))] flex items-center gap-3 border-b bg-base bg-glass px-3 pt-[env(safe-area-inset-top)] transition-all sm:px-4" :class="scrollY > 10 ? 'border-base' : 'border-transparent'">
+    <RouterLink to="/" class="shrink-0 text-lg font-mono coarse:(min-h-11 flex items-center)">
       <span class="color-accent-magenta">+</span>pulls<span class="color-accent-orange">.</span><span class="color-accent-teal">review</span>
     </RouterLink>
 

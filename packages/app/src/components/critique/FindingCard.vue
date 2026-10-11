@@ -49,7 +49,7 @@ const location = computed(() => lineRangeLabel({
         <button
           v-if="!inline"
           type="button"
-          class="ml-auto min-w-0 truncate text-xs font-mono op-fade hover:underline hover:op-100"
+          class="ml-auto min-w-0 truncate text-xs font-mono op-fade coarse:(py-3 -my-3) hover:underline hover:op-100"
           :title="$t('critique.jumpToLine')"
           @click="critique.focus(finding)"
         >

@@ -28,7 +28,7 @@ const chatMarkdown = [
   descendant('ul', 'list-disc'),
   descendant('ol', 'list-decimal'),
   descendant('li+li', 'mt-1'),
-  descendant(':not(pre)>code', 'text-[0.85em] px-1 py-0.5 rounded bg-code'),
+  descendant(':not(pre)>code', 'text-[max(0.85em,var(--pr-code-min,0px))] px-1 py-0.5 rounded bg-code'),
   descendant('pre', 'text-xs leading-relaxed p-3 border border-base rounded-md bg-code max-w-full overflow-x-auto'),
   descendant('pre_code', 'whitespace-pre'),
   descendant('blockquote', 'pl-3 border-l-2 border-base op-fade'),
@@ -39,9 +39,38 @@ const chatMarkdown = [
   descendant('hr', 'border-base'),
 ].join(' ')
 
+/** Pointers that can really hover. A touch screen fakes `:hover` on tap and keeps it until the next tap elsewhere. */
+const HOVER_MEDIA = '@media (hover: hover) and (pointer: fine)'
+
 export function createUnoConfig() {
   return defineConfig({
+    // Every `:hover` rule (`hover:`, `group-hover:`, `[&_a:hover]:`, and the hover parts
+    // of shortcuts, ours and `@antfu/design`'s) applies only under HOVER_MEDIA, so a tapped
+    // control on a phone doesn't stay highlighted. Touch gets `:active` instead (`main.css`).
+    postprocess: [
+      (util) => {
+        if (/(?<!\\):hover/.test(util.selector))
+          util.parent = util.parent ? `${util.parent} $$ ${HOVER_MEDIA}` : HOVER_MEDIA
+      },
+    ],
+    variants: [
+      // `coarse:` - touch screens, where a target needs ~44px whatever the viewport width.
+      matcher => matcher.startsWith('coarse:')
+        ? { matcher: matcher.slice('coarse:'.length), parent: '@media (pointer: coarse)' }
+        : matcher,
+    ],
     theme: {
+      // Wind's own `transition` list plus `scale`, so the `:active` press scale in
+      // `main.css` eases on every control that already uses `transition`.
+      transitionProperty: {
+        DEFAULT: 'color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,scale',
+      },
+      // The two small steps read their size from variables so phones can raise them in
+      // one place (`main.css`); the fallbacks are Wind's own sizes, so desktop is unchanged.
+      fontSize: {
+        xs: ['var(--pr-text-xs, 0.75rem)', 'var(--pr-leading-xs, 1rem)'],
+        sm: ['var(--pr-text-sm, 0.875rem)', 'var(--pr-leading-sm, 1.25rem)'],
+      },
       colors: {
         // Landing-page accent trio. Two stops each: the brighter one reads on
         // the dark surface, the deeper one keeps contrast on white.

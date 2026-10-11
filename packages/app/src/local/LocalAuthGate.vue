@@ -31,7 +31,7 @@ async function submit() {
 </script>
 
 <template>
-  <main class="min-h-screen flex items-center justify-center p-6">
+  <main class="flex items-center justify-center p-6 min-h-svh">
     <form class="max-w-90 w-full flex flex-col gap-3" @submit.prevent="submit">
       <h1 class="text-lg font-semibold">
         {{ $t('local.auth.title') }}
@@ -43,6 +43,10 @@ async function submit() {
         v-model="code"
         inputmode="numeric"
         autocomplete="one-time-code"
+        enterkeyhint="done"
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck="false"
         maxlength="6"
         class="border border-base rounded bg-base px-3 py-2 text-center text-xl tracking-widest font-mono"
         :aria-label="$t('local.auth.title')"

@@ -36,6 +36,10 @@ const ICONS: Record<RefSuggestion['kind'], string> = {
       <AutocompleteInput
         :placeholder="placeholder"
         :aria-label="placeholder"
+        enterkeyhint="go"
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck="false"
         class="min-w-0 flex-1 bg-transparent color-base font-mono outline-none placeholder:op-mute"
       />
     </AutocompleteAnchor>
@@ -43,7 +47,7 @@ const ICONS: Record<RefSuggestion['kind'], string> = {
       <AutocompleteContent
         position="popper"
         :side-offset="6"
-        class="z-dropdown max-h-72 min-w-[--reka-combobox-trigger-width] overflow-auto border border-base rounded-lg bg-glass:75 p-1 shadow-lg"
+        class="z-dropdown max-h-72 min-w-[--reka-combobox-trigger-width] overflow-auto overscroll-contain border border-base rounded-lg bg-glass:75 p-1 shadow-lg"
         data-af-animate
       >
         <AutocompleteViewport>

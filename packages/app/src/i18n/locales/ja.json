@@ -430,6 +430,7 @@
     "loadFull": "ファイル全体を読み込む",
     "expand": "ファイルを展開",
     "collapse": "ファイルを折りたたむ",
+    "moreActions": "その他の操作",
     "noLongerInDiff": "この diff にはもう含まれていません",
     "removed": "削除済み"
   },

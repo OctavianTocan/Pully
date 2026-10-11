@@ -430,6 +430,7 @@
     "loadFull": "Cargar el contenido completo del archivo",
     "expand": "Desplegar archivo",
     "collapse": "Plegar archivo",
+    "moreActions": "Más acciones",
     "noLongerInDiff": "Ya no está en este diff",
     "removed": "eliminado"
   },

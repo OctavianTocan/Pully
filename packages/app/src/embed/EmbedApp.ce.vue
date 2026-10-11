@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
       :style="{ width: `${width}px`, maxWidth: '92vw', transform: open ? 'translateX(0)' : 'translateX(100%)' }"
     >
       <div
-        class="z-1 absolute left-0 top-0 h-full w-2 cursor-ew-resize -translate-x-1/2"
+        class="z-1 absolute left-0 top-0 h-full w-2 cursor-ew-resize touch-none select-none -translate-x-1/2"
         @pointerdown="onResizeDown"
       />
       <header class="flex shrink-0 items-center gap-2 border-b border-base px-3 py-2 text-sm font-semibold">
@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
       <EmbedPrView
         v-if="pr"
         ref="prView"
-        :key="prKey" :owner="pr.owner" :repo="pr.repo" :number="pr.number" :document="document" class="min-h-0 flex-1 overflow-auto"
+        :key="prKey" :owner="pr.owner" :repo="pr.repo" :number="pr.number" :document="document" class="min-h-0 flex-1 overflow-auto overscroll-contain"
       />
     </div>
 

@@ -81,7 +81,7 @@ const canUpdateBranch = computed(() => isOpen.value && props.overview.viewer.can
     <button
       v-if="overview.checksSummary.state"
       type="button"
-      class="flex items-center gap-1.5 text-left hover:underline"
+      class="flex items-center gap-1.5 text-left coarse:min-h-11 hover:underline"
       @click="emit('showChecks')"
     >
       <span :class="CHECKS_ICON[overview.checksSummary.state]" class="shrink-0 text-xs" aria-hidden="true" />

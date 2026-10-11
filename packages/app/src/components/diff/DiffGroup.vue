@@ -100,7 +100,7 @@ function navigateToFile(sha: string) {
       <div class="w-full flex items-center">
         <button
           type="button"
-          class="min-w-0 flex flex-1 items-start px-2 py-1 text-left"
+          class="press-tint min-w-0 flex flex-1 items-start rounded px-2 py-1 text-left"
           :aria-expanded="!collapsed"
           @click="emit('toggle')"
         >
@@ -147,12 +147,12 @@ function navigateToFile(sha: string) {
     <div v-if="!isChapter || (!collapsed && group.files.length)" class="flex flex-col gap-4 p-3 lg:grid lg:grid-cols-[1fr_4fr]">
       <!-- --diffs-header-height is the page's real, measured sticky DiffsHeader height
            (set on the DiffsPage root), so the aside sticks just below it, not under it. -->
-      <aside class="top-[calc(var(--diffs-header-height)+10px)] min-w-70 flex shrink-0 flex-col gap-3 lg:sticky lg:max-h-[calc(100vh-var(--diffs-header-height)-20px)] lg:self-start">
+      <aside class="top-[calc(var(--diffs-header-height)+10px)] min-w-70 flex shrink-0 flex-col gap-3 lg:sticky lg:max-h-[calc(100dvh-var(--diffs-header-height)-20px)] lg:self-start">
         <header v-if="!isChapter" class="w-full flex flex-col bg-base">
           <button
             v-if="parentLabel"
             type="button"
-            class="self-start truncate pb1 pl2 text-xs leading-1em op-fade hover:op-100"
+            class="self-start truncate pb1 pl2 text-xs leading-1em op-fade coarse:py-2 hover:op-100"
             @click="navigateToParent"
           >
             {{ parentLabel }} ›
@@ -160,7 +160,7 @@ function navigateToFile(sha: string) {
           <div class="w-full flex items-center">
             <button
               type="button"
-              class="min-w-0 flex flex-1 items-start px-2 py-1 text-left text-sm"
+              class="press-tint min-w-0 flex flex-1 items-start rounded px-2 py-1 text-left text-sm"
               :aria-expanded="!collapsed"
               @click="emit('toggle')"
             >

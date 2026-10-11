@@ -1,14 +1,172 @@
 html,
 body {
-  min-height: 100vh;
+  /* `dvh`, not `vh`: on a phone `100vh` is the height with the browser's toolbars
+     hidden, so a shell sized to it runs under them while they show. */
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
+  /* No rubber-band or pull-to-refresh on the page itself: an over-scroll past the end of
+     the diff shouldn't bounce the sticky header or reload a review in progress. Inner
+     scrollers (sheets, chat, file tree, lists) use `overscroll-contain` so they don't
+     hand the scroll on to the page either. */
+  overscroll-behavior: none;
 }
 
 html {
   /* Always reserve the scrollbar's width, even on short pages, so content doesn't
      shift horizontally when navigating between pages that do/don't need to scroll. */
   scrollbar-gutter: stable;
+  /* iOS enlarges text in landscape unless told not to; the type scale is already sized for phones. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* The grey flash a tap paints over a whole link or row; every control below has its own `:active` state instead. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* No double-tap-to-zoom wait on controls, so a tap acts at once. Pinch zoom still works. */
+button,
+a,
+[role='button'],
+[role='tab'],
+[role='option'],
+summary,
+label {
+  touch-action: manipulation;
+}
+
+/* Controls: a long press shouldn't start a text selection or the iOS callout on a
+   button label. Content (code, diffs, findings, answers, links) stays selectable. The
+   file header (`role="button"`) is left out on purpose: it holds the file path, which
+   people copy. */
+button,
+[role='tab'],
+[role='switch'],
+[role='checkbox'],
+[role='radio'],
+summary,
+a[class*='btn-'] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Press feedback. With the tap highlight off and `:hover` limited to real pointers
+   (`uno.config.ts`), `:active` is what tells a finger the tap landed. Wind's `transition`
+   eases `scale` (see the theme in `uno.config.ts`); controls without it get the
+   zero-specificity default here. */
+:where(button, [role='button'], [role='tab'], [role='option'], summary, a) {
+  transition:
+    scale 120ms ease-out,
+    background-color 120ms ease-out,
+    opacity 120ms ease-out;
+}
+
+/* Only the control under the finger reacts, not a row or header that contains it
+   (`:active` also matches every ancestor of the pressed element). */
+@media (prefers-reduced-motion: no-preference) {
+  :is(button, [role='tab'], summary, a[class*='btn-']):not(
+      :disabled,
+      .press-tint,
+      [role='option'],
+      :has(button:active, a:active)
+    ):active {
+    scale: 0.97;
+  }
+}
+
+/* Wide rows (list rows, the file header, options) tint instead: a scaled full-width row reads as a jump. */
+:is(.press-tint, [role='option']):not(:has(button:active, a:active, [role='checkbox']:active)):active {
+  background-color: rgb(136 136 136 / 0.16);
+}
+
+a[href]:not([class*='btn-'], .press-tint):active {
+  opacity: 0.6;
+}
+
+/* `viewport-fit=cover` lets the page run under a phone's notch and home indicator;
+   keep content clear of the side insets (landscape). Fixed elements add their own. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* `@antfu/design`'s `scrollbar.css` darkens a scrollbar thumb on `:hover` with no media
+   gate; on a touch screen that hover sticks after a drag, so undo it there. */
+@media not ((hover: hover) and (pointer: fine)) {
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(136 136 136 / 0.3);
+  }
+}
+
+/* `@antfu/design`'s `FeedbackToasts` stack sits `bottom-4 right-4` with no inset of its
+   own; keep it above the home indicator and clear of the notch in landscape. */
+.z-toast.fixed[role='region'] {
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  right: calc(1rem + env(safe-area-inset-right, 0px));
+}
+
+/* Phones: `text-sm` (body copy, labels) reads at 16px and `text-xs` (meta) at 13px.
+   Both utilities read these variables (see `uno.config.ts`), so desktop keeps its
+   14px/12px. */
+@media (max-width: 767.9px) {
+  :root {
+    --pr-text-sm: 1rem;
+    --pr-leading-sm: 1.5rem;
+    --pr-text-xs: 0.8125rem;
+    --pr-leading-xs: 1.125rem;
+    /* Floor for inline code in rendered Markdown, which is sized in `em`. */
+    --pr-code-min: 13px;
+  }
+}
+
+/* Touch screens: every control gets a ~44px target, and no field is below 16px
+   (iOS zooms the page into a smaller one on focus). Visual size only changes where
+   a component opts in; these rules grow the hit area of the shared primitives. */
+@media (pointer: coarse) {
+  /* `!important`: a field's own `text-sm`/`text-xs` class would otherwise win. */
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+
+  /* `FormTextInput`/`FormSearchField` wrap their field in a fixed-height label. */
+  label:has(> input:not([type='checkbox']):not([type='radio'])),
+  button[role='combobox'] {
+    min-height: 2.75rem;
+  }
+
+  .btn-icon,
+  .btn-icon-compact,
+  .btn-icon-square {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .btn-action,
+  .btn-action-sm,
+  .btn-primary,
+  .btn-text {
+    min-height: 2.75rem;
+  }
+
+  /* `ActionToggleGroup` segments. */
+  [role='group'] > button[data-state] {
+    min-height: 2.75rem;
+  }
+
+  /* Checkboxes and switches keep their size; an invisible ring takes the tap. */
+  button[role='checkbox'],
+  button[role='switch'] {
+    position: relative;
+  }
+
+  button[role='switch']::after,
+  button[role='checkbox']::after {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
 }
 
 .diffs-page {

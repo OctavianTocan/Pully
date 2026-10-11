@@ -90,7 +90,7 @@ const nowMs = computed(() => now.value.getTime())
       <button
         v-if="hiddenCount || showAll"
         type="button"
-        class="self-start rounded text-xs op-mute outline-none transition hover:op100 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        class="self-start rounded text-xs op-mute outline-none transition coarse:min-h-11 hover:op100 focus-visible:ring-2 focus-visible:ring-primary-500/40"
         @click="showAll = !showAll"
       >
         {{ showAll ? $t('ai.showLess') : $t('ai.more', { n: hiddenCount }) }}

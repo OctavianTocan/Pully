@@ -6,6 +6,7 @@ import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
 import FormSelect from '@antfu/design/components/Form/FormSelect.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { FIELD, vField } from '../../directives/field'
 import GithubAvatar from '../GithubAvatar.vue'
 import NavControls from '../NavControls.vue'
 import { PULL_REQUEST_SORTS } from './pull-request-list-query'
@@ -24,7 +25,7 @@ const sortOptions = computed(() => PULL_REQUEST_SORTS.map(value => ({ value, lab
 
 <template>
   <header
-    class="sticky left-0 right-0 top-0 z-nav flex flex-col gap-2 border-b bg-base px4 py2 transition-all"
+    class="sticky left-0 right-0 top-0 z-nav flex flex-col gap-2 border-b bg-base px4 pb2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all"
     :class="scrollY > 20 ? 'border-base shadow-md' : 'border-transparent'"
   >
     <div class="mxa max-w-6xl w-full flex flex-col gap-2">
@@ -52,7 +53,7 @@ const sortOptions = computed(() => PULL_REQUEST_SORTS.map(value => ({ value, lab
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
-        <FormSearchField v-model="query" :placeholder="$t('pulls.search')" size="sm" class="min-w-60 flex-1" />
+        <FormSearchField v-model="query" v-field="FIELD.search" :placeholder="$t('pulls.search')" size="sm" class="min-w-60 flex-1" />
         <FormSelect v-model="sort" :options="sortOptions" class="min-w-48 h-7!" :aria-label="$t('pulls.sort.label')" />
       </div>
     </div>

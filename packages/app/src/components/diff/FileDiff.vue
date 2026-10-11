@@ -9,10 +9,10 @@ import DisplayFilePath from '@antfu/design/components/Display/DisplayFilePath.vu
 import { FileDiff as PierreFileDiff, processFile, VirtualizedFileDiff } from '@pierre/diffs'
 import { computed, defineAsyncComponent, inject, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { isDark as globalIsDark, isDarkKey } from '../../state/dark'
+import { useFileNavigation } from '../../state/navigation'
 import { aiAnchors } from '../critique/file-annotations'
 import FileSummary from '../critique/FileSummary.vue'
 import { revealFinding } from '../critique/reveal'
-import { useFileNavigation } from '../../state/navigation'
 import CommentComposer from './CommentComposer.vue'
 import { diffVirtualizerKey } from './diff-virtualizer'
 import DiffStats from './DiffStats.vue'
@@ -45,6 +45,8 @@ const virtualizer = inject(diffVirtualizerKey, undefined)
 
 const containerRef = useTemplateRef<HTMLDivElement>('container')
 const collapsed = ref(isReviewed.value || isNoisyFile(props.file.path))
+/** Phones only: whether the folded file actions are shown. */
+const actionsOpen = ref(false)
 let instance: PierreFileDiff | undefined
 const isActive = useFileNavigation(() => props.file, {
   collapsed,
@@ -393,7 +395,7 @@ defineExpose({
 <template>
   <header
     :id="`file-${file.sha}`"
-    class="relative sticky top-[calc(var(--diffs-header-height)-1px)] z-file-diff-header mt-2 flex items-center justify-between gap-2 overflow-hidden border border-base bg-base px-2 py-1.5"
+    class="press-tint relative sticky top-[calc(var(--diffs-header-height)-1px)] z-file-diff-header mt-2 flex flex-wrap items-center justify-between gap-x-2 overflow-hidden border border-base bg-base px-2 py-1.5 coarse:(py-0 pl-3)"
     role="button"
     :class="[collapsed ? 'rounded-lg' : 'rounded-t-lg', isActive && 'ring-1 ring-primary-500/60']"
     @click.self="collapsed = !collapsed"
@@ -411,22 +413,45 @@ defineExpose({
       <DiffStats v-if="!file.isBinary" :additions="file.additions" :deletions="file.deletions" />
       <span v-else class="text-xs op-fade">{{ $t('file.binary') }}</span>
       <FileStatus :status="file.status" />
-      <FileHeaderLinks :store="store" :file="file" />
-      <span v-if="fullFileError" class="text-xs text-red-500" :title="fullFileError.message">{{ $t('file.loadFailed') }}</span>
+      <div class="contents max-sm:hidden">
+        <FileHeaderLinks :store="store" :file="file" />
+        <span v-if="fullFileError" class="text-xs text-red-500" :title="fullFileError.message">{{ $t('file.loadFailed') }}</span>
+        <ActionIconButton
+          v-if="canLoadFullFile || isLoadingFullFile"
+          compact
+          :icon="isLoadingFullFile ? 'i-ph:spinner-duotone animate-spin' : 'i-ph:file-text-duotone'"
+          :disabled="isLoadingFullFile"
+          :label="$t('file.loadFull')"
+          :tooltip="$t('file.loadFull')"
+          @click="loadFullFile"
+        />
+      </div>
       <ActionIconButton
-        v-if="canLoadFullFile || isLoadingFullFile"
         compact
-        :icon="isLoadingFullFile ? 'i-ph:spinner-duotone animate-spin' : 'i-ph:file-text-duotone'"
-        :disabled="isLoadingFullFile"
-        :label="$t('file.loadFull')"
-        :tooltip="$t('file.loadFull')"
-        @click="loadFullFile"
+        class="sm:hidden"
+        icon="i-ph:dots-three-bold"
+        :active="actionsOpen"
+        :aria-expanded="actionsOpen"
+        :label="$t('file.moreActions')"
+        @click="actionsOpen = !actionsOpen"
       />
       <ActionIconButton
         compact
         :icon="collapsed ? 'i-ph:caret-right' : 'i-ph:caret-down'"
         :label="$t(collapsed ? 'file.expand' : 'file.collapse')"
         @click="collapsed = !collapsed"
+      />
+    </div>
+    <div v-if="actionsOpen" class="flex basis-full items-center justify-end gap-1 border-t border-base sm:hidden">
+      <span v-if="fullFileError" class="mr-auto text-xs text-red-500" :title="fullFileError.message">{{ $t('file.loadFailed') }}</span>
+      <FileHeaderLinks :store="store" :file="file" />
+      <ActionIconButton
+        v-if="canLoadFullFile || isLoadingFullFile"
+        compact
+        :icon="isLoadingFullFile ? 'i-ph:spinner-duotone animate-spin' : 'i-ph:file-text-duotone'"
+        :disabled="isLoadingFullFile"
+        :label="$t('file.loadFull')"
+        @click="loadFullFile"
       />
     </div>
   </header>

@@ -45,7 +45,7 @@ function openTab(tab: OverviewTab) {
     ref="root"
     class="scroll-mt-[calc(var(--diffs-header-height,0px)+12px)] border border-base rounded-lg"
   >
-    <div class="flex flex-wrap items-center gap-1 px-2 py-1.5" :class="{ 'border-b border-base': ctx.open }">
+    <div class="flex items-center gap-1 px-2 py-1.5 md:flex-wrap" :class="{ 'border-b border-base': ctx.open }">
       <ActionIconButton
         compact
         :icon="ctx.open ? 'i-ph:caret-down' : 'i-ph:caret-right'"
@@ -55,14 +55,14 @@ function openTab(tab: OverviewTab) {
         class="op-fade hover:op-100"
         @click="ctx.setOpen(!ctx.open)"
       />
-      <div role="tablist" class="flex flex-wrap items-center gap-1">
+      <div role="tablist" class="min-w-0 flex snap-x snap-mandatory items-center gap-1 overflow-x-auto overscroll-x-contain md:(flex-wrap snap-none overflow-visible)">
         <button
           v-for="tab in tabs"
           :key="tab.value"
           type="button"
           role="tab"
           :aria-selected="ctx.open && ctx.tab === tab.value"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition"
+          class="flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-sm transition coarse:min-h-11"
           :class="ctx.open && ctx.tab === tab.value ? 'bg-active color-active' : 'op-fade hover:bg-hover hover:op-100'"
           @click="openTab(tab.value)"
         >

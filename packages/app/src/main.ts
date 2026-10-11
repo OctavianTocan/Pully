@@ -3,7 +3,11 @@ import { installAppContext } from './app-context'
 import App from './App.vue'
 import { i18n } from './i18n'
 import { router } from './router'
+import { isDark } from './state/dark'
+import { syncThemeColor } from './state/theme-color'
 import './styles'
+
+syncThemeColor(isDark)
 
 async function start() {
   const app = createApp(App).use(i18n)

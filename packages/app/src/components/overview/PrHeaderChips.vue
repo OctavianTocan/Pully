@@ -15,7 +15,7 @@ const comments = computed(() => overview.value?.timeline.filter(item => item.kin
     <button
       v-if="overview.checksSummary.total"
       type="button"
-      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition hover:bg-hover"
+      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition coarse:min-h-11 hover:bg-hover"
       :title="overview.checksSummary.state && $t(`pulls.checks.${overview.checksSummary.state}`)"
       @click="ctx.show('checks')"
     >
@@ -24,7 +24,7 @@ const comments = computed(() => overview.value?.timeline.filter(item => item.kin
     </button>
     <button
       type="button"
-      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition hover:bg-hover"
+      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition coarse:min-h-11 hover:bg-hover"
       :aria-label="$t('overview.tab.conversation')"
       @click="ctx.show('conversation')"
     >

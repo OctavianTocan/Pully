@@ -3,6 +3,7 @@ import type { ModelOption } from '@pulls.review/core/llm'
 import FormTextInput from '@antfu/design/components/Form/FormTextInput.vue'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { FIELD, vField } from '../../directives/field'
 
 // Inline expandable picker (no floating popper: the embed build runs in a
 // Shadow DOM where teleported poppers escape the shadow root unstyled).
@@ -81,6 +82,7 @@ function priceTitle(model: ModelOption): string | undefined {
   <FormTextInput
     v-if="error"
     v-model="modelId"
+    v-field="FIELD.identifier"
     :placeholder="$t('settings.models.placeholder')"
   />
 
@@ -108,6 +110,7 @@ function priceTitle(model: ModelOption): string | undefined {
       <div class="p-1.5">
         <FormTextInput
           v-model="query"
+          v-field="FIELD.search"
           size="sm"
           icon="i-ph:magnifying-glass"
           :placeholder="$t('settings.models.search')"
@@ -115,7 +118,7 @@ function priceTitle(model: ModelOption): string | undefined {
           class="w-full"
         />
       </div>
-      <div class="max-h-56 of-y-auto pb-1" role="listbox">
+      <div class="max-h-56 of-y-auto overscroll-contain pb-1" role="listbox">
         <div v-if="loading" class="px-3 py-4 text-center text-sm op-mute">
           {{ $t('settings.models.loading') }}
         </div>

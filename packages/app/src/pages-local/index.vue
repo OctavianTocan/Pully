@@ -22,6 +22,7 @@ import { filterPulls, groupByRepo, TRIAGE_QUEUES } from '../components/home/tria
 import { deviceStorage, useMyPulls } from '../components/home/use-my-pulls'
 import { useDocumentTitle } from '../composables/useDocumentTitle'
 import { useHomeNavigation } from '../composables/useHomeNavigation'
+import { FIELD, vField } from '../directives/field'
 import { localRpcKey } from '../local/local-rpc-key'
 import { repoRoute, routeFromGithubUrl } from '../source-routes'
 import { createPrefetcher } from '../state/prefetch'
@@ -100,7 +101,7 @@ const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.
 </script>
 
 <template>
-  <div class="relative min-h-screen flex flex-col">
+  <div class="relative flex flex-col min-h-dvh">
     <AppHeader />
 
     <main class="mxa max-w-5xl w-full flex flex-1 flex-col gap-6 px-4 py-8 md:px-6 md:py-10">
@@ -114,14 +115,14 @@ const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.
       </div>
 
       <form class="flex items-stretch gap-2" @submit.prevent="open">
-        <FormTextInput v-model="url" :placeholder="$t('local.home.urlPlaceholder')" icon="i-ph:link-duotone" class="min-w-0 flex-1" />
+        <FormTextInput v-model="url" v-field="FIELD.identifier" inputmode="url" :placeholder="$t('local.home.urlPlaceholder')" icon="i-ph:link-duotone" class="min-w-0 flex-1" />
         <ActionButton type="submit" variant="primary" icon="i-ph-arrow-right-bold" :disabled="!parsed">
           {{ $t('local.home.open') }}
         </ActionButton>
       </form>
 
       <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <FormTextInput v-model="search" :placeholder="$t('local.home.search')" icon="i-ph:magnifying-glass-duotone" class="min-w-0 flex-1 basis-60" data-nav-search />
+        <FormTextInput v-model="search" v-field="FIELD.search" :placeholder="$t('local.home.search')" icon="i-ph:magnifying-glass-duotone" class="min-w-0 flex-1 basis-60" data-nav-search />
         <ActionToggleGroup v-model="state" :options="stateOptions" />
         <HomeSyncStatus :updating="updating" :fetched-at="fetchedAt" :error="pulls ? error : undefined" class="ml-auto" @refresh="reload" />
       </div>
@@ -154,12 +155,12 @@ const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.
           <FeedbackEmptyState v-if="!groups.length" icon="i-ph:git-pull-request-duotone" :title="queue === 'all' ? $t('local.home.empty') : $t('triage.empty')" />
 
           <details v-for="group in groups" :key="group.name" open class="group flex flex-col gap-2">
-            <summary class="flex cursor-pointer select-none list-none items-center gap-2 text-sm font-mono">
+            <summary class="flex cursor-pointer select-none list-none items-center gap-2 text-sm font-mono coarse:min-h-11">
               <span class="i-ph:caret-right-bold text-xs op-fade transition group-open:rotate-90" aria-hidden="true" />
               <span class="i-ph:git-branch-duotone op-fade" aria-hidden="true" />
               <span class="min-w-0 truncate">{{ group.name }}</span>
               <span class="op-fade">{{ group.pulls.length }}</span>
-              <RouterLink :to="repoRoute(group.owner, group.repo)" class="ml-auto shrink-0 text-xs op-fade hover:underline" @click.stop>
+              <RouterLink :to="repoRoute(group.owner, group.repo)" class="ml-auto shrink-0 text-xs op-fade coarse:(min-h-11 flex items-center pl-2) hover:underline" @click.stop>
                 {{ $t('local.home.allInRepo') }}
               </RouterLink>
             </summary>
