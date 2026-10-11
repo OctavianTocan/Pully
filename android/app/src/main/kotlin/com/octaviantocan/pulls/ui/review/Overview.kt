@@ -1119,7 +1119,8 @@ fun Checks(checks: List<PrCheck>, summary: PrChecksSummary, url: String) {
             val isCollapsed = bucket in collapsed
             Column {
                 Row(
-                    Modifier.fillMaxWidth().defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(6.dp))
+                    // `rounded-md px-1 py-1`: no touch min-height here on the web either.
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
                         .clickable { collapsed = if (isCollapsed) collapsed - bucket else collapsed + bucket }.padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1130,7 +1131,7 @@ fun Checks(checks: List<PrCheck>, summary: PrChecksSummary, url: String) {
                 }
                 if (!isCollapsed) group.forEach { check ->
                     Row(
-                        Modifier.fillMaxWidth().defaultMinSize(minHeight = TOUCH).padding(start = 28.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                        Modifier.fillMaxWidth().padding(start = 28.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -1147,7 +1148,7 @@ fun Checks(checks: List<PrCheck>, summary: PrChecksSummary, url: String) {
                         }
                         if (check.required) Text(t("overview.checks.required"), Modifier.border(1.dp, c.border, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp), style = PullsType.xs, color = c.fade)
                         check.url?.let { link ->
-                            Box(Modifier.defaultMinSize(minHeight = TOUCH).clickable { uri.openUri(link) }.padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.clickable { uri.openUri(link) }.padding(horizontal = 4.dp, vertical = 2.dp), contentAlignment = Alignment.Center) {
                                 Text(t("overview.checks.details"), style = PullsType.xs, color = c.fade)
                             }
                         }
@@ -1257,7 +1258,8 @@ fun MergeBox(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData) {
                     ActionButton(
                         { top.run(session, change) { session.repo.prAction(overview.id, change) } },
                         Modifier.fillMaxWidth(), icon = icon, small = true, enabled = top.busy == null, loading = top.busy == change,
-                    ) { Text(t("overview.actions.$change"), color = if (danger) WebColors.red(c.dark) else androidx.compose.ui.graphics.Color.Unspecified) }
+                        contentColor = if (danger) WebColors.red(c.dark) else null,
+                    ) { Text(t("overview.actions.$change")) }
                 }
             }
         }

@@ -122,12 +122,14 @@ fun ActionButton(
     loading: Boolean = false,
     active: Boolean = false,
     small: Boolean = false,
+    /** A class like `text-red-600` on the button: tints its icon and text alike. */
+    contentColor: Color? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(4.dp)
     val interaction = remember { MutableInteractionSource() }
-    val (fill, border, fg) = when (variant) {
+    val (fill, border, base) = when (variant) {
         ButtonVariant.Primary -> Triple(c.primary, Color.Transparent, Color.White)
         ButtonVariant.Text -> Triple(Color.Transparent, Color.Transparent, c.text)
         ButtonVariant.Action -> if (active) Triple(c.active, c.primary.copy(alpha = 0.25f), c.activeText) else Triple(Color.Transparent, c.border, c.text)
@@ -137,6 +139,7 @@ fun ActionButton(
         variant == ButtonVariant.Primary || active -> 1f
         else -> 0.75f
     }
+    val fg = contentColor ?: base
     Row(
         modifier
             .defaultMinSize(minHeight = TOUCH)
