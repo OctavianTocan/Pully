@@ -115,7 +115,7 @@ function priceTitle(model: ModelOption): string | undefined {
           class="w-full"
         />
       </div>
-      <div class="max-h-56 of-y-auto pb-1" role="listbox">
+      <div class="max-h-56 of-y-auto overscroll-contain pb-1" role="listbox">
         <div v-if="loading" class="px-3 py-4 text-center text-sm op-mute">
           {{ $t('settings.models.loading') }}
         </div>

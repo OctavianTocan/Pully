@@ -55,14 +55,14 @@ function openTab(tab: OverviewTab) {
         class="op-fade hover:op-100"
         @click="ctx.setOpen(!ctx.open)"
       />
-      <div role="tablist" class="min-w-0 flex items-center gap-1 overflow-x-auto md:(flex-wrap overflow-visible)">
+      <div role="tablist" class="min-w-0 flex snap-x snap-mandatory items-center gap-1 overflow-x-auto overscroll-x-contain md:(flex-wrap snap-none overflow-visible)">
         <button
           v-for="tab in tabs"
           :key="tab.value"
           type="button"
           role="tab"
           :aria-selected="ctx.open && ctx.tab === tab.value"
-          class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-sm transition coarse:min-h-11"
+          class="flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-sm transition coarse:min-h-11"
           :class="ctx.open && ctx.tab === tab.value ? 'bg-active color-active' : 'op-fade hover:bg-hover hover:op-100'"
           @click="openTab(tab.value)"
         >

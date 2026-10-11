@@ -100,7 +100,7 @@ function onKeydown(event: KeyboardEvent) {
 
     <div
       v-else
-      class="h-140 max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] w-100 flex flex-col overflow-hidden border border-base rounded-lg bg-base shadow-xl max-sm:(fixed inset-0 h-auto max-h-none max-w-none w-auto border-0 rounded-none)"
+      class="h-140 max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] w-100 flex flex-col overflow-hidden border border-base rounded-lg bg-base shadow-xl max-sm:(fixed inset-0 h-auto max-h-none max-w-none w-auto border-0 rounded-none)"
     >
       <div class="flex items-center gap-2 border-b border-base px-3 py-2 max-sm:pt-[calc(0.5rem+env(safe-area-inset-top))]">
         <span class="i-ph:chat-circle-dots-duotone op-mute" aria-hidden="true" />

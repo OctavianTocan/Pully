@@ -220,7 +220,7 @@ function refreshFromBanner() {
         <div class="mxa max-w-500 w-full flex">
           <!-- The aside stretches to the full row height so its border does too; the content inside sticks. -->
           <aside v-if="showGroupSidebar" class="w-64 shrink-0 border-r border-base">
-            <div class="sticky top-[calc(var(--diffs-header-height)+10px)] max-h-[calc(100vh-var(--diffs-header-height)-20px)] overflow-auto py-3 pl-3 pr-2">
+            <div class="sticky top-[calc(var(--diffs-header-height)+10px)] max-h-[calc(100dvh-var(--diffs-header-height)-20px)] overflow-auto overscroll-contain py-3 pl-3 pr-2">
               <DiffGroupSidebar
                 :groups="groups"
                 :groups-visable="groupsVisable"

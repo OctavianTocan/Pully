@@ -123,7 +123,7 @@ const virtualizer = useVirtualizer(computed(() => ({
 
 <template>
   <!-- Phones stack the tree above the diffs: cap it so a large PR's tree doesn't push them screens away. -->
-  <div ref="scrollEl" class="overflow-auto max-md:(max-h-[60dvh] overscroll-contain)">
+  <div ref="scrollEl" class="overflow-auto overscroll-contain max-md:max-h-[60dvh]">
     <div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
       <div
         v-for="row in virtualizer.getVirtualItems().map(item => ({ item, row: rows[item.index]! }))"

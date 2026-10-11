@@ -53,7 +53,7 @@ useDocumentTitle(() => t('local.picker.title'))
 </script>
 
 <template>
-  <div class="relative min-h-screen flex flex-col">
+  <div class="relative flex flex-col min-h-dvh">
     <AppHeader />
 
     <main class="mxa max-w-6xl w-full flex flex-1 flex-col px-6 py-16 sm:py-20">

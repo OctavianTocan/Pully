@@ -31,7 +31,7 @@ async function submit() {
 </script>
 
 <template>
-  <main class="min-h-screen flex items-center justify-center p-6">
+  <main class="flex items-center justify-center p-6 min-h-svh">
     <form class="max-w-90 w-full flex flex-col gap-3" @submit.prevent="submit">
       <h1 class="text-lg font-semibold">
         {{ $t('local.auth.title') }}

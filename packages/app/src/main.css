@@ -1,8 +1,15 @@
 html,
 body {
-  min-height: 100vh;
+  /* `dvh`, not `vh`: on a phone `100vh` is the height with the browser's toolbars
+     hidden, so a shell sized to it runs under them while they show. */
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
+  /* No rubber-band or pull-to-refresh on the page itself: an over-scroll past the end of
+     the diff shouldn't bounce the sticky header or reload a review in progress. Inner
+     scrollers (sheets, chat, file tree, lists) use `overscroll-contain` so they don't
+     hand the scroll on to the page either. */
+  overscroll-behavior: none;
 }
 
 html {

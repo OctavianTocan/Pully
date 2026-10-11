@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
       <EmbedPrView
         v-if="pr"
         ref="prView"
-        :key="prKey" :owner="pr.owner" :repo="pr.repo" :number="pr.number" :document="document" class="min-h-0 flex-1 overflow-auto"
+        :key="prKey" :owner="pr.owner" :repo="pr.repo" :number="pr.number" :document="document" class="min-h-0 flex-1 overflow-auto overscroll-contain"
       />
     </div>
 

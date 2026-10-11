@@ -87,7 +87,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
 
 <template>
   <div
-    class="relative min-h-screen flex flex-col"
+    class="relative flex flex-col min-h-svh"
     @dragenter.prevent="onDragEnter"
     @dragleave.prevent="onDragLeave"
     @dragover.prevent

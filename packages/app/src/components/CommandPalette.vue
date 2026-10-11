@@ -180,7 +180,7 @@ watch(paletteOpen, async (isOpen) => {
           @keydown="onKeydown"
         >
       </div>
-      <div :id="`${id}-list`" ref="list" role="listbox" class="max-h-[min(60vh,28rem)] overflow-auto py-1">
+      <div :id="`${id}-list`" ref="list" role="listbox" class="max-h-[min(60dvh,28rem)] overflow-auto overscroll-contain py-1">
         <div v-if="!results.length" class="px-3 py-6 text-center text-sm op-fade">
           {{ t('palette.empty') }}
         </div>

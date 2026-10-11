@@ -55,7 +55,7 @@ function rerun() {
     :document="document"
     @update:open="emit('update:open', $event)"
   >
-    <div class="max-h-[60vh] min-h-40 flex flex-col">
+    <div class="max-h-[60dvh] min-h-40 flex flex-col">
       <div ref="listEl" class="min-w-0 flex-auto overflow-y-auto overscroll-contain" @scroll="onScroll">
         <div ref="contentEl" class="flex flex-col gap-3 text-sm">
           <p v-if="llm.resumed" class="flex items-center gap-1.5 text-xs op-mute">

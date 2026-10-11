@@ -43,7 +43,7 @@ const ICONS: Record<RefSuggestion['kind'], string> = {
       <AutocompleteContent
         position="popper"
         :side-offset="6"
-        class="z-dropdown max-h-72 min-w-[--reka-combobox-trigger-width] overflow-auto border border-base rounded-lg bg-glass:75 p-1 shadow-lg"
+        class="z-dropdown max-h-72 min-w-[--reka-combobox-trigger-width] overflow-auto overscroll-contain border border-base rounded-lg bg-glass:75 p-1 shadow-lg"
         data-af-animate
       >
         <AutocompleteViewport>

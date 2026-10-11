@@ -57,7 +57,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
     </button>
     <div
       v-if="open"
-      class="absolute left-0 top-full z-dropdown mt-1 max-h-[60vh] w-[min(32rem,calc(100vw-2rem))] flex flex-col overflow-auto border border-base rounded-lg bg-base p-1 shadow-lg"
+      class="absolute left-0 top-full z-dropdown mt-1 max-h-[60dvh] w-[min(32rem,calc(100vw-2rem))] flex flex-col overflow-auto overscroll-contain border border-base rounded-lg bg-base p-1 shadow-lg"
     >
       <button
         type="button"

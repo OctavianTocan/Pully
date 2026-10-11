@@ -100,7 +100,7 @@ const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.
 </script>
 
 <template>
-  <div class="relative min-h-screen flex flex-col">
+  <div class="relative flex flex-col min-h-dvh">
     <AppHeader />
 
     <main class="mxa max-w-5xl w-full flex flex-1 flex-col gap-6 px-4 py-8 md:px-6 md:py-10">

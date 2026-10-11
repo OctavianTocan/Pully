@@ -86,7 +86,7 @@ function pick(id: string) {
           class="w-full"
         />
       </div>
-      <div class="max-h-64 of-y-auto pb-1" role="listbox">
+      <div class="max-h-64 of-y-auto overscroll-contain pb-1" role="listbox">
         <div v-if="loading && !models" class="px-3 py-4 text-center text-sm op-mute">
           {{ $t('settings.models.loading') }}
         </div>
