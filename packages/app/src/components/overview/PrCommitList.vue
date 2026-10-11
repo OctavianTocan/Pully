@@ -57,7 +57,7 @@ function isSelected(index: number) {
       >
         <button
           type="button"
-          class="min-w-0 flex flex-1 select-none items-center gap-2 py-1.5 pl-2 text-left text-sm outline-none coarse:py-3 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          class="press-tint min-w-0 flex flex-1 select-none items-center gap-2 py-1.5 pl-2 text-left text-sm outline-none coarse:py-3 focus-visible:ring-2 focus-visible:ring-primary-500/40"
           :aria-pressed="isSelected(index)"
           :title="$t('overview.commitList.view')"
           @click="pick(index, $event)"

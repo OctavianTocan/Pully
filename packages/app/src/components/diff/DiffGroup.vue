@@ -100,7 +100,7 @@ function navigateToFile(sha: string) {
       <div class="w-full flex items-center">
         <button
           type="button"
-          class="min-w-0 flex flex-1 items-start px-2 py-1 text-left"
+          class="press-tint min-w-0 flex flex-1 items-start rounded px-2 py-1 text-left"
           :aria-expanded="!collapsed"
           @click="emit('toggle')"
         >
@@ -160,7 +160,7 @@ function navigateToFile(sha: string) {
           <div class="w-full flex items-center">
             <button
               type="button"
-              class="min-w-0 flex flex-1 items-start px-2 py-1 text-left text-sm"
+              class="press-tint min-w-0 flex flex-1 items-start rounded px-2 py-1 text-left text-sm"
               :aria-expanded="!collapsed"
               @click="emit('toggle')"
             >

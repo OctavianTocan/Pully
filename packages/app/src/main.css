@@ -9,8 +9,71 @@ html {
   /* Always reserve the scrollbar's width, even on short pages, so content doesn't
      shift horizontally when navigating between pages that do/don't need to scroll. */
   scrollbar-gutter: stable;
+  /* iOS enlarges text in landscape unless told not to; the type scale is already sized for phones. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* The grey flash a tap paints over a whole link or row; every control below has its own `:active` state instead. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* No double-tap-to-zoom wait on controls, so a tap acts at once. Pinch zoom still works. */
+button,
+a,
+[role='button'],
+[role='tab'],
+[role='option'],
+summary,
+label {
+  touch-action: manipulation;
+}
+
+/* Controls: a long press shouldn't start a text selection or the iOS callout on a
+   button label. Content (code, diffs, findings, answers, links) stays selectable. The
+   file header (`role="button"`) is left out on purpose: it holds the file path, which
+   people copy. */
+button,
+[role='tab'],
+[role='switch'],
+[role='checkbox'],
+[role='radio'],
+summary,
+a[class*='btn-'] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Press feedback. With the tap highlight off and `:hover` limited to real pointers
+   (`uno.config.ts`), `:active` is what tells a finger the tap landed. Wind's `transition`
+   eases `scale` (see the theme in `uno.config.ts`); controls without it get the
+   zero-specificity default here. */
+:where(button, [role='button'], [role='tab'], [role='option'], summary, a) {
+  transition:
+    scale 120ms ease-out,
+    background-color 120ms ease-out,
+    opacity 120ms ease-out;
+}
+
+/* Only the control under the finger reacts, not a row or header that contains it
+   (`:active` also matches every ancestor of the pressed element). */
+@media (prefers-reduced-motion: no-preference) {
+  :is(button, [role='tab'], summary, a[class*='btn-']):not(
+      :disabled,
+      .press-tint,
+      [role='option'],
+      :has(button:active, a:active)
+    ):active {
+    scale: 0.97;
+  }
+}
+
+/* Wide rows (list rows, the file header, options) tint instead: a scaled full-width row reads as a jump. */
+:is(.press-tint, [role='option']):not(:has(button:active, a:active, [role='checkbox']:active)):active {
+  background-color: rgb(136 136 136 / 0.16);
+}
+
+a[href]:not([class*='btn-'], .press-tint):active {
+  opacity: 0.6;
 }
 
 /* `viewport-fit=cover` lets the page run under a phone's notch and home indicator;

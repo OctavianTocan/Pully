@@ -61,7 +61,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
     >
       <button
         type="button"
-        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition coarse:min-h-11 hover:bg-hover"
+        class="press-tint flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition coarse:min-h-11 hover:bg-hover"
         :class="selection ? 'color-base' : 'color-active'"
         @click="pick(undefined)"
       >

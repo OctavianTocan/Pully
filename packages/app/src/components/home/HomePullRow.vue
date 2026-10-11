@@ -48,7 +48,7 @@ const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.own
 <template>
   <RouterLink
     :to="to"
-    class="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm transition coarse:min-h-12 sm:flex-nowrap hover:bg-hover"
+    class="press-tint flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm transition coarse:min-h-12 sm:flex-nowrap hover:bg-hover"
     @pointerenter="emit('intent', pull)"
     @pointerleave="emit('leave', pull)"
     @focus="emit('intent', pull)"

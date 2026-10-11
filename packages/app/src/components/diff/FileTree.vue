@@ -157,7 +157,7 @@ const virtualizer = useVirtualizer(computed(() => ({
           />
           <button
             type="button"
-            class="min-w-0 flex flex-1 items-center self-stretch gap-1.5 text-left"
+            class="press-tint min-w-0 flex flex-1 items-center self-stretch gap-1.5 rounded text-left"
             :title="reviewStatus(store, row.row.file) === 'changed' ? $t('file.changedSinceReviewed') : undefined"
             @click="emit('navigate', row.row.file.sha)"
           >

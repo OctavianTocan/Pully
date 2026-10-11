@@ -60,6 +60,11 @@ export function createUnoConfig() {
         : matcher,
     ],
     theme: {
+      // Wind's own `transition` list plus `scale`, so the `:active` press scale in
+      // `main.css` eases on every control that already uses `transition`.
+      transitionProperty: {
+        DEFAULT: 'color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,scale',
+      },
       // The two small steps read their size from variables so phones can raise them in
       // one place (`main.css`); the fallbacks are Wind's own sizes, so desktop is unchanged.
       fontSize: {

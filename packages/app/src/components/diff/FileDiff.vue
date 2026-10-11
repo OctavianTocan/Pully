@@ -395,7 +395,7 @@ defineExpose({
 <template>
   <header
     :id="`file-${file.sha}`"
-    class="relative sticky top-[calc(var(--diffs-header-height)-1px)] z-file-diff-header mt-2 flex flex-wrap items-center justify-between gap-x-2 overflow-hidden border border-base bg-base px-2 py-1.5 coarse:(py-0 pl-3)"
+    class="press-tint relative sticky top-[calc(var(--diffs-header-height)-1px)] z-file-diff-header mt-2 flex flex-wrap items-center justify-between gap-x-2 overflow-hidden border border-base bg-base px-2 py-1.5 coarse:(py-0 pl-3)"
     role="button"
     :class="[collapsed ? 'rounded-lg' : 'rounded-t-lg', isActive && 'ring-1 ring-primary-500/60']"
     @click.self="collapsed = !collapsed"
