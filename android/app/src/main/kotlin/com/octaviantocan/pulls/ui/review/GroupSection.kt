@@ -53,57 +53,6 @@ import com.octaviantocan.pulls.ui.design.tc
  * with `category-icons.ts`, `DisplayDonut` and the inline `DiffGroupNav` chips.
  */
 
-/** `CATEGORY_ICON`. */
-val CATEGORY_ICON = mapOf(
-    "ui" to "compass-tool-duotone",
-    "api" to "plugs-connected-duotone",
-    "core" to "code-duotone",
-    "data" to "database-duotone",
-    "cli" to "terminal-duotone",
-    "security" to "shield-check-duotone",
-    "tests" to "flask-duotone",
-    "docs" to "book-open-duotone",
-    "examples" to "play-circle-duotone",
-    "deps" to "package-duotone",
-    "build" to "hammer-duotone",
-    "scripts" to "wrench-duotone",
-    "config" to "sliders-horizontal-duotone",
-    "i18n" to "translate-duotone",
-    "assets" to "image-duotone",
-    "other" to "dots-three-circle-duotone",
-)
-
-/** `CATEGORY_COLOR_CLASS`: `color-<hue>-800 dark:color-<hue>-300` (UnoCSS wind palette). */
-private val CATEGORY_COLOR = mapOf(
-    "ui" to (0xFF9D174D to 0xFFF9A8D4),
-    "api" to (0xFF1E40AF to 0xFF93C5FD),
-    "core" to (0xFF5B21B6 to 0xFFC4B5FD),
-    "data" to (0xFF92400E to 0xFFFCD34D),
-    "cli" to (0xFF3F6212 to 0xFFBEF264),
-    "security" to (0xFF991B1B to 0xFFFCA5A5),
-    "tests" to (0xFF166534 to 0xFF86EFAC),
-    "docs" to (0xFF075985 to 0xFF7DD3FC),
-    "examples" to (0xFF155E75 to 0xFF67E8F9),
-    "deps" to (0xFF9A3412 to 0xFFFDBA74),
-    "build" to (0xFF854D0E to 0xFFFDE047),
-    "scripts" to (0xFF065F46 to 0xFF6EE7B7),
-    "config" to (0xFF115E59 to 0xFF5EEAD4),
-    "i18n" to (0xFF3730A3 to 0xFFA5B4FC),
-    "assets" to (0xFF86198F to 0xFFF0ABFC),
-    "other" to (0xFF262626 to 0xFFD4D4D4),
-)
-
-fun categoryColor(category: String, c: PullsColors): Color {
-    val (light, dark) = CATEGORY_COLOR[category] ?: CATEGORY_COLOR.getValue("other")
-    return Color(if (c.dark) dark else light)
-}
-
-@Composable
-fun GroupCategoryIcon(category: String, size: Dp, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
-    PhIcon(CATEGORY_ICON[category] ?: CATEGORY_ICON.getValue("other"), modifier, tint = categoryColor(category, c), size = size, contentDescription = t("category.$category"))
-}
-
 /** `DisplayDonut`: a progress ring, track at `op-mute`, progress in `color-active`. */
 @Composable
 fun Donut(value: Float, size: Dp = 12.dp, thickness: Dp = 2.5.dp, color: Color? = null, modifier: Modifier = Modifier) {
@@ -161,7 +110,7 @@ fun ChapterHeader(view: GroupView, collapsed: Boolean, reviewed: Set<String>, on
             Caret(collapsed, top = 2.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GroupCategoryIcon(view.group.category, 20.dp)
+                    GroupCategoryIcon(view.group.category, size = 20.dp)
                     Text(view.label, style = PullsType.xxl.copy(fontWeight = FontWeight.Medium, lineHeight = 26.sp), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 GroupStatsRow(view, reviewed, subgroups = true)
@@ -180,7 +129,7 @@ fun ChapterHeader(view: GroupView, collapsed: Boolean, reviewed: Set<String>, on
 @Composable
 private fun GroupNavChip(view: GroupView, reviewed: Set<String>, onClick: () -> Unit) {
     val c = LocalPullsColors.current
-    val hue = categoryColor(view.group.category, c)
+    val hue = categoryColor(view.group.category, c.dark)
     val shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
     Row(
         Modifier
@@ -238,7 +187,7 @@ fun GroupHeader(view: GroupView, collapsed: Boolean, reviewed: Set<String>, pare
             Caret(collapsed, top = 4.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GroupCategoryIcon(view.group.category, 16.dp)
+                    GroupCategoryIcon(view.group.category, size = 16.dp)
                     // `useFitText(label, 14, 20)`: the label shrinks to fit before it truncates.
                     BasicText(
                         view.label,

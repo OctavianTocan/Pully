@@ -182,7 +182,7 @@ internal fun GlyphIcon(glyph: Glyph, size: Dp = 16.dp, modifier: Modifier = Modi
 
 /** `DisplayDonut`: a progress ring, track at `op-mute`, value in `color-active`. */
 @Composable
-internal fun Donut(value: Float, size: Dp = 18.dp, thickness: Dp = 3.dp, color: Color = LocalPullsColors.current.activeText, track: Color = LocalPullsColors.current.text) {
+internal fun HeaderDonut(value: Float, size: Dp = 18.dp, thickness: Dp = 3.dp, color: Color = LocalPullsColors.current.activeText, track: Color = LocalPullsColors.current.text) {
     Canvas(Modifier.size(size)) {
         val stroke = thickness.toPx()
         val inset = stroke / 2
@@ -426,7 +426,7 @@ fun PrMeta(session: ReviewSession, top: ReviewTopUi, modifier: Modifier = Modifi
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Donut(progress, 18.dp, 3.dp)
+            HeaderDonut(progress, 18.dp, 3.dp)
             Text("$reviewedCount", style = PullsType.sm, color = c.text)
             Text(t("pr.reviewedOf", "total" to files.size), style = PullsType.xs, color = c.text.copy(alpha = 0.5f), maxLines = 1)
         }
