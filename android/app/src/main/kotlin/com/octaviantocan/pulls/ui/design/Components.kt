@@ -141,11 +141,12 @@ fun ActionButton(
         modifier
             .defaultMinSize(minHeight = TOUCH)
             .press(interaction)
+            // `disabled:op50` dims the whole button, fill and border included.
+            .alpha(restAlpha)
             .clip(shape)
             .background(fill, shape)
             .border(1.dp, border, shape)
             .clickable(interaction, null, enabled = enabled && !loading, role = Role.Button, onClick = onClick)
-            .alpha(restAlpha)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

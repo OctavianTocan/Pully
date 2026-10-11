@@ -171,17 +171,21 @@ fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi) {
         error?.let { Text(it, style = PullsType.sm, color = WebColors.red(c.dark)) }
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
             VerdictToggle(verdict) { verdict = it }
-            Spacer(Modifier.weight(1f))
-            if (session.reviewData?.pendingReviewId != null) {
-                ActionButton({ run { session.repo.discardReview(pull) } }, variant = ButtonVariant.Text, enabled = !busy) {
-                    Text(t("review.discard"), color = WebColors.red(c.dark))
+            // `justify-end` with `flex-auto` spacers: the actions take the rest of the line, or a line of
+            // their own when they wrap, and sit at its right end.
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                if (session.reviewData?.pendingReviewId != null) {
+                    ActionButton({ run { session.repo.discardReview(pull) } }, variant = ButtonVariant.Text, enabled = !busy) {
+                        Text(t("review.discard"), color = WebColors.red(c.dark))
+                    }
+                    Spacer(Modifier.weight(1f))
                 }
+                ActionButton(
+                    { run { session.repo.submitReview(pull, verdict, body) } },
+                    variant = ButtonVariant.Primary, loading = busy,
+                    enabled = verdict == "APPROVE" || body.isNotBlank() || pending > 0,
+                ) { Text(t("common.submit")) }
             }
-            ActionButton(
-                { run { session.repo.submitReview(pull, verdict, body) } },
-                variant = ButtonVariant.Primary, loading = busy,
-                enabled = verdict == "APPROVE" || body.isNotBlank() || pending > 0,
-            ) { Text(t("common.submit")) }
         }
     }
 }
