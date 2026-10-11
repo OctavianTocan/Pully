@@ -55,7 +55,7 @@ watch(() => props.critique.isRunning, (running) => {
 <template>
   <section ref="root" data-critique-panel class="flex flex-col gap-3 border border-base rounded-lg bg-raised px-3 py-2">
     <header class="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <button type="button" class="flex items-center gap-1.5 text-sm font-medium" :aria-expanded="isOpen" @click="isOpen = !isOpen">
+      <button type="button" class="flex items-center gap-1.5 text-sm font-medium coarse:min-h-11" :aria-expanded="isOpen" @click="isOpen = !isOpen">
         <span :class="isOpen ? 'i-ph:caret-down' : 'i-ph:caret-right'" aria-hidden="true" />
         <span class="i-ph:magnifying-glass-duotone op-fade" aria-hidden="true" />
         {{ $t('critique.title') }}
@@ -72,7 +72,7 @@ watch(() => props.critique.isRunning, (running) => {
 
     <div v-if="critique.isRunning || critique.activities.length" class="flex items-start gap-3">
       <AiActivityLog
-        class="flex-1"
+        class="min-w-0 flex-1"
         :activities="critique.activities"
         :running="critique.isRunning"
         :started-at="critique.startedAt"

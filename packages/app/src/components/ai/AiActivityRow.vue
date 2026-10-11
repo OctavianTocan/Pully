@@ -77,11 +77,11 @@ const tone = computed(() => {
       :type="expandable ? 'button' : undefined"
       :aria-expanded="expandable ? expanded : undefined"
       class="min-w-0 flex items-center gap-1.5 rounded text-left outline-none"
-      :class="[tone, expandable ? 'hover:bg-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 -mx-1 px-1' : '']"
+      :class="[tone, expandable ? 'hover:bg-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 -mx-1 px-1 coarse:min-h-11' : '']"
       @click="expandable && (expanded = !expanded)"
     >
       <span :class="icon" class="shrink-0" aria-hidden="true" />
-      <span class="min-w-0 flex-1 truncate">
+      <span class="min-w-0 flex-1 truncate max-md:(line-clamp-2 whitespace-normal break-words)">
         <span :class="running ? 'ai-shimmer' : ''">{{ activity.title }}</span>
         <span v-if="preview" class="op-mute"> {{ preview }}</span>
       </span>

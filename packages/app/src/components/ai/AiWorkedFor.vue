@@ -19,7 +19,7 @@ const open = defineModel<boolean>('open', { default: false })
       :is="expandable ? 'button' : 'div'"
       :type="expandable ? 'button' : undefined"
       :aria-expanded="expandable ? open : undefined"
-      class="min-w-0 flex items-center self-start gap-1.5 rounded text-left outline-none"
+      class="min-w-0 flex items-center self-start gap-1.5 rounded text-left outline-none coarse:min-h-11"
       :class="[
         failed ? 'text-red-600 dark:text-red-400' : 'op-fade',
         expandable ? 'transition hover:op100 focus-visible:ring-2 focus-visible:ring-primary-500/40' : '',
