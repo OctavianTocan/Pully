@@ -258,6 +258,59 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return comment
   },
 
+  /**
+   * Shared analyses posted on the PR (`shared.discover`): who shared, where, whether it is of an
+   * older head, and the language. With no AI result saved yet, a `github-actions[bot]` analysis
+   * loads at once, as on the web.
+   */
+  'shared-list': async function (cwd, args) {
+    const key = text(args?.key)
+    const session = await serverSession(cwd)
+    const entry = key ? await session.cache.diffs.get(key) : undefined
+    const ref = entry?.diff.ref
+    if (!entry || !ref || ref.kind !== 'github-pr')
+      return { candidates: [] }
+    const sharing = createGithubSource(ref, staticCredentials(await token())).sharing
+    const found = await sharing?.list().catch(() => []) ?? []
+    const viewer = (await fetchGithubTokenMeta(await token()).catch(() => undefined))?.login
+    const headSha = entry.diff.head?.sha
+    const current = entry.analyzedBy.llm
+    const bot = found.find(comment => comment.login === 'github-actions[bot]')
+    if (bot && !current) {
+      await session.cache.diffs.setAnalyzedResult(key, 'llm', { ...bot.analysis.result, sharedBy: bot.login })
+      return { candidates: [], loaded: bot.login }
+    }
+    // `discover()` without `from` only runs while the diff has no AI result at all.
+    if (current)
+      return { candidates: [] }
+    return {
+      candidates: found.map(comment => ({
+        login: comment.login,
+        url: comment.url,
+        own: comment.login === viewer,
+        stale: comment.analysis.headSha !== headSha,
+        locale: comment.analysis.result.locale,
+      })),
+    }
+  },
+
+  /** Installs one person's shared analysis as this diff's AI result (`shared.load`). */
+  'shared-load': async function (cwd, args) {
+    const key = text(args?.key)
+    const login = text(args?.login)
+    const session = await serverSession(cwd)
+    const entry = key ? await session.cache.diffs.get(key) : undefined
+    const ref = entry?.diff.ref
+    if (!entry || !ref || ref.kind !== 'github-pr' || !login)
+      throw new Error('That needs the diff and who shared it.')
+    const found = await createGithubSource(ref, staticCredentials(await token())).sharing?.list() ?? []
+    const comment = found.find(item => item.login === login)
+    if (!comment)
+      throw new Error(`${login} has not shared an analysis on this pull request.`)
+    await session.cache.diffs.setAnalyzedResult(key, 'llm', { ...comment.analysis.result, sharedBy: comment.login })
+    return { loaded: comment.login }
+  },
+
   /** One page of a repository's open pull requests (`PullsPage`). */
   'repo-pulls': async function (_cwd, args) {
     const owner = text(args?.owner)

@@ -276,36 +276,64 @@ private fun Bullet(content: @Composable () -> Unit) {
     }
 }
 
+/** A shared analysis on the PR another person (or you, elsewhere) posted (`SharedAnalysisCandidate`). */
+internal data class SharedCandidate(val login: String, val own: Boolean, val stale: Boolean, val locale: String?)
+
 /**
- * `SharedAnalysisBanner` and the header's "Viewing AI analysis shared by" credit: the page's
- * analysis came from someone's shared comment. (The web banner also offers other people's
- * shared analyses to load; the server has no route listing them for the phone.)
+ * Port of `SharedAnalysisBanner.vue`: after the diff loads, the server lists the analyses shared
+ * as comments on the PR (`shared-list`, the web `shared.discover`); they are offered as chips
+ * that install one as this diff's AI result (`shared-load`). Dismiss hides it for the page.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SharedAnalysisBannerImpl(session: ReviewSession, modifier: Modifier) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
-    val analysis = session.saved?.analysis ?: return
-    val by = analysis.sharedBy ?: return
-    // `SharedAnalysisBanner.vue` renders only for other people's analyses to load, or a notice.
-    // The phone gets neither yet, and the header's shared-by chip already credits a loaded one.
-    val hasCandidates = false
-    if (!hasCandidates || ui.bannerDismissed || session.analyzeMode == "rules") return
+    val key = session.key ?: return
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var candidates by androidx.compose.runtime.remember(key) { androidx.compose.runtime.mutableStateOf<List<SharedCandidate>>(emptyList()) }
+    var notice by androidx.compose.runtime.remember(key) { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    androidx.compose.runtime.LaunchedEffect(key) {
+        runCatching { session.repo.call("shared-list") { put("key", key) } }.onSuccess { result ->
+            val o = result as? kotlinx.serialization.json.JsonObject ?: return@onSuccess
+            if (o["loaded"] != null) { session.reloadSaved(); session.analyzeMode = "ai" }
+            candidates = (o["candidates"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { e ->
+                val item = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                fun str(k: String) = (item[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                SharedCandidate(str("login").orEmpty(), str("own") == "true", str("stale") == "true", str("locale"))
+            }
+        }
+    }
+    if (ui.bannerDismissed || (candidates.isEmpty() && notice == null)) return
+    val replacesLocal = session.hasAiResult && session.saved?.analysis?.sharedBy == null
+    val locale = session.settings.locale
     FlowRow(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.raised).border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.Center,
+        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.raised).border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         PhIcon("sparkle-duotone", tint = c.fade, size = 16.dp)
-        if (by == ACTIONS_BOT_LOGIN) Text(t("pr.sharedAnalysis"), style = PullsType.sm, color = c.text)
-        else {
-            Text(t("pr.sharedBy"), style = PullsType.sm, color = c.text)
-            GithubAvatar(by, size = 16.dp)
-            Text(by, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-        }
-        analysis.model?.let { Text(it, style = PullsType.xs, color = c.fade) }
+        if (candidates.isNotEmpty()) {
+            Text(t(if (replacesLocal) "share.loadReplaces" else "share.available"), style = PullsType.sm, color = c.text)
+            candidates.forEach { candidate ->
+                com.octaviantocan.pulls.ui.design.ActionButton({
+                    scope.launch {
+                        runCatching { session.repo.call("shared-load") { put("key", key); put("login", candidate.login) } }
+                            .onSuccess { candidates = emptyList(); notice = null; session.reloadSaved(); session.analyzeMode = "ai" }
+                            .onFailure { notice = it.message }
+                    }
+                }, Modifier.clip(androidx.compose.foundation.shape.CircleShape), small = true) {
+                    GithubAvatar(candidate.login, size = 16.dp)
+                    Text(if (candidate.own) t("common.you") else candidate.login)
+                    if (candidate.stale) Text(t("share.outdated"), style = PullsType.xs, color = c.fade)
+                    else candidate.locale?.takeIf { it != locale }?.let { other ->
+                        val name = com.octaviantocan.pulls.ui.design.Messages.LOCALES.firstOrNull { it.first == other }?.second ?: other
+                        Text("($name)", style = PullsType.xs, color = c.fade)
+                    }
+                }
+            }
+        } else notice?.let { Text(it, style = PullsType.sm, color = c.fade) }
         Spacer(Modifier.weight(1f))
         IconButton("x", t("common.dismiss"), { ui.bannerDismissed = true }, compact = true)
     }
