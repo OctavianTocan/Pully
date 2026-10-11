@@ -37,6 +37,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.gfm.strikethrough.Strikethrough
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
@@ -339,7 +341,8 @@ private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors) 
     run {
         when (node) {
             is MdText -> append(node.literal)
-            is Code -> withStyle(SpanStyle(fontFamily = PullsType.mono, background = c.code)) { append(" ${node.literal} ") }
+            // `text-[max(0.85em,var(--pr-code-min))] px-1 py-0.5 rounded bg-code` (13px floor on phones).
+            is Code -> withStyle(SpanStyle(fontFamily = PullsType.mono, background = c.code, fontSize = if (PullsType.wide) 0.85.em else 13.sp)) { append("\u2009${node.literal}\u2009") }
             is Emphasis -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendInline(node, c) }
             is StrongEmphasis -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { appendInline(node, c) }
             is Strikethrough -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { appendInline(node, c) }
