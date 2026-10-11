@@ -57,7 +57,7 @@ fun PullsApp(initialTarget: String?) {
             openTarget = { stack.add(Screen.Review(it)) },
             openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
             home = { stack.clear(); stack.add(Screen.Home) },
-            settings = { stack.add(Screen.Settings) },
+            settings = { if (stack.last() != Screen.Settings) stack.add(Screen.Settings) },
             checkout = { stack.add(Screen.Checkout) },
             back = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
         )
@@ -75,13 +75,15 @@ fun PullsApp(initialTarget: String?) {
         )
     }
     Box(Modifier.fillMaxSize().background(LocalPullsColors.current.base)) {
-        when (val current = stack.last()) {
+        // Settings is a modal over the page it was opened from, as on the web.
+        when (val current = stack.lastOrNull { it != Screen.Settings } ?: Screen.Home) {
             Screen.Home -> HomeScreen(nav, updateNote)
             is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
             is Screen.Review -> ReviewScreen(current.target, nav)
             Screen.Checkout -> CheckoutScreen(nav)
-            Screen.Settings -> SettingsScreen(nav)
+            Screen.Settings -> {}
         }
+        if (stack.last() == Screen.Settings) SettingsScreen(nav)
         CommandPalette()
     }
 }

@@ -193,7 +193,7 @@ private fun VerdictToggle(value: String, onChange: (String) -> Unit) {
             val on = option == value
             Row(
                 Modifier.defaultMinSize(minHeight = 36.dp).clip(RoundedCornerShape(6.dp))
-                    .background(if (on) (if (c.dark) Color(0xFF1C1C1C) else Color.White) else Color.Transparent)
+                    .background(if (on) c.raised else Color.Transparent)
                     .clickable(role = Role.Tab) { onChange(option) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,

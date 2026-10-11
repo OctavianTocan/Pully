@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -138,7 +139,10 @@ fun AppModal(
             dragHandle = null,
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
-            Column(Modifier.fillMaxWidth().border(1.dp, c.border, shape).imePadding()) {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+            val maxHeight = LocalConfiguration.current.screenHeightDp.dp - maxOf(top, 16.dp)
+            Column(Modifier.fillMaxWidth().heightIn(max = maxHeight).border(1.dp, c.border, shape).imePadding()) {
                 Body(sheet = true) { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }
             }
         }

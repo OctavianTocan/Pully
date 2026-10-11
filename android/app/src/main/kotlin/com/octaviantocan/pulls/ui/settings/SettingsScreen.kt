@@ -131,43 +131,22 @@ private class EngineModels(context: Context) {
 }
 
 /** Port of `SettingsModal`/`SettingsPanel` (local build), plus the phone's own server and Access fields. */
+/**
+ * `SettingsModal` + `SettingsPanel`: the web opens Settings as an `AppModal` over the page
+ * (a bottom sheet on phones, a dialog from `sm`), body `flex flex-col gap-4 p2`. The local
+ * build has no GitHub token section; the phone adds its server section at the end.
+ */
 @Composable
 fun SettingsScreen(nav: Nav) {
-    val c = LocalPullsColors.current
-    val scroll = rememberScrollState()
-    Column(Modifier.fillMaxSize().background(c.base)) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(c.base)
-                .bottomBorder(if (scroll.value > 10) c.border else Color.Transparent)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .height(56.dp)
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            IconButton("arrow-left", t("common.close"), nav.back)
-            Text(t("common.settings"), Modifier.weight(1f), style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)
-            NavControls(nav)
-        }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-            val side = ((maxWidth - 640.dp) / 2).coerceAtLeast(0.dp)
-            Column(
-                Modifier.fillMaxSize().verticalScroll(scroll).imePadding().padding(horizontal = side + 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                LayoutSettingsSection()
-                Divider()
-                AutoRefreshSettingsSection()
-                Divider()
-                GithubAccessNote()
-                Divider()
-                LlmSettingsSection()
-                Divider()
-                ServerSection()
-                Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-            }
+    com.octaviantocan.pulls.ui.design.AppModal(onClose = nav.back, title = t("common.settings")) {
+        Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            LayoutSettingsSection()
+            Divider()
+            AutoRefreshSettingsSection()
+            Divider()
+            LlmSettingsSection()
+            Divider()
+            ServerSection()
         }
     }
 }
@@ -337,7 +316,7 @@ private fun EngineToggle(value: String, onChange: (String) -> Unit) {
                 Modifier
                     .defaultMinSize(minHeight = 36.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(if (on) (if (c.dark) Color(0xFF1C1C1C) else Color.White) else Color.Transparent)
+                    .background(if (on) c.raised else Color.Transparent)
                     .clickable(role = Role.Tab) { onChange(id) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -465,7 +444,7 @@ private fun AiEffortPicker(effort: String, efforts: List<String>, defaultEffort:
                 Modifier
                     .defaultMinSize(minHeight = 36.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(if (on) (if (c.dark) Color(0xFF1C1C1C) else Color.White) else Color.Transparent)
+                    .background(if (on) c.raised else Color.Transparent)
                     .clickable(role = Role.Tab) { onChange(value) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center,

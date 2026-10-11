@@ -329,7 +329,7 @@ private fun SeverityFilter(result: Critique, value: Set<String>, onChange: (Set<
             Text(
                 "${t("critique.severity.$severity")} $count",
                 Modifier.defaultMinSize(minHeight = 36.dp).clip(RoundedCornerShape(6.dp))
-                    .background(if (on && !disabled) (if (c.dark) Color(0xFF1C1C1C) else Color.White) else Color.Transparent)
+                    .background(if (on && !disabled) c.raised else Color.Transparent)
                     .clickable(enabled = !disabled, role = Role.Checkbox) { onChange(SEVERITIES.filter { if (it == severity) !on else it in value }.toSet()) }
                     .alpha(if (disabled) 0.4f else 1f)
                     .padding(horizontal = 12.dp, vertical = 6.dp),
