@@ -70,5 +70,11 @@ fun PullsApp(initialTarget: String?) {
 
 internal fun checkUpdate(context: Context): String? = runCatching {
     val config = ServerStore.load(context)
-    AppUpdater(context).check(config.url, config.headers(), 1)?.let { "Update ${it.versionName} is ready. ${it.notes}" }
+    AppUpdater(context).check(config.url, config.headers(), installedVersionCode(context))?.let { "Update ${it.versionName} is ready. ${it.notes}" }
 }.getOrNull()
+
+/** The installed app's version code, so the update banner only shows for a newer build. */
+internal fun installedVersionCode(context: Context): Int {
+    val info = context.packageManager.getPackageInfo(context.packageName, 0)
+    return if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode
+}
