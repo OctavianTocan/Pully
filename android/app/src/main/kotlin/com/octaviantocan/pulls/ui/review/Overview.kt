@@ -55,6 +55,7 @@ import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.IconButton
 import com.octaviantocan.pulls.ui.design.Loading
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.DETAILS_INFO
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PrStatusIcon
@@ -612,7 +613,9 @@ private fun inline(node: HtmlNode, ctx: MdContext): String = when (node) {
         "a" -> {
             val href = node.attrs["href"].orEmpty()
             val label = node.children.joinToString("") { inline(it, MdContext(inLink = true, inTable = ctx.inTable)) }.trim()
-            if (ctx.inLink || href.isBlank() || href.startsWith("#") || label.isBlank()) label else "[$label](<${href.replace(">", "%3E")}>)"
+            // `[&_.user-mention]:font-semibold [&_.user-mention]:no-underline`
+            if ("user-mention" in node.attrs["class"].orEmpty()) "**$label**"
+            else if (ctx.inLink || href.isBlank() || href.startsWith("#") || label.isBlank()) label else "[$label](<${href.replace(">", "%3E")}>)"
         }
         "img" -> {
             val alt = escapeMarkdown(node.attrs["alt"].orEmpty().trim())
@@ -666,9 +669,13 @@ private fun block(node: HtmlElement): List<String> = when (node.tag) {
     "blockquote" -> listOf(blocks(node.children).joinToString("\n\n").lines().joinToString("\n") { if (it.isEmpty()) ">" else "> $it" })
     "table" -> listOfNotNull(table(node))
     "details" -> {
+        // A closed `<details>`, as GitHub renders it: [DETAILS_INFO] tells the Markdown renderer to draw a disclosure.
         val summary = node.children.filterIsInstance<HtmlElement>().firstOrNull { it.tag == "summary" }
-        val title = summary?.children?.joinToString("") { inline(it, MdContext()) }?.trim().orEmpty()
-        listOfNotNull(title.takeIf { it.isNotEmpty() }?.let { "**▸ $it**" }) + blocks(node.children.filter { it !== summary })
+        val title = summary?.let { textContent(it) }?.trim()?.replace("\n", " ").orEmpty().ifEmpty { "Details" }
+        val body = blocks(node.children.filter { it !== summary }).joinToString("\n\n")
+        val longest = Regex("`+").findAll(body).maxOfOrNull { it.value.length } ?: 0
+        val fence = "`".repeat(maxOf(3, longest + 1))
+        listOf("$fence$DETAILS_INFO $title\n$body\n$fence")
     }
     "summary" -> listOf("**" + node.children.joinToString("") { inline(it, MdContext()) }.trim() + "**")
     else -> blocks(node.children)

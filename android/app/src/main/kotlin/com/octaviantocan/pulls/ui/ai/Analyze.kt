@@ -282,7 +282,10 @@ internal fun SharedAnalysisBannerImpl(session: ReviewSession, modifier: Modifier
     val ui = aiUi(session)
     val analysis = session.saved?.analysis ?: return
     val by = analysis.sharedBy ?: return
-    if (ui.bannerDismissed || session.analyzeMode == "rules") return
+    // `SharedAnalysisBanner.vue` renders only for other people's analyses to load, or a notice.
+    // The phone gets neither yet, and the header's shared-by chip already credits a loaded one.
+    val hasCandidates = false
+    if (!hasCandidates || ui.bannerDismissed || session.analyzeMode == "rules") return
     FlowRow(
         modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.raised).border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

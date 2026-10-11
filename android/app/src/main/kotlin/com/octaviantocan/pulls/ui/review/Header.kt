@@ -265,8 +265,8 @@ fun ReviewHeader(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?
                 }
             }
             val title: @Composable (Modifier) -> Unit = { m ->
-                FlowRow(m, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.Center) {
-                    Text(display.title, Modifier.align(Alignment.CenterVertically), style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)
+                Row(m, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(display.title, Modifier.weight(1f, fill = false), style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)
                     if (display.label.isNotBlank()) {
                         Box(Modifier.align(Alignment.CenterVertically).defaultMinSize(minHeight = TOUCH).clickable(enabled = display.url.isNotBlank()) { uri.openUri(display.url) }, contentAlignment = Alignment.Center) {
                             Text(display.label, style = PullsType.base, color = c.fade)
@@ -334,7 +334,7 @@ fun ReviewHeader(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?
                 }
                 if (display.base.isNotBlank() && display.head.isNotBlank()) {
                     Row(Modifier.align(Alignment.CenterVertically), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        RefChip(display.base, Modifier.weight(1f, fill = false))
+                        RefChip(display.base)
                         Text("←", style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
                         RefChip(display.head, Modifier.weight(1f, fill = false))
                     }

@@ -85,7 +85,10 @@ import kotlinx.coroutines.delay
  */
 
 /** Pierre's diff text: 13px on 20px lines, monospace. */
-private val CODE = TextStyle(fontFamily = PullsType.mono, fontSize = 13.sp, lineHeight = 20.sp)
+private val CODE = TextStyle(
+    fontFamily = PullsType.mono, fontSize = 13.sp, lineHeight = 20.sp,
+    lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.None),
+)
 private val PAGE_PAD = 12.dp
 
 /** Pierre colors not in the highlight theme: `--diffs-added-*`, `--diffs-deleted-*`, `--diffs-modified-*`. */
@@ -229,18 +232,35 @@ private fun FileHeader(session: ReviewSession, ui: DiffUi, file: ReviewFile) {
             Modifier.fillMaxWidth().clip(shape).background(c.base).borderShape(c.border, collapsed)
                 .clickable(role = Role.Button, onClickLabel = t(if (collapsed) "file.expand" else "file.collapse")) { ui.setFileCollapsed(file.path, !collapsed) },
         ) {
-            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                ReviewCheckbox(status, { value -> session.setReviewed(listOf(file.sha), value) }, label = t("file.markReviewed"))
-                FilePath(file.path, Modifier.weight(1f), dim = true)
-                Spacer(Modifier.width(8.dp))
+            val meta: @Composable () -> Unit = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (resolved > 0) Text(t("file.resolved", "n" to resolved), style = PullsType.xs, color = c.fade, maxLines = 1)
                     if (!file.isBinary) DiffStats(file.additions, file.deletions) else Text(t("file.binary"), style = PullsType.xs, color = c.fade, maxLines = 1)
                     FileStatus(file.status)
                 }
-                if (wide) FileActions(session, ui, file)
-                else IconButton("dots-three-bold", t("file.moreActions"), { ui.actionsOpen[file.path] = !actionsOpen }, compact = true, active = actionsOpen)
+            }
+            val caret: @Composable () -> Unit = {
                 IconButton(if (collapsed) "caret-right" else "caret-down", t(if (collapsed) "file.expand" else "file.collapse"), { ui.setFileCollapsed(file.path, !collapsed) }, compact = true)
+            }
+            if (wide) {
+                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ReviewCheckbox(status, { value -> session.setReviewed(listOf(file.sha), value) }, label = t("file.markReviewed"))
+                    FilePath(file.path, Modifier.weight(1f), dim = true)
+                    Spacer(Modifier.width(8.dp))
+                    meta()
+                    FileActions(session, ui, file)
+                    caret()
+                }
+            } else {
+                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ReviewCheckbox(status, { value -> session.setReviewed(listOf(file.sha), value) }, label = t("file.markReviewed"))
+                    FilePath(file.path, Modifier.weight(1f), dim = true)
+                }
+                Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    meta()
+                    IconButton("dots-three-bold", t("file.moreActions"), { ui.actionsOpen[file.path] = !actionsOpen }, compact = true, active = actionsOpen)
+                    caret()
+                }
             }
             if (!wide && actionsOpen) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(c.border))
@@ -372,16 +392,14 @@ private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Bool
     val c = LocalPullsColors.current
     val p = remember(c, ui.theme) { Palette(c, ui.theme) }
     val loading = ui.fullLoading[file.path] == true
-    Box(Modifier.fillMaxWidth().fileFrame(c.border).background(p.bg).padding(top = if (first) 0.dp else 8.dp, bottom = 8.dp)) {
+    Box(Modifier.fillMaxWidth().fileFrame(c.border).background(p.bg).padding(horizontal = 8.dp).padding(top = if (first) 0.dp else 6.dp, bottom = 6.dp)) {
         Row(
-            Modifier.fillMaxWidth().height(32.dp).background(p.separator)
-                .clickable(enabled = !file.isBinary && !loading, role = Role.Button, onClickLabel = t("file.loadFull")) { ui.loadFullFile(file, gap.id) },
+            Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(6.dp)).background(p.separator)
+                .clickable(enabled = !file.isBinary && !loading, role = Role.Button, onClickLabel = t("file.loadFull")) { ui.loadFullFile(file, gap.id) }
+                .padding(start = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.width(32.dp).fillMaxHeight().background(p.bg), contentAlignment = Alignment.Center) {
-                if (loading) CircularProgressIndicator(Modifier.width(14.dp).height(14.dp), color = p.number, strokeWidth = 2.dp)
-                else PhIcon("arrows-out-line-vertical", tint = p.number, size = 16.dp)
-            }
+            if (loading) CircularProgressIndicator(Modifier.padding(start = 8.dp).width(14.dp).height(14.dp), color = p.number, strokeWidth = 2.dp)
             Text(
                 "${gap.count} unmodified line${if (gap.count == 1) "" else "s"}",
                 Modifier.padding(horizontal = 8.dp), style = PullsType.xs.copy(fontSize = 13.sp), color = p.number, maxLines = 1,

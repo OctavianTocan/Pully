@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.design.DETAILS_INFO
+
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlin.test.Test
@@ -239,7 +241,7 @@ class OverviewFormatTest {
 </ul>
 <p dir="auto">Line one<br>line two</p>""",
         )
-        assertEquals("## Why\n\n- Marking a **large** file as `reviewed`.\n- See [@antfu](<https://github.com/antfu>) \\& co.\n\nLine one\\\nline two", md)
+        assertEquals("## Why\n\n- Marking a **large** file as `reviewed`.\n- See **@antfu** \\& co.\n\nLine one\\\nline two", md)
     }
 
     @Test
@@ -254,7 +256,7 @@ class OverviewFormatTest {
     @Test
     fun htmlTablesAndDetails() {
         val md = htmlToMarkdown("<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table><details><summary>More</summary><p>hidden</p></details>")
-        assertEquals("| A | B |\n| --- | --- |\n| 1 | 2 |\n\n**▸ More**\n\nhidden", md)
+        assertEquals("| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```$DETAILS_INFO More\nhidden\n```", md)
     }
 
     @Test
@@ -271,7 +273,7 @@ class OverviewFormatTest {
         assertTrue(md.startsWith("## Why\n\n- Marking a large file"), md)
         assertTrue("## Steps to reproduce" in md)
         val comment = data.overview.timeline.filterIsInstance<PrTimelineItem.Comment>().first()
-        assertTrue("[@AlsoKnownAs-Ax](<https://github.com/AlsoKnownAs-Ax>)" in htmlToMarkdown(comment.bodyHTML), htmlToMarkdown(comment.bodyHTML))
+        assertTrue("**@AlsoKnownAs-Ax**" in htmlToMarkdown(comment.bodyHTML), htmlToMarkdown(comment.bodyHTML))
     }
 }
 

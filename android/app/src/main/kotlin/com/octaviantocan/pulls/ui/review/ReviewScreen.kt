@@ -85,7 +85,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
             opened != null -> {
                 val visibleGroups by remember(listState) {
                     derivedStateOf {
-                        listState.layoutInfo.visibleItemsInfo.mapNotNull { (it.key as? String)?.takeIf { key -> key.startsWith("group:") }?.removePrefix("group:") }.toSet()
+                        listState.layoutInfo.visibleItemsInfo.mapNotNull { (it.key as? String)?.takeIf { key -> key.startsWith("diff:g:") }?.removePrefix("diff:g:")?.substringAfterLast('/') }.toSet()
                     }
                 }
                 // Inset the list itself so pinned file headers stop below the status bar; the header's own inset is consumed here.

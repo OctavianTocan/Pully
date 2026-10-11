@@ -2,6 +2,9 @@ package com.octaviantocan.pulls.ui.design
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -92,7 +95,9 @@ private fun Block(node: Node, style: TextStyle) {
         is Paragraph -> Inline(node, style)
         is Heading -> Inline(node, style.copy(fontWeight = FontWeight.SemiBold, fontSize = if (node.level <= 2) PullsType.base.fontSize else style.fontSize))
         is BulletList, is OrderedList -> ListBlock(node, style)
-        is FencedCodeBlock -> CodeBlock(node.literal.trimEnd('\n'))
+        is FencedCodeBlock ->
+            if (node.info.orEmpty().startsWith(DETAILS_INFO)) Details(node.info.removePrefix(DETAILS_INFO).trim(), node.literal, style)
+            else CodeBlock(node.literal.trimEnd('\n'))
         is IndentedCodeBlock -> CodeBlock(node.literal.trimEnd('\n'))
         is BlockQuote -> Row {
             Box(Modifier.width(2.dp).background(c.border).padding(vertical = 2.dp))
@@ -129,7 +134,7 @@ private fun ListBlock(list: Node, style: TextStyle) {
                     else -> "•"
                 }
                 Row {
-                    Text(marker, Modifier.width(20.dp), style = style.copy(color = c.fade))
+                    Text(marker, Modifier.width(20.dp), style = style.copy(color = style.color.takeOrElse(c.text)))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         var child = item.firstChild
                         while (child != null) {
@@ -141,6 +146,27 @@ private fun ListBlock(list: Node, style: TextStyle) {
             }
             item = item.next
         }
+    }
+}
+
+/** Fence info string marking a `<details>` block from GitHub HTML (see `htmlToMarkdown`). */
+const val DETAILS_INFO = "pulls-details"
+
+/** `<details>`: a disclosure row (`▶ summary`), closed by default; the body renders as Markdown when opened. */
+@Composable
+private fun Details(summary: String, body: String, style: TextStyle) {
+    val c = LocalPullsColors.current
+    var open by androidx.compose.runtime.saveable.rememberSaveable(summary, body) { androidx.compose.runtime.mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.clickable { open = !open }.padding(vertical = 4.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(if (open) "▼" else "▶", style = style.copy(fontSize = style.fontSize * 0.7f, color = c.text))
+            Text(summary, style = style.copy(color = c.text))
+        }
+        if (open) Markdown(body, style = style)
     }
 }
 
