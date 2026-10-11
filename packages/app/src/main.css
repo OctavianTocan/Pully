@@ -9,6 +9,79 @@ html {
   /* Always reserve the scrollbar's width, even on short pages, so content doesn't
      shift horizontally when navigating between pages that do/don't need to scroll. */
   scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* `viewport-fit=cover` lets the page run under a phone's notch and home indicator;
+   keep content clear of the side insets (landscape). Fixed elements add their own. */
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Phones: `text-sm` (body copy, labels) reads at 16px and `text-xs` (meta) at 13px.
+   Both utilities read these variables (see `uno.config.ts`), so desktop keeps its
+   14px/12px. */
+@media (max-width: 767.9px) {
+  :root {
+    --pr-text-sm: 1rem;
+    --pr-leading-sm: 1.5rem;
+    --pr-text-xs: 0.8125rem;
+    --pr-leading-xs: 1.125rem;
+    /* Floor for inline code in rendered Markdown, which is sized in `em`. */
+    --pr-code-min: 13px;
+  }
+}
+
+/* Touch screens: every control gets a ~44px target, and no field is below 16px
+   (iOS zooms the page into a smaller one on focus). Visual size only changes where
+   a component opts in; these rules grow the hit area of the shared primitives. */
+@media (pointer: coarse) {
+  /* `!important`: a field's own `text-sm`/`text-xs` class would otherwise win. */
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+
+  /* `FormTextInput`/`FormSearchField` wrap their field in a fixed-height label. */
+  label:has(> input:not([type='checkbox']):not([type='radio'])),
+  button[role='combobox'] {
+    min-height: 2.75rem;
+  }
+
+  .btn-icon,
+  .btn-icon-compact,
+  .btn-icon-square {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .btn-action,
+  .btn-action-sm,
+  .btn-primary,
+  .btn-text {
+    min-height: 2.75rem;
+  }
+
+  /* `ActionToggleGroup` segments. */
+  [role='group'] > button[data-state] {
+    min-height: 2.75rem;
+  }
+
+  /* Checkboxes and switches keep their size; an invisible ring takes the tap. */
+  button[role='checkbox'],
+  button[role='switch'] {
+    position: relative;
+  }
+
+  button[role='switch']::after,
+  button[role='checkbox']::after {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
 }
 
 .diffs-page {
