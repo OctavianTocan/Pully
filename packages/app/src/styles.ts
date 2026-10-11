@@ -1,5 +1,11 @@
 import '@unocss/reset/tailwind.css'
-import '@antfu/design/styles.css'
+// `@antfu/design/styles.css` minus `splitpanes.css`: the app has no split panes, and that
+// file's ungated `.splitpanes__splitter:hover` would be the one hover rule left on phones.
+import '@antfu/design/styles/base.css'
+import '@antfu/design/styles/scrollbar.css'
+import '@antfu/design/styles/animations.css'
+import '@antfu/design/styles/reka-ui.css'
+import '@antfu/design/styles/vue-afloat.css'
 import 'vue-afloat/style.css'
 import './main.css'
 import 'virtual:uno.css'

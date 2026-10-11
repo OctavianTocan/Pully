@@ -20,6 +20,14 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
+/* `@antfu/design`'s `scrollbar.css` darkens a scrollbar thumb on `:hover` with no media
+   gate; on a touch screen that hover sticks after a drag, so undo it there. */
+@media not ((hover: hover) and (pointer: fine)) {
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(136 136 136 / 0.3);
+  }
+}
+
 /* Phones: `text-sm` (body copy, labels) reads at 16px and `text-xs` (meta) at 13px.
    Both utilities read these variables (see `uno.config.ts`), so desktop keeps its
    14px/12px. */

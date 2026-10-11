@@ -39,8 +39,20 @@ const chatMarkdown = [
   descendant('hr', 'border-base'),
 ].join(' ')
 
+/** Pointers that can really hover. A touch screen fakes `:hover` on tap and keeps it until the next tap elsewhere. */
+const HOVER_MEDIA = '@media (hover: hover) and (pointer: fine)'
+
 export function createUnoConfig() {
   return defineConfig({
+    // Every `:hover` rule (`hover:`, `group-hover:`, `[&_a:hover]:`, and the hover parts
+    // of shortcuts, ours and `@antfu/design`'s) applies only under HOVER_MEDIA, so a tapped
+    // control on a phone doesn't stay highlighted. Touch gets `:active` instead (`main.css`).
+    postprocess: [
+      (util) => {
+        if (/(?<!\\):hover/.test(util.selector))
+          util.parent = util.parent ? `${util.parent} $$ ${HOVER_MEDIA}` : HOVER_MEDIA
+      },
+    ],
     variants: [
       // `coarse:` - touch screens, where a target needs ~44px whatever the viewport width.
       matcher => matcher.startsWith('coarse:')
