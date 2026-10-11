@@ -617,10 +617,18 @@ private fun inline(node: HtmlNode, ctx: MdContext): String = when (node) {
             if ("user-mention" in node.attrs["class"].orEmpty()) "**$label**"
             else if (ctx.inLink || href.isBlank() || href.startsWith("#") || label.isBlank()) label else "[$label](<${href.replace(">", "%3E")}>)"
         }
+        "picture" -> {
+            // `<picture><source media="(prefers-color-scheme: dark)" srcset=…><img …>`: keep both, the renderer picks by theme.
+            val img = node.children.filterIsInstance<HtmlElement>().firstOrNull { it.tag == "img" }
+            val dark = node.children.filterIsInstance<HtmlElement>().firstOrNull { it.tag == "source" && "dark" in it.attrs["media"].orEmpty() }?.attrs?.get("srcset")?.substringBefore(' ')
+            val src = img?.attrs?.get("src").orEmpty()
+            val alt = escapeMarkdown(img?.attrs?.get("alt").orEmpty().trim())
+            if (src.isBlank()) alt else "![$alt](<$src>${if (dark != null) " \"dark:$dark\"" else ""})"
+        }
         "img" -> {
             val alt = escapeMarkdown(node.attrs["alt"].orEmpty().trim())
             val src = node.attrs["src"].orEmpty()
-            if (ctx.inLink || src.isBlank()) alt else "[${alt.ifBlank { "image" }}](<$src>)"
+            if (src.isBlank()) alt else "![$alt](<$src>)"
         }
         "input" -> if (node.attrs["type"] == "checkbox") (if ("checked" in node.attrs) "[x]" else "[ ]") else ""
         "clipboard-copy", "svg", "script", "style", "template" -> ""

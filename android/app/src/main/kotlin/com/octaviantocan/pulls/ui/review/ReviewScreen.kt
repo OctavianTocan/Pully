@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.OpenTarget
@@ -91,11 +93,17 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
                         listState.layoutInfo.visibleItemsInfo.mapNotNull { info -> (info.key as? String)?.let { owners[it] } }.toSet()
                     }
                 }
-                // Inset the list itself so pinned file headers stop below the status bar; the header's own inset is consumed here.
-                LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars), state = listState) {
-                    item(key = "top:header") {
-                        ReviewHeader(session, top, data, nav, visibleGroups.ifEmpty { setOfNotNull(session.groups.firstOrNull()?.key) })
-                    }
+                // `md:sticky`: from 768dp the web header stays pinned (with a border and shadow once
+                // scrolled) and file headers stick below it; on phones it scrolls away with the page.
+                val pinned = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 768
+                val scrolled by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20 } }
+                val header: @Composable () -> Unit = {
+                    ReviewHeader(session, top, data, nav, visibleGroups.ifEmpty { setOfNotNull(session.groups.firstOrNull()?.key) })
+                }
+                Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
+                if (pinned) Box(Modifier.zIndex(1f).let { m -> if (scrolled) m.shadow(2.dp).bottomBorder(c.border) else m }) { header() }
+                LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                    if (!pinned) item(key = "top:header") { header() }
                     if (session.pull != null) {
                         item(key = "top:range") { CommitRangeBanner(session, data?.overview, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
                         item(key = OVERVIEW_ITEM) { OverviewPanel(session, top, data, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
@@ -120,6 +128,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
                         }
                     }
                     diffBodyItems(session, ui)
+                }
                 }
             }
         }

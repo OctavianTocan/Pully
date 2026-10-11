@@ -9,6 +9,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -127,14 +131,21 @@ private fun ListBlock(list: Node, style: TextStyle) {
         var item = list.firstChild
         while (item != null) {
             if (item is ListItem) {
-                val task = item.firstChild?.firstChild as? TaskListItemMarker
+                val task = (item.firstChild as? TaskListItemMarker) ?: (item.firstChild?.firstChild as? TaskListItemMarker)
                 val marker = when {
-                    task != null -> if (task.isChecked) "☑" else "☐"
+                    task != null -> null
                     list is OrderedList -> "${number++}."
                     else -> "•"
                 }
                 Row {
-                    Text(marker, Modifier.width(20.dp), style = style.copy(color = style.color.takeOrElse(c.text)))
+                    if (task != null) {
+                        // `[&_.task-list-item]:list-none` with GitHub's disabled checkbox before the text.
+                        Box(Modifier.padding(top = 4.dp, end = 6.dp).size(14.dp).clip(RoundedCornerShape(3.dp))
+                            .background(if (task.isChecked) c.primary else c.raised).border(1.dp, if (task.isChecked) c.primary else c.border, RoundedCornerShape(3.dp)),
+                            contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            if (task.isChecked) PhIcon("check-bold", tint = androidx.compose.ui.graphics.Color.White, size = 10.dp)
+                        }
+                    } else Text(marker!!, Modifier.width(20.dp), style = style.copy(color = style.color.takeOrElse(c.text)))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         var child = item.firstChild
                         while (child != null) {
@@ -208,8 +219,103 @@ private fun TableView(table: TableBlock, style: TextStyle) {
     }
 }
 
+/** True when [node] holds an image somewhere in its inline content. */
+private fun hasImage(node: Node): Boolean {
+    var child = node.firstChild
+    while (child != null) {
+        if (child is Image || hasImage(child)) return true
+        child = child.next
+    }
+    return false
+}
+
+/** Inline content split into text runs and images (an image inside a link keeps the link). */
+private sealed interface Piece {
+    data class Run(val node: Node) : Piece
+    /** [title] may carry `dark:<url>`, the `<picture>` source for dark mode. */
+    data class Picture(val src: String, val title: String, val href: String?, val alt: String = "") : Piece
+}
+
+private fun pieces(parent: Node, href: String? = null, out: MutableList<Piece> = mutableListOf()): MutableList<Piece> {
+    var child = parent.firstChild
+    while (child != null) {
+        when {
+            child is Image -> out += Piece.Picture(child.destination, child.title.orEmpty(), href, altText(child))
+            child is Link && hasImage(child) -> pieces(child, child.destination, out)
+            else -> out += Piece.Run(child)
+        }
+        child = child.next
+    }
+    return out
+}
+
+/** `[&_img]:inline-block [&_img]:h-auto [&_img]:max-w-full`: images in the text flow, links kept. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun InlineWithImages(node: Node, style: TextStyle) {
+    val c = LocalPullsColors.current
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        val runs = mutableListOf<Node>()
+        @Composable
+        fun flush() {
+            if (runs.isEmpty()) return
+            val text = buildAnnotatedString { runs.forEach { n -> appendNode(n, c) } }
+            runs.clear()
+            if (text.isNotBlank()) Text(text, style = style.copy(color = style.color.takeOrElse(c.text)))
+        }
+        pieces(node).forEach { piece ->
+            when (piece) {
+                is Piece.Run -> runs += piece.node
+                is Piece.Picture -> {
+                    flush()
+                    val src = piece.title.takeIf { c.dark && it.startsWith("dark:") }?.removePrefix("dark:") ?: piece.src
+                    InlinePicture(src, piece.alt, piece.href?.let { href -> { runCatching { uri.openUri(href) } } })
+                }
+            }
+        }
+        flush()
+    }
+}
+
+private fun altText(image: Image): String = buildString {
+    var n = image.firstChild
+    while (n != null) { if (n is MdText) append(n.literal); n = n.next }
+}
+
+/**
+ * An image at its own CSS size (`[&_img]:h-auto [&_img]:max-w-full`): loaded at its original
+ * size, where one image pixel is one dp as one CSS px is, and shrunk only to fit the width.
+ */
+@Composable
+private fun InlinePicture(src: String, alt: String, onClick: (() -> Unit)?) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val request = remember(src) { coil3.request.ImageRequest.Builder(context).data(src).size(coil3.size.Size.ORIGINAL).build() }
+    val painter = coil3.compose.rememberAsyncImagePainter(request)
+    val size = painter.intrinsicSize
+    val known = size.isSpecified && size.width > 0f && size.height > 0f
+    androidx.compose.foundation.layout.BoxWithConstraints {
+        val maxW = maxWidth.value
+        val w = if (known) minOf(size.width, maxW) else 0f
+        val h = if (known) w * size.height / size.width else 0f
+        androidx.compose.foundation.Image(
+            painter, alt,
+            Modifier.width(w.dp).height(h.dp).let { m -> if (onClick != null) m.clickable(onClick = onClick) else m },
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+        )
+    }
+}
+
+/** One inline node into an annotated string. */
+private fun AnnotatedString.Builder.appendNode(node: Node, c: PullsColors) = appendInlineOne(node, c)
+
 @Composable
 private fun Inline(node: Node, style: TextStyle) {
+    if (hasImage(node)) { InlineWithImages(node, style); return }
     val c = LocalPullsColors.current
     val text = remember(node, c) {
         buildAnnotatedString { appendInline(node, c) }
@@ -224,6 +330,13 @@ private fun androidx.compose.ui.graphics.Color.takeOrElse(other: androidx.compos
 private fun AnnotatedString.Builder.appendInline(parent: Node, c: PullsColors) {
     var node = parent.firstChild
     while (node != null) {
+        appendInlineOne(node, c)
+        node = node.next
+    }
+}
+
+private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors) {
+    run {
         when (node) {
             is MdText -> append(node.literal)
             is Code -> withStyle(SpanStyle(fontFamily = PullsType.mono, background = c.code)) { append(" ${node.literal} ") }
@@ -241,7 +354,6 @@ private fun AnnotatedString.Builder.appendInline(parent: Node, c: PullsColors) {
             is TaskListItemMarker -> Unit
             else -> appendInline(node, c)
         }
-        node = node.next
     }
 }
 
