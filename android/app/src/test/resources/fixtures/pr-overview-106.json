@@ -1,0 +1,207 @@
+{
+ "overview": {
+  "id": "PR_kwDOUcx-yc8AAAABHkAYhw",
+  "number": 106,
+  "title": "fix(app): keep a file's header in view when it collapses",
+  "url": "https://github.com/antfu/pulls.review/pull/106",
+  "body": "## Why\r\n\r\n- Marking a large file as reviewed collapses it while the viewer sits deep inside it.\r\n- The page then lands several files further down, so files get skipped without notice.\r\n\r\n## What\r\n\r\n- Collapsing a file pins its header back under the page header when its start is above the viewport.\r\n- The next file follows directly below the collapsed header.\r\n- A file whose start is still in view keeps the current scroll.\r\n- This covers the reviewed checkbox, the caret, and a header click.\r\n- Tests cover a file scrolled past its start and a file still in view.\r\n\r\n## Steps to reproduce\r\n\r\n- Have a file with a big diff opened\r\n- Mark that file as viewed by clicking the checkbox\r\n- The file will skip other smaller files because the header drifts\r\n- You end up skipping files without realising\r\n",
+  "bodyHTML": "<h2 dir=\"auto\">Why</h2>\n<ul dir=\"auto\">\n<li>Marking a large file as reviewed collapses it while the viewer sits deep inside it.</li>\n<li>The page then lands several files further down, so files get skipped without notice.</li>\n</ul>\n<h2 dir=\"auto\">What</h2>\n<ul dir=\"auto\">\n<li>Collapsing a file pins its header back under the page header when its start is above the viewport.</li>\n<li>The next file follows directly below the collapsed header.</li>\n<li>A file whose start is still in view keeps the current scroll.</li>\n<li>This covers the reviewed checkbox, the caret, and a header click.</li>\n<li>Tests cover a file scrolled past its start and a file still in view.</li>\n</ul>\n<h2 dir=\"auto\">Steps to reproduce</h2>\n<ul dir=\"auto\">\n<li>Have a file with a big diff opened</li>\n<li>Mark that file as viewed by clicking the checkbox</li>\n<li>The file will skip other smaller files because the header drifts</li>\n<li>You end up skipping files without realising</li>\n</ul>",
+  "createdAt": "2026-10-09T15:28:26Z",
+  "author": {
+   "login": "AlsoKnownAs-Ax",
+   "avatarUrl": "https://avatars.githubusercontent.com/u/92175683?u=a884f79d320b6cd6d756c3cd5b58b24f13045b0b&v=4"
+  },
+  "state": "open",
+  "mergeable": "mergeable",
+  "mergeStateStatus": "unstable",
+  "head": {
+   "oid": "b3cb89348cc660022ab56f34b71830e88f745fe7",
+   "ref": "fix/keep-collapsed-file-in-view",
+   "owner": "AlsoKnownAs-Ax"
+  },
+  "base": {
+   "oid": "764de3b8cfdc25d3e4012b1ed622e628af88c32e",
+   "ref": "main"
+  },
+  "requestedReviewers": [],
+  "latestReviews": [],
+  "checks": [
+   {
+    "id": "SC_kwDOUcx-yc8AAAANCaJXHw",
+    "name": "Vercel",
+    "bucket": "failing",
+    "conclusion": "failure",
+    "summary": "Authorization required to deploy.",
+    "url": "https://vercel.com/git/authorize?team=NuxtLabs&slug=nuxtlabs&teamId=team_YzcPKUQta8vpGPjOH49ykBsy&type=github&job=%7B%22headInfo%22%3A%7B%22sha%22%3A%22b3cb89348cc660022ab56f34b71830e88f745fe7%22%7D%2C%22id%22%3A%22QmNtvgwXrnVjbAPa9QjEHTDHCYFcfpRvhhRJhxw83wtxzt%22%2C%22org%22%3A%22antfu%22%2C%22prId%22%3A106%2C%22repo%22%3A%22pulls.review%22%7D",
+    "startedAt": "2026-10-09T15:28:32Z",
+    "required": false
+   },
+   {
+    "id": "CR_kwDOUcx-yc8AAAAahIuoVQ",
+    "name": "analyze",
+    "group": "pulls.review",
+    "bucket": "passing",
+    "conclusion": "success",
+    "url": "https://github.com/antfu/pulls.review/actions/runs/37952003058/job/113892894805",
+    "startedAt": "2026-10-09T15:28:34Z",
+    "completedAt": "2026-10-09T15:29:32Z",
+    "required": false
+   },
+   {
+    "id": "CR_kwDOUcx-yc8AAAAahLddSQ",
+    "name": "Vercel Agent Review",
+    "group": "Vercel",
+    "bucket": "skipped",
+    "conclusion": "neutral",
+    "summary": "Review skipped",
+    "url": "https://vercel.com/github",
+    "startedAt": "2026-10-09T15:35:11Z",
+    "completedAt": "2026-10-09T15:35:11Z",
+    "required": false
+   }
+  ],
+  "checksSummary": {
+   "failing": 1,
+   "pending": 0,
+   "passing": 1,
+   "skipped": 1,
+   "total": 3,
+   "hidden": 0,
+   "state": "failure"
+  },
+  "commits": [
+   {
+    "oid": "b3cb89348cc660022ab56f34b71830e88f745fe7",
+    "abbreviatedOid": "b3cb893",
+    "headline": "fix(app): keep a file's header in view when it collapses",
+    "body": "",
+    "committedDate": "2026-10-09T14:16:10Z",
+    "url": "https://github.com/antfu/pulls.review/commit/b3cb89348cc660022ab56f34b71830e88f745fe7",
+    "author": {
+     "name": "Amzu Andrei Alexandru",
+     "login": "AlsoKnownAs-Ax",
+     "avatarUrl": "https://avatars.githubusercontent.com/u/92175683?v=4"
+    },
+    "parentOid": "764de3b8cfdc25d3e4012b1ed622e628af88c32e",
+    "checks": "failure"
+   }
+  ],
+  "commitsHidden": 0,
+  "timeline": [
+   {
+    "kind": "commits",
+    "id": "PURC_lADOUcx-yc8AAAABHkAYh9oAKGIzY2I4OTM0OGNjNjYwMDIyYWI1NmYzNGI3MTgzMGU4OGY3NDVmZTc",
+    "createdAt": "2026-10-09T14:16:10Z",
+    "actor": {
+     "login": "AlsoKnownAs-Ax",
+     "avatarUrl": "https://avatars.githubusercontent.com/u/92175683?v=4"
+    },
+    "commits": [
+     {
+      "oid": "b3cb89348cc660022ab56f34b71830e88f745fe7",
+      "abbreviatedOid": "b3cb893",
+      "headline": "fix(app): keep a file's header in view when it collapses",
+      "url": "https://github.com/antfu/pulls.review/pull/106/commits/b3cb89348cc660022ab56f34b71830e88f745fe7"
+     }
+    ]
+   },
+   {
+    "kind": "comment",
+    "id": "IC_kwDOUcx-yc8AAAABaqIWEA",
+    "url": "https://github.com/antfu/pulls.review/pull/106#issuecomment-6083974672",
+    "createdAt": "2026-10-09T15:28:32Z",
+    "actor": {
+     "login": "vercel",
+     "avatarUrl": "https://avatars.githubusercontent.com/in/8329?v=4"
+    },
+    "bodyHTML": "<p dir=\"auto\"><a class=\"user-mention notranslate\" data-hovercard-type=\"user\" data-hovercard-url=\"/users/AlsoKnownAs-Ax/hovercard\" data-octo-click=\"hovercard-link-click\" data-octo-dimensions=\"link_type:self\" href=\"https://github.com/AlsoKnownAs-Ax\">@AlsoKnownAs-Ax</a> is attempting to deploy a commit to the <strong>NuxtLabs</strong> Team on <a href=\"https://vercel.com\" rel=\"nofollow\">Vercel</a>.</p>\n<p dir=\"auto\">A member of the Team first needs to <a href=\"https://vercel.com/git/authorize?team=NuxtLabs&amp;slug=nuxtlabs&amp;teamId=team_YzcPKUQta8vpGPjOH49ykBsy&amp;type=github&amp;job=%7B%22headInfo%22%3A%7B%22sha%22%3A%22b3cb89348cc660022ab56f34b71830e88f745fe7%22%7D%2C%22id%22%3A%22QmNtvgwXrnVjbAPa9QjEHTDHCYFcfpRvhhRJhxw83wtxzt%22%2C%22org%22%3A%22antfu%22%2C%22prId%22%3A106%2C%22repo%22%3A%22pulls.review%22%7D\" rel=\"nofollow\">authorize it</a>.</p>"
+   },
+   {
+    "kind": "comment",
+    "id": "IC_kwDOUcx-yc8AAAABaqJY2g",
+    "url": "https://github.com/antfu/pulls.review/pull/106#issuecomment-6083991770",
+    "createdAt": "2026-10-09T15:29:28Z",
+    "actor": {
+     "login": "github-actions",
+     "avatarUrl": "https://avatars.githubusercontent.com/in/15368?v=4"
+    },
+    "bodyHTML": "\n<p dir=\"auto\">\ud83d\udc41\ufe0f\u200d\ud83d\udde8\ufe0f Review this pull request with grouped, summarized diffs at:<br>\n\ud83d\udc49 <a href=\"https://pulls.review/gh/antfu/pulls.review/106?from=github-actions%5Bbot%5D\" rel=\"nofollow\">https://pulls.review/gh/antfu/pulls.review/106?from=github-actions[bot]</a></p>\n<details><summary>raw result</summary>\n<br>\n<p dir=\"auto\">\ud83d\udcad analyzed by <code class=\"notranslate\">vercel-ai-gateway/anthropic/claude-sonnet-5</code><br>\n\ud83d\udd70\ufe0f 2026-10-09 15:29 UTC<br>\n\ud83d\udd17 head <a class=\"commit-link\" data-hovercard-type=\"commit\" data-hovercard-url=\"https://github.com/antfu/pulls.review/commit/b3cb89348cc660022ab56f34b71830e88f745fe7/hovercard\" href=\"https://github.com/antfu/pulls.review/commit/b3cb89348cc660022ab56f34b71830e88f745fe7\"><tt>b3cb893</tt></a><br>\n\ud83e\udd16 automated by <a href=\"https://pulls.review\" rel=\"nofollow\">pulls.review</a></p>\n<div class=\"highlight highlight-source-json notranslate position-relative overflow-auto\" dir=\"auto\" data-snippet-clipboard-copy-content=\"{\n  &quot;headSha&quot;: &quot;b3cb89348cc660022ab56f34b71830e88f745fe7&quot;,\n  &quot;result&quot;: {\n    &quot;overallSummary&quot;: &quot;Fixes a bug where marking a large file as reviewed collapsed it while the viewer was scrolled deep inside, causing the page to jump several files further down. The fix pins the file's start marker under the sticky header on collapse, with tests covering both the scrolled-past and still-in-view cases.&quot;,\n    &quot;groups&quot;: [\n      {\n        &quot;key&quot;: &quot;fix-scroll-pin&quot;,\n        &quot;label&quot;: &quot;Pin collapsing file header&quot;,\n        &quot;summary&quot;: &quot;When marking a file reviewed collapses it while the viewer is scrolled past its start, the page jumps unpredictably and skips files. This pins the file's start marker back under the sticky header so the next file follows directly below, while leaving scroll untouched if the file's start is still visible.&quot;,\n        &quot;category&quot;: &quot;ui&quot;,\n        &quot;filePaths&quot;: [\n          &quot;packages/app/src/components/diff/FileDiff.vue&quot;\n        ],\n        &quot;lineNotes&quot;: [\n          {\n            &quot;path&quot;: &quot;packages/app/src/components/diff/FileDiff.vue&quot;,\n            &quot;side&quot;: &quot;additions&quot;,\n            &quot;line&quot;: 378,\n            &quot;text&quot;: &quot;Only scrolls when the marker's top is above its scroll-margin, i.e. the file start has scrolled out of view above the sticky header; otherwise the current scroll position is preserved.&quot;\n          }\n        ]\n      },\n      {\n        &quot;key&quot;: &quot;tests&quot;,\n        &quot;label&quot;: &quot;Tests for scroll pinning&quot;,\n        &quot;summary&quot;: &quot;Adds coverage for the new collapsing behavior: a file scrolled past its start gets scrolled back to the top, while a file still in view keeps its scroll position.&quot;,\n        &quot;category&quot;: &quot;tests&quot;,\n        &quot;filePaths&quot;: [\n          &quot;packages/app/src/components/diff/FileDiff.test.ts&quot;\n        ]\n      }\n    ],\n    &quot;schemaVersion&quot;: 1,\n    &quot;source&quot;: &quot;llm&quot;,\n    &quot;generatedAt&quot;: &quot;2026-10-09T15:29:28.026Z&quot;,\n    &quot;model&quot;: &quot;vercel-ai-gateway/anthropic/claude-sonnet-5&quot;,\n    &quot;locale&quot;: &quot;en&quot;\n  }\n}\"><pre class=\"notranslate\">{\n  <span class=\"pl-ent\">\"headSha\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>b3cb89348cc660022ab56f34b71830e88f745fe7<span class=\"pl-pds\">\"</span></span>,\n  <span class=\"pl-ent\">\"result\"</span>: {\n    <span class=\"pl-ent\">\"overallSummary\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>Fixes a bug where marking a large file as reviewed collapsed it while the viewer was scrolled deep inside, causing the page to jump several files further down. The fix pins the file's start marker under the sticky header on collapse, with tests covering both the scrolled-past and still-in-view cases.<span class=\"pl-pds\">\"</span></span>,\n    <span class=\"pl-ent\">\"groups\"</span>: [\n      {\n        <span class=\"pl-ent\">\"key\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>fix-scroll-pin<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"label\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>Pin collapsing file header<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"summary\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>When marking a file reviewed collapses it while the viewer is scrolled past its start, the page jumps unpredictably and skips files. This pins the file's start marker back under the sticky header so the next file follows directly below, while leaving scroll untouched if the file's start is still visible.<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"category\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>ui<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"filePaths\"</span>: [\n          <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>packages/app/src/components/diff/FileDiff.vue<span class=\"pl-pds\">\"</span></span>\n        ],\n        <span class=\"pl-ent\">\"lineNotes\"</span>: [\n          {\n            <span class=\"pl-ent\">\"path\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>packages/app/src/components/diff/FileDiff.vue<span class=\"pl-pds\">\"</span></span>,\n            <span class=\"pl-ent\">\"side\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>additions<span class=\"pl-pds\">\"</span></span>,\n            <span class=\"pl-ent\">\"line\"</span>: <span class=\"pl-c1\">378</span>,\n            <span class=\"pl-ent\">\"text\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>Only scrolls when the marker's top is above its scroll-margin, i.e. the file start has scrolled out of view above the sticky header; otherwise the current scroll position is preserved.<span class=\"pl-pds\">\"</span></span>\n          }\n        ]\n      },\n      {\n        <span class=\"pl-ent\">\"key\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>tests<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"label\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>Tests for scroll pinning<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"summary\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>Adds coverage for the new collapsing behavior: a file scrolled past its start gets scrolled back to the top, while a file still in view keeps its scroll position.<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"category\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>tests<span class=\"pl-pds\">\"</span></span>,\n        <span class=\"pl-ent\">\"filePaths\"</span>: [\n          <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>packages/app/src/components/diff/FileDiff.test.ts<span class=\"pl-pds\">\"</span></span>\n        ]\n      }\n    ],\n    <span class=\"pl-ent\">\"schemaVersion\"</span>: <span class=\"pl-c1\">1</span>,\n    <span class=\"pl-ent\">\"source\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>llm<span class=\"pl-pds\">\"</span></span>,\n    <span class=\"pl-ent\">\"generatedAt\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>2026-10-09T15:29:28.026Z<span class=\"pl-pds\">\"</span></span>,\n    <span class=\"pl-ent\">\"model\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>vercel-ai-gateway/anthropic/claude-sonnet-5<span class=\"pl-pds\">\"</span></span>,\n    <span class=\"pl-ent\">\"locale\"</span>: <span class=\"pl-s\"><span class=\"pl-pds\">\"</span>en<span class=\"pl-pds\">\"</span></span>\n  }\n}</pre></div>\n</details>"
+   },
+   {
+    "kind": "review",
+    "id": "PRR_kwDOUcx-yc8AAAABRiooIw",
+    "url": "https://github.com/antfu/pulls.review/pull/106#pullrequestreview-5472135203",
+    "createdAt": "2026-10-09T15:32:26Z",
+    "actor": {
+     "login": "AlsoKnownAs-Ax",
+     "avatarUrl": "https://avatars.githubusercontent.com/u/92175683?u=a884f79d320b6cd6d756c3cd5b58b24f13045b0b&v=4"
+    },
+    "state": "commented",
+    "bodyHTML": "",
+    "commentCount": 1,
+    "comments": [
+     {
+      "id": "PRRC_kwDOUcx-yc78PDXZ",
+      "url": "https://github.com/antfu/pulls.review/pull/106#discussion_r4231804377",
+      "path": "packages/app/src/components/diff/FileDiff.test.ts",
+      "line": 117,
+      "outdated": false,
+      "bodyHTML": "<p dir=\"auto\">Don't think the tests are adding too much value, but i left them just in case. I am happy to delete them if needed \ud83d\ude04</p>",
+      "author": {
+       "login": "AlsoKnownAs-Ax",
+       "avatarUrl": "https://avatars.githubusercontent.com/u/92175683?u=a884f79d320b6cd6d756c3cd5b58b24f13045b0b&v=4"
+      }
+     }
+    ]
+   },
+   {
+    "kind": "event",
+    "id": "RFRE_lADOUcx-yc8AAAABWIzGfc8AAAAHqEvr4Q",
+    "createdAt": "2026-10-09T15:35:07Z",
+    "actor": {
+     "login": "AlsoKnownAs-Ax",
+     "avatarUrl": "https://avatars.githubusercontent.com/u/92175683?u=a884f79d320b6cd6d756c3cd5b58b24f13045b0b&v=4"
+    },
+    "event": "ready_for_review"
+   }
+  ],
+  "timelineHidden": 0,
+  "viewer": {
+   "permission": "READ",
+   "canPush": false,
+   "canMergeAsAdmin": false,
+   "canClose": false,
+   "canReopen": false,
+   "canUpdate": false,
+   "canUpdateBranch": false
+  },
+  "merge": {
+   "methods": [
+    "squash"
+   ],
+   "defaultMethod": "squash",
+   "squashTitle": "COMMIT_OR_PR_TITLE",
+   "squashMessage": "COMMIT_MESSAGES",
+   "mergeTitle": "MERGE_MESSAGE",
+   "mergeMessage": "PR_TITLE"
+  }
+ },
+ "mergeability": {
+  "allowed": false,
+  "ready": false
+ },
+ "defaultCommits": {
+  "merge": {
+   "title": "Merge pull request #106 from AlsoKnownAs-Ax/fix/keep-collapsed-file-in-view",
+   "body": "fix(app): keep a file's header in view when it collapses"
+  },
+  "squash": {
+   "title": "fix(app): keep a file's header in view when it collapses (#106)",
+   "body": ""
+  },
+  "rebase": {
+   "title": "",
+   "body": ""
+  }
+ }
+}
