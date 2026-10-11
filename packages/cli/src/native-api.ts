@@ -10,6 +10,7 @@ import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
 import { resolveGithubToken } from './credentials'
 import { highlightLines, pierreTheme } from './highlight'
+import { NATIVE_REVIEW } from './native-review'
 import { serverFunctions, serverSession } from './server-session'
 
 /** Methods a phone may call. Storage and the GitHub token stay off this list. */
@@ -75,7 +76,15 @@ function nativeCall(name: string, cwd: string, args: unknown): Promise<Response>
     'highlight': (_cwd, input) => highlight(input),
     'review-comment': (_cwd, input) => reviewComment(input),
   }
-  return calls[name]?.(cwd, args)
+  const call = calls[name]
+  if (call)
+    return call(cwd, args)
+  const review = NATIVE_REVIEW[name]
+  if (!review)
+    return undefined
+  return review(cwd, args as Record<string, unknown> | undefined)
+    .then(result => Response.json({ result: result ?? null }))
+    .catch(error => Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 }))
 }
 
 export async function handleNativeRequest(request: NativeRequest, cwd: string): Promise<Response | undefined> {

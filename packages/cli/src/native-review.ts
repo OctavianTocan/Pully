@@ -1,0 +1,287 @@
+import type { MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
+import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
+import process from 'node:process'
+import {
+  assessMergeability,
+  changePullRequestState,
+  createGithubClient,
+  createGithubSource,
+  defaultMergeCommit,
+  fetchGithubTokenMeta,
+  fetchOpenPullRequests,
+  fetchPullRequestOverview,
+  mergePullRequest,
+  updatePullRequestBranch,
+} from '@pulls.review/core/github'
+import { createLocalSource } from '@pulls.review/core/local'
+import { staticCredentials } from '@pulls.review/core/types'
+import { resolveGithubToken } from './credentials'
+import { serverSession } from './server-session'
+
+/**
+ * The phone's review routes beyond opening a diff: reviewed marks, full file content,
+ * the PR overview and its actions, pending reviews, posting an AI review, sharing an
+ * analysis, a repository's pull requests, and clearing the chat. Each one runs the
+ * same core function the web stores call, with the server's GitHub token.
+ */
+type Args = Record<string, unknown> | undefined
+type Handler = (cwd: string, args: Args) => Promise<unknown>
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function pullOf(args: Args): { owner: string, repo: string, number: string } {
+  const owner = text(args?.owner)
+  const repo = text(args?.repo)
+  const number = typeof args?.number === 'number' ? String(args.number) : text(args?.number)
+  if (!owner || !repo || !/^\d+$/.test(number))
+    throw new Error('That needs the pull request owner, repo and number.')
+  return { owner, repo, number }
+}
+
+async function token(): Promise<string> {
+  const value = await resolveGithubToken(process.env)
+  if (!value)
+    throw new Error('The server has no GitHub token.')
+  return value
+}
+
+async function client() {
+  return createGithubClient(staticCredentials(await token()))
+}
+
+async function prReviews(args: Args) {
+  const reviews = createGithubSource({ kind: 'github-pr', ...pullOf(args) }, staticCredentials(await token())).reviews
+  if (!reviews)
+    throw new Error('Reviews are not available for this pull request.')
+  return reviews
+}
+
+/** The source a cached diff came from, for loading whole files at its base and head. */
+async function sourceOfKey(cwd: string, key: string): Promise<{ source: DiffSource, entry: NonNullable<Awaited<ReturnType<Awaited<ReturnType<typeof serverSession>>['cache']['diffs']['get']>>> }> {
+  const entry = await (await serverSession(cwd)).cache.diffs.get(key)
+  if (!entry)
+    throw new Error('Open the diff first.')
+  const ref = entry.diff.ref
+  if (ref.kind === 'local')
+    return { source: createLocalSource({ cwd, target: ref.target }), entry }
+  if (ref.kind === 'paste')
+    throw new Error('A pasted diff has no full files.')
+  return { source: createGithubSource(ref, staticCredentials(await resolveGithubToken(process.env))), entry }
+}
+
+const MERGE_METHODS: MergeMethod[] = ['merge', 'squash', 'rebase']
+const STATE_CHANGES: PullRequestStateChange[] = ['close', 'reopen', 'ready', 'draft']
+const VERDICTS: ReviewVerdict[] = ['APPROVE', 'REQUEST_CHANGES', 'COMMENT']
+
+export const NATIVE_REVIEW: Record<string, Handler> = {
+  /** Reviewed marks for a diff's files, by blob sha, and the paths that changed since they were marked. */
+  'reviewed-get': async function (cwd, args) {
+    const session = await serverSession(cwd)
+    const key = text(args?.key)
+    const entry = key ? await session.cache.diffs.get(key) : undefined
+    const shas = Array.isArray(args?.shas) ? args.shas.filter((sha): sha is string => typeof sha === 'string') : entry?.diff.files.map(file => file.sha) ?? []
+    return {
+      reviewed: [...await session.cache.reviewMarks.get(shas)],
+      changedSinceReviewed: entry?.changedSinceReviewed ?? [],
+    }
+  },
+
+  /** Marks or unmarks files; either verdict clears their "changed since reviewed" flag, as the web store does. */
+  'reviewed-set': async function (cwd, args) {
+    const session = await serverSession(cwd)
+    const shas = Array.isArray(args?.shas) ? args.shas.filter((sha): sha is string => typeof sha === 'string') : []
+    if (shas.length === 0)
+      throw new Error('Name at least one file sha.')
+    await session.cache.reviewMarks.set(shas, args?.reviewed === true)
+    const key = text(args?.key)
+    const entry = key ? await session.cache.diffs.get(key) : undefined
+    if (entry?.changedSinceReviewed?.length) {
+      const touched = new Set(shas)
+      const paths = new Set(entry.diff.files.filter(file => touched.has(file.sha)).map(file => file.path))
+      const remaining = entry.changedSinceReviewed.filter(path => !paths.has(path))
+      if (remaining.length !== entry.changedSinceReviewed.length)
+        await session.cache.diffs.setChangedSinceReviewed(key, remaining)
+    }
+    return true
+  },
+
+  /** Both sides of one file in full, cached like the web `fileContent.load`. */
+  'file-content': async function (cwd, args) {
+    const key = text(args?.key)
+    const path = text(args?.path)
+    if (!key || !path)
+      throw new Error('Loading a full file needs the diff key and a path.')
+    const { source, entry } = await sourceOfKey(cwd, key)
+    const file = entry.diff.files.find(candidate => candidate.path === path)
+    const { base, head } = entry.diff
+    if (!file || !base || !head || !source.loadFile)
+      throw new Error('This diff has no full file for that path.')
+    const cache = (await serverSession(cwd)).cache.fileContents
+    const side = async (sidePath: string, sha: string) => {
+      const cached = await cache.get(key, sha, sidePath)
+      if (cached !== undefined)
+        return cached
+      const content = await source.loadFile!(sidePath, sha)
+      if (content !== undefined)
+        await cache.set(key, sha, sidePath, content)
+      return content
+    }
+    const [old, current] = await Promise.all([
+      file.status === 'added' ? undefined : side(file.previousPath ?? file.path, base.sha),
+      file.status === 'removed' ? undefined : side(file.path, head.sha),
+    ])
+    return { old: old ?? null, new: current ?? null }
+  },
+
+  /** The PR overview (checks, commits, timeline, viewer abilities) plus whether and how it can merge. */
+  'pr-overview': async function (_cwd, args) {
+    const { owner, repo, number } = pullOf(args)
+    const overview = await fetchPullRequestOverview(await client(), owner, repo, number)
+    const commits = Object.fromEntries(MERGE_METHODS.map(method => [method, defaultMergeCommit(overview, method)]))
+    return { overview, mergeability: assessMergeability(overview), defaultCommits: commits }
+  },
+
+  /** Merge, close, reopen, ready, draft, or update the branch. */
+  'pr-action': async function (_cwd, args) {
+    const id = text(args?.id)
+    const action = text(args?.action)
+    if (!id)
+      throw new Error('A pull request action needs the pull request node id.')
+    const github = await client()
+    const expectedHeadOid = text(args?.expectedHeadOid) || undefined
+    if (action === 'merge') {
+      const method = text(args?.method) as MergeMethod
+      if (!MERGE_METHODS.includes(method))
+        throw new Error('Merge needs a method: merge, squash or rebase.')
+      await mergePullRequest(github, { pullRequestId: id, method, title: text(args?.title) || undefined, body: typeof args?.body === 'string' ? args.body : undefined, expectedHeadOid })
+    }
+    else if (action === 'update-branch') {
+      await updatePullRequestBranch(github, id, { method: args?.method === 'rebase' ? 'rebase' : 'merge', expectedHeadOid })
+    }
+    else if (STATE_CHANGES.includes(action as PullRequestStateChange)) {
+      await changePullRequestState(github, id, action as PullRequestStateChange)
+    }
+    else {
+      throw new Error('Unknown pull request action.')
+    }
+    return true
+  },
+
+  /** Every review thread (outdated ones included, flagged), review summaries, and the viewer's pending review. */
+  'review-data': async function (_cwd, args) {
+    const data = await (await prReviews(args)).fetch()
+    const meta = await fetchGithubTokenMeta(await token()).catch(() => undefined)
+    return { ...data, viewer: meta?.login }
+  },
+
+  'review-submit': async function (_cwd, args) {
+    const verdict = text(args?.verdict) as ReviewVerdict
+    if (!VERDICTS.includes(verdict))
+      throw new Error('A review needs a verdict.')
+    const reviews = await prReviews(args)
+    const pending = (await reviews.fetch()).pendingReview
+    await reviews.submitReview(verdict, text(args?.body), pending)
+    return true
+  },
+
+  'review-discard': async function (_cwd, args) {
+    const reviews = await prReviews(args)
+    const pending = (await reviews.fetch()).pendingReview
+    if (pending)
+      await reviews.discardPendingReview(pending)
+    return true
+  },
+
+  'review-edit': async function (_cwd, args) {
+    const id = Number(args?.commentId)
+    const body = text(args?.body).trim()
+    if (!Number.isFinite(id) || !body)
+      throw new Error('An edit needs the comment and some text.')
+    await (await prReviews(args)).editComment(id, body)
+    return true
+  },
+
+  'review-delete': async function (_cwd, args) {
+    const id = Number(args?.commentId)
+    if (!Number.isFinite(id))
+      throw new Error('A delete needs the comment.')
+    await (await prReviews(args)).deleteComment(id)
+    return true
+  },
+
+  /** Posts the chosen findings of the saved AI review as one COMMENT review, like `critique.post`. */
+  'critique-post': async function (cwd, args) {
+    const key = text(args?.key)
+    const ids = new Set(Array.isArray(args?.ids) ? args.ids.filter((id): id is string => typeof id === 'string') : [])
+    if (!key || ids.size === 0)
+      throw new Error('Posting needs the diff and at least one finding.')
+    const session = await serverSession(cwd)
+    const entry = await session.cache.diffs.get(key)
+    const { serializeRef } = await import('@pulls.review/core/types')
+    const result = entry && await session.cache.critiques.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha)
+    if (!entry || !result || entry.diff.ref.kind !== 'github-pr' || !entry.diff.head)
+      throw new Error('There is no AI review of this pull request to post.')
+    const { critiqueReviewBody, findingCommentBody } = await import('@pulls.review/core/llm')
+    const chosen = result.findings.filter(finding => ids.has(finding.id))
+    const reviews = await prReviews(entry.diff.ref)
+    const pending = (await reviews.fetch()).pendingReview
+    const body = typeof args?.body === 'string' ? args.body : critiqueReviewBody(result)
+    await reviews.postReview({
+      headSha: entry.diff.head.sha,
+      body,
+      comments: chosen.map(finding => ({
+        target: { path: finding.path, side: finding.side, line: finding.line, ...(finding.startLine !== undefined ? { startLine: finding.startLine, startSide: finding.side } : {}) },
+        body: findingCommentBody(finding),
+      })),
+      pendingReview: pending,
+    })
+    return { posted: chosen.map(finding => finding.id) }
+  },
+
+  /** Posts or updates the viewer's shared-analysis comment with the saved AI analysis. */
+  'share-analysis': async function (cwd, args) {
+    const key = text(args?.key)
+    const session = await serverSession(cwd)
+    const entry = key ? await session.cache.diffs.get(key) : undefined
+    const result = entry?.analyzedBy?.llm
+    const ref = entry?.diff.ref
+    if (!entry || !result || !ref || ref.kind !== 'github-pr')
+      throw new Error('Analyze this pull request before sharing it.')
+    const sharing = createGithubSource(ref, staticCredentials(await token())).sharing
+    const meta = await fetchGithubTokenMeta(await token())
+    if (!sharing)
+      throw new Error('Sharing is not available here.')
+    const comment = await sharing.upsert(meta.login, { headSha: entry.diff.head?.sha ?? '', result }, entry.sharedComment)
+    await session.cache.diffs.setSharedComment(key, comment)
+    return comment
+  },
+
+  /** One page of a repository's open pull requests (`PullsPage`). */
+  'repo-pulls': async function (_cwd, args) {
+    const owner = text(args?.owner)
+    const repo = text(args?.repo)
+    if (!owner || !repo)
+      throw new Error('That needs an owner and a repo.')
+    return fetchOpenPullRequests(await client(), owner, repo, text(args?.next) || undefined)
+  },
+
+  /** Drops the chat after the analysis, keeping the analysis turn, as `useLlmChat.clear` does. */
+  'chat-clear': async function (cwd, args) {
+    const key = text(args?.key)
+    const session = await serverSession(cwd)
+    const entry = key ? await session.cache.diffs.get(key) : undefined
+    const stored = entry?.llmSession
+    if (!stored)
+      return { cleared: 0 }
+    await session.cache.diffs.setLlmSession(key, { messages: stored.messages.slice(0, stored.chatStartIndex), chatStartIndex: stored.chatStartIndex } as never)
+    return { cleared: stored.messages.length - stored.chatStartIndex }
+  },
+
+  /** Diffs this server opened most recently, for the home page's "recently viewed". */
+  'recent-diffs': async function (cwd) {
+    const metas = await (await serverSession(cwd)).cache.diffs.listRecent(12)
+    return metas.map(meta => ({ key: meta.key, ref: meta.ref, title: meta.title, label: meta.label, url: meta.url, state: meta.pullRequestState, additions: meta.additions, deletions: meta.deletions, lastViewedAt: meta.lastViewedAt }))
+  },
+}

@@ -36,5 +36,13 @@ export async function repoCacheDir(cwd: string): Promise<string> {
 }
 
 export async function createRepoCacheDriver(cwd: string): Promise<Driver> {
-  return flatKeys(fsDriver({ base: await repoCacheDir(cwd) }))
+  return repoCacheDriverAt(await repoCacheDir(cwd))
+}
+
+/**
+ * The cache driver at `base`. The fs driver's default `ignore` is `**\/.git/**`, which
+ * matches the absolute path of a cache inside `.git` and makes `getKeys` return nothing.
+ */
+export function repoCacheDriverAt(base: string): Driver {
+  return flatKeys(fsDriver({ base, ignore: ['**/node_modules/**'] }))
 }
