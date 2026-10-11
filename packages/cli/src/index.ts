@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util'
 import { createDevServer } from 'devframe/adapters/dev'
 import { H3 } from 'h3'
 import devframe from './devframe'
+import { handleNativeRequest } from './native-api'
 import { pageFor } from './page'
 import { isPreanalyzeEngine, PREANALYZE_ENGINES, startPreanalyze } from './preanalyze'
 
@@ -56,6 +57,13 @@ function createAppWithRefRoutes(): H3 {
   const client = fileURLToPath(new URL('./client/', import.meta.url))
   const index = join(client, 'index.html')
   app.use(async (event, next) => {
+    const native = await handleNativeRequest({
+      url: event.url,
+      method: event.req.method,
+      json: () => event.req.json(),
+    }, process.cwd())
+    if (native)
+      return native
     const path = event.url.pathname
     if (event.req.method !== 'GET' || path.startsWith('/__') || !event.req.headers.get('accept')?.includes('text/html'))
       return next()
