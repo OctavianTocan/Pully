@@ -24,7 +24,7 @@ const QUEUE_ICON: Record<TriageQueue, string> = {
 
 const ROLES: (MyPullRole | 'all')[] = ['all', ...ROLE_ORDER]
 
-const ITEM = 'flex shrink-0 items-center gap-2 whitespace-nowrap border border-base rounded-full px-3 py-1 text-xs transition hover:bg-hover md:border-none md:rounded-md md:px-2 md:py-1.5 md:text-left md:text-sm'
+const ITEM = 'flex shrink-0 items-center gap-2 whitespace-nowrap border border-base rounded-full px-3 py-1 text-sm transition coarse:min-h-11 hover:bg-hover md:border-none md:rounded-md md:px-2 md:py-1.5 md:text-left'
 </script>
 
 <template>

@@ -154,12 +154,12 @@ const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.
           <FeedbackEmptyState v-if="!groups.length" icon="i-ph:git-pull-request-duotone" :title="queue === 'all' ? $t('local.home.empty') : $t('triage.empty')" />
 
           <details v-for="group in groups" :key="group.name" open class="group flex flex-col gap-2">
-            <summary class="flex cursor-pointer select-none list-none items-center gap-2 text-sm font-mono">
+            <summary class="flex cursor-pointer select-none list-none items-center gap-2 text-sm font-mono coarse:min-h-11">
               <span class="i-ph:caret-right-bold text-xs op-fade transition group-open:rotate-90" aria-hidden="true" />
               <span class="i-ph:git-branch-duotone op-fade" aria-hidden="true" />
               <span class="min-w-0 truncate">{{ group.name }}</span>
               <span class="op-fade">{{ group.pulls.length }}</span>
-              <RouterLink :to="repoRoute(group.owner, group.repo)" class="ml-auto shrink-0 text-xs op-fade hover:underline" @click.stop>
+              <RouterLink :to="repoRoute(group.owner, group.repo)" class="ml-auto shrink-0 text-xs op-fade coarse:(min-h-11 flex items-center pl-2) hover:underline" @click.stop>
                 {{ $t('local.home.allInRepo') }}
               </RouterLink>
             </summary>

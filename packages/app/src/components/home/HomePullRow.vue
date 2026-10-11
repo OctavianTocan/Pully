@@ -48,15 +48,15 @@ const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.own
 <template>
   <RouterLink
     :to="to"
-    class="flex items-center gap-3 px-3 py-2 text-sm transition hover:bg-hover"
+    class="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm transition coarse:min-h-12 sm:flex-nowrap hover:bg-hover"
     @pointerenter="emit('intent', pull)"
     @pointerleave="emit('leave', pull)"
     @focus="emit('intent', pull)"
     @blur="emit('leave', pull)"
   >
     <PrStatusIcon :state="status" class="text-base" />
-    <span class="w-10 shrink-0 text-xs font-mono op-fade">#{{ pull.number }}</span>
-    <span class="min-w-0 flex-1 truncate">
+    <span class="min-w-10 shrink-0 text-xs font-mono op-fade">#{{ pull.number }}</span>
+    <span class="min-w-0 flex-1 truncate max-sm:(line-clamp-2 order-last basis-full whitespace-normal break-words)">
       <span v-if="pull.isDraft" class="mr-1 text-xs op-fade">[{{ $t('local.home.draft') }}]</span>{{ pull.title }}
     </span>
     <span
@@ -94,7 +94,7 @@ const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.own
       :title="pull.changedFiles !== undefined ? $t('triage.files', pull.changedFiles) : undefined"
     />
     <span class="hidden w-24 shrink-0 truncate text-xs op-fade sm:inline">{{ pull.author }}</span>
-    <time class="min-w-20 shrink-0 whitespace-nowrap text-right text-xs op-fade" :datetime="pull.updatedAt" :title="new Date(pull.updatedAt).toLocaleString(locale)">
+    <time class="min-w-20 shrink-0 whitespace-nowrap text-right text-xs op-fade max-sm:ml-auto" :datetime="pull.updatedAt" :title="new Date(pull.updatedAt).toLocaleString(locale)">
       {{ formatTimeAgo(new Date(pull.updatedAt), locale) }}
     </time>
   </RouterLink>

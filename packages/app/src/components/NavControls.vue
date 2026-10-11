@@ -21,7 +21,7 @@ const isEmbedded = import.meta.env.PR_EMBED
 </script>
 
 <template>
-  <div class="flex shrink-0 items-center gap-1">
+  <div class="flex shrink-0 items-center gap-1 coarse:gap-0">
     <slot />
     <button
       type="button"
