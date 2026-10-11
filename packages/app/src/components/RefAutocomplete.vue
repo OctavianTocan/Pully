@@ -36,6 +36,10 @@ const ICONS: Record<RefSuggestion['kind'], string> = {
       <AutocompleteInput
         :placeholder="placeholder"
         :aria-label="placeholder"
+        enterkeyhint="go"
+        autocapitalize="none"
+        autocorrect="off"
+        spellcheck="false"
         class="min-w-0 flex-1 bg-transparent color-base font-mono outline-none placeholder:op-mute"
       />
     </AutocompleteAnchor>

@@ -5,6 +5,7 @@ import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import FeedbackSpinner from '@antfu/design/components/Feedback/FeedbackSpinner.vue'
 import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
+import { FIELD, vField } from '../../directives/field'
 import AppModal from '../AppModal.vue'
 
 const props = defineProps<{
@@ -75,7 +76,7 @@ function pickFirst() {
   <AppModal v-model:open="open" :title="$t('lens.title')" :description="$t('lens.description')" :document="document">
     <div class="flex flex-col gap-2">
       <div ref="search" @keydown.enter.prevent="pickFirst">
-        <FormSearchField v-model="query" :placeholder="$t('lens.search')" size="sm" />
+        <FormSearchField v-model="query" v-field="FIELD.search" :placeholder="$t('lens.search')" size="sm" />
       </div>
       <ul class="flex flex-col gap-0.5" role="listbox" :aria-label="$t('lens.title')">
         <li v-if="showGeneral">

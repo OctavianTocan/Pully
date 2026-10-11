@@ -8,6 +8,7 @@ import FormField from '@antfu/design/components/Form/FormField.vue'
 import FormTextInput from '@antfu/design/components/Form/FormTextInput.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { refreshCliModels, useCliModels } from '../../composables/useCliModels'
+import { FIELD, vField } from '../../directives/field'
 import AiCliSettings from '../ai/AiCliSettings.vue'
 import ModelPicker from './ModelPicker.vue'
 
@@ -139,6 +140,8 @@ const model = computed({
         <FormField v-if="isOpenAi" :label="$t('settings.llm.baseUrl')" :description="$t('settings.llm.baseUrlDescription')">
           <FormTextInput
             v-model="draftBaseUrl"
+            v-field="FIELD.identifier"
+            inputmode="url"
             placeholder="https://api.openai.com/v1"
           />
         </FormField>
@@ -147,6 +150,7 @@ const model = computed({
           <div class="flex items-center gap-2">
             <FormTextInput
               v-model="draftToken"
+              v-field="FIELD.secret"
               type="password"
               icon="i-ph-key-duotone"
               :placeholder="config.placeholder"

@@ -157,6 +157,7 @@ function onKeydown(event: KeyboardEvent) {
             ref="field"
             v-model="input"
             rows="2"
+            enterkeyhint="send"
             :placeholder="$t('chat.placeholder')"
             :aria-label="$t('chat.title')"
             :disabled="busy"

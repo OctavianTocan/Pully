@@ -20,6 +20,7 @@ import { UPLOAD_SESSION_STORAGE_KEY } from '../composables/uploadSession'
 import { useDocumentTitle } from '../composables/useDocumentTitle'
 import { useRecentDiffs } from '../composables/useRecentDiffs'
 import { useRecentRepositories } from '../composables/useRecentRepositories'
+import { FIELD, vField } from '../directives/field'
 import { formatTimeAgo } from '../i18n/time-ago'
 import { routeForRef, routeFromGithubUrl } from '../source-routes'
 
@@ -111,7 +112,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
           </p>
           <div class="max-w-md flex flex-col gap-2">
             <form class="flex items-stretch gap-2" @submit.prevent="go">
-              <FormTextInput v-model="url" icon="i-ph:link-simple-duotone" placeholder="https://github.com/owner/repo/pull/123" class="flex-1" />
+              <FormTextInput v-model="url" v-field="FIELD.identifier" icon="i-ph:link-simple-duotone" placeholder="https://github.com/owner/repo/pull/123" class="flex-1" />
               <ActionButton
                 type="submit"
                 variant="primary"
