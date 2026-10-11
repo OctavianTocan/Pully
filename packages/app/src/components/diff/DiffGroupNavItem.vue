@@ -39,7 +39,7 @@ const progress = computed(() => groupProgress(props.group, props.reviewed))
       :class="[
         active ? 'op-100' : 'op-fade hover:op-100',
       ]"
-      class="group flex items-center gap-2 px-2 py-0.5 text-left text-sm color-base hover:bg-active"
+      class="group flex items-center gap-2 px-2 py-0.5 text-left text-sm color-base coarse:min-h-11 hover:bg-active"
       @click="$emit('select', group.key)"
     >
       <div class="flex flex-col items-start">

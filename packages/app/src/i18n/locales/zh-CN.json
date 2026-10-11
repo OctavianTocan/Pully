@@ -430,6 +430,7 @@
     "loadFull": "加载完整文件内容",
     "expand": "展开文件",
     "collapse": "折叠文件",
+    "moreActions": "更多操作",
     "noLongerInDiff": "已不在此 diff 中",
     "removed": "已移除"
   },

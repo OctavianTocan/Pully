@@ -430,6 +430,7 @@
     "loadFull": "Vollständigen Dateiinhalt laden",
     "expand": "Datei ausklappen",
     "collapse": "Datei einklappen",
+    "moreActions": "Weitere Aktionen",
     "noLongerInDiff": "Nicht mehr in diesem Diff",
     "removed": "entfernt"
   },

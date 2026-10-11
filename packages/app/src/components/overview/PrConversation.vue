@@ -41,7 +41,7 @@ const items = computed(() => props.overview.timeline.slice(earlier.value))
     <a v-if="overview.timelineHidden" :href="overview.url" target="_blank" rel="noopener" class="px-1 text-xs op-fade hover:underline">
       {{ $t('overview.moreOnGithub', { n: overview.timelineHidden }) }}
     </a>
-    <button v-if="earlier" type="button" class="self-start px-1 text-xs op-fade hover:underline" @click="showAll = true">
+    <button v-if="earlier" type="button" class="self-start px-1 text-xs op-fade coarse:min-h-11 hover:underline" @click="showAll = true">
       {{ $t('overview.earlier', { n: earlier }, earlier) }}
     </button>
 

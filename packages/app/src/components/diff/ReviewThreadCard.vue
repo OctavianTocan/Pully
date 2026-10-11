@@ -86,7 +86,7 @@ async function sendReply() {
         <button
           v-if="!thread.pending"
           type="button"
-          class="flex-1 border border-base rounded bg-base px-2 py-1 text-left text-sm color-base op-fade hover:op-100"
+          class="flex-1 border border-base rounded bg-base px-2 py-1 text-left text-sm color-base op-fade coarse:min-h-11 hover:op-100"
           @click="replying = true"
         >
           {{ $t('review.replyPlaceholder') }}

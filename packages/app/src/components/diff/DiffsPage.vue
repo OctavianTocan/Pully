@@ -155,7 +155,9 @@ function scrollToGroup(key: string) {
 
 const styles = computed(() => {
   return {
-    '--diffs-header-height': measuredHeaderHeight.value ? `${headerHeight.value}px` : undefined,
+    '--diffs-header-height': measuredHeaderHeight.value
+      ? isHeaderSticky.value ? `${headerHeight.value}px` : 'env(safe-area-inset-top, 0px)'
+      : undefined,
   }
 })
 

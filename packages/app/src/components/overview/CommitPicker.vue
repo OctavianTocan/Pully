@@ -36,7 +36,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
   <div ref="root" class="relative">
     <button
       type="button"
-      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition hover:bg-hover"
+      class="flex items-center gap-1.5 border border-base rounded px-2 py-0.5 transition coarse:min-h-11 hover:bg-hover"
       :class="selection ? 'color-active' : 'op-fade hover:op-100'"
       :aria-label="$t('overview.selection.picker')"
       :aria-expanded="open"
@@ -61,7 +61,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
     >
       <button
         type="button"
-        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition hover:bg-hover"
+        class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition coarse:min-h-11 hover:bg-hover"
         :class="selection ? 'color-base' : 'color-active'"
         @click="pick(undefined)"
       >

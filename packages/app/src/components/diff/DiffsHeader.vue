@@ -75,18 +75,20 @@ function scrollToGroup(key: string) {
 
 <template>
   <header
-    class="left-0 right-0 top-0 z-nav flex flex-col gap-2 border-b bg-base px4 py2 transition-all md:sticky"
+    class="left-0 right-0 top-0 z-nav flex flex-col gap-2 border-b bg-base px4 pb2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all md:sticky"
     :class="scrollY > 20 ? 'border-base shadow-sm' : 'border-transparent' "
   >
     <div class="mxa max-w-500 w-full">
       <div class="flex flex-wrap items-center gap-2">
-        <component :is="isEmbedded ? 'div' : RouterLink" to="/" class="flex">
+        <component :is="isEmbedded ? 'div' : RouterLink" to="/" class="flex coarse:(min-h-11 min-w-11 items-center justify-center -ml-3)">
           <PrStatusIcon v-if="display.state" :state="display.state" />
           <div v-else class="i-ph-house-line-duotone" />
         </component>
-        <h1 class="flex flex-auto items-center gap-2 break-words text-lg font-semibold">
+        <!-- Phones: the icon and the controls share the first row, so the title gets a full row of its own. -->
+        <div class="flex-auto md:hidden" />
+        <h1 class="flex flex-auto items-center gap-2 break-words text-lg font-semibold max-md:(order-1 basis-full)">
           {{ display.title }}
-          <a v-if="display.label" :href="display.url" target="_blank" rel="noopener" class="text-base font-normal op-fade hover:underline">{{ display.label }}</a>
+          <a v-if="display.label" :href="display.url" target="_blank" rel="noopener" class="text-base font-normal op-fade coarse:(min-h-11 inline-flex items-center) hover:underline">{{ display.label }}</a>
           <ActionIconButton
             v-if="store.canRefresh"
             icon="i-ph:arrows-clockwise-duotone"
@@ -97,7 +99,7 @@ function scrollToGroup(key: string) {
 
         <div
           v-if="aiResult"
-          class="flex shrink-0 items-center gap-1.5 text-sm"
+          class="flex shrink-0 items-center gap-1.5 text-sm max-md:order-2"
         >
           <span class="op-fade">{{ $t('pr.analyzeBy') }}</span>
           <ActionToggleGroup
@@ -123,7 +125,7 @@ function scrollToGroup(key: string) {
       </div>
 
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-sm">
-        <RouterLink v-if="parent && !isEmbedded" :to="parent.route" class="flex items-center gap-1.5 op-fade hover:underline">
+        <RouterLink v-if="parent && !isEmbedded" :to="parent.route" class="flex items-center gap-1.5 op-fade coarse:min-h-11 hover:underline">
           <span>{{ parent.label }}</span>
         </RouterLink>
         <span v-if="display.author" class="flex items-center gap-1.5">
@@ -131,10 +133,10 @@ function scrollToGroup(key: string) {
           <GithubAvatar :login="display.author.login" :avatar-url="display.author.avatarUrl" :size="16" />
           <span class="op-fade">{{ display.author.login }}</span>
         </span>
-        <span v-if="display.base && display.head && !isEmbedded" class="flex items-center gap-1 font-mono">
-          <span class="border border-base rounded bg-code px-2 py-0.5 text-xs font-mono">{{ display.base }}</span>
+        <span v-if="display.base && display.head && !isEmbedded" class="max-w-full min-w-0 flex items-center gap-1 font-mono">
+          <span class="min-w-0 truncate border border-base rounded bg-code px-2 py-0.5 text-xs font-mono" :title="display.base">{{ display.base }}</span>
           ←
-          <span class="border border-base rounded bg-code px-2 py-0.5 text-xs font-mono">{{ display.head }}</span>
+          <span class="min-w-0 truncate border border-base rounded bg-code px-2 py-0.5 text-xs font-mono" :title="display.head">{{ display.head }}</span>
         </span>
         <PrHeaderChips />
         <span v-if="aiResult?.sharedBy && store.analyzeMode !== 'rule-based'" class="flex items-center gap-1.5 border border-base rounded px2" :title="aiResult.model">

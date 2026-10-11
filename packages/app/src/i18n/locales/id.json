@@ -430,6 +430,7 @@
     "loadFull": "Muat isi berkas lengkap",
     "expand": "Buka berkas",
     "collapse": "Tutup berkas",
+    "moreActions": "Tindakan lainnya",
     "noLongerInDiff": "Tidak lagi ada di diff ini",
     "removed": "dihapus"
   },

@@ -152,7 +152,7 @@ function navigateToFile(sha: string) {
           <button
             v-if="parentLabel"
             type="button"
-            class="self-start truncate pb1 pl2 text-xs leading-1em op-fade hover:op-100"
+            class="self-start truncate pb1 pl2 text-xs leading-1em op-fade coarse:py-2 hover:op-100"
             @click="navigateToParent"
           >
             {{ parentLabel }} ›

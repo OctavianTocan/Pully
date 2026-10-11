@@ -57,7 +57,7 @@ function isSelected(index: number) {
       >
         <button
           type="button"
-          class="min-w-0 flex flex-1 select-none items-center gap-2 py-1.5 pl-2 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          class="min-w-0 flex flex-1 select-none items-center gap-2 py-1.5 pl-2 text-left text-sm outline-none coarse:py-3 focus-visible:ring-2 focus-visible:ring-primary-500/40"
           :aria-pressed="isSelected(index)"
           :title="$t('overview.commitList.view')"
           @click="pick(index, $event)"
@@ -74,7 +74,7 @@ function isSelected(index: number) {
           </span>
           <DisplayDate v-if="!compact" :date="commit.committedDate" class="shrink-0 text-xs op-mute" />
         </button>
-        <a :href="commit.url" target="_blank" rel="noopener" class="shrink-0 py-1.5 pr-2 text-xs font-mono op-mute hover:underline">{{ commit.abbreviatedOid }}</a>
+        <a :href="commit.url" target="_blank" rel="noopener" class="shrink-0 py-1.5 pr-2 text-xs font-mono op-mute coarse:(py-3 pl-2) hover:underline">{{ commit.abbreviatedOid }}</a>
       </li>
     </ol>
     <p v-if="!compact && commits.length > 1" class="px-2 text-xs op-mute">
