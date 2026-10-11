@@ -64,6 +64,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
     val c = LocalPullsColors.current
 
     OverviewEffects(session, top, data, listState)
+    PrCommands(session, ui, listState, onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session) })
 
     Box(Modifier.fillMaxSize()) {
         val opened = session.opened

@@ -50,6 +50,12 @@ import kotlinx.serialization.json.put
 /** The login GitHub Actions shares analyses as (`ACTIONS_BOT_LOGIN`). */
 private const val ACTIONS_BOT_LOGIN = "github-actions[bot]"
 
+/** The palette's "Analyze with AI": starts one unless an analysis is already running. */
+fun runAnalyzeFromCommand(session: ReviewSession) {
+    if (session.taskFor("analyze")?.running == true) return
+    session.runAnalyze()
+}
+
 internal fun ReviewSession.runAnalyze() {
     val locale = settings.locale
     startAiTask("analyze", extra = { put("locale", locale) })

@@ -148,6 +148,26 @@ fun HomeScreen(nav: Nav, updateNotice: String?) {
     }
     val groups = remember(filtered) { Triage.groupByRepo(filtered.pulls) }
 
+    // `useHomeNavigation.ts`: refresh, and a "Go to" entry per pull request and repository.
+    val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
+    com.octaviantocan.pulls.ui.UseCommands {
+        val pullsGroup = messages.t("palette.group.pulls")
+        val reposGroup = messages.t("palette.group.repos")
+        val all = sync.pulls.orEmpty()
+        listOf(com.octaviantocan.pulls.ui.Command("home.refresh", messages.t("keys.refresh"), pullsGroup, icon = "arrows-clockwise-duotone") { reload() }) +
+            all.map { pull ->
+                val ref = "${pull.owner}/${pull.repo}#${pull.number}"
+                com.octaviantocan.pulls.ui.Command("jump.pull:$ref", messages.t("palette.goToPull", "ref" to ref, "title" to pull.title), pullsGroup, icon = "git-pull-request-duotone") {
+                    nav.openTarget(com.octaviantocan.pulls.core.OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
+                }
+            } +
+            all.distinctBy { "${it.owner}/${it.repo}" }.map { pull ->
+                com.octaviantocan.pulls.ui.Command("jump.repo:${pull.owner}/${pull.repo}", messages.t("palette.goToRepo", "repo" to "${pull.owner}/${pull.repo}"), reposGroup, icon = "git-branch-duotone") {
+                    nav.openRepo(pull.owner, pull.repo)
+                }
+            }
+    }
+
     fun open() {
         when (val link = parsed) {
             is HomeLink.Target -> nav.openTarget(link.target)

@@ -72,40 +72,8 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun AppSheet(open: Boolean, onClose: () -> Unit, title: String, description: String? = null, content: @Composable ColumnScope.() -> Unit) {
     if (!open) return
-    val c = LocalPullsColors.current
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
-    val shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
-    fun close() { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }
-    ModalBottomSheet(
-        onDismissRequest = onClose,
-        sheetState = state,
-        sheetMaxWidth = 576.dp,
-        shape = shape,
-        containerColor = c.base,
-        contentColor = c.text,
-        tonalElevation = 0.dp,
-        scrimColor = if (c.dark) Color.Black.copy(alpha = 0.4f) else Color(0x66DDDDDD),
-        dragHandle = null,
-    ) {
-        Column(Modifier.fillMaxWidth().border(1.dp, c.border, shape)) {
-            Row(
-                Modifier.fillMaxWidth().bottomBorder(c.border).padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(title, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = c.text)
-                    if (description != null) Text(description, style = PullsType.sm, color = c.fade)
-                }
-                IconButton("x", t("common.close"), { close() }, compact = true)
-            }
-            Column(
-                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                content = content,
-            )
-        }
+    com.octaviantocan.pulls.ui.design.AppModal(onClose, title = title, description = description) {
+        Column(Modifier.fillMaxWidth().imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 

@@ -4,6 +4,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,10 +44,49 @@ fun NavControlsRow(nav: Nav, modifier: Modifier = Modifier, leading: @Composable
     // `gap-1 coarse:gap-0`: the 44dp hit areas already space the icons.
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         leading()
+        // `hidden sm:flex`: the palette button with its `mod+k` hint.
+        if (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 640) PaletteButton()
         LanguageMenu()
         IconButton("gear-duotone", t("common.settings"), nav.settings)
         DarkToggle()
     }
+}
+
+/** The palette button: `border border-base rounded-md px-1.5 py-1 op-fade`, a magnifier and `DisplayKbd mod+k`. */
+@Composable
+fun PaletteButton() {
+    val c = LocalPullsColors.current
+    val label = t("palette.title")
+    androidx.compose.foundation.layout.Box(
+        androidx.compose.ui.Modifier.defaultMinSize(minWidth = com.octaviantocan.pulls.ui.design.TOUCH, minHeight = com.octaviantocan.pulls.ui.design.TOUCH)
+            .clickable(onClickLabel = t("palette.title")) { com.octaviantocan.pulls.ui.Commands.open() }
+            .semantics { contentDescription = label }.padding(horizontal = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            androidx.compose.ui.Modifier.border(1.dp, c.border, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+        ) {
+            com.octaviantocan.pulls.ui.design.PhIcon("magnifying-glass-duotone", tint = c.fade, size = 14.dp)
+            Kbd("Ctrl")
+            Kbd("K")
+        }
+    }
+}
+
+/** `DisplayKbd`: a small bordered key cap. */
+@Composable
+fun Kbd(key: String) {
+    val c = LocalPullsColors.current
+    Text(
+        key,
+        androidx.compose.ui.Modifier.border(1.dp, c.border, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp),
+        style = com.octaviantocan.pulls.ui.design.PullsType.micro.copy(fontFamily = com.octaviantocan.pulls.ui.design.PullsType.mono),
+        color = c.fade,
+        maxLines = 1,
+        softWrap = false,
+    )
 }
 
 /** `LanguageMenu`: the translate button and an in-flow list of the 12 locales by native name. */

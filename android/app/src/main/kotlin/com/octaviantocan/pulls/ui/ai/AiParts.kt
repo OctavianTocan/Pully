@@ -94,8 +94,7 @@ internal fun Shimmer(text: String, style: TextStyle, modifier: Modifier = Modifi
     Text(text, modifier, style = style.copy(brush = brush), maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 }
 
-/** The web `AppModal` on phones: a bottom sheet with a bordered title row, body and optional footer. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** The web `AppModal`: a bottom sheet on phones, a centered dialog from `sm` up. */
 @Composable
 internal fun AiSheet(
     title: String,
@@ -104,46 +103,7 @@ internal fun AiSheet(
     footer: (@Composable RowScope.() -> Unit)? = null,
     scrollBody: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
-) {
-    val c = LocalPullsColors.current
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = state,
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
-        containerColor = c.base,
-        contentColor = c.text,
-        scrimColor = if (c.dark) Color.Black.copy(alpha = 0.4f) else Color(0x66DDDDDD),
-        dragHandle = null,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-    ) {
-        Column(Modifier.fillMaxWidth().border(1.dp, c.border, RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))) {
-            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(title, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = c.text)
-                    if (description != null) Text(description, style = PullsType.sm, color = c.fade)
-                }
-                IconButton("x", t("common.close"), onDismiss)
-            }
-            HorizontalDivider(color = c.border)
-            val body = Modifier.weight(1f, fill = false).padding(12.dp)
-            Column(
-                (if (scrollBody) body.verticalScroll(rememberScrollState()) else body).let { if (footer == null) it.navigationBarsPadding() else it },
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                content = content,
-            )
-            if (footer != null) {
-                HorizontalDivider(color = c.border)
-                Row(
-                    Modifier.fillMaxWidth().padding(8.dp).navigationBarsPadding(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = footer,
-                )
-            }
-        }
-    }
-}
+) = com.octaviantocan.pulls.ui.design.AppModal(onDismiss, title = title, description = description, scrollBody = scrollBody, footer = footer, content = content)
 
 /** `FormCheckbox`: a 16px box, primary fill and a white check when on, with a 44dp hit area. */
 @Composable

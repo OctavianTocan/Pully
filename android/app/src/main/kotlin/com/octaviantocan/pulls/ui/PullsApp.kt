@@ -39,6 +39,7 @@ internal sealed interface Screen {
 @Composable
 fun PullsApp(initialTarget: String?) {
     val context = LocalContext.current
+    val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
     val stack = remember {
         mutableStateListOf<Screen>(Screen.Home).apply {
             initialTarget?.let(PrLinks::parse)?.let { add(Screen.Review(it)) }
@@ -57,6 +58,17 @@ fun PullsApp(initialTarget: String?) {
         )
     }
     BackHandler(enabled = stack.size > 1) { nav.back() }
+    val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
+    val dark = LocalPullsColors.current.dark
+    // `KeyboardLayer.vue`'s always-on commands.
+    UseCommands {
+        val group = messages.t("palette.group.general")
+        listOf(
+            Command("settings", messages.t("keys.settings"), group, icon = "gear-duotone") { nav.settings() },
+            Command("home", messages.t("keys.home"), group, icon = "house-line-duotone") { nav.home() },
+            Command("theme", messages.t("keys.theme"), group, icon = "moon-stars-duotone") { settings.updateTheme(if (dark) "light" else "dark") },
+        )
+    }
     Box(Modifier.fillMaxSize().background(LocalPullsColors.current.base)) {
         when (val current = stack.last()) {
             Screen.Home -> HomeScreen(nav, updateNote)
@@ -65,6 +77,7 @@ fun PullsApp(initialTarget: String?) {
             Screen.Checkout -> CheckoutScreen(nav)
             Screen.Settings -> SettingsScreen(nav)
         }
+        CommandPalette()
     }
 }
 
