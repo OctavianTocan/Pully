@@ -194,7 +194,7 @@ watch(paletteOpen, async (isOpen) => {
             :key="command.id"
             role="option"
             :aria-selected="index === selected"
-            class="mx-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
+            class="mx-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm coarse:min-h-11"
             :class="index === selected ? 'bg-active color-base' : 'color-base op-fade'"
             @mousemove="selected = index"
             @click="run(command)"
@@ -210,7 +210,8 @@ watch(paletteOpen, async (isOpen) => {
       </div>
     </div>
     <template #footer>
-      <div class="flex flex-1 items-center gap-4 px-1 text-xs op-fade">
+      <!-- Key hints mean nothing without a keyboard. -->
+      <div class="flex flex-1 items-center gap-4 px-1 text-xs op-fade coarse:hidden">
         <span class="flex items-center gap-1"><DisplayKbd keys="up" /><DisplayKbd keys="down" />{{ t('palette.navigate') }}</span>
         <span class="flex items-center gap-1"><DisplayKbd keys="enter" />{{ t('palette.run') }}</span>
         <span class="flex items-center gap-1"><DisplayKbd keys="esc" />{{ t('palette.close') }}</span>
