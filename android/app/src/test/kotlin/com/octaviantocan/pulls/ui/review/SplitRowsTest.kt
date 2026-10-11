@@ -1,4 +1,4 @@
-package com.octaviantocan.pulls.ui
+package com.octaviantocan.pulls.ui.review
 
 import com.octaviantocan.pulls.data.DiffLine
 import kotlin.test.Test
