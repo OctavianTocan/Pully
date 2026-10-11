@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
@@ -112,6 +113,17 @@ private class Palette(val c: PullsColors, theme: DiffTheme?) {
     val selection = selectionBase(c).copy(alpha = if (c.dark) 0.25f else 0.18f)
     val addBar = additionBase(c)
     val delBar = deletionBase(c)
+}
+
+/** Pierre's `[data-content-buffer]`: the empty side of a split row, hatched with 45° stripes 8dp apart. */
+private fun Modifier.hatch(bg: Color, stripe: Color): Modifier = this.background(bg).drawBehind {
+    val step = 8.dp.toPx()
+    val w = 1.4.dp.toPx()
+    var x = -size.height
+    while (x < size.width) {
+        drawLine(stripe, Offset(x, size.height), Offset(x + size.height, 0f), w)
+        x += step
+    }
 }
 
 /** The bordered card sides every body item of a file draws (`border-x border-base`). */
@@ -193,7 +205,7 @@ private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: Re
         rowLines[i].forEach { line -> line.anchors().forEach { a -> emit.lines.putIfAbsent("$path|${a.side}|${a.line}", key) } }
         if (split) {
             when (val row = splitRows[i]) {
-                is SplitEntry.Gap -> emit.item(key, "gap", path) { GapRow(ui, file, row.gap, i == 0) }
+                is SplitEntry.Gap -> emit.item(key, "gap", path) { GapRow(ui, file, row.gap, i == 0, split = true) }
                 is SplitEntry.Pair -> emit.item(key, "split", path) { SplitRowView(session, ui, file, row, digits) }
             }
         } else {
@@ -388,23 +400,29 @@ private fun FileFooter() {
 
 /** Pierre's `line-info` separator: 32px, `bg-separator`, an expand glyph and "N unmodified lines". */
 @Composable
-private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Boolean) {
+private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Boolean, split: Boolean = false) {
     val c = LocalPullsColors.current
     val p = remember(c, ui.theme) { Palette(c, ui.theme) }
     val loading = ui.fullLoading[file.path] == true
-    Box(Modifier.fillMaxWidth().fileFrame(c.border).background(p.bg).padding(horizontal = 8.dp).padding(top = if (first) 0.dp else 6.dp, bottom = 6.dp)) {
+    val label = "${gap.count} unmodified line${if (gap.count == 1) "" else "s"}"
+    @Composable
+    fun Pill(modifier: Modifier, text: String?) {
         Row(
-            Modifier.fillMaxWidth().height(32.dp).clip(RoundedCornerShape(6.dp)).background(p.separator)
-                .clickable(enabled = !file.isBinary && !loading, role = Role.Button, onClickLabel = t("file.loadFull")) { ui.loadFullFile(file, gap.id) }
-                .padding(start = 0.dp),
+            modifier.height(32.dp).clip(RoundedCornerShape(6.dp)).background(p.separator)
+                .clickable(enabled = !file.isBinary && !loading, role = Role.Button, onClickLabel = t("file.loadFull")) { ui.loadFullFile(file, gap.id) },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (loading) CircularProgressIndicator(Modifier.padding(start = 8.dp).width(14.dp).height(14.dp), color = p.number, strokeWidth = 2.dp)
-            Text(
-                "${gap.count} unmodified line${if (gap.count == 1) "" else "s"}",
-                Modifier.padding(horizontal = 8.dp), style = PullsType.xs.copy(fontSize = 13.sp), color = p.number, maxLines = 1,
-            )
+            if (loading && text != null) CircularProgressIndicator(Modifier.padding(start = 8.dp).width(14.dp).height(14.dp), color = p.number, strokeWidth = 2.dp)
+            if (text != null) Text(text, Modifier.padding(horizontal = 8.dp), style = PullsType.xs.copy(fontSize = 13.sp), color = p.number, maxLines = 1)
         }
+    }
+    // `margin-block: 8px`, none on the first/last separator of a file; one pill per column in split view.
+    Row(
+        Modifier.fillMaxWidth().fileFrame(c.border).background(p.bg).padding(horizontal = 8.dp).padding(top = if (first) 0.dp else 8.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Pill(Modifier.weight(1f), label)
+        if (split) Pill(Modifier.weight(1f), null)
     }
 }
 
@@ -486,10 +504,10 @@ private fun SplitRowView(session: ReviewSession, ui: DiffUi, file: ReviewFile, r
     Row(Modifier.fillMaxWidth().fileFrame(c.border).height(IntrinsicSize.Min)) {
         // A context line shows its old number on the left and its new number on the right.
         if (row.left != null) LineCell(ui, file, row.left, digits, p, left, Modifier.weight(1f), leftColumn = true)
-        else Box(Modifier.weight(1f).fillMaxHeight().background(p.buffer))
+        else Box(Modifier.weight(1f).fillMaxHeight().hatch(p.bg, p.buffer))
         Box(Modifier.width(2.dp).fillMaxHeight().background(p.bg))
         if (row.right != null) LineCell(ui, file, row.right, digits, p, right, Modifier.weight(1f))
-        else Box(Modifier.weight(1f).fillMaxHeight().background(p.buffer))
+        else Box(Modifier.weight(1f).fillMaxHeight().hatch(p.bg, p.buffer))
     }
 }
 
