@@ -145,7 +145,7 @@ internal fun AnalyzeStatusSheet(session: ReviewSession, onDismiss: () -> Unit) {
 /** A 16dp spinner in the button's color, for `i-ph:spinner-duotone animate-spin`. */
 @Composable
 internal fun Spinner(color: androidx.compose.ui.graphics.Color, size: androidx.compose.ui.unit.Dp = 16.dp) {
-    androidx.compose.material3.CircularProgressIndicator(Modifier.size(size), color = color, strokeWidth = 2.dp)
+    com.octaviantocan.pulls.ui.design.SpinIcon(tint = color, size = size)
 }
 
 /** Share is for analyses the viewer generated, on a pull request (`canShareResult`). */

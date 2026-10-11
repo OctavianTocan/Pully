@@ -31,6 +31,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -188,11 +191,12 @@ fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi) {
 private fun VerdictToggle(value: String, onChange: (String) -> Unit) {
     val c = LocalPullsColors.current
     val labels = mapOf("COMMENT" to t("review.comment"), "APPROVE" to t("review.approve"), "REQUEST_CHANGES" to t("review.requestChanges"))
-    FlowRow(Modifier.clip(RoundedCornerShape(8.dp)).background(c.sunken).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    // `ActionToggleGroup` is `inline-flex w-max`: it never wraps; a long label wraps inside its option instead.
+    Row(Modifier.height(IntrinsicSize.Min).clip(RoundedCornerShape(8.dp)).background(c.sunken).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         VERDICTS.forEach { (option, icon) ->
             val on = option == value
             Row(
-                Modifier.defaultMinSize(minHeight = 36.dp).clip(RoundedCornerShape(6.dp))
+                Modifier.weight(1f, fill = false).fillMaxHeight().defaultMinSize(minHeight = 36.dp).clip(RoundedCornerShape(6.dp))
                     .background(if (on) c.raised else Color.Transparent)
                     .clickable(role = Role.Tab) { onChange(option) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -200,7 +204,7 @@ private fun VerdictToggle(value: String, onChange: (String) -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(painterResource(icon), null, Modifier.size(16.dp), tint = if (on) c.text else c.muted)
-                Text(labels.getValue(option), style = PullsType.sm, color = if (on) c.text else c.muted, maxLines = 1)
+                Text(labels.getValue(option), style = PullsType.sm, color = if (on) c.text else c.muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
     }

@@ -27,6 +27,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -46,6 +48,32 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+
+/** UnoCSS `animate-spin`: one full turn per second, linear. */
+@Composable
+fun Modifier.spin(): Modifier {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "spin")
+    val angle by transition.animateFloat(
+        0f, 360f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "angle",
+    )
+    return this.graphicsLayer { rotationZ = angle }
+}
+
+/** A spinning Phosphor icon: `i-ph:spinner-duotone animate-spin` (or `circle-notch`). */
+@Composable
+fun SpinIcon(modifier: Modifier = Modifier, tint: Color = LocalPullsColors.current.text, size: Dp = 16.dp, name: String = "spinner-duotone") =
+    PhIcon(name, modifier.spin(), tint = tint, size = size)
+
+/** `FeedbackSpinner`: a 2px ring in the current color with a transparent top, spinning. */
+@Composable
+fun FeedbackSpinner(modifier: Modifier = Modifier, color: Color = LocalPullsColors.current.text, size: Dp = 16.dp) {
+    androidx.compose.foundation.Canvas(modifier.size(size).spin()) {
+        val w = 2.dp.toPx()
+        drawArc(color, -45f, 270f, false, topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2), size = androidx.compose.ui.geometry.Size(this.size.width - w, this.size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+    }
+}
 
 /** 44dp: the web's `coarse:` touch target (`main.css`, `@media (pointer: coarse)`). */
 val TOUCH = 44.dp
@@ -122,7 +150,7 @@ fun ActionButton(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (loading) CircularProgressIndicator(Modifier.size(16.dp), color = fg, strokeWidth = 2.dp)
+        if (loading) FeedbackSpinner(color = fg, size = 16.dp)
         else if (icon != null) PhIcon(icon, tint = fg, size = 18.dp)
         androidx.compose.runtime.CompositionLocalProvider(
             androidx.compose.material3.LocalContentColor provides fg,
@@ -329,7 +357,7 @@ fun TextInput(
 fun Loading(text: String, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
     Row(modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        CircularProgressIndicator(Modifier.size(18.dp), color = c.fade, strokeWidth = 2.dp)
+        FeedbackSpinner(color = c.fade, size = 16.dp)
         Text(text, style = PullsType.sm, color = c.fade)
     }
 }

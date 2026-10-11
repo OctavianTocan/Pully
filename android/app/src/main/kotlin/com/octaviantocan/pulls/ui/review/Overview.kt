@@ -1198,7 +1198,7 @@ fun MergeBox(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData) {
             }
             mergeability.blocker?.let { blocker ->
                 Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (blocker == "checking") CircularProgressIndicator(Modifier.padding(top = 4.dp).size(14.dp), color = c.fade, strokeWidth = 2.dp)
+                    if (blocker == "checking") com.octaviantocan.pulls.ui.design.SpinIcon(Modifier.padding(top = 4.dp), tint = c.fade, size = 14.dp, name = "circle-notch")
                     else PhIcon("warning-duotone", Modifier.padding(top = 3.dp), tint = WebColors.amberIcon(c.dark), size = 16.dp)
                     Text(t("overview.merge.blocked.$blocker"), style = PullsType.sm, color = c.text)
                 }

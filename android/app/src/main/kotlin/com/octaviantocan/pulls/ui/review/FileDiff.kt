@@ -331,7 +331,7 @@ private fun FileActions(session: ReviewSession, ui: DiffUi, file: ReviewFile) {
     }
     val loading = ui.fullLoading[file.path] == true
     if (ui.canLoadFull(file) || loading) {
-        if (loading) Box(Modifier.width(44.dp).height(44.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.width(16.dp).height(16.dp), color = c.fade, strokeWidth = 2.dp) }
+        if (loading) Box(Modifier.width(44.dp).height(44.dp), contentAlignment = Alignment.Center) { com.octaviantocan.pulls.ui.design.SpinIcon(tint = c.fade, size = 16.dp) }
         else IconButton("file-text-duotone", t("file.loadFull"), { ui.loadFullFile(file) }, compact = true)
     }
 }
@@ -412,7 +412,7 @@ private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Bool
                 .clickable(enabled = !file.isBinary && !loading, role = Role.Button, onClickLabel = t("file.loadFull")) { ui.loadFullFile(file, gap.id) },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (loading && text != null) CircularProgressIndicator(Modifier.padding(start = 8.dp).width(14.dp).height(14.dp), color = p.number, strokeWidth = 2.dp)
+            if (loading && text != null) com.octaviantocan.pulls.ui.design.SpinIcon(Modifier.padding(start = 8.dp), tint = p.number, size = 14.dp)
             if (text != null) Text(text, Modifier.padding(horizontal = 8.dp), style = PullsType.xs.copy(fontSize = 13.sp), color = p.number, maxLines = 1)
         }
     }
