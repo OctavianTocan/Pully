@@ -716,6 +716,45 @@
     "generated": {
       "label": "Hasil generate",
       "summary": "Perubahan berkas hasil generate atau build."
+    },
+    "types": {
+      "label": "Tipe",
+      "summary": "Deklarasi tipe."
+    },
+    "data": {
+      "label": "Data",
+      "summary": "Skema basis data dan migrasi."
+    },
+    "styles": {
+      "label": "Gaya",
+      "summary": "Stylesheet dan konfigurasi gaya."
+    },
+    "scripts": {
+      "label": "Skrip",
+      "summary": "Skrip build, pengembangan, dan otomasi."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "Workflow dan pipeline CI."
+    },
+    "i18n": {
+      "label": "Terjemahan",
+      "summary": "Berkas bahasa dan terjemahan."
+    },
+    "assets": {
+      "label": "Aset",
+      "summary": "Gambar, font, dan media."
+    },
+    "area": "{label} · {area}",
+    "rootArea": "akar repo",
+    "otherAreas": "area lain",
+    "facts": {
+      "sentence": "{blurb} {list}.",
+      "separator": ", ",
+      "added": "{n} berkas baru",
+      "removed": "{n} dihapus",
+      "renamed": "{n} diganti nama",
+      "pairedTests": "{n} pengujian tepat setelah sumbernya"
     }
   },
   "errors": {

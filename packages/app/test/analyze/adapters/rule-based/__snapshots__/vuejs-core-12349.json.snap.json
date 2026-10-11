@@ -3,14 +3,16 @@
     {
       "key": "code",
       "label": "Code",
-      "summary": "Source changes.",
+      "summary": "Source changes. 2 new files, 2 tests right after their source.",
       "category": "core",
       "filePaths": [
         "packages/reactivity/src/arrayInstrumentations.ts",
         "packages/reactivity/src/computed.ts",
+        "packages/reactivity/__tests__/computed.spec.ts",
         "packages/reactivity/src/debug.ts",
         "packages/reactivity/src/dep.ts",
         "packages/reactivity/src/effect.ts",
+        "packages/reactivity/__tests__/effect.spec.ts",
         "packages/reactivity/src/effectScope.ts",
         "packages/reactivity/src/ref.ts",
         "packages/reactivity/src/system.ts",
@@ -24,8 +26,6 @@
       "summary": "Test coverage for the change.",
       "category": "tests",
       "filePaths": [
-        "packages/reactivity/__tests__/computed.spec.ts",
-        "packages/reactivity/__tests__/effect.spec.ts",
         "packages/reactivity/__tests__/gc.spec.ts",
         "packages/runtime-core/__tests__/apiSetupHelpers.spec.ts",
         "packages/runtime-core/__tests__/errorHandling.spec.ts"

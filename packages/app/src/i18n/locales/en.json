@@ -683,7 +683,25 @@
     "tests": { "label": "Tests", "summary": "Test coverage for the change." },
     "config": { "label": "Config", "summary": "Configuration changes." },
     "deps": { "label": "Dependencies", "summary": "Dependency version changes." },
-    "generated": { "label": "Generated", "summary": "Generated or build output changes." }
+    "generated": { "label": "Generated", "summary": "Generated or build output changes." },
+    "types": { "label": "Types", "summary": "Type declarations." },
+    "data": { "label": "Data", "summary": "Database schema and migrations." },
+    "styles": { "label": "Styles", "summary": "Stylesheets and styling config." },
+    "scripts": { "label": "Scripts", "summary": "Build, dev and automation scripts." },
+    "ci": { "label": "CI", "summary": "CI workflows and pipelines." },
+    "i18n": { "label": "Translations", "summary": "Locale and translation files." },
+    "assets": { "label": "Assets", "summary": "Images, fonts and media." },
+    "area": "{label} · {area}",
+    "rootArea": "repo root",
+    "otherAreas": "other areas",
+    "facts": {
+      "sentence": "{blurb} {list}.",
+      "separator": ", ",
+      "added": "{n} new file | {n} new files",
+      "removed": "{n} deleted",
+      "renamed": "{n} renamed",
+      "pairedTests": "{n} test right after its source | {n} tests right after their source"
+    }
   },
   "errors": {
     "tokenRequired": "A GitHub token is required to write to this pull request.",

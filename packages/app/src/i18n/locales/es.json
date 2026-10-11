@@ -716,6 +716,45 @@
     "generated": {
       "label": "Generados",
       "summary": "Cambios en archivos generados o de build."
+    },
+    "types": {
+      "label": "Tipos",
+      "summary": "Declaraciones de tipos."
+    },
+    "data": {
+      "label": "Datos",
+      "summary": "Esquema de base de datos y migraciones."
+    },
+    "styles": {
+      "label": "Estilos",
+      "summary": "Hojas de estilo y configuración de estilos."
+    },
+    "scripts": {
+      "label": "Scripts",
+      "summary": "Scripts de build, desarrollo y automatización."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "Flujos y pipelines de CI."
+    },
+    "i18n": {
+      "label": "Traducciones",
+      "summary": "Archivos de idioma y traducción."
+    },
+    "assets": {
+      "label": "Recursos",
+      "summary": "Imágenes, fuentes y multimedia."
+    },
+    "area": "{label} · {area}",
+    "rootArea": "raíz del repositorio",
+    "otherAreas": "otras áreas",
+    "facts": {
+      "sentence": "{blurb} {list}.",
+      "separator": ", ",
+      "added": "{n} archivo nuevo | {n} archivos nuevos",
+      "removed": "{n} eliminado | {n} eliminados",
+      "renamed": "{n} renombrado | {n} renombrados",
+      "pairedTests": "{n} prueba justo después de su código | {n} pruebas justo después de su código"
     }
   },
   "errors": {

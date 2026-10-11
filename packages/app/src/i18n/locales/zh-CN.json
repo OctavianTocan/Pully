@@ -716,6 +716,45 @@
     "generated": {
       "label": "生成文件",
       "summary": "生成或构建产物的变更。"
+    },
+    "types": {
+      "label": "类型",
+      "summary": "类型声明。"
+    },
+    "data": {
+      "label": "数据",
+      "summary": "数据库模式与迁移。"
+    },
+    "styles": {
+      "label": "样式",
+      "summary": "样式表与样式配置。"
+    },
+    "scripts": {
+      "label": "脚本",
+      "summary": "构建、开发与自动化脚本。"
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI 工作流与流水线。"
+    },
+    "i18n": {
+      "label": "翻译",
+      "summary": "语言与翻译文件。"
+    },
+    "assets": {
+      "label": "资源",
+      "summary": "图片、字体与媒体。"
+    },
+    "area": "{label} · {area}",
+    "rootArea": "仓库根目录",
+    "otherAreas": "其他区域",
+    "facts": {
+      "sentence": "{blurb}{list}。",
+      "separator": "，",
+      "added": "{n} 个新文件",
+      "removed": "{n} 个已删除",
+      "renamed": "{n} 个已重命名",
+      "pairedTests": "{n} 个测试紧随其源文件"
     }
   },
   "errors": {

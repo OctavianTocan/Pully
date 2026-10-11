@@ -1,25 +1,16 @@
 {
   "groups": [
     {
-      "key": "docs",
-      "label": "Docs",
-      "summary": "Documentation updates.",
-      "category": "docs",
-      "filePaths": [
-        "README.md"
-      ]
-    },
-    {
       "key": "code",
       "label": "Code",
-      "summary": "Source changes.",
+      "summary": "Source changes. 1 new file.",
       "category": "core",
       "filePaths": [
         "src/config-presets.ts",
-        "src/configs/antislop.ts",
-        "src/configs/index.ts",
         "src/factory.ts",
-        "src/types.ts"
+        "src/types.ts",
+        "src/configs/index.ts",
+        "src/configs/antislop.ts"
       ]
     },
     {
@@ -47,6 +38,15 @@
       "filePaths": [
         "package.json",
         "pnpm-workspace.yaml"
+      ]
+    },
+    {
+      "key": "docs",
+      "label": "Docs",
+      "summary": "Documentation updates.",
+      "category": "docs",
+      "filePaths": [
+        "README.md"
       ]
     },
     {

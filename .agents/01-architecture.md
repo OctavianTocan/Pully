@@ -138,7 +138,23 @@ analysis strategy later never touches the view layer:
   - `none` — implemented. A single flat group containing every file, for
     users who just want the plain file list with no classification.
   - `rule-based` — implemented. Deterministic glob-pattern classification,
-    flat (1-level) groups, no LLM, no network call.
+    flat (1-level) groups, no LLM, no network call
+    (`core/analyze/adapters/rule-based/`). Each file goes to its first matching
+    rule (code, types, data, styles, tests, scripts, ci, config, deps, i18n,
+    docs, assets, generated, other; precedence is documented in `rules.ts`).
+    Groups follow `GROUP_ORDER` (review relevance: code first, generated and
+    unknown binaries last). Inside a group, files sort directory-aware
+    (`order.ts`: a directory's own files before its subfolders, entry files
+    such as `index.*` first, then natural name order). A test whose source is
+    in the diff is placed right after that source in the code group; other
+    tests stay in `tests`. When at least two areas (`packages/<name>`,
+    `src/<dir>`, or the first directory) each have `MIN_AREA_FILES` code files,
+    code splits into one flat group per area (key `code:<area>`), and smaller
+    areas share one `code:*` group. The output MUST depend only on the set of
+    files, not on their order in the diff. Core measures each group
+    (`RuleGroupFacts`: files, +/-, new/deleted/renamed, paired tests, area) and
+    the app's `text(key, facts)` words its label and summary, so they stay
+    translatable.
   - `llm` — implemented. A pi-agent-core tool loop against whichever
     provider the caller resolved (`resolveModel(llm)`: AI Gateway, Anthropic,
     or OpenAI-compatible — only the selected one is ever called). Core's

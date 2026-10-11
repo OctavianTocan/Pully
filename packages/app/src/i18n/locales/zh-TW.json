@@ -716,6 +716,45 @@
     "generated": {
       "label": "產生檔案",
       "summary": "產生或建置產物的變更。"
+    },
+    "types": {
+      "label": "型別",
+      "summary": "型別宣告。"
+    },
+    "data": {
+      "label": "資料",
+      "summary": "資料庫結構與遷移。"
+    },
+    "styles": {
+      "label": "樣式",
+      "summary": "樣式表與樣式設定。"
+    },
+    "scripts": {
+      "label": "腳本",
+      "summary": "建置、開發與自動化腳本。"
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI 工作流程與管線。"
+    },
+    "i18n": {
+      "label": "翻譯",
+      "summary": "語系與翻譯檔案。"
+    },
+    "assets": {
+      "label": "資源",
+      "summary": "圖片、字型與媒體。"
+    },
+    "area": "{label} · {area}",
+    "rootArea": "儲存庫根目錄",
+    "otherAreas": "其他區域",
+    "facts": {
+      "sentence": "{blurb}{list}。",
+      "separator": "，",
+      "added": "{n} 個新檔案",
+      "removed": "{n} 個已刪除",
+      "renamed": "{n} 個已重新命名",
+      "pairedTests": "{n} 個測試緊接在其原始檔之後"
     }
   },
   "errors": {
