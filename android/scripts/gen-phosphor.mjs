@@ -28,7 +28,7 @@ for (const file of walk(join(root, 'packages/app/src'))) {
     used.add(match[1])
 }
 // Icons only the phone needs (its own chrome around the same features).
-for (const extra of ['arrow-left', 'dots-three-vertical', 'gear-six-duotone', 'columns-duotone', 'rows-duotone', 'plus', 'magnifying-glass-duotone', 'x', 'chat-circle-dots-duotone', 'sparkle-duotone', 'link', 'arrow-square-out', 'file-text-duotone', 'caret-down', 'caret-right', 'check', 'copy', 'tree-structure-duotone', 'list-duotone', 'paper-plane-tilt-duotone', 'stop-duotone'])
+for (const extra of ['arrow-left', 'dots-three-vertical', 'gear-six-duotone', 'columns-duotone', 'rows-duotone', 'plus', 'magnifying-glass-duotone', 'x', 'chat-circle-dots-duotone', 'sparkle-duotone', 'link', 'arrow-square-out', 'file-text-duotone', 'caret-down', 'caret-right', 'check', 'copy', 'tree-structure-duotone', 'list-duotone', 'paper-plane-tilt-duotone', 'stop-duotone', 'eye-slash-duotone'])
   used.add(extra)
 
 function body(name) {

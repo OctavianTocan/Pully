@@ -11,6 +11,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
+/** One row of `my-pulls` (`MyPull` in core `local-rpc.ts`). */
 data class PullRow(
     val owner: String,
     val repo: String,
@@ -19,13 +20,29 @@ data class PullRow(
     val author: String,
     val updatedAt: String,
     val isDraft: Boolean,
+    /** `review-requested`, `authored`, `involved` or `owned`. */
     val role: String = "",
+    /** `success`, `failure`, `pending`, `none`; empty when unknown. */
     val checks: String = "",
+    /** `approved`, `changes-requested`, `review-required`; empty when none. */
     val reviewDecision: String = "",
+    /** `mergeable`, `conflicting`, `unknown`; empty when unknown. */
     val mergeable: String = "",
-    val requestedFromMe: Boolean = false,
+    /** Null when the server did not say (the web then falls back to the role). */
+    val requestedFromMe: Boolean? = null,
     val labels: List<String> = emptyList(),
-    val updatedAtMs: Long = 0,
+    /** Epoch ms of [updatedAt]; null when it does not parse. */
+    val updatedAtMs: Long? = null,
+    val additions: Int? = null,
+    val deletions: Int? = null,
+    val changedFiles: Int? = null,
+    val commentsCount: Int = 0,
+    val url: String = "",
+    /** `open` or `closed`. */
+    val state: String = "open",
+    val merged: Boolean = false,
+    val headSha: String = "",
+    val reviewRequests: List<String> = emptyList(),
 )
 
 data class ReviewFile(
@@ -119,25 +136,38 @@ fun args(vararg pairs: Pair<String, String>) = buildJsonObject {
 
 fun JsonElement.asPulls(): List<PullRow> {
     val array = this as? JsonArray ?: (this as? JsonObject)?.get("pulls") as? JsonArray ?: return emptyList()
-    return array.map { row ->
-        val obj = row.jsonObject
-        PullRow(
-            owner = obj.str("owner"),
-            repo = obj.str("repo"),
-            number = obj["number"]?.jsonPrimitive?.intOrNull ?: 0,
-            title = obj.str("title"),
-            author = obj.str("author"),
-            updatedAt = obj.str("updatedAt"),
-            isDraft = obj["isDraft"]?.jsonPrimitive?.contentOrNull == "true",
-            role = obj.str("role"),
-            checks = obj.str("checks"),
-            reviewDecision = obj.str("reviewDecision"),
-            mergeable = obj.str("mergeable"),
-            requestedFromMe = obj["requestedFromMe"]?.jsonPrimitive?.contentOrNull == "true",
-            labels = obj["labels"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content },
-            updatedAtMs = runCatching { java.time.Instant.parse(obj.str("updatedAt")).toEpochMilli() }.getOrDefault(0),
-        )
-    }
+    return array.mapNotNull { (it as? JsonObject)?.asPull() }
+}
+
+fun JsonObject.asPull(): PullRow {
+    val obj = this
+    fun int(key: String) = obj[key]?.jsonPrimitive?.intOrNull
+    fun bool(key: String) = obj[key]?.jsonPrimitive?.contentOrNull?.let { it == "true" }
+    return PullRow(
+        owner = obj.str("owner"),
+        repo = obj.str("repo"),
+        number = int("number") ?: 0,
+        title = obj.str("title"),
+        author = obj.str("author"),
+        updatedAt = obj.str("updatedAt"),
+        isDraft = bool("isDraft") == true,
+        role = obj.str("role"),
+        checks = obj.str("checks"),
+        reviewDecision = obj.str("reviewDecision"),
+        mergeable = obj.str("mergeable"),
+        requestedFromMe = bool("requestedFromMe"),
+        labels = (obj["labels"] as? JsonArray).orEmpty().mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull ?: (it as? JsonObject)?.str("name") },
+        updatedAtMs = runCatching { java.time.Instant.parse(obj.str("updatedAt")).toEpochMilli() }.getOrNull(),
+        additions = int("additions"),
+        deletions = int("deletions"),
+        changedFiles = int("changedFiles"),
+        commentsCount = int("commentsCount") ?: 0,
+        url = obj.str("url"),
+        state = obj.str("state").ifBlank { "open" },
+        merged = bool("merged") == true,
+        headSha = obj.str("headSha"),
+        reviewRequests = (obj["reviewRequests"] as? JsonArray).orEmpty().mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull },
+    )
 }
 
 fun JsonElement.asFiles(): List<ReviewFile> {
