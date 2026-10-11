@@ -254,6 +254,7 @@ fun ReviewHeader(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
     ) {
         val wide = maxWidth >= 768.dp
+        val atLeastSm = maxWidth >= 640.dp
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // First row.
             val homeIcon: @Composable () -> Unit = {
@@ -300,9 +301,11 @@ fun ReviewHeader(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?
                 }
             }
             if (wide) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // `flex flex-wrap items-center gap-2`, the h1 `flex-auto`: the controls share the title's
+                // line only when the title leaves room, else they wrap to the next line.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                     homeIcon()
-                    title(Modifier.weight(1f))
+                    title(Modifier)
                     analyzeBy()
                     threadsToggle()
                     NavControls(nav)
@@ -360,9 +363,18 @@ fun ReviewHeader(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?
             }
 
             // Third row: group nav, then the totals and review actions (`DiffPrMeta`, `ml-auto self-end`).
-            FlowRow(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                GroupNav(session, visibleGroups, Modifier.weight(1f).defaultMinSize(minWidth = 240.dp))
-                Box(Modifier.weight(1f, fill = false).align(Alignment.Bottom).padding(top = 8.dp)) { PrMeta(session, top) }
+            // `flex flex-wrap items-end justify-between`: the chips take the row, the totals sit at its end;
+            // on a phone the totals drop under the chips, right-aligned.
+            if (atLeastSm) {
+                Row(Modifier.padding(top = 8.dp).fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GroupNav(session, visibleGroups, Modifier.weight(1f))
+                    PrMeta(session, top)
+                }
+            } else {
+                Column(Modifier.padding(top = 8.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GroupNav(session, visibleGroups, Modifier.fillMaxWidth())
+                    PrMeta(session, top, Modifier.align(Alignment.End))
+                }
             }
         }
     }

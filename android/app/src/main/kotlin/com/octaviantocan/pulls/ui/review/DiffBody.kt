@@ -101,6 +101,8 @@ class DiffUi(val session: ReviewSession) {
     internal var indexOf: Map<String, Int> = emptyMap()
     internal var pathOfKey: Map<String, String> = emptyMap()
     internal var lineKey: Map<String, String> = emptyMap()
+    /** Item key -> group key it renders under (`groupsVisable` in `DiffsPage.vue`). */
+    internal var groupOfKey: Map<String, String> = emptyMap()
 
     fun isFileCollapsed(file: ReviewFile): Boolean =
         collapsedFiles[file.path] ?: (file.sha in session.reviewed || isNoisyFile(file.path))
@@ -213,15 +215,20 @@ internal class Emitter(private val scope: LazyListScope) {
     val paths = HashMap<String, String>()
     val lines = HashMap<String, String>()
     val files = HashSet<String>()
+    /** Item key -> the group key (last segment) it renders under, for the header's group highlight. */
+    val groups = HashMap<String, String>()
+    var group: String? = null
 
     fun item(key: String, type: String, path: String? = null, content: @Composable LazyItemScope.() -> Unit) {
         index[key] = count++
+        group?.let { groups[key] = it }
         if (path != null) paths[key] = path
         scope.item(key = key, contentType = type) { content() }
     }
 
     fun sticky(key: String, type: String, path: String? = null, content: @Composable LazyItemScope.() -> Unit) {
         index[key] = count++
+        group?.let { groups[key] = it }
         if (path != null) paths[key] = path
         scope.stickyHeader(key = key, contentType = type) { content() }
     }
@@ -240,6 +247,7 @@ fun LazyListScope.diffBodyItems(session: ReviewSession, ui: DiffUi) {
             if (view.children.isNotEmpty()) {
                 // A parent with children is a full-width chapter band; children render as ordinary groups.
                 val collapsed = ui.isGroupCollapsed(view.key)
+                emit.group = view.key
                 emit.item("diff:g:${view.key}", "chapter") {
                     ChapterHeader(view, collapsed, session.reviewed, { ui.toggleGroup(view.key) }) { child -> session.focusGroupKey = "${view.key}/$child" }
                 }
@@ -257,10 +265,12 @@ fun LazyListScope.diffBodyItems(session: ReviewSession, ui: DiffUi) {
     ui.indexOf = emit.index
     ui.pathOfKey = emit.paths
     ui.lineKey = emit.lines
+    ui.groupOfKey = emit.groups
 }
 
 private fun normalGroup(emit: Emitter, session: ReviewSession, ui: DiffUi, view: GroupView, key: String, parent: GroupView?) {
     val collapsed = ui.isGroupCollapsed(key)
+    emit.group = view.key
     emit.item("diff:g:$key", "group") {
         GroupHeader(view, collapsed, session.reviewed, parent?.label, { ui.toggleGroup(key) }) { parent?.let { session.focusGroupKey = it.key } }
     }

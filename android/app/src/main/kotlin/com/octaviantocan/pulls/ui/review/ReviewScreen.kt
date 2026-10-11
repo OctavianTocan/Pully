@@ -85,13 +85,15 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
             opened != null -> {
                 val visibleGroups by remember(listState) {
                     derivedStateOf {
-                        listState.layoutInfo.visibleItemsInfo.mapNotNull { (it.key as? String)?.takeIf { key -> key.startsWith("diff:g:") }?.removePrefix("diff:g:")?.substringAfterLast('/') }.toSet()
+                        // A group is visible while any of its items (header, tree, files) is on screen, like the web's rect test.
+                        val owners = ui.groupOfKey
+                        listState.layoutInfo.visibleItemsInfo.mapNotNull { info -> (info.key as? String)?.let { owners[it] } }.toSet()
                     }
                 }
                 // Inset the list itself so pinned file headers stop below the status bar; the header's own inset is consumed here.
                 LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars), state = listState) {
                     item(key = "top:header") {
-                        ReviewHeader(session, top, data, nav, visibleGroups.ifEmpty { setOfNotNull(session.focusGroupKey) })
+                        ReviewHeader(session, top, data, nav, visibleGroups.ifEmpty { setOfNotNull(session.groups.firstOrNull()?.key) })
                     }
                     if (session.pull != null) {
                         item(key = "top:range") { CommitRangeBanner(session, data?.overview, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }

@@ -60,6 +60,8 @@ private val Light = lightColorScheme(
 fun PullsTheme(dark: Boolean = isSystemInDarkTheme(), locale: String = Messages.detect(), content: @Composable () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val messages = androidx.compose.runtime.remember(locale) { Messages.load(context, locale) }
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 768
+    if (PullsType.wide != wide) PullsType.wide = wide
     MaterialTheme(colorScheme = if (dark) Dark else Light) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPullsColors provides if (dark) DarkPullsColors else LightPullsColors,

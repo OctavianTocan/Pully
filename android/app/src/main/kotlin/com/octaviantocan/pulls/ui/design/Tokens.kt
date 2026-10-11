@@ -1,6 +1,8 @@
 package com.octaviantocan.pulls.ui.design
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -132,8 +134,15 @@ val LightPullsColors = PullsColors(
  * stack resolves to on Android (`ui-sans-serif` -> Roboto, `ui-monospace` -> monospace).
  */
 object PullsType {
-    val xs = TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
-    val sm = TextStyle(fontSize = 16.sp, lineHeight = 24.sp)
+    /**
+     * Below `md` (768dp) `main.css` raises `text-sm` to 16px and `text-xs` to 13px for phones;
+     * from `md` up they are the desktop 14px/12px. Set by `PullsTheme` from the window width,
+     * read here so every `PullsType.sm`/`xs` follows it (the unfolded Fold is ~840dp wide).
+     */
+    var wide by androidx.compose.runtime.mutableStateOf(false)
+        internal set
+    val xs: TextStyle get() = if (wide) TextStyle(fontSize = 12.sp, lineHeight = 16.sp) else TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
+    val sm: TextStyle get() = if (wide) TextStyle(fontSize = 14.sp, lineHeight = 20.sp) else TextStyle(fontSize = 16.sp, lineHeight = 24.sp)
     val base = TextStyle(fontSize = 16.sp, lineHeight = 24.sp)
     val lg = TextStyle(fontSize = 18.sp, lineHeight = 28.sp)
     val xl = TextStyle(fontSize = 20.sp, lineHeight = 28.sp)
