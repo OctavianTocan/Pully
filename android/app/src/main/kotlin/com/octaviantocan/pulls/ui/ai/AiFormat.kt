@@ -1,0 +1,77 @@
+package com.octaviantocan.pulls.ui.ai
+
+import java.util.Locale
+
+/*
+ * Port of `components/ai/ai-format.ts`: durations, token counts, costs and verb tenses
+ * the AI surfaces show. Pure Kotlin, unit-tested in `AiFormatTest`.
+ */
+
+/** Looks up a UI message (the shape of vue-i18n's `t` these helpers need). */
+typealias Translate = (key: String, named: Map<String, Any?>) -> String
+
+/** Effort ids the UI has a proper name for; anything else shows its capitalised id. */
+val NAMED_EFFORTS = listOf("minimal", "low", "medium", "high", "xhigh", "max", "ultra")
+
+/** A compact wall-clock duration: `45s`, `3m 12s`, `1h 5m`, `2d 3h` (negative reads as zero). */
+fun formatClockDuration(ms: Long): String {
+    val total = maxOf(0L, Math.floorDiv(ms, 1000L))
+    val days = total / 86_400
+    val hours = total % 86_400 / 3600
+    val minutes = total % 3600 / 60
+    val seconds = total % 60
+    return when {
+        days > 0 -> "${days}d ${hours}h"
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m ${seconds}s"
+        else -> "${seconds}s"
+    }
+}
+
+private fun trimZero(value: String): String = if (value.endsWith(".0")) value.dropLast(2) else value
+
+private fun fixed(value: Double, digits: Int): String = String.format(Locale.ROOT, "%.${digits}f", value)
+
+/** A token count at a glance: `950`, `1.5k`, `200k`, `1.2m`. */
+fun formatTokens(count: Long): String {
+    if (count < 1000) return count.toString()
+    if (count < 999_500) {
+        val thousands = count / 1000.0
+        return "${trimZero(fixed(thousands, if (thousands < 100) 1 else 0))}k"
+    }
+    val millions = count / 1_000_000.0
+    return "${trimZero(fixed(millions, if (millions < 100) 1 else 0))}m"
+}
+
+/** A dollar amount with enough decimals to show sub-cent runs: `$0.0042`, `$1.27`. */
+fun formatCost(usd: Double): String {
+    val digits = when {
+        usd < 0.0001 -> 6
+        usd < 0.001 -> 5
+        usd < 0.01 -> 4
+        usd < 0.1 -> 3
+        else -> 2
+    }
+    return "$" + fixed(usd, digits)
+}
+
+/** The display name of a reasoning effort: `ai.effort.<id>` for named ones, else the capitalised id. */
+fun effortLabel(id: String, translate: Translate): String =
+    if (id in NAMED_EFFORTS) translate("ai.effort.$id", emptyMap()) else id.replaceFirstChar { it.uppercase() }
+
+private val HTML_COMMENT = Regex("<!--[\\s\\S]*?-->")
+private val HEADING = Regex("^\\s*#+\\s*")
+private val MARKS = Regex("\\*\\*|__|`")
+
+/** The newest non-empty line of streamed text, without Markdown heading, emphasis or code marks. */
+fun lastLine(text: String): String {
+    val lines = text.replace(HTML_COMMENT, "").split('\n')
+    for (i in lines.indices.reversed()) {
+        val line = lines[i].replace(HEADING, "").replace(MARKS, "").trim()
+        if (line.isNotEmpty()) return line
+    }
+    return ""
+}
+
+/** `ai.verb.<verb>.now` while running, else `ai.verb.<verb>.past`. */
+fun verbKey(verb: String, status: String): String = "ai.verb.$verb.${if (status == "running") "now" else "past"}"
