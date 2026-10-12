@@ -177,6 +177,55 @@ data class SavedState(
     val aiGroups: List<FileGroup>,
     val analysis: Analysis?,
     val sharedCommentUrl: String?,
+    /** The newest tour of this diff (preferring the current head), if one was made. */
+    val tour: Tour? = null,
+)
+
+/** One piece of a tour stop: `text` (Markdown), `shape` (monospace sketch of kind [lang]) or `diagram` (Mermaid). */
+data class TourBlock(val kind: String, val text: String, val lang: String = "", val body: String = "")
+
+data class TourSource(val path: String, val line: Int, val why: String)
+
+data class TourStop(
+    val title: String,
+    val purpose: String,
+    val files: List<String>,
+    val takeaway: String,
+    val blocks: List<TourBlock>,
+    val sources: List<TourSource>,
+    val error: String?,
+)
+
+/** `TourResult`: a guided tour of the PR with no diffs. */
+data class Tour(
+    val title: String,
+    val overview: String,
+    val stops: List<TourStop>,
+    val glossary: List<Pair<String, String>>,
+    val headSha: String?,
+    val model: String?,
+    val locale: String,
+    val generatedAt: String,
+    val usage: Usage?,
+)
+
+fun JsonObject.asTour(): Tour = Tour(
+    title = s("title"),
+    overview = s("overview"),
+    stops = arr("stops").map { st ->
+        TourStop(
+            title = st.s("title"), purpose = st.s("purpose"), files = st.strings("files"), takeaway = st.s("takeaway"),
+            blocks = st.arr("blocks").map { b -> TourBlock(b.s("kind"), b.s("text"), b.s("lang"), b.s("body")) },
+            sources = st.arr("sources").map { so -> TourSource(so.s("path"), so.i("line") ?: 0, so.s("why")) },
+            error = st.sOrNull("error"),
+        )
+    },
+    glossary = arr("glossary").map { it.s("term") to it.s("meaning") },
+    headSha = sOrNull("headSha"),
+    model = sOrNull("model"),
+    locale = s("locale"),
+    generatedAt = s("generatedAt"),
+    usage = obj("usage").asUsage(),
 )
 
 fun JsonElement.asSavedState(): SavedState {
@@ -194,6 +243,7 @@ fun JsonElement.asSavedState(): SavedState {
             )
         },
         sharedCommentUrl = o.obj("sharedComment")?.sOrNull("url"),
+        tour = o.obj("tour")?.asTour(),
     )
 }
 

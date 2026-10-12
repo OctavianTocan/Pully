@@ -15,8 +15,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.4.2"
+        versionCode = 14
+        versionName = "0.5.0"
     }
     buildFeatures {
         compose = true
@@ -53,6 +53,7 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("io.coil-kt.coil3:coil-svg:3.3.0")
+    implementation("com.caverock:androidsvg-aar:1.4")
     implementation("org.commonmark:commonmark:0.24.0")
     implementation("org.commonmark:commonmark-ext-gfm-tables:0.24.0")
     implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.24.0")

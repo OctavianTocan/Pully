@@ -64,6 +64,9 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     var overview by mutableStateOf<JsonObject?>(null)
     var overviewError by mutableStateOf<String?>(null)
 
+    /** Phone-only: `diff` (the review page) or `tour` (the AI walkthrough). */
+    var pageTab by mutableStateOf("diff")
+
     /** `rules` or `ai`: which grouping the diff shows (the header's "Analyze by" toggle). */
     var analyzeMode by mutableStateOf("ai")
 

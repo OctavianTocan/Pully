@@ -3,7 +3,7 @@ import type { CacheRepositories, LlmSession } from '@pulls.review/core/cache'
 import type { CliRunHooks, CliRunResult } from '@pulls.review/core/llm'
 import type { AiActivity, AiAskThread, AiAskTurn, AiJobStatus, AiTaskModel, AiTaskRequest, AiTaskSelection, AiTaskSnapshot, AiUsage } from '@pulls.review/core/local-rpc'
 import type { Locale } from '@pulls.review/core/locales'
-import type { CritiqueResult, DiffsPayload, GroupedResult } from '@pulls.review/core/types'
+import type { CritiqueResult, DiffsPayload, GroupedResult, TourResult } from '@pulls.review/core/types'
 import type { Storage } from 'unstorage'
 import { randomUUID } from 'node:crypto'
 import { defaultLlmSettings, resolveModel } from '@pulls.review/core/analyze'
@@ -28,6 +28,8 @@ export interface TaskRunners {
   critique: (diff: DiffsPayload, resolved: ResolvedModel, lens: { name: string, instructions: string } | undefined, hooks: TaskHooks) => Promise<CritiqueResult>
   ask: (diff: DiffsPayload, resolved: ResolvedModel, request: { selection: AiTaskSelection, question: string, history: { question: string, answer: string }[] }, hooks: TaskHooks) => Promise<CliRunResult>
   chat: (diff: DiffsPayload, resolved: ResolvedModel, locale: Locale, session: LlmSession, input: { text?: string, retry?: boolean }, hooks: TaskHooks & { onGroupingUpdate: (result: GroupedResult) => Promise<void> }) => Promise<LlmSession>
+  /** A guided tour: plan, then every stop written in parallel. */
+  tour: (diff: DiffsPayload, resolved: ResolvedModel, locale: string, hooks: TaskHooks) => Promise<TourResult>
   /** A review lens's instructions, or `undefined` when there is no such skill. */
   lens: (name: string) => Promise<string | undefined>
   /** What the CLI jobs tagged `tag` consumed together. */
@@ -95,6 +97,7 @@ function labelOf(request: AiTaskRequest): string {
     case 'critique': return `Review ${request.key}${request.lens ? ` (${request.lens})` : ''}`
     case 'ask': return `Ask about ${selectionLabel(request.selection)}`
     case 'chat': return `Chat about ${request.key}`
+    case 'tour': return `Tour ${request.key}`
   }
 }
 
@@ -226,6 +229,14 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
         task.controller.signal.throwIfAborted()
         await patchTurn(request.key, request.threadId, task.info.id, { answer: answer.text, usage: answer.usage, outcome: 'done', activities: [...task.entries.values()] })
         return { usage: answer.usage, result: answer.text }
+      }
+      case 'tour': {
+        const result = await runners.tour(diff, resolved, localeOf(request.locale), hooks)
+        task.controller.signal.throwIfAborted()
+        // The plan and every stop run as separate CLI jobs under this task's tag; their usage adds up.
+        const tour = { ...result, usage: runners.usage(hooks.tag) }
+        await cache.tours.set(serializeRef(diff.ref), tour)
+        return { usage: tour.usage, result: JSON.stringify(tour) }
       }
       case 'chat': {
         const session = entry.llmSession as LlmSession | undefined
@@ -410,6 +421,9 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
     },
     async critique(diff, resolved, critiqueLens, hooks) {
       return (await llm()).runCritique(diff, resolved, { lens: critiqueLens, signal: hooks.signal, onActivity: hooks.onActivity })
+    },
+    async tour(diff, resolved, locale, hooks) {
+      return (await llm()).runTour(diff, resolved, { locale, signal: hooks.signal, onActivity: hooks.onActivity, label: hooks.tag })
     },
     async ask(diff, resolved, request, hooks) {
       return (await llm()).askAboutSelection(diff, resolved, request, { signal: hooks.signal, onActivity: hooks.onActivity })

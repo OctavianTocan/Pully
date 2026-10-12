@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@pulls.review/core": "workspace:^",
+    "beautiful-mermaid": "1.1.3",
     "devframe": "catalog:frontend",
     "h3": "catalog:frontend",
     "unstorage": "catalog:frontend"

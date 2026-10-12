@@ -41,6 +41,7 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.ai.tourItems
 import kotlinx.coroutines.delay
 
 /** Key of the overview panel's item, so the header chips can scroll to it. */
@@ -104,6 +105,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
                 if (pinned) Box(Modifier.zIndex(1f).let { m -> if (scrolled) m.shadow(2.dp).bottomBorder(c.border) else m }) { header() }
                 LazyColumn(Modifier.fillMaxSize().pinchToZoomCode(session.settings), state = listState) {
                     if (!pinned) item(key = "top:header") { header() }
+                    item(key = "top:pagetabs") { PageTabs(session, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
+                    if (session.pageTab == "tour") {
+                        tourItems(session, listState, start = (if (pinned) 0 else 1) + 1)
+                        return@LazyColumn
+                    }
                     if (session.pull != null) {
                         item(key = "top:range") { CommitRangeBanner(session, data?.overview, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
                         item(key = OVERVIEW_ITEM) { OverviewPanel(session, top, data, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
@@ -169,4 +175,18 @@ private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOv
     LaunchedEffect(stale, session.settings.autoRefresh) {
         if (stale && session.settings.autoRefresh && !session.loading && session.selection == null) session.refresh()
     }
+}
+
+/** Phone-only page tabs: the review (diff) and the AI tour. */
+@Composable
+private fun PageTabs(session: ReviewSession, modifier: Modifier = Modifier) {
+    val tour = session.saved?.tour
+    val running = session.taskFor("tour")?.running == true
+    com.octaviantocan.pulls.ui.design.ToggleGroup(
+        listOf("diff" to "Review", "tour" to if (running) "Tour…" else if (tour != null) "Tour · ${tour.stops.size}" else "Tour"),
+        session.pageTab,
+        { session.pageTab = it },
+        modifier,
+        icons = mapOf("diff" to "git-diff-duotone", "tour" to "compass-duotone"),
+    )
 }

@@ -66,6 +66,7 @@ const aiTaskRequest = v.variant('kind', [
   v.object({ kind: v.literal('critique'), ...taskBase, variant: v.string(), lens: v.optional(v.pipe(v.string(), v.regex(REVIEW_LENS_NAME))) }),
   v.object({ kind: v.literal('ask'), ...taskBase, threadId: v.pipe(v.string(), v.regex(/^[\w-]{1,80}$/)), selection: taskSelection, question: v.pipe(v.string(), v.trim(), v.minLength(1)) }),
   v.object({ kind: v.literal('chat'), ...taskBase, locale: v.string(), text: v.optional(v.string()), retry: v.optional(v.boolean()) }),
+  v.object({ kind: v.literal('tour'), ...taskBase, locale: v.string() }),
 ])
 const diffKey = v.object({ key: v.string() })
 

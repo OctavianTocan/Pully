@@ -139,7 +139,7 @@ export function fileHeading(file: FileChange): string {
 }
 
 /** The diff with every line prefixed by its old (L) and new (R) number; files past the budget are only listed. */
-function renderNumberedDiff(files: FileChange[]): string {
+export function renderNumberedDiff(files: FileChange[]): string {
   let spent = 0
   return files.map((file) => {
     const heading = fileHeading(file)
@@ -253,7 +253,7 @@ function normalizePath(value: unknown): string {
 }
 
 /** The inside of `text` when it is one fenced code block, else `undefined`. */
-function fencedContent(text: string): string | undefined {
+export function fencedContent(text: string): string | undefined {
   const trimmed = text.trim()
   const fence = /^(?:`{3,}|~{3,})/.exec(trimmed)?.[0]
   const firstBreak = trimmed.indexOf('\n')

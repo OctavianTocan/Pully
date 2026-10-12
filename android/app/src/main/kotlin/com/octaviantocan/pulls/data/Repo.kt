@@ -138,6 +138,9 @@ class Repo(private val context: Context) {
 
     suspend fun clearChat(key: String) { call("chat-clear") { put("key", key) } }
 
+    /** A Mermaid diagram as a flat SVG string (theme colours resolved on the server). */
+    suspend fun mermaidSvg(source: String, dark: Boolean): String = call("mermaid-svg") { put("source", source); put("dark", dark) }.jsonObject.s("svg")
+
     // --- Lists ---
 
     /** `my-pulls-cached` first for an instant list, then `my-pulls` for a fresh one. */

@@ -233,7 +233,7 @@ export interface MyPullsSnapshot {
 }
 
 /** What a server task does; each saves its result where the page reads it back. */
-export const AI_TASK_KINDS = ['analyze', 'critique', 'ask', 'chat'] as const
+export const AI_TASK_KINDS = ['analyze', 'critique', 'ask', 'chat', 'tour'] as const
 export type AiTaskKind = typeof AI_TASK_KINDS[number]
 
 /** The CLI, model and effort a task runs with, resolved by the page from its settings. */
@@ -267,6 +267,7 @@ export type AiTaskRequest
     | AiTaskRequestBase & { kind: 'critique', variant: string, lens?: string }
     | AiTaskRequestBase & { kind: 'ask', threadId: string, selection: AiTaskSelection, question: string }
     | AiTaskRequestBase & { kind: 'chat', locale: string, text?: string, retry?: boolean }
+    | AiTaskRequestBase & { kind: 'tour', locale: string }
 
 /** A task as of revision `rev`; `activities` holds only entries changed since the caller's `after`. */
 export interface AiTaskSnapshot {

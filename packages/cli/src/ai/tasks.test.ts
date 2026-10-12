@@ -33,6 +33,7 @@ async function setup(runners: Partial<TaskRunners> = {}) {
     critique: vi.fn<TaskRunners['critique']>(async () => ({ summary: 'ok', findings: [], dropped: 0, headSha: 'h1', engine: 'claude-code', generatedAt: '2026-10-11T00:00:00Z' })),
     ask: vi.fn<TaskRunners['ask']>(async () => ({ text: 'It parses.', usage: { costUsd: 0.01 } })),
     chat: vi.fn<TaskRunners['chat']>(async (_diff, _resolved, _locale, session) => ({ ...session, messages: [...session.messages, { role: 'user', content: 'Why?', timestamp: 1 }] })),
+    tour: vi.fn<TaskRunners['tour']>(async () => ({ title: 'Tour', overview: 'o', stops: [], glossary: [], headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-12T00:00:00Z' })),
     lens: vi.fn<TaskRunners['lens']>(async () => undefined),
     usage: vi.fn<TaskRunners['usage']>(() => ({ costUsd: 0.5 })),
     ...runners,

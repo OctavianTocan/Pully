@@ -76,6 +76,7 @@ function nativeCall(name: string, cwd: string, args: unknown): Promise<Response>
     'review-resolve': (_cwd, input) => reviewResolve(input),
     'highlight': (_cwd, input) => highlight(input),
     'repo-viewed': repoViewed,
+    'mermaid-svg': (_cwd, input) => mermaidSvg(input),
     'review-comment': (_cwd, input) => reviewComment(input),
   }
   const call = calls[name]
@@ -223,6 +224,67 @@ async function repoViewed(cwd: string, input: unknown): Promise<Response> {
   return Response.json({ result: viewed })
 }
 
+/** The web tokens: `bg-base`, `color-base`, the green primary, `color-muted`, `border-base`. */
+const MERMAID_THEME = {
+  dark: { bg: '#111111', fg: '#E5E5E5', line: '#737373', accent: '#5B9544', muted: '#A3A3A3', surface: '#1A1A1A', border: '#3A3A3A', font: 'sans-serif', transparent: true },
+  light: { bg: '#FFFFFF', fg: '#262626', line: '#A3A3A3', accent: '#49833E', muted: '#525252', surface: '#F6F6F6', border: '#D4D4D4', font: 'sans-serif', transparent: true },
+} as const
+
+/**
+ * A Mermaid diagram as a plain SVG the phone can draw natively (AndroidSVG): rendered by
+ * beautiful-mermaid, then every CSS variable and `color-mix()` resolved to a hex colour and the
+ * font import dropped, since AndroidSVG supports neither.
+ */
+async function mermaidSvg(input: unknown): Promise<Response> {
+  const { source, dark } = (input ?? {}) as { source?: unknown, dark?: unknown }
+  if (typeof source !== 'string' || !source.trim() || source.length > 8_000)
+    return Response.json({ error: 'That needs Mermaid source.' }, { status: 400 })
+  try {
+    const { renderMermaidSVG } = await import('beautiful-mermaid')
+    return Response.json({ result: { svg: flattenMermaidSvg(renderMermaidSVG(source, MERMAID_THEME[dark === true ? 'dark' : 'light']), dark === true) } })
+  }
+  catch (error) {
+    return Response.json({ error: `The diagram could not be drawn: ${error instanceof Error ? error.message : String(error)}` }, { status: 400 })
+  }
+}
+
+function mixHex(a: string, b: string, weight: number): string {
+  const ch = (hex: string, at: number) => Number.parseInt(hex.slice(1 + at * 2, 3 + at * 2), 16)
+  return `#${[0, 1, 2].map(at => Math.round(ch(a, at) * weight + ch(b, at) * (1 - weight)).toString(16).padStart(2, '0')).join('')}`
+}
+
+/** Exported for tests: resolves beautiful-mermaid's theme variables to colours. */
+export function flattenMermaidSvg(svg: string, dark: boolean): string {
+  const t = MERMAID_THEME[dark ? 'dark' : 'light']
+  const vars: Record<string, string> = {
+    '--bg': t.bg,
+    '--fg': t.fg,
+    '--line': t.line,
+    '--accent': t.accent,
+    '--muted': t.muted,
+    '--surface': t.surface,
+    '--border': t.border,
+    '--_text': t.fg,
+    '--_text-sec': t.muted,
+    '--_text-muted': t.muted,
+    '--_text-faint': mixHex(t.fg, t.bg, 0.25),
+    '--_line': t.line,
+    '--_arrow': t.accent,
+    '--_node-fill': t.surface,
+    '--_node-stroke': t.border,
+    '--_group-fill': t.bg,
+    '--_group-hdr': mixHex(t.fg, t.bg, 0.05),
+    '--_inner-stroke': mixHex(t.fg, t.bg, 0.12),
+    '--_key-badge': mixHex(t.fg, t.bg, 0.10),
+  }
+  return svg
+    .replace(/@import url\([^)]*\);?/g, '')
+    .replace(/svg \{[^}]*\}/, '')
+    .replace(/var\((--[\w-]+)(?:,[^()]*(?:\([^()]*\)[^()]*)*)?\)/g, (match, name: string) => vars[name] ?? match)
+    .replace(/color-mix\(in srgb, (#[0-9a-f]{6}) (\d+)%, (#[0-9a-f]{6})\)/gi, (_m, a: string, p: string, b: string) => mixHex(a, b, Number(p) / 100))
+    .replace(/ style="[^"]*--bg:[^"]*"/, '')
+}
+
 /** The same deterministic groups the web app shows before any AI runs, in English. */
 async function ruleGroups(diff: import('@pulls.review/core/types').DiffsPayload) {
   const result = await createRuleBasedAdapter((key, facts) => {
@@ -284,7 +346,8 @@ async function reviewState(cwd: string, args: unknown): Promise<Response> {
   const analysis = llm
     ? { overallSummary: llm.overallSummary, files: llm.files ?? [], model: llm.model, generatedAt: llm.generatedAt, sharedBy: llm.sharedBy }
     : undefined
-  return Response.json({ result: { threads, critique, chat, aiGroups, analysis, sharedComment: entry?.sharedComment } })
+  const tour = entry ? await session.cache.tours.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha) : undefined
+  return Response.json({ result: { threads, critique, chat, aiGroups, analysis, sharedComment: entry?.sharedComment, tour } })
 }
 
 /** GitHub review threads for one pull request, in the same shape the web diff anchors to lines. */
