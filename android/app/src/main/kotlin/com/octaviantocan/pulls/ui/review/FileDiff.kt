@@ -572,14 +572,17 @@ private fun AnnotationRow(session: ReviewSession, ui: DiffUi, file: ReviewFile, 
     val gutterWidth = maxOf(44, digits * 8 + 20).dp
     val bar = when (kind) { '+' -> p.addBar; '-' -> p.delBar; else -> null }
     val gutterBg = when (kind) { '+' -> p.addedGutter; '-' -> p.removedGutter; else -> p.bg }
-    Row(Modifier.fillMaxWidth().fileFrame(c.border).height(IntrinsicSize.Min)) {
-        Box(Modifier.width(gutterWidth).fillMaxHeight().background(gutterBg)) {
-            if (bar != null) Box(Modifier.width(4.dp).fillMaxHeight().background(bar))
-        }
-        Column(Modifier.weight(1f).background(p.annotation).padding(horizontal = 8.dp, vertical = 4.dp)) {
-            notes.threads.forEach { ReviewThreadCard(session, it) }
-            notes.ai.forEach { AiAnnotationBlock(session, it, ui.mark?.findingId) }
-            notes.draft?.let { draft -> DraftBox(session, draft, file.isBinary) { ui.drafts.remove(file.path) } }
-        }
+    // The gutter is drawn behind (no intrinsic measuring: wrapped button rows inside must keep their height).
+    Column(
+        Modifier.fillMaxWidth().fileFrame(c.border).drawBehind {
+            val g = gutterWidth.toPx()
+            drawRect(gutterBg, Offset.Zero, Size(g, size.height))
+            if (bar != null) drawRect(bar, Offset.Zero, Size(4.dp.toPx(), size.height))
+            drawRect(p.annotation, Offset(g, 0f), Size(size.width - g, size.height))
+        }.padding(start = gutterWidth).padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        notes.threads.forEach { ReviewThreadCard(session, it) }
+        notes.ai.forEach { AiAnnotationBlock(session, it, ui.mark?.findingId) }
+        notes.draft?.let { draft -> DraftBox(session, draft, file.isBinary) { ui.drafts.remove(file.path) } }
     }
 }
