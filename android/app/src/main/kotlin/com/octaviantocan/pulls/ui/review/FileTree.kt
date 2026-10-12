@@ -115,7 +115,7 @@ private fun TreeRowView(session: ReviewSession, row: TreeRow, visiblePaths: Set<
  * [dim]) and the base name in the body color, monospace, truncated at the end.
  */
 @Composable
-fun FilePath(path: String, modifier: Modifier = Modifier, dim: Boolean = true, strike: Boolean = false, icon: Boolean = true, style: TextStyle = PullsType.sm) {
+fun FilePath(path: String, modifier: Modifier = Modifier, dim: Boolean = true, strike: Boolean = false, icon: Boolean = true, style: TextStyle = PullsType.sm, wrap: Boolean = false) {
     val c = LocalPullsColors.current
     val dir = path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
     val base = path.substringAfterLast('/')
@@ -127,8 +127,9 @@ fun FilePath(path: String, modifier: Modifier = Modifier, dim: Boolean = true, s
                 withStyle(SpanStyle(color = c.text)) { append(base) }
             },
             style = style.copy(fontFamily = PullsType.mono, textDecoration = if (strike) TextDecoration.LineThrough else null),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            // `max-sm:whitespace-normal break-all` where asked: the file name at the end is never cut off.
+            maxLines = if (wrap) Int.MAX_VALUE else 1,
+            overflow = if (wrap) TextOverflow.Clip else TextOverflow.Ellipsis,
         )
     }
 }

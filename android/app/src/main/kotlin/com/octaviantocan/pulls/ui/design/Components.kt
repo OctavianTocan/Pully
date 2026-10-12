@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -187,7 +188,7 @@ fun IconButton(icon: String, label: String, onClick: () -> Unit, modifier: Modif
 fun <T> ToggleGroup(options: List<Pair<T, String>>, value: T, onChange: (T) -> Unit, modifier: Modifier = Modifier, icons: Map<T, String> = emptyMap()) {
     val c = LocalPullsColors.current
     Row(
-        modifier.clip(RoundedCornerShape(8.dp)).background(c.sunken).padding(4.dp),
+        modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).clip(RoundedCornerShape(8.dp)).background(c.sunken).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         options.forEach { (option, label) ->
@@ -323,6 +324,7 @@ fun TextInput(
     icon: String? = null,
     singleLine: Boolean = true,
     minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     enabled: Boolean = true,
@@ -335,6 +337,7 @@ fun TextInput(
         enabled = enabled,
         singleLine = singleLine,
         minLines = minLines,
+        maxLines = maxLines,
         textStyle = PullsType.base.copy(color = c.text),
         cursorBrush = SolidColor(c.primary),
         keyboardOptions = keyboardOptions,

@@ -113,7 +113,7 @@ fun ReviewProgressSheet(session: ReviewSession, top: ReviewTopUi) {
                             session.focus = Focus(file.path)
                         },
                         contentAlignment = Alignment.CenterStart,
-                    ) { FilePath(file.path) }
+                    ) { FilePath(file.path, Modifier, dim = true, wrap = true) }
                     val (label, color) = when (state) {
                         ReviewState.Changed -> "changed" to WebColors.orange(c.dark)
                         ReviewState.Reviewed -> "reviewed" to WebColors.primary(c.dark)
@@ -127,20 +127,6 @@ fun ReviewProgressSheet(session: ReviewSession, top: ReviewTopUi) {
 }
 
 /** `DisplayFilePath`: the folder faded, the file name in full color; wraps on phones so the name is never cut. */
-@Composable
-private fun FilePath(path: String) {
-    val c = LocalPullsColors.current
-    val slash = path.lastIndexOf('/')
-    Text(
-        androidx.compose.ui.text.buildAnnotatedString {
-            if (slash >= 0) {
-                pushStyle(androidx.compose.ui.text.SpanStyle(color = c.fade)); append(path.substring(0, slash + 1)); pop()
-            }
-            append(path.substring(slash + 1))
-        },
-        style = PullsType.sm, color = c.text,
-    )
-}
 
 private val VERDICTS = listOf("COMMENT" to R.drawable.ic_oct_comment_16, "APPROVE" to R.drawable.ic_oct_check_circle_16, "REQUEST_CHANGES" to R.drawable.ic_oct_code_review_16)
 
@@ -244,7 +230,7 @@ fun MergeSheet(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(t("overview.merge.commitMessage"), style = PullsType.sm, color = c.fade)
-                TextInput(body, { body = it }, "", Modifier.fillMaxWidth(), singleLine = false, minLines = 6, enabled = !busy)
+                TextInput(body, { body = it }, "", Modifier.fillMaxWidth(), singleLine = false, minLines = 6, maxLines = 6, enabled = !busy)
             }
         } else {
             Text(t("overview.merge.rebaseHint", "base" to overview.baseRef), style = PullsType.sm, color = c.fade)
