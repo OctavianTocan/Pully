@@ -73,6 +73,18 @@ class DiffUi(val session: ReviewSession) {
     /** The open draft (comment composer + selection actions) per file. */
     val drafts = mutableStateMapOf<String, DraftTarget>()
 
+    /** Gutter centres on screen, `path|side|line` -> y in root px, for drag selection. */
+    internal val gutterY = HashMap<String, Float>()
+
+    /** A drag selection in progress (long-press a line number, then drag): highlighted, not yet a draft. */
+    var dragSel by mutableStateOf<DraftTarget?>(null)
+
+    /** The line on [side] of [path] whose gutter centre is nearest [y]. */
+    internal fun lineAt(path: String, side: String, y: Float): Int? {
+        val prefix = "$path|$side|"
+        return gutterY.entries.filter { it.key.startsWith(prefix) }.minByOrNull { kotlin.math.abs(it.value - y) }?.key?.removePrefix(prefix)?.toIntOrNull()
+    }
+
     /** A range selection in progress per file: its first tapped line. */
     val selectionStart = mutableStateMapOf<String, DraftTarget>()
 

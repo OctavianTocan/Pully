@@ -37,6 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -457,6 +461,8 @@ private fun DiffUi.isSelected(file: ReviewFile, cell: Cell): Boolean {
     if (draft != null && draft.side == cell.side && n in draft.range) return true
     val start = selectionStart[file.path]
     if (start != null && start.side == cell.side && start.line == n) return true
+    val drag = dragSel
+    if (drag != null && drag.path == file.path && drag.side == cell.side && n in drag.range) return true
     val m = mark
     return m != null && m.path == file.path && m.side == cell.side && m.line == n
 }
@@ -539,6 +545,27 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
     Row(modifier.fillMaxHeight().background(lineBg)) {
         Box(
             Modifier.width(gutterWidth).fillMaxHeight().background(if (selected) p.selection.compositeOver(gutterBg) else gutterBg)
+                .onGloballyPositioned { co -> if (number != null) ui.gutterY["${file.path}|${cell.side}|$number"] = co.positionInRoot().y + co.size.height / 2f }
+                // Pierre's drag line selection, touch style: long-press a line number, drag to extend, lift to open the draft.
+                .pointerInput(file.path, cell, file.isBinary) {
+                    if (file.isBinary || number == null) return@pointerInput
+                    var y = 0f
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = {
+                            y = ui.gutterY["${file.path}|${cell.side}|$number"] ?: 0f
+                            ui.drafts.remove(file.path)
+                            ui.dragSel = DraftTarget(file.path, cell.side, number)
+                        },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            y += amount.y
+                            val to = ui.lineAt(file.path, cell.side, y) ?: return@detectDragGesturesAfterLongPress
+                            ui.dragSel = selectRange(file.path, cell.side, number, to)
+                        },
+                        onDragEnd = { ui.dragSel?.let { ui.drafts[file.path] = it }; ui.dragSel = null },
+                        onDragCancel = { ui.dragSel = null },
+                    )
+                }
                 .clickable(enabled = !file.isBinary && number != null, role = Role.Button, onClickLabel = t("review.leaveComment")) { ui.onGutter(file, cell) },
             contentAlignment = Alignment.TopEnd,
         ) {
