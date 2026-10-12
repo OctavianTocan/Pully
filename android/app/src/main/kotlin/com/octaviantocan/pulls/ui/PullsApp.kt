@@ -91,7 +91,7 @@ fun PullsApp(initialTarget: String?) {
 internal fun checkUpdate(context: Context): String? = runCatching {
     val config = ServerStore.load(context)
     AppUpdater(context).check(config.url, config.headers(), installedVersionCode(context))?.let { "Update ${it.versionName} is ready. ${it.notes}" }
-}.getOrNull()
+}.onFailure { android.util.Log.w("pulls", "update check failed", it) }.getOrNull()
 
 /** The installed app's version code, so the update banner only shows for a newer build. */
 internal fun installedVersionCode(context: Context): Int {

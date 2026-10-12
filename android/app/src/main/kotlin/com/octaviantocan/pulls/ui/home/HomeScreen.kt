@@ -580,10 +580,26 @@ private fun UpdateBanner(notice: String) {
     ) {
         PhIcon("arrow-circle-up-duotone", tint = c.accentTeal, size = 20.dp)
         Text(progress ?: notice, Modifier.weight(1f), style = PullsType.sm, color = c.text)
+        val result = com.octaviantocan.pulls.update.UpdateBus.last
+        LaunchedEffect(result) {
+            when (result) {
+                is com.octaviantocan.pulls.update.InstallResult.Failed -> { progress = result.message; busy = false }
+                com.octaviantocan.pulls.update.InstallResult.Confirming -> progress = "Confirm the update in the system dialog."
+                else -> {}
+            }
+        }
         ActionButton({
+            // Android asks once per app for "Install unknown apps"; send the user there first.
+            if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
+                progress = "Allow pulls.review to install apps, then tap Update again."
+                runCatching {
+                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${context.packageName}")))
+                }
+                return@ActionButton
+            }
             busy = true
             scope.launch {
-                val result = withContext(Dispatchers.IO) {
+                val outcome = withContext(Dispatchers.IO) {
                     runCatching {
                         val config = ServerStore.load(context)
                         val updater = AppUpdater(context)
@@ -594,8 +610,7 @@ private fun UpdateBanner(notice: String) {
                         updater.install(apk)
                     }
                 }
-                busy = false
-                result.onFailure { progress = it.message ?: it.toString() }.onSuccess { progress = "Installing…" }
+                outcome.onFailure { progress = it.message ?: it.toString(); busy = false }.onSuccess { progress = "Installing…" }
             }
         }, variant = ButtonVariant.Primary, small = true, loading = busy, enabled = !busy) { Text("Update") }
     }
