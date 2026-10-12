@@ -164,7 +164,7 @@ private fun LensOption(icon: String, name: String, description: String?, mono: B
     val c = LocalPullsColors.current
     Row(
         Modifier.fillMaxWidth().defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(8.dp)).background(if (selected) c.active else Color.Transparent)
-            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 8.dp, vertical = 6.dp),
+            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         PhIcon(icon, Modifier.padding(top = 3.dp), tint = c.fade, size = 16.dp)
