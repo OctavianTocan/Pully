@@ -215,7 +215,8 @@ private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: Re
             }
         }
         byRow[i]?.let { notes ->
-            emit.item("diff:a:$path:$i", "annotation", path) { AnnotationRow(session, ui, file, notes) }
+            val kind = rowLines[i].lastOrNull()?.kind ?: ' '
+            emit.item("diff:a:$path:$i", "annotation", path) { AnnotationRow(session, ui, file, notes, digits, kind) }
         }
     }
 }
@@ -563,12 +564,22 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
 
 /** Threads, AI notes/findings/asks and the draft under one row (`data-annotation-slot`). */
 @Composable
-private fun AnnotationRow(session: ReviewSession, ui: DiffUi, file: ReviewFile, notes: Annotations) {
+private fun AnnotationRow(session: ReviewSession, ui: DiffUi, file: ReviewFile, notes: Annotations, digits: Int, kind: Char) {
     val c = LocalPullsColors.current
     val p = remember(c, ui.theme) { Palette(c, ui.theme) }
-    Column(Modifier.fillMaxWidth().fileFrame(c.border).background(p.annotation).padding(horizontal = 8.dp, vertical = 2.dp)) {
-        notes.threads.forEach { ReviewThreadCard(session, it) }
-        notes.ai.forEach { AiAnnotationBlock(session, it, ui.mark?.findingId) }
-        notes.draft?.let { draft -> DraftBox(session, draft, file.isBinary) { ui.drafts.remove(file.path) } }
+    // Pierre's annotation slot sits in the code column: the gutter (with the line's change bar)
+    // runs on beside it, and the cards start where the code does.
+    val gutterWidth = maxOf(44, digits * 8 + 20).dp
+    val bar = when (kind) { '+' -> p.addBar; '-' -> p.delBar; else -> null }
+    val gutterBg = when (kind) { '+' -> p.addedGutter; '-' -> p.removedGutter; else -> p.bg }
+    Row(Modifier.fillMaxWidth().fileFrame(c.border).height(IntrinsicSize.Min)) {
+        Box(Modifier.width(gutterWidth).fillMaxHeight().background(gutterBg)) {
+            if (bar != null) Box(Modifier.width(4.dp).fillMaxHeight().background(bar))
+        }
+        Column(Modifier.weight(1f).background(p.annotation).padding(horizontal = 8.dp, vertical = 4.dp)) {
+            notes.threads.forEach { ReviewThreadCard(session, it) }
+            notes.ai.forEach { AiAnnotationBlock(session, it, ui.mark?.findingId) }
+            notes.draft?.let { draft -> DraftBox(session, draft, file.isBinary) { ui.drafts.remove(file.path) } }
+        }
     }
 }
