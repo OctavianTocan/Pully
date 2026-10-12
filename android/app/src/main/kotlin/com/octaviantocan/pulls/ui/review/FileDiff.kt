@@ -111,6 +111,9 @@ private class Palette(val c: PullsColors, theme: DiffTheme?) {
     val buffer = (if (c.dark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)).compositeOver(bg)
     val annotation = (if (c.dark) Color.White.copy(alpha = 0.075f) else Color.Black.copy(alpha = 0.015f)).compositeOver(bg)
     val selection = selectionBase(c).copy(alpha = if (c.dark) 0.25f else 0.18f)
+    /** `--diffs-bg-addition-emphasis` / `-deletion-emphasis`: the base at 20% dark, 15% light. */
+    val addedEmphasis = additionBase(c).copy(alpha = if (c.dark) 0.2f else 0.15f)
+    val removedEmphasis = deletionBase(c).copy(alpha = if (c.dark) 0.2f else 0.15f)
     val addBar = additionBase(c)
     val delBar = deletionBase(c)
 }
@@ -429,12 +432,14 @@ private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Bool
 
 /** A line's code as an annotated string: server spans, or the plain text while they load. */
 @Composable
-private fun codeText(ui: DiffUi, file: ReviewFile, text: String, fg: Color): AnnotatedString {
+private fun codeText(ui: DiffUi, file: ReviewFile, text: String, fg: Color, emphasis: List<IntRange>? = null, emphasisBg: Color = Color.Transparent): AnnotatedString {
     val toks = ui.tokens[file.path]?.get(text)
-    return remember(text, toks, fg) {
+    return remember(text, toks, fg, emphasis, emphasisBg) {
         buildAnnotatedString {
             if (toks == null || toks.isEmpty()) append(text)
             else toks.forEach { tok -> if (tok.color == null) append(tok.text) else withStyle(SpanStyle(color = tok.color)) { append(tok.text) } }
+            // `[data-diff-span]`: the changed words of a paired line, in the stronger emphasis wash.
+            emphasis?.forEach { r -> if (r.last < length) addStyle(SpanStyle(background = emphasisBg), r.first, r.last + 1) }
             if (length == 0) append(" ")
         }
     }
@@ -528,7 +533,8 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
     val number = cell.number
     val numberColor = when (line.kind) { '+' -> p.addBar; '-' -> p.delBar; else -> p.number }
     val gutterWidth = maxOf(44, digits * 8 + 20).dp
-    val code = codeText(ui, file, line.text, p.fg)
+    val emphasisBg = when (line.kind) { '+' -> p.addedEmphasis; '-' -> p.removedEmphasis; else -> Color.Transparent }
+    val code = codeText(ui, file, line.text, p.fg, ui.emphasis(file)[line], emphasisBg)
     val drag = rememberDraggableState { delta -> scroll.offset = (scroll.offset - delta).coerceIn(0f, scroll.max.coerceAtLeast(0f)) }
     Row(modifier.fillMaxHeight().background(lineBg)) {
         Box(
@@ -536,7 +542,14 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
                 .clickable(enabled = !file.isBinary && number != null, role = Role.Button, onClickLabel = t("review.leaveComment")) { ui.onGutter(file, cell) },
             contentAlignment = Alignment.TopEnd,
         ) {
-            if (bar != null) Box(Modifier.align(Alignment.TopStart).width(4.dp).fillMaxHeight().background(bar))
+            // Pierre's `bars` indicator: solid for additions, a 2px dashed stripe for deletions.
+            if (bar != null) Box(Modifier.align(Alignment.TopStart).width(4.dp).fillMaxHeight().drawBehind {
+                if (line.kind == '-') {
+                    val step = 2.dp.toPx()
+                    var y = 0f
+                    while (y < size.height) { drawRect(bar, Offset(0f, y), Size(size.width, minOf(step / 2, size.height - y))); y += step }
+                } else drawRect(bar)
+            })
             Text(number?.toString().orEmpty(), Modifier.padding(end = 8.dp), style = CODE.copy(textAlign = TextAlign.End), color = numberColor, maxLines = 1)
         }
         Box(

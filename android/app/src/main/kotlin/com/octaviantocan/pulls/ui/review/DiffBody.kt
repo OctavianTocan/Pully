@@ -147,6 +147,16 @@ class DiffUi(val session: ReviewSession) {
     }
 
     private class CachedEntries(val file: ReviewFile, val full: FullFile?, val gaps: Set<Int>?, val entries: List<DiffEntry>)
+
+    /** Word emphasis ranges per line object of [file]'s current rows (pierre `word-alt`). */
+    fun emphasis(file: ReviewFile): java.util.IdentityHashMap<com.octaviantocan.pulls.data.DiffLine, List<IntRange>> {
+        val rows = entries(file)
+        val cached = emphasisCache[file.path]
+        if (cached != null && cached.first === rows) return cached.second
+        return lineEmphasis(rows.mapNotNull { (it as? DiffEntry.Line)?.line }).also { emphasisCache[file.path] = rows to it }
+    }
+
+    private val emphasisCache = HashMap<String, Pair<List<DiffEntry>, java.util.IdentityHashMap<com.octaviantocan.pulls.data.DiffLine, List<IntRange>>>>()
     private val entryCache = HashMap<String, CachedEntries>()
 
     /** Requests highlight spans for lines of [file] not tokenized yet (`highlight`, the pierre theme). */

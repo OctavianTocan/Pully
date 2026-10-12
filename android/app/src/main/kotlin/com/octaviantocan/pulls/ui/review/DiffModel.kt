@@ -387,3 +387,93 @@ fun timeAgo(time: Long, now: Long = System.currentTimeMillis()): String {
 }
 
 fun parseIsoMillis(iso: String): Long? = runCatching { java.time.Instant.parse(iso).toEpochMilli() }.getOrNull()
+
+// --- Word emphasis (pierre `lineDiffType: 'word-alt'`, jsdiff `diffWordsWithSpace`) ---
+
+private const val WORD_CHARS = "a-zA-Z0-9_\u00AD\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02C6\u02C8-\u02D7\u02DE-\u02FF\u1E00-\u1EFF"
+private val WORD_TOKEN = Regex("(\\r?\\n)|[$WORD_CHARS]+|[^\\S\\n\\r]+|[^$WORD_CHARS]")
+
+/** `WordsWithSpaceDiff.tokenize`: words, whitespace runs, and single other characters. */
+fun wordTokens(text: String): List<String> = WORD_TOKEN.findAll(text).map { it.value }.toList()
+
+/** A token run of a word diff: 0 unchanged, -1 removed, 1 added. */
+data class WordPart(val kind: Int, val value: String)
+
+/** Token diff by longest common subsequence; a change region lists removals before additions, like jsdiff. */
+fun diffWords(old: String, new: String): List<WordPart> {
+    val a = wordTokens(old)
+    val b = wordTokens(new)
+    val lcs = Array(a.size + 1) { IntArray(b.size + 1) }
+    for (i in a.indices.reversed()) for (j in b.indices.reversed())
+        lcs[i][j] = if (a[i] == b[j]) lcs[i + 1][j + 1] + 1 else maxOf(lcs[i + 1][j], lcs[i][j + 1])
+    val out = mutableListOf<WordPart>()
+    fun push(kind: Int, value: String) {
+        val last = out.lastOrNull()
+        if (last != null && last.kind == kind) out[out.lastIndex] = last.copy(value = last.value + value) else out += WordPart(kind, value)
+    }
+    var i = 0
+    var j = 0
+    while (i < a.size || j < b.size) {
+        when {
+            i < a.size && j < b.size && a[i] == b[j] -> { push(0, a[i]); i++; j++ }
+            else -> {
+                // Collect the whole change region, removals first.
+                val removed = StringBuilder()
+                val added = StringBuilder()
+                while (i < a.size || j < b.size) {
+                    if (i < a.size && j < b.size && a[i] == b[j]) break
+                    if (j >= b.size || (i < a.size && lcs[i + 1][j] >= lcs[i][j + 1])) { removed.append(a[i]); i++ }
+                    else { added.append(b[j]); j++ }
+                }
+                if (removed.isNotEmpty()) out += WordPart(-1, removed.toString())
+                if (added.isNotEmpty()) out += WordPart(1, added.toString())
+            }
+        }
+    }
+    return out
+}
+
+/**
+ * `computeLineDiffDecorations` with `word-alt`: the character ranges to emphasise on a removed
+ * line and its paired added line. Neutral runs of one character between changes join the change,
+ * so `a.b` -> `c.d` shades as one span. Lines over 1000 characters get none (`maxLineDiffLength`).
+ */
+fun wordEmphasis(old: String, new: String): Pair<List<IntRange>, List<IntRange>> {
+    if (old.length > 1000 || new.length > 1000) return emptyList<IntRange>() to emptyList()
+    val parts = diffWords(old, new)
+    val last = parts.lastOrNull()
+    fun spans(keep: Int): List<IntRange> {
+        val arr = mutableListOf<Pair<Int, String>>()
+        for (part in parts) {
+            if (part.kind != 0 && part.kind != keep) continue
+            val neutral = part.kind == 0
+            val prev = arr.lastOrNull()
+            if (prev == null || part === last) { arr += (if (neutral) 0 else 1) to part.value; continue }
+            val prevNeutral = prev.first == 0
+            if (neutral == prevNeutral || (neutral && part.value.length == 1 && !prevNeutral)) arr[arr.lastIndex] = prev.first to prev.second + part.value
+            else arr += (if (neutral) 0 else 1) to part.value
+        }
+        var at = 0
+        return arr.mapNotNull { (flag, text) -> val r = if (flag == 1) at until at + text.length else null; at += text.length; r }
+    }
+    return spans(-1) to spans(1)
+}
+
+/** Emphasis per line object: each run of removals pairs, by position, with the additions right after it. */
+fun lineEmphasis(lines: List<DiffLine>): java.util.IdentityHashMap<DiffLine, List<IntRange>> {
+    val out = java.util.IdentityHashMap<DiffLine, List<IntRange>>()
+    var k = 0
+    while (k < lines.size) {
+        if (lines[k].kind != '-') { k++; continue }
+        val dels = mutableListOf<DiffLine>()
+        while (k < lines.size && lines[k].kind == '-') dels += lines[k++]
+        val adds = mutableListOf<DiffLine>()
+        while (k < lines.size && lines[k].kind == '+') adds += lines[k++]
+        for (n in 0 until minOf(dels.size, adds.size)) {
+            val (d, a) = wordEmphasis(dels[n].text, adds[n].text)
+            if (d.isNotEmpty()) out[dels[n]] = d
+            if (a.isNotEmpty()) out[adds[n]] = a
+        }
+    }
+    return out
+}
