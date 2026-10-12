@@ -36,14 +36,29 @@ class AppSettings private constructor(private val context: Context) {
     var effort by mutableStateOf(prefs.getString("effort", "") ?: "")
         private set
 
+    /** Phone-only: diff code size multiplier (pinch on the diff, or Settings), 0.6x to 2x. */
+    var codeZoom by mutableStateOf(prefs.getFloat("codeZoom", 1f))
+        private set
+
+    /** Phone-only: wrap long code lines instead of scrolling them sideways. */
+    var codeWrap by mutableStateOf(prefs.getBoolean("codeWrap", false))
+        private set
+
     fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply() }
     fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply() }
     fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply() }
     fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply() }
     fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply() }
     fun updateEffort(value: String) { effort = value; prefs.edit().putString("effort", value).apply() }
+    fun updateCodeZoom(value: Float) {
+        codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM)
+        prefs.edit().putFloat("codeZoom", codeZoom).apply()
+    }
+    fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
 
     companion object {
+        const val MIN_ZOOM = 0.6f
+        const val MAX_ZOOM = 2f
         @Volatile private var instance: AppSettings? = null
         fun get(context: Context): AppSettings = instance ?: synchronized(this) {
             instance ?: AppSettings(context.applicationContext).also { instance = it }

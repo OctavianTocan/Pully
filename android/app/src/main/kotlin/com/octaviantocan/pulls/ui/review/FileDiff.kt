@@ -37,6 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextIndent
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.positionInRoot
@@ -95,6 +99,12 @@ private val CODE = TextStyle(
     lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.None),
 )
 private val PAGE_PAD = 12.dp
+
+/** [CODE] at the phone's code zoom: size and line height scale together. */
+private fun codeStyle(zoom: Float): TextStyle = if (zoom == 1f) CODE else CODE.copy(fontSize = (13f * zoom).sp, lineHeight = (20f * zoom).sp)
+
+/** The line-number column: wide enough for [digits] at [zoom], never under a 32dp tap target. */
+internal fun gutterWidth(digits: Int, zoom: Float) = (maxOf(44, digits * 8 + 20) * zoom).coerceAtLeast(32f).dp
 
 /** Pierre colors not in the highlight theme: `--diffs-added-*`, `--diffs-deleted-*`, `--diffs-modified-*`. */
 private fun additionBase(c: PullsColors) = Color(if (c.dark) 0xFF5ECC71 else 0xFF0DBE4E)
@@ -538,7 +548,10 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
     }
     val number = cell.number
     val numberColor = when (line.kind) { '+' -> p.addBar; '-' -> p.delBar; else -> p.number }
-    val gutterWidth = maxOf(44, digits * 8 + 20).dp
+    val zoom = ui.session.settings.codeZoom
+    val wrap = ui.session.settings.codeWrap
+    val style = codeStyle(zoom)
+    val gutterWidth = gutterWidth(digits, zoom)
     val emphasisBg = when (line.kind) { '+' -> p.addedEmphasis; '-' -> p.removedEmphasis; else -> Color.Transparent }
     val code = codeText(ui, file, line.text, p.fg, ui.emphasis(file)[line], emphasisBg)
     val drag = rememberDraggableState { delta -> scroll.offset = (scroll.offset - delta).coerceIn(0f, scroll.max.coerceAtLeast(0f)) }
@@ -577,16 +590,36 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
                     while (y < size.height) { drawRect(bar, Offset(0f, y), Size(size.width, minOf(step / 2, size.height - y))); y += step }
                 } else drawRect(bar)
             })
-            Text(number?.toString().orEmpty(), Modifier.padding(end = 8.dp), style = CODE.copy(textAlign = TextAlign.End), color = numberColor, maxLines = 1)
+            Text(number?.toString().orEmpty(), Modifier.padding(end = 8.dp), style = style.copy(textAlign = TextAlign.End), color = numberColor, maxLines = 1)
         }
         Box(
             Modifier.weight(1f).fillMaxHeight().background(if (selected) p.selection else Color.Transparent)
-                .draggable(drag, Orientation.Horizontal)
+                .let { if (wrap) it else it.draggable(drag, Orientation.Horizontal) }
                 .combinedClickable(onLongClick = { ui.onCodeLongPress(file, cell) }) { ui.onCodeTap(file, cell) }
                 .clipToBounds()
-                .padding(start = 8.dp),
+                .padding(start = 8.dp, end = if (wrap) 8.dp else 0.dp),
         ) {
-            Text(
+            if (wrap) {
+                // Wrapped: the row grows to fit and the number stays on the first visual line. The
+                // indentation becomes a hanging indent, so continuations line up under the code
+                // instead of the leading spaces taking a visual line of their own.
+                val measurer = rememberTextMeasurer()
+                val space = remember(style) { measurer.measure(" ", style).size.width }
+                val density = LocalDensity.current
+                val lead = line.text.indexOfFirst { it != ' ' && it != '\t' }.let { if (it < 0) 0 else it }
+                val columns = line.text.take(lead).sumOf { if (it == '\t') 4L else 1L }.toInt()
+                // Deep nesting would leave a sliver for the code: the indent stops at a third of the
+                // column. Rows are measured intrinsically, so read the width from the window, not a
+                // SubcomposeLayout (BoxWithConstraints throws under intrinsic measurement).
+                val window = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+                val column = if (ui.session.settings.layout == "split" && LocalConfiguration.current.screenWidthDp >= 640) window / 2f else window
+                val indent = with(density) { minOf(space * columns.toFloat(), column / 3f).toSp() }
+                Text(
+                    if (lead > 0 && lead <= code.length) code.subSequence(lead, code.length) else code,
+                    style = style.copy(color = p.fg, textIndent = TextIndent(firstLine = indent, restLine = indent)),
+                    softWrap = true,
+                )
+            } else Text(
                 code,
                 Modifier.layout { measurable, constraints ->
                     val placeable = measurable.measure(Constraints(minHeight = constraints.minHeight, maxHeight = constraints.maxHeight))
@@ -594,7 +627,7 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
                     scroll.max = maxOf(scroll.max, (placeable.width - viewport + 16).toFloat())
                     layout(viewport, placeable.height) { placeable.place(-scroll.offset.toInt(), 0) }
                 },
-                style = CODE.copy(color = p.fg),
+                style = style.copy(color = p.fg),
                 softWrap = false,
                 maxLines = 1,
             )
@@ -609,7 +642,7 @@ private fun AnnotationRow(session: ReviewSession, ui: DiffUi, file: ReviewFile, 
     val p = remember(c, ui.theme) { Palette(c, ui.theme) }
     // Pierre's annotation slot sits in the code column: the gutter (with the line's change bar)
     // runs on beside it, and the cards start where the code does.
-    val gutterWidth = maxOf(44, digits * 8 + 20).dp
+    val gutterWidth = gutterWidth(digits, ui.session.settings.codeZoom)
     val bar = when (kind) { '+' -> p.addBar; '-' -> p.delBar; else -> null }
     val gutterBg = when (kind) { '+' -> p.addedGutter; '-' -> p.removedGutter; else -> p.bg }
     // The gutter is drawn behind (no intrinsic measuring: wrapped button rows inside must keep their height).

@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlin.math.roundToInt
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -182,6 +183,14 @@ private fun LayoutSettingsSection() {
             { settings.updateLayout(it) },
             icons = mapOf("unified" to "rows-duotone", "split" to "columns-duotone"),
         )
+        // Phone-only: code size (also pinch on the diff) and wrapping.
+        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Code size", Modifier.weight(1f), style = PullsType.sm, color = LocalPullsColors.current.text)
+            com.octaviantocan.pulls.ui.design.IconButton("magnifying-glass-minus", "Smaller code", { settings.updateCodeZoom(((settings.codeZoom - 0.1f) * 10).roundToInt() / 10f) }, enabled = settings.codeZoom > AppSettings.MIN_ZOOM)
+            Text("${(settings.codeZoom * 100).roundToInt()}%", style = PullsType.sm.copy(fontFamily = PullsType.mono), color = LocalPullsColors.current.text)
+            com.octaviantocan.pulls.ui.design.IconButton("magnifying-glass-plus", "Larger code", { settings.updateCodeZoom(((settings.codeZoom + 0.1f) * 10).roundToInt() / 10f) }, enabled = settings.codeZoom < AppSettings.MAX_ZOOM)
+        }
+        FormCheckbox(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long code lines")
     }
 }
 

@@ -80,6 +80,12 @@ fun PrCommands(session: ReviewSession, ui: DiffUi, listState: LazyListState, onA
             Command("pr.layout", m.t("keys.layout"), view, icon = "columns-duotone") {
                 session.settings.updateLayout(if (session.settings.layout == "split") "unified" else "split")
             },
+            Command("pr.zoomIn", "Larger code", view, keywords = "zoom font size bigger", icon = "magnifying-glass-plus") { session.settings.zoomBy(1) },
+            Command("pr.zoomOut", "Smaller code", view, keywords = "zoom font size", icon = "magnifying-glass-minus") { session.settings.zoomBy(-1) },
+            Command("pr.zoomReset", "Reset code size", view, keywords = "zoom font size 100", icon = "text-aa-duotone") { session.settings.updateCodeZoom(1f) },
+            Command("pr.wrap", if (session.settings.codeWrap) "Scroll long code lines" else "Wrap long code lines", view, keywords = "wrap soft", icon = "arrow-u-down-left") {
+                session.settings.updateCodeWrap(!session.settings.codeWrap)
+            },
         )
         if (github) {
             list += Command("pr.openPr", m.t("keys.openPr"), pr, icon = "arrow-square-out-duotone") { open(opened.url) }

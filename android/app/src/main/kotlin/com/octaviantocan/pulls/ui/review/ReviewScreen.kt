@@ -102,7 +102,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav) {
                 }
                 Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
                 if (pinned) Box(Modifier.zIndex(1f).let { m -> if (scrolled) m.shadow(2.dp).bottomBorder(c.border) else m }) { header() }
-                LazyColumn(Modifier.fillMaxSize(), state = listState) {
+                LazyColumn(Modifier.fillMaxSize().pinchToZoomCode(session.settings), state = listState) {
                     if (!pinned) item(key = "top:header") { header() }
                     if (session.pull != null) {
                         item(key = "top:range") { CommitRangeBanner(session, data?.overview, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }

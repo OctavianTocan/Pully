@@ -308,6 +308,7 @@ fun ReviewHeader(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?
                     title(Modifier)
                     analyzeBy()
                     threadsToggle()
+                    CodeViewMenu(settings)
                     NavControls(nav)
                 }
             } else {
@@ -315,6 +316,7 @@ fun ReviewHeader(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?
                     homeIcon()
                     Spacer(Modifier.weight(1f))
                     threadsToggle()
+                    CodeViewMenu(settings)
                     NavControls(nav)
                 }
                 title(Modifier.fillMaxWidth())
