@@ -17,11 +17,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.DarkPullsColors
+import com.octaviantocan.pulls.ui.design.IconSwap
 import com.octaviantocan.pulls.ui.design.LightPullsColors
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -172,12 +176,24 @@ internal fun MotionPage(book: BookData) {
         SectionTitle("Slide")
         var selected by remember { mutableIntStateOf(0) }
         CapsuleTabs(listOf("Inbox", "Tours", "Done"), selected, { selected = it })
+        SectionTitle("Swap")
+        SwapDemo()
         SectionTitle("Breathe, turn and shimmer")
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PullsSpace.x4)) {
             BreathingDot()
             Orb()
             Skeleton(Modifier.weight(1f))
         }
+    }
+}
+
+/** An icon that swaps for another on tap: the old one shrinks away through a soft blur as the new one grows in (rule 73). */
+@Composable
+private fun SwapDemo() {
+    val c = LocalPullsColors.current
+    var copied by remember { mutableStateOf(false) }
+    Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button) { copied = !copied }, contentAlignment = Alignment.Center) {
+        IconSwap(copied) { done -> LuIcon(if (done) Lu.check else Lu.copy, tint = c.text, size = 22.dp) }
     }
 }
 

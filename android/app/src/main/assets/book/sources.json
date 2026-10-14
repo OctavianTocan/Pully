@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 734,
+        "line": 763,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 206,
+        "line": 208,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -77,7 +77,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 288,
+        "line": 290,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -105,7 +105,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun PullsCheck(checked: Boolean, modifier: Modifier = Modifier, size: Dp = 22.dp, onClick: (() -> Unit)? = null, label: String? = null) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(size * 0.32f)\n    val fill by animateColorAsState(if (checked) c.primary else c.raised, tween(150), label = \"check-fill\")\n    val edge by animateColorAsState(if (checked) c.primary else Color(0xFFC9CFCE), tween(150), label = \"check-edge\")\n    val click = if (onClick != null) Modifier.clickable(role = Role.Checkbox, onClickLabel = label, onClick = onClick) else Modifier\n    Box(modifier.size(size).clip(shape).background(fill).border(1.5.dp, edge, shape).then(click), contentAlignment = Alignment.Center) {\n        if (checked) LuIcon(Lu.tick, tint = Color.White, size = size * 0.64f)\n    }\n}"
+        "source": "@Composable\nfun PullsCheck(checked: Boolean, modifier: Modifier = Modifier, size: Dp = 22.dp, onClick: (() -> Unit)? = null, label: String? = null) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(size * 0.32f)\n    val fill by animateColorAsState(if (checked) c.primary else c.raised, tween(150), label = \"check-fill\")\n    val edge by animateColorAsState(if (checked) c.primary else Color(0xFFC9CFCE), tween(150), label = \"check-edge\")\n    // The box fills in 150ms and the tick is drawn in over 350ms (the Success check recipe, rule 73).\n    val tick by animateFloatAsState(if (checked) 1f else 0f, tween(if (checked) PullsMotion.MEDIUM else PullsMotion.QUICK, easing = PullsMotion.InOut), label = \"check-tick\")\n    val click = if (onClick != null) Modifier.clickable(role = Role.Checkbox, onClickLabel = label, onClick = onClick) else Modifier\n    Box(modifier.size(size).clip(shape).background(fill).border(1.5.dp, edge, shape).then(click), contentAlignment = Alignment.Center) {\n        if (tick > 0f) LuIcon(Lu.tick, tint = Color.White, size = size * 0.64f, progress = { tick })\n    }\n}"
       }
     ]
   },
@@ -114,7 +114,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 317,
+        "line": 321,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -165,7 +165,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 163,
+        "line": 165,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -210,7 +210,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 189,
+        "line": 191,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -266,7 +266,7 @@
             "default": "false"
           }
         ],
-        "source": "@Composable\ninternal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text, primary: Boolean = false) {\n    val c = LocalPullsColors.current\n    FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container) {\n        LuIcon(glyph, tint = if (primary) Color.White else tint, size = iconSize) // raw-value-ok: the ink on the primary fill is white in both themes\n    }\n}"
+        "source": "@Composable\ninternal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text, primary: Boolean = false) {\n    val c = LocalPullsColors.current\n    FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container) {\n        IconSwap(glyph) { LuIcon(it, tint = if (primary) Color.White else tint, size = iconSize) } // raw-value-ok: the ink on the primary fill is white in both themes\n    }\n}"
       }
     ]
   },
@@ -275,7 +275,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 751,
+        "line": 780,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -298,8 +298,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 667,
-        "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot; done,\nit is a still wash with a tick. No robot, compass or sparkle: those marks were dropped (rule 48).",
+        "line": 673,
+        "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. No robot, compass or sparkle: those\nmarks were dropped (rule 48).",
         "params": [
           {
             "name": "modifier",
@@ -317,7 +317,7 @@
             "default": "false"
           }
         ],
-        "source": "@Composable\nfun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {\n    val c = LocalPullsColors.current\n    Box(modifier.size(size), contentAlignment = Alignment.Center) {\n        if (done) {\n            Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))\n            LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)\n        } else {\n            RunningOrb(size)\n        }\n    }\n}"
+        "source": "@Composable\nfun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {\n    val c = LocalPullsColors.current\n    var settled by remember { mutableStateOf(done) }\n    LaunchedEffect(done) { if (!done) settled = false }\n    Crossfade(done && settled, modifier.size(size), tween(PullsMotion.QUICK), label = \"orb-settle\") { still ->\n        Box(Modifier.size(size), contentAlignment = Alignment.Center) {\n            if (still) {\n                Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))\n                LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)\n            } else {\n                RunningOrb(size, finishing = done) { settled = true }\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -326,7 +326,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 745,
+        "line": 774,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -349,7 +349,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 340,
+        "line": 344,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -385,7 +385,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 360,
+        "line": 364,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -435,7 +435,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 399,
+        "line": 403,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -458,7 +458,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 719,
+        "line": 748,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -489,7 +489,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 576,
+        "line": 580,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -519,7 +519,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 412,
+        "line": 416,
         "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half\nthe screen and pulls up to the full height. [back] swaps the close X for a back arrow.",
         "params": [
           {
@@ -560,11 +560,11 @@
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val c = LocalPullsColors.current\n    val scrollState = scroll ?: rememberScrollState()\n    val state = rememberModalBottomSheetState(skipPartiallyExpanded = !expandable)\n    val scope = rememberCoroutineScope()\n    val dismiss: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }\n    val density = LocalDensity.current\n    val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }\n    val screen = LocalConfiguration.current.screenHeightDp.dp\n    val ceiling = screen - maxOf(top, 16.dp)\n    val sized = when {\n        full -> Modifier.height(ceiling - 44.dp)\n        expandable -> Modifier.heightIn(max = ceiling - 44.dp)\n        else -> Modifier.heightIn(max = screen * 0.62f)\n    }\n    ModalBottomSheet(\n        onDismissRequest = onClose,\n        sheetState = state,\n        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),\n        containerColor = c.paper,\n        contentColor = c.text,\n        tonalElevation = 0.dp,\n        scrimColor = c.scrim,\n        dragHandle = null,\n        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },\n    ) {\n        Column(Modifier.fillMaxWidth().then(sized).imePadding()) {\n            Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))\n            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {\n                // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).\n                if (back != null) FloatIcon(Lu.back, \"Back\", back)\n                else FloatIcon(Lu.close, \"Close\", dismiss)\n                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {\n                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }\n                }\n                Spacer(Modifier.width(44.dp))\n            }\n            Column(\n                Modifier.fillMaxWidth().weight(1f, fill = full).verticalScroll(scrollState).padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },\n                content = content,\n            )\n            if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)\n        }\n    }\n}"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val c = LocalPullsColors.current\n    val scrollState = scroll ?: rememberScrollState()\n    val state = rememberModalBottomSheetState(skipPartiallyExpanded = !expandable)\n    val scope = rememberCoroutineScope()\n    val dismiss: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }\n    val density = LocalDensity.current\n    val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }\n    val screen = LocalConfiguration.current.screenHeightDp.dp\n    val ceiling = screen - maxOf(top, 16.dp)\n    val sized = when {\n        full -> Modifier.height(ceiling - 44.dp)\n        expandable -> Modifier.heightIn(max = ceiling - 44.dp)\n        else -> Modifier.heightIn(max = screen * 0.62f)\n    }\n    ModalBottomSheet(\n        onDismissRequest = onClose,\n        sheetState = state,\n        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),\n        containerColor = c.paper,\n        contentColor = c.text,\n        tonalElevation = 0.dp,\n        scrimColor = c.scrim,\n        dragHandle = null,\n        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },\n    ) {\n        Column(Modifier.fillMaxWidth().then(sized).imePadding().panelReveal()) {\n            Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))\n            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {\n                // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).\n                if (back != null) FloatIcon(Lu.back, \"Back\", back)\n                else FloatIcon(Lu.close, \"Close\", dismiss)\n                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {\n                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }\n                }\n                Spacer(Modifier.width(44.dp))\n            }\n            Column(\n                Modifier.fillMaxWidth().weight(1f, fill = full).verticalScroll(scrollState).padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },\n                content = content,\n            )\n            if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)\n        }\n    }\n}"
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 468,
+        "line": 472,
         "doc": "",
         "params": [
           {
@@ -614,7 +614,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 481,
+        "line": 485,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -636,7 +636,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 527,
+        "line": 531,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -711,7 +711,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 491,
+        "line": 495,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -767,7 +767,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 759,
+        "line": 788,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -803,7 +803,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 242,
+        "line": 244,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -838,7 +838,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 301,
+        "line": 305,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -873,7 +873,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 615,
+        "line": 619,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -895,7 +895,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 262,
+        "line": 264,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.",
         "params": [
           {

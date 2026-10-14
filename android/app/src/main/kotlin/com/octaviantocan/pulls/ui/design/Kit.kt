@@ -4,6 +4,8 @@ package com.octaviantocan.pulls.ui.design
 
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
@@ -190,7 +192,7 @@ fun FloatButton(
 internal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text, primary: Boolean = false) {
     val c = LocalPullsColors.current
     FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container) {
-        LuIcon(glyph, tint = if (primary) Color.White else tint, size = iconSize) // raw-value-ok: the ink on the primary fill is white in both themes
+        IconSwap(glyph) { LuIcon(it, tint = if (primary) Color.White else tint, size = iconSize) } // raw-value-ok: the ink on the primary fill is white in both themes
     }
 }
 
@@ -198,7 +200,7 @@ internal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modif
 @Composable
 fun SendButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false) {
     FloatButton(onClick, label, modifier, size = 40.dp, enabled = enabled, container = LocalPullsColors.current.primary) {
-        if (busy) Orb(size = 20.dp) else LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) // raw-value-ok: the ink on the primary fill is white in both themes
+        IconSwap(busy) { working -> if (working) Orb(size = 20.dp) else LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) } // raw-value-ok: the ink on the primary fill is white in both themes
     }
 }
 
@@ -291,9 +293,11 @@ fun PullsCheck(checked: Boolean, modifier: Modifier = Modifier, size: Dp = 22.dp
     val shape = RoundedCornerShape(size * 0.32f)
     val fill by animateColorAsState(if (checked) c.primary else c.raised, tween(150), label = "check-fill")
     val edge by animateColorAsState(if (checked) c.primary else Color(0xFFC9CFCE), tween(150), label = "check-edge")
+    // The box fills in 150ms and the tick is drawn in over 350ms (the Success check recipe, rule 73).
+    val tick by animateFloatAsState(if (checked) 1f else 0f, tween(if (checked) PullsMotion.MEDIUM else PullsMotion.QUICK, easing = PullsMotion.InOut), label = "check-tick")
     val click = if (onClick != null) Modifier.clickable(role = Role.Checkbox, onClickLabel = label, onClick = onClick) else Modifier
     Box(modifier.size(size).clip(shape).background(fill).border(1.5.dp, edge, shape).then(click), contentAlignment = Alignment.Center) {
-        if (checked) LuIcon(Lu.tick, tint = Color.White, size = size * 0.64f)
+        if (tick > 0f) LuIcon(Lu.tick, tint = Color.White, size = size * 0.64f, progress = { tick })
     }
 }
 
@@ -445,7 +449,7 @@ fun PullsSheet(
         dragHandle = null,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
-        Column(Modifier.fillMaxWidth().then(sized).imePadding()) {
+        Column(Modifier.fillMaxWidth().then(sized).imePadding().panelReveal()) {
             Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).
@@ -661,30 +665,55 @@ fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
 // --- Progress and status marks ---
 
 /**
- * `.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot; done,
- * it is a still wash with a tick. No robot, compass or sparkle: those marks were dropped (rule 48).
+ * `.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When
+ * [done] turns true the ring finishes the turn it is on and then settles into a still wash with a
+ * tick (rule 72); one that starts out done is already still. No robot, compass or sparkle: those
+ * marks were dropped (rule 48).
  */
 @Composable
 fun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {
     val c = LocalPullsColors.current
-    Box(modifier.size(size), contentAlignment = Alignment.Center) {
-        if (done) {
-            Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))
-            LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)
-        } else {
-            RunningOrb(size)
+    var settled by remember { mutableStateOf(done) }
+    LaunchedEffect(done) { if (!done) settled = false }
+    Crossfade(done && settled, modifier.size(size), tween(PullsMotion.QUICK), label = "orb-settle") { still ->
+        Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+            if (still) {
+                Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))
+                LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)
+            } else {
+                RunningOrb(size, finishing = done) { settled = true }
+            }
         }
     }
 }
 
+/** The time one turn of the orb's ring takes. */
+private const val ORB_TURN_MS = 1600
+
 @Composable
-private fun RunningOrb(size: Dp) {
+private fun RunningOrb(size: Dp, finishing: Boolean, onTurnDone: () -> Unit) {
     val c = LocalPullsColors.current
+    val moving = rememberMotionEnabled()
+    val turn = remember { Animatable(0f) }
+    LaunchedEffect(finishing, moving) {
+        when {
+            !moving -> if (finishing) onTurnDone()
+            // Round and round. An infinite animation, so a test that waits for idle is not held up by it.
+            !finishing -> {
+                turn.snapTo(0f)
+                turn.animateTo(360f, infiniteRepeatable(tween(ORB_TURN_MS, easing = LinearEasing)))
+            }
+            // Stopped: complete the turn it is on, then settle.
+            else -> {
+                turn.animateTo(360f, tween(((360f - turn.value) / 360f * ORB_TURN_MS).toInt().coerceAtLeast(1), easing = LinearEasing))
+                onTurnDone()
+            }
+        }
+    }
     val transition = rememberInfiniteTransition(label = "orb")
-    val angle by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(1600, easing = LinearEasing)), label = "orb-turn")
     val breath by transition.animateFloat(0.45f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "orb-breath")
     val head = Color(0xFF9AD3D6)
-    Canvas(Modifier.size(size).graphicsLayer { rotationZ = angle }) {
+    Canvas(Modifier.size(size).graphicsLayer { rotationZ = turn.value }) {
         val stroke = this.size.minDimension * (4f / 30f)
         drawArc(
             brush = Brush.sweepGradient(0f to c.accentTeal.copy(alpha = 0f), 0.7f to c.accentTeal, 1f to head, center = center),

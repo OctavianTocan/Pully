@@ -81,6 +81,7 @@ import com.octaviantocan.pulls.ui.ai.startTour
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
+import com.octaviantocan.pulls.ui.design.IconSwap
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
@@ -696,7 +697,7 @@ private fun BottomBar(
             modifier = Modifier.weight(1f),
             container = c.primary,
             contentColor = Color.White,
-            trailing = { LuIcon(if (done && canApprove) Lu.check else Lu.arrow, tint = Color.White, size = 20.dp) },
+            trailing = { IconSwap(if (done && canApprove) Lu.check else Lu.arrow) { LuIcon(it, tint = Color.White, size = 20.dp) } },
         )
     }
 }

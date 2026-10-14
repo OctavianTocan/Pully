@@ -513,15 +513,17 @@
     },
     "orb": {
       "composable": "Orb",
-      "summary": "The AI's mark. While work runs, a comet ring turns around the bot and the bot breathes. Done, it is a still wash.",
+      "summary": "The AI's mark. While work runs, a comet ring turns around a breathing dot. When work stops the ring finishes its turn and settles into a still wash with a tick.",
       "usage": [
         "AI work looks alive: show the orb while it runs and the outputs as they arrive.",
-        "One AI mark per screen."
+        "Three grey bars may sit under it as a hint of where the answer arrives; they never replace it."
       ],
       "rules": [
         18,
-        37,
-        63
+        43,
+        63,
+        71,
+        72
       ],
       "variants": [
         {
