@@ -572,6 +572,7 @@
   },
   "ai": {
     "loading": "Loading…",
+    "working": "Working",
     "workingFor": "Working for {duration}",
     "workedFor": "Worked for {duration}",
     "stoppedAfter": "Stopped after {duration}",

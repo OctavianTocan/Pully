@@ -184,15 +184,16 @@
       "also": [
         "FloatIcon"
       ],
-      "summary": "A 44dp circle that floats on the page with the canvas shadow. Flat drops the fill and the shadow for sheet headers.",
+      "summary": "A 44dp circle that floats on the page with the canvas shadow. Flat drops the fill and the shadow for a small action inside a row.",
       "usage": [
         "Hold one icon, and give it a label for accessibility: FloatIcon does both for a Lu glyph.",
         "Every floating element carries the canvas shadow, so use this rather than a bare Box with a shadow.",
-        "Flat is for sheet headers only, where the sheet already floats."
+        "Flat is for small actions inside a row (copy, edit, delete). A sheet's close and back buttons are not flat: they look as they do on the page (rule 70)."
       ],
       "rules": [
         45,
-        47
+        47,
+        70
       ],
       "variants": [
         {
@@ -212,11 +213,12 @@
       "usage": [
         "Equal segments, one line of text each.",
         "The selected segment slides with the slide curve.",
-        "Flat drops the shadow when the pill sits inside something that already floats."
+        "Flat drops the shadow when the pill sits inside a card or a row. In a sheet it keeps its shadow, as on the page (rule 70)."
       ],
       "rules": [
         45,
-        54
+        54,
+        70
       ],
       "variants": [
         {

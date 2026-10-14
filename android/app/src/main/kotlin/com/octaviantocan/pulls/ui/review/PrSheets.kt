@@ -341,7 +341,6 @@ internal fun ModelSheet(settings: AppSettings, onClose: () -> Unit, onEffort: ()
                     }
                 },
                 Modifier.fillMaxWidth(),
-                flat = true,
                 leading = { index -> EngineMark(if (index == 1) "codex" else "claude-code", size = 20.dp) },
             )
         }

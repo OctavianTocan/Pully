@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.design
 
 import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContentScope
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
@@ -36,6 +38,7 @@ import androidx.compose.ui.graphics.layer.CompositingStrategy
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -74,6 +77,16 @@ object PullsMotion {
 
     /** How far a page slides in (`--distance-base`). */
     val SlideDistance = 8.dp
+}
+
+/**
+ * False when the person has turned system animations off ("Remove animations"): a looping effect
+ * such as the thinking shimmer then holds still instead of sweeping (rule 73).
+ */
+@Composable
+fun rememberMotionEnabled(): Boolean {
+    val resolver = LocalContext.current.contentResolver
+    return remember(resolver) { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f }
 }
 
 /** Blur is a render effect: Android 12 and up. Below that the content is simply drawn sharp. */

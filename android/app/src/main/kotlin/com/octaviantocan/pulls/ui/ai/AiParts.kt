@@ -1,11 +1,20 @@
 package com.octaviantocan.pulls.ui.ai
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,11 +29,14 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -42,21 +54,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import com.octaviantocan.pulls.data.Activity
 import com.octaviantocan.pulls.data.Usage
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TOUCH
+import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
+import com.octaviantocan.pulls.ui.design.softBlur
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.tc
 import kotlinx.coroutines.delay
@@ -75,20 +100,94 @@ internal fun rememberNow(running: Boolean): Long {
     return now
 }
 
-/** The `ai-shimmer` text: a light band sweeping across at half/full opacity, 2s per pass. */
+/**
+ * The thinking shimmer, as Perplexity does it (rule 72): the content sits at full strength and a
+ * tilted band dims it to a third as it sweeps left to right, 1200ms a pass, looping. With system
+ * animations off nothing sweeps. Apply it to a row to shimmer verb and seconds as one unit.
+ */
 @Composable
-internal fun Shimmer(text: String, style: TextStyle, modifier: Modifier = Modifier, maxLines: Int = 1) {
-    val c = LocalPullsColors.current
-    val base = c.text.copy(alpha = 0.5f)
-    val peak = c.text.copy(alpha = 0.95f)
+internal fun Modifier.shimmer(): Modifier {
+    val moving = rememberMotionEnabled()
     val transition = rememberInfiniteTransition(label = "ai-shimmer")
-    val shift by transition.animateFloat(1f, -1f, infiniteRepeatable(tween(2000, easing = LinearEasing), RepeatMode.Restart), label = "shift")
-    val width = 600f
-    val brush = Brush.horizontalGradient(
-        0.35f to base, 0.5f to peak, 0.65f to base,
-        startX = shift * width, endX = shift * width + width * 2,
-    )
-    Text(text, modifier, style = style.copy(brush = brush), maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+    val phase by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(SHIMMER_MS, easing = LinearEasing), RepeatMode.Restart), label = "phase")
+    if (!moving) return this
+    // raw-value-ok: an alpha mask that takes opacity away from the content, never drawn as a colour
+    val dim = Color.Black.copy(alpha = 0.67f)
+    return this.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+        drawContent()
+        val band = size.width * BAND_SHARE
+        val x = -band + phase * (size.width + band)
+        // The gradient's axis runs 20 degrees off horizontal, which tilts the band 20 degrees off vertical.
+        drawRect(
+            Brush.linearGradient(0f to Color.Transparent, 0.5f to dim, 1f to Color.Transparent, start = Offset(x, 0f), end = Offset(x + band, band * BAND_TILT)),
+            blendMode = BlendMode.DstOut,
+        )
+    }
+}
+
+private const val SHIMMER_MS = 1200
+private const val BAND_SHARE = 0.45f
+private const val BAND_TILT = 0.36f // tan(20 degrees)
+
+/** A line of text that shimmers while it is live. */
+@Composable
+internal fun Shimmer(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier, maxLines: Int = 1) {
+    Text(text, modifier.shimmer(), style = style, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+}
+
+/**
+ * A line that is replaced by the next one swaps like transitions.dev's Thinking states: the old
+ * line leaves upward through a 2px blur while the new one rises in from below, both at once in
+ * 150ms ease-in-out, 8dp of travel, the arrival held back 50ms.
+ */
+@Composable
+internal fun ThinkingSwap(target: String, modifier: Modifier = Modifier, content: @Composable (String) -> Unit) {
+    val travel = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
+    AnimatedContent(
+        targetState = target,
+        modifier = modifier,
+        transitionSpec = {
+            val enter = fadeIn(tween(PullsMotion.QUICK, delayMillis = SWAP_GAP_MS, easing = PullsMotion.InOut)) +
+                slideInVertically(tween(PullsMotion.QUICK, delayMillis = SWAP_GAP_MS, easing = PullsMotion.InOut)) { travel }
+            val exit = fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.InOut)) +
+                slideOutVertically(tween(PullsMotion.QUICK, easing = PullsMotion.InOut)) { -travel }
+            (enter togetherWith exit) using SizeTransform(clip = false)
+        },
+        label = "thinking-swap",
+    ) { line ->
+        val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.QUICK, easing = PullsMotion.InOut) }, label = "swap-blur") {
+            if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurSmall
+        }
+        Box(Modifier.softBlur(blur)) { content(line) }
+    }
+}
+
+private const val SWAP_GAP_MS = 50
+
+/**
+ * The one line above a running log (rule 72): a present-tense verb in the secondary colour and the
+ * elapsed seconds in the tertiary one, in tabular digits so the number does not jitter. Verb and
+ * seconds shimmer together.
+ */
+@Composable
+internal fun ThinkingHeader(verb: String, seconds: String, style: TextStyle, modifier: Modifier = Modifier) {
+    val c = LocalPullsColors.current
+    Row(modifier.shimmer(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        ThinkingSwap(verb, Modifier.weight(1f, fill = false)) { Text(it, style = style, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        Text(seconds, style = style.copy(fontFeatureSettings = "tnum"), color = c.mute, maxLines = 1)
+    }
+}
+
+/** Where a step line's text starts. The dot sits 7dp in, so its centre is 10dp from the margin. */
+private val STEP_INDENT = 28.dp
+
+/** The dot in front of a step line: 6dp, centred on the first line of text (rule 72). */
+@Composable
+private fun StepDot(color: Color, style: TextStyle) {
+    val lineHeight = with(LocalDensity.current) { (if (style.lineHeight.isSpecified) style.lineHeight else style.fontSize * 1.4f).toDp() }
+    Box(Modifier.width(STEP_INDENT).height(lineHeight), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.padding(start = 7.dp).size(6.dp).clip(CircleShape).background(color))
+    }
 }
 
 /** `SeverityBadge`: `badge` tinted red (bug), amber (risk) or gray (nit). */
@@ -133,7 +232,7 @@ internal fun AiUsageLine(usage: Usage?, modifier: Modifier = Modifier, durationM
     }
 }
 
-/** `AiWorkedFor`: "Worked for 2m 3s · Ran 3 commands" that unfolds the log. */
+/** `AiWorkedFor`: "Worked for 2m 3s · Ran 3 commands", a button with a chevron (right folded, down open) that unfolds the log. */
 @Composable
 private fun AiWorkedFor(label: String, summary: String, failed: Boolean, expandable: Boolean, open: Boolean, onToggle: () -> Unit, style: TextStyle, content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
@@ -145,16 +244,15 @@ private fun AiWorkedFor(label: String, summary: String, failed: Boolean, expanda
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            PhIcon("clock", tint = color, size = 16.dp)
             Text(label, style = style, color = color, maxLines = 1)
             if (summary.isNotEmpty()) Text("· $summary", Modifier.weight(1f, fill = false), style = style, color = c.mute, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (expandable) PhIcon(if (open) "caret-up" else "caret-down", tint = color, size = 13.dp)
+            if (expandable) LuIcon(if (open) Lu.chevd else Lu.chev, tint = color, size = 14.dp)
         }
         if (expandable && open) content()
     }
 }
 
-/** `AiActivityRow`: icon, title (shimmering while running), newest line of prose, timing, unfoldable text. */
+/** `AiActivityRow`: a dot, the step as one sentence (shimmering while it runs), timing, unfoldable text. Never italic (rule 72). */
 @Composable
 private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean, compact: Boolean, style: TextStyle) {
     val c = LocalPullsColors.current
@@ -164,20 +262,6 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
     val running = activity.status == "running"
     val failed = activity.status == "failed"
     val prose = activity.kind == "thinking" || activity.kind == "text"
-    val icon = when {
-        failed -> "x-circle"
-        warning -> "warning"
-        activity.kind == "thinking" -> "brain"
-        activity.kind == "text" -> "pencil-simple-line"
-        activity.kind == "status" -> "info"
-        else -> when (toolCategory(activity.tool)) {
-            ToolCategory.Command -> "terminal"
-            ToolCategory.Edit -> "pencil-simple"
-            ToolCategory.Read -> "file-text"
-            ToolCategory.Search -> "magnifying-glass"
-            ToolCategory.Other -> "wrench"
-        }
-    }
     val fullText = activity.text?.trim().orEmpty()
     val preview = if (prose && !failed) lastLine(fullText) else ""
     val expandable = prose && !failed && fullText.isNotEmpty() && fullText != preview
@@ -194,40 +278,43 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
         failed -> c.error
         warning -> c.amber
         activity.kind == "status" -> c.mute
-        running -> c.text
-        else -> c.fade
+        else -> c.muted
     }
-    val italic = warning || activity.kind == "status"
-    val rowStyle = style.copy(fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal)
+    val dot = when {
+        failed -> c.error
+        warning -> c.amber
+        else -> c.text
+    }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(
+        Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
                 .then(if (expandable) Modifier.defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button) { expanded = !expanded } else Modifier),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            contentAlignment = Alignment.CenterStart,
         ) {
-            PhIcon(icon, tint = tone, size = 16.dp)
-            Row(Modifier.weight(1f)) {
-                // Phones: two lines (`max-md:line-clamp-2`).
-                if (running) Shimmer(activity.title, rowStyle, maxLines = 2)
-                else Text(
-                    androidx.compose.ui.text.buildAnnotatedString {
-                        append(activity.title)
-                        if (preview.isNotEmpty()) {
-                            pushStyle(androidx.compose.ui.text.SpanStyle(color = c.mute))
-                            append(" $preview")
-                            pop()
-                        }
-                    },
-                    style = rowStyle, color = tone, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                StepDot(dot, style)
+                Row(Modifier.weight(1f)) {
+                    // Phones: two lines (`max-md:line-clamp-2`).
+                    if (running) Shimmer(activity.title, style, tone, maxLines = 2)
+                    else Text(
+                        androidx.compose.ui.text.buildAnnotatedString {
+                            append(activity.title)
+                            if (preview.isNotEmpty()) {
+                                pushStyle(androidx.compose.ui.text.SpanStyle(color = c.mute))
+                                append(" $preview")
+                                pop()
+                            }
+                        },
+                        style = style, color = tone, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (timingLabel != null) Text(timingLabel, Modifier.padding(start = 6.dp), style = PullsType.xs, color = if (timing.state == TimingState.Idle) c.amber else c.mute, maxLines = 1)
+                if (expandable) LuIcon(if (expanded) Lu.chevd else Lu.chev, Modifier.padding(start = 6.dp, top = 3.dp), tint = c.mute, size = 14.dp)
             }
-            if (timingLabel != null) Text(timingLabel, style = PullsType.xs, color = if (timing.state == TimingState.Idle) c.amber else c.mute, maxLines = 1)
-            if (expandable) PhIcon(if (expanded) "caret-up" else "caret-down", tint = c.mute, size = 13.dp)
         }
-        if (failed && fullText.isNotEmpty()) Text(fullText, Modifier.padding(start = 20.dp), style = PullsType.xs, color = c.error)
+        if (failed && fullText.isNotEmpty()) Text(fullText, Modifier.padding(start = STEP_INDENT), style = PullsType.xs, color = c.error)
         if (expanded) {
-            Box(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(4.dp)).background(c.raised).verticalScroll(rememberScrollState()).padding(8.dp)) {
+            Box(Modifier.padding(start = STEP_INDENT).fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(4.dp)).background(c.raised).verticalScroll(rememberScrollState()).padding(8.dp)) {
                 SelectionContainer { Text(fullText, style = PullsType.xs, color = c.fade) }
             }
         }
@@ -235,9 +322,11 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
 }
 
 /**
- * `AiActivityLog`, complete: while [running], "Working for …", the newest rows (older ones
- * behind "+n more") and a shimmering tail; once settled, a "Worked for … · Ran 3 commands"
- * disclosure. [outcome] is `done`, `failed` or `stopped`.
+ * `AiActivityLog`, complete (rule 72). While [running]: one shimmering line, a verb with the elapsed
+ * seconds ("Working 12s"; "Thinking" before the first step, or [workingVerb] when given), the newest
+ * steps under it as dot lines (older ones behind "+n more"), and the live orb on the dot column. Once
+ * settled: a "Worked for … · Ran 3 commands" button that unfolds the steps. [outcome] is `done`,
+ * `failed` or `stopped`.
  */
 @Composable
 internal fun AiActivityLogFull(
@@ -248,6 +337,7 @@ internal fun AiActivityLogFull(
     endedAt: Long? = null,
     outcome: String = "done",
     compact: Boolean = false,
+    workingVerb: String? = null,
 ) {
     val c = LocalPullsColors.current
     val messages = LocalMessages.current
@@ -264,35 +354,22 @@ internal fun AiActivityLogFull(
     val end = endedAt ?: tracked.maxOfOrNull { it.activity.endedAt ?: it.seenAt }
     val duration = if (start == null) formatClockDuration(0) else formatClockDuration((if (running) now else end ?: start) - start)
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (running) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PhIcon("hammer", tint = c.fade, size = 16.dp)
-                Text(messages.t("ai.workingFor", "duration" to duration), style = style, color = c.fade)
-            }
-            HorizontalDivider(color = c.border)
+            val verb = workingVerb ?: if (activities.isEmpty()) messages.t("ai.verb.thinking.now") else messages.t("ai.working")
+            ThinkingHeader(verb, duration, style)
             if (hidden > 0 || showAll) {
                 Text(
                     if (showAll) messages.t("ai.showLess") else messages.t("ai.more", "n" to hidden),
-                    Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { showAll = !showAll }.padding(vertical = 12.dp),
+                    Modifier.padding(start = STEP_INDENT).defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { showAll = !showAll }.padding(vertical = 12.dp),
                     style = PullsType.xs, color = c.mute,
                 )
             }
             tracked.drop(hidden).forEachIndexed { index, row ->
                 key(row.id) { AiActivityRow(row, now, isWarning(row.activity, index + hidden), compact, style) }
             }
-            val last = activities.lastOrNull()
-            val tail = when {
-                last == null -> messages.t("ai.loading")
-                last.status == "running" -> null
-                else -> messages.t("ai.verb.thinking.now")
-            }
-            if (tail != null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PhIcon("brain", tint = c.text, size = 16.dp)
-                    Shimmer(tail, style)
-                }
-            }
+            // The live mark sits under the newest line, centred on the dots' column (10dp in).
+            Orb(Modifier.padding(start = 2.dp), size = 16.dp)
         } else if (activities.isNotEmpty() || startedAt != null) {
             val label = when (outcome) {
                 "failed" -> messages.t("ai.failedAfter", "duration" to duration)
@@ -301,7 +378,20 @@ internal fun AiActivityLogFull(
             }
             val summary = summarizeTools(activities).joinToString(", ") { (category, count) -> messages.tc("ai.groups.${category.key}", count) }
             AiWorkedFor(label, summary, outcome == "failed", activities.isNotEmpty(), open, { open = !open }, style) {
-                Column(Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // The steps hang from a 1dp line through the dots that fades to nothing over its last 200dp (or its last half, when the log is short).
+                val line = c.border
+                Column(
+                    Modifier.drawBehind {
+                        val fade = minOf(200.dp.toPx(), size.height / 2)
+                        val x = 10.dp.toPx()
+                        val top = style.lineHeight.toPx() / 2
+                        drawLine(
+                            Brush.verticalGradient(0f to line, 1f - fade / size.height to line, 1f to Color.Transparent),
+                            Offset(x, top), Offset(x, size.height), strokeWidth = 1.dp.toPx(),
+                        )
+                    },
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     tracked.forEachIndexed { index, row -> key(row.id) { AiActivityRow(row, now, isWarning(row.activity, index), compact, style) } }
                 }
             }

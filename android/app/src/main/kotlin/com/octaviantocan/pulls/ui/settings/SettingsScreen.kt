@@ -150,7 +150,7 @@ private fun MainSheet(nav: Nav, open: (String) -> Unit) {
                     listOf("System", "Light", "Dark"),
                     themes.indexOf(settings.theme).coerceAtLeast(0),
                     { settings.updateTheme(themes[it]) },
-                    Modifier.fillMaxWidth(), flat = true,
+                    Modifier.fillMaxWidth(),
                 )
             }
             SheetCard {
@@ -167,7 +167,7 @@ private fun MainSheet(nav: Nav, open: (String) -> Unit) {
                     listOf(t("settings.unified"), t("settings.split")),
                     layouts.indexOf(settings.layout).coerceAtLeast(0),
                     { settings.updateLayout(layouts[it]) },
-                    Modifier.fillMaxWidth(), flat = true,
+                    Modifier.fillMaxWidth(),
                 )
             }
             SheetCard {

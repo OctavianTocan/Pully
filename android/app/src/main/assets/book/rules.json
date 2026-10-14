@@ -339,7 +339,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "An icon from a published set (Lucide sparkles), never a hand-drawn glyph. One per screen: it marks the AI actor, not labels that are already words."
+    "text": "Withdrawn on 2026-10-14: Tavi said the sparkle does not stay, so no icon marks AI. AI actions are marked by their words (\"Ask AI\", \"Analyze\") and by the live progress indicator of rule 72. The text it had: an icon from a published set (Lucide sparkles), never a hand-drawn glyph, one per screen."
   },
   {
     "n": 38,
@@ -446,7 +446,7 @@
       "bans",
       "review"
     ],
-    "text": "- Only the Claude Code and Codex marks stay, in colour. Both are monochrome today, a black asterisk and a grey knot.\n- The model is shown by its own icon. The Model row in the ⋯ sheet shows a robot head, and should show the icon of the model that was selected.\n- No generic AI glyph, no decorative icon. The ones named so far: the robot head (on each Tours row, on the Overview's \"Not analyzed yet\" card and on the Model row), the sparkle (on \"AI Analysis\" in Settings and on \"Ask AI\" in the toolbar over a selected line), the compass (beside \"Take a tour of this pull request\" and inside the \"Give me a tour\" button), the chat bubble (in the Ask bar) and the speech bubble on \"Request changes\". By the same kind: the plug on Server, the layout glyphs on Unified and Split, the zoom magnifiers on Code size, and the globe, key and eye in the Server fields.\n- Never the same icon twice on one card. Ask of every icon what fact it carries. This is rule 1 applied to icons.\n\nThe robot head also works as a status indicator, because the ring around it turns while a tour is writing. Not complained about: the three icons in the header capsule on the Overview, the gear, and the icons in the profile sheet.\n\nOpen: rule 37 keeps one Lucide sparkles icon per screen as the AI mark. The sparkle called hideous on \"Ask AI\" is the kind of mark rule 37 asks for, so the open question is whether that mark stays. Keep rule 37 unless Tavi says otherwise.\n\nThe `bans` check counts uses of the robot head, the sparkle, the compass and the chat bubble (`ai-glyph`), so new code cannot add one. The count may only fall."
+    "text": "- Only the Claude Code and Codex marks stay, in colour. Both are monochrome today, a black asterisk and a grey knot.\n- The model is shown by its own icon. The Model row in the ⋯ sheet shows a robot head, and should show the icon of the model that was selected.\n- No generic AI glyph, no decorative icon. The ones named so far: the robot head (on each Tours row, on the Overview's \"Not analyzed yet\" card and on the Model row), the sparkle (on \"AI Analysis\" in Settings and on \"Ask AI\" in the toolbar over a selected line), the compass (beside \"Take a tour of this pull request\" and inside the \"Give me a tour\" button), the chat bubble (in the Ask bar) and the speech bubble on \"Request changes\". By the same kind: the plug on Server, the layout glyphs on Unified and Split, the zoom magnifiers on Code size, and the globe, key and eye in the Server fields.\n- Never the same icon twice on one card. Ask of every icon what fact it carries. This is rule 1 applied to icons.\n\nThe robot head also works as a status indicator, because the ring around it turns while a tour is writing. Not complained about: the three icons in the header capsule on the Overview, the gear, and the icons in the profile sheet.\n\nSettled on 2026-10-14: the sparkle does not stay either, so rule 37 is withdrawn and no screen has an AI icon.\n\nThe `bans` check counts uses of the robot head, the sparkle, the compass and the chat bubble (`ai-glyph`), so new code cannot add one. The count may only fall."
   },
   {
     "n": 49,
@@ -647,6 +647,33 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Proposal, awaiting Tavi's confirmation. It comes from the frames of the reference recording, not from anything said. In the reference app the round ✕ in a sheet is the same white circle with a soft shadow as the round buttons on the page behind it. In this app the Settings sheet has a bare ✕ and segmented controls that are the reverse of the Inbox capsule (rule 49), so one kind of control looks different on a page and in a sheet. Which way a segmented control should go is Tavi's call: the canvas capsule is a white track with a grey selected segment, while Settings and the reference app use a grey track with a white selected segment.\n\nCheck: take one kind of control (close button, segmented control, chip, round button). Find it on a page and in a sheet. Same shape, fill and shadow."
+    "text": "Confirmed by Tavi on 2026-10-14. In the reference app the round ✕ in a sheet is the same white circle with a soft shadow as the round buttons on the page behind it. In this app the Settings sheet had a bare ✕ and segmented controls that were the reverse of the Inbox capsule (rule 49), so one kind of control looked different on a page and in a sheet. Now a sheet's close and back buttons are the round white button with its shadow, and the segmented controls in a sheet are the Inbox capsule. Which way a segmented control goes is still Tavi's call: the canvas capsule is a white track with a grey selected segment, the reference app uses a grey track with a white selected segment, and the app follows the canvas until he says otherwise.\n\nCheck: take one kind of control (close button, segmented control, chip, round button). Find it on a page and in a sheet. Same shape, fill and shadow."
+  },
+  {
+    "n": 71,
+    "title": "A live indicator may have shimmer bars under it.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Rule 43 says no shimmer bars standing in for content. Tavi confirmed that bars are fine next to a live indicator, as in Perplexity's \"Thinking…\", where three grey bars sit under the mark and the word, the second and third a little shorter than the first. So the live indicator stays, and grey bars may sit under it as a hint of where the output will arrive. Bars never replace the indicator and never stand alone. Rule 51's skeletons for pages and lists whose shape is known are unchanged. The canvas text of rule 43 is unchanged.\n\nCheck: while AI work runs there is a live indicator on screen. Any bars sit under it."
+  },
+  {
+    "n": 72,
+    "title": "Thinking text is a shimmering plain sentence with a dot.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tavi asked for the AI's thinking text to look more like Perplexity's. While work runs there is one line, a present-tense verb and the elapsed seconds (\"Working 12s\"; \"Thinking\" before the first step), the verb in the muted colour and the seconds in the faint one, in tabular digits, shimmering together. The shimmer leaves the text at full strength and dims a tilted band to a third of its opacity as it sweeps left to right, 1200ms a pass; with system animations off nothing sweeps. Each step is one plain sentence about the task, never the tool, in regular weight and never italic, after a 6dp dot in the text colour (red when it failed, amber for a warning) whose centre is 10dp in from the margin; the dot replaces every per-row icon. The live orb sits under the newest line on the dot's column at 16dp. When the line is replaced by another, the old one leaves upward through a 2px blur while the new one rises in from below, 150ms ease-in-out, 8dp of travel, a 50ms gap (transitions.dev, Thinking states). When work ends the shimmer stops and the line becomes \"Worked for 2m 3s\", a button with a chevron, right when folded and down when open, whose steps hang from a 1dp line that fades out. The sizes taken from screenshots are estimates, not measured on a device.\n\nCheck: start an analysis and watch it. One header line with the time, a dim band passing through it. Step lines with a dot, no icon, never italic. When the work ends, the shimmer stops and the line goes to the past tense with a chevron. With animations off nothing sweeps."
+  },
+  {
+    "n": 73,
+    "title": "Motion uses one set of numbers.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tavi sent transitions.dev as the reference. Durations: 150ms for closes and text swaps, 250ms for opens, tabs and page slides, 350ms for a panel closing, 400ms for a panel opening. One easing, smooth out, `cubic-bezier(0.22, 1, 0.36, 1)`, for opens, closes and slides; ease-in-out for swaps; linear for shimmer. Blur is 2px for small things and 3px for page-sized changes. Scale is 0.97 for menus and 0.96 for dialogs. Travel is 4 to 8dp for text and pages. The mapping from the library's transitions to this app's surfaces was proposed by the rules file and Tavi can retune any row: menus use the dropdown recipe, dialogs the modal one, sheets panel reveal, the capsule tabs sliding, page changes page side-by-side, the thinking line shimmer text and thinking states. Looping effects follow the system setting \"Remove animations\".\n\nCheck: open and close one menu, one sheet, one dialog and one toast. Each takes the time above and eases out."
   }
 ]

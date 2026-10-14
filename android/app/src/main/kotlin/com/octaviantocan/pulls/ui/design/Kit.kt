@@ -7,6 +7,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -159,7 +160,7 @@ fun Modifier.floatShadow(shape: Shape, level: PullsShadow = PullsShadow.Button):
     }
 }
 
-/** `.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow (sheet headers). */
+/** `.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row. */
 @Composable
 fun FloatButton(
     onClick: () -> Unit,
@@ -404,7 +405,7 @@ fun ProfileDot(modifier: Modifier = Modifier, size: Dp = 40.dp) {
 // --- Bottom sheet ---
 
 /**
- * `.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of close button, centered
+ * `.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered
  * title and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is
  * as tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half
  * the screen and pulls up to the full height. [back] swaps the close X for a back arrow.
@@ -448,8 +449,9 @@ fun PullsSheet(
         Column(Modifier.fillMaxWidth().then(sized).imePadding()) {
             Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (back != null) FloatIcon(Lu.back, "Back", back, flat = true, iconSize = 22.dp)
-                else FloatIcon(Lu.close, "Close", dismiss, flat = true, iconSize = 22.dp)
+                // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).
+                if (back != null) FloatIcon(Lu.back, "Back", back)
+                else FloatIcon(Lu.close, "Close", dismiss)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }
                 }
@@ -715,11 +717,11 @@ fun ProgressRing(n: Int, of: Int, modifier: Modifier = Modifier, size: Dp = 30.d
     }
 }
 
-/** `.dot`: the live marker, a 10dp accent dot that breathes. */
+/** `.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart). */
 @Composable
-fun BreathingDot(modifier: Modifier = Modifier, size: Dp = 10.dp) {
+fun BreathingDot(modifier: Modifier = Modifier, size: Dp = 10.dp, delayMs: Int = 0) {
     val transition = rememberInfiniteTransition(label = "dot")
-    val phase by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1200), RepeatMode.Reverse), label = "dot-phase")
+    val phase by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1200), RepeatMode.Reverse, StartOffset(delayMs)), label = "dot-phase")
     Box(
         modifier.size(size).graphicsLayer { alpha = 0.45f + 0.55f * phase; scaleX = 0.82f + 0.18f * phase; scaleY = 0.82f + 0.18f * phase }
             .clip(CircleShape).background(LocalPullsColors.current.accentTeal),

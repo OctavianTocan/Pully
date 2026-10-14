@@ -94,18 +94,9 @@ internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifie
 @Composable
 internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     val task = session.taskFor("tour") ?: return
-    val c = LocalPullsColors.current
-    val now = rememberNow(true)
-    Column(
-        modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Orb(size = 24.dp)
-            Shimmer("Building the tour… ${formatClockDuration(now - task.startedAt)}", PullsType.base.copy(color = c.text), Modifier.weight(1f))
-            PillButton("Stop", { session.cancelTask(task.id) })
-        }
-        AiActivityLogFull(task.activities, running = true)
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        AiActivityLogFull(task.activities, running = true, Modifier.weight(1f), startedAt = task.startedAt.takeIf { it > 0 }, workingVerb = "Building the tour")
+        PillButton("Stop", { session.cancelTask(task.id) })
     }
 }
 

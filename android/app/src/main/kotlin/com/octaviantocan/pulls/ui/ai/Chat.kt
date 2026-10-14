@@ -233,7 +233,8 @@ private fun TypingDots() {
         Modifier.floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        repeat(3) { com.octaviantocan.pulls.ui.design.BreathingDot(size = 6.dp) }
+        // Three dots that pulse 150ms apart, like Perplexity's.
+        repeat(3) { com.octaviantocan.pulls.ui.design.BreathingDot(size = 6.dp, delayMs = it * 150) }
     }
 }
 

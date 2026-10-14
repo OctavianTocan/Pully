@@ -102,7 +102,7 @@ internal fun SelectionActionsImpl(session: ReviewSession, path: String, side: St
             if (available && !composing) PillButton(t("ask.action"), ::askAi)
             FloatIcon(if (copied == "label") Lu.check else Lu.copy, if (copied == "label") t("ask.copied") else t("ask.copyLocation"), { copyText(context, label); copied = "label" }, flat = true, size = 40.dp, tint = c.muted)
             if (link != null) FloatIcon(if (copied == "link") Lu.check else Lu.ext, if (copied == "link") t("ask.copied") else t("ask.copyLink"), { copyText(context, link); copied = "link" }, flat = true, size = 40.dp, tint = c.muted)
-            FloatIcon(Lu.close, t("common.close"), onDone, flat = true, size = 40.dp, tint = c.muted)
+            FloatIcon(Lu.close, t("common.close"), onDone, size = 40.dp)
         }
         if (composing) {
             startError?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = PullsType.sm, color = c.error) }
@@ -110,10 +110,8 @@ internal fun SelectionActionsImpl(session: ReviewSession, path: String, side: St
             if (sent != null) {
                 Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     UserBubble(sent)
-                    Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Orb(size = 20.dp)
-                        Shimmer(t("ai.loading"), PullsType.sm)
-                    }
+                    val askedAt = remember(sent) { System.currentTimeMillis() }
+                    Row(Modifier.padding(horizontal = 4.dp)) { AiActivityLogFull(emptyList(), running = true, startedAt = askedAt, compact = true) }
                 }
             } else AskComposer(placeholder = t("ask.placeholder"), autofocus = true) { question ->
                 sentQuestion = question
