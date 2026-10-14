@@ -10,7 +10,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -96,6 +95,8 @@ import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.Triage
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.design.BlurSwitch
@@ -250,7 +251,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             return
         }
         archive.archive(key, pull.headSha)
-        toaster.show("Archived #${pull.number}", "Undo") { archive.restore(key) }
+        toaster.show("Archived #${pull.number}", "Undo", Cue.Success) { archive.restore(key) }
     }
 
     Box(Modifier.fillMaxSize().background(c.base)) {
@@ -328,7 +329,7 @@ internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSett
         FloatIcon(Lu.cog, "Settings", onSettings)
         CapsuleTabs(listOf("Inbox", "Tours"), tab, onTab, Modifier.weight(1f))
         Box(
-            Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Profile", onClick = onProfile),
+            Modifier.size(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Profile", onClick = onProfile),
             contentAlignment = Alignment.Center,
         ) {
             if (viewer != null) GithubAvatar(viewer, size = 40.dp) else ProfileDot(size = 40.dp)
@@ -435,7 +436,7 @@ private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, mod
         modifier
             .fillMaxWidth()
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
-            .clickable(role = Role.Button, onClickLabel = "Open $label", onClick = onClick)
+            .cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onClick)
             .padding(start = 16.dp, end = 16.dp, top = if (first) 16.dp else 18.dp, bottom = 6.dp),
         style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
         color = c.muted,
@@ -523,7 +524,7 @@ internal fun SwipeRow(
                         else -> animate(end, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                     }
                 })
-                .clickable(role = Role.Button, onClickLabel = label, onClick = onOpen),
+                .cueClickable(role = Role.Button, onClickLabel = label, onClick = onOpen),
         ) { content() }
     }
 }
@@ -621,7 +622,7 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
         )
         if (openLabel != null) {
             Box(
-                Modifier.height(40.dp).clip(CircleShape).background(c.cta).clickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpen).padding(horizontal = 16.dp),
+                Modifier.height(40.dp).clip(CircleShape).background(c.cta).cueClickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpen).padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) { Text("Open", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
         }

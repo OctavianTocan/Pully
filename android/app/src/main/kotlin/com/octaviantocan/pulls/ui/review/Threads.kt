@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +37,10 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.ReviewThread
 import com.octaviantocan.pulls.data.ThreadComment
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.Sounds
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.AskThreadCard
 import com.octaviantocan.pulls.ui.design.Badge
 import com.octaviantocan.pulls.ui.design.CtaButton
@@ -85,8 +88,8 @@ private class ThreadActions(val session: ReviewSession) {
         error = null
         session.scope.launch {
             runCatching { action() }
-                .onSuccess { after(); session.reloadReviews() }
-                .onFailure { error = it.message ?: it.toString() }
+                .onSuccess { after(); session.reloadReviews(); Sounds.play(Cue.Success, Emphasis.Subtle) }
+                .onFailure { error = it.message ?: it.toString(); Sounds.play(Cue.Error, Emphasis.Subtle) }
             busy = false
         }
     }
@@ -108,7 +111,7 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
         if (!open) {
             val first = thread.comments.firstOrNull()
             Row(
-                Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp).clickable(role = Role.Button) { open = true }.padding(horizontal = 12.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp).cueClickable(role = Role.Button) { open = true }.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -167,7 +170,7 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     if (!thread.pending) {
                         Row(
-                            Modifier.weight(1f).height(44.dp).clickable(role = Role.Button) { replying = true },
+                            Modifier.weight(1f).height(44.dp).cueClickable(role = Role.Button) { replying = true },
                             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -256,7 +259,7 @@ fun InlineFinding(session: ReviewSession, finding: CritiqueFinding, highlighted:
     Column(
         Modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX).fillMaxWidth().clip(shape)
             .border(1.dp, if (highlighted) c.amber else c.border, shape).background(c.base)
-            .clickable(role = Role.Button) { session.focusFinding(finding) }
+            .cueClickable(role = Role.Button) { session.focusFinding(finding) }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {

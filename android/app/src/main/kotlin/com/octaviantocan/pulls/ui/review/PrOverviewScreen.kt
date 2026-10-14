@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -68,6 +67,7 @@ import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TaskState
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.AiActivityLog
 import com.octaviantocan.pulls.ui.ai.AnalyzeSplitButton
 import com.octaviantocan.pulls.ui.ai.BriefSection
@@ -234,7 +234,7 @@ private fun RowScope.Segment(label: String, selected: Boolean, onClick: (() -> U
     val c = LocalPullsColors.current
     Box(
         Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(if (selected) c.paper2 else Color.Transparent)
-            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClickLabel = label, onClick = onClick) else Modifier),
+            .then(if (onClick != null) Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
         content = content,
     )
@@ -251,7 +251,7 @@ private fun MetaLine(head: PrHead, onOpenRepo: (String, String) -> Unit) {
         head.author?.let { login ->
             sep()
             Text(
-                login, Modifier.weight(1f, fill = false).clickable(role = Role.Button, onClickLabel = "Open $login on GitHub") { uri.openUri("https://github.com/${login.removeSuffix("[bot]")}") },
+                login, Modifier.weight(1f, fill = false).cueClickable(role = Role.Button, onClickLabel = "Open $login on GitHub") { uri.openUri("https://github.com/${login.removeSuffix("[bot]")}") },
                 style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -265,7 +265,7 @@ private fun MetaLine(head: PrHead, onOpenRepo: (String, String) -> Unit) {
         if (head.owner != null && head.repo != null) {
             sep()
             Text(
-                head.repo, Modifier.weight(1f, fill = false).clickable(role = Role.Button, onClickLabel = "Open ${head.repo}") { onOpenRepo(head.owner, head.repo) },
+                head.repo, Modifier.weight(1f, fill = false).cueClickable(role = Role.Button, onClickLabel = "Open ${head.repo}") { onOpenRepo(head.owner, head.repo) },
                 style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
@@ -284,7 +284,7 @@ private fun BranchRow(head: PrHead) {
         val done = copied == name
         Row(
             modifier.clip(RoundedCornerShape(6.dp)).background(c.accentWash)
-                .clickable(role = Role.Button, onClickLabel = "Copy $name") { copyText(context, name); copied = name }
+                .cueClickable(role = Role.Button, onClickLabel = "Copy $name") { copyText(context, name); copied = name }
                 .padding(horizontal = 8.dp, vertical = 3.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
@@ -345,7 +345,7 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
 private fun Cell(label: String, modifier: Modifier, onClick: (() -> Unit)? = null, value: @Composable RowScope.() -> Unit) {
     val c = LocalPullsColors.current
     Column(
-        modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = label, onClick = onClick) else Modifier),
+        modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(6.dp)).cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick) else Modifier),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(label, style = PullsType.sm, color = c.muted, maxLines = 1)
@@ -439,7 +439,7 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     val live = tasks.firstOrNull { it.running }
     AnalyzeCard(Modifier.padding(top = 16.dp).animateContentSize(), spacing = 10.dp) {
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClickLabel = "Show the steps") { logOpen = !logOpen },
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).cueClickable(role = Role.Button, onClickLabel = "Show the steps") { logOpen = !logOpen },
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -515,14 +515,14 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
                     append(" ")
                     appendCite("${finding.path.substringAfterLast('/')}:${finding.line}", c.activeText) { onCite(Cite(finding.path, finding.line)) }
                 },
-                Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button, onClickLabel = finding.title) { session.focusFinding(finding) }.padding(vertical = 11.dp),
+                Modifier.fillMaxWidth().hairlineTop(c.borderMute).cueClickable(role = Role.Button, onClickLabel = finding.title) { session.focusFinding(finding) }.padding(vertical = 11.dp),
                 style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.text,
             )
         }
         if (findings.isNotEmpty()) {
             // The findings sheet is also where findings are picked and posted as a review, so it is offered for a short list too.
             Text(
-                if (findings.size > shown.size) "Show all ${findings.size}" else "Open the review", Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
+                if (findings.size > shown.size) "Show all ${findings.size}" else "Open the review", Modifier.fillMaxWidth().hairlineTop(c.borderMute).cueClickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
                 style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
             )
         }
@@ -536,7 +536,7 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
                 "The review found nothing that needs you.", Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,
             )
             findings.isEmpty() -> Row(
-                Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button) { session.runCritique(context, null) }.padding(vertical = 11.dp),
+                Modifier.fillMaxWidth().hairlineTop(c.borderMute).cueClickable(role = Role.Button) { session.runCritique(context, null) }.padding(vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Look for problems", Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
@@ -566,7 +566,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
             Text("Files", style = PullsType.xl, color = c.text)
             Text(
                 "$reviewed of ${session.files.size} reviewed",
-                Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClickLabel = "Review progress") { top.progressOpen = true },
+                Modifier.clip(RoundedCornerShape(6.dp)).cueClickable(role = Role.Button, onClickLabel = "Review progress") { top.progressOpen = true },
                 style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted,
             )
         }
@@ -596,7 +596,7 @@ private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoa
     val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
     val base = file.path.substringAfterLast('/')
     Row(
-        Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button, onClickLabel = file.path, onClick = onOpen).padding(vertical = 11.dp),
+        Modifier.fillMaxWidth().hairlineTop(c.borderMute).cueClickable(role = Role.Button, onClickLabel = file.path, onClick = onOpen).padding(vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PullsCheck(reviewed, onClick = onToggle, label = "Mark ${file.path} reviewed")
@@ -639,7 +639,7 @@ private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?, onEdi
         if (data?.overview?.viewer?.canUpdate == true) {
             Box(
                 Modifier.padding(top = 6.dp).defaultMinSize(minHeight = 40.dp).clip(RoundedCornerShape(PullsRadius.lg))
-                    .clickable(role = Role.Button, onClickLabel = "Edit the description", onClick = onEdit),
+                    .cueClickable(role = Role.Button, onClickLabel = "Edit the description", onClick = onEdit),
                 contentAlignment = Alignment.CenterStart,
             ) { Text(if (markdown.isBlank()) "Add a description" else "Edit description", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
         }
@@ -676,7 +676,7 @@ private fun BottomBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                Modifier.height(44.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Ask", onClick = onAsk).padding(horizontal = 10.dp),
+                Modifier.height(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Ask", onClick = onAsk).padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {

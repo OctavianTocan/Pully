@@ -5,7 +5,6 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.DETAILS_INFO
@@ -772,7 +772,7 @@ fun Conversation(overview: PrOverview, onSelectCommit: (String) -> Unit) {
 @Composable
 internal fun LinkText(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val c = LocalPullsColors.current
-    Box(modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
+    Box(modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).cueClickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
         Text(text, style = PullsType.xs, color = c.fade)
     }
 }
@@ -821,10 +821,10 @@ fun TimelineEntry(item: PrTimelineItem, onSelectCommit: (String) -> Unit) {
                 item.commits.forEach { commit ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(
-                            Modifier.weight(1f).defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button, onClickLabel = t("overview.commitList.view")) { onSelectCommit(commit.oid) },
+                            Modifier.weight(1f).defaultMinSize(minHeight = TOUCH).cueClickable(role = Role.Button, onClickLabel = t("overview.commitList.view")) { onSelectCommit(commit.oid) },
                             contentAlignment = Alignment.CenterStart,
                         ) { Text(commit.headline, style = PullsType.xs, color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        Box(Modifier.defaultMinSize(minHeight = TOUCH).clickable { uri.openUri(commit.url) }.padding(start = 8.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.defaultMinSize(minHeight = TOUCH).cueClickable { uri.openUri(commit.url) }.padding(start = 8.dp), contentAlignment = Alignment.Center) {
                             Text(commit.abbreviatedOid, style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text.copy(alpha = 0.5f))
                         }
                     }
@@ -859,10 +859,10 @@ private fun CommentCard(item: PrTimelineItem) {
                 else -> t("overview.timeline.reviewed")
             }
             Text(verb, style = PullsType.sm, color = c.fade)
-            Text(prTimeAgo(item.createdAt), Modifier.clickable(enabled = url.isNotBlank()) { uri.openUri(url) }, style = PullsType.xs, color = c.text.copy(alpha = 0.5f))
+            Text(prTimeAgo(item.createdAt), Modifier.cueClickable(enabled = url.isNotBlank()) { uri.openUri(url) }, style = PullsType.xs, color = c.text.copy(alpha = 0.5f))
             if (minimized != null) {
                 Spacer(Modifier.weight(1f))
-                Box(Modifier.defaultMinSize(minHeight = TOUCH).clickable { showHidden = !showHidden }, contentAlignment = Alignment.Center) {
+                Box(Modifier.defaultMinSize(minHeight = TOUCH).cueClickable { showHidden = !showHidden }, contentAlignment = Alignment.Center) {
                     Text(t("overview.timeline.hidden", "reason" to minimized), style = PullsType.xs, color = c.fade)
                 }
             }
@@ -871,7 +871,7 @@ private fun CommentCard(item: PrTimelineItem) {
         if (review != null && review.commentCount > 0) {
             Column(Modifier.fillMaxWidth().topBorder(c.border).padding(horizontal = 12.dp, vertical = 6.dp)) {
                 Row(
-                    Modifier.defaultMinSize(minHeight = TOUCH).clickable { showInline = !showInline },
+                    Modifier.defaultMinSize(minHeight = TOUCH).cueClickable { showInline = !showInline },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
@@ -889,7 +889,7 @@ private fun CommentCard(item: PrTimelineItem) {
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         inline.path + (inline.line?.let { ":$it" } ?: ""),
-                                        Modifier.clickable(enabled = inline.url.isNotBlank()) { uri.openUri(inline.url) },
+                                        Modifier.cueClickable(enabled = inline.url.isNotBlank()) { uri.openUri(inline.url) },
                                         style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade,
                                     )
                                     if (inline.outdated) Text(
@@ -997,7 +997,7 @@ fun CommitList(
                         if (!compact) Text(prTimeAgo(commit.committedDate), style = PullsType.xs, color = c.text.copy(alpha = 0.5f), maxLines = 1)
                     }
                     Box(
-                        Modifier.defaultMinSize(minHeight = TOUCH).clickable(enabled = commit.url.isNotBlank()) { uri.openUri(commit.url) }.padding(start = 8.dp, end = 8.dp),
+                        Modifier.defaultMinSize(minHeight = TOUCH).cueClickable(enabled = commit.url.isNotBlank()) { uri.openUri(commit.url) }.padding(start = 8.dp, end = 8.dp),
                         contentAlignment = Alignment.Center,
                     ) { Text(commit.abbreviatedOid, style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text.copy(alpha = 0.5f)) }
                 }
@@ -1025,7 +1025,7 @@ fun Checks(checks: List<PrCheck>, summary: PrChecksSummary, url: String) {
                 Row(
                     // `rounded-md px-1 py-1`: no touch min-height here on the web either.
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                        .clickable { collapsed = if (isCollapsed) collapsed - bucket else collapsed + bucket }.padding(horizontal = 4.dp, vertical = 4.dp),
+                        .cueClickable { collapsed = if (isCollapsed) collapsed - bucket else collapsed + bucket }.padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -1052,7 +1052,7 @@ fun Checks(checks: List<PrCheck>, summary: PrChecksSummary, url: String) {
                         }
                         if (check.required) Text(t("overview.checks.required"), Modifier.border(1.dp, c.border, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp), style = PullsType.xs, color = c.fade)
                         check.url?.let { link ->
-                            Box(Modifier.clickable { uri.openUri(link) }.padding(horizontal = 4.dp, vertical = 2.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.cueClickable { uri.openUri(link) }.padding(horizontal = 4.dp, vertical = 2.dp), contentAlignment = Alignment.Center) {
                                 Text(t("overview.checks.details"), style = PullsType.xs, color = c.fade)
                             }
                         }

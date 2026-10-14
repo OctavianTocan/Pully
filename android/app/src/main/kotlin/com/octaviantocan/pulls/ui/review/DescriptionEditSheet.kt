@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -50,7 +51,7 @@ internal fun DescriptionEditSheet(session: ReviewSession, overview: PrOverview, 
             runCatching { session.repo.prAction(overview.id, "edit", body = text) }
                 .onSuccess {
                     session.reloadOverview()
-                    toaster.show("Description updated")
+                    toaster.show("Description updated", cue = Cue.Success)
                     onClose()
                 }
                 .onFailure { error = it.message ?: it.toString() }

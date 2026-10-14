@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,6 +77,8 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.nextUnreviewed
 import com.octaviantocan.pulls.data.ReviewFile
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.CodeFont
@@ -150,7 +151,7 @@ internal fun PrDiffScreen(
                 FileBody(session, ui, file, files, index, onPath, Modifier.weight(1f).fillMaxWidth())
             }
         }
-        if (menu == "files" || menu == "aa") Box(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
+        if (menu == "files" || menu == "aa") Box(Modifier.fillMaxSize().cueClickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
         MenuReveal(menu == "files", Modifier.offset { IntOffset(0, stripBottom.toInt()) }) {
             FilePicker(session, files, file, onPick = { onPath(it); menu = null })
         }
@@ -176,7 +177,7 @@ private fun FileStrip(file: ReviewFile?, position: Int, count: Int, expanded: Bo
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
-            Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClickLabel = "Choose a file", onClick = onFiles),
+            Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).cueClickable(role = Role.Button, onClickLabel = "Choose a file", onClick = onFiles),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -239,11 +240,11 @@ private fun FileBody(session: ReviewSession, ui: DiffUi, file: ReviewFile, files
                 )
                 Spacer(Modifier.weight(1f))
                 Row(
-                    Modifier.height(36.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Checkbox, onClickLabel = "Reviewed") {
+                    Modifier.height(36.dp).clip(RoundedCornerShape(8.dp)).cueClickable(role = Role.Checkbox, onClickLabel = "Reviewed") {
                         session.setReviewed(listOf(file.sha), !reviewed)
                         if (!reviewed) {
                             val done = files.count { it.sha in session.reviewed || it.path == file.path }
-                            toaster.show(if (done == files.size) "All ${files.size} files reviewed" else "$done of ${files.size} files reviewed")
+                            toaster.show(if (done == files.size) "All ${files.size} files reviewed" else "$done of ${files.size} files reviewed", cue = if (done == files.size) Cue.Success else null)
                             // Reviewing a file moves on to the next one still to review, after a beat to see the tick land.
                             val shaOf = files.associate { it.path to it.sha }
                             nextUnreviewed(files.map { it.path }, file.path) { path -> shaOf[path] in session.reviewed }?.let { next ->
@@ -339,8 +340,8 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
                 ui.drafts.remove(file.path)
                 focus.clearFocus()
                 session.reloadReviews()
-                toaster.show(if (post) "Comment posted" else "Comment added to your pending review")
-            }.onFailure { toaster.show(it.message ?: "Couldn't add the comment") }
+                toaster.show(if (post) "Comment posted" else "Comment added to your pending review", cue = Cue.Success)
+            }.onFailure { toaster.show(it.message ?: "Couldn't add the comment", cue = Cue.Error) }
             busy = false
         }
     }
@@ -391,7 +392,7 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
                         if (!hasPending) {
                             Box(
                                 Modifier.defaultMinSize(minHeight = 40.dp).clip(CircleShape)
-                                    .clickable(role = Role.Switch, onClickLabel = if (single) "Add comments to a review instead" else "Post comments at once instead") { single = !single }
+                                    .cueClickable(role = Role.Switch, onClickLabel = if (single) "Add comments to a review instead" else "Post comments at once instead") { single = !single }
                                     .padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -427,7 +428,7 @@ private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current:
             val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 48.dp).background(if (file.path == current?.path) c.paper else Color.Transparent)
-                    .clickable(role = Role.Button) { onPick(file.path) }.alpha(if (file.sha in session.reviewed && file.path != current?.path) 0.6f else 1f).padding(horizontal = 16.dp, vertical = 8.dp),
+                    .cueClickable(role = Role.Button) { onPick(file.path) }.alpha(if (file.sha in session.reviewed && file.path != current?.path) 0.6f else 1f).padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -469,7 +470,7 @@ private fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFo
                     val on = kotlin.math.abs(settings.codeZoom - zoom) < 0.04f
                     Box(
                         Modifier.height(36.dp).clip(CircleShape).background(if (on) c.chipOn else Color.Transparent)
-                            .clickable(role = Role.Tab) { settings.updateCodeZoom(zoom) }.padding(horizontal = 14.dp),
+                            .cueClickable(role = Role.Tab) { settings.updateCodeZoom(zoom) }.padding(horizontal = 14.dp),
                         contentAlignment = Alignment.Center,
                     ) { Text(name, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1) }
                 }
@@ -481,7 +482,7 @@ private fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFo
                     settings.updateShowThreads(!settings.showThreads)
                 }
             }
-            if (file != null) MenuRow("Copy path") { copyText(context, file.path); toaster.show("Copied ${file.path.substringAfterLast('/')}"); onDismiss() }
+            if (file != null) MenuRow("Copy path") { copyText(context, file.path); toaster.show("Copied ${file.path.substringAfterLast('/')}", cue = Cue.Success); onDismiss() }
             if (blob != null) MenuRow("Open on GitHub") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(blob))) }; onDismiss() }
             if (file != null && ui.canLoadFull(file)) MenuRow("Load the whole file") { ui.loadFullFile(file); onDismiss() }
         }
@@ -492,7 +493,7 @@ private fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFo
 private fun MenuRow(label: String, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val c = LocalPullsColors.current
     Row(
-        Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 12.dp),
+        Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).cueClickable(role = Role.Button, onClick = onClick).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {

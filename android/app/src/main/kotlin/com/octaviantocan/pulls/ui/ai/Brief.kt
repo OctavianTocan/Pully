@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.ai
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +40,7 @@ import com.octaviantocan.pulls.core.FindingSeverity
 import com.octaviantocan.pulls.core.markdown
 import com.octaviantocan.pulls.data.Brief
 import com.octaviantocan.pulls.data.TourBlock
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
@@ -79,7 +79,7 @@ internal fun BriefSection(session: ReviewSession, brief: Brief, onOpen: (BriefTa
             if (session.key != null && !running) {
                 Text(
                     "Redo",
-                    Modifier.defaultMinSize(minHeight = 44.dp).clickable(role = Role.Button, onClickLabel = "Write the brief again") { startBrief(session) }.padding(start = 12.dp).wrapContentHeight(Alignment.CenterVertically),
+                    Modifier.defaultMinSize(minHeight = 44.dp).cueClickable(role = Role.Button, onClickLabel = "Write the brief again") { startBrief(session) }.padding(start = 12.dp).wrapContentHeight(Alignment.CenterVertically),
                     style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
                 )
             }
@@ -205,7 +205,7 @@ private fun SectionView(session: ReviewSession, block: BriefBlock.Section, onOpe
     Column(Modifier.fillMaxWidth().animateContentSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             Modifier.fillMaxWidth().hairline(c.borderMute).defaultMinSize(minHeight = 44.dp)
-                .clickable(role = Role.Button, onClickLabel = if (open) "Fold ${block.title}" else "Unfold ${block.title}") { open = !open },
+                .cueClickable(role = Role.Button, onClickLabel = if (open) "Fold ${block.title}" else "Unfold ${block.title}") { open = !open },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(block.title, Modifier.weight(1f), style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = c.text)
@@ -221,7 +221,7 @@ private fun TargetLink(target: BriefTarget, onOpen: (BriefTarget) -> Unit) {
     val c = LocalPullsColors.current
     Text(
         target.path.substringAfterLast('/') + (target.line?.let { ":$it" } ?: ""),
-        Modifier.defaultMinSize(minHeight = 36.dp).clickable(role = Role.Button, onClickLabel = "Open ${target.path}") { onOpen(target) }.padding(vertical = 8.dp),
+        Modifier.defaultMinSize(minHeight = 36.dp).cueClickable(role = Role.Button, onClickLabel = "Open ${target.path}") { onOpen(target) }.padding(vertical = 8.dp),
         style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
         color = c.activeText, maxLines = 1,
     )

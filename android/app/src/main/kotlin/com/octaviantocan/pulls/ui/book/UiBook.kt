@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -198,7 +199,7 @@ private fun ComponentPage(book: BookData, page: BookPage, component: BookCompone
                 BodyText("Rule $n: ${book.rules.firstOrNull { it.n == n }?.title.orEmpty()}")
             }
         }
-        CtaButton("Copy prompt", { copyToClipboard(context, promptFor(page, component, declarations)); toaster.show("Prompt copied") }, Modifier.fillMaxWidth())
+        CtaButton("Copy prompt", { copyToClipboard(context, promptFor(page, component, declarations)); toaster.show("Prompt copied", cue = Cue.Success) }, Modifier.fillMaxWidth())
     }
 }
 

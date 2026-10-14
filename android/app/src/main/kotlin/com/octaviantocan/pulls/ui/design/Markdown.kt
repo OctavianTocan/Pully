@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.design
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.horizontalScroll
@@ -39,6 +38,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.em
+import com.octaviantocan.pulls.sound.cueClickable
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.gfm.strikethrough.Strikethrough
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
@@ -172,7 +172,7 @@ private fun Details(summary: String, body: String, style: TextStyle) {
     var open by androidx.compose.runtime.saveable.rememberSaveable(summary, body) { androidx.compose.runtime.mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
-            Modifier.clickable { open = !open }.padding(vertical = 4.dp),
+            Modifier.cueClickable { open = !open }.padding(vertical = 4.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -306,7 +306,7 @@ private fun InlinePicture(src: String, alt: String, onClick: (() -> Unit)?) {
         val h = if (known) w * size.height / size.width else 0f
         androidx.compose.foundation.Image(
             painter, alt,
-            Modifier.width(w.dp).height(h.dp).let { m -> if (onClick != null) m.clickable(onClick = onClick) else m },
+            Modifier.width(w.dp).height(h.dp).let { m -> if (onClick != null) m.cueClickable(onClick = onClick) else m },
             contentScale = androidx.compose.ui.layout.ContentScale.Fit,
         )
     }

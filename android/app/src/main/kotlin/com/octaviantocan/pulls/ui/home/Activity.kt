@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.home
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +30,7 @@ import com.octaviantocan.pulls.core.pullWorkByKey
 import com.octaviantocan.pulls.core.runningWork
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.TaskState
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -81,7 +81,7 @@ internal fun ActivityStrip(tasks: List<WorkTask>, onClick: () -> Unit, modifier:
     val count = pullWorkByKey(tasks).count { it.value == PullWork.Analyzing }
     if (count == 0) return
     Row(
-        modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp).clickable(role = Role.Button, onClickLabel = "Show what is running", onClick = onClick).padding(horizontal = 16.dp),
+        modifier.fillMaxWidth().defaultMinSize(minHeight = 44.dp).cueClickable(role = Role.Button, onClickLabel = "Show what is running", onClick = onClick).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -105,7 +105,7 @@ internal fun ActivitySheet(tasks: List<WorkTask>, onOpen: (PullRef) -> Unit, onC
                 Column(
                     Modifier.fillMaxWidth()
                         .drawBehind { if (index > 0) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
-                        .then(if (ref != null) Modifier.clickable(role = Role.Button, onClickLabel = "Open ${task.title ?: task.key}") { onOpen(ref); onClose() } else Modifier)
+                        .then(if (ref != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open ${task.title ?: task.key}") { onOpen(ref); onClose() } else Modifier)
                         .padding(horizontal = 16.dp, vertical = 11.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {

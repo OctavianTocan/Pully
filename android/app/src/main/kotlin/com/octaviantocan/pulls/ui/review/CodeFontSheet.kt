@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.review
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +16,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CodeFont
 import com.octaviantocan.pulls.ui.design.CodeFonts
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -39,7 +39,7 @@ internal fun CodeFontSheet(settings: AppSettings, onClose: () -> Unit) {
                 Row(
                     Modifier.fillMaxWidth()
                         .drawBehind { if (index > 0) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
-                        .clickable(role = Role.RadioButton, onClickLabel = font.label) { settings.updateCodeFont(font.id); onClose() }
+                        .cueClickable(role = Role.RadioButton, onClickLabel = font.label) { settings.updateCodeFont(font.id); onClose() }
                         .padding(horizontal = 16.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),

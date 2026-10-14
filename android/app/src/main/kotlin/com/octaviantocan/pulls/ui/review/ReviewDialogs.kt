@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.review
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.Sounds
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -73,11 +76,11 @@ fun ReviewProgressSheet(session: ReviewSession, top: ReviewTopUi) {
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Box(
-                        Modifier.defaultMinSize(minWidth = 44.dp, minHeight = 44.dp).clickable(role = Role.Checkbox, onClickLabel = t("file.markReviewed")) { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) },
+                        Modifier.defaultMinSize(minWidth = 44.dp, minHeight = 44.dp).cueClickable(role = Role.Checkbox, onClickLabel = t("file.markReviewed")) { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) },
                         contentAlignment = Alignment.Center,
                     ) { PullsCheck(state == ReviewState.Reviewed, size = 22.dp) }
                     Box(
-                        Modifier.weight(1f).defaultMinSize(minHeight = 44.dp).clickable(role = Role.Button) {
+                        Modifier.weight(1f).defaultMinSize(minHeight = 44.dp).cueClickable(role = Role.Button) {
                             top.progressOpen = false
                             session.focus = Focus(file.path)
                         }.padding(vertical = 6.dp),
@@ -118,8 +121,8 @@ fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi, canVerdict: Bool
         error = null
         scope.launch {
             runCatching { action() }
-                .onSuccess { body = ""; verdict = "COMMENT"; top.reviewOpen = false; session.reloadReviews() }
-                .onFailure { error = it.message ?: it.toString() }
+                .onSuccess { body = ""; verdict = "COMMENT"; top.reviewOpen = false; session.reloadReviews(); Sounds.play(Cue.Success) }
+                .onFailure { error = it.message ?: it.toString(); Sounds.play(Cue.Error, Emphasis.Subtle) }
             busy = false
         }
     }

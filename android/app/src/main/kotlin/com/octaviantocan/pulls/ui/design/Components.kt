@@ -7,7 +7,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -48,6 +47,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.sound.directionOf
 
 /** UnoCSS `animate-spin`: one full turn per second, linear. */
 @Composable
@@ -150,7 +152,7 @@ fun ActionButton(
             .clip(shape)
             .background(fill, shape)
             .border(1.dp, border, shape)
-            .clickable(interaction, null, enabled = enabled && !loading, role = Role.Button, onClick = onClick)
+            .cueClickable(interaction, null, emphasis = if (variant == ButtonVariant.Primary) Emphasis.Normal else Emphasis.Subtle, enabled = enabled && !loading, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -175,7 +177,7 @@ fun IconButton(icon: String, label: String, onClick: () -> Unit, modifier: Modif
             .press(interaction)
             .clip(if (compact) RoundedCornerShape(4.dp) else CircleShape)
             .background(if (active) c.active else Color.Transparent)
-            .clickable(interaction, null, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
+            .cueClickable(interaction, null, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
             .alpha(if (!enabled) 0.3f else if (active) 1f else 0.65f),
         contentAlignment = Alignment.Center,
     ) {
@@ -191,14 +193,15 @@ fun <T> ToggleGroup(options: List<Pair<T, String>>, value: T, onChange: (T) -> U
         modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).clip(RoundedCornerShape(50)).background(c.sunken).padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        options.forEach { (option, label) ->
+        val selected = options.indexOfFirst { it.first == value }
+        options.forEachIndexed { index, (option, label) ->
             val on = option == value
             Row(
                 Modifier
                     .defaultMinSize(minHeight = 38.dp)
                     .clip(RoundedCornerShape(50))
                     .background(if (on) c.raised else Color.Transparent)
-                    .clickable(role = Role.Tab) { onChange(option) }
+                    .cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onChange(option) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -227,7 +230,7 @@ fun ReviewCheckbox(state: ReviewState, onChange: (Boolean) -> Unit, modifier: Mo
     Box(
         modifier
             .size(TOUCH)
-            .clickable(role = Role.Checkbox, onClickLabel = label) { onChange(!checked) },
+            .cueClickable(direction = directionOf(!checked), role = Role.Checkbox, onClickLabel = label) { onChange(!checked) },
         contentAlignment = Alignment.Center,
     ) {
         Box(

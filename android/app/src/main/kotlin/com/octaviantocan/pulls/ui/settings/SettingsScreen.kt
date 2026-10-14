@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.settings
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +26,12 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Direction
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.Material
+import com.octaviantocan.pulls.sound.Sounds
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.book.UiBookRow
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
@@ -181,7 +186,7 @@ private fun MainSheet(nav: Nav, open: (String) -> Unit) {
                         val on = kotlin.math.abs(settings.codeZoom - zoom) < 0.04f
                         Box(
                             Modifier.height(36.dp).background(if (on) c.chipOn else androidx.compose.ui.graphics.Color.Transparent, androidx.compose.foundation.shape.CircleShape)
-                                .clickable(role = Role.Tab) { settings.updateCodeZoom(zoom) }.padding(horizontal = 12.dp),
+                                .cueClickable(role = Role.Tab) { settings.updateCodeZoom(zoom) }.padding(horizontal = 12.dp),
                             contentAlignment = Alignment.Center,
                         ) { Text(name, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1) }
                     }
@@ -194,6 +199,33 @@ private fun MainSheet(nav: Nav, open: (String) -> Unit) {
                     PullsSwitch(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long lines")
                 }
             }
+        }
+        Group("Sounds") {
+            SheetCard {
+                SheetRow("Button sounds", { toggleSounds(settings, !settings.sounds) }, first = true, iconless = true) {
+                    PullsSwitch(settings.sounds, { toggleSounds(settings, it) }, "Button sounds")
+                }
+            }
+            if (settings.sounds) {
+                val materials = Material.entries
+                val picked = materials.indexOf(Material.of(settings.soundMaterial))
+                Box(Modifier.padding(top = 10.dp)) {
+                    CapsuleTabs(
+                        materials.map { it.label },
+                        picked,
+                        {
+                            settings.updateSoundMaterial(materials[it].id)
+                            // Said in the new material, so choosing one is hearing it.
+                            Sounds.play(Cue.Select, Emphasis.Normal, if (it > picked) Direction.Forward else Direction.Back)
+                        },
+                        Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            Text(
+                if (settings.sounds) "${Material.of(settings.soundMaterial).blurb} Silent on your phone's silent and vibrate modes." else "Taps and results make no sound. Turn this on to hear them.",
+                Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+            )
         }
         Group(t("settings.cached")) {
             SheetCard {
@@ -228,6 +260,12 @@ private fun MainSheet(nav: Nav, open: (String) -> Unit) {
         }
         UiBookRow(nav.uiBook)
     }
+}
+
+/** Turns the button sounds on or off. Turning them on answers with a toggle, so the first sound is the proof they work. */
+private fun toggleSounds(settings: AppSettings, on: Boolean) {
+    settings.updateSounds(on)
+    if (on) Sounds.play(Cue.Toggle, Emphasis.Normal, Direction.Forward)
 }
 
 /** The languages the app is written in; picking one changes the app at once. */
@@ -272,7 +310,7 @@ private fun ServerSheet(onBack: () -> Unit, onClose: () -> Unit) {
                 trailing = {
                     Text(
                         if (shown) "Hide" else "Show",
-                        Modifier.clickable(role = Role.Button) { shown = !shown }.padding(horizontal = 8.dp, vertical = 10.dp),
+                        Modifier.cueClickable(role = Role.Button) { shown = !shown }.padding(horizontal = 8.dp, vertical = 10.dp),
                         style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
                     )
                 },

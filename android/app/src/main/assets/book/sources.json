@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 671,
+        "line": 679,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 190,
+        "line": 196,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -68,7 +68,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = \"capsule\")\n        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).clickable(role = Role.Tab) { onSelect(index) },\n                    contentAlignment = Alignment.Center,\n                ) {\n                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)\n                    }\n                }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = \"capsule\")\n        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) },\n                    contentAlignment = Alignment.Center,\n                ) {\n                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)\n                    }\n                }\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -77,7 +77,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 272,
+        "line": 278,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -105,7 +105,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun PullsCheck(checked: Boolean, modifier: Modifier = Modifier, size: Dp = 22.dp, onClick: (() -> Unit)? = null, label: String? = null) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(size * 0.32f)\n    val fill by animateColorAsState(if (checked) c.primary else c.raised, tween(150), label = \"check-fill\")\n    val edge by animateColorAsState(if (checked) c.primary else Color(0xFFC9CFCE), tween(150), label = \"check-edge\")\n    // The box fills in 150ms and the tick is drawn in over 350ms (the Success check recipe, rule 73).\n    val tick by animateFloatAsState(if (checked) 1f else 0f, tween(if (checked) PullsMotion.MEDIUM else PullsMotion.QUICK, easing = PullsMotion.InOut), label = \"check-tick\")\n    val click = if (onClick != null) Modifier.clickable(role = Role.Checkbox, onClickLabel = label, onClick = onClick) else Modifier\n    Box(modifier.size(size).clip(shape).background(fill).border(1.5.dp, edge, shape).then(click), contentAlignment = Alignment.Center) {\n        if (tick > 0f) LuIcon(Lu.tick, tint = Color.White, size = size * 0.64f, progress = { tick })\n    }\n}"
+        "source": "@Composable\nfun PullsCheck(checked: Boolean, modifier: Modifier = Modifier, size: Dp = 22.dp, onClick: (() -> Unit)? = null, label: String? = null) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(size * 0.32f)\n    val fill by animateColorAsState(if (checked) c.primary else c.raised, tween(150), label = \"check-fill\")\n    val edge by animateColorAsState(if (checked) c.primary else Color(0xFFC9CFCE), tween(150), label = \"check-edge\")\n    // The box fills in 150ms and the tick is drawn in over 350ms (the Success check recipe, rule 73).\n    val tick by animateFloatAsState(if (checked) 1f else 0f, tween(if (checked) PullsMotion.MEDIUM else PullsMotion.QUICK, easing = PullsMotion.InOut), label = \"check-tick\")\n    val click = if (onClick != null) Modifier.cueClickable(direction = directionOf(!checked), role = Role.Checkbox, onClickLabel = label, onClick = onClick) else Modifier\n    Box(modifier.size(size).clip(shape).background(fill).border(1.5.dp, edge, shape).then(click), contentAlignment = Alignment.Center) {\n        if (tick > 0f) LuIcon(Lu.tick, tint = Color.White, size = size * 0.64f, progress = { tick })\n    }\n}"
       }
     ]
   },
@@ -114,7 +114,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 303,
+        "line": 309,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -156,7 +156,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun CtaButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    container: Color = LocalPullsColors.current.cta,\n    contentColor: Color = LocalPullsColors.current.onCta,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    Row(\n        modifier.height(52.dp).clip(CircleShape).background(container).clickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = contentColor, maxLines = 1)\n        trailing?.invoke()\n    }\n}"
+        "source": "@Composable\nfun CtaButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    container: Color = LocalPullsColors.current.cta,\n    contentColor: Color = LocalPullsColors.current.onCta,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    Row(\n        modifier.height(52.dp).clip(CircleShape).background(container).cueClickable(emphasis = Emphasis.Normal, enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = contentColor, maxLines = 1)\n        trailing?.invoke()\n    }\n}"
       }
     ]
   },
@@ -165,7 +165,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 147,
+        "line": 151,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -202,15 +202,20 @@
             "default": "LocalPullsColors.current.raised"
           },
           {
+            "name": "emphasis",
+            "type": "Emphasis",
+            "default": "Emphasis.Subtle"
+          },
+          {
             "name": "content",
             "type": "@Composable BoxScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun FloatButton(\n    onClick: () -> Unit,\n    label: String,\n    modifier: Modifier = Modifier,\n    size: Dp = 44.dp,\n    enabled: Boolean = true,\n    flat: Boolean = false,\n    container: Color = LocalPullsColors.current.raised,\n    content: @Composable BoxScope.() -> Unit,\n) {\n    Box(\n        modifier\n            .size(size)\n            .then(if (flat) Modifier else Modifier.floatShadow(CircleShape))\n            .clip(CircleShape)\n            .background(if (flat) Color.Transparent else container)\n            .semantics { contentDescription = label }\n            .clickable(enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)\n            .alpha(if (enabled) 1f else 0.4f),\n        contentAlignment = Alignment.Center,\n        content = content,\n    )\n}"
+        "source": "@Composable\nfun FloatButton(\n    onClick: () -> Unit,\n    label: String,\n    modifier: Modifier = Modifier,\n    size: Dp = 44.dp,\n    enabled: Boolean = true,\n    flat: Boolean = false,\n    container: Color = LocalPullsColors.current.raised,\n    /** The one main action on a screen (Send) sounds at full weight; the rest are quiet. */\n    emphasis: Emphasis = Emphasis.Subtle,\n    content: @Composable BoxScope.() -> Unit,\n) {\n    Box(\n        modifier\n            .size(size)\n            .then(if (flat) Modifier else Modifier.floatShadow(CircleShape))\n            .clip(CircleShape)\n            .background(if (flat) Color.Transparent else container)\n            .semantics { contentDescription = label }\n            .cueClickable(emphasis = emphasis, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)\n            .alpha(if (enabled) 1f else 0.4f),\n        contentAlignment = Alignment.Center,\n        content = content,\n    )\n}"
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 173,
+        "line": 179,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -266,7 +271,7 @@
             "default": "false"
           }
         ],
-        "source": "@Composable\ninternal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text, primary: Boolean = false) {\n    val c = LocalPullsColors.current\n    FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container) {\n        IconSwap(glyph) { LuIcon(it, tint = if (primary) Color.White else tint, size = iconSize) } // raw-value-ok: the ink on the primary fill is white in both themes\n    }\n}"
+        "source": "@Composable\ninternal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text, primary: Boolean = false) {\n    val c = LocalPullsColors.current\n    FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container, if (primary) Emphasis.Normal else Emphasis.Subtle) {\n        IconSwap(glyph) { LuIcon(it, tint = if (primary) Color.White else tint, size = iconSize) } // raw-value-ok: the ink on the primary fill is white in both themes\n    }\n}"
       }
     ]
   },
@@ -275,7 +280,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 688,
+        "line": 696,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -298,7 +303,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 581,
+        "line": 589,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. No robot, compass or sparkle: those\nmarks were dropped (rule 48).",
         "params": [
           {
@@ -326,7 +331,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 682,
+        "line": 690,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -349,7 +354,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 326,
+        "line": 332,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -376,7 +381,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun PillButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.height(44.dp).clip(CircleShape).background(c.paper2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1)\n    }\n}"
+        "source": "@Composable\nfun PillButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.height(44.dp).clip(CircleShape).background(c.paper2).cueClickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1)\n    }\n}"
       }
     ]
   },
@@ -385,7 +390,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 346,
+        "line": 352,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -435,7 +440,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 385,
+        "line": 391,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -458,7 +463,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 656,
+        "line": 664,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -489,7 +494,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 488,
+        "line": 494,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -510,7 +515,7 @@
             "type": "@Composable () -> Unit"
           }
         ],
-        "source": "@Composable\nfun QuickAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(\n        modifier.height(72.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised).clickable(role = Role.Button, onClick = onClick),\n        horizontalAlignment = Alignment.CenterHorizontally,\n        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),\n    ) {\n        icon()\n        Text(label, style = PullsType.sm, color = LocalPullsColors.current.text, maxLines = 1)\n    }\n}"
+        "source": "@Composable\nfun QuickAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(\n        modifier.height(72.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised).cueClickable(role = Role.Button, onClick = onClick),\n        horizontalAlignment = Alignment.CenterHorizontally,\n        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),\n    ) {\n        icon()\n        Text(label, style = PullsType.sm, color = LocalPullsColors.current.text, maxLines = 1)\n    }\n}"
       }
     ]
   },
@@ -614,7 +619,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 393,
+        "line": 399,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -636,7 +641,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 439,
+        "line": 445,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -711,7 +716,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 403,
+        "line": 409,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -758,7 +763,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .alpha(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.\n        Text(label, Modifier.weight(1f).padding(vertical = 8.dp), style = PullsType.row, color = if (danger) c.error else c.text)\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
+        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.cueClickable(emphasis = if (danger) Emphasis.Strong else Emphasis.Subtle, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .alpha(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.\n        Text(label, Modifier.weight(1f).padding(vertical = 8.dp), style = PullsType.row, color = if (danger) c.error else c.text)\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
       }
     ]
   },
@@ -767,7 +772,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 696,
+        "line": 704,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -803,7 +808,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 226,
+        "line": 232,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -829,7 +834,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, count: String? = null) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    val fill by animateColorAsState(if (selected) c.chipOn else Color.Transparent, tween(200), label = \"chip-fill\")\n    val edge by animateColorAsState(if (selected) c.chipOn else c.border, tween(200), label = \"chip-edge\")\n    Row(\n        modifier.height(36.dp).clip(shape).background(fill).border(1.dp, edge, shape).clickable(role = Role.Tab, onClick = onClick).padding(horizontal = 14.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(6.dp),\n    ) {\n        Text(label, style = PullsType.sm, color = c.text, maxLines = 1)\n        if (count != null) Text(count, style = PullsType.sm.copy(fontFeatureSettings = \"tnum\"), color = c.muted, maxLines = 1)\n    }\n}"
+        "source": "@Composable\nfun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, count: String? = null) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    val fill by animateColorAsState(if (selected) c.chipOn else Color.Transparent, tween(200), label = \"chip-fill\")\n    val edge by animateColorAsState(if (selected) c.chipOn else c.border, tween(200), label = \"chip-edge\")\n    Row(\n        modifier.height(36.dp).clip(shape).background(fill).border(1.dp, edge, shape).cueClickable(role = Role.Tab, onClick = onClick).padding(horizontal = 14.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(6.dp),\n    ) {\n        Text(label, style = PullsType.sm, color = c.text, maxLines = 1)\n        if (count != null) Text(count, style = PullsType.sm.copy(fontFeatureSettings = \"tnum\"), color = c.muted, maxLines = 1)\n    }\n}"
       }
     ]
   },
@@ -838,7 +843,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 287,
+        "line": 293,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -864,7 +869,7 @@
             "default": "true"
           }
         ],
-        "source": "@Composable\nfun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true) {\n    val c = LocalPullsColors.current\n    val track by animateColorAsState(if (checked) c.primary else c.border, tween(200), label = \"switch-track\")\n    val thumb by animateDpAsState(if (checked) 23.dp else 3.dp, tween(200), label = \"switch-thumb\")\n    Box(\n        modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)\n            .semantics { contentDescription = label }\n            .clickable(enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }\n            .alpha(if (enabled) 1f else 0.5f),\n    ) {\n        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))\n    }\n}"
+        "source": "@Composable\nfun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true) {\n    val c = LocalPullsColors.current\n    val track by animateColorAsState(if (checked) c.primary else c.border, tween(200), label = \"switch-track\")\n    val thumb by animateDpAsState(if (checked) 23.dp else 3.dp, tween(200), label = \"switch-thumb\")\n    Box(\n        modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)\n            .semantics { contentDescription = label }\n            .cueClickable(direction = directionOf(!checked), enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }\n            .alpha(if (enabled) 1f else 0.5f),\n    ) {\n        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))\n    }\n}"
       }
     ]
   },
@@ -873,7 +878,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 527,
+        "line": 535,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -886,7 +891,7 @@
             "default": "Modifier"
           }
         ],
-        "source": "@Composable\nfun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val current = toaster.message\n    var shown by remember { mutableStateOf<ToastMessage?>(null) }\n    LaunchedEffect(current) {\n        if (current == null) return@LaunchedEffect\n        shown = current\n        delay(if (current.action != null) 4200 else 2400)\n        toaster.clear(current)\n    }\n    val visible by animateFloatAsState(\n        if (current != null) 1f else 0f,\n        tween(if (current != null) PullsMotion.MEDIUM else PullsMotion.FAST, easing = PullsMotion.SmoothOut),\n        label = \"toast\",\n    )\n    val message = current ?: shown\n    if (message == null || visible < 0.01f) return\n    Box(modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 100.dp, start = 16.dp, end = 16.dp), contentAlignment = Alignment.BottomCenter) {\n        Row(\n            Modifier\n                .softBlur(PullsMotion.BlurSmall * (1f - visible).coerceIn(0f, 1f))\n                .graphicsLayer {\n                    alpha = visible\n                    translationY = (1f - visible) * 16.dp.toPx()\n                    val scale = PullsMotion.DROPDOWN_OPEN_SCALE + (1f - PullsMotion.DROPDOWN_OPEN_SCALE) * visible\n                    scaleX = scale\n                    scaleY = scale\n                }\n                .height(44.dp).clip(CircleShape).background(c.cta).padding(horizontal = 18.dp),\n            verticalAlignment = Alignment.CenterVertically,\n            horizontalArrangement = Arrangement.spacedBy(14.dp),\n        ) {\n            Text(message.text, style = PullsType.sm, color = c.onCta, maxLines = 1, modifier = Modifier.weight(1f, fill = false))\n            if (message.action != null) {\n                Text(\n                    message.action,\n                    Modifier.clickable(role = Role.Button) { toaster.clear(message); message.onAction?.invoke() },\n                    style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold),\n                    color = Color(0xFF9AD3D6),\n                )\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val current = toaster.message\n    var shown by remember { mutableStateOf<ToastMessage?>(null) }\n    LaunchedEffect(current) {\n        if (current == null) return@LaunchedEffect\n        shown = current\n        delay(if (current.action != null) 4200 else 2400)\n        toaster.clear(current)\n    }\n    val visible by animateFloatAsState(\n        if (current != null) 1f else 0f,\n        tween(if (current != null) PullsMotion.MEDIUM else PullsMotion.FAST, easing = PullsMotion.SmoothOut),\n        label = \"toast\",\n    )\n    val message = current ?: shown\n    if (message == null || visible < 0.01f) return\n    Box(modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 100.dp, start = 16.dp, end = 16.dp), contentAlignment = Alignment.BottomCenter) {\n        Row(\n            Modifier\n                .softBlur(PullsMotion.BlurSmall * (1f - visible).coerceIn(0f, 1f))\n                .graphicsLayer {\n                    alpha = visible\n                    translationY = (1f - visible) * 16.dp.toPx()\n                    val scale = PullsMotion.DROPDOWN_OPEN_SCALE + (1f - PullsMotion.DROPDOWN_OPEN_SCALE) * visible\n                    scaleX = scale\n                    scaleY = scale\n                }\n                .height(44.dp).clip(CircleShape).background(c.cta).padding(horizontal = 18.dp),\n            verticalAlignment = Alignment.CenterVertically,\n            horizontalArrangement = Arrangement.spacedBy(14.dp),\n        ) {\n            Text(message.text, style = PullsType.sm, color = c.onCta, maxLines = 1, modifier = Modifier.weight(1f, fill = false))\n            if (message.action != null) {\n                Text(\n                    message.action,\n                    Modifier.cueClickable(role = Role.Button) { toaster.clear(message); message.onAction?.invoke() },\n                    style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold),\n                    color = Color(0xFF9AD3D6),\n                )\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -895,7 +900,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 246,
+        "line": 252,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.",
         "params": [
           {
@@ -921,7 +926,7 @@
             "default": "false"
           }
         ],
-        "source": "@Composable\nfun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },\n    ) {\n        labels.forEachIndexed { index, label ->\n            val on = index == selected\n            val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = \"tab-ink\")\n            Box(\n                Modifier.then(if (spread) Modifier.weight(1f) else Modifier).height(48.dp).clickable(role = Role.Tab, onClickLabel = label) { onSelect(index) }\n                    .padding(start = if (index == 0 || spread) 0.dp else 12.dp, end = if (spread) 0.dp else 12.dp),\n                contentAlignment = if (spread) Alignment.CenterStart else Alignment.Center,\n            ) {\n                Box(\n                    Modifier.fillMaxHeight().drawBehind {\n                        if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))\n                    },\n                    contentAlignment = Alignment.Center,\n                ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },\n    ) {\n        labels.forEachIndexed { index, label ->\n            val on = index == selected\n            val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = \"tab-ink\")\n            Box(\n                Modifier.then(if (spread) Modifier.weight(1f) else Modifier).height(48.dp).cueClickable(direction = directionOf(selected, index), role = Role.Tab, onClickLabel = label) { onSelect(index) }\n                    .padding(start = if (index == 0 || spread) 0.dp else 12.dp, end = if (spread) 0.dp else 12.dp),\n                contentAlignment = if (spread) Alignment.CenterStart else Alignment.Center,\n            ) {\n                Box(\n                    Modifier.fillMaxHeight().drawBehind {\n                        if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))\n                    },\n                    contentAlignment = Alignment.Center,\n                ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }\n            }\n        }\n    }\n}"
       }
     ]
   }

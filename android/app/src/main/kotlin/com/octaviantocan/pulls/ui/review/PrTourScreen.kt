@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.data.TourStop
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.AiUsageLine
 import com.octaviantocan.pulls.ui.ai.Glossary
 import com.octaviantocan.pulls.ui.ai.Sources
@@ -161,7 +161,7 @@ internal fun PrTourScreen(
                     Modifier.padding(top = 12.dp).fillMaxWidth()
                         .onGloballyPositioned { stripBottom = it.positionInRoot().y + it.size.height }
                         .drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
-                        .clickable(role = Role.Button, onClickLabel = "Choose a stop") { menu = if (menu == "stops") null else "stops" }
+                        .cueClickable(role = Role.Button, onClickLabel = "Choose a stop") { menu = if (menu == "stops") null else "stops" }
                         .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -200,7 +200,7 @@ internal fun PrTourScreen(
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(140.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
         AskPill(Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
 
-        if (menu == "stops") Box(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
+        if (menu == "stops") Box(Modifier.fillMaxSize().cueClickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
         MenuReveal(menu == "stops", Modifier.offset { IntOffset(0, stripBottom.toInt()) }) {
             StopPicker(stops, current, onPick = { index ->
                 menu = null
@@ -289,7 +289,7 @@ private fun StopPicker(stops: List<TourStop>, current: Int, onPick: (Int) -> Uni
         stops.forEachIndexed { index, stop ->
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 48.dp).background(if (index + 1 == current) c.paper else Color.Transparent)
-                    .clickable(role = Role.Button) { onPick(index) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    .cueClickable(role = Role.Button) { onPick(index) }.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
