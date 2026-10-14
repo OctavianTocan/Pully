@@ -1,8 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +40,7 @@ import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.design.ActionButton
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.EmptyState
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -108,6 +107,14 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     fun toOverview() {
         if (PrView.Overview !in pages) pages.add(0, PrView.Overview)
         while (pages.last() != PrView.Overview) pages.removeAt(pages.lastIndex)
+    }
+    // The capsule moves between sibling pages (overview, changes, tour) without stacking them, so Back still leaves one page at a time.
+    fun switchTo(page: PrView) {
+        val here = pages.last()
+        if (here == page) return
+        if (page == PrView.Overview) { toOverview(); return }
+        pages.removeAll { it == page }
+        if (here == PrView.Overview) pages.add(page) else pages[pages.lastIndex] = page
     }
     fun openDiff(path: String?) {
         val files = orderedFiles()
@@ -176,26 +183,33 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
             opened == null -> PrOpening(target, preview, onBack = nav.back)
             opened != null && head != null -> {
-                Crossfade(pages.last(), animationSpec = tween(260), label = "review-page") { page ->
+                BlurSwitch(pages.last()) { page ->
                     when (page) {
                         PrView.Overview -> PrOverviewScreen(
                             session, ui, top, data, head, overviewScroll, pane, { pane = it },
                             onBack = ::back,
-                            onDiff = ::openDiff,
-                            onTour = { push(PrView.Tour) },
+                            onDiff = { path -> if (path == null && diffPath != null) switchTo(PrView.Diff) else openDiff(path) },
+                            onTour = { switchTo(PrView.Tour) },
                             onAsk = { openAsk(forTour = false) },
                             onSheet = { sheet = it },
                             onCite = { cite -> session.focus = Focus(cite.path, cite.line) },
                             onOpenRepo = nav.openRepo,
                         )
-                        PrView.Diff -> PrDiffScreen(session, ui, diffPath, { diffPath = it }, onBack = ::back)
+                        PrView.Diff -> PrDiffScreen(
+                            session, ui, diffPath, { diffPath = it },
+                            onBack = ::back,
+                            tourLive = tourRunning,
+                            onOverview = ::toOverview,
+                            onTour = { switchTo(PrView.Tour) },
+                            onMore = { sheet = "more" },
+                        )
                         PrView.Tour -> PrTourScreen(
                             session, head,
                             resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                             onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                             onBack = ::back,
                             onOverview = ::toOverview,
-                            onChanges = { openDiff(null) },
+                            onChanges = { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) },
                             onMore = { sheet = "more" },
                             onOpenSource = { source -> openSource(session, source, uri::openUri) },
                             onAsk = { question -> openAsk(forTour = true, initial = question) },
