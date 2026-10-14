@@ -23,7 +23,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import com.octaviantocan.pulls.data.Activity
 import com.octaviantocan.pulls.data.Usage
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -249,7 +249,7 @@ private fun AiWorkedFor(label: String, summary: String, failed: Boolean, expanda
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp))
-                .then(if (expandable) Modifier.clickable(role = Role.Button, onClick = onToggle) else Modifier),
+                .then(if (expandable) Modifier.cueClickable(role = Role.Button, onClick = onToggle) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -297,7 +297,7 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp))
-                .then(if (expandable) Modifier.defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button) { expanded = !expanded } else Modifier),
+                .then(if (expandable) Modifier.defaultMinSize(minHeight = TOUCH).cueClickable(role = Role.Button) { expanded = !expanded } else Modifier),
             contentAlignment = Alignment.CenterStart,
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
@@ -380,7 +380,7 @@ internal fun AiActivityLogFull(
             if (hidden > 0 || showAll) {
                 Text(
                     if (showAll) messages.t("ai.showLess") else messages.t("ai.more", "n" to hidden),
-                    Modifier.padding(start = STEP_INDENT).defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { showAll = !showAll }.padding(vertical = 12.dp),
+                    Modifier.padding(start = STEP_INDENT).defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).cueClickable(role = Role.Button) { showAll = !showAll }.padding(vertical = 12.dp),
                     style = PullsType.xs, color = c.mute,
                 )
             }

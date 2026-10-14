@@ -4,7 +4,6 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -29,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.sound.directionOf
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -111,7 +112,7 @@ fun StaleBanner(session: ReviewSession, onRefresh: () -> Unit, modifier: Modifie
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
-                Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(PullsRadius.md)).clickable(role = Role.Checkbox) { autoNextTime = !autoNextTime },
+                Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(PullsRadius.md)).cueClickable(direction = directionOf(!autoNextTime), role = Role.Checkbox) { autoNextTime = !autoNextTime },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {

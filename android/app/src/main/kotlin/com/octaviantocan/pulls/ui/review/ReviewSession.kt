@@ -15,6 +15,9 @@ import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.SavedState
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.data.asTaskState
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -287,6 +290,12 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 if (hasAiResult) analyzeMode = "ai"
                 // The server starts the tour and the brief itself and lists them before the analysis reads as done.
                 if (tasks[id]?.status == "done") resumeTasks()
+            }
+            // A failure is heard when it happens, whatever else is running. Ready waits for the last of a chain
+            // (the analysis, then the tour and the brief), so a chain rings once rather than once per task.
+            when (tasks[id]?.status) {
+                "failed" -> Sounds.play(Cue.Error, Emphasis.Subtle)
+                "done" -> if (tasks.values.none { it.running }) Sounds.play(Cue.Ready, Emphasis.Subtle)
             }
             tasks[id]?.let(onDone)
         }

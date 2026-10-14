@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +35,8 @@ import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.core.AnalyzePreset
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -83,7 +84,7 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, onModel: 
             toaster.show("Already analyzing")
         } else {
             session.runAnalyze(context, choice)
-            toaster.show("${choice.title} analysis started. It keeps running if you leave.")
+            toaster.show("${choice.title} analysis started. It keeps running if you leave.", cue = Cue.Loading)
         }
     }
 
@@ -127,7 +128,7 @@ private fun ChoiceRow(title: String, blurb: String, selected: Boolean, first: Bo
     Row(
         Modifier.fillMaxWidth()
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
-            .clickable(role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 11.dp),
+            .cueClickable(role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -164,12 +165,12 @@ internal fun AnalyzeSplitButton(choice: String, onRun: () -> Unit, onMenu: () ->
     val c = LocalPullsColors.current
     Row(modifier.clip(CircleShape).background(c.cta), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button, onClickLabel = "Analyze, $choice", onClick = onRun).padding(start = 18.dp, end = 12.dp),
+            Modifier.defaultMinSize(minHeight = TOUCH).cueClickable(role = Role.Button, onClickLabel = "Analyze, $choice", onClick = onRun).padding(start = 18.dp, end = 12.dp),
             contentAlignment = Alignment.Center,
         ) { Text("Analyze", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
         Box(Modifier.width(1.dp).height(20.dp).background(c.onCta.copy(alpha = 0.3f)))
         Box(
-            Modifier.size(TOUCH).clickable(role = Role.Button, onClickLabel = "Choose how to analyze", onClick = onMenu),
+            Modifier.size(TOUCH).cueClickable(role = Role.Button, onClickLabel = "Choose how to analyze", onClick = onMenu),
             contentAlignment = Alignment.Center,
         ) { LuIcon(Lu.chevd, tint = c.onCta, size = 18.dp) }
     }

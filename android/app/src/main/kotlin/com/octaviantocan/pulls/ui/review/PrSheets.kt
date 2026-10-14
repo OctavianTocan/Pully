@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +34,8 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerConfig
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.CritiquePanel
 import com.octaviantocan.pulls.ui.ai.ShareButton
 import com.octaviantocan.pulls.ui.ai.canShare
@@ -156,7 +157,7 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                     toaster.show("Already analyzing")
                 } else {
                     session.runAnalyze(context)
-                    toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
+                    toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}", cue = Cue.Loading)
                 }
             }, Modifier.weight(1f)) { LuIcon(Lu.list, tint = c.text, size = 22.dp) }
         }
@@ -193,7 +194,7 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                 t("overview.merge.method.${overview.merge.defaultMethod}"),
                 {
                     if (!mergeability.ready) {
-                        toaster.show(if (failing > 0) "$failing check${if (failing == 1) "" else "s"} failing · merge is blocked" else blockedText)
+                        toaster.show(if (failing > 0) "$failing check${if (failing == 1) "" else "s"} failing · merge is blocked" else blockedText, cue = Cue.Error)
                     } else {
                         top.mergeOpen = true
                         onClose()
@@ -413,7 +414,7 @@ private fun ModelRow(model: CliModel, selected: Boolean, first: Boolean, onClick
     Row(
         Modifier.fillMaxWidth()
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
-            .clickable(role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 11.dp),
+            .cueClickable(role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {

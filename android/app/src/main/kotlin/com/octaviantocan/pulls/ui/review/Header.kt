@@ -10,6 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PhIcon
 import kotlinx.coroutines.launch
@@ -45,8 +48,9 @@ class ReviewTopUi {
         session.scope.launch {
             val result = runCatching { task() }
             busy = null
-            result.onSuccess { polls = 0; session.refresh(); onOk() }
-                .onFailure { actionError = it.message ?: it.toString() }
+            // A merge is the one outcome that sounds at full weight; the rest are quiet confirmations.
+            result.onSuccess { polls = 0; session.refresh(); Sounds.play(Cue.Success, if (action == "merge") Emphasis.Strong else Emphasis.Subtle); onOk() }
+                .onFailure { actionError = it.message ?: it.toString(); Sounds.play(Cue.Error, Emphasis.Subtle) }
         }
     }
 }

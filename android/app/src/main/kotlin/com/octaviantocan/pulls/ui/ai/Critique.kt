@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.ai
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Critique
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -137,7 +137,7 @@ internal fun LensPickerSheet(session: ReviewSession, onDismiss: () -> Unit, onPi
 private fun LensOption(name: String, description: String?, mono: Boolean, selected: Boolean, first: Boolean, onClick: () -> Unit) {
     val c = LocalPullsColors.current
     Row(
-        Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp).clickable(role = Role.Button, onClick = onClick)
+        Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp).cueClickable(role = Role.Button, onClick = onClick)
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -196,7 +196,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
     ) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { ui.panelOpen = !ui.panelOpen },
+                Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).cueClickable(role = Role.Button) { ui.panelOpen = !ui.panelOpen },
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(t("critique.title"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
@@ -230,7 +230,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, itemVerticalAlignment = Alignment.CenterVertically) {
                     SeverityFilter(result, ui.severities) { ui.severities = it; session.findingSeverities = it }
                     if (selectable.isNotEmpty()) Row(
-                        Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(PullsRadius.md)).clickable(role = Role.Checkbox) {
+                        Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(PullsRadius.md)).cueClickable(role = Role.Checkbox) {
                             ui.selected = if (!allSelected) ui.selected + selectable.map { it.id } else ui.selected - selectable.map { it.id }.toSet()
                         },
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -336,7 +336,7 @@ private fun FindingCard(finding: CritiqueFinding, posted: Boolean, selected: Boo
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                     Text(
                         location,
-                        Modifier.defaultMinSize(minHeight = 32.dp).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button, onClickLabel = t("critique.jumpToLine"), onClick = onJump).padding(vertical = 6.dp),
+                        Modifier.defaultMinSize(minHeight = 32.dp).clip(RoundedCornerShape(4.dp)).cueClickable(role = Role.Button, onClickLabel = t("critique.jumpToLine"), onClick = onJump).padding(vertical = 6.dp),
                         style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }

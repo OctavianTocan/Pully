@@ -36,6 +36,7 @@ import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.TourSource
+import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
 import com.octaviantocan.pulls.ui.ai.AskSheet
@@ -137,7 +138,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     LaunchedEffect(focus) {
         val wanted = focus ?: return@LaunchedEffect
         if (session.files.none { it.path == wanted.path }) {
-            toaster.show("${wanted.path.substringAfterLast('/')} is not part of this change")
+            toaster.show("${wanted.path.substringAfterLast('/')} is not part of this change", cue = Cue.Error)
             session.focus = null
             return@LaunchedEffect
         }
@@ -147,13 +148,13 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     // A refresh or a commit range failed while a diff is already on screen: the full-page error only shows before one is.
     val loadError = session.loadError
     LaunchedEffect(loadError) {
-        if (loadError != null && session.opened != null) toaster.show("Couldn't update: $loadError")
+        if (loadError != null && session.opened != null) toaster.show("Couldn't update: $loadError", cue = Cue.Error)
     }
     // GitHub refused an action (close, ready, draft…) while no sheet was there to say so.
     LaunchedEffect(top.actionError) {
         val error = top.actionError ?: return@LaunchedEffect
         if (!top.mergeOpen) {
-            toaster.show(messages.t("overview.actions.failed", "message" to error))
+            toaster.show(messages.t("overview.actions.failed", "message" to error), cue = Cue.Error)
             top.actionError = null
         }
     }

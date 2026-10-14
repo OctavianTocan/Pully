@@ -1,0 +1,660 @@
+{
+  "version": "0.2.8",
+  "themes": {
+    "default": {
+      "tap": {
+        "masterGain": 0.39,
+        "vary": {"pitch":0.012,"level":0.12},
+        "layers": [
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":4500,"filterQ":1.2,"attack":0.001,"decay":0.00242,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":1174.66,"attack":0.001,"decay":0.18,"peak":0.0135},
+          {"kind":"tone","waveform":"sine","frequency":1180,"attack":0.001,"decay":0.164,"peak":0.008},
+          {"kind":"tone","waveform":"sine","frequency":3242,"attack":0.001,"decay":0.0827,"peak":0.0055},
+          {"kind":"tone","waveform":"sine","frequency":480,"glideTo":300,"glideTime":0.018,"attack":0.001,"decay":0.0261,"peak":0.02,"from":"normal"},
+          {"from":"strong","kind":"tone","waveform":"sine","frequency":587.33,"attack":0.002,"decay":0.246,"peak":0.009},
+          {"kind":"tone","waveform":"sine","frequency":240,"glideTo":150,"glideTime":0.018,"attack":0.001,"decay":0.0489,"peak":0.014,"from":"strong"}
+        ]
+      },
+      "type": {
+        "masterGain": 0.375,
+        "vary": {"pitch":0.07,"level":0.2},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3900,"filterQ":0.8,"attack":0.001,"decay":0.00517,"peak":0.08},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":1550,"filterQ":3.5,"attack":0.001,"decay":0.0144,"peak":0.22},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":310,"filterQ":2.5,"attack":0.002,"decay":0.0254,"peak":0.35},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":140,"filterQ":2,"attack":0.002,"decay":0.037,"peak":0.45}
+        ]
+      },
+      "select": {
+        "masterGain": 0.306,
+        "layers": [
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":2800,"filterQ":2.2,"attack":0.001,"decay":0.00749,"peak":0.16},
+          {"kind":"tone","waveform":"sine","frequency":664,"glideTo":415,"glideTime":0.018,"attack":0.001,"decay":0.0194,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":332.8,"glideTo":208,"glideTime":0.018,"attack":0.001,"decay":0.0313,"peak":0.025,"from":"strong"}
+        ]
+      },
+      "toggle": {
+        "masterGain": 0.24,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1830,"filterQ":1.6,"attack":0.001,"decay":0.0156,"peak":0.12},
+          {"kind":"tone","waveform":"sine","frequency":528,"glideTo":330,"glideTime":0.018,"attack":0.001,"decay":0.0339,"peak":0.045},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":3150,"filterQ":1.6,"attack":0.001,"decay":0.0124,"peak":0.08},
+          {"kind":"tone","waveform":"sine","frequency":264,"glideTo":165,"glideTime":0.018,"attack":0.001,"decay":0.0375,"peak":0.025,"from":"strong"}
+        ]
+      },
+      "open": {
+        "masterGain": 0.335,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":600,"glideTo":1500,"glideTime":0.1,"filterQ":1.4,"attack":0.05,"decay":0.0558,"peak":0.168},
+          {"kind":"tone","waveform":"sine","frequency":659.25,"attack":0.05,"decay":0.165,"peak":0.015},
+          {"from":"normal","kind":"tone","waveform":"sine","frequency":1318.51,"attack":0.05,"decay":0.0883,"peak":0.005},
+          {"from":"strong","kind":"noise","filterType":"lowpass","filterFrequency":250,"filterQ":0.7,"attack":0.04,"decay":0.0779,"peak":0.12}
+        ]
+      },
+      "close": {
+        "masterGain": 0.258,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1400,"glideTo":540,"glideTime":0.07,"filterQ":1.4,"attack":0.02,"decay":0.054,"peak":0.216},
+          {"kind":"tone","waveform":"sine","frequency":261.63,"attack":0.003,"decay":0.104,"peak":0.02},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":350,"filterQ":2,"attack":0.001,"decay":0.0273,"peak":0.2},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":165,"filterQ":2,"attack":0.001,"decay":0.0345,"peak":0.3}
+        ]
+      },
+      "success": {
+        "masterGain": 0.566,
+        "room": 2,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":1500,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":523.25,"attack":0.003,"decay":0.333,"peak":0.022},
+          {"kind":"tone","waveform":"sine","frequency":2087.7675,"attack":0.003,"decay":0.11795451296543794,"peak":0.0044,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":783.99,"attack":0.003,"decay":0.391,"peak":0.02},
+          {"kind":"tone","waveform":"sine","frequency":3128.1201,"attack":0.003,"decay":0.13849914285131001,"peak":0.004,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":1318.51,"attack":0.003,"decay":0.335,"peak":0.014},
+          {"kind":"tone","waveform":"sine","frequency":261.63,"attack":0.003,"decay":0.469,"peak":0.02,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":1043.9037,"attack":0.003,"decay":0.1661281278702414,"peak":0.004,"from":"strong"}
+        ]
+      },
+      "error": {
+        "masterGain": 0.501,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":900,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.05},
+          {"kind":"tone","waveform":"sine","frequency":293.66,"attack":0.003,"decay":0.138,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":1171.7034,"attack":0.003,"decay":0.04888205041810942,"peak":0.008,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":698.46,"attack":0.003,"decay":0.106,"peak":0.018},
+          {"kind":"tone","waveform":"sine","frequency":2786.8554000000004,"attack":0.003,"decay":0.03754708220521447,"peak":0.0036,"from":"normal"},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":250,"filterQ":1.5,"attack":0.001,"decay":0.0273,"peak":0.2}
+        ]
+      },
+      "navigate": {
+        "masterGain": 0.322,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":400,"glideTo":1100,"glideTime":0.21,"filterQ":1.2,"attack":0.12,"decay":0.111,"peak":0.18},
+          {"from":"normal","kind":"noise","filterType":"lowpass","filterFrequency":540,"filterQ":0.7,"attack":0.09,"decay":0.109,"peak":0.045},
+          {"from":"strong","kind":"noise","filterType":"lowpass","filterFrequency":230,"filterQ":0.7,"attack":0.1,"decay":0.144,"peak":0.1}
+        ]
+      },
+      "warning": {
+        "masterGain": 0.437,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":1200,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":440,"attack":0.003,"decay":0.163,"peak":0.038},
+          {"kind":"tone","waveform":"sine","frequency":1755.6000000000001,"attack":0.003,"decay":0.057737494334433585,"peak":0.0076,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":659.25,"attack":0.003,"decay":0.145,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":2630.4075000000003,"attack":0.003,"decay":0.051361574714680176,"peak":0.006,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":220,"attack":0.003,"decay":0.261,"peak":0.02,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":877.8000000000001,"attack":0.003,"decay":0.09245083448642433,"peak":0.004,"from":"strong"}
+        ]
+      },
+      "loading": {
+        "masterGain": 0.106,
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":196,"attack":0.35,"decay":0.969,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":392,"attack":0.35,"decay":0.9,"peak":0.01},
+          {"from":"normal","kind":"noise","filterType":"lowpass","filterFrequency":500,"filterQ":0.7,"attack":0.35,"decay":0.844,"peak":0.006},
+          {"from":"strong","kind":"tone","waveform":"sine","frequency":98,"attack":0.35,"decay":1.04,"peak":0.02}
+        ]
+      },
+      "ready": {
+        "masterGain": 0.467,
+        "room": 2,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":1500,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.02},
+          {"kind":"tone","waveform":"sine","frequency":392,"attack":0.003,"decay":0.497,"peak":0.026},
+          {"kind":"tone","waveform":"sine","frequency":1081.9199999999998,"attack":0.003,"decay":0.23209969897100804,"peak":0.0078,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":2116.8,"attack":0.003,"decay":0.14030109768491306,"peak":0.0026,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":393.2,"attack":0.003,"decay":0.462,"peak":0.012},
+          {"kind":"tone","waveform":"sine","frequency":196,"attack":0.003,"decay":0.612,"peak":0.016,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":540.9599999999999,"attack":0.003,"decay":0.2858048607047423,"peak":0.0048,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":1058.4,"attack":0.003,"decay":0.172765134372569,"peak":0.0016,"from":"strong"}
+        ]
+      },
+      "attention": {
+        "masterGain": 0.551,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2500,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.02},
+          {"kind":"tone","waveform":"sine","frequency":880,"attack":0.003,"decay":0.599,"peak":0.018},
+          {"kind":"tone","waveform":"sine","frequency":2428.7999999999997,"attack":0.003,"decay":0.27973384242179844,"peak":0.005399999999999999,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":4752,"attack":0.003,"decay":0.16909528674700788,"peak":0.0018,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":882,"attack":0.003,"decay":0.57,"peak":0.01},
+          {"kind":"tone","waveform":"sine","frequency":1318.51,"attack":0.003,"decay":0.559,"peak":0.014},
+          {"kind":"tone","waveform":"sine","frequency":3639.0876,"attack":0.003,"decay":0.26105378616658653,"peak":0.0042,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":440,"attack":0.003,"decay":0.649,"peak":0.012,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":1214.3999999999999,"attack":0.003,"decay":0.3030839127408133,"peak":0.0036,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":2376,"attack":0.003,"decay":0.1832100853068583,"peak":0.0012000000000000001,"from":"strong"}
+        ]
+      },
+      "count": {
+        "masterGain": 0.336,
+        "vary": {"pitch":0.02,"level":0.12},
+        "layers": [
+          {"stretch":true,"kind":"noise","filterType":"bandpass","filterFrequency":700,"glideTo":1400,"glideTime":0.6,"filterQ":1.2,"attack":0.15,"decay":0.611,"peak":0.05},
+          {"stretch":true,"kind":"tone","waveform":"sine","frequency":1046.5,"attack":0.15,"decay":0.721,"peak":0.012},
+          {"stretch":true,"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":2000,"glideTo":3200,"glideTime":0.6,"filterQ":2,"attack":0.15,"decay":0.652,"peak":0.02},
+          {"stretch":true,"from":"strong","kind":"tone","waveform":"sine","frequency":261.63,"attack":0.15,"decay":0.758,"peak":0.015}
+        ]
+      }
+    },
+    "mech": {
+      "tap": {
+        "masterGain": 0.964,
+        "vary": {"pitch":0.02,"level":0.1},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2650,"filterQ":1.5,"attack":0.001,"decay":0.00413,"peak":0.08},
+          {"kind":"tone","waveform":"sine","frequency":728,"glideTo":455,"glideTime":0.018,"attack":0.001,"decay":0.0156,"peak":0.02},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":4600,"filterQ":2,"attack":0.001,"decay":0.00222,"peak":0.05},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":215,"filterQ":2,"attack":0.001,"decay":0.0216,"peak":0.3}
+        ]
+      },
+      "type": {
+        "masterGain": 0.484,
+        "vary": {"pitch":0.05,"level":0.15},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3000,"filterQ":1.2,"attack":0.001,"decay":0.003,"peak":0.1},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":2150,"filterQ":5,"attack":0.001,"decay":0.00737,"peak":0.18},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":750,"filterQ":3,"attack":0.001,"decay":0.00898,"peak":0.22},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":330,"filterQ":2.5,"attack":0.001,"decay":0.0173,"peak":0.3}
+        ]
+      },
+      "select": {
+        "masterGain": 0.295,
+        "layers": [
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":3650,"filterQ":3,"attack":0.001,"decay":0.00273,"peak":0.2},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1500,"filterQ":8,"attack":0.001,"decay":0.00762,"peak":0.35},
+          {"kind":"tone","waveform":"sine","frequency":1480,"attack":0.001,"decay":0.0433,"peak":0.012},
+          {"kind":"tone","waveform":"sine","frequency":400,"glideTo":250,"glideTime":0.018,"attack":0.001,"decay":0.0188,"peak":0.025,"from":"strong"}
+        ]
+      },
+      "toggle": {
+        "masterGain": 0.293,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1650,"filterQ":2,"attack":0.001,"decay":0.00381,"peak":0.14},
+          {"kind":"tone","waveform":"sine","frequency":528,"glideTo":330,"glideTime":0.018,"attack":0.001,"decay":0.0288,"peak":0.04},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":2650,"filterQ":3,"attack":0.001,"decay":0.00553,"peak":0.18},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":250,"filterQ":2,"attack":0.001,"decay":0.0259,"peak":0.3}
+        ]
+      },
+      "open": {
+        "masterGain": 0.869,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2150,"filterQ":3,"attack":0.001,"decay":0.00375,"peak":0.16},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1160,"glideTo":2150,"glideTime":0.05,"filterQ":2,"attack":0.02,"decay":0.031,"peak":0.08},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":1330,"filterQ":5,"attack":0.001,"decay":0.00763,"peak":0.14},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":290,"filterQ":2,"attack":0.001,"decay":0.0265,"peak":0.25}
+        ]
+      },
+      "close": {
+        "masterGain": 0.96,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2150,"glideTo":1080,"glideTime":0.04,"filterQ":2,"attack":0.015,"decay":0.0288,"peak":0.04},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1000,"filterQ":4,"attack":0.001,"decay":0.00898,"peak":0.22},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":3300,"filterQ":2,"attack":0.001,"decay":0.003,"peak":0.1},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":180,"filterQ":2,"attack":0.001,"decay":0.0302,"peak":0.3}
+        ]
+      },
+      "success": {
+        "masterGain": 0.662,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2200,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.05},
+          {"kind":"tone","waveform":"sine","frequency":698.46,"attack":0.003,"decay":0.121,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":1927.7495999999999,"attack":0.003,"decay":0.05650717017201604,"peak":0.009,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":3771.6840000000007,"attack":0.003,"decay":0.03415781251483799,"peak":0.003,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":1046.5,"attack":0.003,"decay":0.149,"peak":0.026},
+          {"kind":"tone","waveform":"sine","frequency":2888.3399999999997,"attack":0.003,"decay":0.06958320955066438,"peak":0.0078,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":1760,"attack":0.003,"decay":0.106,"peak":0.018},
+          {"kind":"tone","waveform":"sine","frequency":4857.599999999999,"attack":0.003,"decay":0.04950214907631157,"peak":0.005399999999999999,"from":"normal"},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":4150,"filterQ":2,"attack":0.001,"decay":0.00324,"peak":0.06}
+        ]
+      },
+      "error": {
+        "masterGain": 0.59,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":430,"filterQ":4,"attack":0.001,"decay":0.0173,"peak":0.3},
+          {"kind":"tone","waveform":"sine","frequency":293.66,"attack":0.003,"decay":0.0678,"peak":0.045},
+          {"kind":"tone","waveform":"sine","frequency":810.5016,"attack":0.003,"decay":0.031662695352584196,"peak":0.0135,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":1585.7640000000004,"attack":0.003,"decay":0.028,"peak":0.0045,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":698.46,"attack":0.003,"decay":0.0522,"peak":0.02},
+          {"kind":"tone","waveform":"sine","frequency":1927.7495999999999,"attack":0.003,"decay":0.028,"peak":0.006,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":3771.6840000000007,"attack":0.003,"decay":0.028,"peak":0.002,"from":"normal"},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":1830,"filterQ":3,"attack":0.001,"decay":0.006,"peak":0.1},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":150,"filterQ":2,"attack":0.001,"decay":0.0345,"peak":0.3}
+        ]
+      },
+      "navigate": {
+        "masterGain": 0.804,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":750,"glideTo":1400,"glideTime":0.13,"filterQ":1.8,"attack":0.05,"decay":0.096,"peak":0.1},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":2500,"filterQ":4,"attack":0.001,"decay":0.003,"peak":0.1},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":250,"filterQ":1.5,"attack":0.04,"decay":0.109,"peak":0.12}
+        ]
+      },
+      "warning": {
+        "masterGain": 0.484,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2000,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.05},
+          {"kind":"tone","waveform":"sine","frequency":587.33,"attack":0.003,"decay":0.0922,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":1621.0308,"attack":0.003,"decay":0.04305752966826347,"peak":0.012,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":3171.5820000000003,"attack":0.003,"decay":0.028,"peak":0.004,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":880,"attack":0.003,"decay":0.0969,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":2428.7999999999997,"attack":0.003,"decay":0.04525243627825087,"peak":0.009,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":4752,"attack":0.003,"decay":0.028,"peak":0.003,"from":"normal"},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":300,"filterQ":2,"attack":0.001,"decay":0.0265,"peak":0.25}
+        ]
+      },
+      "loading": {
+        "masterGain": 0.223,
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":500,"filterQ":1,"attack":0.35,"decay":0.848,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":233.08,"attack":0.35,"decay":0.965,"peak":0.015},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":1000,"filterQ":2,"attack":0.35,"decay":0.883,"peak":0.005},
+          {"from":"strong","kind":"noise","filterType":"lowpass","filterFrequency":250,"filterQ":0.7,"attack":0.35,"decay":0.807,"peak":0.04}
+        ]
+      },
+      "ready": {
+        "masterGain": 0.546,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2000,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.05},
+          {"kind":"tone","waveform":"sine","frequency":523.25,"attack":0.003,"decay":0.178,"peak":0.05},
+          {"kind":"tone","waveform":"sine","frequency":1444.1699999999998,"attack":0.003,"decay":0.08312625033569301,"peak":0.015,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":2825.55,"attack":0.003,"decay":0.050248682873067455,"peak":0.005000000000000001,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":261.63,"attack":0.003,"decay":0.242,"peak":0.03,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":722.0988,"attack":0.003,"decay":0.11301434034403209,"peak":0.009,"from":"strong"},
+          {"kind":"tone","waveform":"sine","frequency":1412.8020000000001,"attack":0.003,"decay":0.06831562502967597,"peak":0.003,"from":"strong"}
+        ]
+      },
+      "attention": {
+        "masterGain": 0.481,
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2500,"filterQ":-3,"attack":0.001,"decay":0.0035,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":880,"attack":0.003,"decay":0.231,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":2428.7999999999997,"attack":0.003,"decay":0.10787732487384881,"peak":0.012,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":4752,"attack":0.003,"decay":0.0652103693465089,"peak":0.004,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":1318.51,"attack":0.003,"decay":0.242,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":3639.0876,"attack":0.003,"decay":0.11301434034403209,"peak":0.009,"from":"normal"},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":300,"filterQ":2,"attack":0.001,"decay":0.0265,"peak":0.25}
+        ]
+      },
+      "count": {
+        "masterGain": 0.654,
+        "vary": {"pitch":0.03,"level":0.1},
+        "layers": [
+          {"stretch":true,"kind":"noise","filterType":"bandpass","filterFrequency":500,"glideTo":900,"glideTime":0.6,"filterQ":2,"attack":0.1,"decay":0.648,"peak":0.06},
+          {"stretch":true,"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":1900,"glideTo":3300,"glideTime":0.6,"filterQ":4,"attack":0.1,"decay":0.606,"peak":0.03},
+          {"stretch":true,"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":220,"filterQ":2,"attack":0.1,"decay":0.5,"peak":0.1}
+        ]
+      }
+    },
+    "bubble": {
+      "tap": {
+        "masterGain": 0.411,
+        "vary": {"pitch":0.08,"level":0.1},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":480,"glideTo":300,"glideTime":0.018,"attack":0.001,"decay":0.0216,"peak":0.06},
+          {"kind":"tone","waveform":"sine","frequency":600,"glideTo":900,"glideTime":0.04,"attack":0.012,"decay":0.0489,"peak":0.014},
+          {"kind":"tone","waveform":"sine","frequency":960,"glideTo":600,"glideTime":0.018,"attack":0.001,"decay":0.0165,"peak":0.015,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":240,"glideTo":150,"glideTime":0.018,"attack":0.001,"decay":0.0389,"peak":0.05,"from":"strong"}
+        ]
+      },
+      "type": {
+        "masterGain": 0.383,
+        "vary": {"pitch":0.1,"level":0.2},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":664,"glideTo":415,"glideTime":0.018,"attack":0.001,"decay":0.0151,"peak":0.06},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2500,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.03,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":332.8,"glideTo":208,"glideTime":0.018,"attack":0.001,"decay":0.0278,"peak":0.05,"from":"strong"}
+        ]
+      },
+      "select": {
+        "masterGain": 0.214,
+        "vary": {"pitch":0.03,"level":0.1},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":700,"glideTo":1050,"glideTime":0.012,"attack":0.001,"decay":0.0278,"peak":0.05},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":3000,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.075,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":350,"glideTo":525,"glideTime":0.04,"attack":0.002,"decay":0.0606,"peak":0.03,"from":"strong"}
+        ]
+      },
+      "toggle": {
+        "masterGain": 0.175,
+        "vary": {"pitch":0.04,"level":0.1},
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":900,"filterQ":0.9,"attack":0.001,"decay":0.00779,"peak":0.12},
+          {"kind":"tone","waveform":"sine","frequency":330,"glideTo":660,"glideTime":0.06,"attack":0.003,"decay":0.0791,"peak":0.045},
+          {"kind":"tone","waveform":"sine","frequency":990,"glideTo":1485,"glideTime":0.02,"attack":0.03,"decay":0.045,"peak":0.01,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":165,"glideTo":330,"glideTime":0.06,"attack":0.002,"decay":0.0969,"peak":0.03,"from":"strong"}
+        ]
+      },
+      "open": {
+        "masterGain": 0.221,
+        "vary": {"pitch":0.06,"level":0.1},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":220,"glideTo":520,"glideTime":0.14,"attack":0.1,"decay":0.0692,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":330,"glideTo":780,"glideTime":0.14,"attack":0.1,"decay":0.0866,"peak":0.012,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":110,"glideTo":260,"glideTime":0.14,"attack":0.1,"decay":0.0969,"peak":0.03,"from":"strong"}
+        ]
+      },
+      "close": {
+        "masterGain": 0.357,
+        "vary": {"pitch":0.06,"level":0.1},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":700,"glideTo":220,"glideTime":0.07,"attack":0.004,"decay":0.0905,"peak":0.045},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":1200,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.06,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":350,"glideTo":110,"glideTime":0.07,"attack":0.004,"decay":0.121,"peak":0.03,"from":"strong"}
+        ]
+      },
+      "success": {
+        "masterGain": 0.52,
+        "room": 2,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":523.25,"glideTo":783.99,"glideTime":0.08,"attack":0.003,"decay":0.323,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":1046.5,"glideTo":1567.98,"glideTime":0.08,"attack":0.003,"decay":0.12,"peak":0.01,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":261.63,"glideTo":392,"glideTime":0.08,"attack":0.003,"decay":0.391,"peak":0.02,"from":"strong"}
+        ]
+      },
+      "error": {
+        "masterGain": 0.387,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":349.23,"glideTo":261.63,"glideTime":0.14,"attack":0.004,"decay":0.226,"peak":0.045},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":900,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.12,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":235.20000000000002,"glideTo":147,"glideTime":0.018,"attack":0.001,"decay":0.0556,"peak":0.05,"from":"strong"}
+        ]
+      },
+      "navigate": {
+        "masterGain": 0.554,
+        "vary": {"pitch":0.06,"level":0.1},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":300,"glideTo":1500,"glideTime":0.09,"attack":0.01,"decay":0.0943,"peak":0.035},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":1500,"glideTo":3000,"glideTime":0.09,"filterQ":1,"attack":0.02,"decay":0.0778,"peak":0.05},
+          {"kind":"tone","waveform":"sine","frequency":150,"glideTo":600,"glideTime":0.1,"attack":0.01,"decay":0.125,"peak":0.025,"from":"strong"}
+        ]
+      },
+      "warning": {
+        "masterGain": 0.436,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":500,"glideTo":440,"glideTime":0.05,"attack":0.002,"decay":0.181,"peak":0.045},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":1800,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.09,"from":"normal"},
+          {"from":"strong","kind":"tone","waveform":"sine","frequency":220,"attack":0.003,"decay":0.225,"peak":0.025}
+        ]
+      },
+      "loading": {
+        "masterGain": 0.194,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"noise","filterType":"lowpass","filterFrequency":900,"filterQ":0.7,"attack":0.35,"decay":0.727,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":400,"glideTo":600,"glideTime":0.35,"attack":0.35,"decay":0.953,"peak":0.016},
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":1800,"filterQ":1.5,"attack":0.35,"decay":0.749,"peak":0.004},
+          {"from":"strong","kind":"noise","filterType":"lowpass","filterFrequency":400,"filterQ":0.7,"attack":0.35,"decay":0.807,"peak":0.04}
+        ]
+      },
+      "ready": {
+        "masterGain": 0.532,
+        "room": 2,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":1400,"glideTo":700,"glideTime":0.012,"attack":0.001,"decay":0.0242,"peak":0.03},
+          {"kind":"tone","waveform":"sine","frequency":392,"glideTo":587.33,"glideTime":0.06,"attack":0.012,"decay":0.288,"peak":0.04},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2000,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.03,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":196,"glideTo":294,"glideTime":0.08,"attack":0.012,"decay":0.391,"peak":0.02,"from":"strong"}
+        ]
+      },
+      "attention": {
+        "masterGain": 0.666,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":659.25,"glideTo":880,"glideTime":0.14,"attack":0.003,"decay":0.295,"peak":0.035},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":2200,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.12,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":329.63,"glideTo":494.445,"glideTime":0.04,"attack":0.002,"decay":0.261,"peak":0.02,"from":"strong"}
+        ]
+      },
+      "count": {
+        "masterGain": 0.267,
+        "vary": {"pitch":0.06,"level":0.1},
+        "layers": [
+          {"stretch":true,"kind":"noise","filterType":"lowpass","filterFrequency":900,"glideTo":1800,"glideTime":0.6,"filterQ":0.7,"attack":0.15,"decay":0.634,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":587.33,"glideTo":880,"glideTime":0.6,"attack":0.15,"decay":0.717,"peak":0.02,"stretch":true},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":1600,"filterQ":0.9,"attack":0.001,"decay":0.0032,"peak":0.05,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":293.66,"glideTo":440,"glideTime":0.6,"attack":0.15,"decay":0.717,"peak":0.02,"from":"strong","stretch":true}
+        ]
+      }
+    },
+    "press": {
+      "tap": {
+        "masterGain": 0.0431,
+        "walk": [0,4,9],
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4000,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.53},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2700,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.265},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":71.29690000000001,"glideTo":65.41,"glideTime":0.015,"attack":0.11,"decay":1.36,"peak":0.12},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":142.59380000000002,"glideTo":130.82,"glideTime":0.015,"attack":0.11,"decay":1.2240000000000002,"peak":0.06},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":213.8907,"glideTo":196.23,"glideTime":0.015,"attack":0.11,"decay":1.36,"peak":0.0048,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":285.18760000000003,"glideTo":261.64,"glideTime":0.015,"attack":0.11,"decay":0.9928,"peak":0.00672,"from":"normal"},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":200,"filterQ":0.7,"attack":0.001,"decay":0.0472,"peak":0.15,"from":"strong"}
+        ],
+        "release": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4800,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.28,"from":"normal"},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3240,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.14,"from":"normal"}
+        ]
+      },
+      "type": {
+        "masterGain": 0.297,
+        "vary": {"pitch":0.08,"level":0.15},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4200,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.25},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2835,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.125},
+          {"kind":"tone","waveform":"sine","frequency":488,"glideTo":305,"glideTime":0.018,"attack":0.001,"decay":0.0288,"peak":0.04},
+          {"kind":"tone","waveform":"sine","frequency":240,"glideTo":150,"glideTime":0.018,"attack":0.001,"decay":0.0424,"peak":0.03,"from":"strong"}
+        ],
+        "release": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4100,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.08,"from":"normal"},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1000,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.06,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":662.4000000000001,"glideTo":414,"glideTime":0.018,"attack":0.001,"decay":0.0216,"peak":0.012,"from":"normal"}
+        ]
+      },
+      "select": {
+        "masterGain": 0.442,
+        "vary": {"pitch":0.02,"level":0.1},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4800,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.12},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3240,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.06},
+          {"kind":"tone","waveform":"sine","frequency":1120,"glideTo":700,"glideTime":0.018,"attack":0.001,"decay":0.0196,"peak":0.02},
+          {"kind":"tone","waveform":"sine","frequency":560,"glideTo":350,"glideTime":0.018,"attack":0.001,"decay":0.0326,"peak":0.02,"from":"strong"}
+        ],
+        "release": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4800,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.03,"from":"normal"}
+        ]
+      },
+      "toggle": {
+        "masterGain": 0.0571,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4000,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.245},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2700,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.1225},
+          {"kind":"tone","waveform":"sine","frequency":528,"glideTo":330,"glideTime":0.018,"attack":0.001,"decay":0.0389,"peak":0.05},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":89.82690000000001,"glideTo":82.41,"glideTime":0.015,"attack":0.11,"decay":0.324,"peak":0.06},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":179.65380000000002,"glideTo":164.82,"glideTime":0.015,"attack":0.11,"decay":0.2916,"peak":0.03},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":269.4807,"glideTo":247.23,"glideTime":0.015,"attack":0.11,"decay":0.324,"peak":0.0024,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":359.30760000000004,"glideTo":329.64,"glideTime":0.015,"attack":0.11,"decay":0.23652,"peak":0.00336,"from":"normal"},
+          {"kind":"tone","waveform":"sine","frequency":264,"glideTo":165,"glideTime":0.018,"attack":0.001,"decay":0.05,"peak":0.05,"from":"strong"}
+        ],
+        "release": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4800,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.1,"from":"normal"},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3240,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.05,"from":"normal"}
+        ]
+      },
+      "open": {
+        "masterGain": 0.0857,
+        "walk": [0,4,9],
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4800,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.15},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3240,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.075},
+          {"kind":"tone","waveform":"sine","frequency":704,"glideTo":440,"glideTime":0.018,"attack":0.001,"decay":0.0363,"peak":0.03},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1600,"glideTo":3200,"glideTime":0.035,"filterQ":1.5,"attack":0.008,"decay":0.035,"peak":0.1},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":119.9,"glideTo":110,"glideTime":0.015,"attack":0.11,"decay":0.827,"peak":0.08},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":239.8,"glideTo":220,"glideTime":0.015,"attack":0.11,"decay":0.7443,"peak":0.04},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":359.70000000000005,"glideTo":330,"glideTime":0.015,"attack":0.11,"decay":0.827,"peak":0.0032,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":479.6,"glideTo":440,"glideTime":0.015,"attack":0.11,"decay":0.60371,"peak":0.0044800000000000005,"from":"normal"},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":260,"filterQ":0.7,"attack":0.001,"decay":0.039,"peak":0.12,"from":"strong"}
+        ],
+        "release": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4800,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.05,"from":"normal"}
+        ]
+      },
+      "close": {
+        "masterGain": 0.099,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3200,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.204},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2160,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.102},
+          {"kind":"tone","waveform":"sine","frequency":209.29600000000002,"glideTo":130.81,"glideTime":0.018,"attack":0.001,"decay":0.0432,"peak":0.06},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1800,"glideTo":700,"glideTime":0.04,"filterQ":1.5,"attack":0.008,"decay":0.04,"peak":0.1,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":71.29690000000001,"glideTo":65.41,"glideTime":0.015,"attack":0.11,"decay":0.258,"peak":0.08},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":142.59380000000002,"glideTo":130.82,"glideTime":0.015,"attack":0.11,"decay":0.23220000000000002,"peak":0.04},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":213.8907,"glideTo":196.23,"glideTime":0.015,"attack":0.11,"decay":0.258,"peak":0.0032,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":285.18760000000003,"glideTo":261.64,"glideTime":0.015,"attack":0.11,"decay":0.18834,"peak":0.0044800000000000005,"from":"normal"},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":180,"filterQ":0.7,"attack":0.001,"decay":0.0364,"peak":0.2,"from":"strong"}
+        ]
+      },
+      "success": {
+        "masterGain": 0.102,
+        "room": 2,
+        "layers": [
+          {"note":true,"kind":"tone","waveform":"sine","frequency":285.17670000000004,"glideTo":261.63,"glideTime":0.015,"attack":0.11,"decay":1.47,"peak":0.072},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":570.3534000000001,"glideTo":523.26,"glideTime":0.015,"attack":0.11,"decay":1.323,"peak":0.036},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":855.5301000000001,"glideTo":784.89,"glideTime":0.015,"attack":0.11,"decay":1.47,"peak":0.0028799999999999997,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1140.7068000000002,"glideTo":1046.52,"glideTime":0.015,"attack":0.11,"decay":1.0731,"peak":0.004032,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":427.28000000000003,"glideTo":392,"glideTime":0.015,"attack":0.11,"decay":1.51,"peak":0.06},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":854.5600000000001,"glideTo":784,"glideTime":0.015,"attack":0.11,"decay":1.359,"peak":0.03},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1281.8400000000001,"glideTo":1176,"glideTime":0.015,"attack":0.11,"decay":1.51,"peak":0.0024,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1709.1200000000001,"glideTo":1568,"glideTime":0.015,"attack":0.11,"decay":1.1023,"peak":0.00336,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":718.5825000000001,"glideTo":659.25,"glideTime":0.015,"attack":0.11,"decay":1.36,"peak":0.045},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1437.1650000000002,"glideTo":1318.5,"glideTime":0.015,"attack":0.11,"decay":1.2240000000000002,"peak":0.0225},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":2155.7475,"glideTo":1977.75,"glideTime":0.015,"attack":0.11,"decay":1.36,"peak":0.0018,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":2874.3300000000004,"glideTo":2637,"glideTime":0.015,"attack":0.11,"decay":0.9928,"peak":0.00252,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":142.58835000000002,"glideTo":130.815,"glideTime":0.015,"attack":0.11,"decay":1.64,"peak":0.036,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":285.17670000000004,"glideTo":261.63,"glideTime":0.015,"attack":0.11,"decay":1.476,"peak":0.018,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":427.76505000000003,"glideTo":392.445,"glideTime":0.015,"attack":0.11,"decay":1.64,"peak":0.0014399999999999999,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":570.3534000000001,"glideTo":523.26,"glideTime":0.015,"attack":0.11,"decay":1.1971999999999998,"peak":0.002016,"from":"strong"}
+        ]
+      },
+      "error": {
+        "masterGain": 0.0708,
+        "layers": [
+          {"note":true,"kind":"tone","waveform":"sine","frequency":119.9,"glideTo":110,"glideTime":0.015,"attack":0.11,"decay":0.487,"peak":0.12},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":239.8,"glideTo":220,"glideTime":0.015,"attack":0.11,"decay":0.4383,"peak":0.06},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":359.70000000000005,"glideTo":330,"glideTime":0.015,"attack":0.11,"decay":0.487,"peak":0.0048,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":479.6,"glideTo":440,"glideTime":0.015,"attack":0.11,"decay":0.35551,"peak":0.00672,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":570.3425000000001,"glideTo":523.25,"glideTime":0.015,"attack":0.11,"decay":0.461,"peak":0.04},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1140.6850000000002,"glideTo":1046.5,"glideTime":0.015,"attack":0.11,"decay":0.41490000000000005,"peak":0.02},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1711.0275000000001,"glideTo":1569.75,"glideTime":0.015,"attack":0.11,"decay":0.461,"peak":0.0016,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":2281.3700000000003,"glideTo":2093,"glideTime":0.015,"attack":0.11,"decay":0.33653,"peak":0.0022400000000000002,"from":"normal"},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":200,"filterQ":0.7,"attack":0.01,"decay":0.0545,"peak":0.2},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":120,"filterQ":0.7,"attack":0.001,"decay":0.0727,"peak":0.2,"from":"strong"}
+        ]
+      },
+      "navigate": {
+        "masterGain": 0.837,
+        "vary": {"pitch":0,"level":0.08},
+        "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":4800,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.15},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":3240,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.075},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":600,"glideTo":1400,"glideTime":0.0877,"filterQ":1,"attack":0.008,"decay":0.0877,"peak":0.12},
+          {"kind":"tone","waveform":"sine","frequency":939.7280000000001,"glideTo":587.33,"glideTime":0.018,"attack":0.001,"decay":0.0207,"peak":0.015,"from":"normal"},
+          {"kind":"noise","filterType":"lowpass","filterFrequency":300,"filterQ":0.7,"attack":0.001,"decay":0.0487,"peak":0.12,"from":"strong"}
+        ]
+      },
+      "warning": {
+        "masterGain": 0.0716,
+        "layers": [
+          {"note":true,"kind":"tone","waveform":"sine","frequency":239.8,"glideTo":220,"glideTime":0.015,"attack":0.11,"decay":0.905,"peak":0.096},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":479.6,"glideTo":440,"glideTime":0.015,"attack":0.11,"decay":0.8145,"peak":0.048},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":719.4000000000001,"glideTo":660,"glideTime":0.015,"attack":0.11,"decay":0.905,"peak":0.00384,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":959.2,"glideTo":880,"glideTime":0.015,"attack":0.11,"decay":0.66065,"peak":0.005376000000000001,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":359.29670000000004,"glideTo":329.63,"glideTime":0.015,"attack":0.11,"decay":0.84,"peak":0.072},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":718.5934000000001,"glideTo":659.26,"glideTime":0.015,"attack":0.11,"decay":0.756,"peak":0.036},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1077.8901,"glideTo":988.89,"glideTime":0.015,"attack":0.11,"decay":0.84,"peak":0.0028799999999999997,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1437.1868000000002,"glideTo":1318.52,"glideTime":0.015,"attack":0.11,"decay":0.6132,"peak":0.004032,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":119.9,"glideTo":110,"glideTime":0.015,"attack":0.11,"decay":1.01,"peak":0.048,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":239.8,"glideTo":220,"glideTime":0.015,"attack":0.11,"decay":0.909,"peak":0.024,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":359.70000000000005,"glideTo":330,"glideTime":0.015,"attack":0.11,"decay":1.01,"peak":0.00192,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":479.6,"glideTo":440,"glideTime":0.015,"attack":0.11,"decay":0.7373,"peak":0.0026880000000000003,"from":"strong"}
+        ]
+      },
+      "loading": {
+        "masterGain": 0.0661,
+        "layers": [
+          {"kind":"tone","waveform":"sine","frequency":196,"attack":0.35,"decay":0.889,"peak":0.05},
+          {"from":"normal","kind":"tone","waveform":"sine","frequency":392,"attack":0.35,"decay":0.9,"peak":0.01},
+          {"from":"strong","kind":"tone","waveform":"sine","frequency":98,"attack":0.35,"decay":0.969,"peak":0.03}
+        ]
+      },
+      "ready": {
+        "masterGain": 0.0983,
+        "room": 2,
+        "layers": [
+          {"note":true,"kind":"tone","waveform":"sine","frequency":213.64000000000001,"glideTo":196,"glideTime":0.015,"attack":0.11,"decay":1.78,"peak":0.108},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":427.28000000000003,"glideTo":392,"glideTime":0.015,"attack":0.11,"decay":1.602,"peak":0.054},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":640.9200000000001,"glideTo":588,"glideTime":0.015,"attack":0.11,"decay":1.78,"peak":0.00432,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":854.5600000000001,"glideTo":784,"glideTime":0.015,"attack":0.11,"decay":1.2993999999999999,"peak":0.006048,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":106.82000000000001,"glideTo":98,"glideTime":0.015,"attack":0.11,"decay":1.98,"peak":0.054,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":213.64000000000001,"glideTo":196,"glideTime":0.015,"attack":0.11,"decay":1.782,"peak":0.027,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":320.46000000000004,"glideTo":294,"glideTime":0.015,"attack":0.11,"decay":1.98,"peak":0.00216,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":427.28000000000003,"glideTo":392,"glideTime":0.015,"attack":0.11,"decay":1.4454,"peak":0.003024,"from":"strong"}
+        ]
+      },
+      "attention": {
+        "masterGain": 0.125,
+        "layers": [
+          {"note":true,"kind":"tone","waveform":"sine","frequency":479.6,"glideTo":440,"glideTime":0.015,"attack":0.11,"decay":2.34,"peak":0.067},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":959.2,"glideTo":880,"glideTime":0.015,"attack":0.11,"decay":2.106,"peak":0.0335},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1438.8000000000002,"glideTo":1320,"glideTime":0.015,"attack":0.11,"decay":2.34,"peak":0.00268,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1918.4,"glideTo":1760,"glideTime":0.015,"attack":0.11,"decay":1.7082,"peak":0.003752,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":718.5825000000001,"glideTo":659.25,"glideTime":0.015,"attack":0.11,"decay":2.24,"peak":0.048},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1437.1650000000002,"glideTo":1318.5,"glideTime":0.015,"attack":0.11,"decay":2.0160000000000005,"peak":0.024},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":2155.7475,"glideTo":1977.75,"glideTime":0.015,"attack":0.11,"decay":2.24,"peak":0.00192,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":2874.3300000000004,"glideTo":2637,"glideTime":0.015,"attack":0.11,"decay":1.6352000000000002,"peak":0.0026880000000000003,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":959.2,"glideTo":880,"glideTime":0.015,"attack":0.11,"decay":1.89,"peak":0.024},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":1918.4,"glideTo":1760,"glideTime":0.015,"attack":0.11,"decay":1.7009999999999998,"peak":0.012},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":2877.6000000000004,"glideTo":2640,"glideTime":0.015,"attack":0.11,"decay":1.89,"peak":0.00096,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":3836.8,"glideTo":3520,"glideTime":0.015,"attack":0.11,"decay":1.3797,"peak":0.0013440000000000001,"from":"normal"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":239.8,"glideTo":220,"glideTime":0.015,"attack":0.11,"decay":2.61,"peak":0.034,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":479.6,"glideTo":440,"glideTime":0.015,"attack":0.11,"decay":2.3489999999999998,"peak":0.017,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":719.4000000000001,"glideTo":660,"glideTime":0.015,"attack":0.11,"decay":2.61,"peak":0.00136,"from":"strong"},
+          {"note":true,"kind":"tone","waveform":"sine","frequency":959.2,"glideTo":880,"glideTime":0.015,"attack":0.11,"decay":1.9052999999999998,"peak":0.001904,"from":"strong"}
+        ]
+      },
+      "count": {
+        "masterGain": 0.362,
+        "vary": {"pitch":0.02,"level":0.1},
+        "layers": [
+          {"stretch":true,"kind":"noise","filterType":"bandpass","filterFrequency":900,"glideTo":1800,"glideTime":0.6,"filterQ":2,"attack":0.15,"decay":0.568,"peak":0.08},
+          {"stretch":true,"kind":"noise","filterType":"lowpass","filterFrequency":200,"glideTo":500,"glideTime":0.6,"filterQ":0.7,"attack":0.15,"decay":0.594,"peak":0.06},
+          {"stretch":true,"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":2600,"glideTo":3600,"glideTime":0.6,"filterQ":4,"attack":0.15,"decay":0.587,"peak":0.02},
+          {"stretch":true,"from":"strong","kind":"noise","filterType":"lowpass","filterFrequency":150,"glideTo":300,"glideTime":0.6,"filterQ":0.7,"attack":0.15,"decay":0.568,"peak":0.08}
+        ]
+      }
+    }
+  }
+}

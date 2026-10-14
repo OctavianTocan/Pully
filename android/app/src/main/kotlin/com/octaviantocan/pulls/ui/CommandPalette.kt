@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +26,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PillInput
@@ -98,7 +98,7 @@ private fun CommandRow(title: String, first: Boolean, muted: Boolean = false, on
     val c = LocalPullsColors.current
     Box(
         Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
-            .clickable(role = Role.Button, onClick = onClick)
+            .cueClickable(role = Role.Button, onClick = onClick)
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.CenterStart,

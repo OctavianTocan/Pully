@@ -52,6 +52,14 @@ class AppSettings private constructor(private val context: Context) {
     var codeFont by mutableStateOf(prefs.getString("codeFont", null) ?: "geist-mono")
         private set
 
+    /** Whether taps and outcomes make a sound (the Cuelume cues); on until Settings turns it off. */
+    var sounds by mutableStateOf(prefs.getBoolean("sounds", true))
+        private set
+
+    /** The material the cues are played in, by its `Material.id`: `default` until the reader picks another. */
+    var soundMaterial by mutableStateOf(prefs.getString("soundMaterial", null) ?: "default")
+        private set
+
     fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply() }
     fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply() }
     fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply() }
@@ -67,6 +75,8 @@ class AppSettings private constructor(private val context: Context) {
     /** Moves the code size on screen without writing it down: a pinch calls this every frame and [updateCodeZoom] once at the end. */
     fun previewCodeZoom(value: Float) { codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM) }
     fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
+    fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply() }
+    fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply() }
     fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply() }
 
     companion object {

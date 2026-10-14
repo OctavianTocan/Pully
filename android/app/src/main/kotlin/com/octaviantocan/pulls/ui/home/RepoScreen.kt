@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.octaviantocan.pulls.sound.cueClickable
 import kotlinx.serialization.json.put
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -275,7 +275,7 @@ private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: ()
     }
     Row(
         modifier.fillMaxWidth()
-            .clickable(role = Role.Button, onClickLabel = pr.title, onClick = onClick)
+            .cueClickable(role = Role.Button, onClickLabel = pr.title, onClick = onClick)
             .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
             .padding(horizontal = 16.dp, vertical = 13.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),

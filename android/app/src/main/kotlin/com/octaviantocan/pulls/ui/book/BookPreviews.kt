@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CtaButton
@@ -351,11 +352,11 @@ private fun toastVariants() = listOf(
         listOf(
             BookState("With an action") {
                 val toaster = LocalToaster.current
-                CtaButton("Show the toast", { toaster.show("Marked as reviewed", "Undo") {} })
+                CtaButton("Show the toast", { toaster.show("Marked as reviewed", "Undo", Cue.Success) {} })
             },
             BookState("Without an action") {
                 val toaster = LocalToaster.current
-                CtaButton("Show the toast", { toaster.show("Link copied") })
+                CtaButton("Show the toast", { toaster.show("Link copied", cue = Cue.Success) })
             },
         ),
     ),

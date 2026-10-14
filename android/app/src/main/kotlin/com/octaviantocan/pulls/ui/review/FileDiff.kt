@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -55,6 +54,9 @@ import androidx.compose.ui.unit.sp
 import com.octaviantocan.pulls.data.DiffLine
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.ReviewThread
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.sound.cued
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
@@ -214,7 +216,7 @@ private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Bool
                 if (!first) drawRect(c.borderMute, Offset.Zero, Size(size.width, w))
                 drawRect(c.borderMute, Offset(0f, size.height - w), Size(size.width, w))
             }
-            .clickable(enabled = !file.isBinary && !loading, role = Role.Button, onClickLabel = t("file.loadFull")) { ui.loadFullFile(file, gap.id) },
+            .cueClickable(enabled = !file.isBinary && !loading, role = Role.Button, onClickLabel = t("file.loadFull")) { ui.loadFullFile(file, gap.id) },
         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -357,7 +359,7 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
                         onDragCancel = { ui.dragSel = null },
                     )
                 }
-                .clickable(enabled = !file.isBinary && number != null, role = Role.Button, onClickLabel = label) { ui.tapLine(file, cell) },
+                .cueClickable(Cue.Select, enabled = !file.isBinary && number != null, role = Role.Button, onClickLabel = label) { ui.tapLine(file, cell) },
         ) {
             Text(number?.toString().orEmpty(), Modifier.width(numberCol).padding(end = 6.dp), style = style.copy(textAlign = TextAlign.End), color = ink, maxLines = 1)
             Text(when (line.kind) { '+' -> "+"; '-' -> "−"; else -> "" }, Modifier.width(signCol), style = style, color = ink, maxLines = 1)
@@ -365,7 +367,7 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
         Box(
             Modifier.weight(1f).fillMaxHeight()
                 .let { if (wrap) it else it.draggable(drag, Orientation.Horizontal) }
-                .combinedClickable(onLongClick = { ui.onCodeLongPress(file, cell) }) { ui.tapLine(file, cell) }
+                .combinedClickable(onLongClick = { ui.onCodeLongPress(file, cell) }, onClick = cued(Cue.Select) { ui.tapLine(file, cell) })
                 .clipToBounds()
                 .padding(start = 2.dp, end = if (wrap) 12.dp else 0.dp),
         ) {

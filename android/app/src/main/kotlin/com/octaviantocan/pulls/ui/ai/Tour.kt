@@ -4,7 +4,6 @@ import android.graphics.Picture
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.caverock.androidsvg.SVG
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.data.TourSource
+import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -145,7 +145,7 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
         when {
             svg != null -> androidx.compose.foundation.layout.BoxWithConstraints(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.md)).border(1.dp, c.border, RoundedCornerShape(PullsRadius.md))
-                    .clickable(onClickLabel = "Open the diagram") { full = true }.padding(8.dp),
+                    .cueClickable(onClickLabel = "Open the diagram") { full = true }.padding(8.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 // Natural size (1 SVG px = 1.2dp), shrunk to fit the width and at most 480dp tall; tap for full screen.
@@ -216,7 +216,7 @@ internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
         Text("In the code", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         sources.forEach { source ->
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg)).clickable(role = Role.Button) { onOpen(source) }.padding(vertical = 8.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg)).cueClickable(role = Role.Button) { onOpen(source) }.padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(

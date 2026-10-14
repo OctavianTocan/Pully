@@ -83,6 +83,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.R
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.Sounds
+import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.sound.directionOf
 import kotlinx.coroutines.delay
 
 /*
@@ -153,6 +158,8 @@ fun FloatButton(
     enabled: Boolean = true,
     flat: Boolean = false,
     container: Color = LocalPullsColors.current.raised,
+    /** The one main action on a screen (Send) sounds at full weight; the rest are quiet. */
+    emphasis: Emphasis = Emphasis.Subtle,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
@@ -162,7 +169,7 @@ fun FloatButton(
             .clip(CircleShape)
             .background(if (flat) Color.Transparent else container)
             .semantics { contentDescription = label }
-            .clickable(enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
+            .cueClickable(emphasis = emphasis, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
             .alpha(if (enabled) 1f else 0.4f),
         contentAlignment = Alignment.Center,
         content = content,
@@ -173,7 +180,7 @@ fun FloatButton(
 @Composable
 internal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text, primary: Boolean = false) {
     val c = LocalPullsColors.current
-    FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container) {
+    FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container, if (primary) Emphasis.Normal else Emphasis.Subtle) {
         IconSwap(glyph) { LuIcon(it, tint = if (primary) Color.White else tint, size = iconSize) } // raw-value-ok: the ink on the primary fill is white in both themes
     }
 }
@@ -181,7 +188,7 @@ internal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modif
 /** The send circle inside a [PillInput]: 40dp on the primary fill, the Orb in its place while [busy]. */
 @Composable
 fun SendButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false) {
-    FloatButton(onClick, label, modifier, size = 40.dp, enabled = enabled, container = LocalPullsColors.current.primary) {
+    FloatButton(onClick, label, modifier, size = 40.dp, enabled = enabled, container = LocalPullsColors.current.primary, emphasis = Emphasis.Normal) {
         IconSwap(busy) { working -> if (working) Orb(size = 20.dp) else LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) } // raw-value-ok: the ink on the primary fill is white in both themes
     }
 }
@@ -197,6 +204,8 @@ fun CapsuleTabs(
     flat: Boolean = false,
     /** A mark before a label, such as an engine's own; the only icons a tab may carry. */
     leading: (@Composable (index: Int) -> Unit)? = null,
+    /** False for a picker that sounds its own choice, so a tab does not also make the generic one. */
+    sound: Boolean = true,
 ) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(50)
@@ -209,7 +218,10 @@ fun CapsuleTabs(
         Row(Modifier.fillMaxSize()) {
             labels.forEachIndexed { index, label ->
                 Box(
-                    Modifier.weight(1f).fillMaxHeight().clip(shape).clickable(role = Role.Tab) { onSelect(index) },
+                    Modifier.weight(1f).fillMaxHeight().clip(shape).then(
+                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) }
+                        else Modifier.clickable(role = Role.Tab) { onSelect(index) },
+                    ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -230,7 +242,7 @@ fun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Mo
     val fill by animateColorAsState(if (selected) c.chipOn else Color.Transparent, tween(200), label = "chip-fill")
     val edge by animateColorAsState(if (selected) c.chipOn else c.border, tween(200), label = "chip-edge")
     Row(
-        modifier.height(36.dp).clip(shape).background(fill).border(1.dp, edge, shape).clickable(role = Role.Tab, onClick = onClick).padding(horizontal = 14.dp),
+        modifier.height(36.dp).clip(shape).background(fill).border(1.dp, edge, shape).cueClickable(role = Role.Tab, onClick = onClick).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -253,7 +265,7 @@ fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, 
             val on = index == selected
             val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = "tab-ink")
             Box(
-                Modifier.then(if (spread) Modifier.weight(1f) else Modifier).height(48.dp).clickable(role = Role.Tab, onClickLabel = label) { onSelect(index) }
+                Modifier.then(if (spread) Modifier.weight(1f) else Modifier).height(48.dp).cueClickable(direction = directionOf(selected, index), role = Role.Tab, onClickLabel = label) { onSelect(index) }
                     .padding(start = if (index == 0 || spread) 0.dp else 12.dp, end = if (spread) 0.dp else 12.dp),
                 contentAlignment = if (spread) Alignment.CenterStart else Alignment.Center,
             ) {
@@ -277,7 +289,7 @@ fun PullsCheck(checked: Boolean, modifier: Modifier = Modifier, size: Dp = 22.dp
     val edge by animateColorAsState(if (checked) c.primary else Color(0xFFC9CFCE), tween(150), label = "check-edge")
     // The box fills in 150ms and the tick is drawn in over 350ms (the Success check recipe, rule 73).
     val tick by animateFloatAsState(if (checked) 1f else 0f, tween(if (checked) PullsMotion.MEDIUM else PullsMotion.QUICK, easing = PullsMotion.InOut), label = "check-tick")
-    val click = if (onClick != null) Modifier.clickable(role = Role.Checkbox, onClickLabel = label, onClick = onClick) else Modifier
+    val click = if (onClick != null) Modifier.cueClickable(direction = directionOf(!checked), role = Role.Checkbox, onClickLabel = label, onClick = onClick) else Modifier
     Box(modifier.size(size).clip(shape).background(fill).border(1.5.dp, edge, shape).then(click), contentAlignment = Alignment.Center) {
         if (tick > 0f) LuIcon(Lu.tick, tint = Color.White, size = size * 0.64f, progress = { tick })
     }
@@ -292,7 +304,7 @@ fun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, mo
     Box(
         modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)
             .semantics { contentDescription = label }
-            .clickable(enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }
+            .cueClickable(direction = directionOf(!checked), enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }
             .alpha(if (enabled) 1f else 0.5f),
     ) {
         Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))
@@ -312,7 +324,7 @@ fun CtaButton(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        modifier.height(52.dp).clip(CircleShape).background(container).clickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),
+        modifier.height(52.dp).clip(CircleShape).background(container).cueClickable(emphasis = Emphasis.Normal, enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -333,7 +345,7 @@ fun PillButton(
 ) {
     val c = LocalPullsColors.current
     Row(
-        modifier.height(44.dp).clip(CircleShape).background(c.paper2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),
+        modifier.height(44.dp).clip(CircleShape).background(c.paper2).cueClickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -417,7 +429,7 @@ fun SheetRow(
     val inset = if (iconless) 16.dp else 52.dp
     Row(
         modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
-            .then(if (onClick != null) Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.cueClickable(emphasis = if (danger) Emphasis.Strong else Emphasis.Subtle, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }
             .alpha(if (enabled) 1f else 0.5f)
             .padding(horizontal = 16.dp),
@@ -489,7 +501,7 @@ fun SheetField(
 fun QuickAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Column(
-        modifier.height(72.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised).clickable(role = Role.Button, onClick = onClick),
+        modifier.height(72.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised).cueClickable(role = Role.Button, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
     ) {
@@ -509,8 +521,10 @@ class Toaster {
     var message by mutableStateOf<ToastMessage?>(null)
         private set
 
-    fun show(text: String, action: String? = null, onAction: (() -> Unit)? = null) {
+    /** [cue] is the sound of what the message reports: a confirmed save, a refusal. A message that only echoes a tap that already sounded has none. */
+    fun show(text: String, action: String? = null, cue: Cue? = null, onAction: (() -> Unit)? = null) {
         message = ToastMessage(text, action, onAction)
+        if (cue != null) Sounds.play(cue, Emphasis.Subtle)
     }
 
     internal fun clear(message: ToastMessage) {
@@ -561,7 +575,7 @@ fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
             if (message.action != null) {
                 Text(
                     message.action,
-                    Modifier.clickable(role = Role.Button) { toaster.clear(message); message.onAction?.invoke() },
+                    Modifier.cueClickable(role = Role.Button) { toaster.clear(message); message.onAction?.invoke() },
                     style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold),
                     color = Color(0xFF9AD3D6),
                 )
