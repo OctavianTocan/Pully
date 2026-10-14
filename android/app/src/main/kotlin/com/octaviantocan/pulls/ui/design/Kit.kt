@@ -2,6 +2,7 @@
 
 package com.octaviantocan.pulls.ui.design
 
+import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
@@ -67,10 +68,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -90,12 +95,56 @@ import kotlinx.coroutines.launch
  * numbers (44dp circles, 36dp chips, 52dp rows, 24dp sheet corners) come straight from it.
  */
 
-/** `--sh`: a hairline and a soft 20px drop, tinted with the ink. */
+/**
+ * The canvas shadows from Row W. Each is `0 dy blur rgba(ink, alpha)`: a soft ink drop two pixels
+ * down that reads as light, not as a border. Compose's `Modifier.shadow` cannot draw an offset,
+ * so [floatShadow] draws these itself (rule 45).
+ */
+enum class PullsShadow(val dy: Dp, val blur: Dp, val alpha: Float) {
+    /** `.fl`, `.cap`: header circles and capsules. */
+    Button(2.dp, PullsElevation.button, 0.08f),
+
+    /** `.note`: cards, the Tour card, quick actions. */
+    Note(2.dp, PullsElevation.note, 0.10f),
+
+    /** `.tbar`: the bottom bar and the comment bar. */
+    Bar(2.dp, PullsElevation.bar, 0.12f),
+
+    /** `.search`: the search pill and the Ask bar. */
+    Search(2.dp, PullsElevation.search, 0.12f),
+
+    /** Popovers that open over content: the Aa menu, the file list, the stop picker. */
+    Menu(4.dp, PullsElevation.menu, 0.14f),
+
+    /** `.tog>i`: the switch thumb. */
+    Thumb(1.dp, PullsElevation.thumb, 0.20f),
+
+    /** A centered dialog on a wide screen. */
+    Modal(8.dp, PullsElevation.modal, 0.22f),
+}
+
+/**
+ * Draws [level] behind this element. Put it before `clip` and `background`, so the shadow lands
+ * outside the shape. The drop is a Paint shadow layer, which draws on a hardware canvas from
+ * API 28; older phones get a plain elevation, which is close but has no offset.
+ */
 @Composable
-fun Modifier.floatShadow(shape: Shape, elevation: Dp = 8.dp): Modifier {
+fun Modifier.floatShadow(shape: Shape, level: PullsShadow = PullsShadow.Button): Modifier {
     val c = LocalPullsColors.current
-    val tint = c.shadow.copy(alpha = if (c.dark) 0.6f else 0.22f)
-    return this.shadow(elevation, shape, clip = false, ambientColor = tint, spotColor = tint)
+    val tint = c.shadow.copy(alpha = if (c.dark) (level.alpha * 2.7f).coerceAtMost(0.9f) else level.alpha)
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+        return this.shadow(level.blur / 2, shape, clip = false, ambientColor = tint, spotColor = tint)
+    }
+    val fill = c.raised
+    return this.drawBehind {
+        // Skia turns a Paint shadow radius into a Gaussian sigma of 0.57735 * radius + 0.5, and CSS
+        // turns a blur of B into sigma B / 2. This is the radius that gives the canvas the same blur.
+        val radius = ((level.blur.toPx() / 2f - 0.5f) / 0.57735f).coerceAtLeast(0.5f)
+        val paint = Paint().apply { color = fill }
+        paint.asFrameworkPaint().setShadowLayer(radius, 0f, level.dy.toPx(), tint.toArgb())
+        val outline = shape.createOutline(size, layoutDirection, this)
+        drawIntoCanvas { it.drawOutline(outline, paint) }
+    }
 }
 
 /** `.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow (sheet headers). */
@@ -217,7 +266,7 @@ fun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, mo
             .clickable(enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }
             .alpha(if (enabled) 1f else 0.5f),
     ) {
-        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).shadow(2.dp, CircleShape).clip(CircleShape).background(Color.White))
+        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))
     }
 }
 
@@ -322,7 +371,7 @@ fun PullsSheet(
 @Composable
 fun SheetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(16.dp)
-    Column(modifier.fillMaxWidth().padding(top = 12.dp).floatShadow(shape, 4.dp).clip(shape).background(LocalPullsColors.current.raised), content = content)
+    Column(modifier.fillMaxWidth().padding(top = 12.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised), content = content)
 }
 
 /**
@@ -364,7 +413,7 @@ fun SheetRow(
 fun QuickAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Column(
-        modifier.height(72.dp).floatShadow(shape, 4.dp).clip(shape).background(LocalPullsColors.current.raised).clickable(role = Role.Button, onClick = onClick),
+        modifier.height(72.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised).clickable(role = Role.Button, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
     ) {

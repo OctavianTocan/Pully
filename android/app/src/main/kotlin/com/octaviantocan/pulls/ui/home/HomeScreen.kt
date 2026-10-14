@@ -114,6 +114,7 @@ import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SoftChip
 import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.update.AppUpdater
@@ -497,7 +498,7 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: S
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
     Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = if (value.isEmpty()) 20.dp else 8.dp),
+        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = if (value.isEmpty()) 20.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -688,7 +689,7 @@ private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
     Row(
         modifier
             .fillMaxWidth()
-            .floatShadow(shape, 4.dp)
+            .floatShadow(shape, PullsShadow.Note)
             .clip(shape)
             .background(c.raised)
             .padding(horizontal = 14.dp, vertical = 10.dp),

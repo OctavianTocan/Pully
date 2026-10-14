@@ -196,10 +196,13 @@ motion:
   orb-breath: 900ms reverse loop
   shimmer: 1500ms linear loop
 elevation:
-  float: 8px
-  raised: 4px
-  thumb: 2px
-  modal: 24px
+  button: 10px
+  note: 12px
+  bar: 14px
+  search: 16px
+  menu: 20px
+  thumb: 3px
+  modal: 40px
 components:
   float-button:
     backgroundColor: "{colors.raised}"
@@ -329,7 +332,7 @@ Spacing steps are 4, 8, 12, 16, 24 and 32. The code also uses 6, 10, 14 and 18 i
 
 ## Elevation & Depth
 
-Floating things carry one shadow recipe, `floatShadow`: an 8dp soft drop tinted with `shadow`, at 0.22 alpha in light and 0.6 in dark. Cards on sheets and quick actions use the same recipe at 4dp, the switch thumb uses 2dp, and a centered modal uses 24dp. The `elevation` tokens are those heights in dp. A missing or different shadow on a floating element is a defect (rule 45).
+Floating things carry the canvas shadow from Row W, drawn by `floatShadow`: a soft ink drop two pixels down (`0 2px 10px` at 8% for a header circle or capsule), never an even glow all round. Compose's own elevation cannot offset a shadow, which is why it looked faint and flat on the phone, so `floatShadow` draws the drop itself from API 28 and falls back to a plain elevation below that. It comes in seven levels, named for what carries them: `button` (10px blur, 8%), `note` (12px, 10%, cards and quick actions), `bar` (14px, 12%, the bottom and comment bars), `search` (16px, 12%, the search pill and the Ask bar), `menu` (20px, 14%, four pixels down, for popovers), `thumb` (3px, 20%, the switch thumb) and `modal` (40px, 22%, a centered dialog). The `elevation` tokens are those blurs in dp. In dark mode the strength is multiplied by 2.7 so the drop still reads on the dark paper. A missing or different shadow on a floating element is a defect (rule 45).
 
 Everything beneath a sheet dims uniformly through `scrim`, the header and the trigger included (rule 5). Depth comes from the shadow and the scrim. A border or a fill alone never lifts a surface.
 

@@ -80,6 +80,7 @@ import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.home.Spinner
 import com.octaviantocan.pulls.ui.home.StatusColors
@@ -235,7 +236,7 @@ private fun NoteCard(note: String) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(16.dp)
     Column(
-        Modifier.fillMaxWidth().floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -302,7 +303,7 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
         Box(Modifier.weight(1f)) {
             androidx.compose.animation.AnimatedVisibility(selected != null, enter = fadeIn() + scaleIn(initialScale = 0.96f), exit = fadeOut() + scaleOut(targetScale = 0.96f)) {
                 Row(
-                    Modifier.fillMaxWidth().height(48.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 4.dp),
+                    Modifier.fillMaxWidth().height(48.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -357,7 +358,7 @@ private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current:
     val state = rememberLazyListState(initialFirstVisibleItemIndex = (files.indexOfFirst { it.path == current?.path } - 2).coerceAtLeast(0))
     LazyColumn(
         Modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 56.dp)
-            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised),
+            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised),
         state = state,
         contentPadding = PaddingValues(vertical = 6.dp),
     ) {
@@ -399,7 +400,7 @@ internal fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onD
     val blob = if (file != null && repo != null && opened?.refKind.orEmpty().startsWith("github") && !sha.isNullOrBlank()) FileLinks.blob(repo.first, repo.second, sha, file.path) else null
     Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onDismiss))
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 56.dp, end = 16.dp, start = 16.dp), contentAlignment = Alignment.TopEnd) {
-        Column(Modifier.width(300.dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.width(300.dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SIZES.forEach { (name, zoom) ->
                     val on = kotlin.math.abs(settings.codeZoom - zoom) < 0.04f

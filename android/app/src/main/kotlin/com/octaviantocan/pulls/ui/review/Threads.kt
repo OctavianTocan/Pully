@@ -50,6 +50,7 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import kotlinx.coroutines.launch
@@ -67,7 +68,7 @@ private val CARD_MAX = 800.dp
 private fun CardBox(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(16.dp)
-    Column(modifier.widthIn(max = CARD_MAX).fillMaxWidth().floatShadow(shape, 4.dp).clip(shape).background(c.raised)) { content() }
+    Column(modifier.widthIn(max = CARD_MAX).fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised)) { content() }
 }
 
 /** Runs a GitHub write for a thread, then reloads the reviews; errors stay on the card. */

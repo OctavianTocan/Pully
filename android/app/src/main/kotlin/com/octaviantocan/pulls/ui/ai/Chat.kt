@@ -40,6 +40,7 @@ import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SoftChip
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ReviewSession
@@ -134,7 +135,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     }
                 }
                 Row(
-                    Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
+                    Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -235,7 +236,7 @@ private fun AnswerBubble(text: String) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp)
     Box(Modifier.fillMaxWidth(0.92f)) {
-        Box(Modifier.floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Box(Modifier.floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 10.dp)) {
             Markdown(text, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f, color = c.text))
         }
     }
@@ -247,7 +248,7 @@ private fun TypingDots() {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp)
     Row(
-        Modifier.floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 14.dp),
+        Modifier.floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         repeat(3) { com.octaviantocan.pulls.ui.design.BreathingDot(size = 6.dp) }

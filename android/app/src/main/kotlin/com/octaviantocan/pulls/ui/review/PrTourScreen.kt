@@ -81,6 +81,7 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import kotlinx.coroutines.launch
 
@@ -209,7 +210,7 @@ internal fun PrTourScreen(
 private fun Card(content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(18.dp)
-    Column(Modifier.fillMaxWidth().floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 20.dp)) { content() }
+    Column(Modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 20.dp)) { content() }
 }
 
 /** The tour's own card: its title and overview, a note when it was written for an older commit, and the way to make a new one. */
@@ -279,7 +280,7 @@ private fun StopPicker(stops: List<TourStop>, current: Int, onPick: (Int) -> Uni
     Box(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
     Column(
         Modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 56.dp)
-            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised)
+            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised)
             .verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
     ) {
         stops.forEachIndexed { index, stop ->
@@ -310,7 +311,7 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
         onAsk(question.ifEmpty { null })
     }
     Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 18.dp, end = 6.dp),
+        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 18.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {

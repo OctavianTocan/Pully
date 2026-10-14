@@ -35,7 +35,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
@@ -118,7 +117,7 @@ fun AppModal(
                 val shape = RoundedCornerShape(24.dp)
                 Column(
                     Modifier.widthIn(max = if (spacious) 672.dp else 576.dp).fillMaxWidth().heightIn(max = 900.dp)
-                        .shadow(24.dp, shape).clip(shape).background(c.paper)
+                        .floatShadow(shape, PullsShadow.Modal).clip(shape).background(c.paper)
                         .clickable(remember { MutableInteractionSource() }, null) {},
                 ) { Body(sheet = false, close = onClose) }
             }

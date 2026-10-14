@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 488,
+        "line": 537,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes.",
         "params": [
           {
@@ -27,7 +27,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 134,
+        "line": 183,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -67,7 +67,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 196,
+        "line": 245,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -104,7 +104,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 225,
+        "line": 274,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -155,7 +155,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 102,
+        "line": 151,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow (sheet headers).",
         "params": [
           {
@@ -200,7 +200,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 128,
+        "line": 177,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -260,7 +260,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 505,
+        "line": 554,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -283,7 +283,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 437,
+        "line": 486,
         "doc": "`.orb`: the AI's mark. While it works, a comet ring turns around the bot and the bot breathes; done, it is a still wash.",
         "params": [
           {
@@ -311,7 +311,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 499,
+        "line": 548,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -334,7 +334,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 248,
+        "line": 297,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -357,7 +357,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 473,
+        "line": 522,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -388,7 +388,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 363,
+        "line": 412,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -409,7 +409,7 @@
             "type": "@Composable () -> Unit"
           }
         ],
-        "source": "@Composable\nfun QuickAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(\n        modifier.height(72.dp).floatShadow(shape, 4.dp).clip(shape).background(LocalPullsColors.current.raised).clickable(role = Role.Button, onClick = onClick),\n        horizontalAlignment = Alignment.CenterHorizontally,\n        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),\n    ) {\n        icon()\n        Text(label, style = PullsType.sm, color = LocalPullsColors.current.text, maxLines = 1)\n    }\n}"
+        "source": "@Composable\nfun QuickAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: @Composable () -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(\n        modifier.height(72.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised).clickable(role = Role.Button, onClick = onClick),\n        horizontalAlignment = Alignment.CenterHorizontally,\n        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),\n    ) {\n        icon()\n        Text(label, style = PullsType.sm, color = LocalPullsColors.current.text, maxLines = 1)\n    }\n}"
       }
     ]
   },
@@ -418,7 +418,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 260,
+        "line": 309,
         "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [back] swaps the close X for a back arrow.",
         "params": [
           {
@@ -458,7 +458,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 310,
+        "line": 359,
         "doc": "",
         "params": [
           {
@@ -503,7 +503,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 322,
+        "line": 371,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -516,7 +516,7 @@
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun SheetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(modifier.fillMaxWidth().padding(top = 12.dp).floatShadow(shape, 4.dp).clip(shape).background(LocalPullsColors.current.raised), content = content)\n}"
+        "source": "@Composable\nfun SheetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(modifier.fillMaxWidth().padding(top = 12.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised), content = content)\n}"
       }
     ]
   },
@@ -525,7 +525,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 332,
+        "line": 381,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -581,7 +581,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 513,
+        "line": 562,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -599,7 +599,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 158,
+        "line": 207,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -634,7 +634,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 209,
+        "line": 258,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -660,7 +660,7 @@
             "default": "true"
           }
         ],
-        "source": "@Composable\nfun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true) {\n    val c = LocalPullsColors.current\n    val track by animateColorAsState(if (checked) c.primary else c.border, tween(200), label = \"switch-track\")\n    val thumb by animateDpAsState(if (checked) 23.dp else 3.dp, tween(200), label = \"switch-thumb\")\n    Box(\n        modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)\n            .semantics { contentDescription = label }\n            .clickable(enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }\n            .alpha(if (enabled) 1f else 0.5f),\n    ) {\n        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).shadow(2.dp, CircleShape).clip(CircleShape).background(Color.White))\n    }\n}"
+        "source": "@Composable\nfun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true) {\n    val c = LocalPullsColors.current\n    val track by animateColorAsState(if (checked) c.primary else c.border, tween(200), label = \"switch-track\")\n    val thumb by animateDpAsState(if (checked) 23.dp else 3.dp, tween(200), label = \"switch-thumb\")\n    Box(\n        modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)\n            .semantics { contentDescription = label }\n            .clickable(enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }\n            .alpha(if (enabled) 1f else 0.5f),\n    ) {\n        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))\n    }\n}"
       }
     ]
   },
@@ -669,7 +669,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 399,
+        "line": 448,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.",
         "params": [
           {
@@ -691,7 +691,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 175,
+        "line": 224,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent.",
         "params": [
           {

@@ -48,8 +48,6 @@
     "ui/settings/SettingsScreen.kt": 10
   },
   "shadow": {
-    "ui/design/AppModal.kt": 1,
-    "ui/design/Kit.kt": 1,
     "ui/home/RepoScreen.kt": 1
   },
   "smallText": {

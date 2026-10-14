@@ -291,10 +291,13 @@
     "8": 32
   },
   "elevation": {
-    "float": 8,
-    "raised": 4,
-    "thumb": 2,
-    "modal": 24
+    "button": 10,
+    "note": 12,
+    "bar": 14,
+    "search": 16,
+    "menu": 20,
+    "thumb": 3,
+    "modal": 40
   },
   "motion": {
     "tick": "150ms",

@@ -77,6 +77,7 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactAge
@@ -617,7 +618,7 @@ private fun BottomBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            Modifier.height(52.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(horizontal = 6.dp),
+            Modifier.height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
