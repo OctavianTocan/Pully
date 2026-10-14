@@ -50,7 +50,7 @@ function overview(): PrOverview {
     commitsHidden: 0,
     timeline,
     timelineHidden: 0,
-    viewer: { canPush: true, canMergeAsAdmin: false, canClose: true, canReopen: true, canUpdate: true, canUpdateBranch: false },
+    viewer: { canPush: true, canMergeAsAdmin: false, canClose: true, canReopen: true, canUpdate: true, canUpdateBranch: false, canEnableAutoMerge: false, canDisableAutoMerge: false },
     merge: { methods: ['merge', 'squash'], defaultMethod: 'squash', squashTitle: 'PR_TITLE', squashMessage: 'COMMIT_MESSAGES', mergeTitle: 'MERGE_MESSAGE', mergeMessage: 'PR_TITLE' },
   }
 }

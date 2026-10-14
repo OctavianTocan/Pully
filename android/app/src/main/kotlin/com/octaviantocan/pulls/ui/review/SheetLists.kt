@@ -225,14 +225,11 @@ internal fun FileActionsSheet(session: ReviewSession, file: ReviewFile, onOpen: 
     PullsSheet(onClose, name, expandable = false) {
         Text(file.path, Modifier.padding(start = 4.dp, end = 4.dp, top = 2.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
         SheetCard {
-            SheetRow("Open", { onClose(); onOpen() }, first = true, icon = { LuIcon(Lu.diff, tint = c.text, size = 20.dp) })
-            SheetRow(
-                if (reviewed) "Mark as not reviewed" else "Mark reviewed",
-                { session.setReviewed(listOf(file.sha), !reviewed); onClose() },
-                icon = { LuIcon(Lu.check, tint = c.text, size = 20.dp) },
-            )
-            SheetRow("Copy path", { copyText(context, file.path); toaster.show("Copied $name", cue = Cue.Success); onClose() }, icon = { LuIcon(Lu.copy, tint = c.text, size = 20.dp) })
-            SheetRow("Ask about this file", { onClose(); onAsk() }, icon = { LuIcon(Lu.ask, tint = c.text, size = 20.dp) })
+            // The four are words; a speech bubble on Ask carried no fact, and one glyph short of a column looks broken (rule 48).
+            SheetRow("Open", { onClose(); onOpen() }, first = true, iconless = true)
+            SheetRow(if (reviewed) "Mark as not reviewed" else "Mark reviewed", { session.setReviewed(listOf(file.sha), !reviewed); onClose() }, iconless = true)
+            SheetRow("Copy path", { copyText(context, file.path); toaster.show("Copied $name", cue = Cue.Success); onClose() }, iconless = true)
+            SheetRow("Ask about this file", { onClose(); onAsk() }, iconless = true)
         }
     }
 }

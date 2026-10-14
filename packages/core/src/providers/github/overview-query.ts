@@ -35,6 +35,9 @@ query PullRequestOverview($owner: String!, $repo: String!, $number: Int!) {
       viewerCanClose
       viewerCanReopen
       viewerCanMergeAsAdmin
+      viewerCanEnableAutoMerge
+      viewerCanDisableAutoMerge
+      autoMergeRequest { mergeMethod }
       headRefOid
       headRefName
       baseRefName
@@ -226,6 +229,10 @@ export interface RawPullRequest {
   viewerCanClose: boolean
   viewerCanReopen: boolean
   viewerCanMergeAsAdmin: boolean
+  viewerCanEnableAutoMerge?: boolean
+  viewerCanDisableAutoMerge?: boolean
+  /** Set while the pull request waits to merge itself once its checks pass. */
+  autoMergeRequest?: { mergeMethod: string } | null
   headRefOid: string
   headRefName: string
   baseRefName: string

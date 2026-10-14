@@ -3,10 +3,12 @@ import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
 import process from 'node:process'
 import {
   assessMergeability,
+  cancelAutoMerge,
   changePullRequestState,
   createGithubClient,
   createGithubSource,
   defaultMergeCommit,
+  enableAutoMerge,
   fetchGithubTokenMeta,
   fetchOpenPullRequests,
   fetchPullRequestOverview,
@@ -87,6 +89,14 @@ const MERGE_METHODS: MergeMethod[] = ['merge', 'squash', 'rebase']
 const STATE_CHANGES: PullRequestStateChange[] = ['close', 'reopen', 'ready', 'draft']
 const VERDICTS: ReviewVerdict[] = ['APPROVE', 'REQUEST_CHANGES', 'COMMENT']
 
+/** The merge method [args] names, or an error saying that [what] needs one. */
+function mergeMethodOf(args: Args, what: string): MergeMethod {
+  const method = text(args?.method) as MergeMethod
+  if (!MERGE_METHODS.includes(method))
+    throw new Error(`${what} needs a method: merge, squash or rebase.`)
+  return method
+}
+
 export const NATIVE_REVIEW: Record<string, Handler> = {
   /** Reviewed marks for a diff's files, by blob sha, and the paths that changed since they were marked. */
   'reviewed-get': async function (cwd, args) {
@@ -155,7 +165,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return { overview, mergeability: assessMergeability(overview), defaultCommits: commits }
   },
 
-  /** Merge, close, reopen, ready, draft, edit the title or description, or update the branch. */
+  /** Merge now or when checks pass, close, reopen, ready, draft, edit the title or description, or update the branch. */
   'pr-action': async function (_cwd, args) {
     const id = text(args?.id)
     const action = text(args?.action)
@@ -164,10 +174,14 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const github = await client()
     const expectedHeadOid = text(args?.expectedHeadOid) || undefined
     if (action === 'merge') {
-      const method = text(args?.method) as MergeMethod
-      if (!MERGE_METHODS.includes(method))
-        throw new Error('Merge needs a method: merge, squash or rebase.')
+      const method = mergeMethodOf(args, 'Merge')
       await mergePullRequest(github, { pullRequestId: id, method, title: text(args?.title) || undefined, body: typeof args?.body === 'string' ? args.body : undefined, expectedHeadOid })
+    }
+    else if (action === 'auto-merge') {
+      await enableAutoMerge(github, id, { method: mergeMethodOf(args, 'Merging when checks pass'), expectedHeadOid })
+    }
+    else if (action === 'cancel-auto-merge') {
+      await cancelAutoMerge(github, id)
     }
     else if (action === 'update-branch') {
       await updatePullRequestBranch(github, id, { method: args?.method === 'rebase' ? 'rebase' : 'merge', expectedHeadOid })

@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -23,8 +24,6 @@ import com.octaviantocan.pulls.data.ServerConfig
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.ai.CritiquePanel
-import com.octaviantocan.pulls.ui.ai.ShareButton
-import com.octaviantocan.pulls.ui.ai.canShare
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.runAnalyze
 import com.octaviantocan.pulls.ui.ai.runCritique
@@ -38,6 +37,7 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Messages
 import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsSheet
+import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.QuickAction
 import com.octaviantocan.pulls.ui.design.SheetCard
@@ -99,6 +99,9 @@ private fun blockerLabel(blocker: String): String = when (blocker) {
     else -> "Checking…"
 }
 
+/** The blockers GitHub clears by itself once checks and reviews come in; conflicts, drafts and a stale base need a person. */
+private val AUTO_MERGE_WAITS = setOf("blocked", "checking")
+
 /**
  * `#sheet`: Checks, GitHub and Analyze again as tiles; the analysis model; Approve and Request changes;
  * the merge; draft and close; and the few AI and refresh actions the prototype did not draw.
@@ -155,14 +158,15 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             }
         }
 
+        // The verdicts are words: a speech bubble on them carried no fact (rule 48).
         if (canReview && (pending > 0 || head.isOpen)) SheetCard {
-            if (pending > 0) SheetRow("Submit comments", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, icon = { LuIcon(Lu.ask, tint = c.text) }) {
+            if (pending > 0) SheetRow("Submit comments", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, iconless = true) {
                 Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
             }
             if (head.isOpen) {
-                if (pending == 0) SheetRow("Leave a comment", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, icon = { LuIcon(Lu.ask, tint = c.text) })
-                SheetRow("Approve", { top.reviewVerdict = "APPROVE"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.check, tint = c.text) })
-                SheetRow("Request changes", { top.reviewVerdict = "REQUEST_CHANGES"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.req, tint = c.text) }) {
+                if (pending == 0) SheetRow("Leave a comment", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, iconless = true)
+                SheetRow("Approve", { top.reviewVerdict = "APPROVE"; top.reviewOpen = true; onClose() }, iconless = true)
+                SheetRow("Request changes", { top.reviewVerdict = "REQUEST_CHANGES"; top.reviewOpen = true; onClose() }, iconless = true) {
                     if (pending > 0) Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
                 }
             }
@@ -191,11 +195,37 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                     else -> Text("Ready", style = PullsType.sm, color = StatusColors.green(c.dark), maxLines = 1)
                 }
             }
+            // Merging later is the row under merging now (rule 29): on while it waits, off again from the same row. Its label
+            // lines up under the merge row's, and the row and its switch do the same thing. It follows the blocker, not
+            // `ready`: an admin who could bypass protection may still choose to wait for it.
+            val method = overview.merge.defaultMethod
+            val autoMerge: (() -> Unit)? = when {
+                overview.autoMergeMethod != null && overview.viewer.canDisableAutoMerge -> {
+                    {
+                        onClose()
+                        top.run(session, "cancel-auto-merge", onOk = { toaster.show("$number will not merge by itself") }) {
+                            session.repo.prAction(overview.id, "cancel-auto-merge")
+                        }
+                    }
+                }
+                overview.viewer.canEnableAutoMerge && mergeability.blocker in AUTO_MERGE_WAITS -> {
+                    {
+                        onClose()
+                        top.run(session, "auto-merge", onOk = { toaster.show("$number will merge when its checks pass") }) {
+                            session.repo.prAction(overview.id, "auto-merge", method = method, expectedHeadOid = overview.headOid)
+                        }
+                    }
+                }
+                else -> null
+            }
+            if (autoMerge != null) SheetRow("Merge when checks pass", autoMerge) {
+                PullsSwitch(overview.autoMergeMethod != null, { autoMerge() }, "Merge when checks pass", Modifier.clearAndSetSemantics {})
+            }
             if (overview.viewer.canUpdateBranch) {
                 SheetRow(t("overview.actions.updateBranch"), {
                     onClose()
                     top.run(session, "update-branch") { session.repo.prAction(overview.id, "update-branch", expectedHeadOid = overview.headOid) }
-                }, icon = { LuIcon(Lu.merge, tint = c.text) })
+                }, icon = { LuIcon(Lu.branch, tint = c.text) })
             }
         }
 
@@ -235,8 +265,11 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                 }
                 first = false
             }
-            if (canShare(session)) {
-                ShareButton(session, first = first)
+            if (session.files.isNotEmpty()) {
+                // Its own glyph, so the card's icon column stays whole and no glyph repeats (rule 48).
+                SheetRow(t("reviewProgress.title"), { top.progressOpen = true; onClose() }, first = first, icon = { LuIcon(Lu.okc, tint = c.text, size = 20.dp) }) {
+                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+                }
                 first = false
             }
             SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, first = first, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {

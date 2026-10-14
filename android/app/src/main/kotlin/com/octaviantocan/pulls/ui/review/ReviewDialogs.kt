@@ -57,9 +57,8 @@ fun ReviewProgressSheet(session: ReviewSession, top: ReviewTopUi) {
     val reviewedCount = rows.count { it.second == ReviewState.Reviewed }
     fun shasWhere(reviewed: Boolean) = rows.filter { (it.second == ReviewState.Reviewed) == reviewed }.map { it.first.sha }
     PullsSheet({ top.progressOpen = false }, t("reviewProgress.title"), expandable = true) {
-        Hint(t("group.filesReviewed", "reviewed" to reviewedCount, "total" to rows.size))
         @OptIn(ExperimentalLayoutApi::class)
-        FlowRow(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow( horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PillButton(t("reviewProgress.markAll"), { session.setReviewed(shasWhere(false), true) }, enabled = reviewedCount != rows.size)
             PillButton(t("reviewProgress.invert"), {
                 val (unmark, mark) = shasWhere(true) to shasWhere(false)

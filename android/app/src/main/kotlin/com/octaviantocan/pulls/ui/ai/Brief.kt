@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -41,6 +40,7 @@ import com.octaviantocan.pulls.data.Brief
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
@@ -75,13 +75,8 @@ internal fun BriefSection(session: ReviewSession, brief: Brief, onOpen: (BriefTa
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Brief", Modifier.weight(1f), style = PullsType.xl, color = c.text)
-            if (session.key != null && !running) {
-                Text(
-                    "Redo",
-                    Modifier.defaultMinSize(minHeight = 44.dp).cueClickable(role = Role.Button, onClickLabel = "Write the brief again") { startBrief(session) }.padding(start = 12.dp).wrapContentHeight(Alignment.CenterVertically),
-                    style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
-                )
-            }
+            // Writing it again is the try-again arrow with its name for a label, not the word Redo (rule 87).
+            if (session.key != null && !running) FloatIcon(Lu.redo, "Write the brief again", { startBrief(session) }, flat = true, iconSize = 22.dp, tint = c.muted)
         }
         if (older) Text("Written for an earlier commit.", style = PullsType.sm, color = c.muted)
         brief.page.blocks.forEach { block -> BriefBlockView(session, block, onOpen) }

@@ -71,7 +71,6 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsShadow
@@ -88,6 +87,7 @@ import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
+import com.octaviantocan.pulls.ui.design.hairlineTop
 
 /**
  * The prototype's PR overview: a floating back button and section capsule over the page, the title,
@@ -181,7 +181,7 @@ internal fun PrOverviewScreen(
                 when (slide.shown.coerceAtMost(labels.lastIndex)) {
                     0 -> {
                         item(key = "summary") { Box(rows) { SummaryPane(session, onCite, onSheet) } }
-                        filesItems(session, ui, top, onDiff, onSheet, rows)
+                        filesItems(session, ui, onDiff, onSheet, rows)
                     }
                     1 -> item(key = "description") { Box(rows) { DescriptionPane(session, data) } }
                     2 -> data?.let { commitItems(session, it.overview, commitAnchor, rows) }
@@ -209,9 +209,10 @@ private fun OverviewError(message: String, onRetry: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Couldn't load checks and conversation", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-            Text(message, style = PullsType.xs, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(message, style = PullsType.sm, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        PillButton("Retry", onRetry)
+        // A repeat is the try-again arrow, named for what it does (rule 87).
+        FloatIcon(Lu.redo, "Load again", onRetry, flat = true, iconSize = 22.dp, tint = c.muted)
     }
 }
 
@@ -410,7 +411,6 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
     }
 }
 
-private fun Modifier.hairlineTop(color: Color): Modifier = drawBehind { drawRect(color, Offset.Zero, Size(size.width, 1.dp.toPx())) }
 
 // --- Files ---
 
@@ -419,7 +419,7 @@ private fun Modifier.hairlineTop(color: Color): Modifier = drawBehind { drawRect
  * files away; above [FOLD_ABOVE] files every section starts folded, so a pull request of thousands of files opens as
  * a short list of headings, and only the rows on screen are ever composed.
  */
-private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDiff: (String?) -> Unit, onSheet: (String) -> Unit, rows: Modifier) {
+private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff: (String?) -> Unit, onSheet: (String) -> Unit, rows: Modifier) {
     val sections = fileSections(session, ui)
     val analysis = session.saved?.analysis
     val notes = analysis?.files?.associate { it.path to it.summary }.orEmpty()
@@ -427,18 +427,8 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
     val total = session.files.size
     item(key = "files-head") {
         val c = LocalPullsColors.current
-        val reviewed = session.files.count { it.sha in session.reviewed }
-        Row(
-            rows.fillMaxWidth().padding(top = 18.dp).hairlineTop(c.borderMute).padding(top = 14.dp, bottom = 2.dp),
-            verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text("Files", style = PullsType.xl, color = c.text)
-            Text(
-                "$reviewed of $total reviewed",
-                Modifier.clip(RoundedCornerShape(6.dp)).cueClickable(role = Role.Button, onClickLabel = "Review progress") { top.progressOpen = true },
-                style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted,
-            )
-        }
+        // The heading is the word alone: the ticks on the rows already say what is reviewed (rules 14 and 42).
+        Text("Files", rows.fillMaxWidth().padding(top = 18.dp).hairlineTop(c.borderMute).padding(top = 14.dp, bottom = 2.dp), style = PullsType.xl, color = c.text)
     }
     sections.forEachIndexed { index, section ->
         val label = section.label
@@ -556,11 +546,10 @@ private fun BottomBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                Modifier.height(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Ask", onClick = onAsk).padding(horizontal = 10.dp),
+                // The word alone: the speech bubble beside it was the generic AI glyph of rule 48.
+                Modifier.height(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Ask", onClick = onAsk).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                LuIcon(Lu.ask, tint = c.activeText, size = 20.dp)
                 Text("Ask", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
             }
             Box(Modifier.width(1.dp).height(22.dp).background(c.border))

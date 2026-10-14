@@ -41,7 +41,6 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -178,7 +177,6 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    LuIcon(Lu.ask, tint = c.muted, size = 20.dp)
                     BasicTextField(
                         value = ui.chatInput,
                         onValueChange = { ui.chatInput = it },
@@ -227,7 +225,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(task?.error ?: t("chat.requestFailed"), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
                         // A failed turn saved nothing, so the question is sent again (web `retry` re-runs an errored reply).
-                        PillButton(t("common.retry"), { val text = task?.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) })
+                        FloatIcon(Lu.redo, "Ask again", { val text = task?.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) }, flat = true, iconSize = 22.dp, tint = c.muted)
                     }
                 } else if (!streaming && task?.status == "cancelled") {
                     Text(t("chat.stopped"), style = PullsType.sm, color = c.muted)
@@ -333,7 +331,7 @@ private fun ChatRowView(row: ChatRow) {
         is ChatRow.Assistant -> Answer(row.text)
         is ChatRow.Grouping -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             LuIcon(Lu.list, tint = c.mute, size = 14.dp)
-            Text(t("chat.updatedGrouping", "n" to row.groups), style = PullsType.xs, color = c.mute)
+            Text(t("chat.updatedGrouping", "n" to row.groups), style = PullsType.sm, color = c.muted)
         }
     }
 }

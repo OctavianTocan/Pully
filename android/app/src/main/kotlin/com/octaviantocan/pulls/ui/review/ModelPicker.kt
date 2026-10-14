@@ -44,7 +44,6 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
@@ -55,6 +54,7 @@ import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
 import com.octaviantocan.pulls.ui.settings.CliCatalog
 import com.octaviantocan.pulls.ui.settings.CliModel
 import com.octaviantocan.pulls.ui.settings.EngineModels
+import com.octaviantocan.pulls.ui.design.FloatIcon
 
 // --- Which models to show first ---
 
@@ -180,7 +180,7 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
             catalog == null || groups == null -> Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Couldn't load the model list", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                 Text(loaded.exceptionOrNull()?.message.orEmpty(), style = PullsType.sm, color = c.muted)
-                PillButton(t("common.retry"), { attempt++ })
+                FloatIcon(Lu.redo, "Load the models again", { attempt++ }, flat = true, iconSize = 22.dp, tint = c.muted)
             }
             else -> groups.recent.forEachIndexed { index, model -> ModelRow(model, model.id == inUse, first = index == 0) { choose(model) } }
         }

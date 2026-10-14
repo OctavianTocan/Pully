@@ -85,12 +85,10 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.ListedPull
@@ -111,7 +109,6 @@ import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
-import com.octaviantocan.pulls.ui.design.EmptyState
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -125,12 +122,8 @@ import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsShadow
-import com.octaviantocan.pulls.ui.design.PullsSheet
-import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
-import com.octaviantocan.pulls.ui.design.SheetCard
-import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SoftChip
 import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatShadow
@@ -287,6 +280,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
                 } else {
                     ToursList(
                         entries = tours.entries.filter { needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle) },
+                        pulls = everything.orEmpty(),
                         tasks = workTasks,
                         onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) },
                         onRepo = { owner, name -> nav.openRepo(owner, name) },
@@ -407,9 +401,7 @@ internal fun InboxList(
             when {
                 loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
-                    EmptyState("warning-duotone", t("local.home.failed"), Modifier.fillMaxWidth(), hint = failed) {
-                        PillButton(t("common.retry"), onRetry)
-                    }
+                    ListNote(t("local.home.failed"), hint = failed) { FloatIcon(Lu.redo, "Load the list again", onRetry, flat = true, iconSize = 22.dp, tint = c.muted) }
                 }
                 groups.isEmpty() -> item(key = "empty") {
                     val title = when {
@@ -418,7 +410,7 @@ internal fun InboxList(
                         filter == "authored" -> "You have no open pull requests"
                         else -> t("local.home.empty")
                     }
-                    EmptyState("git-pull-request-duotone", title, Modifier.fillMaxWidth().padding(top = 32.dp))
+                    ListNote(title)
                 }
                 else -> {
                     groups.forEachIndexed { index, group ->
@@ -435,13 +427,6 @@ internal fun InboxList(
                                 modifier = Modifier.animateItem(),
                             ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)]) }
                         }
-                    }
-                    item(key = "hint") {
-                        Text(
-                            "Swipe a row right to review, left to archive.",
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp),
-                            style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center,
-                        )
                     }
                 }
             }
@@ -569,7 +554,8 @@ private val SWIPE_BLUR = 1.3.dp
 internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?) {
     val c = LocalPullsColors.current
     val title = buildAnnotatedString {
-        if (pull.isDraft) withStyle(SpanStyle(fontSize = 13.sp, color = c.muted)) { append("[${t("local.home.draft")}] ") }
+        // The draft mark is muted at the title's own size, not a smaller run (rule 14).
+        if (pull.isDraft) withStyle(SpanStyle(color = c.muted)) { append("[${t("local.home.draft")}] ") }
         append(pull.title)
     }
     val requested = pull.requestedFromMe ?: (pull.role == "review-requested")
@@ -587,7 +573,8 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
-                    Text(pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // A name wraps whole inside its column rather than being cut (rule 90).
+                    Text(pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
                     WorkMark(work)
                 }
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) { CheckMark(pull) }
@@ -670,6 +657,7 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
 @Composable
 internal fun ToursList(
     entries: List<TourEntry>,
+    pulls: List<PullRow>,
     tasks: List<WorkTask>,
     onOpen: (TourEntry) -> Unit,
     onRepo: (owner: String, repo: String) -> Unit,
@@ -688,6 +676,7 @@ internal fun ToursList(
         return
     }
     val now = rememberNow(60_000)
+    val byKey = remember(pulls) { pulls.associateBy(Triage::key) }
     val groups = entries.groupBy { "${it.owner}/${it.repo}" }
     val labels = Triage.groupLabels(groups.map { (name, list) -> Triage.RepoGroup(name, list.first().owner, list.first().repo, emptyList()) })
     val state = rememberLazyListState()
@@ -703,7 +692,6 @@ internal fun ToursList(
                 GroupHeading(labels[name] ?: name, first = index == 0, onClick = { onRepo(first.owner, first.repo) }, modifier = Modifier.animateItem())
             }
             items(list, key = { it.key }) { entry ->
-                val inset = with(LocalDensity.current) { 16.dp.toPx() }
                 val stoppable = runningTaskId(tasks, pullKey(entry.owner, entry.repo, entry.number), "tour") != null
                 SwipeRow(
                     label = entry.prTitle,
@@ -713,34 +701,66 @@ internal fun ToursList(
                     modifier = Modifier.animateItem(),
                     endLabel = if (stoppable) "Stop" else "Remove",
                     endIcon = Lu.close,
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
-                            .padding(horizontal = 16.dp, vertical = 13.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        Box(Modifier.size(30.dp)) {
-                            if (entry.writingAt(now)) Orb(size = 30.dp) else ProgressRing(entry.reached, entry.stops, size = 30.dp)
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(entry.prTitle, style = PullsType.row, color = c.text)
-                            Text(tourSubtitle(entry, now), style = PullsType.sm, color = c.muted)
-                        }
-                    }
-                }
+                ) { TourRowContent(entry, byKey[entry.key], now) }
             }
         }
     }
 }
 
-/** `3 of 7 · Three lines that fix it`, `Writing · about a minute`, `Done · 4 stops`. */
-internal fun tourSubtitle(entry: TourEntry, now: Long): String = when {
-    entry.writingAt(now) -> "Writing · about a minute"
-    entry.doneAt(now) -> "Done · ${entry.stops} ${if (entry.stops == 1) "stop" else "stops"}"
-    entry.reached > 0 -> "${entry.reached} of ${entry.stops} · ${entry.stopTitle}".trimEnd(' ', '·')
-    else -> "${entry.stops} ${if (entry.stops == 1) "stop" else "stops"} · not started"
+/**
+ * A Tours row is the pull request row with the tour's ring leading it, rule 36's second anatomy: the ring says
+ * how far you read, or the orb turns while the tour is written. When the pull request is not in the Inbox its
+ * author's column says where the tour stands instead.
+ */
+@Composable
+private fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
+    val c = LocalPullsColors.current
+    val inset = with(LocalDensity.current) { 16.dp.toPx() }
+    Row(
+        Modifier.fillMaxWidth()
+            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.padding(end = 4.dp).size(22.dp)) {
+            if (entry.writingAt(now)) Orb(size = 22.dp) else ProgressRing(entry.reached, entry.stops, size = 22.dp)
+        }
+        Text("#${entry.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(entry.prTitle, style = PullsType.row, color = c.text)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(pull?.author ?: tourState(entry, now), Modifier.weight(1f), style = PullsType.sm, color = c.muted)
+                if (pull != null) {
+                    Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) { CheckMark(pull) }
+                    Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) { DiffNumbers(pull) }
+                }
+                Text(compactAge(pull?.updatedAtMs ?: entry.updatedAt, now), Modifier.width(34.dp), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, textAlign = TextAlign.End, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Where a tour stands, for a row whose pull request is not in the Inbox: no counts (rules 11 and 14). */
+internal fun tourState(entry: TourEntry, now: Long): String = when {
+    entry.writingAt(now) -> "Writing"
+    entry.doneAt(now) -> "Read"
+    entry.reached > 0 -> entry.stopTitle.ifBlank { "Reading" }
+    else -> "Not started"
+}
+
+/** What a list says when it has nothing to show, centred where the rows would be, with no icon (rule 48). */
+@Composable
+private fun ListNote(title: String, hint: String? = null, action: (@Composable () -> Unit)? = null) {
+    val c = LocalPullsColors.current
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(title, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, textAlign = TextAlign.Center)
+        if (hint != null) Text(hint, style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
+        if (action != null) Box(Modifier.padding(top = 4.dp)) { action() }
+    }
 }
 
 /** A small turning arrow beside work the phone is doing quietly (refreshing, loading more). */
@@ -749,18 +769,6 @@ fun Spinner(size: Dp = 16.dp, tint: Color = LocalPullsColors.current.fade) {
     val transition = rememberInfiniteTransition(label = "spin")
     val angle by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart), label = "angle")
     LuIcon(Lu.redo, Modifier.rotate(angle), tint = tint, size = size)
-}
-
-/** `rounded bg-hover px-1.5 py-0.5 text-xs`. */
-@Composable
-internal fun Chip(text: String, color: Color) {
-    Text(
-        text,
-        Modifier.clip(RoundedCornerShape(6.dp)).background(LocalPullsColors.current.hover).padding(horizontal = 6.dp, vertical = 2.dp),
-        style = PullsType.xs,
-        color = color,
-        maxLines = 1,
-    )
 }
 
 /** The app-update notice: download, check the digest and hand it to the installer, all in-app. */

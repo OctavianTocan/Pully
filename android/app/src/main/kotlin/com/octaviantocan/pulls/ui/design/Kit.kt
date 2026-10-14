@@ -136,6 +136,9 @@ private val EDGE_DROP = 1.dp
 private const val EDGE_RADIUS = 1f
 private const val EDGE_SHARE = 0.5f
 
+/** The kit's divider: a 1dp rule along the top edge, in [color], drawn instead of Material's (rule 49). */
+fun Modifier.hairlineTop(color: Color): Modifier = drawBehind { drawRect(color, Offset.Zero, Size(size.width, 1.dp.toPx())) }
+
 /**
  * Draws [level] behind this element. Put it before `clip` and `background`, so the shadow lands
  * outside the shape. The drop is a Paint shadow layer, which draws on a hardware canvas from

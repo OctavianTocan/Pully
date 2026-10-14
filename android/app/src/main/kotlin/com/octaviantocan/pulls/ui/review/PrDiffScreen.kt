@@ -69,6 +69,7 @@ import com.octaviantocan.pulls.core.nextUnreviewed
 import com.octaviantocan.pulls.core.swipedFile
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -331,14 +332,13 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
 @Composable
 private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit) {
     val c = LocalPullsColors.current
-    val toaster = LocalToaster.current
     val scope = rememberCoroutineScope()
     val reviewed = session.reviewState(file) == ReviewState.Reviewed
     val threads = session.reviewData?.threads.orEmpty().count { it.path == file.path && !it.outdated }
-    // The code starts under a hairline, on its own white.
+    // The code starts under a hairline, on its own white, with 24dp of air between it and this row (rule 40).
     Row(
         Modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
-            .padding(horizontal = 16.dp).height(44.dp),
+            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp).height(44.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -353,8 +353,8 @@ private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<Revi
             Modifier.height(36.dp).clip(RoundedCornerShape(8.dp)).cueClickable(role = Role.Checkbox, onClickLabel = "Reviewed") {
                 session.setReviewed(listOf(file.sha), !reviewed)
                 if (!reviewed) {
-                    val done = files.count { it.sha in session.reviewed || it.path == file.path }
-                    toaster.show(if (done == files.size) "All ${files.size} files reviewed" else "$done of ${files.size} files reviewed", cue = if (done == files.size) Cue.Success else null)
+                    // No "2 of 4" toast (rule 42): the last file of the change gets the success sound and nothing on screen.
+                    if (files.all { it.sha in session.reviewed || it.path == file.path }) Sounds.play(Cue.Success)
                     // Reviewing a file moves on to the next one still to review, after a beat to see the tick land.
                     val shaOf = files.associate { it.path to it.sha }
                     nextUnreviewed(files.map { it.path }, file.path) { path -> shaOf[path] in session.reviewed }?.let { next ->
@@ -382,10 +382,8 @@ private fun NoteCard(note: String, modifier: Modifier, onAsk: () -> Unit) {
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // The name alone: an initial in a disc is not information (rule 1).
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.size(28.dp).clip(CircleShape).background(c.accentWash), contentAlignment = Alignment.Center) {
-                Text("P", style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.accentWashInk)
-            }
             Text("Pulls", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             Spacer(Modifier.weight(1f))
             Text("Ask about it", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)

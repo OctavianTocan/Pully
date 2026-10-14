@@ -2,12 +2,9 @@ package com.octaviantocan.pulls.ui.ai
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,30 +19,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.design.GithubAvatar
-import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.Lu
-import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsShadow
-import com.octaviantocan.pulls.ui.design.PullsSheet
-import com.octaviantocan.pulls.ui.design.SheetCard
-import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
@@ -81,118 +64,6 @@ internal fun ReviewSession.runAnalyze(context: Context, choice: AnalyzeChoice = 
 @Composable
 internal fun Spinner(@Suppress("UNUSED_PARAMETER") color: androidx.compose.ui.graphics.Color, size: androidx.compose.ui.unit.Dp = 16.dp) {
     Orb(size = size)
-}
-
-/** Share is for analyses the viewer generated, on a pull request (`canShareResult`). */
-internal fun canShare(session: ReviewSession): Boolean {
-    val analysis = session.saved?.analysis ?: return false
-    return session.pull != null && session.hasAiResult && analysis.sharedBy == null
-}
-
-/** The More sheet's row that shares the analysis as a comment on the pull request; a sheet confirms first. */
-@Composable
-internal fun ShareButtonImpl(session: ReviewSession, modifier: Modifier, first: Boolean) {
-    val c = LocalPullsColors.current
-    val ui = aiUi(session)
-    if (!canShare(session)) return
-    var confirmOpen by remember { mutableStateOf(false) }
-    val own = session.saved?.sharedCommentUrl ?: ui.sharedUrl
-    SheetRow(
-        t(if (ui.sharing) "share.sharing" else if (own != null) "share.updateButton" else "share.button"),
-        if (ui.sharing) null else ({ confirmOpen = true }),
-        modifier, first = first,
-        icon = { if (ui.sharing) Orb(size = 20.dp) else LuIcon(Lu.ask, tint = c.text, size = 20.dp) },
-    )
-    if (confirmOpen) ShareSheet(session) { confirmOpen = false }
-}
-
-/** What sharing posts and where, then Share; the link of the posted comment replaces the buttons once it is up. */
-@Composable
-private fun ShareSheet(session: ReviewSession, onDismiss: () -> Unit) {
-    val c = LocalPullsColors.current
-    val ui = aiUi(session)
-    val messages = LocalMessages.current
-    val own = session.saved?.sharedCommentUrl ?: ui.sharedUrl
-    var done by remember { mutableStateOf<String?>(null) }
-    // The analysis carries no locale in `review-state`; the phone runs analyses in its UI language.
-    val notEnglish = session.settings.locale != "en"
-    val viewer = session.reviewData?.viewer
-    val confirmLabel = if (own != null) t(if (notEnglish) "share.updateAnyway" else "share.update") else t(if (notEnglish) "share.shareAnyway" else "share.share")
-
-    fun confirm() {
-        val key = session.key ?: return
-        ui.sharing = true
-        ui.shareError = null
-        session.scope.launch {
-            runCatching { session.repo.share(key) }
-                .onSuccess { url -> ui.sharedUrl = url; done = url; session.reloadSaved() }
-                .onFailure { ui.shareError = it.message ?: it.toString() }
-            ui.sharing = false
-        }
-    }
-
-    PullsSheet(onDismiss, t(if (own != null) "share.titleUpdate" else "share.titleShare"), expandable = true) {
-        val link = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))
-        val sentence = messages.t(if (own != null) "share.willUpdate" else "share.willPost", "comment" to "\u0001", "user" to "\u0002")
-        SheetCard {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    buildAnnotatedString {
-                        sentence.forEach { ch ->
-                            when (ch) {
-                                '\u0001' -> if (own != null) withLink(LinkAnnotation.Url(own, link)) { append(messages.t("share.commentLink")) } else append(messages.t("share.commentLink"))
-                                '\u0002' -> if (viewer != null) withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(viewer) } else append(messages.t("common.you"))
-                                else -> append(ch)
-                            }
-                        }
-                    },
-                    style = PullsType.sm, color = c.text,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(t("share.contains"), style = PullsType.sm, color = c.muted)
-                    Bullet {
-                        val parts = messages.t("share.containsLink", "site" to "\u0001").split('\u0001')
-                        Text(
-                            buildAnnotatedString {
-                                append(parts.first())
-                                withStyle(SpanStyle(color = c.primary, fontWeight = FontWeight.Bold)) { append("pulls.review") }
-                                append(parts.getOrElse(1) { "" })
-                            },
-                            style = PullsType.sm, color = c.text,
-                        )
-                    }
-                    Bullet { Text(t("share.containsJson"), style = PullsType.sm, color = c.text) }
-                    Text(t("share.excludes"), style = PullsType.sm, color = c.muted)
-                }
-                Text(t("share.anyoneCanLoad"), style = PullsType.sm, color = c.muted)
-                if (notEnglish) Text(t("share.englishRecommended"), style = PullsType.sm, color = c.amber)
-            }
-        }
-        ui.shareError?.let { Text(it, Modifier.padding(top = 8.dp), style = PullsType.sm, color = c.error) }
-        val url = done
-        if (url != null) {
-            SheetCard {
-                // The link is the text itself and opens on a tap; no mark is needed beside it.
-                Text(
-                    buildAnnotatedString { withLink(LinkAnnotation.Url(url, link)) { append(url) } },
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text,
-                )
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            PillButton(t(if (url != null) "common.close" else "common.cancel"), onDismiss, Modifier.weight(1f), enabled = !ui.sharing)
-            if (url == null) CtaButton(confirmLabel, ::confirm, Modifier.weight(1.6f), enabled = !ui.sharing, leading = { if (ui.sharing) Orb(size = 18.dp) })
-        }
-    }
-}
-
-@Composable
-private fun Bullet(content: @Composable () -> Unit) {
-    val c = LocalPullsColors.current
-    Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("•", style = PullsType.sm, color = c.text)
-        content()
-    }
 }
 
 /** A shared analysis on the PR another person (or you, elsewhere) posted (`SharedAnalysisCandidate`). */

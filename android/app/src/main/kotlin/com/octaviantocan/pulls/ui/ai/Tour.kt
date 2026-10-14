@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +36,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.caverock.androidsvg.SVG
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.data.TourSource
@@ -53,18 +50,18 @@ import com.octaviantocan.pulls.ui.design.LocalCodeBlock
 import com.octaviantocan.pulls.ui.design.LocalMentions
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Mentions
-import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.review.ReviewSession
+import com.octaviantocan.pulls.ui.review.guardedStop
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.serialization.json.put
 
 /*
  * The Tour tab (phone-only): an AI walkthrough of the PR with no diffs. The server plans the
- * stops, writes each one in parallel and saves the tour per head commit; this draws it with the
+ * sections, writes each one in parallel and saves the tour per head commit; this draws it with the
  * app's tokens. Visuals are native: monospace sketches as text, Mermaid as an SVG the server
  * rendered, drawn with AndroidSVG (no WebView).
  */
@@ -77,31 +74,40 @@ fun startTour(session: ReviewSession) {
     session.startTask("tour", { put("locale", session.settings.locale) })
 }
 
+/**
+ * No tour yet. The one action is Analyze (rule 19): with no analysis it runs the last choice with the tour in it, and
+ * after one it writes the tour alone. A failed tour says so, with the try-again arrow (rule 87). No word on how the
+ * tour is made: what it does is enough (rule 6).
+ */
 @Composable
 internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifier) {
     val c = LocalPullsColors.current
+    val context = LocalContext.current
     Column(
         modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Take a tour of this pull request", style = PullsType.xxl, color = c.text)
         Text(
-            "AI reads the change and the code around it, plans a few stops, and walks you through what you need to know: the flow, the pieces, and why. No diffs.",
+            "AI reads the change and the code around it and walks you through what you need to know, section by section: the flow, the pieces, and why. No diffs.",
             style = PullsType.read, color = c.muted,
         )
-        Text("It plans first, then writes every stop in parallel. Saved per commit, so it opens instantly next time.", style = PullsType.sm, color = c.muted)
-        if (error != null) ErrorBox("The tour failed", error)
-        CtaButton(if (error != null) "Try again" else "Give me a tour", { startTour(session) }, Modifier.padding(top = 4.dp), enabled = session.key != null)
+        if (error != null) ErrorBox("The tour failed", error, onRetry = { startTour(session) }, retryLabel = "Write the tour again")
+        else CtaButton(
+            "Analyze",
+            { if (session.hasAiResult) startTour(session) else session.runAnalyze(context, session.settings.analyzeChoice.copy(tour = true)) },
+            Modifier.padding(top = 4.dp),
+            enabled = session.key != null && session.taskFor("analyze")?.running != true,
+        )
     }
 }
 
+/** The first tour being written: its work log, whose orb is the Stop button (rule 87). */
 @Composable
 internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     val task = session.taskFor("tour") ?: return
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        AiActivityLogFull(task.activities, running = true, Modifier.weight(1f), startedAt = task.startedAt.takeIf { it > 0 }, workingVerb = "Building the tour")
-        PillButton("Stop", { session.cancelTask(task.id) })
-    }
+    val stop = guardedStop(session, listOf("tour"), task.running) { session.cancelTask(task.id) }
+    AiActivityLogFull(task.activities, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 }, workingVerb = "Building the tour", onStop = stop)
 }
 
 /**
@@ -130,8 +136,9 @@ internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
         "text" -> Markdown(block.text, style = PullsType.read.copy(color = c.text))
         "shape" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(SHAPE_LABELS[block.lang] ?: "Sketch", style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = c.accentTeal)
-                if (block.text.isNotBlank()) Text(block.text, style = PullsType.xs, color = c.fade)
+                // The kind and its caption at body size: a 10sp label was below the floor of rule 14.
+                Text(SHAPE_LABELS[block.lang] ?: "Sketch", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentTeal)
+                if (block.text.isNotBlank()) Text(block.text, style = PullsType.sm, color = c.muted)
             }
             // A flow is drawn from its hops; anything else, and a flow that does not read as hops, is the diff's code view (rule 95).
             val hops = remember(block.lang, block.body) { if (block.lang == "flow") parseFlow(block.body) else null }
@@ -160,8 +167,8 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
     var full by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Diagram", style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = c.accentTeal)
-            if (block.text.isNotBlank()) Text(block.text, style = PullsType.xs, color = c.fade)
+            Text("Diagram", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentTeal)
+            if (block.text.isNotBlank()) Text(block.text, style = PullsType.sm, color = c.muted)
         }
         when {
             svg != null -> androidx.compose.foundation.layout.BoxWithConstraints(

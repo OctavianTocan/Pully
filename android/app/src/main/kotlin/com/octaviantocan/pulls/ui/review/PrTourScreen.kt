@@ -269,7 +269,7 @@ private fun StopCard(session: ReviewSession, stop: TourStop, onOpenSource: (Tour
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(stop.title, style = PullsType.xxl, color = c.text)
             if (stop.purpose.isNotBlank()) Text(stop.purpose, Modifier.padding(top = 0.dp), style = PullsType.read, color = c.text)
-            if (stop.error != null) com.octaviantocan.pulls.ui.ai.ErrorBox("This stop could not be written", stop.error)
+            if (stop.error != null) com.octaviantocan.pulls.ui.ai.ErrorBox("This section could not be written", stop.error)
             stop.blocks.forEach { block -> TourBlockView(session, block) }
             if (stop.takeaway.isNotBlank()) Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.accentWash).padding(12.dp),

@@ -216,14 +216,16 @@ describe('bans', () => {
   it('counts the generic AI glyphs of rule 48, in code and in icon names but not in comments', () => {
     const found = scan([
       'LuIcon(Lu.bot)',
+      'LuIcon(Lu.ask, tint = c.muted)',
       'PhIcon("sparkle-duotone")',
       'ActionButton(icon = "compass-duotone")',
       'Glyph("chat-circle-dots-duotone")',
       '// "sparkle-duotone" and Lu.bot are gone',
       'PhIcon("compass-tool-duotone")',
       'val ok = obj["chat"]',
+      'val asked = Lu.asked',
     ].join('\n'))
-    assert.deepEqual(found['ai-glyph'], { 'ui/x/Screen.kt': 4 })
+    assert.deepEqual(found['ai-glyph'], { 'ui/x/Screen.kt': 5 })
     assert.deepEqual(scan('// ban-ok: the one AI mark\nPhIcon("sparkle-duotone")')['ai-glyph'], undefined)
   })
 

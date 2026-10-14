@@ -49,8 +49,12 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.DETAILS_INFO
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.home.StatusColors
+import com.octaviantocan.pulls.ui.design.PullsColors
+import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TOUCH
@@ -174,6 +178,8 @@ data class PrViewer(
     val canReopen: Boolean,
     val canUpdate: Boolean,
     val canUpdateBranch: Boolean,
+    val canEnableAutoMerge: Boolean = false,
+    val canDisableAutoMerge: Boolean = false,
 )
 
 /** `PrMergeSettings` (the commit title/message settings stay on the server: it sends `defaultCommits`). */
@@ -218,6 +224,8 @@ data class PrOverview(
     val timelineHidden: Int,
     val viewer: PrViewer,
     val merge: PrMergeSettings,
+    /** The method it will merge with once its checks pass, while it is set to; null otherwise. */
+    val autoMergeMethod: String? = null,
 ) {
     val isOpen: Boolean get() = state == "open" || state == "draft"
 
@@ -292,8 +300,10 @@ fun parsePrOverview(o: JsonObject): PrOverview? {
         viewer = PrViewer(
             viewer.strOrNull("permission"), viewer.bool("canPush"), viewer.bool("canMergeAsAdmin"), viewer.bool("canClose"),
             viewer.bool("canReopen"), viewer.bool("canUpdate"), viewer.bool("canUpdateBranch"),
+            viewer.bool("canEnableAutoMerge"), viewer.bool("canDisableAutoMerge"),
         ),
         merge = PrMergeSettings(methods, merge.str("defaultMethod").takeIf { it in methods } ?: methods.firstOrNull() ?: "merge"),
+        autoMergeMethod = o.objOrNull("autoMerge")?.strOrNull("method"),
     )
 }
 
@@ -726,9 +736,9 @@ internal fun Modifier.topBorder(color: Color) = drawBehind {
 
 /** `PrHtml`: GitHub's rendered `bodyHTML`, restyled like the app's Markdown (`chat-markdown`). */
 @Composable
-fun PrHtml(html: String, modifier: Modifier = Modifier, small: Boolean = false) {
+fun PrHtml(html: String, modifier: Modifier = Modifier) {
     val markdown = remember(html) { htmlToMarkdown(html) }
-    Markdown(markdown, modifier, style = if (small) PullsType.xs else PullsType.sm)
+    Markdown(markdown, modifier, style = PullsType.sm)
 }
 
 /**
@@ -736,13 +746,13 @@ fun PrHtml(html: String, modifier: Modifier = Modifier, small: Boolean = false) 
  * the end says which way it will go.
  */
 @Composable
-private fun CardHeader(bordered: Boolean, collapsed: Boolean, onToggle: () -> Unit, trailing: @Composable () -> Unit, content: @Composable RowScope.() -> Unit) {
+private fun CardHeader(collapsed: Boolean, onToggle: () -> Unit, trailing: @Composable () -> Unit, content: @Composable RowScope.() -> Unit) {
     val c = LocalPullsColors.current
     // Who and what on the left, cut short when long; when and the chevron always in the same place on the right.
     Row(
-        Modifier.fillMaxWidth().background(c.raised).then(if (bordered) Modifier.bottomBorder(c.border) else Modifier)
+        Modifier.fillMaxWidth()
             .cueClickable(role = Role.Button, onClickLabel = if (collapsed) "Show the comment" else "Hide the comment", onClick = onToggle)
-            .defaultMinSize(minHeight = TOUCH).padding(horizontal = 12.dp, vertical = 6.dp),
+            .defaultMinSize(minHeight = TOUCH).padding(start = 14.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -776,7 +786,7 @@ internal fun commentPreview(html: String): String =
 @Composable
 private fun FoldedLine(text: String) {
     if (text.isEmpty()) return
-    Text(text, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp), style = PullsType.sm, color = LocalPullsColors.current.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(text, Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp), style = PullsType.sm, color = LocalPullsColors.current.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 /** `PrConversation`: the description card, then the timeline (last 30, "Show n earlier"). */
@@ -790,15 +800,15 @@ fun Conversation(overview: PrOverview) {
     val earlier = if (showAll) 0 else maxOf(0, timeline.size - 30)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         var descriptionOpen by rememberSaveable(overview.id, "description") { mutableStateOf(true) }
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp)).animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {
+        Column(Modifier.timelineCard(c)) {
             CardHeader(
-                bordered = descriptionOpen, collapsed = !descriptionOpen, onToggle = { descriptionOpen = !descriptionOpen },
-                trailing = { Text(prTimeAgo(overview.createdAt), style = PullsType.xs, color = c.text.copy(alpha = 0.5f), maxLines = 1) },
+                collapsed = !descriptionOpen, onToggle = { descriptionOpen = !descriptionOpen },
+                trailing = { Text(prTimeAgo(overview.createdAt), style = PullsType.sm, color = c.muted, maxLines = 1) },
             ) {
                 overview.author?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
                 Text(overview.author?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (descriptionOpen) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            if (descriptionOpen) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) {
                 if (overview.bodyHTML.isNotBlank()) PrHtml(overview.bodyHTML)
                 else Text(t("overview.noDescription"), style = PullsType.sm.copy(fontStyle = FontStyle.Italic), color = c.fade)
             } else FoldedLine(commentPreview(overview.bodyHTML))
@@ -809,21 +819,21 @@ fun Conversation(overview: PrOverview) {
     }
 }
 
-/** A small `text-xs op-fade hover:underline` link-like button with a 44dp row. */
+/** A timeline card in the kit's look: the white 16dp card with the canvas shadow, no border (rules 45 and 49). */
+@Composable
+private fun Modifier.timelineCard(c: PullsColors): Modifier {
+    val shape = RoundedCornerShape(PullsRadius.card)
+    return fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))
+}
+
+/** A quiet text button on a 44dp row: the accent text of rule 96, at body size (rule 14). */
 @Composable
 internal fun LinkText(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val c = LocalPullsColors.current
-    Box(modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).cueClickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
-        Text(text, style = PullsType.xs, color = c.fade)
+    Box(modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(PullsRadius.sm)).cueClickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), contentAlignment = Alignment.CenterStart) {
+        Text(text, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
     }
 }
-
-private val EVENT_ICON = mapOf(
-    "labeled" to "tag-duotone", "unlabeled" to "tag-duotone", "assigned" to "user-duotone", "unassigned" to "user-duotone",
-    "ready_for_review" to "eye-duotone", "convert_to_draft" to "pencil-simple-duotone", "closed" to "x-circle-duotone",
-    "reopened" to "arrow-counter-clockwise-duotone", "merged" to "git-merge-duotone", "force_pushed" to "git-commit-duotone",
-    "review_requested" to "eye-duotone", "review_dismissed" to "prohibit", "renamed" to "pencil-simple-line-duotone",
-)
 
 /** `PrTimelineEntry`: an event line, or a comment / review card. */
 @Composable
@@ -831,24 +841,18 @@ fun TimelineEntry(item: PrTimelineItem) {
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
     when (item) {
+        // An event is a sentence: who, what and when, with no icon in front (rule 48), at body size (rule 14).
         is PrTimelineItem.Event -> FlowRow(
             Modifier.fillMaxWidth().padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
-            val tint = when (item.event) {
-                "closed" -> WebColors.red(c.dark)
-                "reopened" -> WebColors.green(c.dark)
-                "merged" -> WebColors.purple500
-                else -> c.text
-            }
-            PhIcon(EVENT_ICON[item.event] ?: "dot-outline", tint = tint.copy(alpha = 0.65f), size = 16.dp)
-            item.actor?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 16.dp) }
+            item.actor?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
             Text(item.actor?.login ?: "ghost", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-            Text(eventText(item, t("overview.event.${item.event}")), style = PullsType.sm, color = c.fade)
-            Text(prTimeAgo(item.createdAt), style = PullsType.xs, color = c.text.copy(alpha = 0.5f))
-            item.message?.let { Text(it, Modifier.fillMaxWidth().padding(start = 24.dp), style = PullsType.xs, color = c.fade) }
+            Text(eventText(item, t("overview.event.${item.event}")), style = PullsType.sm, color = c.muted)
+            Text(prTimeAgo(item.createdAt), style = PullsType.sm, color = c.faint)
+            item.message?.let { Text(it, Modifier.fillMaxWidth().padding(start = 24.dp), style = PullsType.sm, color = c.muted) }
         }
         // Pushed commits are in the Commits tab, not the conversation (rule 91).
         is PrTimelineItem.Commits -> Unit
@@ -869,37 +873,37 @@ private fun CommentCard(item: PrTimelineItem) {
     // A comment GitHub hid, or one a bot wrote, starts folded up; any other starts open (rule 91). Either folds and opens with a tap on its header.
     var open by rememberSaveable(item.id, "open") { mutableStateOf(minimized == null && !isBotLogin(item.actor?.login)) }
     val collapsed = !open
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp)).animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {
+    Column(Modifier.timelineCard(c)) {
         CardHeader(
-            bordered = !collapsed, collapsed = collapsed, onToggle = { open = !open },
+            collapsed = collapsed, onToggle = { open = !open },
             trailing = {
-                Text(prTimeAgo(item.createdAt), Modifier.cueClickable(enabled = url.isNotBlank()) { uri.openUri(url) }, style = PullsType.xs, color = c.text.copy(alpha = 0.5f), maxLines = 1)
+                Text(prTimeAgo(item.createdAt), Modifier.cueClickable(enabled = url.isNotBlank()) { uri.openUri(url) }, style = PullsType.sm, color = c.muted, maxLines = 1)
             },
         ) {
-            review?.let { GlyphIcon(reviewGlyph(it.state)) }
             item.actor?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
             Text(item.actor?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            // A comment can only be a comment, so it carries no verb; a review says what it decided.
+            // A comment can only be a comment, so it carries no verb; a review says what it decided, in the colour of
+            // the decision instead of an icon before the name (rule 48).
             val verb = when (review?.state) {
                 null -> null
-                "approved" -> t("overview.timeline.approved")
-                "changes_requested" -> t("overview.timeline.changesRequested")
-                else -> t("overview.timeline.reviewed")
+                "approved" -> t("overview.timeline.approved") to StatusColors.green(c.dark)
+                "changes_requested" -> t("overview.timeline.changesRequested") to StatusColors.red(c.dark)
+                else -> t("overview.timeline.reviewed") to c.muted
             }
-            if (verb != null) Text(verb, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (minimized != null) Text(t("overview.timeline.hidden", "reason" to minimized), Modifier.weight(1f, fill = false), style = PullsType.xs, color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (verb != null) Text(verb.first, Modifier.weight(1f, fill = false), style = PullsType.sm, color = verb.second, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (minimized != null) Text(t("overview.timeline.hidden", "reason" to minimized), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (body.isNotBlank() && !collapsed) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { PrHtml(body) }
+        if (body.isNotBlank() && !collapsed) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) { PrHtml(body) }
         if (collapsed && body.isNotBlank()) FoldedLine(commentPreview(body))
         if (review != null && review.commentCount > 0 && !collapsed) {
-            Column(Modifier.fillMaxWidth().topBorder(c.border).padding(horizontal = 12.dp, vertical = 6.dp)) {
+            Column(Modifier.fillMaxWidth().topBorder(c.borderMute).padding(start = 14.dp, end = 12.dp, top = 2.dp, bottom = 8.dp)) {
                 Row(
-                    Modifier.defaultMinSize(minHeight = TOUCH).cueClickable { showInline = !showInline },
+                    Modifier.fillMaxWidth().defaultMinSize(minHeight = TOUCH).cueClickable { showInline = !showInline },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    PhIcon(if (showInline) "caret-down" else "caret-right", tint = c.fade, size = 14.dp)
-                    Text(tc("overview.timeline.inlineComments", review.commentCount), style = PullsType.sm, color = c.fade)
+                    Text(tc("overview.timeline.inlineComments", review.commentCount), Modifier.weight(1f), style = PullsType.sm, color = c.muted)
+                    LuIcon(if (showInline) Lu.chevd else Lu.chev, tint = c.faint, size = 18.dp)
                 }
                 if (showInline) Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     review.comments.forEach { inline ->
@@ -913,15 +917,12 @@ private fun CommentCard(item: PrTimelineItem) {
                                     Text(
                                         inline.path + (inline.line?.let { ":$it" } ?: ""),
                                         Modifier.cueClickable(enabled = inline.url.isNotBlank()) { uri.openUri(inline.url) },
-                                        style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade,
+                                        style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted,
                                     )
-                                    if (inline.outdated) Text(
-                                        t("overview.timeline.outdated"),
-                                        Modifier.border(1.dp, c.border, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp),
-                                        style = PullsType.xs, color = c.text.copy(alpha = 0.5f),
-                                    )
+                                    // A word, not a bordered tag (rule 49).
+                                    if (inline.outdated) Text(t("overview.timeline.outdated"), style = PullsType.sm, color = c.amber)
                                 }
-                                PrHtml(inline.bodyHTML, small = true)
+                                PrHtml(inline.bodyHTML)
                             }
                         }
                     }
@@ -951,7 +952,7 @@ private fun eventText(item: PrTimelineItem.Event, template: String): AnnotatedSt
                     "label" -> if (item.labelName != null) withStyle(
                         SpanStyle(
                             color = label?.let { Color(it.text) } ?: c.text, background = label?.let { Color(it.background) } ?: c.code,
-                            fontWeight = FontWeight.Medium, fontSize = PullsType.xs.fontSize,
+                            fontWeight = FontWeight.Medium,
                         ),
                     ) { append("\u2009${item.labelName}\u2009") }
                     "subject" -> withStyle(SpanStyle(color = c.text, fontWeight = FontWeight.Medium, fontFamily = if (item.event == "merged") PullsType.mono else null)) { append(item.subject.orEmpty()) }

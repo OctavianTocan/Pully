@@ -1,11 +1,7 @@
 {
-  "fontSize": {
-    "ui/home/HomeScreen.kt": 1
-  },
   "hex": {
     "ui/design/Components.kt": 4,
     "ui/design/Kit.kt": 9,
-    "ui/design/Markdown.kt": 1,
     "ui/design/Sheet.kt": 1,
     "ui/home/Chrome.kt": 7,
     "ui/review/Header.kt": 2,
@@ -13,34 +9,20 @@
     "ui/theme/Theme.kt": 3
   },
   "radius": {
-    "ui/ai/AiParts.kt": 7,
+    "ui/ai/AiParts.kt": 4,
     "ui/ai/Analyze.kt": 1,
-    "ui/ai/Ask.kt": 2,
-    "ui/ai/Critique.kt": 4,
+    "ui/ai/Critique.kt": 1,
     "ui/design/Components.kt": 9,
     "ui/design/Kit.kt": 5,
-    "ui/design/Markdown.kt": 4,
-    "ui/home/HomeScreen.kt": 2,
+    "ui/home/HomeScreen.kt": 1,
     "ui/home/RepoScreen.kt": 1,
-    "ui/review/Overview.kt": 6,
     "ui/review/PrDiffScreen.kt": 2,
-    "ui/review/PrOverviewScreen.kt": 2,
+    "ui/review/PrOverviewScreen.kt": 1,
     "ui/review/PrTourScreen.kt": 3,
-    "ui/review/Threads.kt": 4
+    "ui/review/Threads.kt": 1
   },
   "smallText": {
-    "ui/ai/AiParts.kt": 7,
-    "ui/ai/Ask.kt": 2,
-    "ui/ai/Chat.kt": 1,
-    "ui/ai/Critique.kt": 9,
-    "ui/ai/Tour.kt": 4,
-    "ui/design/Components.kt": 5,
-    "ui/design/Markdown.kt": 1,
-    "ui/home/HomeScreen.kt": 2,
-    "ui/home/RepoScreen.kt": 1,
-    "ui/review/Overview.kt": 10,
-    "ui/review/PrOverviewScreen.kt": 1,
-    "ui/review/Threads.kt": 5
+    "ui/design/Components.kt": 5
   },
   "uppercase": {
     "data/AppSettings.kt": 1,
