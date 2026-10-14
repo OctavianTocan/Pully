@@ -317,7 +317,6 @@ function messageText(content: unknown): string {
   return content.map(part => typeof part === 'string' ? part : (part as { text?: string })?.text ?? '').join('')
 }
 
-/** Saved questions, the latest AI review, and the chat, so a reopened pull request shows what already happened. */
 /**
  * The brief as the phone draws it. Only the OpenUI Lang is stored, so a parser upgrade
  * reaches briefs written before it; the phone gets the parsed tree, never the source.
@@ -333,6 +332,7 @@ async function briefState(cache: Awaited<ReturnType<typeof serverSession>>['cach
     : undefined
 }
 
+/** Saved questions, the latest AI review, and the chat, so a reopened pull request shows what already happened. */
 async function reviewState(cwd: string, args: unknown): Promise<Response> {
   const key = textOf((args as { key?: unknown } | undefined)?.key)
   if (!key)
