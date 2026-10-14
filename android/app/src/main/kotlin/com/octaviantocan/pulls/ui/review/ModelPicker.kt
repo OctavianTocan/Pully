@@ -25,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -59,7 +58,7 @@ import com.octaviantocan.pulls.ui.settings.EngineModels
 
 // --- Which models to show first ---
 
-/** The models a picker shows at once, and the ones it folds under "Older models" (rule 89). */
+/** The models a picker shows first, and the ones it lists below the Effort row under "Older models" (rule 89). */
 internal data class ModelGroups(val recent: List<CliModel>, val older: List<CliModel>)
 
 private val VERSION = Regex("""\b(\d+)(?:[.\-_](\d+))?\b""")
@@ -79,7 +78,7 @@ private fun family(model: CliModel): String = Regex("[a-z]+").find(model.name.lo
 /**
  * Splits a CLI's model list the way Claude's own picker does: the newest version of each family from the newest generation
  * (for Claude Code the 5.5 models and Fable), the default, and the aliases come first; every other version goes
- * under "Older models". The CLI's own order is kept inside each group. A list with nothing to fold is all recent.
+ * under "Older models". The CLI's own order is kept inside each group. A list with nothing older is all recent.
  */
 internal fun groupModels(models: List<CliModel>): ModelGroups {
     val versions = models.associateWith { modelVersion(it) }
@@ -118,10 +117,10 @@ internal fun modelNote(model: CliModel): String? =
 // --- The pages ---
 
 /**
- * The engine tabs, the models and a row to the effort (rule 89). The newest models come first and the rest sit under
- * a closed "Older models" row; a row is a name, with no id line and no description, a "Recommended" pill on the CLI's
- * own pick and a plain ✓ on the one in use. Switching engine swaps the list where it stands. [onDone] runs once a model
- * is chosen.
+ * The engine tabs, the newest models, a row to the effort and below it the older models under a small heading, as
+ * Claude's picker has them (rule 89). A row is a name, with no id line and no description, a "Recommended" pill on the
+ * CLI's own pick and a plain ✓ on the one in use. Switching engine swaps the lists where they stand. [onDone] runs
+ * once a model is chosen.
  */
 @Composable
 internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, onEffort: () -> Unit) {
@@ -149,9 +148,15 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
     }
     val inUse = catalog?.let { AiSettingsLogic.current(it, config.model)?.id ?: config.model }
     val groups = catalog?.let { groupModels(it.models) }
-    // The model in use is never hidden: if it is an older one the fold starts open.
-    var showOlder by remember(engine) { mutableStateOf(false) }
-    val older = showOlder || groups?.older?.any { it.id == inUse } == true
+    fun choose(model: CliModel) {
+        val chosen = catalog ?: return
+        val kept = AiSettingsLogic.keptEffort(chosen, model.id, settings.effort)
+        memory.setModel(config.engine, model.id)
+        save(config.copy(model = model.id))
+        settings.updateEffort(kept)
+        onDone()
+        toaster.show("Analysis model: ${analysisModelLabel(config.copy(model = model.id), chosen, kept, messages)}")
+    }
 
     Box(Modifier.padding(top = 14.dp)) {
         CapsuleTabs(
@@ -177,21 +182,7 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
                 Text(loaded.exceptionOrNull()?.message.orEmpty(), style = PullsType.sm, color = c.muted)
                 PillButton(t("common.retry"), { attempt++ })
             }
-            else -> {
-                fun choose(model: CliModel) {
-                    val kept = AiSettingsLogic.keptEffort(catalog, model.id, settings.effort)
-                    memory.setModel(config.engine, model.id)
-                    save(config.copy(model = model.id))
-                    settings.updateEffort(kept)
-                    onDone()
-                    toaster.show("Analysis model: ${analysisModelLabel(config.copy(model = model.id), catalog, kept, messages)}")
-                }
-                groups.recent.forEachIndexed { index, model -> ModelRow(model, model.id == inUse, first = index == 0) { choose(model) } }
-                if (groups.older.isNotEmpty()) {
-                    OlderModelsRow(older, first = groups.recent.isEmpty()) { showOlder = !older }
-                    if (older) groups.older.forEach { model -> ModelRow(model, model.id == inUse, first = false) { choose(model) } }
-                }
-            }
+            else -> groups.recent.forEachIndexed { index, model -> ModelRow(model, model.id == inUse, first = index == 0) { choose(model) } }
         }
     }
     val choice = AiSettingsLogic.current(catalog, config.model)
@@ -202,6 +193,13 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
                 Text(if (effort.isBlank()) "Default" else AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
+        }
+    }
+    // The rest sit below the Effort row under a small heading, as in Claude's picker, and are always there to scroll to.
+    if (groups != null && groups.older.isNotEmpty()) {
+        Text("Older models", Modifier.padding(start = 16.dp, top = 20.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
+        SheetCard {
+            groups.older.forEachIndexed { index, model -> ModelRow(model, model.id == inUse, first = index == 0) { choose(model) } }
         }
     }
 }
@@ -220,21 +218,6 @@ private fun ModelSkeleton() {
 
 private fun Modifier.ruleAbove(show: Boolean, color: Color): Modifier =
     if (show) drawBehind { drawRect(color, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) } else this
-
-/** `Older models`, one closed row at the end of the list; a tap unfolds the rest. */
-@Composable
-private fun OlderModelsRow(open: Boolean, first: Boolean, onToggle: () -> Unit) {
-    val c = LocalPullsColors.current
-    Row(
-        Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).ruleAbove(!first, c.borderMute)
-            .cueClickable(role = Role.Button, onClickLabel = if (open) "Hide older models" else "Show older models", onClick = onToggle)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("Older models", Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
-        LuIcon(Lu.chev, Modifier.rotate(if (open) 90f else 0f), tint = c.faint, size = 18.dp)
-    }
-}
 
 /** A model: its name, "Recommended" on the CLI's own pick, and a plain ✓ on the one in use. */
 @Composable
@@ -266,13 +249,13 @@ private fun Tick(shown: Boolean) {
     }
 }
 
-/** `Recommended`: the pill on the choice a CLI makes for you, 26dp tall, 13sp bold, on the accent wash (rule 89). */
+/** `Recommended`: the pill on the choice a CLI makes for you, 26dp tall, 13sp medium, a neutral grey with dark text, as Claude's is (rule 89). */
 @Composable
 internal fun RecommendedPill() {
     val c = LocalPullsColors.current
-    Box(Modifier.height(26.dp).clip(CircleShape).background(c.accentWash).padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.height(26.dp).clip(CircleShape).background(c.sunken).padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
         // raw-value-ok: rule 89 sets this pill at 13 to match the pill it was copied from
-        Text("Recommended", style = PullsType.xs.copy(fontWeight = FontWeight.Bold), color = c.accentWashInk, maxLines = 1)
+        Text("Recommended", style = PullsType.xs.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1)
     }
 }
 

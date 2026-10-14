@@ -45,7 +45,7 @@ class ModelPickerTest {
         assertEquals(5 to 0, modelVersion(model("x", "Sonnet 5")))
     }
 
-    @Test fun aListWithNothingOlderHasNothingToFold() {
+    @Test fun aListWithNothingOlderHasNoSecondGroup() {
         val groups = groupModels(claude.take(4))
         assertEquals(emptyList(), groups.older)
     }
