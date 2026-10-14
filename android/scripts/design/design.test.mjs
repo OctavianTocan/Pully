@@ -174,10 +174,11 @@ describe('bans', () => {
     assert.deepEqual(scan('import androidx.compose.material3.Switch\nimport androidx.compose.material3.Text\nimport androidx.compose.material3.Icon\nimport androidx.compose.material3.*'), { 'material-component': { 'ui/x/Screen.kt': 2 } })
   })
 
-  it('keeps sheets and menus in the kit and pull to refresh out', () => {
+  it('keeps menus in the kit and sheets and pull to refresh out everywhere', () => {
     const imports = 'import androidx.compose.material3.ModalBottomSheet\nimport androidx.compose.material3.DropdownMenu\nimport androidx.compose.material3.pulltorefresh.PullToRefreshBox'
-    assert.deepEqual(scan(imports), { 'material-pull-refresh': { 'ui/x/Screen.kt': 1 }, 'material-sheet-menu': { 'ui/x/Screen.kt': 2 } })
-    assert.deepEqual(scan(imports.split('\n').slice(0, 2).join('\n'), 'ui/design/Kit.kt'), {})
+    assert.deepEqual(scan(imports), { 'material-pull-refresh': { 'ui/x/Screen.kt': 1 }, 'material-sheet': { 'ui/x/Screen.kt': 1 }, 'material-sheet-menu': { 'ui/x/Screen.kt': 1 } })
+    assert.deepEqual(scan(imports.split('\n').slice(0, 2).join('\n'), 'ui/design/Kit.kt'), { 'material-sheet': { 'ui/design/Kit.kt': 1 } })
+    assert.deepEqual(scan('import androidx.compose.material3.DropdownMenu', 'ui/design/Kit.kt'), {})
   })
 
   it('bans icons, speech, outgoing share and stat tiles', () => {
@@ -203,7 +204,7 @@ describe('bans', () => {
 
   it('counts Material names spelled out where they are used, once, with no import', () => {
     const found = scan('androidx.compose.material3.HorizontalDivider(color = c)\nandroidx.compose.material3.Text("ok")\nandroidx.compose.material3.ModalBottomSheet({}) {}\nval s = android.speech.RecognizerIntent.ACTION')
-    assert.deepEqual(found, { 'material-component': { 'ui/x/Screen.kt': 1 }, 'material-sheet-menu': { 'ui/x/Screen.kt': 1 }, 'speech': { 'ui/x/Screen.kt': 2 } })
+    assert.deepEqual(found, { 'material-component': { 'ui/x/Screen.kt': 1 }, 'material-sheet': { 'ui/x/Screen.kt': 1 }, 'speech': { 'ui/x/Screen.kt': 2 } })
     assert.deepEqual(scan('import androidx.compose.material3.Switch\nandroidx.compose.material3.Switch(true, {})'), { 'material-component': { 'ui/x/Screen.kt': 2 } })
   })
 
@@ -227,7 +228,7 @@ describe('bans', () => {
   })
 
   it('declares the rules DESIGN.md lists for it', () => {
-    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52])
+    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73])
   })
 })
 

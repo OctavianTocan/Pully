@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
-
 package com.octaviantocan.pulls.ui.design
 
 import android.os.Build
@@ -17,7 +15,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,39 +26,28 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -84,8 +70,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -96,12 +80,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.R
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /*
  * The Android prototype's building blocks: white floating surfaces on warm paper, pill
@@ -405,81 +387,7 @@ fun ProfileDot(modifier: Modifier = Modifier, size: Dp = 40.dp) {
     Box(modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(Color(0xFFD9B38C), Color(0xFF8C5A3C)))))
 }
 
-// --- Bottom sheet ---
-
-/**
- * `.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered
- * title and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is
- * as tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half
- * the screen and pulls up to the full height. [back] swaps the close X for a back arrow.
- */
-@Composable
-fun PullsSheet(
-    onClose: () -> Unit,
-    title: @Composable () -> Unit,
-    full: Boolean = false,
-    back: (() -> Unit)? = null,
-    footer: (@Composable ColumnScope.() -> Unit)? = null,
-    scroll: ScrollState? = null,
-    expandable: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val c = LocalPullsColors.current
-    val scrollState = scroll ?: rememberScrollState()
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = !expandable)
-    val scope = rememberCoroutineScope()
-    val dismiss: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }
-    val density = LocalDensity.current
-    val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
-    val screen = LocalConfiguration.current.screenHeightDp.dp
-    val ceiling = screen - maxOf(top, 16.dp)
-    val sized = when {
-        full -> Modifier.height(ceiling - 44.dp)
-        expandable -> Modifier.heightIn(max = ceiling - 44.dp)
-        else -> Modifier.heightIn(max = screen * 0.62f)
-    }
-    ModalBottomSheet(
-        onDismissRequest = onClose,
-        sheetState = state,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = c.paper,
-        contentColor = c.text,
-        tonalElevation = 0.dp,
-        scrimColor = c.scrim,
-        dragHandle = null,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-    ) {
-        Column(Modifier.fillMaxWidth().then(sized).imePadding().panelReveal()) {
-            Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).
-                if (back != null) FloatIcon(Lu.back, "Back", back)
-                else FloatIcon(Lu.close, "Close", dismiss)
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }
-                }
-                Spacer(Modifier.width(44.dp))
-            }
-            Column(
-                Modifier.fillMaxWidth().weight(1f, fill = full).verticalScroll(scrollState).padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },
-                content = content,
-            )
-            if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)
-        }
-    }
-}
-
-@Composable
-fun PullsSheet(
-    onClose: () -> Unit,
-    title: String,
-    full: Boolean = false,
-    back: (() -> Unit)? = null,
-    footer: (@Composable ColumnScope.() -> Unit)? = null,
-    scroll: ScrollState? = null,
-    expandable: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit,
-) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, expandable, content)
+// --- Bottom sheet (PullsSheet lives in Sheet.kt) ---
 
 /** `.r-card`: a white 16dp card on the sheet's paper. */
 @Composable

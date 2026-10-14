@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 763,
+        "line": 671,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 208,
+        "line": 190,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -77,7 +77,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 290,
+        "line": 272,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -114,7 +114,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 321,
+        "line": 303,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -165,7 +165,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 165,
+        "line": 147,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -210,7 +210,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 191,
+        "line": 173,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -275,7 +275,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 780,
+        "line": 688,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -298,7 +298,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 673,
+        "line": 581,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. No robot, compass or sparkle: those\nmarks were dropped (rule 48).",
         "params": [
           {
@@ -326,7 +326,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 774,
+        "line": 682,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -349,7 +349,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 344,
+        "line": 326,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -385,7 +385,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 364,
+        "line": 346,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -435,7 +435,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 403,
+        "line": 385,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -458,7 +458,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 748,
+        "line": 656,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -489,7 +489,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 580,
+        "line": 488,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -518,9 +518,9 @@
     "composable": "PullsSheet",
     "declarations": [
       {
-        "file": "ui/design/Kit.kt",
-        "line": 416,
-        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half\nthe screen and pulls up to the full height. [back] swaps the close X for a back arrow.",
+        "file": "ui/design/Sheet.kt",
+        "line": 90,
+        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half\nthe screen and pulls up to the full height. [back] swaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the\npanel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in\n350ms, both on the smooth-out curve. It follows a finger down to dismiss and, when [expandable],\nrests at half height or full.",
         "params": [
           {
             "name": "onClose",
@@ -560,11 +560,11 @@
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val c = LocalPullsColors.current\n    val scrollState = scroll ?: rememberScrollState()\n    val state = rememberModalBottomSheetState(skipPartiallyExpanded = !expandable)\n    val scope = rememberCoroutineScope()\n    val dismiss: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }\n    val density = LocalDensity.current\n    val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }\n    val screen = LocalConfiguration.current.screenHeightDp.dp\n    val ceiling = screen - maxOf(top, 16.dp)\n    val sized = when {\n        full -> Modifier.height(ceiling - 44.dp)\n        expandable -> Modifier.heightIn(max = ceiling - 44.dp)\n        else -> Modifier.heightIn(max = screen * 0.62f)\n    }\n    ModalBottomSheet(\n        onDismissRequest = onClose,\n        sheetState = state,\n        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),\n        containerColor = c.paper,\n        contentColor = c.text,\n        tonalElevation = 0.dp,\n        scrimColor = c.scrim,\n        dragHandle = null,\n        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },\n    ) {\n        Column(Modifier.fillMaxWidth().then(sized).imePadding().panelReveal()) {\n            Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))\n            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {\n                // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).\n                if (back != null) FloatIcon(Lu.back, \"Back\", back)\n                else FloatIcon(Lu.close, \"Close\", dismiss)\n                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {\n                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }\n                }\n                Spacer(Modifier.width(44.dp))\n            }\n            Column(\n                Modifier.fillMaxWidth().weight(1f, fill = full).verticalScroll(scrollState).padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },\n                content = content,\n            )\n            if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)\n        }\n    }\n}"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val motion = rememberMotionEnabled()\n    val scope = rememberCoroutineScope()\n    val position = remember { SheetPosition() }\n    val dismiss: () -> Unit = {\n        // The panel leaves first and the caller is told once it has gone.\n        if (position.startClosing()) scope.launch {\n            position.hide(motion)\n            onClose()\n        }\n    }\n    Dialog(\n        onDismissRequest = dismiss,\n        properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false, decorFitsSystemWindows = false),\n    ) {\n        SheetWindow()\n        SheetPanel(position, dismiss, full, expandable, back, title, footer, scroll ?: rememberScrollState(), content)\n    }\n}"
       },
       {
-        "file": "ui/design/Kit.kt",
-        "line": 472,
+        "file": "ui/design/Sheet.kt",
+        "line": 120,
         "doc": "",
         "params": [
           {
@@ -605,7 +605,7 @@
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, expandable, content)\n\n/** `.r-card`: a white 16dp card on the sheet's paper. */"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, expandable, content)\n\n/** The window the sheet draws in: edge to edge, no dim of its own (the scrim fades with the panel) and no window animation. */"
       }
     ]
   },
@@ -614,7 +614,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 485,
+        "line": 393,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -636,7 +636,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 531,
+        "line": 439,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -711,7 +711,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 495,
+        "line": 403,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -767,7 +767,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 788,
+        "line": 696,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -803,7 +803,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 244,
+        "line": 226,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -838,7 +838,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 305,
+        "line": 287,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -873,7 +873,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 619,
+        "line": 527,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -895,7 +895,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 264,
+        "line": 246,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.",
         "params": [
           {

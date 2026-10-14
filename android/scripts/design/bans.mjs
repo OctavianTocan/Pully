@@ -27,17 +27,18 @@ const MATERIAL_OK = [
   'contentColorFor',
 ]
 
-/** Material pieces that only the kit's own wrappers may use. */
-const KIT_ONLY = [
+/** Material's bottom sheet, which nothing may use: the kit's own `PullsSheet` takes the rule 73 timing and Material's cannot. */
+const SHEETS = [
   'ModalBottomSheet',
   'ModalBottomSheetDefaults',
   'rememberModalBottomSheetState',
   'SheetState',
   'SheetValue',
   'BottomSheetDefaults',
-  'DropdownMenu',
-  'DropdownMenuItem',
 ]
+
+/** Material pieces that only the kit's own wrappers may use. */
+const KIT_ONLY = ['DropdownMenu', 'DropdownMenuItem']
 
 /** Files that may use KIT_ONLY: the kit. */
 const KIT_FILES = ['ui/design/']
@@ -77,13 +78,19 @@ export const BANS = {
       if (!m)
         return false
       const leaf = m[1].split('.')[0]
-      return !MATERIAL_OK.includes(leaf) && !KIT_ONLY.includes(leaf) && leaf !== 'pulltorefresh'
+      return !MATERIAL_OK.includes(leaf) && !KIT_ONLY.includes(leaf) && !SHEETS.includes(leaf) && leaf !== 'pulltorefresh'
     },
   },
+  'material-sheet': {
+    label: 'Material bottom sheets',
+    rules: [5, 49, 73],
+    advice: 'Use PullsSheet. Material\'s sheet slides and closes on its own timing, not rule 73\'s.',
+    importOf: name => SHEETS.some(leaf => name === `androidx.compose.material3.${leaf}`),
+  },
   'material-sheet-menu': {
-    label: 'Material sheets and menus outside the kit',
+    label: 'Material menus outside the kit',
     rules: [5, 49],
-    advice: 'Use PullsSheet.',
+    advice: 'Use MenuReveal through the kit\'s menu.',
     allowIn: KIT_FILES,
     importOf: name => KIT_ONLY.some(leaf => name === `androidx.compose.material3.${leaf}`),
   },

@@ -172,10 +172,12 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
             }
             if (pending != null) QuestionBubble(pending)
             if (streaming && task != null && task.activities.isNotEmpty()) {
-                AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true, hint = true)
+                // The orb is drawn below, where it stays when the log is replaced by the answer.
+                AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true, mark = false)
             } else if (streaming || ui.chatPending != null) {
                 TypingDots()
             }
+            AiLiveMark(streaming && task != null && task.activities.isNotEmpty(), hint = true)
             if (!streaming && failed && ui.chatPending == null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(task?.error ?: t("chat.requestFailed"), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
