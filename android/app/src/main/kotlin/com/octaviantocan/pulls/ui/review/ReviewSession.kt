@@ -234,9 +234,11 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      * Settings effort for this task, and [then] are the passes an `analyze` makes the server start after itself.
      * The task shows on screen the moment this is called, under a placeholder id the server's own replaces.
      */
-    /** When this session last started a task, on the monotonic clock in nanoseconds; see [guardedStop]. */
-    var lastStart = 0L
-        private set
+    /** When this session last started a task of each kind, on the monotonic clock in nanoseconds; see [guardedStop]. */
+    private val starts = HashMap<String, Long>()
+
+    /** When this session last started a task of one of [kinds], on the monotonic clock in nanoseconds; 0 if it never did. */
+    fun lastStart(kinds: Collection<String>): Long = kinds.maxOfOrNull { starts[it] ?: 0L } ?: 0L
 
     fun startTask(
         kind: String,
@@ -247,7 +249,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         onDone: (TaskState) -> Unit = {},
     ) {
         val key = key ?: return
-        lastStart = System.nanoTime()
+        starts[kind] = System.nanoTime()
         scope.launch {
             val now = System.currentTimeMillis()
             val pending = TaskState(id = "pending-${System.nanoTime()}", kind = kind, key = key, then = then, startedAt = now)

@@ -121,13 +121,14 @@ private fun TryAgain(label: String, onClick: () -> Unit) {
 
 /**
  * [stop] for an orb that is the Stop button: null while nothing runs, and while something does it ignores a tap in the
- * first moments after [session] started a task, so the tap that started the work can never also stop it (rule 63).
- * The moments count from the start itself, so coming back to work that is already running stops it at the first tap.
+ * first moments after [session] started a task of one of [kinds], the work this orb stops, so the tap that started the
+ * work can never also stop it (rule 63). The moments count from that start itself, so coming back to work that is
+ * already running stops it at the first tap, and starting some other task does not hold this Stop back.
  */
 @Composable
-internal fun guardedStop(session: ReviewSession, running: Boolean, stop: () -> Unit): (() -> Unit)? {
+internal fun guardedStop(session: ReviewSession, kinds: List<String>, running: Boolean, stop: () -> Unit): (() -> Unit)? {
     val latest by rememberUpdatedState(stop)
-    return if (running) ({ if ((System.nanoTime() - session.lastStart) / 1_000_000 > STOP_GRACE_MS) latest() }) else null
+    return if (running) ({ if ((System.nanoTime() - session.lastStart(kinds)) / 1_000_000 > STOP_GRACE_MS) latest() }) else null
 }
 
 /** What the card says under its title while something runs: the latest step of the work log, or that the engine is starting. */
@@ -177,7 +178,7 @@ internal fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     // When both failed, one try-again runs both, and the line names both.
     val missed = if (card.working || failed || stopped) emptyList() else listOf("The tour" to tourTask, "The brief" to briefTask).mapNotNull { (name, found) -> found?.takeIf { it.status == "failed" }?.let { name to it } }
     val partial = missed.firstOrNull()?.let { (name, task) -> (if (missed.size > 1) "The tour and the brief" else name) to task }
-    val stop = guardedStop(session, card.working) { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } }
+    val stop = guardedStop(session, listOf("analyze", "tour", "brief"), card.working) { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } }
 
     AnalyzeStatusCard(
         orb = when {

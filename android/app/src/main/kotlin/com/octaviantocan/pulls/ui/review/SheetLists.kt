@@ -60,6 +60,7 @@ import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.SheetSearch
+import com.octaviantocan.pulls.ui.design.matchesSearch
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -236,10 +237,6 @@ internal fun FileActionsSheet(session: ReviewSession, file: ReviewFile, onOpen: 
     }
 }
 
-/** Does [path] match what was typed? Every word of [query] is somewhere in it, in any case. */
-internal fun matchesFile(path: String, query: String): Boolean =
-    query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.all { path.lowercase().contains(it) }
-
 /** Without a search, a list this long shows its first rows and a row that shows the rest, so a huge change opens at once. */
 private const val FIRST_ROWS = 300
 
@@ -256,7 +253,7 @@ internal fun ColumnScope.FilesList(
 ) {
     val c = LocalPullsColors.current
     val searching = query.isNotBlank()
-    val shown = if (searching) sections.map { s -> s.copy(files = s.files.filter { matchesFile(it.path, query) }) }.filter { it.files.isNotEmpty() } else sections
+    val shown = if (searching) sections.map { s -> s.copy(files = s.files.filter { matchesSearch(it.path, query) }) }.filter { it.files.isNotEmpty() } else sections
     if (searching && shown.isEmpty()) {
         Text("No file matches “${query.trim()}”.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
         return

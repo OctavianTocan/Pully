@@ -301,6 +301,12 @@ class RepoChoicesTest {
     }
 
     @Test
+    fun theSearchFindsTheOwnerAndTheNameTypedAsSeparateWords() {
+        assertEquals(listOf("OctavianTocan/pulls.review"), repoChoices(pulls, emptySet(), "octavian review").map { it.key })
+        assertEquals(emptyList(), repoChoices(pulls, emptySet(), "octavian ojin").map { it.key })
+    }
+
+    @Test
     fun theInboxLeavesOutWhatIsSwitchedOff() {
         assertEquals(listOf(3), pulls.inShownRepos(setOf("human-plus/ojin")).map { it.number })
         assertEquals(3, pulls.inShownRepos(emptySet()).size)

@@ -360,7 +360,7 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
     // The first row has nothing above it; every later one has a hairline.
     fun line(index: Int): Modifier = if (index == 0) Modifier else Modifier.hairlineTop(c.borderMute)
     val tail = shown.size + if (findings.isNotEmpty()) 1 else 0
-    val stop = guardedStop(session, reviewing) { critiqueTask?.let { session.cancelTask(it.id) } }
+    val stop = guardedStop(session, listOf("critique"), reviewing) { critiqueTask?.let { session.cancelTask(it.id) } }
     Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
         Text("What needs a human", Modifier.padding(bottom = 2.dp), style = PullsType.xl, color = c.text)
         shown.forEachIndexed { index, finding ->

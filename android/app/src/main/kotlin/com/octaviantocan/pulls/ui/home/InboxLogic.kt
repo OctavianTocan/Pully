@@ -7,6 +7,7 @@ import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.core.WorkTask
 import com.octaviantocan.pulls.core.parsePullKey
 import com.octaviantocan.pulls.data.Triage
+import com.octaviantocan.pulls.ui.design.matchesSearch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -59,9 +60,8 @@ data class RepoChoice(val owner: String, val repo: String, val count: Int, val s
 fun repoChoices(pulls: List<PullRow>, hidden: Set<String>, query: String = ""): List<RepoChoice> {
     val counts = pulls.groupingBy { "${it.owner}/${it.repo}" }.eachCount()
     val keys = counts.keys + hidden
-    val needle = query.trim().lowercase()
     return keys
-        .filter { needle.isEmpty() || it.lowercase().contains(needle) }
+        .filter { matchesSearch(it, query) }
         .sortedBy { it.lowercase() }
         .mapNotNull { key ->
             val owner = key.substringBefore('/', "")

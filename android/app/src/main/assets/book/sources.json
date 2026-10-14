@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 798,
+        "line": 802,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -285,7 +285,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 815,
+        "line": 819,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -308,7 +308,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 704,
+        "line": 708,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small\ndot instead of the tick, for work that has not run, or did not finish, so a tick never claims\nsomething that was not done. [stop] turns the breathing dot into a small square, because the orb is\nthen the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -346,7 +346,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 809,
+        "line": 813,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -478,7 +478,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 783,
+        "line": 787,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -509,7 +509,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 607,
+        "line": 611,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -834,7 +834,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 575,
+        "line": 579,
         "doc": "`.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,\nwhite with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over\nit: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.",
         "params": [
           {
@@ -864,7 +864,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 826,
+        "line": 830,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
@@ -970,7 +970,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 648,
+        "line": 652,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {

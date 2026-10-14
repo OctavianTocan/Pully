@@ -567,6 +567,10 @@ fun SheetField(
     }
 }
 
+/** Does [text] match what was typed in a [SheetSearch]? Every word of [query] is somewhere in it, in any order and case (rule 101). */
+fun matchesSearch(text: String, query: String): Boolean =
+    query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.all { text.lowercase().contains(it) }
+
 /**
  * `.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,
  * white with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over

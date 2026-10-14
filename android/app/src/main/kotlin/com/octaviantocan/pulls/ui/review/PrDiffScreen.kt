@@ -207,7 +207,7 @@ private fun FileBody(
             Modifier.fillMaxSize().edgeFade(bottom = PullsMotion.EdgeBottom, color = c.raised).fileSwipe(
                 enabled = { ui.drafts[file.path] == null && ui.dragSel == null && ui.selectionStart[file.path] == null },
                 onCode = { y -> onCodeRow(listState, y) },
-                codeHasRoom = { dx -> !session.settings.codeWrap && codeHasRoom(ui, file.path, dx) },
+                codeHasRoom = { dx, across -> !session.settings.codeWrap && codeHasRoom(ui, file, dx, across) },
                 onDrag = { delta -> drag += delta; slide.follow(delta, range) },
                 onEnd = {
                     val to = swipedFile(index, count, drag, swipeFrom)
@@ -251,9 +251,16 @@ private fun onCodeRow(state: LazyListState, y: Float): Boolean {
     return row.contentType == "line" || row.contentType == "split"
 }
 
-/** Can the code of [path] still scroll sideways the way a finger moving by [dx] pushes it? */
-private fun codeHasRoom(ui: DiffUi, path: String, dx: Float): Boolean =
-    ui.scrolls.any { (key, scroll) -> key.first == path && if (dx < 0f) scroll.offset < scroll.max - 1f else scroll.offset > 1f }
+/**
+ * Can the code under the finger still scroll sideways the way a finger moving by [dx] pushes it? A file's lines scroll
+ * together, one scroll per column, so this asks the column that was touched: [across] is how far across the screen the
+ * finger came down, 0 to 1, and in split view the left half is the old side.
+ */
+private fun codeHasRoom(ui: DiffUi, file: ReviewFile, dx: Float, across: Float): Boolean {
+    val column = if (!effectiveSplit(ui.session.settings.layout, file, ui.widthDp)) 0 else if (across < 0.5f) 1 else 2
+    val scroll = ui.scrolls[file.path to column] ?: return false
+    return if (dx < 0f) scroll.offset < scroll.max - 1f else scroll.offset > 1f
+}
 
 /**
  * The sideways swipe that changes file. It watches each touch before the rows do and takes it only once the finger
@@ -265,7 +272,7 @@ private fun codeHasRoom(ui: DiffUi, path: String, dx: Float): Boolean =
 private fun Modifier.fileSwipe(
     enabled: () -> Boolean,
     onCode: (Float) -> Boolean,
-    codeHasRoom: (Float) -> Boolean,
+    codeHasRoom: (dx: Float, across: Float) -> Boolean,
     onDrag: (Float) -> Unit,
     onEnd: () -> Unit,
 ): Modifier {
@@ -280,7 +287,7 @@ private fun Modifier.fileSwipe(
 private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swipeGesture(
     enabled: () -> Boolean,
     onCode: (Float) -> Boolean,
-    codeHasRoom: (Float) -> Boolean,
+    codeHasRoom: (dx: Float, across: Float) -> Boolean,
     onDrag: (Float) -> Unit,
     onEnd: () -> Unit,
 ) {
@@ -310,7 +317,7 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
             change.uptimeMillis - down.uptimeMillis > longPress && abs(dx) <= slop -> return
             abs(dy) > slop && abs(dy) >= abs(dx) -> return
             abs(dx) > slop && abs(dx) > abs(dy) -> {
-                if (code && codeHasRoom(dx)) return
+                if (code && codeHasRoom(dx, down.position.x / size.width.coerceAtLeast(1))) return
                 taken = true
                 change.consume()
                 onDrag(dx)
