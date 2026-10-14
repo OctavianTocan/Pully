@@ -302,14 +302,16 @@
   "motion": {
     "tick": "150ms",
     "state": "200ms",
-    "slide": "240ms cubic-bezier(0.2, 0.8, 0.2, 1)",
-    "toast": "250ms",
+    "slide": "250ms cubic-bezier(0.22, 1, 0.36, 1)",
+    "toast": "350ms in, 250ms out",
+    "swap": "150ms ease-in-out",
     "progress": "400ms",
     "press": "scale 0.97",
     "breathe": "1200ms reverse loop",
     "orb-turn": "1600ms linear loop",
     "orb-breath": "900ms reverse loop",
-    "shimmer": "1500ms linear loop"
+    "shimmer": "1500ms linear loop",
+    "thinking-shimmer": "1200ms linear loop"
   },
   "components": {
     "float-button": {

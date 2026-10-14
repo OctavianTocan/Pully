@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 721,
+        "line": 734,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 207,
+        "line": 206,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -68,7 +68,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(240, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)), label = \"capsule\")\n        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).clickable(role = Role.Tab) { onSelect(index) },\n                    contentAlignment = Alignment.Center,\n                ) {\n                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)\n                    }\n                }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = \"capsule\")\n        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).clickable(role = Role.Tab) { onSelect(index) },\n                    contentAlignment = Alignment.Center,\n                ) {\n                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)\n                    }\n                }\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -77,7 +77,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 289,
+        "line": 288,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -114,7 +114,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 318,
+        "line": 317,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -165,7 +165,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 164,
+        "line": 163,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -210,7 +210,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 190,
+        "line": 189,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -275,7 +275,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 738,
+        "line": 751,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -298,7 +298,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 654,
+        "line": 667,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot; done,\nit is a still wash with a tick. No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -326,7 +326,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 732,
+        "line": 745,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -349,7 +349,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 341,
+        "line": 340,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -385,7 +385,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 361,
+        "line": 360,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -435,7 +435,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 400,
+        "line": 399,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -458,7 +458,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 706,
+        "line": 719,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -489,7 +489,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 577,
+        "line": 576,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -519,7 +519,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 413,
+        "line": 412,
         "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half\nthe screen and pulls up to the full height. [back] swaps the close X for a back arrow.",
         "params": [
           {
@@ -564,7 +564,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 469,
+        "line": 468,
         "doc": "",
         "params": [
           {
@@ -614,7 +614,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 482,
+        "line": 481,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -636,7 +636,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 528,
+        "line": 527,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -711,7 +711,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 492,
+        "line": 491,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -767,7 +767,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 746,
+        "line": 759,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -803,7 +803,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 243,
+        "line": 242,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -838,7 +838,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 302,
+        "line": 301,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -873,8 +873,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 613,
-        "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.",
+        "line": 615,
+        "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
             "name": "toaster",
@@ -886,7 +886,7 @@
             "default": "Modifier"
           }
         ],
-        "source": "@Composable\nfun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val current = toaster.message\n    var shown by remember { mutableStateOf<ToastMessage?>(null) }\n    LaunchedEffect(current) {\n        if (current == null) return@LaunchedEffect\n        shown = current\n        delay(if (current.action != null) 4200 else 2400)\n        toaster.clear(current)\n    }\n    val visible by animateFloatAsState(if (current != null) 1f else 0f, tween(250), label = \"toast\")\n    val message = current ?: shown\n    if (message == null || visible < 0.01f) return\n    Box(modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 100.dp, start = 16.dp, end = 16.dp), contentAlignment = Alignment.BottomCenter) {\n        Row(\n            Modifier\n                .graphicsLayer { alpha = visible; translationY = (1f - visible) * 10.dp.toPx() }\n                .height(44.dp).clip(CircleShape).background(c.cta).padding(horizontal = 18.dp),\n            verticalAlignment = Alignment.CenterVertically,\n            horizontalArrangement = Arrangement.spacedBy(14.dp),\n        ) {\n            Text(message.text, style = PullsType.sm, color = c.onCta, maxLines = 1, modifier = Modifier.weight(1f, fill = false))\n            if (message.action != null) {\n                Text(\n                    message.action,\n                    Modifier.clickable(role = Role.Button) { toaster.clear(message); message.onAction?.invoke() },\n                    style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold),\n                    color = Color(0xFF9AD3D6),\n                )\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val current = toaster.message\n    var shown by remember { mutableStateOf<ToastMessage?>(null) }\n    LaunchedEffect(current) {\n        if (current == null) return@LaunchedEffect\n        shown = current\n        delay(if (current.action != null) 4200 else 2400)\n        toaster.clear(current)\n    }\n    val visible by animateFloatAsState(\n        if (current != null) 1f else 0f,\n        tween(if (current != null) PullsMotion.MEDIUM else PullsMotion.FAST, easing = PullsMotion.SmoothOut),\n        label = \"toast\",\n    )\n    val message = current ?: shown\n    if (message == null || visible < 0.01f) return\n    Box(modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 100.dp, start = 16.dp, end = 16.dp), contentAlignment = Alignment.BottomCenter) {\n        Row(\n            Modifier\n                .softBlur(PullsMotion.BlurSmall * (1f - visible).coerceIn(0f, 1f))\n                .graphicsLayer {\n                    alpha = visible\n                    translationY = (1f - visible) * 16.dp.toPx()\n                    val scale = PullsMotion.DROPDOWN_OPEN_SCALE + (1f - PullsMotion.DROPDOWN_OPEN_SCALE) * visible\n                    scaleX = scale\n                    scaleY = scale\n                }\n                .height(44.dp).clip(CircleShape).background(c.cta).padding(horizontal = 18.dp),\n            verticalAlignment = Alignment.CenterVertically,\n            horizontalArrangement = Arrangement.spacedBy(14.dp),\n        ) {\n            Text(message.text, style = PullsType.sm, color = c.onCta, maxLines = 1, modifier = Modifier.weight(1f, fill = false))\n            if (message.action != null) {\n                Text(\n                    message.action,\n                    Modifier.clickable(role = Role.Button) { toaster.clear(message); message.onAction?.invoke() },\n                    style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold),\n                    color = Color(0xFF9AD3D6),\n                )\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -895,7 +895,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 263,
+        "line": 262,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.",
         "params": [
           {

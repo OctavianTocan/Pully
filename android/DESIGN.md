@@ -187,14 +187,16 @@ spacing:
 motion:
   tick: 150ms
   state: 200ms
-  slide: 240ms cubic-bezier(0.2, 0.8, 0.2, 1)
-  toast: 250ms
+  slide: 250ms cubic-bezier(0.22, 1, 0.36, 1)
+  toast: 350ms in, 250ms out
+  swap: 150ms ease-in-out
   progress: 400ms
   press: scale 0.97
   breathe: 1200ms reverse loop
   orb-turn: 1600ms linear loop
   orb-breath: 900ms reverse loop
   shimmer: 1500ms linear loop
+  thinking-shimmer: 1200ms linear loop
 elevation:
   button: 10px
   note: 12px
@@ -398,11 +400,11 @@ The web-port kit (`ActionButton`, `IconButton`, `ToggleGroup`, `TextInput`, `Bad
 
 ## Motion
 
-The `motion` tokens record what the kit uses today. It animates with `tween`. Durations in use: 150ms for a check filling, 200ms for chips, switches and tab ink, 240ms with `cubic-bezier(0.2, 0.8, 0.2, 1)` for the capsule's sliding pill, 250ms for the toast and 400ms for the progress ring. Live marks loop: the breathing dot at 1200ms, the orb's ring at 1600ms linear and its bot at 900ms, the skeleton shimmer at 1500ms.
+The `motion` tokens record what the kit uses today. It animates with `tween`. Durations in use: 150ms for a check filling, 200ms for chips, switches and tab ink, 250ms with the smooth-out curve for the capsule's sliding pill, 350ms in and 250ms out for the toast and 400ms for the progress ring. Live marks loop: the breathing dot at 1200ms, the orb's ring at 1600ms linear and its bot at 900ms, the skeleton shimmer at 1500ms.
 
 Every pressable scales to 0.97 on pointer-down and answers with no delay. AI work in progress is a live, animated mark and never a blank (rules 18 and 43). A swiped row blurs slightly as it is displaced (rules 17, 32 and 46): the canvas row moves about 132 to 136dp with a 1.3px blur and a side shadow, `-8px 0 18px` at 14% one way and `8px 0 18px` at 16% the other. A segmented pill's highlight slides to the tapped segment and the content fades in (rule 67). Anything that exists in both states of a screen keeps its position (rule 69). Move things with transform and opacity.
 
-Rule 73 gives the numbers motion is moving to, taken from transitions.dev: 150ms for closes and text swaps, 250ms for opens and tabs, 400ms for panels, one smooth-out curve `cubic-bezier(0.22, 1, 0.36, 1)`, 2px of blur on small things. Menus (`MenuReveal`), tab and page switches (`BlurSwitch`) and the thinking line (`ThinkingSwap`) already use them. The sheets, the capsule's pill (still 240ms on its own curve) and the toast do not yet. Looping effects hold still when the system setting "Remove animations" is on (`rememberMotionEnabled`); other transitions do not read it yet.
+Rule 73 gives the numbers motion is moving to, taken from transitions.dev: 150ms for closes and text swaps, 250ms for opens and tabs, 400ms for panels, one smooth-out curve `cubic-bezier(0.22, 1, 0.36, 1)`, 2px of blur on small things. Menus (`MenuReveal`), tab and page switches (`BlurSwitch`), the capsule's sliding pill, the toast and the thinking line (`ThinkingSwap`) already use them. The bottom sheets (Material's own slide), the checkbox tick (it appears instead of being drawn), icon swaps and dialogs do not yet. Looping effects hold still when the system setting "Remove animations" is on (`rememberMotionEnabled`); other transitions do not read it yet.
 
 ## Rules
 

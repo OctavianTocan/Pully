@@ -4,7 +4,6 @@ package com.octaviantocan.pulls.ui.design
 
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.StartOffset
@@ -221,7 +220,7 @@ fun CapsuleTabs(
         modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),
     ) {
         val segment = maxWidth / labels.size.coerceAtLeast(1)
-        val x by animateDpAsState(segment * selected, tween(240, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)), label = "capsule")
+        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "capsule")
         Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(shape).background(c.paper2))
         Row(Modifier.fillMaxSize()) {
             labels.forEachIndexed { index, label ->
@@ -609,7 +608,10 @@ class Toaster {
 
 val LocalToaster = staticCompositionLocalOf { Toaster() }
 
-/** `.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action. */
+/**
+ * `.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.
+ * It rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).
+ */
 @Composable
 fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
@@ -621,13 +623,24 @@ fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
         delay(if (current.action != null) 4200 else 2400)
         toaster.clear(current)
     }
-    val visible by animateFloatAsState(if (current != null) 1f else 0f, tween(250), label = "toast")
+    val visible by animateFloatAsState(
+        if (current != null) 1f else 0f,
+        tween(if (current != null) PullsMotion.MEDIUM else PullsMotion.FAST, easing = PullsMotion.SmoothOut),
+        label = "toast",
+    )
     val message = current ?: shown
     if (message == null || visible < 0.01f) return
     Box(modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 100.dp, start = 16.dp, end = 16.dp), contentAlignment = Alignment.BottomCenter) {
         Row(
             Modifier
-                .graphicsLayer { alpha = visible; translationY = (1f - visible) * 10.dp.toPx() }
+                .softBlur(PullsMotion.BlurSmall * (1f - visible).coerceIn(0f, 1f))
+                .graphicsLayer {
+                    alpha = visible
+                    translationY = (1f - visible) * 16.dp.toPx()
+                    val scale = PullsMotion.DROPDOWN_OPEN_SCALE + (1f - PullsMotion.DROPDOWN_OPEN_SCALE) * visible
+                    scaleX = scale
+                    scaleY = scale
+                }
                 .height(44.dp).clip(CircleShape).background(c.cta).padding(horizontal = 18.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
