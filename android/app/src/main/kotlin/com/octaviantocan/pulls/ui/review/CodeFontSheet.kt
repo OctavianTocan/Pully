@@ -27,7 +27,7 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 
 /** A line of code that shows what a face does with brackets, zeros and the letters that get mistaken for each other. */
-private const val SAMPLE = "fun review(pr: Int) = pr + 0 // Il1"
+private const val SAMPLE = "review(0) { Il1 }"
 
 /** The faces code can be set in, each drawn in itself over a sample line. Picking one changes every code view at once. */
 @Composable
@@ -46,7 +46,7 @@ internal fun CodeFontSheet(settings: AppSettings, onClose: () -> Unit) {
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(font.label, style = PullsType.row, color = c.text, maxLines = 1)
-                        Text(SAMPLE, style = PullsType.xs.copy(fontFamily = CodeFonts.familyOf(font)), color = c.muted, maxLines = 1)
+                        Text(SAMPLE, style = PullsType.sm.copy(fontFamily = CodeFonts.familyOf(font)), color = c.muted, maxLines = 1)
                     }
                     Box(Modifier.padding(start = 4.dp)) { if (CodeFont.of(settings.codeFont) == font) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp) }
                 }

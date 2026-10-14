@@ -90,6 +90,7 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PendingDot
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsFonts
+import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
@@ -630,7 +631,7 @@ private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?, onEdi
     Column {
         if (data?.overview?.viewer?.canUpdate == true) {
             Box(
-                Modifier.padding(top = 6.dp).defaultMinSize(minHeight = 40.dp).clip(RoundedCornerShape(8.dp))
+                Modifier.padding(top = 6.dp).defaultMinSize(minHeight = 40.dp).clip(RoundedCornerShape(PullsRadius.lg))
                     .clickable(role = Role.Button, onClickLabel = "Edit the description", onClick = onEdit),
                 contentAlignment = Alignment.CenterStart,
             ) { Text(if (markdown.isBlank()) "Add a description" else "Edit description", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }

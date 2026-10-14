@@ -506,10 +506,14 @@
     },
     "skeleton": {
       "composable": "Skeleton",
-      "summary": "A 12dp shimmering bar that stands in for text that is still being written.",
+      "also": [
+        "RowsSkeleton"
+      ],
+      "summary": "A 12dp shimmering bar that stands in for text that is still being written. RowsSkeleton is a list's first rows built from it.",
       "usage": [
         "Give it a width with the modifier.",
-        "Use it where the shape of the content is known, never as a loading screen."
+        "Use it where the shape of the content is known, never as a loading screen.",
+        "RowsSkeleton stands in for the Inbox-style rows of a list that is still arriving, such as a repository's pull requests."
       ],
       "rules": [
         50,

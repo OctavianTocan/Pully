@@ -38,6 +38,7 @@ import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.QuickAction
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.Skeleton
@@ -331,6 +332,7 @@ private fun skeletonVariants() = listOf(
                     Skeleton(Modifier.fillMaxWidth(0.6f))
                 }
             },
+            BookState("List rows") { RowsSkeleton(rows = 3) },
         ),
     ),
 )

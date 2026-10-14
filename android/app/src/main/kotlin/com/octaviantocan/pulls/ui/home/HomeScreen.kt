@@ -461,8 +461,9 @@ private fun SwipeRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                LuIcon(Lu.okc, tint = Color.White, size = 18.dp)
-                Text(startLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = Color.White)
+                val ink = Color.White // raw-value-ok: ink on the primary fill is white in both themes, like the Chat send button
+                LuIcon(Lu.okc, tint = ink, size = 18.dp)
+                Text(startLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = ink)
             }
         }
         if (dx < 0f) {
@@ -587,9 +588,9 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: S
         )
         if (openLabel != null) {
             Box(
-                Modifier.height(40.dp).clip(CircleShape).background(c.primary).clickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpen).padding(horizontal = 16.dp),
+                Modifier.height(40.dp).clip(CircleShape).background(c.cta).clickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpen).padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text("Open", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = Color.White, maxLines = 1) }
+            ) { Text("Open", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
         }
         if (value.isNotEmpty()) FloatIcon(Lu.close, "Clear search", { onChange("") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
     }
