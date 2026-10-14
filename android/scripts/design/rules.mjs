@@ -8,7 +8,7 @@ import * as tokens from './tokens.mjs'
 
 export const NAME = 'rules'
 
-const SOURCES = ['canvas', 'walkthrough']
+const SOURCES = ['canvas', 'walkthrough', 'perplexity']
 
 /** What each check says it enforces. */
 export const DECLARED = {
@@ -31,7 +31,7 @@ function ruleProblems(rules) {
     }
     numbers.add(rule.n)
     if (!SOURCES.includes(rule.source)) {
-      problems.push(`DESIGN.md: rule ${rule.n} needs "Source: ${SOURCES.join(' or ')}."`)
+      problems.push(`DESIGN.md: rule ${rule.n} needs "Source: ${SOURCES.slice(0, -1).join(', ')} or ${SOURCES.at(-1)}."`)
     }
     if (rule.checkedBy.length === 0) {
       problems.push(`DESIGN.md: rule ${rule.n} needs a "Checked by:" line, \`review\` at least`)

@@ -1,4 +1,19 @@
 {
+  "ai-glyph": {
+    "ui/ai/Analyze.kt": 1,
+    "ui/ai/Ask.kt": 2,
+    "ui/ai/Tour.kt": 2,
+    "ui/book/BookFoundations.kt": 1,
+    "ui/design/Kit.kt": 2,
+    "ui/home/HomeScreen.kt": 1,
+    "ui/home/RepoScreen.kt": 2,
+    "ui/review/Header.kt": 1,
+    "ui/review/PrCommands.kt": 1,
+    "ui/review/PrDiffScreen.kt": 1,
+    "ui/review/PrSheets.kt": 1,
+    "ui/review/Threads.kt": 1,
+    "ui/settings/SettingsScreen.kt": 1
+  },
   "legacy-icons": {
     "ui/CommandPalette.kt": 3,
     "ui/ai/AiParts.kt": 8,

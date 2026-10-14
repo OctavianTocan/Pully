@@ -207,6 +207,20 @@ describe('bans', () => {
     assert.deepEqual(scan('import androidx.compose.material3.Switch\nandroidx.compose.material3.Switch(true, {})'), { 'material-component': { 'ui/x/Screen.kt': 2 } })
   })
 
+  it('counts the generic AI glyphs of rule 48, in code and in icon names but not in comments', () => {
+    const found = scan([
+      'LuIcon(Lu.bot)',
+      'PhIcon("sparkle-duotone")',
+      'ActionButton(icon = "compass-duotone")',
+      'Glyph("chat-circle-dots-duotone")',
+      '// "sparkle-duotone" and Lu.bot are gone',
+      'PhIcon("compass-tool-duotone")',
+      'val ok = obj["chat"]',
+    ].join('\n'))
+    assert.deepEqual(found['ai-glyph'], { 'ui/x/Screen.kt': 4 })
+    assert.deepEqual(scan('// ban-ok: the one AI mark\nPhIcon("sparkle-duotone")')['ai-glyph'], undefined)
+  })
+
   it('lets a line opt out with a reason, and not without one', () => {
     assert.deepEqual(scan('// ban-ok: legacy screen, being replaced\nActionButton("a") {}'), {})
     assert.deepEqual(Object.keys(scan('// ban-ok:\nActionButton("a") {}')), ['legacy-kit'])
