@@ -35,7 +35,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.caverock.androidsvg.SVG
@@ -221,7 +220,7 @@ internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
             ) {
                 Text(
                     source.path.substringAfterLast('/') + if (source.line > 0) ":${source.line}" else "",
-                    style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
+                    style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium),
                     color = c.activeText, maxLines = 1,
                 )
                 Text(source.why, Modifier.weight(1f), style = PullsType.sm, color = c.muted)

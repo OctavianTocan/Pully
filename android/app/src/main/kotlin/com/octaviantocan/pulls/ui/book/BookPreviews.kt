@@ -401,6 +401,14 @@ private fun orbVariants() = listOf(
             BookState("Done") { Orb(done = true) },
         ),
     ),
+    BookVariant(
+        "rest",
+        listOf(BookState("At rest") { Orb(idle = true) }),
+    ),
+    BookVariant(
+        "stop",
+        listOf(BookState("Working, and the button that stops it") { Orb(stop = true) }),
+    ),
 )
 
 private fun progressRingVariants() = listOf(

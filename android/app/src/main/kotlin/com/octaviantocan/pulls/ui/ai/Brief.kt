@@ -30,7 +30,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.octaviantocan.pulls.core.BriefBlock
@@ -215,14 +214,14 @@ private fun SectionView(session: ReviewSession, block: BriefBlock.Section, onOpe
     }
 }
 
-/** `file.ts:42`, underlined, opening the diff at that line. */
+/** `file.ts:42` in the link colour, opening the diff at that line. */
 @Composable
 private fun TargetLink(target: BriefTarget, onOpen: (BriefTarget) -> Unit) {
     val c = LocalPullsColors.current
     Text(
         target.path.substringAfterLast('/') + (target.line?.let { ":$it" } ?: ""),
         Modifier.defaultMinSize(minHeight = 36.dp).cueClickable(role = Role.Button, onClickLabel = "Open ${target.path}") { onOpen(target) }.padding(vertical = 8.dp),
-        style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
+        style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium),
         color = c.activeText, maxLines = 1,
     )
 }

@@ -38,6 +38,7 @@ import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.Nav
+import com.octaviantocan.pulls.ui.ai.AnalyzePage
 import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
@@ -227,9 +228,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "commits" -> data?.overview?.let { CommitsSheet(session, it) { sheet = null } }
                     "files" -> FilesSheet(session, ui, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
-                    "analyze" -> AnalyzeSheet(session, onClose = { sheet = null }, onModel = { sheet = "model" })
-                    "model" -> ModelSheet(session.settings, onClose = { sheet = null }, onEffort = { sheet = "effort" })
-                    "effort" -> EffortSheet(session.settings, onBack = { sheet = "model" }, onClose = { sheet = null })
+                    "analyze" -> AnalyzeSheet(session, onClose = { sheet = null })
+                    "model" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Model)
+                    "log" -> AnalysisLogSheet(session) { sheet = null }
                     "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->
                         sheet = null
                         if (session.taskFor("critique")?.running == true) {
