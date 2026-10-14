@@ -1,6 +1,17 @@
 package com.octaviantocan.pulls.ui.design
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.border
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -194,32 +205,118 @@ private fun CodeBlock(code: String) {
     }
 }
 
+/**
+ * A GitHub table that stays readable on a phone (rule 95): each column is as wide as its longest
+ * line up to [TABLE_COLUMN_MAX], so a description wraps at about 240dp instead of being squeezed to
+ * a few characters, and a table wider than the screen scrolls sideways under a fade at the edge it
+ * can still scroll toward. A narrow table spreads its columns to the full width. The header row
+ * sits on the code paper, rows are split by hairlines, and the whole table is one rounded card.
+ */
 @Composable
 private fun TableView(table: TableBlock, style: TextStyle) {
     val c = LocalPullsColors.current
-    Column(Modifier.horizontalScroll(rememberScrollState()).border(1.dp, c.border)) {
-        var section = table.firstChild
-        while (section != null) {
-            val head = section is TableHead
-            if (section is TableHead || section is TableBody) {
-                var row = section.firstChild
-                while (row != null) {
-                    if (row is TableRow) Row {
-                        var cell = row.firstChild
-                        while (cell != null) {
-                            if (cell is TableCell) Box(Modifier.width(140.dp).border(1.dp, c.border).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                Inline(cell, PullsType.xs.copy(color = c.text, fontWeight = if (head) FontWeight.SemiBold else null))
-                            }
-                            cell = cell.next
+    val rows = remember(table) { tableRows(table) }
+    if (rows.isEmpty()) return
+    val columns = rows.maxOf { it.cells.size }
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val body = PullsType.sm.copy(color = c.text)
+    val head = body.copy(fontWeight = FontWeight.SemiBold)
+    val natural = remember(rows, density) {
+        List(columns) { n ->
+            val widest = rows.maxOf { row ->
+                row.cells.getOrNull(n)?.let { cell -> measurer.measure(cellText(cell), if (row.head) head else body, softWrap = false).size.width } ?: 0
+            }
+            with(density) { widest.toDp() } + TABLE_CELL_PAD * 2
+        }.map { it.coerceIn(TABLE_COLUMN_MIN, TABLE_COLUMN_MAX) }
+    }
+    val shape = RoundedCornerShape(PullsRadius.lg)
+    BoxWithConstraints(Modifier.fillMaxWidth().clip(shape).background(c.raised).border(1.dp, c.border, shape)) {
+        val total = natural.fold(0.dp) { sum, w -> sum + w }
+        val room = maxWidth - 2.dp
+        val widths = if (total < room) natural.map { it * (room / total) } else natural
+        val width = widths.fold(0.dp) { sum, w -> sum + w }
+        val scroll = rememberScrollState()
+        Column(Modifier.sideFade(scroll).horizontalScroll(scroll)) {
+            rows.forEachIndexed { i, row ->
+                if (i > 0) Box(Modifier.width(width).height(1.dp).background(if (rows[i - 1].head) c.border else c.borderMute))
+                Row(if (row.head) Modifier.background(c.code) else Modifier) {
+                    widths.forEachIndexed { n, w ->
+                        val cell = row.cells.getOrNull(n)
+                        val align = when (cell?.alignment) {
+                            TableCell.Alignment.CENTER -> Alignment.TopCenter
+                            TableCell.Alignment.RIGHT -> Alignment.TopEnd
+                            else -> Alignment.TopStart
+                        }
+                        Box(Modifier.width(w).padding(horizontal = TABLE_CELL_PAD, vertical = 10.dp), contentAlignment = align) {
+                            if (cell != null) Inline(cell, if (row.head) head else body)
                         }
                     }
-                    row = row.next
                 }
             }
-            section = section.next
         }
     }
 }
+
+/** The widest a table column grows before its text wraps: a description reads at this width (rule 95). */
+private val TABLE_COLUMN_MAX = 240.dp
+private val TABLE_COLUMN_MIN = 56.dp
+private val TABLE_CELL_PAD = 12.dp
+/** How wide the fade is at an edge the table can still scroll toward. */
+private val TABLE_FADE = 40.dp
+
+private class TableLine(val head: Boolean, val cells: List<TableCell>)
+
+private fun tableRows(table: TableBlock): List<TableLine> = buildList {
+    var section = table.firstChild
+    while (section != null) {
+        if (section is TableHead || section is TableBody) {
+            var row = section.firstChild
+            while (row != null) {
+                if (row is TableRow) {
+                    val cells = mutableListOf<TableCell>()
+                    var cell = row.firstChild
+                    while (cell != null) { if (cell is TableCell) cells += cell; cell = cell.next }
+                    add(TableLine(section is TableHead, cells))
+                }
+                row = row.next
+            }
+        }
+        section = section.next
+    }
+}
+
+/** A cell's words on one line, as they are measured for its column's width. */
+private fun cellText(node: Node): String = buildString {
+    var child = node.firstChild
+    while (child != null) {
+        when (child) {
+            is MdText -> append(child.literal)
+            is Code -> append("\u2009").append(child.literal).append("\u2009")
+            is SoftLineBreak, is HardLineBreak -> append(' ')
+            else -> append(cellText(child))
+        }
+        child = child.next
+    }
+}
+
+/**
+ * Sideways content fades out at the edge it can still scroll toward, over [TABLE_FADE], and the
+ * fade shrinks as the last of it comes into view. It is read in the draw phase, so scrolling
+ * redraws without recomposing.
+ */
+private fun Modifier.sideFade(scroll: ScrollState): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val band = TABLE_FADE.toPx()
+        val before = (scroll.value / band).coerceIn(0f, 1f)
+        val after = ((scroll.maxValue - scroll.value) / band).coerceIn(0f, 1f)
+        // raw-value-ok: an alpha mask, never drawn as a colour
+        if (before > 0f) drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 1f - before), 1f to Color.Black, startX = 0f, endX = band), blendMode = BlendMode.DstIn)
+        // raw-value-ok: an alpha mask, never drawn as a colour
+        if (after > 0f) drawRect(Brush.horizontalGradient(0f to Color.Black, 1f to Color.Black.copy(alpha = 1f - after), startX = size.width - band, endX = size.width), blendMode = BlendMode.DstIn)
+    }
 
 /** True when [node] holds an image somewhere in its inline content. */
 private fun hasImage(node: Node): Boolean {

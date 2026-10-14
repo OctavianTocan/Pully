@@ -1,10 +1,8 @@
 package com.octaviantocan.pulls.ui.ai
 
-import java.util.Locale
-
 /*
- * Port of `components/ai/ai-format.ts`: durations, token counts, costs and verb tenses
- * the AI surfaces show. Pure Kotlin, unit-tested in `AiFormatTest`.
+ * Port of `components/ai/ai-format.ts`: durations, effort names and verb tenses the AI surfaces
+ * show (token counts and costs stay off them, rule 98). Pure Kotlin, unit-tested in `AiFormatTest`.
  */
 
 /** Looks up a UI message (the shape of vue-i18n's `t` these helpers need). */
@@ -26,33 +24,6 @@ fun formatClockDuration(ms: Long): String {
         minutes > 0 -> "${minutes}m ${seconds}s"
         else -> "${seconds}s"
     }
-}
-
-private fun trimZero(value: String): String = if (value.endsWith(".0")) value.dropLast(2) else value
-
-private fun fixed(value: Double, digits: Int): String = String.format(Locale.ROOT, "%.${digits}f", value)
-
-/** A token count at a glance: `950`, `1.5k`, `200k`, `1.2m`. */
-fun formatTokens(count: Long): String {
-    if (count < 1000) return count.toString()
-    if (count < 999_500) {
-        val thousands = count / 1000.0
-        return "${trimZero(fixed(thousands, if (thousands < 100) 1 else 0))}k"
-    }
-    val millions = count / 1_000_000.0
-    return "${trimZero(fixed(millions, if (millions < 100) 1 else 0))}m"
-}
-
-/** A dollar amount with enough decimals to show sub-cent runs: `$0.0042`, `$1.27`. */
-fun formatCost(usd: Double): String {
-    val digits = when {
-        usd < 0.0001 -> 6
-        usd < 0.001 -> 5
-        usd < 0.01 -> 4
-        usd < 0.1 -> 3
-        else -> 2
-    }
-    return "$" + fixed(usd, digits)
 }
 
 /** The display name of a reasoning effort: `ai.effort.<id>` for named ones, else the capitalised id. */

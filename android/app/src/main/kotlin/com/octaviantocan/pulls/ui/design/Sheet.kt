@@ -84,10 +84,11 @@ import kotlinx.coroutines.launch
 
 /**
  * `.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered
- * title and a spacer. The body scrolls under the header, which stays put (rule 77); [full] makes it
- * nearly full height (chat, Commands: sheets that open a keyboard), otherwise it is as tall as its
- * content. Content taller than half the screen makes the sheet rest at half height and lift to full,
- * and [expandable] off keeps it from lifting. [back] swaps the close X for a back arrow.
+ * title and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls
+ * under the header, which stays put (rule 77); [full] makes it nearly full height (chat, Commands:
+ * sheets that open a keyboard), otherwise it is as tall as its content. Content taller than half the
+ * screen makes the sheet rest at half height and lift to full, and [expandable] off keeps it from
+ * lifting. [back] swaps the close X for a back arrow.
  *
  * The sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the
  * panel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in
@@ -103,6 +104,7 @@ fun PullsSheet(
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: ScrollState? = null,
     expandable: Boolean = true,
+    trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollState = scroll ?: rememberScrollState()
@@ -111,6 +113,7 @@ fun PullsSheet(
             SheetHeader(
                 leading = { if (back != null) FloatIcon(Lu.back, "Back", back) else FloatIcon(Lu.close, "Close", dismiss) },
                 title = title,
+                trailing = trailing,
             )
             SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)
         }
@@ -126,8 +129,9 @@ fun PullsSheet(
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: ScrollState? = null,
     expandable: Boolean = true,
+    trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
-) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, content)
+) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, content)
 
 /**
  * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze
@@ -500,14 +504,15 @@ val LocalSheetSettled = compositionLocalOf { true }
  * fades out under it (rule 74).
  */
 @Composable
-private fun SheetHeader(leading: @Composable () -> Unit, title: @Composable () -> Unit) {
+private fun SheetHeader(leading: @Composable () -> Unit, title: @Composable () -> Unit, trailing: (@Composable () -> Unit)? = null) {
     // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).
     Row(Modifier.fillMaxWidth().zIndex(1f).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         leading()
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             CompositionLocalProvider(LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }
         }
-        Spacer(Modifier.width(44.dp))
+        // A button on the right, or the room one takes, so the title stays centred.
+        if (trailing != null) trailing() else Spacer(Modifier.width(44.dp))
     }
 }
 

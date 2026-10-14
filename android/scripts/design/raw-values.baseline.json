@@ -13,10 +13,9 @@
     "ui/theme/Theme.kt": 3
   },
   "radius": {
-    "ui/ai/AiParts.kt": 8,
+    "ui/ai/AiParts.kt": 7,
     "ui/ai/Analyze.kt": 1,
     "ui/ai/Ask.kt": 2,
-    "ui/ai/Chat.kt": 3,
     "ui/ai/Critique.kt": 4,
     "ui/design/Components.kt": 9,
     "ui/design/Kit.kt": 5,
@@ -26,17 +25,17 @@
     "ui/review/Overview.kt": 6,
     "ui/review/PrDiffScreen.kt": 2,
     "ui/review/PrOverviewScreen.kt": 2,
-    "ui/review/PrTourScreen.kt": 4,
+    "ui/review/PrTourScreen.kt": 3,
     "ui/review/Threads.kt": 4
   },
   "smallText": {
-    "ui/ai/AiParts.kt": 9,
+    "ui/ai/AiParts.kt": 7,
     "ui/ai/Ask.kt": 2,
     "ui/ai/Chat.kt": 1,
-    "ui/ai/Critique.kt": 10,
+    "ui/ai/Critique.kt": 9,
     "ui/ai/Tour.kt": 5,
     "ui/design/Components.kt": 5,
-    "ui/design/Markdown.kt": 2,
+    "ui/design/Markdown.kt": 1,
     "ui/home/HomeScreen.kt": 2,
     "ui/home/RepoScreen.kt": 1,
     "ui/review/Overview.kt": 10,

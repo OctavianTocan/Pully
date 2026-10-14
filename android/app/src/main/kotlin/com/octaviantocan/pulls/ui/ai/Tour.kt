@@ -236,8 +236,9 @@ internal fun Glossary(entries: List<Pair<String, String>>, modifier: Modifier) {
         Text("Glossary", style = PullsType.base.copy(fontWeight = FontWeight.SemiBold), color = c.text)
         entries.forEach { (term, meaning) ->
             Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                Text(term, style = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium), color = c.text)
-                Text(meaning, style = PullsType.sm, color = c.fade)
+                // The model writes terms as inline code; the glossary already sets them in mono, so the backticks go (rule 95).
+                Text(term.replace("`", ""), style = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium), color = c.text)
+                Markdown(meaning, style = PullsType.sm.copy(color = c.fade))
             }
         }
     }
