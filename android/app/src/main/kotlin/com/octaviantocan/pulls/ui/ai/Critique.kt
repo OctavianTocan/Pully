@@ -4,12 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,8 +17,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,11 +43,11 @@ import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsShadow
@@ -64,6 +62,7 @@ import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.tc
 import com.octaviantocan.pulls.ui.review.ReviewSession
+import com.octaviantocan.pulls.ui.review.guardedStop
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
@@ -125,7 +124,7 @@ internal fun LensPickerSheet(session: ReviewSession, onDismiss: () -> Unit, onPi
         when {
             error != null -> Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(t("lens.loadFailed", "error" to error), Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                PillButton(t("common.retry"), ::load)
+                FloatIcon(Lu.redo, "Load the lenses again", ::load, flat = true, iconSize = 22.dp, tint = c.muted)
             }
             ui.lenses?.isEmpty() == true -> Text(t("lens.none"), Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
             ui.lenses != null && matches.isEmpty() -> Text(t("lens.noMatch"), Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
@@ -202,26 +201,27 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                 Text(t("critique.title"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                 LuIcon(if (ui.panelOpen) Lu.chevd else Lu.chev, tint = c.muted, size = 18.dp)
             }
-            if (lens != null) Text(lens, Modifier.clip(RoundedCornerShape(4.dp)).background(c.active).padding(horizontal = 6.dp, vertical = 2.dp), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text)
-            if (result != null) Text(tc("critique.findingCount", result.findings.size), style = PullsType.xs, color = c.fade)
+            // The lens and the count are plain muted words at body size, not a tag (rules 14 and 49).
+            if (lens != null) Text(lens, style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
+            if (result != null) Text(tc("critique.findingCount", result.findings.size), style = PullsType.sm, color = c.muted)
             // No engine, model or token line: they live in the pickers, not on what the AI wrote (rule 98).
         }
 
         if (task != null && (running || task.activities.isNotEmpty())) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-                AiActivityLogFull(task.activities, running, Modifier.weight(1f), startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task))
-                if (running) PillButton(t("common.stop"), { session.cancelTask(task.id) })
-            }
+            // The log's orb is the Stop button; there is no Stop pill beside it (rule 87).
+            val stop = guardedStop(session, listOf("critique"), running) { session.cancelTask(task.id) }
+            AiActivityLogFull(task.activities, running, Modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), onStop = stop)
         }
         if (failed) {
+            // A repeat is the try-again arrow, named for what it does (rule 87).
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(task.error ?: t("analyze.failed"), Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                PillButton(t("common.retry"), { session.runCritique(context, task.lens) })
+                FloatIcon(Lu.redo, "Run the review again", { session.runCritique(context, task.lens) }, flat = true, iconSize = 22.dp, tint = c.muted)
             }
         }
 
         if (ui.panelOpen && result != null) {
-            if (outdated) Text(t("critique.outdated"), style = PullsType.xs, color = c.amber)
+            if (outdated) Text(t("critique.outdated"), style = PullsType.sm, color = c.amber)
             if (result.summary.isNotBlank()) Markdown(result.summary, Modifier.fillMaxWidth())
             if (result.findings.isEmpty()) Text(t("critique.noFindings"), style = PullsType.sm, color = c.fade)
             else {
@@ -240,7 +240,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     visible.forEach { finding ->
                         FindingCard(
-                            finding, posted = finding.id in ui.posted, selected = finding.id in ui.selected,
+                            session, finding, posted = finding.id in ui.posted, selected = finding.id in ui.selected,
                             onSelect = { value -> ui.selected = if (value) ui.selected + finding.id else ui.selected - finding.id },
                             onJump = { session.focusFinding(finding) },
                         )
@@ -248,15 +248,15 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                 }
                 if (visible.isEmpty()) Text(t("critique.allFiltered"), style = PullsType.sm, color = c.fade)
             }
-            if (result.dropped > 0) Text(tc("critique.dropped", result.dropped), style = PullsType.xs, color = c.mute)
+            if (result.dropped > 0) Text(tc("critique.dropped", result.dropped), style = PullsType.sm, color = c.muted)
 
             if (result.findings.isNotEmpty() && canWrite) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HorizontalDivider(color = c.border)
+                    Spacer(Modifier.fillMaxWidth().height(1.dp).background(c.border))
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper)) { SheetField(null, ui.postBody, { ui.postBody = it }, placeholder = t("critique.bodyPlaceholder"), first = true, enabled = !ui.posting, minLines = 3) }
                     val pending = session.reviewData?.pendingCount ?: 0
-                    if (session.reviewData?.pendingReviewId != null) Text(tc("critique.joinsPending", pending), style = PullsType.xs, color = c.fade)
-                    ui.postError?.let { Text(it, style = PullsType.xs, color = c.error) }
+                    if (session.reviewData?.pendingReviewId != null) Text(tc("critique.joinsPending", pending), style = PullsType.sm, color = c.muted)
+                    ui.postError?.let { Text(it, style = PullsType.sm, color = c.error) }
                     // On phones the floating chat button sits over the right edge; keep the post button clear of it.
                     FlowRow(Modifier.fillMaxWidth().padding(end = 64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), itemVerticalAlignment = Alignment.CenterVertically) {
                         if (ui.posted.isNotEmpty()) {
@@ -316,7 +316,7 @@ private fun SeverityFilter(result: Critique, value: Set<String>, onChange: (Set<
 
 /** Port of `FindingCard.vue`. */
 @Composable
-private fun FindingCard(finding: CritiqueFinding, posted: Boolean, selected: Boolean, onSelect: (Boolean) -> Unit, onJump: () -> Unit) {
+private fun FindingCard(session: ReviewSession, finding: CritiqueFinding, posted: Boolean, selected: Boolean, onSelect: (Boolean) -> Unit, onJump: () -> Unit) {
     val c = LocalPullsColors.current
     val location = lineRangeLabel(AskSelection(finding.path, finding.side, finding.startLine ?: finding.line, finding.line))
     Row(
@@ -326,32 +326,16 @@ private fun FindingCard(finding: CritiqueFinding, posted: Boolean, selected: Boo
     ) {
         if (posted) Row(Modifier.padding(start = 12.dp, top = 12.dp, end = 10.dp)) { LuIcon(Lu.check, tint = c.success, size = 20.dp) }
         else PullsCheck(selected, Modifier.padding(start = 12.dp, top = 10.dp, end = 10.dp), size = 20.dp, onClick = { onSelect(!selected) }, label = t("critique.selectFinding"))
-        Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                SeverityBadge(finding.severity)
-                Text(finding.title, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-                // `ml-auto truncate text-xs font-mono op-fade`: pushed to the row's end, no underline (hover-only on the web).
-                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                    Text(
-                        location,
-                        Modifier.defaultMinSize(minHeight = 32.dp).clip(RoundedCornerShape(4.dp)).cueClickable(role = Role.Button, onClickLabel = t("critique.jumpToLine"), onClick = onJump).padding(vertical = 6.dp),
-                        style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+        Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FindingHeading(finding.severity, finding.title, Modifier.padding(top = 2.dp))
+            // The place is a cite: teal text that jumps to the line (rule 96).
+            Text(
+                location,
+                Modifier.defaultMinSize(minHeight = 32.dp).clip(RoundedCornerShape(PullsRadius.sm)).cueClickable(role = Role.Button, onClickLabel = t("critique.jumpToLine"), onClick = onJump).padding(vertical = 6.dp),
+                style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.activeText, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
             Markdown(finding.body, Modifier.fillMaxWidth())
-            finding.suggestion?.let { suggestion ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(t("critique.suggestion"), style = PullsType.xs, color = c.mute)
-                    SelectionContainer {
-                        Text(
-                            suggestion,
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(c.raised).horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
-                            style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text, softWrap = false,
-                        )
-                    }
-                }
-            }
+            finding.suggestion?.let { suggestion -> FindingSuggestion(session, finding.path, suggestion) }
         }
     }
 }

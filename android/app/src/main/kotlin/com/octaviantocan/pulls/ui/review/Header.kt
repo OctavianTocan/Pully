@@ -1,20 +1,14 @@
 package com.octaviantocan.pulls.ui.review
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Sounds
-import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.PhIcon
 import kotlinx.coroutines.launch
 
 /**
@@ -73,28 +67,3 @@ internal object WebColors {
     val purple500 = Color(0xFFA855F7)
 }
 
-/** A Phosphor icon and how the web tints it: a color, `op-fade` or `op-mute`. */
-internal data class Glyph(val name: String, val tint: @Composable () -> Color)
-
-@Composable private fun fadeTint() = LocalPullsColors.current.fade
-@Composable private fun muteTint() = LocalPullsColors.current.text.copy(alpha = 0.5f)
-
-/** `REVIEW_DECISION_ICON`. */
-internal fun decisionGlyph(decision: String?): Glyph? = when (decision) {
-    "approved" -> Glyph("check-circle-duotone") { WebColors.green(LocalPullsColors.current.dark) }
-    "changes_requested" -> Glyph("x-circle-duotone") { WebColors.red(LocalPullsColors.current.dark) }
-    "review_required" -> Glyph("eye-duotone") { fadeTint() }
-    else -> null
-}
-
-/** `REVIEW_DISPLAY` / `STATE_DISPLAY` / `REVIEW_ICON`: one review's state. */
-internal fun reviewGlyph(state: String): Glyph = when (state) {
-    "approved" -> decisionGlyph("approved")!!
-    "changes_requested" -> decisionGlyph("changes_requested")!!
-    "dismissed" -> Glyph("prohibit") { muteTint() }
-    "pending" -> Glyph("hourglass-duotone") { muteTint() }
-    else -> Glyph("chat-circle-dots-duotone") { fadeTint() } // ban-ok: a review that only left comments; the fact is "commented", not an AI mark
-}
-
-@Composable
-internal fun GlyphIcon(glyph: Glyph, size: Dp = 16.dp, modifier: Modifier = Modifier) = PhIcon(glyph.name, modifier, tint = glyph.tint(), size = size)

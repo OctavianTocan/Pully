@@ -108,7 +108,7 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: An
             AnalyzePage.Custom -> {
                 SheetCard {
                     PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
-                    PassRow("Tour", "A walk through the change, stop by stop.", custom.tour) { custom = custom.copy(tour = it) }
+                    PassRow("Tour", "A walk through the change, section by section.", custom.tour) { custom = custom.copy(tour = it) }
                     PassRow("Brief", "A page made for this change: tables, checks, diagrams.", custom.brief) { custom = custom.copy(brief = it) }
                     PassRow("AI review", "Looks for bugs and risks, line by line.", custom.review) { custom = custom.copy(review = it) }
                 }

@@ -1,13 +1,9 @@
 package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -15,9 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +21,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.Role
@@ -42,7 +35,6 @@ import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.AskThreadCard
-import com.octaviantocan.pulls.ui.design.Badge
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -60,6 +52,7 @@ import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import kotlinx.coroutines.launch
+import com.octaviantocan.pulls.ui.design.hairlineTop
 
 /*
  * Ports of `ReviewThreadCard.vue`, `ReviewCommentCard.vue`, `CommentComposer.vue`, and the
@@ -127,17 +120,18 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
         }
         Column {
             thread.comments.forEachIndexed { index, comment ->
-                if (index > 0) HorizontalDivider(color = c.borderMute)
-                ReviewCommentCard(
-                    comment,
-                    isViewer = viewer != null && comment.author == viewer,
-                    busy = actions.busy,
-                    onEdit = { body -> session.pull?.let { pull -> actions.run({ session.repo.editComment(pull, comment.id, body) }) } },
-                    onDelete = { session.pull?.let { pull -> actions.run({ session.repo.deleteComment(pull, comment.id) }) } },
-                )
+                Box(if (index > 0) Modifier.hairlineTop(c.borderMute) else Modifier) {
+                    ReviewCommentCard(
+                        comment,
+                        isViewer = viewer != null && comment.author == viewer,
+                        busy = actions.busy,
+                        onEdit = { body -> session.pull?.let { pull -> actions.run({ session.repo.editComment(pull, comment.id, body) }) } },
+                        onDelete = { session.pull?.let { pull -> actions.run({ session.repo.deleteComment(pull, comment.id) }) } },
+                    )
+                }
             }
         }
-        actions.error?.let { Text(it, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 4.dp), style = PullsType.xs, color = c.error) }
+        actions.error?.let { Text(it, Modifier.padding(start = 14.dp, end = 14.dp, bottom = 8.dp), style = PullsType.sm, color = c.error) }
         if (thread.resolved) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
                 FloatButton({ open = false }, t("file.collapse"), size = 40.dp, flat = true) { LuIcon(Lu.chevd, Modifier.rotate(180f), tint = c.muted, size = 18.dp) }
@@ -201,8 +195,9 @@ fun ReviewCommentCard(comment: ThreadComment, isViewer: Boolean, busy: Boolean, 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GithubAvatar(comment.author, avatarUrl = comment.avatarUrl, size = 28.dp)
             Text(comment.author, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            parseIsoMillis(comment.createdAt)?.let { Text(timeAgo(it), style = PullsType.xs, color = c.fade, maxLines = 1) }
-            if (comment.pending) Badge(t("review.pending"), color = c.amber)
+            parseIsoMillis(comment.createdAt)?.let { Text(timeAgo(it), style = PullsType.sm, color = c.muted, maxLines = 1) }
+            // Pending is a word in the warning colour, not a tag (rule 49).
+            if (comment.pending) Text(t("review.pending"), style = PullsType.sm, color = c.amber, maxLines = 1)
             Spacer(Modifier.weight(1f))
             if (isViewer && !editing) {
                 FloatIcon(Lu.edit, t("review.editComment"), { draft = comment.body; editing = true }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted, enabled = !busy)
@@ -232,50 +227,21 @@ fun DraftBox(session: ReviewSession, draft: DraftTarget, binary: Boolean, onDone
     }
 }
 
-/** `SeverityBadge`: `badge-color-red|amber|gray`. */
-@Composable
-fun SeverityBadge(severity: String) {
-    val c = LocalPullsColors.current
-    val color = when (severity) {
-        "bug" -> c.error
-        "risk" -> c.amber
-        else -> c.gray
-    }
-    Text(
-        t("critique.severity.$severity"),
-        Modifier.clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 6.dp, vertical = 2.dp),
-        style = PullsType.xs.copy(fontWeight = FontWeight.Medium),
-        color = color,
-        maxLines = 1,
-    )
-}
-
-/** `FindingCard inline`: severity, title, body, suggestion; tap jumps to the finding. */
-@OptIn(ExperimentalLayoutApi::class)
+/** A finding pinned under its line of the diff, as the kit's white card (rule 49): severity, title, body, suggestion; a tap jumps to it. The one in focus sits on the active fill. */
 @Composable
 fun InlineFinding(session: ReviewSession, finding: CritiqueFinding, highlighted: Boolean) {
     val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(PullsRadius.card)
     Column(
-        Modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX).fillMaxWidth().clip(shape)
-            .border(1.dp, if (highlighted) c.amber else c.border, shape).background(c.base)
+        Modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX).fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape)
+            .background(if (highlighted) c.active else c.raised)
             .cueClickable(role = Role.Button) { session.focusFinding(finding) }
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-            SeverityBadge(finding.severity)
-            Text(finding.title, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-        }
+        com.octaviantocan.pulls.ui.ai.FindingHeading(finding.severity, finding.title)
         if (finding.body.isNotBlank()) Markdown(finding.body, style = PullsType.sm.copy(color = c.text))
-        finding.suggestion?.let { suggestion ->
-            Text(t("critique.suggestion"), style = PullsType.xs, color = c.mute)
-            Text(
-                suggestion,
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(c.raised).horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
-                style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text, softWrap = false,
-            )
-        }
+        finding.suggestion?.let { suggestion -> com.octaviantocan.pulls.ui.ai.FindingSuggestion(session, finding.path, suggestion) }
     }
 }
 

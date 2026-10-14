@@ -49,8 +49,8 @@ const LEGACY_KIT = ['ActionButton', 'ToggleGroup', 'ReviewCheckbox', 'TextInput'
 /** Its icon dialect: Phosphor glyphs by name instead of the Lucide `Lu` glyphs. */
 const LEGACY_ICONS = ['PhIcon', 'IconButton', 'HeaderIcon']
 
-/** The robot head as a Lucide glyph, and the sparkle, compass and chat bubble as Phosphor names in any weight. */
-const AI_GLYPH = /\bLu\.bot\b|"(?:robot|sparkles?|compass|chat-circle|chat-circle-dots|chat-dots|chat-teardrop|chat-text)(?:-(?:duotone|bold|fill|light|thin))?"/g
+/** The robot head and the speech bubbles as Lucide glyphs, and the sparkle, compass and chat bubble as Phosphor names in any weight. */
+const AI_GLYPH = /\bLu\.(?:bot|ask|req)\b|"(?:robot|sparkles?|compass|chat-circle|chat-circle-dots|chat-dots|chat-teardrop|chat-text)(?:-(?:duotone|bold|fill|light|thin))?"/g
 
 /** The arrow-out-of-a-box icon in the kit's glyph, as a Phosphor name or as a Material one. */
 const EXTERNAL_LINK = /\bLu\.ext\b|\bOpenInNew\b|"(?:external-link|arrow-square-out|arrow-up-right|open-in-new)(?:-(?:duotone|bold|fill|light|thin))?"/g

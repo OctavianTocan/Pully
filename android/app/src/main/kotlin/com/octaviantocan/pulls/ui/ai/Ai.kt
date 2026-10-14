@@ -13,16 +13,12 @@ import com.octaviantocan.pulls.ui.review.ReviewSession
  * `ShareResultModal`, `SharedAnalysisBanner`.
  * Callers outside ui/ai use only the functions below; their signatures are the contract.
  *
- * Files: `Analyze.kt` (running an analysis, share, shared banner), `Critique.kt`
+ * Files: `Analyze.kt` (running an analysis, shared banner), `Critique.kt`
  * (running a review, lens picker, panel, finding cards), `Ask.kt` (selection actions, threads),
  * `Chat.kt` (the Ask sheet), `AiParts.kt` (activity log, usage line, sheet, shimmer),
  * `AiState.kt` (page-local AI state), and the pure ports `AiFormat.kt`, `AiActivity.kt`,
  * `AskSelection.kt`.
  */
-
-/** The More sheet's share row and the sheet it opens. Renders nothing when there is no own AI result. */
-@Composable
-fun ShareButton(session: ReviewSession, modifier: Modifier = Modifier, first: Boolean = false) = ShareButtonImpl(session, modifier, first)
 
 /** `CritiquePanel` (with `FindingCard`s). Renders nothing until a critique runs or exists. */
 @Composable

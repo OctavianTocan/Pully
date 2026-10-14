@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +34,10 @@ import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.hairlineTop
+import com.octaviantocan.pulls.ui.design.floatShadow
+import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
@@ -46,6 +48,7 @@ import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.DrawableIcon
 import com.octaviantocan.pulls.ui.review.ReviewSession
+import com.octaviantocan.pulls.ui.review.guardedStop
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
@@ -155,10 +158,12 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
     LaunchedEffect(thread.turns.size) { ui.askPending[thread.id]?.let { (_, before) -> if (thread.turns.size > before) ui.askPending.remove(thread.id) } }
     var followError by remember(thread.id) { mutableStateOf<String?>(null) }
     val asking = pending != null || (last != null && last.outcome == null && (lastTask == null || lastTask.running))
+    // The kit's white card with the canvas shadow, like a review thread on the same lines (rules 45 and 49).
+    val shape = RoundedCornerShape(PullsRadius.card)
     Column(
-        modifier.widthIn(max = 800.dp).fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(8.dp)).background(c.base).border(1.dp, c.border, RoundedCornerShape(8.dp)),
+        modifier.widthIn(max = 800.dp).fillMaxWidth().padding(vertical = 4.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised),
     ) {
-        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(thread.label, Modifier.weight(1f), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
             FloatIcon(Lu.close, t("ask.close"), {
                 val key = session.key
@@ -166,8 +171,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                 if (key != null) session.scope.launch { runCatching { session.repo.closeAsk(key, thread.id) }; session.reloadSaved() }
             }, flat = true, size = 40.dp, tint = c.muted)
         }
-        HorizontalDivider(color = c.border)
-        Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(horizontal = 10.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             thread.turns.forEachIndexed { index, turn ->
                 val isLast = index == thread.turns.lastIndex
                 val task = turn.taskId?.let { session.tasks[it] }
@@ -175,18 +179,17 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     UserBubble(turn.question)
                     if (turn.startedAt != null) {
-                        Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val activities = if (running && task != null) task.activities else turn.activities.ifEmpty { task?.activities.orEmpty() }
-                            val outcome = turn.outcome ?: if (task != null && !task.running) outcomeOf(task) else "done"
-                            AiActivityLogFull(activities, running, Modifier.weight(1f), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, hint = true)
-                            if (running && task != null) PillButton(t("common.stop"), { session.cancelTask(task.id) })
-                        }
+                        // The log's orb is the Stop button; there is no Stop pill beside it (rule 87).
+                        val activities = if (running && task != null) task.activities else turn.activities.ifEmpty { task?.activities.orEmpty() }
+                        val outcome = turn.outcome ?: if (task != null && !task.running) outcomeOf(task) else "done"
+                        val stop = guardedStop(session, listOf("ask"), running && task != null) { task?.let { session.cancelTask(it.id) } }
+                        AiActivityLogFull(activities, running, Modifier.fillMaxWidth().padding(horizontal = 4.dp), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, hint = true, onStop = stop)
                     }
                     val answer = turn.answer ?: task?.result?.takeIf { task.status == "done" }
                     val error = turn.error ?: task?.takeIf { it.status == "failed" || it.status == "cancelled" }?.let { if (it.status == "cancelled") t("ask.stopped") else it.error }
                     when {
                         answer != null -> Markdown(answer, Modifier.fillMaxWidth().padding(horizontal = 4.dp))
-                        error != null -> Text(error, Modifier.padding(horizontal = 4.dp), style = PullsType.xs, color = c.error)
+                        error != null -> Text(error, Modifier.padding(horizontal = 4.dp), style = PullsType.sm, color = c.error)
                     }
                 }
             }
@@ -196,7 +199,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                 Row(Modifier.padding(horizontal = 4.dp)) { AiActivityLogFull(emptyList(), running = true, startedAt = sentAt, compact = true, hint = true) }
             }
             if (!asking) {
-                followError?.let { Text(it, Modifier.padding(horizontal = 4.dp), style = PullsType.xs, color = c.error) }
+                followError?.let { Text(it, Modifier.padding(horizontal = 4.dp), style = PullsType.sm, color = c.error) }
                 AskComposer(placeholder = if (thread.turns.isNotEmpty()) t("ask.followUpPlaceholder") else t("ask.placeholder"), autofocus = thread.turns.isEmpty()) { question ->
                     followError = null
                     session.ask(thread.id, AskSelection(thread.path, thread.side, thread.startLine, thread.endLine), question, turnsBefore = thread.turns.size, onStartError = { followError = it })

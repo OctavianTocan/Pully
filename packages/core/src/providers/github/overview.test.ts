@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { staticCredentials } from '../../types/source'
 import { createGithubClient, GithubApiError } from './client'
 import { assessMergeability, defaultMergeCommit, fetchPullRequestOverview, parseChecks, parsePullRequestOverview, parseTimeline } from './overview'
-import { changePullRequestState, mergePullRequest, updatePullRequestBranch, updatePullRequestText } from './overview-actions'
+import { cancelAutoMerge, changePullRequestState, enableAutoMerge, mergePullRequest, updatePullRequestBranch, updatePullRequestText } from './overview-actions'
 
 function rawPullRequest(overrides: Partial<RawPullRequest> = {}): RawPullRequest {
   return {
@@ -103,6 +103,14 @@ describe('parsePullRequestOverview', () => {
       ['c1', 'base000', 'success', 'alice'],
       ['c2', 'c1', undefined, undefined],
     ])
+  })
+
+  it('reads whether the pull request will merge itself when its checks pass', () => {
+    expect(overview().autoMerge).toBeUndefined()
+    expect(overview().viewer).toMatchObject({ canEnableAutoMerge: false, canDisableAutoMerge: false })
+    const waiting = overview({ autoMergeRequest: { mergeMethod: 'SQUASH' }, viewerCanDisableAutoMerge: true })
+    expect(waiting.autoMerge).toEqual({ method: 'squash' })
+    expect(waiting.viewer.canDisableAutoMerge).toBe(true)
   })
 
   it('derives draft and merged states', () => {
@@ -294,6 +302,19 @@ describe('pull request state mutations', () => {
     const body = JSON.parse(fetchMock.mock.calls[0]![1].body)
     expect(body.query).toContain('mergePullRequest')
     expect(body.variables).toEqual({ id: 'PR_1', method: 'SQUASH', headline: null, body: null, expectedHeadOid: 'head000' })
+  })
+
+  it('turns merging when checks pass on with the method uppercased, and off again', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => graphqlResponse({}))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createGithubClient(staticCredentials('token'))
+    await enableAutoMerge(client, 'PR_1', { method: 'squash', expectedHeadOid: 'head000' })
+    await cancelAutoMerge(client, 'PR_1')
+    const [on, off] = fetchMock.mock.calls.map(call => JSON.parse(call[1].body))
+    expect(on.query).toContain('enablePullRequestAutoMerge(')
+    expect(on.variables).toEqual({ id: 'PR_1', method: 'SQUASH', expectedHeadOid: 'head000' })
+    expect(off.query).toContain('disablePullRequestAutoMerge(')
+    expect(off.variables).toEqual({ id: 'PR_1' })
   })
 
   it('sends the mutation for each state change', async () => {

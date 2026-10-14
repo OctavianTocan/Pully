@@ -36,13 +36,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,7 +78,7 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -88,6 +89,11 @@ import com.octaviantocan.pulls.ui.design.softBlur
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.tc
 import kotlinx.coroutines.delay
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import com.octaviantocan.pulls.ui.review.ReviewSession
+import androidx.compose.foundation.layout.Spacer
 
 /** `useNow({ interval: 1000 })`, ticking only while [running]. */
 @Composable
@@ -215,17 +221,32 @@ private fun StepIcon(glyph: LuGlyph, color: Color, style: TextStyle) {
     }
 }
 
-/** `SeverityBadge`: `badge` tinted red (bug), amber (risk) or gray (nit). */
+/**
+ * A finding's first line: the severity as a word in its colour (red bug, amber risk, muted nit), then the title, both
+ * at body size and wrapping as one sentence. No tinted tag (rules 14 and 49).
+ */
 @Composable
-internal fun SeverityBadge(severity: String) {
+internal fun FindingHeading(severity: String, title: String, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
-    val color = when (severity) { "bug" -> c.error; "risk" -> c.amber; else -> c.gray }
+    val color = when (severity) { "bug" -> c.error; "risk" -> c.amber; else -> c.muted }
     Text(
-        t("critique.severity.$severity"),
-        Modifier.clip(RoundedCornerShape(6.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 6.dp, vertical = 2.dp),
-        style = PullsType.xs.copy(fontWeight = FontWeight.Medium, lineHeight = PullsType.xs.fontSize),
-        color = if (severity == "nit") c.muted else color,
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = color)) { append(t("critique.severity.$severity")) }
+            append("  ")
+            append(title)
+        },
+        modifier, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text,
     )
+}
+
+/** What a finding suggests, under a quiet label, as the diff's code view coloured for the file's language (rule 95). */
+@Composable
+internal fun FindingSuggestion(session: ReviewSession, path: String, suggestion: String) {
+    val c = LocalPullsColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(t("critique.suggestion"), style = PullsType.sm, color = c.muted)
+        AiCodeView(session, suggestion, path.substringAfterLast('.', ""))
+    }
 }
 
 /** `AiWorkedFor`: "Worked for 2m 3s · Ran 3 commands", a button with a chevron (right folded, down open) that unfolds the log. */
@@ -304,14 +325,14 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
                         style = style, color = tone, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (timingLabel != null) Text(timingLabel, Modifier.padding(start = 6.dp), style = PullsType.xs, color = if (timing.state == TimingState.Idle) c.amber else c.mute, maxLines = 1)
+                if (timingLabel != null) Text(timingLabel, Modifier.padding(start = 6.dp), style = PullsType.sm, color = if (timing.state == TimingState.Idle) c.amber else c.mute, maxLines = 1)
                 if (expandable) LuIcon(if (expanded) Lu.chevd else Lu.chev, Modifier.padding(start = 6.dp, top = 3.dp), tint = c.mute, size = 14.dp)
             }
         }
-        if (failed && fullText.isNotEmpty()) Text(fullText, Modifier.padding(start = STEP_INDENT), style = PullsType.xs, color = c.error)
+        if (failed && fullText.isNotEmpty()) Text(fullText, Modifier.padding(start = STEP_INDENT), style = PullsType.sm, color = c.error)
         if (expanded) {
             Box(Modifier.padding(start = STEP_INDENT).fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(4.dp)).background(c.raised).verticalScroll(rememberScrollState()).padding(8.dp)) {
-                SelectionContainer { Text(fullText, style = PullsType.xs, color = c.fade) }
+                SelectionContainer { Text(fullText, style = PullsType.sm, color = c.muted) }
             }
         }
     }
@@ -326,7 +347,8 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
  * [hint] puts three grey bars under the orb while it runs, a sign of where the answer will arrive
  * (rule 71): they sit under the live mark and never stand in for it. A screen that draws the orb
  * itself, where the log is replaced when the work ends, passes `mark = false` and puts
- * [AiLiveMark] in a place that stays.
+ * [AiLiveMark] in a place that stays. With [onStop] (from `guardedStop`) the orb is the Stop button
+ * at the end of the shimmering line instead (rule 87): there is never a Stop pill beside the log.
  */
 @Composable
 internal fun AiActivityLogFull(
@@ -340,6 +362,7 @@ internal fun AiActivityLogFull(
     workingVerb: String? = null,
     hint: Boolean = false,
     mark: Boolean = true,
+    onStop: (() -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
     val messages = LocalMessages.current
@@ -350,7 +373,8 @@ internal fun AiActivityLogFull(
     val tracked = remember(activities) { trackActivities(log[0], activities).also { log[0] = it } }
     var showAll by remember { mutableStateOf(false) }
     var open by remember { mutableStateOf(false) }
-    val style = if (compact) PullsType.xs else PullsType.sm
+    // Compact keeps fewer steps, not smaller text: nothing is set below 15 (rule 14).
+    val style = PullsType.sm
     val cap = if (compact) 3 else 6
     val hidden = if (showAll) 0 else maxOf(0, tracked.size - cap)
     val start = startedAt ?: activities.firstOrNull()?.startedAt
@@ -363,12 +387,15 @@ internal fun AiActivityLogFull(
     ) {
         if (running) {
             val verb = workingVerb ?: if (activities.isEmpty()) messages.t("ai.verb.thinking.now") else messages.t("ai.working")
-            ThinkingHeader(verb, duration, style)
+            if (onStop != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                ThinkingHeader(verb, duration, style, Modifier.weight(1f))
+                StopOrb(onStop)
+            } else ThinkingHeader(verb, duration, style)
             if (hidden > 0 || showAll) {
                 Text(
                     if (showAll) messages.t("ai.showLess") else messages.t("ai.more", "n" to hidden),
                     Modifier.padding(start = STEP_INDENT).defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).cueClickable(role = Role.Button) { showAll = !showAll }.padding(vertical = 12.dp),
-                    style = PullsType.xs, color = c.mute,
+                    style = PullsType.sm, color = c.muted,
                 )
             }
             tracked.drop(hidden).forEachIndexed { index, row ->
@@ -389,8 +416,8 @@ internal fun AiActivityLogFull(
             }
         }
         // One call site for both states, so the orb that was running is the one that settles.
-        if (mark) AiLiveMark(running, hint)
-        if (!running && !compact && (activities.isNotEmpty() || startedAt != null)) HorizontalDivider(color = c.border)
+        if (mark) AiLiveMark(running, hint, orb = onStop == null)
+        if (!running && !compact && (activities.isNotEmpty() || startedAt != null)) Spacer(Modifier.fillMaxWidth().height(1.dp).background(c.border))
     }
 }
 
@@ -402,7 +429,7 @@ internal fun AiActivityLogFull(
  * ran to be the one that settles.
  */
 @Composable
-internal fun ColumnScope.AiLiveMark(active: Boolean, hint: Boolean = false) {
+internal fun ColumnScope.AiLiveMark(active: Boolean, hint: Boolean = false, orb: Boolean = true) {
     val motion = rememberMotionEnabled()
     var lingering by remember { mutableStateOf(false) }
     LaunchedEffect(active) {
@@ -414,7 +441,8 @@ internal fun ColumnScope.AiLiveMark(active: Boolean, hint: Boolean = false) {
     }
     // What sits below it glides up as the orb and the bars leave, instead of jumping.
     val leave = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkVertically(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None
-    AnimatedVisibility(active || lingering, enter = EnterTransition.None, exit = leave) {
+    // Without [orb] the Stop button elsewhere is the orb, and only the bars are drawn here.
+    if (orb) AnimatedVisibility(active || lingering, enter = EnterTransition.None, exit = leave) {
         Orb(Modifier.padding(start = 2.dp), size = 16.dp, done = !active)
     }
     AnimatedVisibility(active && hint, exit = leave) {
@@ -430,20 +458,29 @@ private const val ORB_LINGER_MS = 2300L
 /** The three hint bars of rule 71, the second and third a little shorter than the first. */
 private val HINT_BAR_WIDTHS = listOf(1f, 0.86f, 0.7f)
 
-/** A red alert box: `border border-red-500/30 rounded bg-red-500/5 p-3`. */
+/**
+ * What failed, in the kit's words: the title in the error colour and the reason under it, selectable, with no box,
+ * border or cross (rule 49). [onRetry] puts the try-again arrow at the end of the title, labelled [retryLabel] (rule 87).
+ */
 @Composable
-internal fun ErrorBox(title: String, message: String?) {
+internal fun ErrorBox(title: String, message: String?, onRetry: (() -> Unit)? = null, retryLabel: String = t("common.retry")) {
     val c = LocalPullsColors.current
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(c.error.copy(alpha = 0.05f)).border(1.dp, c.error.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            PhIcon("x-circle", tint = c.error, size = 16.dp)
-            Text(title, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.error)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = c.error)
+            if (onRetry != null) FloatIcon(Lu.redo, retryLabel, onRetry, flat = true, iconSize = 22.dp, tint = c.muted)
         }
-        if (!message.isNullOrBlank()) SelectionContainer { Text(message, style = PullsType.sm, color = c.error) }
+        if (!message.isNullOrBlank()) SelectionContainer { Text(message, style = PullsType.sm, color = c.muted) }
     }
+}
+
+/** The orb as the Stop button (rule 87): the turning ring round a small square, in a 44dp target. [onStop] comes from `guardedStop`. */
+@Composable
+internal fun StopOrb(onStop: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier.size(TOUCH).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = t("common.stop"), onClick = onStop),
+        contentAlignment = Alignment.Center,
+    ) { Orb(size = 22.dp, stop = true) }
 }
 
 /**

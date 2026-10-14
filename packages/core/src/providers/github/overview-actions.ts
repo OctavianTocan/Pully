@@ -16,6 +16,20 @@ mutation UpdatePullRequestBranch($id: ID!, $method: PullRequestBranchUpdateMetho
   }
 }`
 
+const AUTO_MERGE_MUTATION = `
+mutation EnablePullRequestAutoMerge($id: ID!, $method: PullRequestMergeMethod!, $expectedHeadOid: GitObjectID) {
+  enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: $method, expectedHeadOid: $expectedHeadOid }) {
+    pullRequest { id }
+  }
+}`
+
+const CANCEL_AUTO_MERGE_MUTATION = `
+mutation DisablePullRequestAutoMerge($id: ID!) {
+  disablePullRequestAutoMerge(input: { pullRequestId: $id }) {
+    pullRequest { id }
+  }
+}`
+
 const EDIT_MUTATION = `
 mutation UpdatePullRequest($id: ID!, $title: String, $body: String) {
   updatePullRequest(input: { pullRequestId: $id, title: $title, body: $body }) {
@@ -100,4 +114,32 @@ export async function updatePullRequestBranch(client: GithubClient, pullRequestI
     method: (options.method ?? 'merge').toUpperCase(),
     expectedHeadOid: options.expectedHeadOid ?? null,
   }))
+}
+
+/**
+ * Sets a pull request to merge itself, with [method], once its required checks pass and reviews allow it.
+ * @param client A client whose token may merge.
+ * @param pullRequestId The PR's GraphQL node id.
+ * @param options How to merge, and the head the viewer saw; GitHub refuses if the branch moved since.
+ * @param options.method The merge method to use when it merges.
+ * @param options.expectedHeadOid The head the viewer last saw.
+ * @throws The `writeForbidden` diagnostic when the token may not merge; GitHub's own message otherwise, such as
+ * when the repository does not allow auto-merge or the pull request can already merge.
+ */
+export async function enableAutoMerge(client: GithubClient, pullRequestId: string, options: { method: MergeMethod, expectedHeadOid?: string }): Promise<void> {
+  await asWrite(() => client.graphql(AUTO_MERGE_MUTATION, {
+    id: pullRequestId,
+    method: options.method.toUpperCase(),
+    expectedHeadOid: options.expectedHeadOid ?? null,
+  }))
+}
+
+/**
+ * Stops a pull request from merging itself when its checks pass.
+ * @param client A client whose token may merge.
+ * @param pullRequestId The PR's GraphQL node id.
+ * @throws The `writeForbidden` diagnostic when the token may not; GitHub's own message otherwise.
+ */
+export async function cancelAutoMerge(client: GithubClient, pullRequestId: string): Promise<void> {
+  await asWrite(() => client.graphql(CANCEL_AUTO_MERGE_MUTATION, { id: pullRequestId }))
 }

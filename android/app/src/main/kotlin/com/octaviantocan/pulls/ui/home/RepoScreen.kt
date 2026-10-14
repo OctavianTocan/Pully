@@ -57,7 +57,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Repo
@@ -273,7 +272,8 @@ private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: ()
     val c = LocalPullsColors.current
     val inset = with(LocalDensity.current) { 16.dp.toPx() }
     val title = buildAnnotatedString {
-        if (pr.state == "draft") withStyle(PullsType.xs.toSpanStyle().copy(color = c.muted)) { append("[${t("local.home.draft")}] ") }
+        // The draft mark is muted at the title's own size, not a smaller run (rule 14).
+        if (pr.state == "draft") withStyle(SpanStyle(color = c.muted)) { append("[${t("local.home.draft")}] ") }
         append(pr.title)
     }
     Row(

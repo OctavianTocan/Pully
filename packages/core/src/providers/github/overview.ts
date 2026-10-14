@@ -130,6 +130,9 @@ export interface PrViewerAbilities {
   /** Edit the PR itself, e.g. toggle draft. */
   canUpdate: boolean
   canUpdateBranch: boolean
+  /** Turn on merging once the checks pass; GitHub says no when the repository does not allow auto-merge. */
+  canEnableAutoMerge: boolean
+  canDisableAutoMerge: boolean
 }
 
 export interface PrMergeSettings {
@@ -174,6 +177,8 @@ export interface PrOverview {
   timelineHidden: number
   viewer: PrViewerAbilities
   merge: PrMergeSettings
+  /** Present while the pull request is set to merge itself, with this method, once its checks pass. */
+  autoMerge?: { method: MergeMethod }
 }
 
 const BUCKET_ORDER: CheckBucket[] = ['failing', 'pending', 'passing', 'skipped']
@@ -488,7 +493,10 @@ export function parsePullRequestOverview(data: RawOverviewData): PrOverview | un
       canReopen: pr.viewerCanReopen,
       canUpdate: pr.viewerCanUpdate,
       canUpdateBranch: pr.viewerCanUpdateBranch,
+      canEnableAutoMerge: pr.viewerCanEnableAutoMerge ?? false,
+      canDisableAutoMerge: pr.viewerCanDisableAutoMerge ?? false,
     },
+    autoMerge: pr.autoMergeRequest ? { method: pr.autoMergeRequest.mergeMethod.toLowerCase() as MergeMethod } : undefined,
     merge: mergeSettings(repo),
   }
 }

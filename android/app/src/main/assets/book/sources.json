@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 809,
+        "line": 812,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 215,
+        "line": 218,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -82,7 +82,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 351,
+        "line": 354,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -119,7 +119,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 382,
+        "line": 385,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -170,7 +170,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 170,
+        "line": 173,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -220,7 +220,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 198,
+        "line": 201,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -285,7 +285,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 826,
+        "line": 829,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -308,7 +308,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 708,
+        "line": 711,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small\ndot instead of the tick, for work that has not run, or did not finish, so a tick never claims\nsomething that was not done. [stop] turns the breathing dot into a small square, because the orb is\nthen the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -346,7 +346,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 820,
+        "line": 823,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -369,7 +369,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 405,
+        "line": 408,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -405,7 +405,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 425,
+        "line": 428,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -455,7 +455,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 464,
+        "line": 467,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -478,7 +478,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 787,
+        "line": 790,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops, moving to a new count over 400ms.",
         "params": [
           {
@@ -504,7 +504,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 794,
+        "line": 797,
         "doc": "The tour ring filled to [fraction] (0 to 1) as given, for a ring that follows the tour's scroll without jumps (rule 97).",
         "params": [
           {
@@ -531,7 +531,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 611,
+        "line": 614,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -708,7 +708,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 472,
+        "line": 475,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -730,7 +730,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 522,
+        "line": 525,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -805,7 +805,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 482,
+        "line": 485,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline. [detail] is a second, muted line under the label.",
         "params": [
           {
@@ -866,7 +866,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 579,
+        "line": 582,
         "doc": "`.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,\nwhite with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over\nit: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.",
         "params": [
           {
@@ -896,7 +896,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 837,
+        "line": 840,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
@@ -932,7 +932,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 256,
+        "line": 259,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -967,7 +967,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 366,
+        "line": 369,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -1002,7 +1002,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 652,
+        "line": 655,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -1024,7 +1024,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 279,
+        "line": 282,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.\n[spread] lays the labels across the whole width, the first at the start and the last at the end with even gaps\nbetween. When they do not fit with 16dp between them the labels step down to body size (15sp), and only when they\nstill do not fit does the row keep a 24dp gap and scroll sideways; a label is never cut.",
         "params": [
           {

@@ -33,11 +33,6 @@ internal class AiUi {
     var lensesLoading by mutableStateOf(false)
     var lensesError by mutableStateOf<String?>(null)
 
-    // --- Share (`shared` store) ---
-    var sharing by mutableStateOf(false)
-    var shareError by mutableStateOf<String?>(null)
-    var sharedUrl by mutableStateOf<String?>(null)
-
     // --- Ask: a question sent but not yet in the saved thread, by thread id, with the turn count it was sent at ---
     val askPending = mutableStateMapOf<String, Pair<String, Int>>()
 

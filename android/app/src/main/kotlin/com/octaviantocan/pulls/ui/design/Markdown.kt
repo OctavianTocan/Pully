@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -83,6 +82,7 @@ import org.commonmark.node.StrongEmphasis
 import org.commonmark.node.Text as MdText
 import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
+import androidx.compose.foundation.layout.Spacer
 
 private val parser: Parser = Parser.builder()
     .extensions(listOf(TablesExtension.create(), StrikethroughExtension.create(), AutolinkExtension.create(), TaskListItemsExtension.create()))
@@ -181,7 +181,7 @@ private fun Block(node: Node, style: TextStyle) {
                 }
             }
         }
-        is ThematicBreak -> HorizontalDivider(color = c.border)
+        is ThematicBreak -> Spacer(Modifier.fillMaxWidth().height(1.dp).background(c.border))
         is TableBlock -> TableView(node, style)
         is HtmlBlock -> {
             val text = htmlText(node.literal)
@@ -206,14 +206,9 @@ private fun ListBlock(list: Node, style: TextStyle) {
                     else -> "•"
                 }
                 Row {
-                    if (task != null) {
-                        // `[&_.task-list-item]:list-none` with GitHub's disabled checkbox before the text.
-                        Box(Modifier.padding(top = 4.dp, end = 6.dp).size(14.dp).clip(RoundedCornerShape(3.dp))
-                            .background(if (task.isChecked) c.primary else c.raised).border(1.dp, if (task.isChecked) c.primary else c.border, RoundedCornerShape(3.dp)),
-                            contentAlignment = androidx.compose.ui.Alignment.Center) {
-                            if (task.isChecked) PhIcon("check-bold", tint = androidx.compose.ui.graphics.Color.White, size = 10.dp)
-                        }
-                    } else Text(marker!!, Modifier.width(20.dp), style = style.copy(color = style.color.takeOrElse(c.text)))
+                    // A task item has the kit's bare check before the text, read-only like GitHub's (rule 41).
+                    if (task != null) PullsCheck(task.isChecked, Modifier.padding(top = 1.dp, end = 8.dp), size = 18.dp)
+                    else Text(marker!!, Modifier.width(20.dp), style = style.copy(color = style.color.takeOrElse(c.text)))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         var child = item.firstChild
                         while (child != null) {
@@ -252,11 +247,12 @@ private fun Details(summary: String, body: String, style: TextStyle) {
 @Composable
 private fun CodeBlock(code: String) {
     val c = LocalPullsColors.current
+    // On the code paper with no border, at body size (rules 14 and 49); AI text swaps in the diff's code view instead.
     Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(c.code).border(1.dp, c.border, RoundedCornerShape(6.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.code)
             .horizontalScroll(rememberScrollState()).padding(12.dp),
     ) {
-        Text(code, style = PullsType.xs.copy(fontFamily = PullsType.mono, color = c.text), softWrap = false)
+        Text(code, style = PullsType.sm.copy(fontFamily = PullsType.mono, color = c.text), softWrap = false)
     }
 }
 

@@ -50,7 +50,6 @@ import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.TourEntry
@@ -184,7 +183,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(messages.t("pr.loadFailed"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                     session.loadError?.let { Text(it, style = PullsType.sm, color = c.muted) }
-                    PillButton(messages.t("common.retry"), { session.refresh() })
+                    FloatIcon(Lu.redo, "Load the pull request again", { session.refresh() }, flat = true, iconSize = 22.dp, tint = c.muted)
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
