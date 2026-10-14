@@ -87,6 +87,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -500,6 +503,56 @@ fun SheetRow(
         if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }
         Text(label, Modifier.weight(1f), style = PullsType.row, color = if (danger) c.error else c.text, maxLines = 1)
         if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)
+    }
+}
+
+/**
+ * A field inside a sheet's white card: the label small and muted over the text, a hairline above it
+ * unless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word
+ * such as Show, never an icon.
+ */
+@Composable
+fun SheetField(
+    label: String?,
+    value: String,
+    onChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "",
+    first: Boolean = false,
+    enabled: Boolean = true,
+    minLines: Int = 1,
+    secret: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val c = LocalPullsColors.current
+    Row(
+        modifier.fillMaxWidth().drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+            .padding(start = 16.dp, end = if (trailing != null) 8.dp else 16.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (label != null) Text(label, style = PullsType.sm, color = c.muted)
+            BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                enabled = enabled,
+                singleLine = minLines <= 1,
+                minLines = minLines,
+                textStyle = PullsType.row.copy(color = c.text),
+                cursorBrush = SolidColor(c.accentTeal),
+                visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, autoCorrectEnabled = keyboardType == KeyboardType.Text),
+                modifier = Modifier.fillMaxWidth(),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.TopStart) {
+                        if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.faint)
+                        inner()
+                    }
+                },
+            )
+        }
+        trailing?.invoke()
     }
 }
 

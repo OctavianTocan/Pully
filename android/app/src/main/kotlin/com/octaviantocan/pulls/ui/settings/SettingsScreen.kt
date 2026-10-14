@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,16 +19,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
@@ -49,6 +41,7 @@ import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.CodeFontSheet
@@ -272,10 +265,10 @@ private fun ServerSheet(onBack: () -> Unit, onClose: () -> Unit) {
             Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
         )
         SheetCard {
-            FieldRow("Server URL", url, { url = it }, "https://prs.example.com", first = true, keyboardType = KeyboardType.Uri)
-            FieldRow("Access client ID", accessId, { accessId = it }, "….access")
-            FieldRow(
-                "Access client secret", accessSecret, { accessSecret = it }, "••••", secret = !shown, keyboardType = KeyboardType.Password,
+            SheetField("Server URL", url, { url = it }, placeholder = "https://prs.example.com", first = true, keyboardType = KeyboardType.Uri)
+            SheetField("Access client ID", accessId, { accessId = it }, placeholder = "….access", keyboardType = KeyboardType.Ascii)
+            SheetField(
+                "Access client secret", accessSecret, { accessSecret = it }, placeholder = "••••", secret = !shown, keyboardType = KeyboardType.Password,
                 trailing = {
                     Text(
                         if (shown) "Hide" else "Show",
@@ -308,46 +301,5 @@ private fun ServerSheet(onBack: () -> Unit, onClose: () -> Unit) {
             Modifier.fillMaxWidth().padding(top = 20.dp), enabled = url.isNotBlank() && !checking,
         )
         status?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.sm, color = c.muted) }
-    }
-}
-
-/** A labelled one-line field inside a card: the label small and muted over the value, with a hairline between rows. */
-@Composable
-private fun FieldRow(
-    label: String,
-    value: String,
-    onChange: (String) -> Unit,
-    placeholder: String,
-    first: Boolean = false,
-    secret: Boolean = false,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    trailing: (@Composable () -> Unit)? = null,
-) {
-    val c = LocalPullsColors.current
-    Row(
-        Modifier.fillMaxWidth().drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
-            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, style = PullsType.sm, color = c.muted)
-            BasicTextField(
-                value = value,
-                onValueChange = onChange,
-                singleLine = true,
-                textStyle = PullsType.row.copy(color = c.text),
-                cursorBrush = SolidColor(c.accentTeal),
-                visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, autoCorrectEnabled = false),
-                modifier = Modifier.fillMaxWidth(),
-                decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.faint, maxLines = 1)
-                        inner()
-                    }
-                },
-            )
-        }
-        trailing?.invoke()
     }
 }
