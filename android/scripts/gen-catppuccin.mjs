@@ -2,18 +2,44 @@
 // colors, for every icon `getFileIcon` (@antfu/design/utils/icon.ts) can pick plus the
 // folder glyphs. Run from the repo root:
 //   node android/scripts/gen-catppuccin.mjs
-import { writeFileSync } from 'node:fs'
+import { readdirSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
 const root = new URL('../../', import.meta.url).pathname
-const set = require((() => { const base = join(root, 'node_modules/.pnpm'); const dir = require('node:fs').readdirSync(base).find(d => d.startsWith('@iconify-json+catppuccin@')); return join(base, dir, 'node_modules/@iconify-json/catppuccin/icons.json') })())
+function iconsJson() {
+  const base = join(root, 'node_modules/.pnpm')
+  const dir = readdirSync(base).find(d => d.startsWith('@iconify-json+catppuccin@'))
+  return join(base, dir, 'node_modules/@iconify-json/catppuccin/icons.json')
+}
+
+const set = require(iconsJson())
 const out = join(root, 'android/app/src/main/res/drawable')
 
 const NAMES = [
-  'vue', 'typescript-react', 'javascript-react', 'typescript-def', 'typescript', 'javascript', 'json', 'yaml', 'toml',
-  'markdown', 'html', 'css', 'sass', 'svg', 'image', 'font', 'webassembly', 'npm', 'typescript-test', 'file', 'folder', 'folder-open',
+  'vue',
+  'typescript-react',
+  'javascript-react',
+  'typescript-def',
+  'typescript',
+  'javascript',
+  'json',
+  'yaml',
+  'toml',
+  'markdown',
+  'html',
+  'css',
+  'sass',
+  'svg',
+  'image',
+  'font',
+  'webassembly',
+  'npm',
+  'typescript-test',
+  'file',
+  'folder',
+  'folder-open',
 ]
 
 function attr(tag, name) {
@@ -69,7 +95,10 @@ for (const name of NAMES) {
     if (tag === 'circle')
       d = circlePath(Number(attr(attrs, 'cx')), Number(attr(attrs, 'cy')), Number(attr(attrs, 'r')))
     if (tag === 'rect') {
-      const x = Number(attr(attrs, 'x') ?? 0), y = Number(attr(attrs, 'y') ?? 0), w = Number(attr(attrs, 'width')), h = Number(attr(attrs, 'height'))
+      const x = Number(attr(attrs, 'x') ?? 0)
+      const y = Number(attr(attrs, 'y') ?? 0)
+      const w = Number(attr(attrs, 'width'))
+      const h = Number(attr(attrs, 'height'))
       d = `M${x},${y}h${w}v${h}h${-w}z`
     }
     if (!d)

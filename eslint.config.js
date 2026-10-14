@@ -11,6 +11,12 @@ export default antfu(
       'packages/app/src/components/diff/pierre-diffs-core.css',
       'packages/app/test/fixtures/real/**',
       '**/__snapshots__/**',
+      // Android: XML resources and the manifest are not JS-parseable, the JSON fixtures are captured
+      // data that the Kotlin tests read as it is, and `build/` and `.kotlin/` are Gradle output.
+      'android/**/*.xml',
+      'android/app/src/test/resources/**',
+      'android/**/build/**',
+      'android/.kotlin/**',
     ],
     vue: {
       overrides: {
