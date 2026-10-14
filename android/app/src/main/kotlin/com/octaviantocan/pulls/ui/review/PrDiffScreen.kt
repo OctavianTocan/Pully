@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,14 +30,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -261,6 +262,10 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
     var text by remember(file.path) { mutableStateOf("") }
     LaunchedEffect(selected == null) { if (selected == null) text = "" }
     var busy by remember { mutableStateOf(false) }
+    // With no review pending a comment can be posted at once instead of starting one; the choice sticks for the screen.
+    val hasPending = session.reviewData?.pendingReviewId != null
+    var single by rememberSaveable { mutableStateOf(false) }
+    val post = single && !hasPending
     val canComment = session.canWrite && session.pull != null && !file.isBinary
     val label = selected?.let { s ->
         val first = s.startLine?.takeIf { it < s.line } ?: s.line
@@ -276,13 +281,13 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
         busy = true
         scope.launch {
             runCatching {
-                session.repo.comment(pull, draft.path, draft.side, draft.line, head, body, "review", draft.startLine?.takeIf { it < draft.line })
+                session.repo.comment(pull, draft.path, draft.side, draft.line, head, body, if (post) "single" else "review", draft.startLine?.takeIf { it < draft.line })
             }.onSuccess {
                 text = ""
                 ui.drafts.remove(file.path)
                 focus.clearFocus()
                 session.reloadReviews()
-                toaster.show("Comment added to your pending review")
+                toaster.show(if (post) "Comment posted" else "Comment added to your pending review")
             }.onFailure { toaster.show(it.message ?: "Couldn't add the comment") }
             busy = false
         }
@@ -320,6 +325,16 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
                             },
                         )
                         if (busy) Spinner(16.dp, c.muted)
+                        if (!hasPending) {
+                            Box(
+                                Modifier.defaultMinSize(minHeight = 40.dp).clip(CircleShape)
+                                    .clickable(role = Role.Switch, onClickLabel = if (single) "Add comments to a review instead" else "Post comments at once instead") { single = !single }
+                                    .padding(horizontal = 10.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(if (single) "Post now" else "In review", style = PullsType.xs.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
+                            }
+                        }
                     } else {
                         Text(label?.replaceFirstChar { it.uppercase() } ?: "", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1)
                     }
@@ -338,12 +353,15 @@ private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current:
     val shape = RoundedCornerShape(16.dp)
     val screen = LocalConfiguration.current.screenHeightDp
     Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onDismiss))
-    Column(
+    // Lazy, and opened on the file you are reading, so a long list neither costs a row per file nor starts at the top.
+    val state = rememberLazyListState(initialFirstVisibleItemIndex = (files.indexOfFirst { it.path == current?.path } - 2).coerceAtLeast(0))
+    LazyColumn(
         Modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 56.dp)
-            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised)
-            .verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
+            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised),
+        state = state,
+        contentPadding = PaddingValues(vertical = 6.dp),
     ) {
-        files.forEach { file ->
+        items(files, key = { it.path }) { file ->
             val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
             Row(
                 Modifier.fillMaxWidth().height(48.dp).background(if (file.path == current?.path) c.paper else Color.Transparent)

@@ -3,6 +3,8 @@ package com.octaviantocan.pulls.ui.home
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.octaviantocan.pulls.data.PullRow
+import com.octaviantocan.pulls.data.Triage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -44,30 +46,46 @@ fun compactCount(n: Int): String = when {
 }
 
 /**
- * The pull requests archived from the inbox, by `owner/repo#number`. Archiving hides one from
- * Waiting on you and Authored; it stays under All. Oldest entries fall off past [LIMIT].
+ * The pull requests archived from the inbox, by `owner/repo#number`, each with the head commit it had when
+ * it was archived. Archiving hides one from Waiting on you and Authored (it stays under All) until its head
+ * moves: new commits bring it back. Oldest entries fall off past [LIMIT].
  */
 class ArchiveStore(private val storage: KeyValueStore?) {
-    var keys: Set<String> by mutableStateOf(read())
+    /** Key to the head commit at archive time (empty when unknown, which never brings it back), oldest first. */
+    var entries: Map<String, String> by mutableStateOf(read())
         private set
 
-    fun isArchived(key: String): Boolean = key in keys
+    val keys: Set<String> get() = entries.keys
 
-    fun archive(key: String) {
-        keys = (keys - key + key).toList().takeLast(LIMIT).toSet()
+    fun isArchived(key: String): Boolean = key in entries
+
+    fun archive(key: String, head: String = "") {
+        entries = (entries - key + (key to head)).entries.toList().takeLast(LIMIT).associate { it.key to it.value }
         write()
     }
 
     fun restore(key: String) {
-        keys = keys - key
+        entries = entries - key
         write()
     }
 
-    private fun read(): Set<String> =
-        runCatching { storage?.get(STORAGE_KEY)?.split('\n')?.filter { it.isNotBlank() }?.toCollection(LinkedHashSet()) }.getOrNull() ?: emptySet()
+    /** The archived keys that still count as archived for [pulls]: those whose head commit has not moved. */
+    fun active(pulls: List<PullRow>): Set<String> {
+        val heads = pulls.associate { Triage.key(it) to it.headSha }
+        return entries.filter { (key, head) -> head.isEmpty() || heads[key].isNullOrEmpty() || heads[key] == head }.keys
+    }
+
+    // One `key<TAB>head` per line; a line from before heads were kept is just the key.
+    private fun read(): Map<String, String> =
+        runCatching {
+            storage?.get(STORAGE_KEY)?.split('\n')?.filter { it.isNotBlank() }?.associate { line ->
+                val parts = line.split('\t', limit = 2)
+                parts[0] to parts.getOrElse(1) { "" }
+            }
+        }.getOrNull() ?: emptyMap()
 
     private fun write() {
-        runCatching { storage?.set(STORAGE_KEY, keys.joinToString("\n")) }
+        runCatching { storage?.set(STORAGE_KEY, entries.entries.joinToString("\n") { (key, head) -> if (head.isEmpty()) key else "$key\t$head" }) }
     }
 
     companion object {
@@ -79,7 +97,8 @@ class ArchiveStore(private val storage: KeyValueStore?) {
 /**
  * One row of the Tours tab: a pull request whose tour you opened or asked for on this phone.
  * [stops] is 0 while the tour is still being written; [reached] is the furthest stop you scrolled
- * to (1-based), with that stop's title in [stopTitle].
+ * to (1-based), with that stop's title in [stopTitle]; [at] is the stop you were on when you left,
+ * where the tour reopens (0: never opened, use [reached]).
  */
 data class TourEntry(
     val owner: String,
@@ -91,9 +110,13 @@ data class TourEntry(
     val stopTitle: String,
     val writing: Boolean,
     val updatedAt: Long,
+    val at: Int = 0,
 ) {
     val key: String get() = "$owner/$repo#$number"
     val done: Boolean get() = !writing && stops > 0 && reached >= stops
+
+    /** The stop to reopen on: the one you left, else the furthest you got. */
+    val resumeAt: Int get() = if (at in 1..stops) at else reached
 
     /**
      * Whether it is still being written. Only an open review of the pull request updates the entry, so one
@@ -145,7 +168,7 @@ class TourIndex(private val storage: KeyValueStore?) {
 
 private fun TourEntry.toJson(): JsonObject = buildJsonObject {
     put("owner", owner); put("repo", repo); put("number", number); put("prTitle", prTitle)
-    put("stops", stops); put("reached", reached); put("stopTitle", stopTitle); put("writing", writing); put("updatedAt", updatedAt)
+    put("stops", stops); put("reached", reached); put("stopTitle", stopTitle); put("writing", writing); put("updatedAt", updatedAt); put("at", at)
 }
 
 private fun JsonObject.toEntry(): TourEntry? {
@@ -161,5 +184,6 @@ private fun JsonObject.toEntry(): TourEntry? {
         stopTitle = text("stopTitle").orEmpty(),
         writing = (this["writing"] as? JsonPrimitive)?.booleanOrNull == true,
         updatedAt = (this["updatedAt"] as? JsonPrimitive)?.longOrNull ?: 0L,
+        at = int("at") ?: 0,
     )
 }

@@ -244,13 +244,19 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         }
     }
 
+    /**
+     * What to do when an analysis this session picked up again finishes (set by the screen). The one started here
+     * carries its own follow-up; this is for an analysis begun before the page was left and reopened.
+     */
+    var onResumedAnalyzeDone: (TaskState) -> Unit = {}
+
     /** Picks up tasks already running on the server for this diff (started before a reload, or on the web). */
     private suspend fun resumeTasks() {
         val key = key ?: return
         runCatching { repo.tasks(key) }.onSuccess { list ->
             list.forEach { task ->
                 if (tasks[task.id] == null) tasks[task.id] = task
-                if (task.running) follow(task.id)
+                if (task.running) follow(task.id, if (task.kind == "analyze") onResumedAnalyzeDone else ({ _ -> }))
             }
         }
     }

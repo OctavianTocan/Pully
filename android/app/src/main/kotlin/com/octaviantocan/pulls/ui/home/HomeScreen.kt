@@ -175,7 +175,9 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     val now = rememberNow(60_000)
     val pulls = sync.pulls
     val needle = ui.search.trim().lowercase()
-    val inbox = remember(pulls, ui.filter, archive.keys, needle) { Triage.inbox(pulls.orEmpty(), ui.filter, archive.keys, needle) }
+    // An archived pull request whose head commit moved since comes back, so only the still-current entries count.
+    val archived = remember(pulls, archive.entries) { archive.active(pulls.orEmpty()) }
+    val inbox = remember(pulls, ui.filter, archived, needle) { Triage.inbox(pulls.orEmpty(), ui.filter, archived, needle) }
     val groups = remember(inbox.pulls) { Triage.groupByRepo(inbox.pulls) }
     val labels = remember(groups) { Triage.groupLabels(groups) }
     val viewer = remember(pulls) { Triage.viewerLogin(pulls.orEmpty()) }
@@ -205,12 +207,12 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     fun archivePull(pull: PullRow) {
         val key = Triage.key(pull)
         // Under All an archived row is still there, dimmed; swiping it again brings it back.
-        if (key in archive.keys) {
+        if (key in archived) {
             archive.restore(key)
             toaster.show("Restored #${pull.number}")
             return
         }
-        archive.archive(key)
+        archive.archive(key, pull.headSha)
         toaster.show("Archived #${pull.number}", "Undo") { archive.restore(key) }
     }
 
@@ -221,7 +223,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) {
                 if (ui.tab == 0) {
                     InboxList(
-                        groups = groups, labels = labels, now = now, archived = archive.keys,
+                        groups = groups, labels = labels, now = now, archived = archived,
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(), updateNotice = updateNotice,
                         refreshing = refreshing, onRefresh = reload,
@@ -612,6 +614,9 @@ private fun ProfileSheet(
         }
         SheetCard {
             SheetRow("Check out a branch", { onClose(); nav.checkout() }, first = true, icon = { PhIcon("git-branch-duotone", tint = c.text, size = 20.dp) }) {
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
             SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, icon = { LuIcon(Lu.arch, tint = c.text) }) {

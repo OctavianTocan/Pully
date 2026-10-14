@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,6 +40,7 @@ import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
+import com.octaviantocan.pulls.ui.ai.startTourAfter
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.EmptyState
@@ -75,14 +76,20 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val toaster = LocalToaster.current
     val messages = LocalMessages.current
     val c = LocalPullsColors.current
-    val session = remember(target) { ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also { it.load() } }
+    val session = remember(target) {
+        ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also {
+            // An analysis still running from an earlier visit also ends with a tour.
+            it.onResumedAnalyzeDone = { done -> it.startTourAfter(done) }
+            it.load()
+        }
+    }
     DisposableEffect(session) { onDispose { session.detach() } }
     val ui = rememberDiffUi(session)
     val top = remember(session) { ReviewTopUi() }
     val data = remember(session.overview) { parsePrOverviewData(session.overview) }
     val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
     val pages = remember(session) { mutableStateListOf(if (startOnTour) PrView.Tour else PrView.Overview) }
-    val overviewScroll = rememberScrollState()
+    val overviewScroll = rememberLazyListState()
     var pane by rememberSaveable { mutableIntStateOf(0) }
     var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
@@ -157,7 +164,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             TourEntry(
                 pull.owner, pull.repo, pull.number, head.title, stops,
                 reached = minOf(existing?.reached ?: 0, stops), stopTitle = existing?.stopTitle.orEmpty(),
-                writing = tourRunning, updatedAt = System.currentTimeMillis(),
+                writing = tourRunning, updatedAt = System.currentTimeMillis(), at = minOf(existing?.at ?: 0, stops),
             ),
         )
     }
@@ -186,7 +193,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         PrView.Diff -> PrDiffScreen(session, ui, diffPath, { diffPath = it }, onBack = ::back)
                         PrView.Tour -> PrTourScreen(
                             session, ui, head,
-                            resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.reached } ?: 0 },
+                            resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                             onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                             onBack = ::back,
                             onOverview = ::toOverview,
@@ -247,13 +254,13 @@ private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead
     if (pull == null) return
     val key = "${pull.owner}/${pull.repo}#${pull.number}"
     val existing = tours.get(key)
-    if (existing != null && existing.reached >= stop && existing.stops == total && existing.writing == writing) return
+    if (existing != null && existing.reached >= stop && existing.at == stop && existing.stops == total && existing.writing == writing) return
     tours.upsert(
         TourEntry(
             pull.owner, pull.repo, pull.number, head.title, total,
             reached = maxOf(existing?.reached ?: 0, stop),
             stopTitle = if (existing == null || stop > existing.reached) title else existing.stopTitle,
-            writing = writing, updatedAt = System.currentTimeMillis(),
+            writing = writing, updatedAt = System.currentTimeMillis(), at = stop,
         ),
     )
 }

@@ -248,7 +248,10 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                 Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) { ShareButton(session) }
                 first = false
             }
-            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, first = first, icon = { PhIcon("arrows-clockwise-duotone", tint = c.text, size = 20.dp) })
+            SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, first = first, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, icon = { PhIcon("arrows-clockwise-duotone", tint = c.text, size = 20.dp) })
         }
     }
 }

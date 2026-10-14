@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The same first frame in the dark theme, so a phone in dark mode does not flash paper at launch. -->
+    <style name="Theme.Pulls" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF0C1B1F</item>
+    </style>
+</resources>

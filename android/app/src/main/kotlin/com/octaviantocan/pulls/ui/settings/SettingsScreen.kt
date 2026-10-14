@@ -169,8 +169,8 @@ private fun AppearanceSettingsSection() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("Appearance")
         ToggleGroup(
-            listOf("light" to "Light", "dark" to "Dark", "system" to "System"),
-            if (settings.theme == "dark" || settings.theme == "system") settings.theme else "light",
+            listOf("system" to "System", "light" to "Light", "dark" to "Dark"),
+            if (settings.theme == "dark" || settings.theme == "light") settings.theme else "system",
             { settings.updateTheme(it) },
             icons = mapOf("light" to "sun-duotone", "dark" to "moon-duotone"),
         )

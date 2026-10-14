@@ -113,6 +113,53 @@ class InboxTest {
     }
 
     @Test
+    fun anArchivedPullRequestComesBackWhenItsHeadMoves() {
+        val storage = InboxTestStore()
+        val store = ArchiveStore(storage)
+        val two = pull(2).copy(headSha = "aaa")
+        val three = pull(3).copy(headSha = "bbb")
+        store.archive(Triage.key(two), two.headSha)
+        store.archive(Triage.key(three), three.headSha)
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.active(listOf(two, three)))
+        // New commits on #2 bring it back; #3 and the unchanged archive file are untouched.
+        assertEquals(setOf("acme/app#3"), ArchiveStore(storage).active(listOf(two.copy(headSha = "ccc"), three)))
+        // Archiving it again records the new head.
+        store.archive(Triage.key(two), "ccc")
+        assertEquals(setOf("acme/app#2", "acme/app#3"), ArchiveStore(storage).active(listOf(two.copy(headSha = "ccc"), three)))
+    }
+
+    @Test
+    fun anArchivedPullRequestWithAnUnknownHeadStaysArchived() {
+        val store = ArchiveStore(InboxTestStore())
+        store.archive("acme/app#2")
+        store.archive("acme/app#3", "bbb")
+        // No head recorded for #2; the list does not know #3's head.
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.active(listOf(pull(2).copy(headSha = "zzz"), pull(3))))
+    }
+
+    @Test
+    fun anArchiveWrittenBeforeHeadsWereKeptStillLoads() {
+        val storage = InboxTestStore()
+        storage.set(ArchiveStore.STORAGE_KEY, "acme/app#2\nacme/app#3")
+        val store = ArchiveStore(storage)
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.keys)
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.active(listOf(pull(2).copy(headSha = "aaa"))))
+    }
+
+    @Test
+    fun aTourReopensWhereYouLeftIt() {
+        val storage = InboxTestStore()
+        val index = TourIndex(storage)
+        val entry = TourEntry("acme", "app", 1, "First", stops = 7, reached = 5, stopTitle = "Five", writing = false, updatedAt = 1, at = 2)
+        index.upsert(entry)
+        assertEquals(2, TourIndex(storage).get("acme/app#1")?.at)
+        assertEquals(2, entry.resumeAt)
+        // Never opened since `at` was kept (or out of range): the furthest stop.
+        assertEquals(5, entry.copy(at = 0).resumeAt)
+        assertEquals(5, entry.copy(at = 9).resumeAt)
+    }
+
+    @Test
     fun tourIndexKeepsOneEntryPerPullNewestFirstAndRoundTrips() {
         val storage = InboxTestStore()
         val index = TourIndex(storage)
