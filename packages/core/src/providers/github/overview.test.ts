@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { staticCredentials } from '../../types/source'
 import { createGithubClient, GithubApiError } from './client'
 import { assessMergeability, defaultMergeCommit, fetchPullRequestOverview, parseChecks, parsePullRequestOverview, parseTimeline } from './overview'
-import { changePullRequestState, mergePullRequest, updatePullRequestBranch } from './overview-actions'
+import { changePullRequestState, mergePullRequest, updatePullRequestBranch, updatePullRequestText } from './overview-actions'
 
 function rawPullRequest(overrides: Partial<RawPullRequest> = {}): RawPullRequest {
   return {
@@ -314,6 +314,19 @@ describe('pull request state mutations', () => {
       'updatePullRequestBranch',
     ])
     expect(queries[4].variables).toEqual({ id: 'PR_1', method: 'REBASE', expectedHeadOid: null })
+  })
+
+  it('edits the description and leaves the title to GitHub when only the body is sent', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => graphqlResponse({ updatePullRequest: { pullRequest: { id: 'PR_1', title: 'T', body: 'New' } } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = createGithubClient(staticCredentials('token'))
+    await updatePullRequestText(client, 'PR_1', { body: 'New' })
+    await updatePullRequestText(client, 'PR_1', { body: '' })
+    const [first, second] = fetchMock.mock.calls.map(call => JSON.parse(call[1].body))
+    expect(first.query).toContain('updatePullRequest(')
+    expect(first.variables).toEqual({ id: 'PR_1', title: null, body: 'New' })
+    // An emptied description is a real edit, not an omitted field.
+    expect(second.variables).toEqual({ id: 'PR_1', title: null, body: '' })
   })
 
   it('turns a forbidden write into the writeForbidden diagnostic', async () => {

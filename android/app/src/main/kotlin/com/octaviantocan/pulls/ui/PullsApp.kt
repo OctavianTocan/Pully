@@ -70,6 +70,8 @@ fun PullsApp(initialTarget: String?) {
     }
     BackHandler(enabled = stack.size > 1) { nav.back() }
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
+    // Every code view reads `PullsType.mono`, which follows this.
+    if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont) com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont
     val dark = LocalPullsColors.current.dark
     // The inbox's tab, chip and search live above the screens, so they are still there after a review.
     val homeUi = remember { HomeUi() }

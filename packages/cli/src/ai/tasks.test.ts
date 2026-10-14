@@ -172,7 +172,10 @@ describe('ai tasks', () => {
 
   it('carries on with the tour and the brief after an analysis, without the phone', async () => {
     const { tasks, cache, runners } = await setup()
-    await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['tour', 'brief'] }))
+    const id = await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['tour', 'brief'] })
+    expect(await settled(tasks.wait, id)).toMatchObject({ then: ['tour', 'brief'] })
+    // They are listed the moment the analysis reads as done.
+    expect(tasks.list(KEY).map(task => task.kind).sort()).toEqual(['analyze', 'brief', 'tour'])
     await vi.waitFor(async () => {
       expect(runners.tour).toHaveBeenCalledOnce()
       expect(runners.brief).toHaveBeenCalledOnce()
@@ -196,6 +199,13 @@ describe('ai tasks', () => {
     expect(runners.tour).not.toHaveBeenCalled()
   })
 
+  it('runs only the follow-ups it knows when a client sends others', async () => {
+    const { tasks, runners } = await setup()
+    await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['brief', 'brief', 'ask', 'nonsense'] as never }))
+    await vi.waitFor(() => expect(runners.brief).toHaveBeenCalledOnce())
+    expect(tasks.list(KEY).map(task => task.kind).sort()).toEqual(['analyze', 'brief'])
+  })
+
   it('lists the tasks of every diff, newest first, with the pull request\'s title', async () => {
     const { tasks, cache } = await setup()
     const other = { ...diff, ref: { kind: 'github-pr' as const, owner: 'o', repo: 'r', number: '99' }, title: 'Other change' }
@@ -208,7 +218,7 @@ describe('ai tasks', () => {
     const all = tasks.listAll()
     expect(all.map(task => task.id)).toEqual([second, first])
     expect(all[0]).toMatchObject({ key: otherKey, title: 'Other change' })
-    expect(all.every(task => task.activities.length === 0)).toBe(true)
+    expect(all.every(task => task.activities.length === 0 && task.result === undefined)).toBe(true)
   })
 
   it('fails clearly without a cached diff', async () => {

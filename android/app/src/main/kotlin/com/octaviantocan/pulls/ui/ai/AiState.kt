@@ -93,12 +93,14 @@ internal fun ReviewSession.startAiTask(
     kind: String,
     threadId: String? = null,
     extra: JsonObjectBuilder.() -> Unit,
+    effort: String? = null,
+    then: List<String> = emptyList(),
     afterStart: (() -> Unit)? = null,
     onStartError: ((String) -> Unit)? = null,
     onDone: (TaskState) -> Unit = {},
 ) {
     val ui = aiUi(this)
-    startTask(kind, extra, onStarted = { id ->
+    startTask(kind, extra, effort, then, onStarted = { id ->
         ui.startedHere = ui.startedHere + id
         ui.watched = ui.watched + id
         // `ReviewSession.startTask` records a start the server refused as a settled `failed-…` task.

@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.home
 
+import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.ui.home.GhLabel
@@ -48,6 +49,18 @@ class HomeLinksTest {
     fun keepsThePhonesShortForms() {
         assertEquals(HomeLink.Target(OpenTarget.Pull("a", "b", 3)), HomeLinks.parse("a/b#3"))
         assertEquals(HomeLink.Target(OpenTarget.Pull("a", "b", 3)), HomeLinks.parse("a/b/3"))
+    }
+
+    @Test
+    fun theSearchPillOpensALinkOrANumberOnlyOneListedPullRequestHas() {
+        val listed = listOf(ListedPull("a", "x", 12), ListedPull("a", "x", 13), ListedPull("b", "y", 13))
+        assertEquals(HomeLink.Target(OpenTarget.Pull("a", "x", 12, "github.com")), HomeLinks.fromSearch(" #12 ", listed))
+        assertEquals(HomeLink.Target(OpenTarget.Pull("antfu", "pulls.review", 106, "github.com")), HomeLinks.fromSearch("https://github.com/antfu/pulls.review/pull/106", listed))
+        assertEquals(HomeLink.Repo("a", "b"), HomeLinks.fromSearch("https://github.com/a/b", listed))
+        // Two repositories have 13, and nothing has 99: a number alone then only filters.
+        assertNull(HomeLinks.fromSearch("13", listed))
+        assertNull(HomeLinks.fromSearch("99", listed))
+        assertNull(HomeLinks.fromSearch("fix the cache", listed))
     }
 
     @Test

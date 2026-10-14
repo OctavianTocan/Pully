@@ -1,5 +1,6 @@
 import type { GroupedResult } from '../../../types/analyze'
 import type { DiffsPayload } from '../../../types/diff'
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { normalizeGroupedResult } from '../../../types/analyze'
 import { BRIEF_SYSTEM_PROMPT, briefLibrary, briefProblems, briefProgramOf, briefTree, buildBriefPrompt, buildRepairPrompt, MAX_BRIEF_REPAIRS, parseBrief, runBrief } from './brief'
@@ -22,6 +23,16 @@ lead = Callout("risk", "The cache never evicts.", "Unbounded")
 check = Checklist([CheckItem("Entries are keyed by file sha", "src/cache.ts", 1), CheckItem("A changed file misses the cache")])`
 
 afterEach(() => setCliRunner(undefined))
+
+describe('the tree the Android app reads', () => {
+  const fixture = (name: string) => readFileSync(new URL(`../../../../../../android/core/src/test/resources/${name}`, import.meta.url), 'utf8')
+
+  it('is exactly what the Kotlin parser is tested against', () => {
+    const lang = fixture('brief-fixture.lang')
+    expect(briefProblems(parseBrief(lang))).toEqual([])
+    expect(briefTree(lang)).toEqual(JSON.parse(fixture('brief-fixture.json')))
+  })
+})
 
 describe('brief library', () => {
   it('parses the examples the prompt teaches without a single problem', () => {

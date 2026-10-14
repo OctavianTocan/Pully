@@ -139,19 +139,19 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
     val number = head.label
     val blockedText = t("overview.merge.blocked.${data?.mergeability?.blocker ?: "blocked"}")
 
-    PullsSheet(onClose, title = { PrTitle(head) }) {
+    PullsSheet(onClose, title = { PrTitle(head) }, expandable = true) {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickAction("Checks", { onSheet("checks") }, Modifier.weight(1f)) {
                 if (failing > 0) LuIcon(Lu.fail, tint = StatusColors.red(c.dark), size = 22.dp)
                 else LuIcon(Lu.okc, tint = if ((overview?.checksSummary?.total ?: 0) > 0) StatusColors.green(c.dark) else c.muted, size = 22.dp, strokeWidth = 1.8f)
             }
             QuickAction("GitHub", { if (head.url.isNotBlank()) uri.openUri(head.url) }, Modifier.weight(1f)) { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 22.dp) }
-            QuickAction("Analyze again", {
+            QuickAction("Analyze", {
                 onClose()
                 if (session.taskFor("analyze")?.running == true) {
                     toaster.show("Already analyzing")
                 } else {
-                    session.runAnalyze()
+                    session.runAnalyze(context)
                     toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
                 }
             }, Modifier.weight(1f)) { LuIcon(Lu.redo, tint = c.text, size = 22.dp) }
@@ -161,6 +161,12 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             SheetRow("Model", { onSheet("model") }, first = true, icon = { LuIcon(Lu.bot, tint = c.activeText) }) {
                 Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            if (session.key != null && cliEngine(context)) {
+                SheetRow("Analyze options", { onSheet("analyze") }, iconless = true) {
+                    Text(settings.analyzeChoice.title, style = PullsType.sm, color = c.muted, maxLines = 1)
+                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+                }
             }
         }
 
@@ -259,7 +265,7 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
 /** `PrChecks` in a sheet. */
 @Composable
 internal fun ChecksSheet(overview: PrOverview, onClose: () -> Unit) {
-    PullsSheet(onClose, "Checks") {
+    PullsSheet(onClose, "Checks", expandable = true) {
         SheetCard { Column(Modifier.padding(12.dp)) { Checks(overview.checks, overview.checksSummary, overview.url) } }
     }
 }
@@ -269,7 +275,7 @@ internal fun ChecksSheet(overview: PrOverview, onClose: () -> Unit) {
 internal fun CommitsSheet(session: ReviewSession, overview: PrOverview, onClose: () -> Unit) {
     val c = LocalPullsColors.current
     val selection = session.selection?.let { CommitSelection(it.first, it.second) }
-    PullsSheet(onClose, "Commits") {
+    PullsSheet(onClose, "Commits", expandable = true) {
         SheetCard {
             SheetRow("All commits", { session.selectCommits(null); onClose() }, first = true, iconless = true) {
                 Text("${overview.commits.size + overview.commitsHidden}", style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
@@ -320,7 +326,7 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
         ServerStore.save(context, next)
     }
 
-    PullsSheet(onClose, "Select model") {
+    PullsSheet(onClose, "Select model", expandable = true) {
         Box(Modifier.padding(top = 14.dp)) {
             CapsuleTabs(
                 listOf("Claude Code", "Codex"),

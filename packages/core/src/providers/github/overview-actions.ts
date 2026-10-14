@@ -16,6 +16,13 @@ mutation UpdatePullRequestBranch($id: ID!, $method: PullRequestBranchUpdateMetho
   }
 }`
 
+const EDIT_MUTATION = `
+mutation UpdatePullRequest($id: ID!, $title: String, $body: String) {
+  updatePullRequest(input: { pullRequestId: $id, title: $title, body: $body }) {
+    pullRequest { id title body }
+  }
+}`
+
 const STATE_MUTATIONS = {
   close: 'mutation ($id: ID!) { closePullRequest(input: { pullRequestId: $id }) { pullRequest { id } } }',
   reopen: 'mutation ($id: ID!) { reopenPullRequest(input: { pullRequestId: $id }) { pullRequest { id } } }',
@@ -63,6 +70,19 @@ export async function mergePullRequest(client: GithubClient, input: MergePullReq
  */
 export async function changePullRequestState(client: GithubClient, pullRequestId: string, change: PullRequestStateChange): Promise<void> {
   await asWrite(() => client.graphql(STATE_MUTATIONS[change], { id: pullRequestId }))
+}
+
+/**
+ * Edits a pull request's title or description. A field left out stays as it is.
+ * @param client A client whose token may edit the pull request.
+ * @param pullRequestId The PR's GraphQL node id.
+ * @param fields What to change; GitHub refuses an empty title.
+ * @param fields.title The new title.
+ * @param fields.body The new description, Markdown. An empty string clears it.
+ * @throws The `writeForbidden` diagnostic when the token may not edit the PR; GitHub's own message otherwise.
+ */
+export async function updatePullRequestText(client: GithubClient, pullRequestId: string, fields: { title?: string, body?: string }): Promise<void> {
+  await asWrite(() => client.graphql(EDIT_MUTATION, { id: pullRequestId, title: fields.title ?? null, body: fields.body ?? null }))
 }
 
 /**

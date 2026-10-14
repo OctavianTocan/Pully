@@ -7,6 +7,7 @@ import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResu
 import type { Storage } from 'unstorage'
 import { randomUUID } from 'node:crypto'
 import { defaultLlmSettings, resolveModel } from '@pulls.review/core/analyze'
+import { AI_FOLLOW_UPS } from '@pulls.review/core/local-rpc'
 import { DEFAULT_LOCALE, isLocale } from '@pulls.review/core/locales'
 import { serializeRef } from '@pulls.review/core/types'
 import { listAiJobs, runAiJob } from './jobs'
@@ -266,8 +267,11 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
 
   /** An analysis that succeeded starts what it was asked to, so the phone need not be awake to carry on. */
   async function chain(request: Extract<AiTaskRequest, { kind: 'analyze' }>) {
-    for (const step of request.then ?? []) {
+    // The phone's native API hands requests over unvalidated, so only the known follow-ups run.
+    for (const step of new Set(request.then ?? [])) {
       try {
+        if (!AI_FOLLOW_UPS.includes(step))
+          continue
         if (step === 'tour' && await hasCurrentTour(request.key))
           continue
         await start({ kind: step, key: request.key, model: request.model, locale: request.locale })
@@ -290,9 +294,11 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     const { request } = task
     const hooks: TaskHooks = { signal: task.controller.signal, onActivity: batch => record(task, batch), tag: `${task.info.label} · ${task.info.id}` }
     try {
-      settle(task, 'done', await perform(task, hooks))
+      const outcome = await perform(task, hooks)
+      // Registered before the analysis reads as done, so a client that sees it settle already finds what follows in the list.
       if (request.kind === 'analyze')
-        void chain(request)
+        await chain(request)
+      settle(task, 'done', outcome)
     }
     catch (error) {
       const stopped = task.controller.signal.aborted
@@ -328,6 +334,7 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
         lens: request.kind === 'critique' ? request.lens : undefined,
         threadId: request.kind === 'ask' ? request.threadId : undefined,
         text: request.kind === 'ask' ? request.question : request.kind === 'chat' ? request.text : undefined,
+        then: request.kind === 'analyze' ? request.then : undefined,
       },
       status: 'running',
       rev: 0,
@@ -396,7 +403,8 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
   }
 
   function listAll(): AiTaskSnapshot[] {
-    return newestFirst().map(task => snapshot(task, Number.POSITIVE_INFINITY))
+    // Results can be large and a list across diffs only says what is running, so they stay out.
+    return newestFirst().map(task => ({ ...snapshot(task, Number.POSITIVE_INFINITY), result: undefined }))
   }
 
   async function threads(key: string): Promise<AiAskThread[]> {

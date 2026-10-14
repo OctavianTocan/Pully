@@ -37,15 +37,14 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.ui.Nav
+import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
-import com.octaviantocan.pulls.ui.ai.startTourAfter
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.EmptyState
 import com.octaviantocan.pulls.ui.design.FloatIcon
-import com.octaviantocan.pulls.ui.design.Loading
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -77,13 +76,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val messages = LocalMessages.current
     val c = LocalPullsColors.current
     val session = remember(target) {
-        ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also {
-            // An analysis still running from an earlier visit also ends with a tour.
-            it.onResumedAnalyzeDone = { done -> it.startTourAfter(done) }
-            it.load()
-        }
+        ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also { it.load() }
     }
     DisposableEffect(session) { onDispose { session.detach() } }
+    // The title and number the phone already knows, for the page to show while the rest loads.
+    val preview = remember(target) { pullPreview(context, target) }
     val ui = rememberDiffUi(session)
     val top = remember(session) { ReviewTopUi() }
     val data = remember(session.overview) { parsePrOverviewData(session.overview) }
@@ -125,7 +122,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         )
     }
 
-    PrCommands(session, orderedFiles(), diffPath, onGo = { path -> diffPath = path; push(PrView.Diff) }, onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session) })
+    PrCommands(session, orderedFiles(), diffPath, onGo = { path -> diffPath = path; push(PrView.Diff) }, onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session, context) })
 
     // A citation or a finding asked for a line: open the diff on its file (the diff screen then scrolls to the line).
     val focus = session.focus
@@ -171,12 +168,13 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
 
     Box(Modifier.fillMaxSize().background(c.base)) {
         when {
-            opened == null && session.loading -> Placeholder(onBack = nav.back) { Loading(messages.t("pr.loading")) }
             opened == null && session.loadError != null -> Placeholder(onBack = nav.back) {
                 EmptyState("warning-duotone", messages.t("pr.loadFailed"), hint = session.loadError) {
                     ActionButton({ session.refresh() }, variant = ButtonVariant.Primary) { Text(messages.t("common.retry")) }
                 }
             }
+            // No loading screen: the page's shape with what the phone knows, and bars for the rest.
+            opened == null -> PrOpening(target, preview, onBack = nav.back)
             opened != null && head != null -> {
                 Crossfade(pages.last(), animationSpec = tween(260), label = "review-page") { page ->
                     when (page) {
@@ -192,7 +190,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         )
                         PrView.Diff -> PrDiffScreen(session, ui, diffPath, { diffPath = it }, onBack = ::back)
                         PrView.Tour -> PrTourScreen(
-                            session, ui, head,
+                            session, head,
                             resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                             onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                             onBack = ::back,
@@ -208,6 +206,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
                     "commits" -> data?.overview?.let { CommitsSheet(session, it) { sheet = null } }
                     "findings" -> FindingsSheet(session) { sheet = null }
+                    "edit" -> data?.overview?.let { DescriptionEditSheet(session, it) { sheet = null } }
+                    "analyze" -> AnalyzeSheet(session, onClose = { sheet = null }, onModel = { sheet = "model" })
                     "model" -> ModelSheet(session, onClose = { sheet = null }, onEffort = { sheet = "effort" })
                     "effort" -> EffortSheet(session, onBack = { sheet = "model" }, onClose = { sheet = null })
                     "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->

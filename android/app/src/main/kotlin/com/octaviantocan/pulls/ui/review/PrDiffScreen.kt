@@ -49,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
@@ -68,9 +69,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.FileLinks
+import com.octaviantocan.pulls.core.nextUnreviewed
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.CodeFont
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.FloatButton
@@ -126,7 +129,8 @@ internal fun PrDiffScreen(session: ReviewSession, ui: DiffUi, path: String?, onP
             }
         }
         if (menu == "files") FilePicker(session, files, file, onPick = { onPath(it); menu = null }, onDismiss = { menu = null })
-        if (menu == "aa") ViewMenu(session, ui, file, onDismiss = { menu = null })
+        if (menu == "aa") ViewMenu(session, ui, file, onFont = { menu = "font" }, onDismiss = { menu = null })
+        if (menu == "font") CodeFontSheet(session.settings) { menu = null }
     }
 }
 
@@ -159,6 +163,7 @@ private fun FileBody(session: ReviewSession, ui: DiffUi, file: ReviewFile, files
     val c = LocalPullsColors.current
     val toaster = LocalToaster.current
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val state = session.reviewState(file)
     val reviewed = state == ReviewState.Reviewed
     val note = session.saved?.analysis?.files?.firstOrNull { it.path == file.path }?.summary?.takeIf { it.isNotBlank() }
@@ -199,6 +204,11 @@ private fun FileBody(session: ReviewSession, ui: DiffUi, file: ReviewFile, files
                         if (!reviewed) {
                             val done = files.count { it.sha in session.reviewed || it.path == file.path }
                             toaster.show(if (done == files.size) "All ${files.size} files reviewed" else "$done of ${files.size} files reviewed")
+                            // Reviewing a file moves on to the next one still to review, after a beat to see the tick land.
+                            val shaOf = files.associate { it.path to it.sha }
+                            nextUnreviewed(files.map { it.path }, file.path) { path -> shaOf[path] in session.reviewed }?.let { next ->
+                                scope.launch { delay(220); onPath(next) }
+                            }
                         }
                     },
                     verticalAlignment = Alignment.CenterVertically,
@@ -365,7 +375,7 @@ private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current:
             val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
             Row(
                 Modifier.fillMaxWidth().height(48.dp).background(if (file.path == current?.path) c.paper else Color.Transparent)
-                    .clickable(role = Role.Button) { onPick(file.path) }.padding(horizontal = 16.dp),
+                    .clickable(role = Role.Button) { onPick(file.path) }.alpha(if (file.sha in session.reviewed && file.path != current?.path) 0.6f else 1f).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -387,7 +397,7 @@ private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current:
 
 /** `.pop`: the code size (Smaller, Default, Larger), line wrapping, and, when a [file] is open, its own actions. */
 @Composable
-internal fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onDismiss: () -> Unit) {
+internal fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFont: () -> Unit, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
@@ -410,6 +420,7 @@ internal fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onD
                     ) { Text(name, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1) }
                 }
             }
+            MenuRow("Code font", trailing = { Text(CodeFont.of(settings.codeFont).label, style = PullsType.sm, color = c.muted, maxLines = 1) }, onClick = onFont)
             MenuRow("Wrap long lines", trailing = { PullsSwitch(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long lines") }) { settings.updateCodeWrap(!settings.codeWrap) }
             if (session.reviewData != null) {
                 MenuRow("Show review comments", trailing = { PullsSwitch(settings.showThreads, { settings.updateShowThreads(it) }, "Show review comments") }) {

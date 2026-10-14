@@ -303,6 +303,8 @@ export interface AiTaskSnapshot {
   threadId?: string
   /** `ask`: the question; `chat`: the message sent. */
   text?: string
+  /** `analyze`: what it starts after itself, so a client can show those steps from the first moment. */
+  then?: AiFollowUp[]
 }
 
 /** One saved question of a thread and its answer. */

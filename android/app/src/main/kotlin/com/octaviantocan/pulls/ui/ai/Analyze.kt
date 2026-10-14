@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -33,7 +34,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.data.TaskState
+import com.octaviantocan.pulls.core.AnalyzeChoice
+import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.GithubAvatar
@@ -43,28 +45,32 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.review.ModelCatalogs
 import com.octaviantocan.pulls.ui.review.ReviewSession
+import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
-/** The palette's "Analyze with AI": starts one unless an analysis is already running. */
-fun runAnalyzeFromCommand(session: ReviewSession) {
+/** The palette's "Analyze with AI": runs the last choice unless an analysis is already running. */
+fun runAnalyzeFromCommand(session: ReviewSession, context: Context) {
     if (session.taskFor("analyze")?.running == true) return
-    session.runAnalyze()
+    session.runAnalyze(context)
 }
 
 /**
- * Starts the analysis (groups, file notes, summary). The prototype's "Analyzing" covers the tour
- * too, so once it succeeds and the diff has no tour yet, the tour is started as well.
+ * Starts the analysis (groups, file notes, summary). [choice] says what follows it: the server starts the tour and
+ * the brief itself when the analysis succeeds, so they come even if the phone is off by then, and an AI review
+ * starts next to it. The Analyze button runs the last choice; the sheet under its chevron picks another.
  */
-internal fun ReviewSession.runAnalyze() {
+internal fun ReviewSession.runAnalyze(context: Context, choice: AnalyzeChoice = settings.analyzeChoice) {
+    if (taskFor("analyze")?.running == true) return
     val locale = settings.locale
-    startAiTask("analyze", extra = { put("locale", locale) }, onDone = { done -> startTourAfter(done) })
-}
-
-/** An analysis settled: when it succeeded and the diff has no tour yet (and none is being written), write one. */
-internal fun ReviewSession.startTourAfter(done: TaskState) {
-    if (done.status == "done" && saved?.tour == null && taskFor("tour")?.running != true) startTour(this)
+    val config = ServerStore.load(context)
+    // The efforts come from the model list the app has already fetched; without it the Settings effort stands.
+    val efforts = AiSettingsLogic.current(ModelCatalogs.get(config.engine), config.model)?.efforts.orEmpty()
+    val run = choice.run(efforts)
+    startAiTask("analyze", extra = { put("locale", locale) }, effort = run.effort, then = run.then)
+    if (run.review && taskFor("critique")?.running != true) runCritique(context, null, run.effort)
 }
 
 /** A 16dp spinner in the button's color, for `i-ph:spinner-duotone animate-spin`. */
