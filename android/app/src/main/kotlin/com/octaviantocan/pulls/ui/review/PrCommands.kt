@@ -38,52 +38,52 @@ fun PrCommands(session: ReviewSession, files: List<ReviewFile>, currentPath: Str
         val repo = FileLinks.repoOf(session.target)
         val github = repo != null && opened.refKind.startsWith("github")
         val list = mutableListOf(
-            Command("pr.nextFile", m.t("keys.nextFile"), pr, icon = "arrow-down") { step(1) },
-            Command("pr.prevFile", m.t("keys.prevFile"), pr, icon = "arrow-up") { step(-1) },
-            Command("pr.toggleReviewed", m.t("keys.toggleReviewed"), pr, icon = "check-square-duotone") {
+            Command("pr.nextFile", m.t("keys.nextFile"), pr) { step(1) },
+            Command("pr.prevFile", m.t("keys.prevFile"), pr) { step(-1) },
+            Command("pr.toggleReviewed", m.t("keys.toggleReviewed"), pr) {
                 current()?.let { session.setReviewed(listOf(it.sha), it.sha !in session.reviewed) }
             },
-            Command("pr.copyPath", m.t("keys.copyPath"), pr, icon = "copy-duotone") { current()?.let { copyText(context, it.path) } },
-            Command("pr.findFile", m.t("keys.findFile"), pr, icon = "magnifying-glass-duotone") {
+            Command("pr.copyPath", m.t("keys.copyPath"), pr) { current()?.let { copyText(context, it.path) } },
+            Command("pr.findFile", m.t("keys.findFile"), pr) {
                 Commands.open(PaletteScope("jump.file:", m.t("palette.group.files")))
             },
-            Command("pr.refresh", m.t("keys.refresh"), pr, icon = "arrows-clockwise-duotone") { session.refresh() },
-            Command("pr.layout", m.t("keys.layout"), view, icon = "columns-duotone") {
+            Command("pr.refresh", m.t("keys.refresh"), pr) { session.refresh() },
+            Command("pr.layout", m.t("keys.layout"), view) {
                 session.settings.updateLayout(if (session.settings.layout == "split") "unified" else "split")
             },
-            Command("pr.zoomIn", "Larger code", view, keywords = "zoom font size bigger", icon = "magnifying-glass-plus") { session.settings.zoomBy(1) },
-            Command("pr.zoomOut", "Smaller code", view, keywords = "zoom font size", icon = "magnifying-glass-minus") { session.settings.zoomBy(-1) },
-            Command("pr.zoomReset", "Reset code size", view, keywords = "zoom font size 100", icon = "text-aa-duotone") { session.settings.updateCodeZoom(1f) },
-            Command("pr.wrap", if (session.settings.codeWrap) "Scroll long code lines" else "Wrap long code lines", view, keywords = "wrap soft", icon = "arrow-u-down-left") {
+            Command("pr.zoomIn", "Larger code", view, keywords = "zoom font size bigger") { session.settings.zoomBy(1) },
+            Command("pr.zoomOut", "Smaller code", view, keywords = "zoom font size") { session.settings.zoomBy(-1) },
+            Command("pr.zoomReset", "Reset code size", view, keywords = "zoom font size 100") { session.settings.updateCodeZoom(1f) },
+            Command("pr.wrap", if (session.settings.codeWrap) "Scroll long code lines" else "Wrap long code lines", view, keywords = "wrap soft") {
                 session.settings.updateCodeWrap(!session.settings.codeWrap)
             },
         )
         if (github) {
-            list += Command("pr.openPr", m.t("keys.openPr"), pr, icon = "arrow-square-out-duotone") { open(opened.url) }
-            list += Command("pr.openFile", m.t("keys.openFile"), pr, icon = "file-arrow-up-duotone") {
+            list += Command("pr.openPr", m.t("keys.openPr"), pr) { open(opened.url) }
+            list += Command("pr.openFile", m.t("keys.openFile"), pr) {
                 val f = current() ?: return@Command
                 val sha = if (f.status == "removed") opened.baseSha else opened.headSha
                 open(FileLinks.blob(repo!!.first, repo.second, sha, f.path))
             }
-            list += Command("pr.copyPermalink", m.t("keys.copyPermalink"), pr, icon = "link-duotone") {
+            list += Command("pr.copyPermalink", m.t("keys.copyPermalink"), pr) {
                 val f = current() ?: return@Command
                 val sha = if (f.status == "removed") opened.baseSha else opened.headSha
                 copyText(context, FileLinks.blob(repo!!.first, repo.second, sha, f.path))
             }
         }
-        if (session.reviewData != null) list += Command("pr.threads", m.t("keys.threads"), view, icon = "chats-duotone") {
+        if (session.reviewData != null) list += Command("pr.threads", m.t("keys.threads"), view) {
             session.settings.updateShowThreads(!session.settings.showThreads)
         }
-        if (session.hasAiResult) list += Command("pr.analyzeMode", m.t("keys.analyzeMode"), view, icon = "shuffle-duotone") {
+        if (session.hasAiResult) list += Command("pr.analyzeMode", m.t("keys.analyzeMode"), view) {
             session.analyzeMode = if (session.analyzeMode == "rules") "ai" else "rules"
         }
-        list += Command("pr.analyze", m.t("keys.analyze"), pr, icon = "sparkle-duotone") {
+        list += Command("pr.analyze", m.t("keys.analyze"), pr) {
             if (session.hasAiResult && session.analyzeMode == "rules") session.analyzeMode = "ai" else onAnalyze()
         }
         // `jump.file:` entries.
         val group = m.t("palette.group.files")
         session.files.forEach { f ->
-            list += Command("jump.file:${f.sha}:${f.path}", m.t("palette.jumpToFile", "path" to f.path), group, keywords = f.previousPath, icon = "file-duotone") {
+            list += Command("jump.file:${f.sha}:${f.path}", m.t("palette.jumpToFile", "path" to f.path), group, keywords = f.previousPath) {
                 session.focus = Focus(f.path)
             }
         }

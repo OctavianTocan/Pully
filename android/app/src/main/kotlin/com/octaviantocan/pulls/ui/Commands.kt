@@ -14,8 +14,6 @@ data class Command(
     val title: String,
     val group: String? = null,
     val keywords: String? = null,
-    /** Phosphor name, e.g. `gear-duotone`. */
-    val icon: String? = null,
     val hidden: Boolean = false,
     val run: () -> Unit,
 )

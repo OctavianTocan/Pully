@@ -350,6 +350,7 @@ fun PillInput(
     placeholder: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    imeAction: ImeAction = ImeAction.Send,
     onSend: () -> Unit = {},
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
@@ -366,8 +367,8 @@ fun PillInput(
             singleLine = true,
             textStyle = PullsType.base.copy(color = c.text),
             cursorBrush = SolidColor(c.accentTeal),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { onSend() }),
+            keyboardOptions = KeyboardOptions(imeAction = imeAction, autoCorrectEnabled = false),
+            keyboardActions = KeyboardActions(onSend = { onSend() }, onGo = { onSend() }),
             modifier = Modifier.weight(1f),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
