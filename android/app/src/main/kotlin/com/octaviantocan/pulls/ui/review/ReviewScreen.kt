@@ -195,6 +195,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                             onBack = ::back,
                             onOverview = ::toOverview,
+                            onChanges = { openDiff(null) },
+                            onMore = { sheet = "more" },
                             onOpenSource = { source -> openSource(session, source, uri::openUri) },
                             onAsk = { question -> openAsk(forTour = true, initial = question) },
                         )

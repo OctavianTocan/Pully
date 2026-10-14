@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -36,7 +37,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -44,13 +44,16 @@ import androidx.compose.ui.window.DialogProperties
 import com.caverock.androidsvg.SVG
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.data.TourSource
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.IconButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
+import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.Skeleton
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.serialization.json.put
 
@@ -76,33 +79,30 @@ internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifie
         modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PhIcon("compass-duotone", tint = c.accentTeal, size = 22.dp)
-            Text("Take a tour of this pull request", style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)
-        }
+        Text("Take a tour of this pull request", style = PullsType.xxl, color = c.text)
         Text(
             "AI reads the change and the code around it, plans a few stops, and walks you through what you need to know: the flow, the pieces, and why. No diffs.",
-            style = PullsType.sm, color = c.fade,
+            style = PullsType.read, color = c.muted,
         )
-        Text("It plans first, then writes every stop in parallel. Saved per commit, so it opens instantly next time.", style = PullsType.xs, color = c.mute)
+        Text("It plans first, then writes every stop in parallel. Saved per commit, so it opens instantly next time.", style = PullsType.sm, color = c.muted)
         if (error != null) ErrorBox("The tour failed", error)
-        ActionButton({ startTour(session) }, variant = ButtonVariant.Primary, icon = "compass-duotone", enabled = session.key != null) { Text(if (error != null) "Try again" else "Give me a tour") }
+        CtaButton(if (error != null) "Try again" else "Give me a tour", { startTour(session) }, Modifier.padding(top = 4.dp), enabled = session.key != null)
     }
 }
 
 @Composable
 internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
-    val c = LocalPullsColors.current
     val task = session.taskFor("tour") ?: return
+    val c = LocalPullsColors.current
     val now = rememberNow(true)
     Column(
         modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            com.octaviantocan.pulls.ui.design.SpinIcon(tint = c.accentTeal, size = 18.dp)
-            Shimmer("Building the tour… ${formatClockDuration(now - task.startedAt)}", PullsType.sm.copy(color = c.text), Modifier.weight(1f))
-            ActionButton({ session.cancelTask(task.id) }, variant = ButtonVariant.Text, small = true, icon = "stop-duotone") { Text("Stop") }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Orb(size = 24.dp)
+            Shimmer("Building the tour… ${formatClockDuration(now - task.startedAt)}", PullsType.base.copy(color = c.text), Modifier.weight(1f))
+            PillButton("Stop", { session.cancelTask(task.id) })
         }
         AiActivityLogFull(task.activities, running = true)
     }
@@ -164,7 +164,7 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
                 val fit = minOf(1f, maxWidth.value / w0, 480f / h0)
                 SvgView(svg, Modifier.size((w0 * fit).dp, (h0 * fit).dp))
             }
-            result == null -> com.octaviantocan.pulls.ui.design.Loading("Drawing the diagram…")
+            result == null -> Skeleton(Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)))
             // Could not render: the source still says what the diagram meant.
             else -> TourBlockView(session, TourBlock("shape", "Mermaid source", "flow", block.body))
         }
@@ -175,7 +175,7 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
         val state = rememberTransformableState { zoom, pan, _ -> scale = (scale * zoom).coerceIn(1f, 6f); offset += pan }
         Box(Modifier.fillMaxSize().background(c.base)) {
             SvgView(svg, Modifier.fillMaxSize().aspectRatio(ratioOf(svg)).transformable(state).graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }.padding(16.dp))
-            IconButton("x", "Close", { full = false }, Modifier.align(Alignment.TopEnd).padding(top = 32.dp, end = 8.dp))
+            FloatIcon(Lu.close, "Close", { full = false }, Modifier.align(Alignment.TopEnd).padding(top = headerTopPadding(), end = 16.dp))
         }
     }
 }
@@ -231,7 +231,7 @@ internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
                     style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
                     color = c.activeText, maxLines = 1,
                 )
-                Text(source.why, Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(source.why, Modifier.weight(1f), style = PullsType.sm, color = c.muted)
             }
         }
     }
@@ -241,10 +241,7 @@ internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
 internal fun Glossary(entries: List<Pair<String, String>>, modifier: Modifier) {
     val c = LocalPullsColors.current
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PhIcon("book-open-text-duotone", tint = c.fade, size = 18.dp)
-            Text("Glossary", style = PullsType.base.copy(fontWeight = FontWeight.SemiBold), color = c.text)
-        }
+        Text("Glossary", style = PullsType.base.copy(fontWeight = FontWeight.SemiBold), color = c.text)
         entries.forEach { (term, meaning) ->
             Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Text(term, style = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium), color = c.text)

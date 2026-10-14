@@ -78,6 +78,12 @@
       "component": "cta-button"
     },
     {
+      "id": "components/pill-button",
+      "title": "Pill button",
+      "group": "Components",
+      "component": "pill-button"
+    },
+    {
       "id": "components/sheet",
       "title": "Sheet",
       "group": "Components",
@@ -295,6 +301,30 @@
         "One per screen, and never an irreversible action: those go behind the more menu.",
         "The label is one line.",
         "Leading and trailing take a Lu icon only when it carries a fact."
+      ],
+      "rules": [
+        7,
+        24
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "with-icon",
+          "title": "With icon"
+        }
+      ]
+    },
+    "pill-button": {
+      "composable": "PillButton",
+      "summary": "The quiet 44dp pill for the actions beside a screen's main one: Retry, Stop, Rewrite.",
+      "usage": [
+        "Never the screen's one main action: that is the dark button.",
+        "The label is one line; a leading Lu icon only when it carries a fact.",
+        "Put it where the thing it acts on is, not in a row of its own."
       ],
       "rules": [
         7,

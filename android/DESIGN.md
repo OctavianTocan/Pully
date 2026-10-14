@@ -243,6 +243,13 @@ components:
     rounded: "{rounded.full}"
     height: 52px
     padding: 0px 24px
+  pill-button:
+    backgroundColor: "{colors.paper-2}"
+    textColor: "{colors.text}"
+    typography: "{typography.row}"
+    rounded: "{rounded.full}"
+    height: 44px
+    padding: 0px 16px
   sheet:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.text}"
@@ -355,6 +362,7 @@ The kit lives in `ui/design`. Use it before writing anything new. A new shared c
 - `check`: a 22dp box, accent when on.
 - `switch`: a 52 by 32 switch.
 - `cta-button`: the 52dp dark pill that carries the screen's one main action (rule 7: never an irreversible one).
+- `pill-button`: the quiet 44dp paper pill for the actions beside it (Retry, Stop, Rewrite).
 - `sheet`, `sheet-card`, `sheet-row`, `quick-action`: the bottom sheet and what goes in it.
 - `toast`: one dark pill above the bottom bars, with an optional action such as Undo.
 - `orb`, `progress-ring`, `breathing-dot`, `pending-dot`, `ok-dot`: AI and progress marks (rules 18 and 43).

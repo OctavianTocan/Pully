@@ -29,6 +29,7 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.OkDot
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PendingDot
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsCheck
@@ -63,6 +64,7 @@ internal fun bookPreviews(id: String): List<BookVariant> = when (id) {
     "check" -> checkVariants()
     "switch" -> switchVariants()
     "cta-button" -> ctaButtonVariants()
+    "pill-button" -> pillButtonVariants()
     "sheet" -> sheetVariants()
     "sheet-card" -> sheetCardVariants()
     "sheet-row" -> sheetRowVariants()
@@ -157,6 +159,22 @@ private fun switchVariants() = listOf(
             BookState("Off") { PullsSwitch(false, {}, "Auto refresh") },
             BookState("On") { PullsSwitch(true, {}, "Auto refresh") },
             BookState("Disabled") { PullsSwitch(true, {}, "Auto refresh", enabled = false) },
+        ),
+    ),
+)
+
+private fun pillButtonVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Rest") { PillButton("Retry", {}) },
+            BookState("Disabled") { PillButton("Retry", {}, enabled = false) },
+        ),
+    ),
+    BookVariant(
+        "with-icon",
+        listOf(
+            BookState("Leading icon") { PillButton("Rewrite", {}, leading = { LuIcon(Lu.redo, size = 20.dp) }) },
         ),
     ),
 )

@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.ui.design
 
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.CubicBezierEasing
@@ -9,6 +10,8 @@ import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,6 +29,7 @@ import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.CompositingStrategy
@@ -97,6 +101,25 @@ fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, content: @Composabl
             if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurMedium
         }
         Box(Modifier.softBlur(blur)) { content(state) }
+    }
+}
+
+/**
+ * A menu or dropdown appearing and leaving (`dropdown` on transitions.dev): it opens from 97% size
+ * through a 2px blur in 250ms and closes to 99% in 150ms, both growing out of [origin], the point of
+ * the trigger. Compose [content] only inside; the scrim that dismisses it lives outside.
+ */
+@Composable
+fun MenuReveal(visible: Boolean, modifier: Modifier = Modifier, origin: TransformOrigin = TransformOrigin(0.5f, 0f), content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        visible, modifier,
+        enter = fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), PullsMotion.DROPDOWN_OPEN_SCALE, origin),
+        exit = fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), PullsMotion.DROPDOWN_CLOSE_SCALE, origin),
+    ) {
+        val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) }, label = "menu-blur") {
+            if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurSmall
+        }
+        Box(Modifier.softBlur(blur)) { content() }
     }
 }
 

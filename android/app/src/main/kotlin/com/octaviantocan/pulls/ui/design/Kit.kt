@@ -305,6 +305,26 @@ fun CtaButton(
     }
 }
 
+/** `.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow. */
+@Composable
+fun PillButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leading: (@Composable () -> Unit)? = null,
+) {
+    val c = LocalPullsColors.current
+    Row(
+        modifier.height(44.dp).clip(CircleShape).background(c.paper2).clickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading?.invoke()
+        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1)
+    }
+}
+
 /** The avatar placeholder: the prototype's warm gradient disc. */
 @Composable
 fun ProfileDot(modifier: Modifier = Modifier, size: Dp = 40.dp) {
