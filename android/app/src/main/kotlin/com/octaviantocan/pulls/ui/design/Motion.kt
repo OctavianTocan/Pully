@@ -9,6 +9,7 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDp
@@ -30,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -110,6 +112,9 @@ object PullsMotion {
 
     /** How far a page slides in (`--distance-base`). */
     val SlideDistance = 8.dp
+
+    /** How far a finger can drag the rows of a page, and where they have faded most (rule 88). */
+    val FingerRange = 96.dp
 }
 
 /**
@@ -173,6 +178,20 @@ class PageSlide<T> internal constructor(initial: T) {
 
     /** -1 to 1: 0 at rest, and the way the rows have travelled while they leave or arrive. */
     internal val travel = Animatable(0f)
+
+    /** How far a finger has dragged the rows, in pixels: they follow it, and fade a little as they go (rule 88). */
+    var finger by mutableFloatStateOf(0f)
+        private set
+
+    /** The rows follow a drag of [delta] pixels, up to [limit] either way. */
+    fun follow(delta: Float, limit: Float) {
+        finger = (finger + delta).coerceIn(-limit, limit)
+    }
+
+    /** The finger is up: the rows return to where they belong while the page changes under them, or not. */
+    suspend fun release() {
+        animate(finger, 0f, animationSpec = tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { value, _ -> finger = value }
+    }
 }
 
 @Composable
@@ -194,11 +213,12 @@ fun <T> rememberPageSlide(target: T, order: (T) -> Int = { 0 }): PageSlide<T> {
     return slide
 }
 
-/** The rows of a [PageSlide]: fading, blurring and sliding by how far the change has gone. Reads the animation in the layer, so no frame recomposes. */
+/** The rows of a [PageSlide]: following the finger, then fading, blurring and sliding by how far the change has gone. Reads the animation in the layer, so no frame recomposes. */
 fun Modifier.pageSlide(slide: PageSlide<*>): Modifier = graphicsLayer {
     val t = slide.travel.value
-    translationX = t * PullsMotion.SlideDistance.toPx()
-    alpha = 1f - abs(t)
+    val pull = (abs(slide.finger) / PullsMotion.FingerRange.toPx()).coerceIn(0f, 1f)
+    translationX = t * PullsMotion.SlideDistance.toPx() + slide.finger
+    alpha = (1f - abs(t)) * (1f - 0.6f * pull)
     val blur = abs(t) * PullsMotion.BlurMedium.toPx()
     renderEffect = if (BlurSupported && blur > 0.5f) BlurEffect(blur, blur, TileMode.Decal) else null
 }

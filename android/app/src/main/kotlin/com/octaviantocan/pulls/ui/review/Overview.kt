@@ -753,6 +753,33 @@ private fun CardHeader(bordered: Boolean, collapsed: Boolean, onToggle: () -> Un
     }
 }
 
+/** Accounts that are tools, not people: GitHub apps ("name[bot]") and the usual review and CI bots. Their comments start folded (rule 91). */
+internal fun isBotLogin(login: String?): Boolean {
+    val name = login?.lowercase() ?: return false
+    return name.endsWith("[bot]") || name in KNOWN_BOTS
+}
+
+private val KNOWN_BOTS = setOf("coderabbitai", "github-actions", "dependabot", "renovate", "vercel", "netlify", "codecov", "sonarqubecloud", "socket-security", "copilot")
+
+/** The first line of a comment as plain words, for the dimmed line under a folded comment: no Markdown marks, links as their text. */
+internal fun commentPreview(html: String): String =
+    htmlToMarkdown(html).lineSequence()
+        .map { line ->
+            line.trim().trimStart('#', '>', '-', '*', '+', ' ')
+                .replace(Regex("""!?\[([^\]]*)]\([^)]*\)"""), "$1")
+                .replace(Regex("""\\(.)"""), "$1")
+                .replace(Regex("""[`*_~]"""), "")
+                .trim()
+        }
+        .firstOrNull { it.isNotEmpty() }.orEmpty()
+
+/** A folded comment's first line, dimmed: enough to know what it is without opening it. It is a preview, so a long one ends in an ellipsis. */
+@Composable
+private fun FoldedLine(text: String) {
+    if (text.isEmpty()) return
+    Text(text, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp), style = PullsType.sm, color = LocalPullsColors.current.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
 /** `PrConversation`: the description card, then the timeline (last 30, "Show n earlier"). */
 @Composable
 fun Conversation(overview: PrOverview, onSelectCommit: (String) -> Unit) {
@@ -771,7 +798,7 @@ fun Conversation(overview: PrOverview, onSelectCommit: (String) -> Unit) {
             if (descriptionOpen) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 if (overview.bodyHTML.isNotBlank()) PrHtml(overview.bodyHTML)
                 else Text(t("overview.noDescription"), style = PullsType.sm.copy(fontStyle = FontStyle.Italic), color = c.fade)
-            }
+            } else FoldedLine(commentPreview(overview.bodyHTML))
         }
         if (overview.timelineHidden > 0) LinkText(t("overview.moreOnGithub", "n" to overview.timelineHidden)) { uri.openUri(overview.url) }
         if (earlier > 0) LinkText(t("overview.earlier", "n" to earlier)) { showAll = true }
@@ -856,8 +883,8 @@ private fun CommentCard(item: PrTimelineItem) {
     val url = comment?.url ?: review?.url.orEmpty()
     val body = comment?.bodyHTML ?: review?.bodyHTML.orEmpty()
     val minimized = comment?.minimizedReason
-    // A comment GitHub hid starts folded up; any other starts open. Either folds and opens with a tap on its header.
-    var open by rememberSaveable(item.id, "open") { mutableStateOf(minimized == null) }
+    // A comment GitHub hid, or one a bot wrote, starts folded up; any other starts open (rule 91). Either folds and opens with a tap on its header.
+    var open by rememberSaveable(item.id, "open") { mutableStateOf(minimized == null && !isBotLogin(item.actor?.login)) }
     val collapsed = !open
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp)).animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {
         CardHeader(bordered = !collapsed, collapsed = collapsed, onToggle = { open = !open }) {
@@ -876,6 +903,7 @@ private fun CommentCard(item: PrTimelineItem) {
             if (minimized != null) Text(t("overview.timeline.hidden", "reason" to minimized), style = PullsType.xs, color = c.fade)
         }
         if (body.isNotBlank() && !collapsed) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { PrHtml(body) }
+        if (collapsed && body.isNotBlank()) FoldedLine(commentPreview(body))
         if (review != null && review.commentCount > 0) {
             Column(Modifier.fillMaxWidth().topBorder(c.border).padding(horizontal = 12.dp, vertical = 6.dp)) {
                 Row(

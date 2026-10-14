@@ -93,6 +93,7 @@ import com.octaviantocan.pulls.ui.design.PendingDot
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsFonts
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
@@ -152,13 +153,18 @@ internal fun PrOverviewScreen(
             // A swipe left or right moves between the tabs; the files of the diff are never switched this way.
             var drag by remember { mutableFloatStateOf(0f) }
             val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
-            val swipe = rememberDraggableState { delta -> drag += delta }
+            val range = with(LocalDensity.current) { PullsMotion.FingerRange.toPx() }
+            // The rows follow the finger toward a tab that exists, and stay put against the ends.
+            val swipe = rememberDraggableState { delta ->
+                drag += delta
+                if ((delta < 0 && shown < labels.lastIndex) || (delta > 0 && shown > 0)) slide.follow(delta, range)
+            }
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth().draggable(
                     swipe, Orientation.Horizontal,
                     onDragStarted = { drag = 0f },
-                    onDragStopped = { onPane(swipedTab(shown, labels.size, drag, swipeFrom)); drag = 0f },
+                    onDragStopped = { onPane(swipedTab(shown, labels.size, drag, swipeFrom)); drag = 0f; slide.release() },
                 ),
                 state = scroll,
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
