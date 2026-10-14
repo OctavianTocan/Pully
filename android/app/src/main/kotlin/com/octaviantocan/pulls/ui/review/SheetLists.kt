@@ -50,11 +50,26 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.style.TextAlign
+import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.TOUCH
+import com.octaviantocan.pulls.ui.design.SheetSearch
+import com.octaviantocan.pulls.ui.design.matchesSearch
+import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.LocalToaster
+import androidx.compose.ui.platform.LocalContext
 
 /*
- * Commits, Files and Checks are plain lists on the sheet's own paper (rule 79): no panel inside the panel, rows at
+ * Files and Checks are plain lists on the sheet's own paper (rule 79): no panel inside the panel, rows at
  * least 64dp tall with their whole title wrapping, a hairline between rows, and no instruction that names a key a phone
- * does not have. All three are built from the one row below.
+ * does not have. Both are built from the one row below.
  */
 
 private val ROW_HEIGHT = 64.dp
@@ -77,6 +92,7 @@ internal fun ListRow(
     onLongClick: (() -> Unit)? = null,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    under: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
     val inset: Dp = if (leading != null) MARK_WIDTH + 12.dp + 4.dp else 4.dp
@@ -93,6 +109,7 @@ internal fun ListRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, style = PullsType.row, color = if (selected) c.activeText else c.text)
             if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)
+            under?.invoke()
         }
         if (trailing != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), content = trailing)
     }
@@ -120,72 +137,6 @@ private fun ListHeading(text: String, count: Int, first: Boolean) {
         Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint)
     }
 }
-
-// --- Commits ---
-
-/**
- * The pull request's commits, oldest first. A tap shows only that commit and closes the sheet; a long-press extends
- * the range from the last one tapped. The page keeps a bar with the way back to all changes (rule 80).
- */
-@Composable
-internal fun CommitsSheet(session: ReviewSession, overview: PrOverview, onClose: () -> Unit) {
-    val selection = session.selection?.let { CommitSelection(it.first, it.second) }
-    PullsSheet(onClose, "Commits", expandable = true) {
-        CommitsList(overview.commits, overview.commitsHidden, overview.url, selection) { next, close ->
-            session.selectCommits(next?.pair)
-            if (close) onClose()
-        }
-    }
-}
-
-/** The rows of [CommitsSheet]. [onSelect] gets the new selection (null for all commits) and whether the sheet should close. */
-@Composable
-internal fun ColumnScope.CommitsList(commits: List<PrCommit>, hidden: Int, url: String, selection: CommitSelection?, onSelect: (CommitSelection?, Boolean) -> Unit) {
-    val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
-    val range = selection?.let { resolveCommitSelection(commits, it) }
-    var anchor by remember(commits) { mutableStateOf<Int?>(null) }
-    ListRow(
-        "All commits", first = true, selected = selection == null,
-        onClick = { onSelect(null, true) },
-        trailing = {
-            Text("${commits.size + hidden}", style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
-            if (selection == null) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
-        },
-    )
-    if (hidden > 0) ListRow("$hidden earlier commits on GitHub", onClick = { uri.openUri("$url/commits") }, trailing = { LuIcon(Lu.ext, tint = c.faint, size = 18.dp) })
-    commits.forEachIndexed { index, commit ->
-        ListRow(
-            commit.headline,
-            detail = listOfNotNull(commit.authorLogin ?: commit.authorName, prTimeAgo(commit.committedDate).takeIf { it.isNotEmpty() }).joinToString(" · ").ifEmpty { null },
-            selected = range != null && index in range,
-            onClick = { val next = pickCommit(commits, selection, anchor, index, extend = false); anchor = index; onSelect(next, true) },
-            onLongClick = { onSelect(pickCommit(commits, selection, anchor, index, extend = true), false) },
-            leading = { LuIcon(Lu.commit, tint = commitTint(commit.checks), size = 20.dp) },
-            trailing = {
-                Box(
-                    Modifier.defaultMinSize(minHeight = 44.dp).then(if (commit.url.isNotBlank()) Modifier.openLink { uri.openUri(commit.url) } else Modifier),
-                    contentAlignment = Alignment.Center,
-                ) { Text(commit.abbreviatedOid, style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.faint) }
-            },
-        )
-    }
-}
-
-@Composable
-private fun commitTint(checks: String?): Color {
-    val c = LocalPullsColors.current
-    return when (checks) {
-        "success" -> StatusColors.green(c.dark)
-        "failure" -> StatusColors.red(c.dark)
-        "pending" -> StatusColors.amber500
-        else -> c.faint
-    }
-}
-
-/** A link inside a row: it opens, and does not also pick the commit. */
-@OptIn(ExperimentalFoundationApi::class)
-private fun Modifier.openLink(onOpen: () -> Unit): Modifier = combinedClickable(role = Role.Button, onClick = cued(onClick = onOpen))
 
 // --- Checks ---
 
@@ -219,13 +170,12 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
                 leading = { CheckMark(bucket) },
                 trailing = {
                     if (check.required) Text("Required", style = PullsType.sm, color = c.muted)
-                    if (check.url != null) LuIcon(Lu.ext, tint = c.faint, size = 18.dp)
                 },
             )
         }
         first = false
     }
-    if (hidden > 0) ListRow("$hidden more on GitHub", Modifier.padding(top = 8.dp), onClick = { uri.openUri("$url/checks") }, trailing = { LuIcon(Lu.ext, tint = c.faint, size = 18.dp) })
+    if (hidden > 0) ListRow("$hidden more on GitHub", Modifier.padding(top = 8.dp), onClick = { uri.openUri("$url/checks") })
 }
 
 /** The state of one check as a mark: a red cross, an amber dot that breathes, a green tick, a grey dash. */
@@ -242,31 +192,96 @@ private fun CheckMark(bucket: String) {
 
 // --- Files ---
 
-/** The changed files in the order the page lists them, with their reviewed mark; a row opens the file's diff. */
+/**
+ * The changed files in the order the page lists them, with their reviewed mark; a row opens the file's diff. A search
+ * field narrows them by name, the sections fold like the Overview's (they share the folds), and [current], the file
+ * the diff is on, is marked and its section open.
+ */
 @Composable
-internal fun FilesSheet(session: ReviewSession, ui: DiffUi, onOpen: (String) -> Unit, onClose: () -> Unit) {
+internal fun FilesSheet(session: ReviewSession, ui: DiffUi, current: String?, onOpen: (String) -> Unit, onClose: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val total = session.files.size
     PullsSheet(onClose, "Files", expandable = true) {
+        if (total > 1) SheetSearch(query, { query = it }, "Find a file", Modifier.padding(top = 8.dp, bottom = 6.dp))
         FilesList(
-            fileSections(session, ui), state = session::reviewState,
+            fileSections(session, ui), query, current, state = session::reviewState,
+            // The section of the file the diff is on starts open, whatever the size of the change.
+            folded = { section -> ui.folds[section.label.orEmpty()] ?: (total > FOLD_ABOVE && section.files.none { it.path == current }) },
+            onFold = { section, fold -> ui.folds[section.label.orEmpty()] = fold },
             onToggle = { file, reviewed -> session.setReviewed(listOf(file.sha), reviewed) },
             onOpen = { path -> onOpen(path); onClose() },
         )
     }
 }
 
+/** What a long-press on a file row offers (rule 56): open it, mark it, copy its path, or ask about it. */
 @Composable
-internal fun ColumnScope.FilesList(sections: List<FileSection>, state: (ReviewFile) -> ReviewState, onToggle: (ReviewFile, Boolean) -> Unit, onOpen: (String) -> Unit) {
+internal fun FileActionsSheet(session: ReviewSession, file: ReviewFile, onOpen: () -> Unit, onAsk: () -> Unit, onClose: () -> Unit) {
     val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val toaster = LocalToaster.current
+    val reviewed = session.reviewState(file) == ReviewState.Reviewed
+    val name = file.path.substringAfterLast('/')
+    PullsSheet(onClose, name, expandable = false) {
+        Text(file.path, Modifier.padding(start = 4.dp, end = 4.dp, top = 2.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
+        SheetCard {
+            SheetRow("Open", { onClose(); onOpen() }, first = true, icon = { LuIcon(Lu.diff, tint = c.text, size = 20.dp) })
+            SheetRow(
+                if (reviewed) "Mark as not reviewed" else "Mark reviewed",
+                { session.setReviewed(listOf(file.sha), !reviewed); onClose() },
+                icon = { LuIcon(Lu.check, tint = c.text, size = 20.dp) },
+            )
+            SheetRow("Copy path", { copyText(context, file.path); toaster.show("Copied $name", cue = Cue.Success); onClose() }, icon = { LuIcon(Lu.copy, tint = c.text, size = 20.dp) })
+            SheetRow("Ask about this file", { onClose(); onAsk() }, icon = { LuIcon(Lu.ask, tint = c.text, size = 20.dp) })
+        }
+    }
+}
+
+/** Without a search, a list this long shows its first rows and a row that shows the rest, so a huge change opens at once. */
+private const val FIRST_ROWS = 300
+
+@Composable
+internal fun ColumnScope.FilesList(
+    sections: List<FileSection>,
+    query: String,
+    current: String?,
+    state: (ReviewFile) -> ReviewState,
+    folded: (FileSection) -> Boolean,
+    onFold: (FileSection, Boolean) -> Unit,
+    onToggle: (ReviewFile, Boolean) -> Unit,
+    onOpen: (String) -> Unit,
+) {
+    val c = LocalPullsColors.current
+    val searching = query.isNotBlank()
+    val shown = if (searching) sections.map { s -> s.copy(files = s.files.filter { matchesSearch(it.path, query) }) }.filter { it.files.isNotEmpty() } else sections
+    if (searching && shown.isEmpty()) {
+        Text("No file matches “${query.trim()}”.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
+        return
+    }
+    var all by remember(sections) { mutableStateOf(false) }
+    var budget = if (searching || all) Int.MAX_VALUE else FIRST_ROWS
     var first = true
-    sections.forEach { section ->
-        if (section.label != null) ListHeading(section.label, section.files.size, first)
-        section.files.forEachIndexed { index, file ->
+    shown.forEach { section ->
+        // A search opens every section it found something in; otherwise a heading folds its files away.
+        val closed = section.label != null && !searching && folded(section)
+        if (section.label != null) {
+            FoldHeading(section.label, section.files.size, first, closed, onClick = if (searching) null else ({ onFold(section, !closed) }))
+        }
+        first = false
+        if (closed || budget <= 0) return@forEach
+        section.files.take(budget).forEachIndexed { index, file ->
             val review = state(file)
             val reviewed = review == ReviewState.Reviewed
+            val dir = file.path.substringBeforeLast('/', "")
             ListRow(
-                file.path.substringAfterLast('/'),
-                detail = buildFileDetail(file.path.substringBeforeLast('/', ""), review),
+                AnnotatedString(file.path.substringAfterLast('/')),
+                // The folder cut from the front (rule 90), so a deep path never takes two lines.
+                under = if (dir.isEmpty() && review != ReviewState.Changed) null else ({
+                    if (dir.isNotEmpty()) PathTail(dir, PullsType.sm, c.muted)
+                    if (review == ReviewState.Changed) Text("Changed since you reviewed it", style = PullsType.sm, color = c.orange)
+                }),
                 first = index == 0,
+                selected = file.path == current,
                 onClick = { onOpen(file.path) },
                 leading = { PullsCheck(reviewed, onClick = { onToggle(file, !reviewed) }, label = "Mark ${file.path} reviewed") },
                 trailing = {
@@ -278,12 +293,33 @@ internal fun ColumnScope.FilesList(sections: List<FileSection>, state: (ReviewFi
                 },
             )
         }
-        first = false
+        budget -= section.files.size
+    }
+    if (budget < 0) {
+        ListRow("Show all ${sections.sumOf { it.files.size }} files", onClick = { all = true }, trailing = { LuIcon(Lu.chevd, tint = c.faint, size = 18.dp) })
     }
 }
 
-private fun buildFileDetail(dir: String, state: ReviewState): String? = when {
-    state == ReviewState.Changed -> if (dir.isEmpty()) "Changed since you reviewed it" else "$dir · changed since you reviewed it"
-    dir.isEmpty() -> null
-    else -> dir
+/**
+ * A section's heading that folds it: its name, how many files, and a chevron that points down while it is open. It
+ * is quiet like every heading (rule 75); the whole line is the target.
+ */
+@Composable
+internal fun FoldHeading(label: String, count: Int, first: Boolean, folded: Boolean, modifier: Modifier = Modifier, onClick: (() -> Unit)?) {
+    val c = LocalPullsColors.current
+    val turn by animateFloatAsState(if (folded) -90f else 0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "fold")
+    Row(
+        modifier.fillMaxWidth().padding(top = if (first) 4.dp else 12.dp).clip(RoundedCornerShape(PullsRadius.md))
+            .then(if (onClick != null) Modifier.cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (folded) "Show $label" else "Hide $label", onClick = onClick) else Modifier)
+            .heightIn(min = TOUCH).padding(start = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(label, Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
+            Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint)
+        }
+        if (onClick != null) LuIcon(Lu.chevd, Modifier.rotate(turn), tint = c.faint, size = 18.dp)
+    }
 }
+

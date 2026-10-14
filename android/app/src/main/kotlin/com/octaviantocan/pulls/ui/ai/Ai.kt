@@ -31,14 +31,18 @@ fun CritiquePanel(session: ReviewSession, modifier: Modifier = Modifier) = Criti
 @Composable
 fun SharedAnalysisBanner(session: ReviewSession, modifier: Modifier = Modifier) = SharedAnalysisBannerImpl(session, modifier)
 
+/** Something the person asks about, attached to the question: a file note, or a file. [label] names it, [text] is what it says. */
+data class AskReference(val label: String, val text: String)
+
 /**
  * The prototype's Ask sheet (the old `ChatWidget`, opened from the Ask button instead of a floating one):
  * a full-height chat about this pull request or its tour. [suggestions] are the starter chips of an empty
- * chat and [initial] is a question to send as it opens.
+ * chat and [initial] is a question to send as it opens. [reference] is attached to the next question, shown over the
+ * field until it is sent or removed; nothing is sent until the person writes the question.
  */
 @Composable
-fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, onDismiss: () -> Unit) =
-    AskSheetImpl(session, title, suggestions, initial, onDismiss)
+fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference? = null, onDismiss: () -> Unit) =
+    AskSheetImpl(session, title, suggestions, initial, reference, onDismiss)
 
 /** `AskThread`: a saved question thread about some lines, shown under its last line. */
 @Composable

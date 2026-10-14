@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,15 +47,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.swipedTab
 import com.octaviantocan.pulls.data.ReviewFile
+import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.BriefSection
 import com.octaviantocan.pulls.ui.ai.SharedAnalysisBanner
@@ -73,9 +72,9 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsCheck
-import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
@@ -86,11 +85,12 @@ import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
+import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
 
 /**
  * The prototype's PR overview: a floating back button and section capsule over the page, the title,
- * who and when, the branches, a four-cell summary line, Summary / Description (/ Conversation) tabs,
+ * who and when, the branches, a four-cell summary line, Summary / Description (/ Commits / Conversation) tabs,
  * the AI's status and summary, the file list with its notes, and a bottom bar with Ask, More and the
  * one action that moves the review forward.
  */
@@ -121,16 +121,21 @@ internal fun PrOverviewScreen(
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
-                SectionCapsule(selected = 0, live = tourRunning, onOverview = {}, onChanges = { onDiff(null) }, onTour = onTour, onMore = { onSheet("more") })
+                SectionCapsule(selected = 0, live = tourRunning, onOverview = {}, onChanges = { onDiff(null) }, onTour = onTour, onCorner = { onSheet("more") })
             }
             // Narrowed to a commit: the way back stays on screen while the page scrolls (rule 80).
             CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+            // The commits have a tab of their own beside the conversation (rule 91); a label never carries a count, so four fit a phone.
             val labels = buildList {
                 add("Summary")
                 add("Description")
-                if (data != null) add("Conversation${data.overview.conversationCount.takeIf { it > 0 }?.let { " $it" }.orEmpty()}")
+                if (data != null) {
+                    add("Commits")
+                    add("Conversation")
+                }
             }
             val shown = pane.coerceAtMost(labels.lastIndex)
+            val commitAnchor = remember { mutableStateOf<Int?>(null) }
             val slide = rememberPageSlide(shown, order = { it })
             // A swipe left or right moves between the tabs; the files of the diff are never switched this way.
             var drag by remember { mutableFloatStateOf(0f) }
@@ -166,7 +171,7 @@ internal fun PrOverviewScreen(
                         SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
                         val overviewError = session.overviewError
                         if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
-                        StatsLine(session, data, onSheet)
+                        StatsLine(session, data, onSheet, onCommits = { onPane(COMMITS_TAB) })
                         UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true)
                     }
                 }
@@ -175,11 +180,12 @@ internal fun PrOverviewScreen(
                 when (slide.shown.coerceAtMost(labels.lastIndex)) {
                     0 -> {
                         item(key = "summary") { Box(rows) { SummaryPane(session, onCite, onSheet) } }
-                        filesItems(session, ui, top, onDiff, rows)
+                        filesItems(session, ui, top, onDiff, onSheet, rows)
                     }
                     1 -> item(key = "description") { Box(rows) { DescriptionPane(session, data) } }
+                    2 -> data?.let { commitItems(session, it.overview, commitAnchor, rows) }
                     else -> item(key = "conversation") {
-                        data?.let { Box(rows.padding(top = 14.dp)) { Conversation(it.overview) { oid -> session.selectCommits(selectCommit(oid).pair) } } }
+                        data?.let { Box(rows.padding(top = 14.dp)) { Conversation(it.overview) } }
                     }
                 }
             }
@@ -191,6 +197,9 @@ internal fun PrOverviewScreen(
         })
     }
 }
+
+/** Where the Commits tab sits among the tabs, for the Commits cell that opens it. */
+private const val COMMITS_TAB = 2
 
 /** The conversation, checks and merge state did not load: say why, and offer to try again. */
 @Composable
@@ -205,13 +214,24 @@ private fun OverviewError(message: String, onRetry: () -> Unit) {
     }
 }
 
+/** What the capsule's one corner slot holds: ⋯ on the Overview and the Tour, Aa on the Diff (rule 93). */
+internal enum class CapsuleCorner(val label: String) { More("More"), TextTools("Text and tools") }
+
 /**
- * `.cap` with the page icons: Overview, Changes, Tour (a live dot while it is written), and More. The
- * Overview and the Tour wear it alike, so a page of the pull request never loses its way home.
- * [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour.
+ * `.cap` with the page icons: Overview, Changes, Tour (a live dot while it is written), and a corner slot. The
+ * three pages wear it alike, so a page of the pull request never loses its way home and the capsule never changes
+ * shape. [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour; [corner] is what [onCorner] opens.
  */
 @Composable
-internal fun SectionCapsule(selected: Int, live: Boolean, onOverview: () -> Unit, onChanges: () -> Unit, onTour: () -> Unit, onMore: () -> Unit) {
+internal fun SectionCapsule(
+    selected: Int,
+    live: Boolean,
+    onOverview: () -> Unit,
+    onChanges: () -> Unit,
+    onTour: () -> Unit,
+    onCorner: () -> Unit,
+    corner: CapsuleCorner = CapsuleCorner.More,
+) {
     val c = LocalPullsColors.current
     Row(
         Modifier.width(212.dp).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(2.dp),
@@ -224,7 +244,12 @@ internal fun SectionCapsule(selected: Int, live: Boolean, onOverview: () -> Unit
             if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
         }
         Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).width(1.dp).fillMaxHeight().background(c.border))
-        Segment("More", selected = false, onClick = onMore) { LuIcon(Lu.more, tint = c.text) }
+        Segment(corner.label, selected = false, onClick = onCorner) {
+            when (corner) {
+                CapsuleCorner.More -> LuIcon(Lu.more, tint = c.text)
+                CapsuleCorner.TextTools -> Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            }
+        }
     }
 }
 
@@ -241,7 +266,7 @@ private fun RowScope.Segment(label: String, selected: Boolean, onClick: (() -> U
 
 /** `.cs`: Changes, Commits, Files and Checks as four label-over-value cells under a hairline. */
 @Composable
-private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (String) -> Unit) {
+private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (String) -> Unit, onCommits: () -> Unit) {
     val c = LocalPullsColors.current
     val overview = data?.overview
     val adds = session.files.sumOf { it.additions }
@@ -255,7 +280,7 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
             Text("+${compactCount(adds)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.green(c.dark), maxLines = 1)
             Text("−${compactCount(dels)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.red(c.dark), maxLines = 1)
         }
-        Cell("Commits", Modifier.width(76.dp), onClick = if (overview != null && commits > 0) ({ onSheet("commits") }) else null) {
+        Cell("Commits", Modifier.width(76.dp), onClick = if (overview != null && commits > 0) onCommits else null) {
             Text("$commits", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
         Cell("Files", Modifier.width(52.dp), onClick = if (session.files.isNotEmpty()) ({ onSheet("files") }) else null) {
@@ -335,7 +360,7 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
     // The first row has nothing above it; every later one has a hairline.
     fun line(index: Int): Modifier = if (index == 0) Modifier else Modifier.hairlineTop(c.borderMute)
     val tail = shown.size + if (findings.isNotEmpty()) 1 else 0
-    val stop = guardedStop(reviewing) { critiqueTask?.let { session.cancelTask(it.id) } }
+    val stop = guardedStop(session, listOf("critique"), reviewing) { critiqueTask?.let { session.cancelTask(it.id) } }
     Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
         Text("What needs a human", Modifier.padding(bottom = 2.dp), style = PullsType.xl, color = c.text)
         shown.forEachIndexed { index, finding ->
@@ -385,12 +410,17 @@ private fun Modifier.hairlineTop(color: Color): Modifier = drawBehind { drawRect
 
 // --- Files ---
 
-/** The heading and one list row per file, grouped under the section headings when there are any. */
-private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDiff: (String?) -> Unit, rows: Modifier) {
+/**
+ * The heading and one list row per file, grouped under the section headings when there are any. A heading folds its
+ * files away; above [FOLD_ABOVE] files every section starts folded, so a pull request of thousands of files opens as
+ * a short list of headings, and only the rows on screen are ever composed.
+ */
+private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDiff: (String?) -> Unit, onSheet: (String) -> Unit, rows: Modifier) {
     val sections = fileSections(session, ui)
     val analysis = session.saved?.analysis
     val notes = analysis?.files?.associate { it.path to it.summary }.orEmpty()
     val analyzing = session.taskFor("analyze")?.running == true
+    val total = session.files.size
     item(key = "files-head") {
         val c = LocalPullsColors.current
         val reviewed = session.files.count { it.sha in session.reviewed }
@@ -400,63 +430,73 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
         ) {
             Text("Files", style = PullsType.xl, color = c.text)
             Text(
-                "$reviewed of ${session.files.size} reviewed",
+                "$reviewed of $total reviewed",
                 Modifier.clip(RoundedCornerShape(6.dp)).cueClickable(role = Role.Button, onClickLabel = "Review progress") { top.progressOpen = true },
                 style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted,
             )
         }
     }
     sections.forEachIndexed { index, section ->
-        if (section.label != null) item(key = "section:$index") {
-            val c = LocalPullsColors.current
-            Text(section.label, rows.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
+        val label = section.label
+        val folded = label != null && ui.isFolded(label, total)
+        if (label != null) item(key = "section:$index") {
+            FoldHeading(label, section.files.size, first = index == 0, folded = folded, modifier = rows.padding(top = 4.dp)) { ui.folds[label] = !folded }
         }
-        itemsIndexed(section.files, key = { _, file -> "file:${file.path}" }) { index, file ->
+        if (!folded) itemsIndexed(section.files, key = { _, file -> "file:${file.path}" }) { index, file ->
             val state = session.reviewState(file)
             val note = notes[file.path]?.takeIf { it.isNotBlank() }
-            // The first row of a list has no line above it, so the heading over it has none under it (rule 75).
-            FileRow(
-                file, state, note, analyzing && note == null, rows, ruled = index > 0,
-                onOpen = { onDiff(file.path) },
-                onToggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) },
-            )
+            val toggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) }
+            // The same gestures as the Inbox rows (rule 56): right marks it reviewed, left opens it, a long-press offers the rest.
+            SwipeRow(
+                file.path, onOpen = toggle, onArchive = { onDiff(file.path) }, archived = false, modifier = rows,
+                startLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", startIcon = Lu.check,
+                endLabel = "Open", endIcon = Lu.arrow,
+                onClick = { onDiff(file.path) }, onLongClick = { onSheet(FILE_SHEET + file.path) },
+            ) {
+                // The first row of a list has no line above it, so the heading over it has none under it (rule 75).
+                FileRow(file, state, note, analyzing && note == null, ruled = index > 0, onToggle = toggle)
+            }
         }
     }
 }
 
-/** `.fr`: a checkbox, the path with its folder faded, `+n −n`, a chevron, and the AI's note under the name. */
+/**
+ * `.flr`: the checkbox on the first line, the file name, its folder cut from the front under it (a tap shows the whole
+ * path), `+n −n` on the right, and the AI's note in two lines at most.
+ */
 @Composable
-private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, modifier: Modifier, ruled: Boolean, onOpen: () -> Unit, onToggle: () -> Unit) {
+private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit) {
     val c = LocalPullsColors.current
     val reviewed = state == ReviewState.Reviewed
-    val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
-    val base = file.path.substringAfterLast('/')
+    val dir = file.path.substringBeforeLast('/', "")
+    var whole by remember(file.path) { mutableStateOf(false) }
     Row(
-        modifier.fillMaxWidth().then(if (ruled) Modifier.hairlineTop(c.borderMute) else Modifier).cueClickable(role = Role.Button, onClickLabel = file.path, onClick = onOpen).padding(vertical = 11.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        Modifier.fillMaxWidth().then(if (ruled) Modifier.hairlineTop(c.borderMute) else Modifier).padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         PullsCheck(reviewed, onClick = onToggle, label = "Mark ${file.path} reviewed")
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(color = c.faint, fontWeight = FontWeight.Normal)) { append(dir) }
-                        append(base)
-                    },
-                    Modifier.weight(1f),
-                    style = PullsType.sm.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium, textDecoration = if (reviewed) TextDecoration.LineThrough else null),
-                    color = if (reviewed) c.muted else c.text,
-                )
-                val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
-                Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1, softWrap = false)
-                Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1, softWrap = false)
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            Text(
+                file.path.substringAfterLast('/'),
+                style = PullsType.base.copy(fontWeight = FontWeight.SemiBold),
+                color = if (reviewed) c.muted else c.text,
+            )
+            if (dir.isNotEmpty()) {
+                val pathStyle = PullsType.sm.copy(fontFamily = PullsType.mono)
+                val pathTap = Modifier.clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (whole) "Shorten the path" else "Show the whole path") { whole = !whole }
+                if (whole) Text("$dir/", pathTap, style = pathStyle, color = c.faint)
+                else PathTail(dir, pathStyle, c.faint, pathTap)
             }
             when {
                 state == ReviewState.Changed -> Text("Changed since you reviewed it", style = PullsType.sm, color = c.orange)
-                note != null -> Text(note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.4f), color = c.muted)
+                note != null -> Text(note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.4f), color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 noteLoading -> Skeleton(Modifier.fillMaxWidth(0.78f).padding(vertical = 4.dp))
             }
+        }
+        Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
+            Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1, softWrap = false)
+            Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1, softWrap = false)
         }
     }
 }
@@ -507,7 +547,8 @@ private fun BottomBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            Modifier.height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(horizontal = 6.dp),
+            // The ⋯ gets more room on its right than Ask has on its left: the dots sit in the middle of a 44dp target.
+            Modifier.height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(start = 6.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(

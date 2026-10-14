@@ -59,4 +59,27 @@ class ReviewFlowTest {
     fun aSingleTabHasNothingToSwipeTo() {
         assertEquals(0, swipedTab(0, 1, -500f, 80f))
     }
+
+    @Test
+    fun aDragOnTheDiffGoesToTheNextOrPreviousFile() {
+        assertEquals(3, swipedFile(2, 5, -120f, 80f))
+        assertEquals(1, swipedFile(2, 5, 120f, 80f))
+    }
+
+    @Test
+    fun pastTheLastFileTheDiffContinuesToTheNextView() {
+        assertEquals(5, swipedFile(4, 5, -120f, 80f))
+    }
+
+    @Test
+    fun beforeTheFirstFileTheDiffGoesBackToThePreviousView() {
+        assertEquals(-1, swipedFile(0, 5, 120f, 80f))
+    }
+
+    @Test
+    fun aShortDragOnTheDiffStaysOnTheFile() {
+        assertEquals(2, swipedFile(2, 5, 79f, 80f))
+        assertEquals(2, swipedFile(2, 5, -79f, 80f))
+        assertEquals(0, swipedFile(0, 5, 79f, 80f))
+    }
 }

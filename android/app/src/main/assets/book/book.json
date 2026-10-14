@@ -96,6 +96,12 @@
       "component": "sheet-field"
     },
     {
+      "id": "components/sheet-search",
+      "title": "Sheet search",
+      "group": "Components",
+      "component": "sheet-search"
+    },
+    {
       "id": "components/sheet",
       "title": "Sheet",
       "group": "Components",
@@ -406,6 +412,26 @@
         {
           "id": "secret",
           "title": "Secret"
+        }
+      ]
+    },
+    "sheet-search": {
+      "composable": "SheetSearch",
+      "summary": "The search field at the top of a sheet's list: white like the cards under it, their 16dp corners and soft shadow, a magnifier, and ✕ once something is typed.",
+      "usage": [
+        "Put it first on a sheet whose list can be long (Repositories, Files), 12dp above the first card.",
+        "It filters as you type; the list under it shows what matches, and a line says when nothing does.",
+        "It never floats: a field over the page is the bottom search pill, not this."
+      ],
+      "rules": [
+        70,
+        74
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
         }
       ]
     },

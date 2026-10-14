@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.directionOf
@@ -65,12 +66,13 @@ fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: M
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         LuIcon(Lu.commit, tint = c.muted, size = 20.dp)
-        // Whole words, never cut (rule 2): the headline wraps under the count.
+        // The headline wraps under the count to two whole lines at most, so the banner stays small over the diff; the
+        // Commits tab has it in full.
         Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             when {
                 range != null && range.first == range.last -> {
                     Text("Viewing commit ${range.first + 1 + offset} of $total", style = PullsType.sm, color = c.text)
-                    commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted) }
+                    commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 }
                 range != null -> Text(t("overview.selection.viewingRange", "start" to range.first + 1 + offset, "end" to range.last + 1 + offset, "total" to total), style = PullsType.sm, color = c.text)
                 selection.from == selection.to -> Text(t("overview.selection.viewingSha", "sha" to selection.from.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)

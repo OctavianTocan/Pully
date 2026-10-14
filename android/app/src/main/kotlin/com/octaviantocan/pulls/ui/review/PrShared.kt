@@ -63,12 +63,14 @@ internal data class FileSection(val label: String?, val files: List<ReviewFile>)
 /**
  * The overview's file list. Files follow the groups (AI groups when the analysis exists, the rule-based
  * ones otherwise). Group headings only appear when they help: several groups and either an AI analysis
- * or a long list, so a four-file pull request stays a plain list.
+ * or a long list, so a four-file pull request stays a plain list. Past [FOLD_ABOVE] files even one group
+ * has its heading, so the list can start folded (rule 101).
  */
 internal fun fileSections(session: ReviewSession, ui: DiffUi): List<FileSection> {
     val views = groupViews(session, ui)
     val ordered = views.flatMap { it.allFiles }.distinctBy { it.path }.ifEmpty { session.files }
-    val headed = views.size > 1 && (session.files.size > 6 || (session.analyzeMode == "ai" && session.hasAiResult))
+    val headed = views.isNotEmpty() && (session.files.size > FOLD_ABOVE ||
+        views.size > 1 && (session.files.size > 6 || (session.analyzeMode == "ai" && session.hasAiResult)))
     if (!headed) return listOf(FileSection(null, ordered))
     val seen = HashSet<String>()
     val sections = mutableListOf<FileSection>()
@@ -82,6 +84,15 @@ internal fun fileSections(session: ReviewSession, ui: DiffUi): List<FileSection>
     }
     return sections
 }
+
+/** Above this many files a pull request's file sections start folded, so a huge one opens as a short list of headings. */
+internal const val FOLD_ABOVE = 80
+
+/** The sheet route for a file's actions: this, then the file's path. */
+internal const val FILE_SHEET = "file:"
+
+/** Is the section headed [label] folded? Only what the reader chose, or the default for a pull request of [total] files. */
+internal fun DiffUi.isFolded(label: String, total: Int): Boolean = folds[label] ?: (total > FOLD_ABOVE)
 
 /** Puts [text] on the clipboard. Android 13+ shows its own confirmation; the app's toast covers older ones. */
 internal fun copyText(context: Context, text: String) {

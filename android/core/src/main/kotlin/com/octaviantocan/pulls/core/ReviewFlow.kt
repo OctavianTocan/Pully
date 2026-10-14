@@ -19,3 +19,15 @@ fun swipedTab(current: Int, count: Int, dx: Float, threshold: Float): Int = when
     dx < 0f -> (current + 1).coerceAtMost(count - 1)
     else -> (current - 1).coerceAtLeast(0)
 }
+
+/**
+ * Where a horizontal drag of [dx] pixels takes the diff from file [current] of [count] (rule 93): to the left past
+ * [threshold] is the next file and to the right the one before. Left of the last file it returns [count] and right of
+ * the first it returns -1, which are the views either side of the files (the Tour and the Overview). A shorter drag
+ * returns [current].
+ */
+fun swipedFile(current: Int, count: Int, dx: Float, threshold: Float): Int = when {
+    dx > -threshold && dx < threshold -> current
+    dx < 0f -> if (current + 1 >= count) count else current + 1
+    else -> if (current - 1 < 0) -1 else current - 1
+}

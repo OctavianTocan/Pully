@@ -191,6 +191,11 @@ describe('bans', () => {
     assert.deepEqual(Object.keys(found).sort(), ['material-icons', 'share-out', 'speech', 'stat-tile'])
   })
 
+  it('bans link-out icons by glyph and by Phosphor name, but not the GitHub mark', () => {
+    const found = scan('LuIcon(Lu.ext)\nPhIcon("arrow-square-out-bold")\nIcon(Icons.Filled.OpenInNew, null)\nDrawableIcon(R.drawable.ic_carbon_logo_github)\nval next = Lu.extend')
+    assert.deepEqual(found['external-link-icon'], { 'ui/x/Screen.kt': 3 })
+  })
+
   it('counts calls to frozen kits outside the file that defines them, not their declarations', () => {
     const found = scan('ActionButton("a") {}\nval x = MyBadge(1)\nPhIcon("check")\nLoading("wait")\nfun Card() {}')
     assert.deepEqual(found, { 'legacy-icons': { 'ui/x/Screen.kt': 1 }, 'legacy-kit': { 'ui/x/Screen.kt': 1 }, 'waiting': { 'ui/x/Screen.kt': 1 } })
@@ -228,7 +233,7 @@ describe('bans', () => {
   })
 
   it('declares the rules DESIGN.md lists for it', () => {
-    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73])
+    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73, 100])
   })
 })
 

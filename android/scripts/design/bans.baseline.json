@@ -3,7 +3,7 @@
     "ui/ai/AiParts.kt": 1,
     "ui/design/Markdown.kt": 1,
     "ui/review/Header.kt": 1,
-    "ui/review/Overview.kt": 3
+    "ui/review/Overview.kt": 2
   },
   "legacy-kit": {
     "ui/home/HomeScreen.kt": 2,

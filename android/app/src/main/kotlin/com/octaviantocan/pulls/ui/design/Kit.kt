@@ -18,6 +18,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -82,6 +88,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalFocusManager
 import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
@@ -265,29 +272,78 @@ fun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Mo
 /**
  * `.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches
  * halfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.
+ * [spread] lays the labels across the whole width, the first at the start and the last at the end with even gaps
+ * between. When they do not fit with 16dp between them the labels step down to body size (15sp), and only when they
+ * still do not fit does the row keep a 24dp gap and scroll sideways; a label is never cut.
  */
 @Composable
 fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false) {
     val c = LocalPullsColors.current
-    Row(
-        modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },
-    ) {
-        labels.forEachIndexed { index, label ->
-            val on = index == selected
-            val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = "tab-ink")
-            Box(
-                Modifier.then(if (spread) Modifier.weight(1f) else Modifier).height(48.dp).cueClickable(direction = directionOf(selected, index), role = Role.Tab, onClickLabel = label) { onSelect(index) }
-                    .padding(start = if (index == 0 || spread) 0.dp else 12.dp, end = if (spread) 0.dp else 12.dp),
-                contentAlignment = if (spread) Alignment.CenterStart else Alignment.Center,
-            ) {
-                Box(
-                    Modifier.fillMaxHeight().drawBehind {
-                        if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))
-                    },
-                    contentAlignment = Alignment.Center,
-                ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }
+    val hairline = Modifier.drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
+    if (!spread) {
+        Row(modifier.fillMaxWidth().then(hairline)) {
+            labels.forEachIndexed { index, label ->
+                UnderlineTab(label, index, selected, onSelect, Modifier.padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp), Alignment.Center)
             }
         }
+        return
+    }
+    BoxWithConstraints(modifier.fillMaxWidth().then(hairline)) {
+        val viewport = constraints.maxWidth
+        val last = labels.lastIndex
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        val style = remember(labels, viewport, density) {
+            val base = PullsType.base.copy(fontWeight = FontWeight.Medium)
+            val room = viewport - with(density) { 16.dp.roundToPx() } * last
+            if (labels.sumOf { measurer.measure(it, base, softWrap = false, maxLines = 1).size.width } <= room) base else PullsType.sm.copy(fontWeight = FontWeight.Medium)
+        }
+        Layout(
+            content = {
+                labels.forEachIndexed { index, label ->
+                    val align = when (index) {
+                        0 -> Alignment.CenterStart
+                        last -> Alignment.CenterEnd
+                        else -> Alignment.Center
+                    }
+                    UnderlineTab(label, index, selected, onSelect, Modifier, align, style)
+                }
+            },
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) { measurables, constraints ->
+            val height = 48.dp.roundToPx()
+            val natural = measurables.map { it.maxIntrinsicWidth(height) }
+            val fits = last == 0 || natural.sum() + 16.dp.roundToPx() * last <= viewport
+            val gap = if (fits && last > 0) (viewport - natural.sum()) / last else 24.dp.roundToPx()
+            // Every tab reaches halfway into the gaps beside it, so the whole row is a target.
+            val placeables = measurables.mapIndexed { index, measurable ->
+                val reach = (if (index > 0) gap / 2 else 0) + (if (index < last) gap - gap / 2 else 0)
+                measurable.measure(Constraints.fixed(natural[index] + reach, height))
+            }
+            val width = if (fits) maxOf(viewport, placeables.sumOf { it.width }) else placeables.sumOf { it.width }
+            layout(width.coerceAtLeast(constraints.minWidth), height) {
+                var x = 0
+                placeables.forEach { it.place(x, 0); x += it.width }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UnderlineTab(label: String, index: Int, selected: Int, onSelect: (Int) -> Unit, padding: Modifier, align: Alignment, style: TextStyle = PullsType.base.copy(fontWeight = FontWeight.Medium)) {
+    val c = LocalPullsColors.current
+    val on = index == selected
+    val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = "tab-ink")
+    Box(
+        Modifier.height(48.dp).cueClickable(direction = directionOf(selected, index), role = Role.Tab, onClickLabel = label) { onSelect(index) }.then(padding),
+        contentAlignment = align,
+    ) {
+        Box(
+            Modifier.fillMaxHeight().drawBehind {
+                if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))
+            },
+            contentAlignment = Alignment.Center,
+        ) { Text(label, style = style, color = color, maxLines = 1, softWrap = false) }
     }
 }
 
@@ -421,7 +477,7 @@ fun SheetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
 
 /**
  * `.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it
- * starts after the icon column. [first] drops that hairline.
+ * starts after the icon column. [first] drops that hairline. [detail] is a second, muted line under the label.
  */
 @Composable
 fun SheetRow(
@@ -434,6 +490,7 @@ fun SheetRow(
     /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */
     iconless: Boolean = false,
     icon: (@Composable () -> Unit)? = null,
+    detail: String? = null,
     value: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
@@ -449,7 +506,10 @@ fun SheetRow(
     ) {
         if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }
         // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.
-        Text(label, Modifier.weight(1f).padding(vertical = 8.dp), style = PullsType.row, color = if (danger) c.error else c.text)
+        Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = PullsType.row, color = if (danger) c.error else c.text)
+            if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)
+        }
         if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)
     }
 }
@@ -504,6 +564,46 @@ fun SheetField(
             )
         }
         trailing?.invoke()
+    }
+}
+
+/** Does [text] match what was typed in a [SheetSearch]? Every word of [query] is somewhere in it, in any order and case (rule 101). */
+fun matchesSearch(text: String, query: String): Boolean =
+    query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.all { text.lowercase().contains(it) }
+
+/**
+ * `.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,
+ * white with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over
+ * it: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.
+ */
+@Composable
+fun SheetSearch(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+    val c = LocalPullsColors.current
+    val focus = LocalFocusManager.current
+    val shape = RoundedCornerShape(PullsRadius.card)
+    Row(
+        modifier.fillMaxWidth().height(48.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 14.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        LuIcon(Lu.search, tint = c.muted, size = 20.dp)
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = PullsType.row.copy(color = c.text),
+            cursorBrush = SolidColor(c.accentTeal),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
+            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.muted, maxLines = 1)
+                    inner()
+                }
+            },
+        )
+        if (value.isNotEmpty()) FloatIcon(Lu.close, "Clear", { onChange("") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
     }
 }
 

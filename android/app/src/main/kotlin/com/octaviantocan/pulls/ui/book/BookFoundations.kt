@@ -244,7 +244,6 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "check" to Lu.check,
     "tick" to Lu.tick,
     "fail" to Lu.fail,
-    "ext" to Lu.ext,
     "redo" to Lu.redo,
     "merge" to Lu.merge,
     "req" to Lu.req,

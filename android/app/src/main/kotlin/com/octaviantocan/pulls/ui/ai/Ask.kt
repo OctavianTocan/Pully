@@ -29,6 +29,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.data.AskThread
 import com.octaviantocan.pulls.ui.design.FloatButton
@@ -43,6 +44,7 @@ import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.home.DrawableIcon
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -101,7 +103,9 @@ internal fun SelectionActionsImpl(session: ReviewSession, path: String, side: St
             Text(label, Modifier.weight(1f), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
             if (available && !composing) PillButton(t("ask.action"), ::askAi)
             FloatIcon(if (copied == "label") Lu.check else Lu.copy, if (copied == "label") t("ask.copied") else t("ask.copyLocation"), { copyText(context, label); copied = "label" }, flat = true, size = 40.dp, tint = c.muted)
-            if (link != null) FloatIcon(if (copied == "link") Lu.check else Lu.ext, if (copied == "link") t("ask.copied") else t("ask.copyLink"), { copyText(context, link); copied = "link" }, flat = true, size = 40.dp, tint = c.muted)
+            if (link != null) FloatButton({ copyText(context, link); copied = "link" }, if (copied == "link") t("ask.copied") else t("ask.copyLink"), size = 40.dp, flat = true) {
+                if (copied == "link") LuIcon(Lu.check, tint = c.muted, size = 22.dp) else DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.muted, size = 20.dp)
+            }
             FloatIcon(Lu.close, t("common.close"), onDone, size = 40.dp)
         }
         if (composing) {

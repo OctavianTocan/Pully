@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.review
 
-import android.os.SystemClock
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -122,13 +121,14 @@ private fun TryAgain(label: String, onClick: () -> Unit) {
 
 /**
  * [stop] for an orb that is the Stop button: null while nothing runs, and while something does it ignores a tap in the
- * first moments, so the tap that started the work can never also stop it (rule 63).
+ * first moments after [session] started a task of one of [kinds], the work this orb stops, so the tap that started the
+ * work can never also stop it (rule 63). The moments count from that start itself, so coming back to work that is
+ * already running stops it at the first tap, and starting some other task does not hold this Stop back.
  */
 @Composable
-internal fun guardedStop(running: Boolean, stop: () -> Unit): (() -> Unit)? {
-    val since = remember(running) { SystemClock.elapsedRealtime() }
+internal fun guardedStop(session: ReviewSession, kinds: List<String>, running: Boolean, stop: () -> Unit): (() -> Unit)? {
     val latest by rememberUpdatedState(stop)
-    return if (running) ({ if (SystemClock.elapsedRealtime() - since > STOP_GRACE_MS) latest() }) else null
+    return if (running) ({ if ((System.nanoTime() - session.lastStart(kinds)) / 1_000_000 > STOP_GRACE_MS) latest() }) else null
 }
 
 /** What the card says under its title while something runs: the latest step of the work log, or that the engine is starting. */
@@ -175,8 +175,10 @@ internal fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     val failed = analyzeTask?.status == "failed"
     val stopped = analyzeTask?.status == "cancelled"
     // A tour or brief that failed after a good analysis does not undo it; it is run again on its own.
-    val partial = if (card.working || failed || stopped) null else listOf("The tour" to tourTask, "The brief" to briefTask).firstNotNullOfOrNull { (name, found) -> found?.takeIf { it.status == "failed" }?.let { name to it } }
-    val stop = guardedStop(card.working) { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } }
+    // When both failed, one try-again runs both, and the line names both.
+    val missed = if (card.working || failed || stopped) emptyList() else listOf("The tour" to tourTask, "The brief" to briefTask).mapNotNull { (name, found) -> found?.takeIf { it.status == "failed" }?.let { name to it } }
+    val partial = missed.firstOrNull()?.let { (name, task) -> (if (missed.size > 1) "The tour and the brief" else name) to task }
+    val stop = guardedStop(session, listOf("analyze", "tour", "brief"), card.working) { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } }
 
     AnalyzeStatusCard(
         orb = when {
@@ -189,7 +191,7 @@ internal fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
         detail = when {
             live != null -> liveLine(live, engine)
             failed -> analyzeTask?.error ?: "The analysis did not finish."
-            partial != null -> partial.second.error ?: "${partial.first} did not finish."
+            partial != null -> partial.second.error?.takeIf { missed.size == 1 } ?: "${partial.first} did not finish."
             else -> null
         },
         problem = live == null && (failed || partial != null),
@@ -199,7 +201,9 @@ internal fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     ) {
         when {
             failed || stopped -> TryAgain("Try again") { session.runAnalyze(context) }
-            partial != null -> TryAgain("Try ${partial.first.lowercase()} again") { if (partial.second.kind == "tour") startTour(session) else startBrief(session) }
+            partial != null -> TryAgain("Try ${partial.first.lowercase()} again") {
+                missed.forEach { (_, task) -> if (task.kind == "tour") startTour(session) else startBrief(session) }
+            }
         }
     }
 }

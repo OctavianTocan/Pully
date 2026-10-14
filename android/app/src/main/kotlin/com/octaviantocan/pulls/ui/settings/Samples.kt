@@ -15,11 +15,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,14 +42,15 @@ import com.octaviantocan.pulls.ui.design.PullsType
 
 /**
  * One diff layout drawn small, with its name under it: unified is one column of lines, split is two
- * side by side. Tap it to choose it; the chosen one has a teal outline.
+ * side by side. Tap it to choose it; the chosen one has a teal outline. A layout the screen cannot show
+ * ([enabled] off) is dimmed and its [label] says what it needs.
  */
 @Composable
-internal fun LayoutChoice(split: Boolean, selected: Boolean, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun LayoutChoice(split: Boolean, selected: Boolean, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(PullsRadius.xl)
     Column(
-        modifier.clip(shape).cueClickable(role = Role.RadioButton, onClickLabel = label, onClick = onClick),
+        modifier.alpha(if (enabled) 1f else 0.5f).clip(shape).cueClickable(enabled = enabled, role = Role.RadioButton, onClickLabel = label, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -85,11 +93,12 @@ private fun MiniLine(kind: Char?, fraction: Float) {
 }
 
 /**
- * Two lines of code in the chosen font at the chosen size, set the way the diff sets them, so the Code size
- * and Code font choices are seen at once.
+ * Three lines of code in the chosen font at the chosen size, set the way the diff sets them, so the Code size,
+ * Code font and Wrap long lines choices are all seen at once. The last line is longer than the card: [wrap] on
+ * breaks it onto a second line, off lets it run past the edge and fades it there.
  */
 @Composable
-internal fun CodeSample(zoom: Float, modifier: Modifier = Modifier) {
+internal fun CodeSample(zoom: Float, modifier: Modifier = Modifier, wrap: Boolean = false) {
     val c = LocalPullsColors.current
     val text = buildAnnotatedString {
         withStyle(SpanStyle(color = c.activeText)) { append("const") }
@@ -99,11 +108,24 @@ internal fun CodeSample(zoom: Float, modifier: Modifier = Modifier) {
         withStyle(SpanStyle(color = c.accentTeal)) { append("\"big\"") }
         append(" : ")
         withStyle(SpanStyle(color = c.accentTeal)) { append("\"ok\"") }
+        append("\n")
+        withStyle(SpanStyle(color = c.activeText)) { append("const") }
+        append(" note = ")
+        withStyle(SpanStyle(color = c.accentTeal)) { append("\"a long line shows what wrapping does\"") }
     }
+    val edge = 28.dp
     Text(
         text,
-        modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.code).padding(horizontal = 12.dp, vertical = 10.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.code)
+            .drawWithContent {
+                drawContent()
+                // Unwrapped, a line that runs on is cut by the card: fade it into the card instead of slicing it.
+                if (!wrap) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, c.code), startX = size.width - edge.toPx(), endX = size.width), Offset(size.width - edge.toPx(), 0f), Size(edge.toPx(), size.height))
+            }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         style = PullsType.sm.copy(fontFamily = PullsType.mono, fontSize = (12.5f * zoom).sp, lineHeight = (20f * zoom).sp),
         color = c.text,
+        softWrap = wrap,
+        overflow = TextOverflow.Clip,
     )
 }

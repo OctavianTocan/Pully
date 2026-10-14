@@ -190,9 +190,12 @@ fun splitEntries(entries: List<DiffEntry>): List<SplitEntry> {
     return out
 }
 
-/** Web `effectiveLayout`: unified when asked, for one-sided files, or below 640dp. */
+/** The narrowest screen the split layout is drawn on; a phone held upright is unified. */
+const val SPLIT_MIN_DP = 640
+
+/** Web `effectiveLayout`: unified when asked, for one-sided files, or below [SPLIT_MIN_DP]. */
 fun effectiveSplit(layout: String, file: ReviewFile, widthDp: Int): Boolean =
-    layout == "split" && file.additions > 0 && file.deletions > 0 && (widthDp <= 0 || widthDp >= 640)
+    layout == "split" && file.additions > 0 && file.deletions > 0 && (widthDp <= 0 || widthDp >= SPLIT_MIN_DP)
 
 // --- Noisy files (`noisy-files.ts` + core `GENERATED_PATTERNS`) ---
 
