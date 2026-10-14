@@ -268,35 +268,6 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
     }
 }
 
-/** `PrChecks` in a sheet. */
-@Composable
-internal fun ChecksSheet(overview: PrOverview, onClose: () -> Unit) {
-    PullsSheet(onClose, "Checks", expandable = true) {
-        SheetCard { Column(Modifier.padding(12.dp)) { Checks(overview.checks, overview.checksSummary, overview.url) } }
-    }
-}
-
-/** The pull request's commits: tap one to see only its changes, long-press to extend the range. */
-@Composable
-internal fun CommitsSheet(session: ReviewSession, overview: PrOverview, onClose: () -> Unit) {
-    val c = LocalPullsColors.current
-    val selection = session.selection?.let { CommitSelection(it.first, it.second) }
-    PullsSheet(onClose, "Commits", expandable = true) {
-        SheetCard {
-            SheetRow("All commits", { session.selectCommits(null); onClose() }, first = true, iconless = true) {
-                Text("${overview.commits.size + overview.commitsHidden}", style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
-                if (selection == null) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
-            }
-            Box(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                CommitList(
-                    commits = overview.commits, hidden = overview.commitsHidden, url = overview.url, selection = selection,
-                    onSelect = { picked, extend -> session.selectCommits(picked?.pair); if (!extend) onClose() },
-                )
-            }
-        }
-    }
-}
-
 /** Every finding of the AI review, with its filters and the option to post them as a review. */
 @Composable
 internal fun FindingsSheet(session: ReviewSession, onClose: () -> Unit) {

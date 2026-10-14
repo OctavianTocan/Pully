@@ -23,9 +23,9 @@
     "ui/design/Markdown.kt": 4,
     "ui/home/HomeScreen.kt": 2,
     "ui/home/RepoScreen.kt": 1,
-    "ui/review/Overview.kt": 9,
+    "ui/review/Overview.kt": 6,
     "ui/review/PrDiffScreen.kt": 6,
-    "ui/review/PrOverviewScreen.kt": 5,
+    "ui/review/PrOverviewScreen.kt": 4,
     "ui/review/PrSheets.kt": 1,
     "ui/review/PrTourScreen.kt": 4,
     "ui/review/Threads.kt": 4
@@ -40,7 +40,7 @@
     "ui/design/Markdown.kt": 2,
     "ui/home/HomeScreen.kt": 2,
     "ui/home/RepoScreen.kt": 1,
-    "ui/review/Overview.kt": 20,
+    "ui/review/Overview.kt": 13,
     "ui/review/PrOverviewScreen.kt": 1,
     "ui/review/PrSheets.kt": 3,
     "ui/review/Threads.kt": 5

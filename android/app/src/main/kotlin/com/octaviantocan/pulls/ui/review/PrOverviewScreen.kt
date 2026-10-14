@@ -3,6 +3,7 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +17,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,9 +49,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -92,16 +93,16 @@ import com.octaviantocan.pulls.ui.design.PendingDot
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsFonts
-import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
+import com.octaviantocan.pulls.ui.design.pageSlide
+import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
-import com.octaviantocan.pulls.ui.home.compactAge
 import com.octaviantocan.pulls.ui.home.compactCount
 
 /**
@@ -130,19 +131,24 @@ internal fun PrOverviewScreen(
 ) {
     val c = LocalPullsColors.current
     val tourRunning = session.taskFor("tour")?.running == true
-    Box(Modifier.fillMaxSize().background(c.base)) {
+    val focusManager = LocalFocusManager.current
+    // A tap on the empty page leaves a field the person was editing in place, which saves it (rule 83).
+    Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
                 SectionCapsule(selected = 0, live = tourRunning, onOverview = {}, onChanges = { onDiff(null) }, onTour = onTour, onMore = { onSheet("more") })
             }
+            // Narrowed to a commit: the way back stays on screen while the page scrolls (rule 80).
+            CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             val labels = buildList {
                 add("Summary")
                 add("Description")
                 if (data != null) add("Conversation${data.overview.conversationCount.takeIf { it > 0 }?.let { " $it" }.orEmpty()}")
             }
             val shown = pane.coerceAtMost(labels.lastIndex)
+            val slide = rememberPageSlide(shown, order = { it })
             // A swipe left or right moves between the tabs; the files of the diff are never switched this way.
             var drag by remember { mutableFloatStateOf(0f) }
             val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
@@ -159,10 +165,13 @@ internal fun PrOverviewScreen(
             ) {
                 item(key = "head") {
                     Column {
-                        Text(head.title, style = PullsType.xxl, color = c.text)
-                        MetaLine(head, onOpenRepo)
+                        val overview = data?.overview
+                        EditableText(
+                            head.title, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.xxl, saved = "Title updated",
+                            onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
+                        ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
+                        PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
                         if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head)
-                        CommitRangeBanner(session, data?.overview, Modifier.padding(top = 12.dp))
                         if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
                             StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))
                         }
@@ -173,14 +182,16 @@ internal fun PrOverviewScreen(
                         UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true)
                     }
                 }
-                when (shown) {
+                // The tabs follow the finger at once; the rows under them leave and arrive as a page (rule 73).
+                val rows = Modifier.pageSlide(slide)
+                when (slide.shown.coerceAtMost(labels.lastIndex)) {
                     0 -> {
-                        item(key = "summary") { SummaryPane(session, onCite, onSheet) }
-                        filesItems(session, ui, top, onDiff)
+                        item(key = "summary") { Box(rows) { SummaryPane(session, onCite, onSheet) } }
+                        filesItems(session, ui, top, onDiff, rows)
                     }
-                    1 -> item(key = "description") { DescriptionPane(session, data, onEdit = { onSheet("edit") }) }
+                    1 -> item(key = "description") { Box(rows) { DescriptionPane(session, data) } }
                     else -> item(key = "conversation") {
-                        data?.let { Box(Modifier.padding(top = 14.dp)) { Conversation(it.overview) { oid -> session.selectCommits(selectCommit(oid).pair) } } }
+                        data?.let { Box(rows.padding(top = 14.dp)) { Conversation(it.overview) { oid -> session.selectCommits(selectCommit(oid).pair) } } }
                     }
                 }
             }
@@ -240,75 +251,6 @@ private fun RowScope.Segment(label: String, selected: Boolean, onClick: (() -> U
     )
 }
 
-/**
- * `.meta`: `#241 · author · opened 6h ago · repo`. The author and repository are links. A name is never cut with an
- * ellipsis (rule 2): when the parts do not fit one line, the line breaks between them and each stays whole.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun MetaLine(head: PrHead, onOpenRepo: (String, String) -> Unit) {
-    val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
-    val sep = @Composable { Text("·", style = PullsType.sm, color = c.muted) }
-    FlowRow(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(head.label, style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1, softWrap = false)
-        head.author?.let { login ->
-            sep()
-            Text(
-                login, Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $login on GitHub") { uri.openUri("https://github.com/${login.removeSuffix("[bot]")}") },
-                style = PullsType.sm, color = c.muted, softWrap = false,
-            )
-        }
-        head.createdAt?.let { iso ->
-            val age = compactAge(prIsoMillis(iso), System.currentTimeMillis())
-            if (age.isNotEmpty()) {
-                sep()
-                Text("opened ${if (age == "now") "just now" else "$age ago"}", style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false)
-            }
-        }
-        if (head.owner != null && head.repo != null) {
-            sep()
-            Text(
-                head.repo, Modifier.cueClickable(role = Role.Button, onClickLabel = "Open ${head.repo}") { onOpenRepo(head.owner, head.repo) },
-                style = PullsType.sm, color = c.muted, softWrap = false,
-            )
-        }
-    }
-}
-
-/** `.brow`: the head branch, an arrow, the base branch. A tap copies the name and the chip says so for a moment. */
-@Composable
-private fun BranchRow(head: PrHead) {
-    val c = LocalPullsColors.current
-    val context = LocalContext.current
-    var copied by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(copied) { if (copied != null) { kotlinx.coroutines.delay(1200); copied = null } }
-    @Composable
-    fun Chip(name: String, modifier: Modifier) {
-        val done = copied == name
-        Row(
-            modifier.clip(RoundedCornerShape(6.dp)).background(c.accentWash)
-                .cueClickable(role = Role.Button, onClickLabel = "Copy $name") { copyText(context, name); copied = name }
-                .padding(horizontal = 8.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (done) LuIcon(Lu.tick, tint = c.accentWashInk, size = 14.dp)
-            Text(if (done) "Copied" else name, style = PullsType.sm.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium), color = c.accentWashInk)
-        }
-    }
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (head.head.isNotBlank()) Chip(head.head, Modifier.weight(1f, fill = false))
-        if (head.head.isNotBlank() && head.base.isNotBlank()) LuIcon(Lu.to, tint = c.muted, size = 14.dp)
-        if (head.base.isNotBlank()) Chip(head.base, Modifier)
-    }
-}
-
 /** `.cs`: Changes, Commits, Files and Checks as four label-over-value cells under a hairline. */
 @Composable
 private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (String) -> Unit) {
@@ -328,7 +270,9 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
         Cell("Commits", Modifier.width(76.dp), onClick = if (overview != null && commits > 0) ({ onSheet("commits") }) else null) {
             Text("$commits", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
-        Cell("Files", Modifier.width(52.dp)) { Text("${session.files.size}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text) }
+        Cell("Files", Modifier.width(52.dp), onClick = if (session.files.isNotEmpty()) ({ onSheet("files") }) else null) {
+            Text("${session.files.size}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+        }
         val checks = overview?.checksSummary
         Cell("Checks", Modifier.weight(1f), onClick = if (checks != null && checks.total > 0) ({ onSheet("checks") }) else null) {
             when {
@@ -560,7 +504,7 @@ private fun Modifier.hairlineTop(color: Color): Modifier = drawBehind { drawRect
 // --- Files ---
 
 /** The heading and one list row per file, grouped under the section headings when there are any. */
-private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDiff: (String?) -> Unit) {
+private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDiff: (String?) -> Unit, rows: Modifier) {
     val sections = fileSections(session, ui)
     val analysis = session.saved?.analysis
     val notes = analysis?.files?.associate { it.path to it.summary }.orEmpty()
@@ -569,7 +513,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
         val c = LocalPullsColors.current
         val reviewed = session.files.count { it.sha in session.reviewed }
         Row(
-            Modifier.fillMaxWidth().padding(top = 18.dp).hairlineTop(c.borderMute).padding(top = 14.dp, bottom = 2.dp),
+            rows.fillMaxWidth().padding(top = 18.dp).hairlineTop(c.borderMute).padding(top = 14.dp, bottom = 2.dp),
             verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text("Files", style = PullsType.xl, color = c.text)
@@ -583,13 +527,13 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
     sections.forEachIndexed { index, section ->
         if (section.label != null) item(key = "section:$index") {
             val c = LocalPullsColors.current
-            Text(section.label, Modifier.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
+            Text(section.label, rows.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         }
         items(section.files, key = { "file:${it.path}" }) { file ->
             val state = session.reviewState(file)
             val note = notes[file.path]?.takeIf { it.isNotBlank() }
             FileRow(
-                file, state, note, analyzing && note == null,
+                file, state, note, analyzing && note == null, rows,
                 onOpen = { onDiff(file.path) },
                 onToggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) },
             )
@@ -599,13 +543,13 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
 
 /** `.fr`: a checkbox, the path with its folder faded, `+n −n`, a chevron, and the AI's note under the name. */
 @Composable
-private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, onOpen: () -> Unit, onToggle: () -> Unit) {
+private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, modifier: Modifier, onOpen: () -> Unit, onToggle: () -> Unit) {
     val c = LocalPullsColors.current
     val reviewed = state == ReviewState.Reviewed
     val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
     val base = file.path.substringAfterLast('/')
     Row(
-        Modifier.fillMaxWidth().hairlineTop(c.borderMute).cueClickable(role = Role.Button, onClickLabel = file.path, onClick = onOpen).padding(vertical = 11.dp),
+        modifier.fillMaxWidth().hairlineTop(c.borderMute).cueClickable(role = Role.Button, onClickLabel = file.path, onClick = onOpen).padding(vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PullsCheck(reviewed, onClick = onToggle, label = "Mark ${file.path} reviewed")
@@ -636,26 +580,25 @@ private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoa
 
 // --- Description ---
 
-/** The description, with an Edit link when the viewer may change this pull request (their own, or one they maintain). */
+/**
+ * The description. When the viewer may change this pull request (their own, or one they maintain) a tap turns it into a
+ * field holding GitHub's Markdown and leaving it saves (rule 83); the page then shows GitHub's own rendering again.
+ */
 @Composable
-private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?, onEdit: () -> Unit) {
+private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
     val c = LocalPullsColors.current
-    val html = data?.overview?.bodyHTML.orEmpty()
-    val markdown = remember(html, session.prOpened?.description) {
-        if (html.isNotBlank()) htmlToMarkdown(html) else (session.prOpened ?: session.opened)?.description.orEmpty()
-    }
-    Column {
-        if (data?.overview?.viewer?.canUpdate == true) {
-            Box(
-                Modifier.padding(top = 6.dp).defaultMinSize(minHeight = 40.dp).clip(RoundedCornerShape(PullsRadius.lg))
-                    .cueClickable(role = Role.Button, onClickLabel = "Edit the description", onClick = onEdit),
-                contentAlignment = Alignment.CenterStart,
-            ) { Text(if (markdown.isBlank()) "Add a description" else "Edit description", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
-        }
-        Box(Modifier.padding(top = 8.dp)) {
-            if (markdown.isNotBlank()) Markdown(markdown, style = PullsType.read.copy(color = c.text))
-            else Text("No description.", style = PullsType.read, color = c.muted)
-        }
+    val overview = data?.overview
+    val html = overview?.bodyHTML.orEmpty()
+    val source = overview?.body ?: (session.prOpened ?: session.opened)?.description.orEmpty()
+    EditableText(
+        source, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.read, saved = "Description updated",
+        onSave = { body -> session.repo.prAction(overview!!.id, "edit", body = body); session.reloadOverview() },
+        modifier = Modifier.padding(top = 8.dp), multiline = true, allowBlank = true, placeholder = "Describe the change in Markdown",
+    ) { text ->
+        // GitHub's own rendering while the text is the one it holds; the typed Markdown for the moment after a save.
+        val markdown = remember(text, html, overview?.body) { if (html.isNotBlank() && text == overview?.body) htmlToMarkdown(html) else text }
+        if (markdown.isNotBlank()) Markdown(markdown, style = PullsType.read.copy(color = c.text))
+        else Text(if (overview?.viewer?.canUpdate == true) "Add a description" else "No description.", style = PullsType.read, color = c.muted)
     }
 }
 

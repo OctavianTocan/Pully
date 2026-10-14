@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.book.UiBook
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.ToastHost
@@ -40,6 +41,9 @@ internal sealed interface Screen {
     data object Settings : Screen
     data object UiBook : Screen
 }
+
+/** A screen and how deep in the stack it sits: what [BlurSwitch] ranks, so opening slides one way and back the other. */
+private data class Layer(val screen: Screen, val depth: Int)
 
 @Composable
 fun PullsApp(initialTarget: String?) {
@@ -87,13 +91,17 @@ fun PullsApp(initialTarget: String?) {
     }
     CompositionLocalProvider(LocalToaster provides toaster) {
         Box(Modifier.fillMaxSize().background(LocalPullsColors.current.base)) {
-            // Settings is a modal over the page it was opened from, as on the web.
-            when (val current = stack.lastOrNull { it != Screen.Settings } ?: Screen.Home) {
-                Screen.Home -> HomeScreen(nav, updateNote, homeUi)
-                is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
-                is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
-                Screen.UiBook -> UiBook(nav.back)
-                Screen.Settings -> {}
+            // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
+            // the one under it slides away (rule 73), and back slides the other way, ranked by how deep the page is.
+            val here = stack.indexOfLast { it != Screen.Settings }.coerceAtLeast(0)
+            BlurSwitch(Layer(stack.getOrNull(here) ?: Screen.Home, here), Modifier.fillMaxSize(), order = { it.depth }) { layer ->
+                when (val current = layer.screen) {
+                    Screen.Home -> HomeScreen(nav, updateNote, homeUi)
+                    is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
+                    is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
+                    Screen.UiBook -> UiBook(nav.back)
+                    Screen.Settings -> {}
+                }
             }
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
             CommandPalette()

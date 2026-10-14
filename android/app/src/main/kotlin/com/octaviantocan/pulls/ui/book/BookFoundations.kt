@@ -1,12 +1,8 @@
 package com.octaviantocan.pulls.ui.book
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +49,8 @@ import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.floatShadow
+import com.octaviantocan.pulls.ui.design.pageSlide
+import com.octaviantocan.pulls.ui.design.rememberPageSlide
 
 // The foundations pages read the same numbers the checks compare with the Kotlin tokens, so what
 // they draw is what the app renders.
@@ -176,6 +173,8 @@ internal fun MotionPage(book: BookData) {
         SectionTitle("Slide")
         var selected by remember { mutableIntStateOf(0) }
         CapsuleTabs(listOf("Inbox", "Tours", "Done"), selected, { selected = it })
+        SectionTitle("Slide in a list")
+        PageSlideDemo()
         SectionTitle("Swap")
         SwapDemo()
         SectionTitle("Breathe, turn and shimmer")
@@ -197,25 +196,29 @@ private fun SwapDemo() {
     }
 }
 
-/** A pressable that scales to the press token while a finger is on it. */
+/** A card that takes the flat press tint while a finger is on it, and nothing else: it does not scale, shift or grow (rule 82). */
 @Composable
 private fun PressDemo() {
     val c = LocalPullsColors.current
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, tween(150), label = "press")
     val shape = RoundedCornerShape(PullsRadius.card)
     Box(
-        Modifier
-            .fillMaxWidth()
-            .height(72.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(shape)
-            .background(c.raised, shape)
-            .border(1.dp, c.border, shape)
-            .clickable(interactionSource = interaction, indication = null) {},
+        Modifier.fillMaxWidth().height(72.dp).clip(shape).background(c.raised, shape).border(1.dp, c.border, shape).clickable(role = Role.Button) {},
         contentAlignment = Alignment.Center,
     ) { Text("Press and hold", style = PullsType.row, color = c.text) }
+}
+
+/** Rows that change as a page when the tab above them does: the old rows leave and the new ones arrive (rule 73), the tabs stay put. */
+@Composable
+private fun PageSlideDemo() {
+    val c = LocalPullsColors.current
+    var tab by remember { mutableIntStateOf(0) }
+    val slide = rememberPageSlide(tab, order = { it })
+    Column(verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
+        CapsuleTabs(listOf("Summary", "Description", "Conversation"), tab, { tab = it })
+        Column(Modifier.pageSlide(slide), verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
+            repeat(3) { row -> Text("${listOf("Summary", "Description", "Conversation")[slide.shown]}, row ${row + 1}", style = PullsType.row, color = c.text) }
+        }
+    }
 }
 
 /** Every glyph in `Lu`, by name. `pnpm run android:design` fails when one is missing from this list. */

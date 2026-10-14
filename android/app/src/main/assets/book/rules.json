@@ -739,7 +739,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "When a screen shows part of something, such as one commit of six, a bar that stays on screen says so (\"Viewing commit 3 of 6\") and carries a \"Show all\" pill. Nobody has to find the way back.\n\nCheck: pick one commit. The way to see all changes is visible without scrolling or opening a menu."
+    "text": "When a screen shows part of something, such as one commit of six, a bar that stays on screen says so (\"Viewing commit 3 of 6\") and carries a \"Show all\" pill. Nobody has to find the way back. The bar is pinned over the Overview and over the Diff, so scrolling never takes it away.\n\nCheck: pick one commit. The way to see all changes is visible without scrolling or opening a menu."
   },
   {
     "n": 81,

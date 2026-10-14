@@ -47,17 +47,8 @@ internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> 
                     Skeleton(Modifier.fillMaxWidth(0.55f).height(22.dp))
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                if (pull != null) Text("#${pull.number}", style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1)
-                preview?.author?.let { author ->
-                    Text("·", style = PullsType.sm, color = c.muted)
-                    Text(author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1)
-                }
-                if (pull != null) {
-                    Text("·", style = PullsType.sm, color = c.muted)
-                    Text(pull.repo, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1)
-                }
-            }
+            // The same line the page draws, so it keeps its shape when the pull request arrives: names stay whole and wrap.
+            PrMetaLine(pull?.let { "#${it.number}" }.orEmpty(), preview?.author, null, pull?.owner, pull?.repo, onOpenRepo = null)
             if (preview?.additions != null && preview.deletions != null) {
                 // The Inbox row already told the phone how big the change is.
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {

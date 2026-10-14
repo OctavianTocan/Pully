@@ -1,11 +1,11 @@
-@file:OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalLayoutApi::class)
 
 package com.octaviantocan.pulls.ui.review
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,8 +48,11 @@ import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.DETAILS_INFO
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.t
@@ -729,17 +732,25 @@ fun PrHtml(html: String, modifier: Modifier = Modifier, small: Boolean = false) 
     Markdown(markdown, modifier, style = if (small) PullsType.xs else PullsType.sm)
 }
 
-/** The `border-b bg-raised px-3 py-1.5` header row of a timeline card. */
+/**
+ * The header row of a timeline card. A tap folds the card up to this row and opens it again (F72), and the chevron at
+ * the end says which way it will go.
+ */
 @Composable
-private fun CardHeader(bordered: Boolean, content: @Composable FlowRowScope.() -> Unit) {
+private fun CardHeader(bordered: Boolean, collapsed: Boolean, onToggle: () -> Unit, content: @Composable FlowRowScope.() -> Unit) {
     val c = LocalPullsColors.current
     FlowRow(
-        Modifier.fillMaxWidth().background(c.raised).then(if (bordered) Modifier.bottomBorder(c.border) else Modifier).padding(horizontal = 12.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().background(c.raised).then(if (bordered) Modifier.bottomBorder(c.border) else Modifier)
+            .cueClickable(role = Role.Button, onClickLabel = if (collapsed) "Show the comment" else "Hide the comment", onClick = onToggle)
+            .defaultMinSize(minHeight = TOUCH).padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
-        content = content,
-    )
+    ) {
+        content()
+        Spacer(Modifier.weight(1f))
+        LuIcon(if (collapsed) Lu.chev else Lu.chevd, tint = c.faint, size = 18.dp)
+    }
 }
 
 /** `PrConversation`: the description card, then the timeline (last 30, "Show n earlier"). */
@@ -750,14 +761,14 @@ fun Conversation(overview: PrOverview, onSelectCommit: (String) -> Unit) {
     var showAll by rememberSaveable(overview.id) { mutableStateOf(false) }
     val earlier = if (showAll) 0 else maxOf(0, overview.timeline.size - 30)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp))) {
-            CardHeader(true) {
+        var descriptionOpen by rememberSaveable(overview.id, "description") { mutableStateOf(true) }
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp)).animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {
+            CardHeader(bordered = descriptionOpen, collapsed = !descriptionOpen, onToggle = { descriptionOpen = !descriptionOpen }) {
                 overview.author?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
                 Text(overview.author?.login ?: "ghost", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-                Text(t("overview.timeline.commented"), style = PullsType.sm, color = c.fade)
                 Text(prTimeAgo(overview.createdAt), style = PullsType.xs, color = c.text.copy(alpha = 0.5f))
             }
-            Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            if (descriptionOpen) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 if (overview.bodyHTML.isNotBlank()) PrHtml(overview.bodyHTML)
                 else Text(t("overview.noDescription"), style = PullsType.sm.copy(fontStyle = FontStyle.Italic), color = c.fade)
             }
@@ -839,33 +850,30 @@ fun TimelineEntry(item: PrTimelineItem, onSelectCommit: (String) -> Unit) {
 private fun CommentCard(item: PrTimelineItem) {
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
-    var showHidden by rememberSaveable(item.id) { mutableStateOf(false) }
     var showInline by rememberSaveable(item.id + ":inline") { mutableStateOf(false) }
     val comment = item as? PrTimelineItem.Comment
     val review = item as? PrTimelineItem.Review
     val url = comment?.url ?: review?.url.orEmpty()
     val body = comment?.bodyHTML ?: review?.bodyHTML.orEmpty()
     val minimized = comment?.minimizedReason
-    val collapsed = minimized != null && !showHidden
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp))) {
-        CardHeader(bordered = !collapsed) {
+    // A comment GitHub hid starts folded up; any other starts open. Either folds and opens with a tap on its header.
+    var open by rememberSaveable(item.id, "open") { mutableStateOf(minimized == null) }
+    val collapsed = !open
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp)).animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {
+        CardHeader(bordered = !collapsed, collapsed = collapsed, onToggle = { open = !open }) {
             review?.let { GlyphIcon(reviewGlyph(it.state)) }
             item.actor?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
             Text(item.actor?.login ?: "ghost", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            // A comment can only be a comment, so it carries no verb; a review says what it decided.
             val verb = when (review?.state) {
-                null -> t("overview.timeline.commented")
+                null -> null
                 "approved" -> t("overview.timeline.approved")
                 "changes_requested" -> t("overview.timeline.changesRequested")
                 else -> t("overview.timeline.reviewed")
             }
-            Text(verb, style = PullsType.sm, color = c.fade)
+            if (verb != null) Text(verb, style = PullsType.sm, color = c.fade)
             Text(prTimeAgo(item.createdAt), Modifier.cueClickable(enabled = url.isNotBlank()) { uri.openUri(url) }, style = PullsType.xs, color = c.text.copy(alpha = 0.5f))
-            if (minimized != null) {
-                Spacer(Modifier.weight(1f))
-                Box(Modifier.defaultMinSize(minHeight = TOUCH).cueClickable { showHidden = !showHidden }, contentAlignment = Alignment.Center) {
-                    Text(t("overview.timeline.hidden", "reason" to minimized), style = PullsType.xs, color = c.fade)
-                }
-            }
+            if (minimized != null) Text(t("overview.timeline.hidden", "reason" to minimized), style = PullsType.xs, color = c.fade)
         }
         if (body.isNotBlank() && !collapsed) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) { PrHtml(body) }
         if (review != null && review.commentCount > 0) {
@@ -944,122 +952,3 @@ private fun eventText(item: PrTimelineItem.Event, template: String): AnnotatedSt
 
 private fun slotStyle(item: PrTimelineItem.Event, text: Color) =
     if (item.event == "renamed") SpanStyle(color = text, fontWeight = FontWeight.Medium) else SpanStyle(color = text, fontFamily = PullsType.mono)
-
-/**
- * `PrCommitList`: oldest first; a tap shows only that commit (again: all), a long-press
- * extends the range from the last tapped one (the web's shift-click). [compact] is the
- * header picker's form: headline and sha only.
- */
-@Composable
-fun CommitList(
-    commits: List<PrCommit>,
-    hidden: Int,
-    url: String,
-    selection: CommitSelection?,
-    onSelect: (CommitSelection?, Boolean) -> Unit,
-    compact: Boolean = false,
-    wide: Boolean = false,
-) {
-    val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
-    val range = selection?.let { resolveCommitSelection(commits, it) }
-    var anchor by remember(commits) { mutableStateOf<Int?>(null) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (hidden > 0) LinkText(t("overview.moreOnGithub", "n" to hidden), Modifier.padding(horizontal = 4.dp)) { uri.openUri("$url/commits") }
-        Column {
-            commits.forEachIndexed { index, commit ->
-                val selected = range != null && index in range
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(if (selected) c.active else Color.Transparent),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Row(
-                        Modifier.weight(1f).defaultMinSize(minHeight = TOUCH)
-                            .combinedClickable(
-                                role = Role.Button,
-                                onClickLabel = t("overview.commitList.view"),
-                                onClick = { val next = pickCommit(commits, selection, anchor, index, extend = false); anchor = index; onSelect(next, false) },
-                                onLongClick = { onSelect(pickCommit(commits, selection, anchor, index, extend = true), true) },
-                            )
-                            .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        val glyph = checksGlyph(commit.checks)
-                        if (glyph != null) GlyphIcon(glyph, if (commit.checks == "pending") 8.dp else 13.dp)
-                        else PhIcon("git-commit", tint = c.text.copy(alpha = 0.5f), size = 13.dp)
-                        Text(commit.headline, Modifier.weight(1f), style = PullsType.sm, color = if (selected) c.activeText else c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (!compact && wide) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            commit.authorLogin?.let { GithubAvatar(it, avatarUrl = commit.authorAvatarUrl, size = 16.dp) }
-                            Text(commit.authorLogin ?: commit.authorName.orEmpty(), style = PullsType.xs, color = c.fade, maxLines = 1)
-                        }
-                        if (!compact) Text(prTimeAgo(commit.committedDate), style = PullsType.xs, color = c.text.copy(alpha = 0.5f), maxLines = 1)
-                    }
-                    Box(
-                        Modifier.defaultMinSize(minHeight = TOUCH).cueClickable(enabled = commit.url.isNotBlank()) { uri.openUri(commit.url) }.padding(start = 8.dp, end = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) { Text(commit.abbreviatedOid, style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text.copy(alpha = 0.5f)) }
-                }
-            }
-        }
-        if (!compact && commits.size > 1) Text(t("overview.commitList.hint"), Modifier.padding(horizontal = 8.dp), style = PullsType.xs, color = c.text.copy(alpha = 0.5f))
-    }
-}
-
-private val BUCKETS = listOf("failing", "pending", "passing", "skipped")
-
-/** `PrChecks`: checks bucketed failing / pending / passing / skipped; passing and skipped start collapsed while anything needs attention. */
-@Composable
-fun Checks(checks: List<PrCheck>, summary: PrChecksSummary, url: String) {
-    val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
-    var collapsed by remember(url) { mutableStateOf(if (summary.failing + summary.pending > 0) setOf("passing", "skipped") else setOf("skipped")) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (checks.isEmpty()) Text(t("overview.checks.none"), Modifier.padding(horizontal = 4.dp), style = PullsType.sm, color = c.fade)
-        BUCKETS.forEach { bucket ->
-            val group = checks.filter { it.bucket == bucket }
-            if (group.isEmpty()) return@forEach
-            val isCollapsed = bucket in collapsed
-            Column {
-                Row(
-                    // `rounded-md px-1 py-1`: no touch min-height here on the web either.
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp))
-                        .cueClickable { collapsed = if (isCollapsed) collapsed - bucket else collapsed + bucket }.padding(horizontal = 4.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    PhIcon(if (isCollapsed) "caret-right" else "caret-down", tint = c.fade, size = 14.dp)
-                    GlyphIcon(bucketGlyph(bucket), if (bucket == "pending") 8.dp else 13.dp)
-                    Text(t("overview.checks.$bucket", "n" to group.size), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-                }
-                if (!isCollapsed) group.forEach { check ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 28.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        GlyphIcon(bucketGlyph(check.bucket), if (check.bucket == "pending") 8.dp else 13.dp)
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                buildAnnotatedString {
-                                    check.group?.let { withStyle(SpanStyle(color = c.fade)) { append("$it / ") } }
-                                    append(check.name)
-                                },
-                                style = PullsType.sm, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
-                            check.summary?.let { Text(it, style = PullsType.xs, color = c.text.copy(alpha = 0.5f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        }
-                        if (check.required) Text(t("overview.checks.required"), Modifier.border(1.dp, c.border, RoundedCornerShape(4.dp)).padding(horizontal = 4.dp), style = PullsType.xs, color = c.fade)
-                        check.url?.let { link ->
-                            Box(Modifier.cueClickable { uri.openUri(link) }.padding(horizontal = 4.dp, vertical = 2.dp), contentAlignment = Alignment.Center) {
-                                Text(t("overview.checks.details"), style = PullsType.xs, color = c.fade)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (summary.hidden > 0) LinkText(t("overview.moreOnGithub", "n" to summary.hidden)) { uri.openUri("$url/checks") }
-    }
-}

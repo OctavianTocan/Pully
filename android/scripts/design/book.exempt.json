@@ -34,6 +34,7 @@
     "headerTopPadding": "A layout helper that returns the header's top padding, not a visual component.",
     "ink": "A TextStyle helper, not a visual component.",
     "rememberMotionEnabled": "A check on the system \"Remove animations\" setting, not a component. Looping effects such as the thinking shimmer read it (rules 72 and 73).",
+    "rememberPageSlide": "A transition helper for the rows of a lazy list whose tabs change the page under them (rule 73), not a visual component. Its recipe is on the Motion page.",
     "spin": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "t": "An i18n lookup, not a visual component.",
     "tc": "An i18n lookup, not a visual component."

@@ -5,7 +5,7 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -24,9 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.directionOf
@@ -44,8 +42,9 @@ import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 
 /**
- * Port of `CommitRangeBanner.vue`: what the diff is narrowed to ("Viewing 2 of 5 commits"
- * and the headline, a range, or bare shas), previous / next commit, and "Show all changes".
+ * What the changes are narrowed to ("Viewing commit 2 of 5" and its headline, a range, or bare shas), previous / next
+ * commit, and a "Show all" pill. It stays on screen over the Overview and the Diff, so nobody has to look for the way
+ * back (rule 80).
  */
 @Composable
 fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: Modifier = Modifier) {
@@ -66,21 +65,24 @@ fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: M
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         LuIcon(Lu.commit, tint = c.muted, size = 20.dp)
-        when {
-            range != null && range.first == range.last -> Row(Modifier.weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(t("overview.selection.viewing", "index" to range.first + 1 + offset, "total" to total), style = PullsType.sm, color = c.text, maxLines = 1)
-                commits.getOrNull(range.first)?.headline?.let { Text(it, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        // Whole words, never cut (rule 2): the headline wraps under the count.
+        Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            when {
+                range != null && range.first == range.last -> {
+                    Text("Viewing commit ${range.first + 1 + offset} of $total", style = PullsType.sm, color = c.text)
+                    commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted) }
+                }
+                range != null -> Text(t("overview.selection.viewingRange", "start" to range.first + 1 + offset, "end" to range.last + 1 + offset, "total" to total), style = PullsType.sm, color = c.text)
+                selection.from == selection.to -> Text(t("overview.selection.viewingSha", "sha" to selection.from.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
+                else -> Text(t("overview.selection.viewingShaRange", "from" to selection.from.take(7), "to" to selection.to.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
             }
-            range != null -> Text(t("overview.selection.viewingRange", "start" to range.first + 1 + offset, "end" to range.last + 1 + offset, "total" to total), style = PullsType.sm, color = c.text)
-            selection.from == selection.to -> Text(t("overview.selection.viewingSha", "sha" to selection.from.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
-            else -> Text(t("overview.selection.viewingShaRange", "from" to selection.from.take(7), "to" to selection.to.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
         }
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             FloatIcon(Lu.prev, t("overview.selection.previous"), { session.selectCommits(previous?.pair) }, flat = true, size = 40.dp, enabled = previous != null)
             FloatIcon(Lu.next, t("overview.selection.next"), { session.selectCommits(next?.pair) }, flat = true, size = 40.dp, enabled = next != null)
         }
-        PillButton(t("overview.selection.showAll"), { session.selectCommits(null) })
+        PillButton("Show all", { session.selectCommits(null) })
     }
 }
 
