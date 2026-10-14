@@ -125,7 +125,7 @@ export const adaptiveXml = `<?xml version="1.0" encoding="utf-8"?>
 `
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const root = new URL('../../', import.meta.url).pathname
+  const root = fileURLToPath(new URL('../../', import.meta.url))
   const res = join(root, 'android/app/src/main/res')
   mkdirSync(join(res, 'drawable'), { recursive: true })
   mkdirSync(join(res, 'mipmap-anydpi-v26'), { recursive: true })
