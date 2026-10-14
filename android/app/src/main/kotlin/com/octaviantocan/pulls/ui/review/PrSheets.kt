@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -304,9 +305,15 @@ internal fun FindingsSheet(session: ReviewSession, onClose: () -> Unit) {
 
 // --- The analysis model ---
 
-/** `#modelsheet`: the engine, the model list with its ids and descriptions, and a row to the effort. */
+/** `#modelsheet`: the model page as a sheet of its own. Settings and the Analyze card show [ModelPage] as a page inside their sheet. */
 @Composable
 internal fun ModelSheet(settings: AppSettings, onClose: () -> Unit, onEffort: () -> Unit) {
+    PullsSheet(onClose, "Select model") { ModelPage(settings, onClose, onEffort) }
+}
+
+/** The engine, the model list with its ids and descriptions, and a row to the effort. [onDone] runs once a model is chosen. */
+@Composable
+internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, onEffort: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
@@ -338,74 +345,72 @@ internal fun ModelSheet(settings: AppSettings, onClose: () -> Unit, onEffort: ()
         memory.setModel(config.engine, id)
         save(config.copy(model = id))
         settings.updateEffort(kept)
-        onClose()
+        onDone()
         toaster.show("Analysis model: ${analysisModelLabel(config.copy(model = id), catalog, kept, messages)}")
     }
 
-    PullsSheet(onClose, "Select model", expandable = true) {
-        Box(Modifier.padding(top = 14.dp)) {
-            CapsuleTabs(
-                listOf("Claude Code", "Codex"),
-                if (config.engine == "codex") 1 else 0,
-                { index ->
-                    val engine = if (index == 1) "codex" else "claude-code"
-                    if (engine != config.engine) {
-                        memory.setModel(config.engine, config.model)
-                        save(config.copy(engine = engine, model = memory.model(engine).orEmpty()))
-                        settings.updateEffort("")
-                    }
-                },
-                Modifier.fillMaxWidth(),
-                leading = { index -> EngineMark(if (index == 1) "codex" else "claude-code", size = 20.dp) },
-            )
-        }
-        SheetCard {
-            when {
-                loaded == null -> Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Spinner(16.dp)
-                    Text("Loading models…", style = PullsType.sm, color = c.muted)
+    Box(Modifier.padding(top = 14.dp)) {
+        CapsuleTabs(
+            listOf("Claude Code", "Codex"),
+            if (config.engine == "codex") 1 else 0,
+            { index ->
+                val engine = if (index == 1) "codex" else "claude-code"
+                if (engine != config.engine) {
+                    memory.setModel(config.engine, config.model)
+                    save(config.copy(engine = engine, model = memory.model(engine).orEmpty()))
+                    settings.updateEffort("")
                 }
-                catalog == null -> Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Couldn't load the model list", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                    Text(loaded?.exceptionOrNull()?.message.orEmpty(), style = PullsType.sm, color = c.muted)
-                    PillButton(t("common.retry"), { attempt++ })
-                }
-                else -> catalog.models.forEachIndexed { index, model ->
-                    val selected = model.id == (AiSettingsLogic.current(catalog, config.model)?.id ?: config.model)
-                    ModelRow(model, selected, first = index == 0) {
-                        val kept = AiSettingsLogic.keptEffort(catalog, model.id, settings.effort)
-                        memory.setModel(config.engine, model.id)
-                        save(config.copy(model = model.id))
-                        settings.updateEffort(kept)
-                        onClose()
-                        toaster.show("Analysis model: ${analysisModelLabel(config.copy(model = model.id), catalog, kept, messages)}")
-                    }
-                }
-            }
-        }
-        SheetCard {
-            SheetField(
-                "Custom model ID", custom, { custom = it }, first = true, placeholder = t("settings.models.placeholder"),
-                imeAction = ImeAction.Done, onGo = ::useCustom,
-                trailing = { PillButton(t("common.save"), ::useCustom, enabled = custom.isNotBlank()) },
-            )
-        }
-        val choice = AiSettingsLogic.current(catalog, config.model)
-        if (choice != null && choice.efforts.isNotEmpty()) {
-            SheetCard {
-                val effort = settings.effort.ifBlank { choice.defaultEffort.orEmpty() }
-                SheetRow("Effort", onEffort, first = true, iconless = true) {
-                    Text(if (effort.isBlank()) "Default" else AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
-                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-                }
-            }
-        }
-        Text(
-            if (config.engine == "codex") "Used for the analysis, summary and tour of every pull request. Runs through the Codex CLI."
-            else "Used for the analysis, summary and tour of every pull request. Default lets Claude Code choose.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+            },
+            Modifier.fillMaxWidth(),
+            leading = { index -> EngineMark(if (index == 1) "codex" else "claude-code", size = 20.dp) },
         )
     }
+    SheetCard {
+        when {
+            loaded == null -> Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Spinner(16.dp)
+                Text("Loading models…", style = PullsType.sm, color = c.muted)
+            }
+            catalog == null -> Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Couldn't load the model list", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                Text(loaded?.exceptionOrNull()?.message.orEmpty(), style = PullsType.sm, color = c.muted)
+                PillButton(t("common.retry"), { attempt++ })
+            }
+            else -> catalog.models.forEachIndexed { index, model ->
+                val selected = model.id == (AiSettingsLogic.current(catalog, config.model)?.id ?: config.model)
+                ModelRow(model, selected, first = index == 0) {
+                    val kept = AiSettingsLogic.keptEffort(catalog, model.id, settings.effort)
+                    memory.setModel(config.engine, model.id)
+                    save(config.copy(model = model.id))
+                    settings.updateEffort(kept)
+                    onDone()
+                    toaster.show("Analysis model: ${analysisModelLabel(config.copy(model = model.id), catalog, kept, messages)}")
+                }
+            }
+        }
+    }
+    SheetCard {
+        SheetField(
+            "Custom model ID", custom, { custom = it }, first = true, placeholder = t("settings.models.placeholder"),
+            imeAction = ImeAction.Done, onGo = ::useCustom,
+            trailing = { PillButton(t("common.save"), ::useCustom, enabled = custom.isNotBlank()) },
+        )
+    }
+    val choice = AiSettingsLogic.current(catalog, config.model)
+    if (choice != null && choice.efforts.isNotEmpty()) {
+        SheetCard {
+            val effort = settings.effort.ifBlank { choice.defaultEffort.orEmpty() }
+            SheetRow("Effort", onEffort, first = true, iconless = true) {
+                Text(if (effort.isBlank()) "Default" else AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+    }
+    Text(
+        if (config.engine == "codex") "Used for the analysis, summary and tour of every pull request. Runs through the Codex CLI."
+        else "Used for the analysis, summary and tour of every pull request. Default lets Claude Code choose.",
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+    )
 }
 
 @Composable
@@ -443,9 +448,15 @@ private fun DefaultBadge() {
     )
 }
 
-/** `#effortsheet`: the efforts the chosen model supports. */
+/** `#effortsheet`: the effort page as a sheet of its own. */
 @Composable
 internal fun EffortSheet(settings: AppSettings, onBack: () -> Unit, onClose: () -> Unit) {
+    PullsSheet(onClose, "Effort", back = onBack) { EffortPage(settings, onBack) }
+}
+
+/** The efforts the chosen model supports; [onBack] runs once one is chosen. */
+@Composable
+internal fun ColumnScope.EffortPage(settings: AppSettings, onBack: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val messages = LocalMessages.current
@@ -454,22 +465,20 @@ internal fun EffortSheet(settings: AppSettings, onBack: () -> Unit, onClose: () 
     val choice = AiSettingsLogic.current(catalog, config.model)
     val efforts = choice?.efforts.orEmpty()
     val current = settings.effort.ifBlank { choice?.defaultEffort.orEmpty() }
-    PullsSheet(onClose, "Effort", back = onBack) {
-        SheetCard {
-            efforts.forEachIndexed { index, id ->
-                SheetRow(
-                    AiSettingsLogic.effortLabel(id) { messages.t(it) },
-                    { settings.updateEffort(if (id == choice?.defaultEffort) "" else id); onBack() },
-                    first = index == 0, iconless = true,
-                ) {
-                    if (id == choice?.defaultEffort) DefaultBadge()
-                    if (id == current) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
-                }
+    SheetCard {
+        efforts.forEachIndexed { index, id ->
+            SheetRow(
+                AiSettingsLogic.effortLabel(id) { messages.t(it) },
+                { settings.updateEffort(if (id == choice?.defaultEffort) "" else id); onBack() },
+                first = index == 0, iconless = true,
+            ) {
+                if (id == choice?.defaultEffort) DefaultBadge()
+                if (id == current) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
             }
         }
-        Text(
-            "Higher effort means a more thorough analysis, but it takes longer and uses your limits faster.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
     }
+    Text(
+        "Higher effort means a more thorough analysis, but it takes longer and uses your limits faster.",
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+    )
 }

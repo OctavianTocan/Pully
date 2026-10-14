@@ -37,6 +37,7 @@ import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsCheck
+import com.octaviantocan.pulls.ui.design.PullsPagedSheet
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSpace
@@ -257,6 +258,35 @@ private fun SheetOpener() {
     if (open) PullsSheet(onClose = { open = false }, title = "Sheet title") { DemoRows() }
 }
 
+/** Two pages in one sheet: the second slides in, the panel and the lip stay, and back finds the first where it was left. */
+@Composable
+private fun PagedSheetOpener() {
+    var open by remember { mutableStateOf(false) }
+    var page by remember { mutableStateOf(0) }
+    CtaButton("Open the sheet with pages", { page = 0; open = true })
+    if (open) {
+        PullsPagedSheet(
+            onClose = { open = false },
+            page = page,
+            parent = { if (it == 0) null else 0 },
+            onPage = { page = it },
+            title = { if (it == 0) "Settings" else "Language" },
+        ) { current ->
+            if (current == 0) {
+                SheetCard {
+                    SheetRow("Language", { page = 1 }, first = true, iconless = true)
+                    SheetRow("Server", {}, iconless = true)
+                }
+            } else {
+                SheetCard {
+                    SheetRow("English", { page = 0 }, first = true, iconless = true)
+                    SheetRow("Romanian", { page = 0 }, iconless = true)
+                }
+            }
+        }
+    }
+}
+
 private fun sheetVariants() = listOf(
     BookVariant(
         "default",
@@ -265,6 +295,7 @@ private fun sheetVariants() = listOf(
             BookState("The real sheet") { SheetOpener() },
         ),
     ),
+    BookVariant("pages", listOf(BookState("The real sheet") { PagedSheetOpener() })),
 )
 
 private fun sheetCardVariants() = listOf(

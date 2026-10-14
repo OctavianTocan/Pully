@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,17 +43,17 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Messages
-import com.octaviantocan.pulls.ui.design.PullsSheet
+import com.octaviantocan.pulls.ui.design.PullsPagedSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.t
-import com.octaviantocan.pulls.ui.review.CodeFontSheet
-import com.octaviantocan.pulls.ui.review.EffortSheet
+import com.octaviantocan.pulls.ui.review.CodeFontPage
+import com.octaviantocan.pulls.ui.review.EffortPage
 import com.octaviantocan.pulls.ui.review.ModelCatalogs
-import com.octaviantocan.pulls.ui.review.ModelSheet
+import com.octaviantocan.pulls.ui.review.ModelPage
 import com.octaviantocan.pulls.ui.review.analysisModelLabel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -113,20 +114,51 @@ internal class EngineModels(context: Context) {
     fun setModel(engine: String, id: String) = prefs.edit().putString("model:$engine", id).apply()
 }
 
+/** The pages of the Settings sheet. Each but the first slides in inside the same sheet and goes back to its [parent] (rule 78). */
+internal enum class SettingsPage(val parent: SettingsPage?) {
+    Main(null),
+    Language(Main),
+    Server(Main),
+    Font(Main),
+    Model(Main),
+    Effort(Model),
+}
+
+@Composable
+internal fun SettingsPage.title(): String = when (this) {
+    SettingsPage.Main -> t("common.settings")
+    SettingsPage.Language -> t("settings.language")
+    SettingsPage.Server -> "Server"
+    SettingsPage.Font -> "Code font"
+    SettingsPage.Model -> "Select model"
+    SettingsPage.Effort -> "Effort"
+}
+
 /**
  * Settings, as a sheet like the rest of the app: grouped white cards on paper, one row for each choice.
- * Model and effort are the same sheets the More menu opens; the language and the server open their own page.
+ * Language, the code font, the model, its effort and the server are pages inside this one sheet (rule 78).
+ * A setting that changes how something looks shows the result (rule 81): the diff layout as two small diffs,
+ * the code size and font as a sample line.
  */
 @Composable
 fun SettingsScreen(nav: Nav) {
-    var page by remember { mutableStateOf("main") }
+    var page by remember { mutableStateOf(SettingsPage.Main) }
+    PullsPagedSheet(nav.back, page, parent = { it.parent }, onPage = { page = it }, title = { it.title() }) { current ->
+        SettingsPageContent(nav, current, onPage = { page = it })
+    }
+}
+
+/** What one page of the Settings sheet holds. */
+@Composable
+internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPage: (SettingsPage) -> Unit) {
+    val settings = AppSettings.get(LocalContext.current)
     when (page) {
-        "language" -> LanguageSheet(onBack = { page = "main" }, onClose = nav.back)
-        "server" -> ServerSheet(onBack = { page = "main" }, onClose = nav.back)
-        "font" -> CodeFontSheet(AppSettings.get(LocalContext.current), onClose = { page = "main" })
-        "model" -> ModelSheet(AppSettings.get(LocalContext.current), onClose = { page = "main" }, onEffort = { page = "effort" })
-        "effort" -> EffortSheet(AppSettings.get(LocalContext.current), onBack = { page = "model" }, onClose = { page = "main" })
-        else -> MainSheet(nav, open = { page = it })
+        SettingsPage.Main -> MainPage(nav, settings, open = onPage)
+        SettingsPage.Language -> LanguagePage(settings, onDone = { onPage(SettingsPage.Main) })
+        SettingsPage.Server -> ServerPage()
+        SettingsPage.Font -> CodeFontPage(settings, onDone = { onPage(SettingsPage.Main) })
+        SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) }, onEffort = { onPage(SettingsPage.Effort) })
+        SettingsPage.Effort -> EffortPage(settings, onBack = { onPage(SettingsPage.Model) })
     }
 }
 
@@ -137,130 +169,116 @@ private fun Group(title: String, content: @Composable () -> Unit) {
     content()
 }
 
+private val ZOOMS = listOf("Smaller" to 0.88f, "Default" to 1f, "Larger" to 1.16f)
+
 @Composable
-private fun MainSheet(nav: Nav, open: (String) -> Unit) {
+private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (SettingsPage) -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
-    val settings = AppSettings.get(context)
     val messages = LocalMessages.current
     val config = remember { ServerStore.load(context) }
     val language = Messages.LOCALES.firstOrNull { it.first == settings.locale }?.second ?: settings.locale
-    val zoomChoices = listOf("Smaller" to 0.88f, "Default" to 1f, "Larger" to 1.16f)
+    val zoomIndex = ZOOMS.indexOfFirst { kotlin.math.abs(settings.codeZoom - it.second) < 0.04f }.coerceAtLeast(0)
 
-    PullsSheet(nav.back, t("common.settings"), full = true) {
-        Group("Appearance") {
-            Box(Modifier.padding(top = 10.dp)) {
-                val themes = listOf("system", "light", "dark")
-                CapsuleTabs(
-                    listOf("System", "Light", "Dark"),
-                    themes.indexOf(settings.theme).coerceAtLeast(0),
-                    { settings.updateTheme(themes[it]) },
-                    Modifier.fillMaxWidth(),
-                )
-            }
-            SheetCard {
-                SheetRow(t("settings.language"), { open("language") }, first = true, iconless = true) {
-                    Text(language, style = PullsType.sm, color = c.muted)
-                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-                }
-            }
-        }
-        Group(t("settings.layout")) {
-            Box(Modifier.padding(top = 10.dp)) {
-                val layouts = listOf("unified", "split")
-                CapsuleTabs(
-                    listOf(t("settings.unified"), t("settings.split")),
-                    layouts.indexOf(settings.layout).coerceAtLeast(0),
-                    { settings.updateLayout(layouts[it]) },
-                    Modifier.fillMaxWidth(),
-                )
-            }
-            SheetCard {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text("Code size", Modifier.weight(1f), style = PullsType.row, color = c.text, maxLines = 1)
-                    zoomChoices.forEach { (name, zoom) ->
-                        val on = kotlin.math.abs(settings.codeZoom - zoom) < 0.04f
-                        Box(
-                            Modifier.height(36.dp).background(if (on) c.chipOn else androidx.compose.ui.graphics.Color.Transparent, androidx.compose.foundation.shape.CircleShape)
-                                .cueClickable(role = Role.Tab) { settings.updateCodeZoom(zoom) }.padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.Center,
-                        ) { Text(name, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1) }
-                    }
-                }
-                SheetRow("Code font", { open("font") }, iconless = true) {
-                    Text(com.octaviantocan.pulls.ui.design.CodeFont.of(settings.codeFont).label, style = PullsType.sm, color = c.muted)
-                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-                }
-                SheetRow("Wrap long lines", { settings.updateCodeWrap(!settings.codeWrap) }, iconless = true) {
-                    PullsSwitch(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long lines")
-                }
-            }
-        }
-        Group("Sounds") {
-            SheetCard {
-                SheetRow("Button sounds", { toggleSounds(settings, !settings.sounds) }, first = true, iconless = true) {
-                    PullsSwitch(settings.sounds, { toggleSounds(settings, it) }, "Button sounds")
-                }
-            }
-            if (settings.sounds) {
-                val materials = Material.entries
-                val picked = materials.indexOf(Material.of(settings.soundMaterial))
-                Box(Modifier.padding(top = 10.dp)) {
-                    CapsuleTabs(
-                        materials.map { it.label },
-                        picked,
-                        {
-                            settings.updateSoundMaterial(materials[it].id)
-                            // The picker is silent itself and says one cue in the new material, so choosing one is hearing it.
-                            Sounds.play(Cue.Select, Emphasis.Normal, if (it > picked) Direction.Forward else Direction.Back)
-                        },
-                        Modifier.fillMaxWidth(),
-                        sound = false,
-                    )
-                }
-            }
-            Text(
-                if (settings.sounds) "${Material.of(settings.soundMaterial).blurb} Silent on your phone's silent and vibrate modes." else "Taps and results make no sound. Turn this on to hear them.",
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+    Group("Appearance") {
+        Box(Modifier.padding(top = 10.dp)) {
+            val themes = listOf("system", "light", "dark")
+            CapsuleTabs(
+                listOf("System", "Light", "Dark"),
+                themes.indexOf(settings.theme).coerceAtLeast(0),
+                { settings.updateTheme(themes[it]) },
+                Modifier.fillMaxWidth(),
             )
         }
-        Group(t("settings.cached")) {
-            SheetCard {
-                SheetRow(t("settings.autoRefresh"), { settings.updateAutoRefresh(!settings.autoRefresh) }, first = true, iconless = true) {
-                    PullsSwitch(settings.autoRefresh, { settings.updateAutoRefresh(it) }, t("settings.autoRefresh"))
-                }
+        SheetCard {
+            SheetRow(t("settings.language"), { open(SettingsPage.Language) }, first = true, iconless = true) {
+                Text(language, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
         }
-        Group(t("settings.llm.title")) {
-            SheetCard {
-                SheetRow("Model", { open("model") }, first = true, icon = { EngineMark(config.engine, size = 22.dp) }) {
-                    Text(analysisModelLabel(config, ModelCatalogs.get(config.engine), settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
-                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-                }
-            }
-            Text(
-                t("settings.llm.localDescription"),
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-            )
-        }
-        Group("Server") {
-            SheetCard {
-                SheetRow("Server", { open("server") }, first = true, iconless = true) {
-                    Text(config.url.removePrefix("https://").removePrefix("http://").ifBlank { "Not set" }, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
-                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-                }
-            }
-            Text(
-                "The server uses its own GitHub sign-in for every request. Reviews and comments are posted as that account.",
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-            )
-        }
-        UiBookRow(nav.uiBook)
     }
+    Group(t("settings.layout")) {
+        // The two layouts drawn small, so the choice is the thing chosen (rule 81).
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LayoutChoice(split = false, selected = settings.layout != "split", label = t("settings.unified"), onClick = { settings.updateLayout("unified") }, modifier = Modifier.weight(1f))
+            LayoutChoice(split = true, selected = settings.layout == "split", label = t("settings.split"), onClick = { settings.updateLayout("split") }, modifier = Modifier.weight(1f))
+        }
+    }
+    Group("Code") {
+        SheetCard {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                CapsuleTabs(ZOOMS.map { it.first }, zoomIndex, { settings.updateCodeZoom(ZOOMS[it].second) }, Modifier.fillMaxWidth())
+                CodeSample(settings.codeZoom)
+            }
+            SheetRow("Code font", { open(SettingsPage.Font) }, iconless = true) {
+                Text(com.octaviantocan.pulls.ui.design.CodeFont.of(settings.codeFont).label, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            SheetRow("Wrap long lines", { settings.updateCodeWrap(!settings.codeWrap) }, iconless = true) {
+                PullsSwitch(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long lines")
+            }
+        }
+    }
+    Group("Sounds") {
+        SheetCard {
+            SheetRow("Button sounds", { toggleSounds(settings, !settings.sounds) }, first = true, iconless = true) {
+                PullsSwitch(settings.sounds, { toggleSounds(settings, it) }, "Button sounds")
+            }
+        }
+        if (settings.sounds) {
+            val materials = Material.entries
+            val picked = materials.indexOf(Material.of(settings.soundMaterial))
+            Box(Modifier.padding(top = 10.dp)) {
+                CapsuleTabs(
+                    materials.map { it.label },
+                    picked,
+                    {
+                        settings.updateSoundMaterial(materials[it].id)
+                        // The picker is silent itself and says one cue in the new material, so choosing one is hearing it.
+                        Sounds.play(Cue.Select, Emphasis.Normal, if (it > picked) Direction.Forward else Direction.Back)
+                    },
+                    Modifier.fillMaxWidth(),
+                    sound = false,
+                )
+            }
+        }
+        Text(
+            if (settings.sounds) "${Material.of(settings.soundMaterial).blurb} Silent on your phone's silent and vibrate modes." else "Taps and results make no sound. Turn this on to hear them.",
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+        )
+    }
+    Group(t("settings.cached")) {
+        SheetCard {
+            SheetRow(t("settings.autoRefresh"), { settings.updateAutoRefresh(!settings.autoRefresh) }, first = true, iconless = true) {
+                PullsSwitch(settings.autoRefresh, { settings.updateAutoRefresh(it) }, t("settings.autoRefresh"))
+            }
+        }
+    }
+    Group(t("settings.llm.title")) {
+        SheetCard {
+            SheetRow("Model", { open(SettingsPage.Model) }, first = true, icon = { EngineMark(config.engine, size = 22.dp) }) {
+                Text(analysisModelLabel(config, ModelCatalogs.get(config.engine), settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+        Text(
+            t("settings.llm.localDescription"),
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+        )
+    }
+    Group("Server") {
+        SheetCard {
+            SheetRow("Server", { open(SettingsPage.Server) }, first = true, iconless = true) {
+                Text(config.url.removePrefix("https://").removePrefix("http://").ifBlank { "Not set" }, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+        Text(
+            "The server uses its own GitHub sign-in for every request. Reviews and comments are posted as that account.",
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+        )
+    }
+    UiBookRow(nav.uiBook)
 }
 
 /** Turns the button sounds on or off. Turning them on answers with a toggle, so the first sound is the proof they work. */
@@ -270,17 +288,14 @@ private fun toggleSounds(settings: AppSettings, on: Boolean) {
     if (on) Sounds.play(Cue.Toggle, Emphasis.Normal, Direction.Forward)
 }
 
-/** The languages the app is written in; picking one changes the app at once. */
+/** The languages the app is written in; picking one changes the app at once and goes back. */
 @Composable
-private fun LanguageSheet(onBack: () -> Unit, onClose: () -> Unit) {
+private fun ColumnScope.LanguagePage(settings: AppSettings, onDone: () -> Unit) {
     val c = LocalPullsColors.current
-    val settings = AppSettings.get(LocalContext.current)
-    PullsSheet(onClose, t("settings.language"), back = onBack, expandable = true) {
-        SheetCard {
-            Messages.LOCALES.forEachIndexed { index, (code, name) ->
-                SheetRow(name, { settings.updateLocale(code); onBack() }, first = index == 0, iconless = true) {
-                    if (code == settings.locale) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
-                }
+    SheetCard {
+        Messages.LOCALES.forEachIndexed { index, (code, name) ->
+            SheetRow(name, { settings.updateLocale(code); onDone() }, first = index == 0, iconless = true) {
+                if (code == settings.locale) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
             }
         }
     }
@@ -288,7 +303,7 @@ private fun LanguageSheet(onBack: () -> Unit, onClose: () -> Unit) {
 
 /** Phone only: which server to talk to, and the Cloudflare Access service token in front of it. */
 @Composable
-private fun ServerSheet(onBack: () -> Unit, onClose: () -> Unit) {
+private fun ColumnScope.ServerPage() {
     val context = LocalContext.current
     val c = LocalPullsColors.current
     val scope = rememberCoroutineScope()
@@ -299,47 +314,45 @@ private fun ServerSheet(onBack: () -> Unit, onClose: () -> Unit) {
     var shown by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(false) }
-    PullsSheet(onClose, "Server", back = onBack, expandable = true) {
-        Text(
-            "The pulls.review server this phone reads from. A Cloudflare Access service token lets it through the Access login.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
-        SheetCard {
-            SheetField("Server URL", url, { url = it }, placeholder = "https://prs.example.com", first = true, keyboardType = KeyboardType.Uri)
-            SheetField("Access client ID", accessId, { accessId = it }, placeholder = "….access", keyboardType = KeyboardType.Ascii)
-            SheetField(
-                "Access client secret", accessSecret, { accessSecret = it }, placeholder = "••••", secret = !shown, keyboardType = KeyboardType.Password,
-                trailing = {
-                    Text(
-                        if (shown) "Hide" else "Show",
-                        Modifier.cueClickable(role = Role.Button) { shown = !shown }.padding(horizontal = 8.dp, vertical = 10.dp),
-                        style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
-                    )
-                },
-            )
-        }
-        Text("The secret is stored only on this phone.", Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm, color = c.muted)
-        CtaButton(
-            if (checking) "Checking…" else t("common.save"),
-            {
-                val current = ServerStore.load(context)
-                ServerStore.save(context, current.copy(url = url, accessId = accessId, accessSecret = accessSecret))
-                checking = true
-                status = null
-                scope.launch {
-                    status = try {
-                        Repo(context).repoInfo()
-                        "Saved. The server answered."
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        "Saved, but the server did not answer: ${e.message ?: e}"
-                    }
-                    checking = false
-                }
+    Text(
+        "The pulls.review server this phone reads from. A Cloudflare Access service token lets it through the Access login.",
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+    )
+    SheetCard {
+        SheetField("Server URL", url, { url = it }, placeholder = "https://prs.example.com", first = true, keyboardType = KeyboardType.Uri)
+        SheetField("Access client ID", accessId, { accessId = it }, placeholder = "….access", keyboardType = KeyboardType.Ascii)
+        SheetField(
+            "Access client secret", accessSecret, { accessSecret = it }, placeholder = "••••", secret = !shown, keyboardType = KeyboardType.Password,
+            trailing = {
+                Text(
+                    if (shown) "Hide" else "Show",
+                    Modifier.cueClickable(role = Role.Button) { shown = !shown }.padding(horizontal = 8.dp, vertical = 10.dp),
+                    style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
+                )
             },
-            Modifier.fillMaxWidth().padding(top = 20.dp), enabled = url.isNotBlank() && !checking,
         )
-        status?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.sm, color = c.muted) }
     }
+    Text("The secret is stored only on this phone.", Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm, color = c.muted)
+    CtaButton(
+        if (checking) "Checking…" else t("common.save"),
+        {
+            val current = ServerStore.load(context)
+            ServerStore.save(context, current.copy(url = url, accessId = accessId, accessSecret = accessSecret))
+            checking = true
+            status = null
+            scope.launch {
+                status = try {
+                    Repo(context).repoInfo()
+                    "Saved. The server answered."
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    "Saved, but the server did not answer: ${e.message ?: e}"
+                }
+                checking = false
+            }
+        },
+        Modifier.fillMaxWidth().padding(top = 20.dp), enabled = url.isNotBlank() && !checking,
+    )
+    status?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.sm, color = c.muted) }
 }

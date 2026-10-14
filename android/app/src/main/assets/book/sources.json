@@ -529,8 +529,8 @@
     "declarations": [
       {
         "file": "ui/design/Sheet.kt",
-        "line": 91,
-        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half\nthe screen and pulls up to the full height. [back] swaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the\npanel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in\n350ms, both on the smooth-out curve. It follows a finger down to dismiss and, when [expandable],\nrests at half height or full.",
+        "line": 97,
+        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls under the header, which stays put (rule 77); [full] makes it\nnearly full height (chat, Commands: sheets that open a keyboard), otherwise it is as tall as its\ncontent. Content taller than half the screen makes the sheet rest at half height and lift to full,\nand [expandable] off keeps it from lifting. [back] swaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the\npanel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in\n350ms, both on the smooth-out curve. It follows a finger down to dismiss and, when [expandable],\nrests at half height or full.",
         "params": [
           {
             "name": "onClose",
@@ -563,18 +563,18 @@
           {
             "name": "expandable",
             "type": "Boolean",
-            "default": "false"
+            "default": "true"
           },
           {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val motion = rememberMotionEnabled()\n    val scope = rememberCoroutineScope()\n    val position = remember { SheetPosition() }\n    val dismiss: () -> Unit = {\n        // The panel leaves first and the caller is told once it has gone.\n        if (position.startClosing()) scope.launch {\n            position.hide(motion)\n            onClose()\n        }\n    }\n    Dialog(\n        onDismissRequest = dismiss,\n        properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false, decorFitsSystemWindows = false),\n    ) {\n        SheetWindow()\n        SheetPanel(position, dismiss, full, expandable, back, title, footer, scroll ?: rememberScrollState(), content)\n    }\n}"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val scrollState = scroll ?: rememberScrollState()\n    SheetHost(onClose, onBack = back) { position, dismiss ->\n        SheetPanel(position, dismiss, full, expandable && !full) {\n            SheetHeader(\n                leading = { if (back != null) FloatIcon(Lu.back, \"Back\", back) else FloatIcon(Lu.close, \"Close\", dismiss) },\n                title = title,\n            )\n            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)\n        }\n    }\n}"
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 121,
+        "line": 120,
         "doc": "",
         "params": [
           {
@@ -608,14 +608,56 @@
           {
             "name": "expandable",
             "type": "Boolean",
-            "default": "false"
+            "default": "true"
           },
           {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, expandable, content)\n\n/** The window the sheet draws in: edge to edge, no dim of its own (the scrim fades with the panel) and no window animation. */"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, content)\n\n/**\n * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\n * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\n * into ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]\n * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\n * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\n * The panel grows or shrinks to the next page's height as the body slides.\n */"
+      },
+      {
+        "file": "ui/design/Sheet.kt",
+        "line": 140,
+        "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nThe panel grows or shrinks to the next page's height as the body slides.",
+        "params": [
+          {
+            "name": "onClose",
+            "type": "() -> Unit"
+          },
+          {
+            "name": "page",
+            "type": "P"
+          },
+          {
+            "name": "parent",
+            "type": "(P) -> P?"
+          },
+          {
+            "name": "onPage",
+            "type": "(P) -> Unit"
+          },
+          {
+            "name": "title",
+            "type": "@Composable (P) -> String"
+          },
+          {
+            "name": "full",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
+            "name": "footer",
+            "type": "(@Composable ColumnScope.(P) -> Unit)?",
+            "default": "null"
+          },
+          {
+            "name": "content",
+            "type": "@Composable ColumnScope.(P) -> Unit"
+          }
+        ],
+        "source": "@Composable\nfun <P : Any> PullsPagedSheet(\n    onClose: () -> Unit,\n    page: P,\n    parent: (P) -> P?,\n    onPage: (P) -> Unit,\n    title: @Composable (P) -> String,\n    full: Boolean = false,\n    footer: (@Composable ColumnScope.(P) -> Unit)? = null,\n    content: @Composable ColumnScope.(P) -> Unit,\n) {\n    SheetHost(onClose, onBack = parent(page)?.let { up -> { onPage(up) } }) { position, dismiss ->\n        PagedSheetPanel(position, dismiss, full, page, parent, onPage, title, footer, content)\n    }\n}"
       }
     ]
   },

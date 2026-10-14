@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.LocalSheetSettled
 import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -61,7 +62,9 @@ fun CommandPalette() {
     val first = sections.firstOrNull()?.second?.firstOrNull()
     val expanded = remember { mutableStateListOf<String>() }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    // The keyboard comes once the sheet has finished sliding in: it takes the panel's height, and doing that mid-slide stops the slide short.
+    val settled = LocalSheetSettled.current
+    LaunchedEffect(settled) { if (settled) runCatching { focus.requestFocus() } }
 
     fun run(command: Command?) {
         if (command == null) return

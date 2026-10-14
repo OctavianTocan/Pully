@@ -91,6 +91,7 @@ import com.octaviantocan.pulls.core.WorkTask
 import com.octaviantocan.pulls.core.pullKey
 import com.octaviantocan.pulls.core.pullWorkByKey
 import com.octaviantocan.pulls.core.runningTaskId
+import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
@@ -199,14 +200,18 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
         }
     }
     var activityOpen by remember { mutableStateOf(false) }
-    val pulls = sync.pulls
+    val everything = sync.pulls
+    // A repository switched off in Profile is left out of the list and of the numbers on the chips.
+    val settings = remember { AppSettings.get(context) }
+    val hidden = settings.hiddenRepos
+    val pulls = remember(everything, hidden) { everything?.inShownRepos(hidden) }
     val needle = ui.search.trim().lowercase()
     // An archived pull request whose head commit moved since comes back, so only the still-current entries count.
     val archived = remember(pulls, archive.entries) { archive.active(pulls.orEmpty()) }
     val inbox = remember(pulls, ui.filter, archived, needle) { Triage.inbox(pulls.orEmpty(), ui.filter, archived, needle) }
     val groups = remember(inbox.pulls) { Triage.groupByRepo(inbox.pulls) }
     val labels = remember(groups) { Triage.groupLabels(groups) }
-    val viewer = remember(pulls) { Triage.viewerLogin(pulls.orEmpty()) }
+    val viewer = remember(everything) { Triage.viewerLogin(everything.orEmpty()) }
     var profileOpen by remember { mutableStateOf(false) }
 
     // `useHomeNavigation.ts`: refresh, and a "Go to" entry per pull request and repository.
@@ -214,7 +219,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     com.octaviantocan.pulls.ui.UseCommands {
         val pullsGroup = messages.t("palette.group.pulls")
         val reposGroup = messages.t("palette.group.repos")
-        val all = sync.pulls.orEmpty()
+        val all = pulls.orEmpty()
         listOf(com.octaviantocan.pulls.ui.Command("home.refresh", messages.t("keys.refresh"), pullsGroup) { reload() }) +
             all.map { pull ->
                 val ref = "${pull.owner}/${pull.repo}#${pull.number}"
@@ -306,10 +311,9 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
         }
         if (profileOpen) {
             ProfileSheet(
-                nav = nav, viewer = viewer, showClosed = ui.showClosed,
+                viewer = viewer, showClosed = ui.showClosed,
                 onShowClosed = { closed -> ui.showClosed = closed; ui.filter = if (closed) "all" else "waiting" },
-                updating = sync.updating, fetchedAt = sync.fetchedAt, error = if (pulls != null) sync.error else null,
-                now = now, onRefresh = reload, onClose = { profileOpen = false },
+                pulls = everything.orEmpty(), onClose = { profileOpen = false },
             )
         }
     }
@@ -704,46 +708,6 @@ internal fun tourSubtitle(entry: TourEntry, now: Long): String = when {
     entry.doneAt(now) -> "Done · ${entry.stops} ${if (entry.stops == 1) "stop" else "stops"}"
     entry.reached > 0 -> "${entry.reached} of ${entry.stops} · ${entry.stopTitle}".trimEnd(' ', '·')
     else -> "${entry.stops} ${if (entry.stops == 1) "stop" else "stops"} · not started"
-}
-
-/** The profile sheet: check out a branch, show closed pull requests, refresh. Links and numbers go in the search pill. */
-@Composable
-private fun ProfileSheet(
-    nav: Nav,
-    viewer: String?,
-    showClosed: Boolean,
-    onShowClosed: (Boolean) -> Unit,
-    updating: Boolean,
-    fetchedAt: Long?,
-    error: String?,
-    now: Long,
-    onRefresh: () -> Unit,
-    onClose: () -> Unit,
-) {
-    val c = LocalPullsColors.current
-    val context = LocalContext.current
-    val host = remember { ServerStore.load(context).url.removePrefix("https://").removePrefix("http://").trimEnd('/') }
-    PullsSheet(onClose, viewer ?: "Pulls") {
-        Text(host, Modifier.fillMaxWidth(), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
-        SheetCard {
-            SheetRow("Check out a branch", { onClose(); nav.checkout() }, first = true, icon = { LuIcon(Lu.branch, tint = c.text, size = 20.dp) }) {
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
-            SheetRow("Commands", { onClose(); Commands.open() }, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
-            SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, icon = { LuIcon(Lu.arch, tint = c.text) }) {
-                PullsSwitch(showClosed, onShowClosed, "Show closed pull requests")
-            }
-            SheetRow("Refresh", if (updating) null else onRefresh, icon = { LuIcon(Lu.redo, tint = c.text, size = 20.dp) }) {
-                when {
-                    updating -> Spinner(16.dp)
-                    error != null -> Text("Couldn't update", style = PullsType.sm, color = c.error)
-                    fetchedAt != null -> Text("Updated ${timeAgo(fetchedAt, now)}", style = PullsType.sm, color = c.muted, maxLines = 1)
-                }
-            }
-        }
-    }
 }
 
 /** A small turning arrow beside work the phone is doing quietly (refreshing, loading more). */

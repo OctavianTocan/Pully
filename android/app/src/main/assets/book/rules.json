@@ -712,7 +712,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A sheet with more content than fits rests at half height (or at its content height when that is less) or at full height, and slides between them. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text.\nIt replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.\n\nCheck: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it."
+    "text": "A sheet with more content than fits rests at half height (or at its content height when that is less) or at full height, and slides between them. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text. A sheet that opens a keyboard (Commands, the chat) opens at full height, because a half-height sheet would sit behind the keyboard, and it takes the keyboard only after it has finished sliding up.\nIt replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.\n\nCheck: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it."
   },
   {
     "n": 78,

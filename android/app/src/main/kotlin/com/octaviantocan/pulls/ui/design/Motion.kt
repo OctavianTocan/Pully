@@ -14,6 +14,7 @@ import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
@@ -137,8 +138,10 @@ fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int =
         transitionSpec = {
             val way = if (order(targetState) >= order(initialState)) 1 else -1
             if (!motion) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
-            (fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { way * travel }) togetherWith
-                (fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { -way * travel })
+            ((fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { way * travel }) togetherWith
+                (fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { -way * travel }))
+                // A screen of another height resizes the container on the same curve, so a sheet grows or shrinks with its page.
+                .using(SizeTransform(clip = true) { _, _ -> tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) })
         },
         label = "blur-switch",
     ) { state ->
