@@ -512,7 +512,8 @@ fun SheetRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }
-        Text(label, Modifier.weight(1f), style = PullsType.row, color = if (danger) c.error else c.text, maxLines = 1)
+        // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.
+        Text(label, Modifier.weight(1f).padding(vertical = 8.dp), style = PullsType.row, color = if (danger) c.error else c.text)
         if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)
     }
 }
@@ -534,6 +535,8 @@ fun SheetField(
     minLines: Int = 1,
     secret: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Default,
+    onGo: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
@@ -553,7 +556,8 @@ fun SheetField(
                 textStyle = PullsType.row.copy(color = c.text),
                 cursorBrush = SolidColor(c.accentTeal),
                 visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, autoCorrectEnabled = keyboardType == KeyboardType.Text),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = keyboardType == KeyboardType.Text),
+                keyboardActions = KeyboardActions(onGo = { onGo?.invoke() }, onDone = { onGo?.invoke() }),
                 modifier = Modifier.fillMaxWidth(),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.TopStart) {

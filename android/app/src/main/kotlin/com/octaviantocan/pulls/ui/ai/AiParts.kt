@@ -30,9 +30,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +52,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Activity
 import com.octaviantocan.pulls.data.Usage
-import com.octaviantocan.pulls.ui.design.IconButton
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PhIcon
@@ -92,36 +89,6 @@ internal fun Shimmer(text: String, style: TextStyle, modifier: Modifier = Modifi
         startX = shift * width, endX = shift * width + width * 2,
     )
     Text(text, modifier, style = style.copy(brush = brush), maxLines = maxLines, overflow = TextOverflow.Ellipsis)
-}
-
-/** The web `AppModal`: a bottom sheet on phones, a centered dialog from `sm` up. */
-@Composable
-internal fun AiSheet(
-    title: String,
-    onDismiss: () -> Unit,
-    description: String? = null,
-    footer: (@Composable RowScope.() -> Unit)? = null,
-    scrollBody: Boolean = true,
-    content: @Composable ColumnScope.() -> Unit,
-) = com.octaviantocan.pulls.ui.design.AppModal(onDismiss, title = title, description = description, scrollBody = scrollBody, footer = footer, content = content)
-
-/** `FormCheckbox`: a 16px box, primary fill and a white check when on, with a 44dp hit area. */
-@Composable
-internal fun AiCheckbox(checked: Boolean, onChange: (Boolean) -> Unit, label: String? = null, modifier: Modifier = Modifier, contentDescription: String? = null) {
-    val c = LocalPullsColors.current
-    Row(
-        modifier.defaultMinSize(minHeight = TOUCH, minWidth = TOUCH).clip(RoundedCornerShape(4.dp))
-            .clickable(role = Role.Checkbox, onClickLabel = contentDescription ?: label) { onChange(!checked) },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp, if (label == null) Alignment.CenterHorizontally else Alignment.Start),
-    ) {
-        Box(
-            Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(if (checked) c.primary else c.raised)
-                .border(1.dp, if (checked) c.primary else c.border, RoundedCornerShape(4.dp)),
-            contentAlignment = Alignment.Center,
-        ) { if (checked) PhIcon("check-bold", tint = Color.White, size = 11.dp) }
-        if (label != null) Text(label, style = PullsType.sm, color = c.text)
-    }
 }
 
 /** `SeverityBadge`: `badge` tinted red (bug), amber (risk) or gray (nit). */

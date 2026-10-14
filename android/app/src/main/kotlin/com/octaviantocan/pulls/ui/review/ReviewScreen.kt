@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -28,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
@@ -39,15 +41,14 @@ import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
-import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.BlurSwitch
-import com.octaviantocan.pulls.ui.design.ButtonVariant
-import com.octaviantocan.pulls.ui.design.EmptyState
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.TourEntry
 import com.octaviantocan.pulls.ui.home.TourIndex
@@ -176,8 +177,10 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     Box(Modifier.fillMaxSize().background(c.base)) {
         when {
             opened == null && session.loadError != null -> Placeholder(onBack = nav.back) {
-                EmptyState("warning-duotone", messages.t("pr.loadFailed"), hint = session.loadError) {
-                    ActionButton({ session.refresh() }, variant = ButtonVariant.Primary) { Text(messages.t("common.retry")) }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(messages.t("pr.loadFailed"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                    session.loadError?.let { Text(it, style = PullsType.sm, color = c.muted) }
+                    PillButton(messages.t("common.retry"), { session.refresh() })
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.

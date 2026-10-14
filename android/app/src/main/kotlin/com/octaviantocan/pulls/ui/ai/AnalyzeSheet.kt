@@ -30,19 +30,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.core.AnalyzePreset
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
+import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -96,9 +95,7 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, onModel: 
                 PassRow("Brief", "A page made for this change: tables, checks, diagrams.", custom.brief) { custom = custom.copy(brief = it) }
                 PassRow("AI review", "Looks for bugs and risks, line by line.", custom.review) { custom = custom.copy(review = it) }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
-                ActionButton({ run(custom) }, variant = ButtonVariant.Primary) { Text("Analyze") }
-            }
+            CtaButton("Analyze", { run(custom) }, Modifier.fillMaxWidth().padding(top = 16.dp))
         }
         return
     }
@@ -161,19 +158,19 @@ private fun PassRow(title: String, hint: String, checked: Boolean, first: Boolea
     }
 }
 
-/** Analyze with a chevron: the button runs the last choice, the chevron opens the others. */
+/** Analyze with a chevron: the button runs the last choice, the chevron opens the others. The dark pill, as the screen's one action. */
 @Composable
 internal fun AnalyzeSplitButton(choice: String, onRun: () -> Unit, onMenu: () -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
-    Row(modifier.clip(CircleShape).background(c.primary), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.clip(CircleShape).background(c.cta), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button, onClickLabel = "Analyze, $choice", onClick = onRun).padding(start = 16.dp, end = 12.dp),
+            Modifier.defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button, onClickLabel = "Analyze, $choice", onClick = onRun).padding(start = 18.dp, end = 12.dp),
             contentAlignment = Alignment.Center,
-        ) { Text("Analyze", style = PullsType.sm, color = Color.White, maxLines = 1) }
-        Box(Modifier.width(1.dp).height(20.dp).background(Color.White.copy(alpha = 0.35f)))
+        ) { Text("Analyze", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
+        Box(Modifier.width(1.dp).height(20.dp).background(c.onCta.copy(alpha = 0.3f)))
         Box(
             Modifier.size(TOUCH).clickable(role = Role.Button, onClickLabel = "Choose how to analyze", onClick = onMenu),
             contentAlignment = Alignment.Center,
-        ) { PhIcon("caret-down", tint = Color.White, size = 16.dp) }
+        ) { LuIcon(Lu.chevd, tint = c.onCta, size = 18.dp) }
     }
 }

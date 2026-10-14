@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 715,
+        "line": 719,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes.",
         "params": [
           {
@@ -270,7 +270,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 732,
+        "line": 736,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -293,7 +293,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 648,
+        "line": 652,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot; done,\nit is a still wash with a tick. No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -321,7 +321,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 726,
+        "line": 730,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -453,7 +453,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 700,
+        "line": 704,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -484,7 +484,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 571,
+        "line": 575,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -631,7 +631,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 525,
+        "line": 526,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -682,12 +682,22 @@
             "default": "KeyboardType.Text"
           },
           {
+            "name": "imeAction",
+            "type": "ImeAction",
+            "default": "ImeAction.Default"
+          },
+          {
+            "name": "onGo",
+            "type": "(() -> Unit)?",
+            "default": "null"
+          },
+          {
             "name": "trailing",
             "type": "(@Composable () -> Unit)?",
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun SheetField(\n    label: String?,\n    value: String,\n    onChange: (String) -> Unit,\n    modifier: Modifier = Modifier,\n    placeholder: String = \"\",\n    first: Boolean = false,\n    enabled: Boolean = true,\n    minLines: Int = 1,\n    secret: Boolean = false,\n    keyboardType: KeyboardType = KeyboardType.Text,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }\n            .padding(start = 16.dp, end = if (trailing != null) 8.dp else 16.dp, top = 10.dp, bottom = 10.dp),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n            if (label != null) Text(label, style = PullsType.sm, color = c.muted)\n            BasicTextField(\n                value = value,\n                onValueChange = onChange,\n                enabled = enabled,\n                singleLine = minLines <= 1,\n                minLines = minLines,\n                textStyle = PullsType.row.copy(color = c.text),\n                cursorBrush = SolidColor(c.accentTeal),\n                visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,\n                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, autoCorrectEnabled = keyboardType == KeyboardType.Text),\n                modifier = Modifier.fillMaxWidth(),\n                decorationBox = { inner ->\n                    Box(contentAlignment = Alignment.TopStart) {\n                        if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.faint)\n                        inner()\n                    }\n                },\n            )\n        }\n        trailing?.invoke()\n    }\n}"
+        "source": "@Composable\nfun SheetField(\n    label: String?,\n    value: String,\n    onChange: (String) -> Unit,\n    modifier: Modifier = Modifier,\n    placeholder: String = \"\",\n    first: Boolean = false,\n    enabled: Boolean = true,\n    minLines: Int = 1,\n    secret: Boolean = false,\n    keyboardType: KeyboardType = KeyboardType.Text,\n    imeAction: ImeAction = ImeAction.Default,\n    onGo: (() -> Unit)? = null,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }\n            .padding(start = 16.dp, end = if (trailing != null) 8.dp else 16.dp, top = 10.dp, bottom = 10.dp),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n            if (label != null) Text(label, style = PullsType.sm, color = c.muted)\n            BasicTextField(\n                value = value,\n                onValueChange = onChange,\n                enabled = enabled,\n                singleLine = minLines <= 1,\n                minLines = minLines,\n                textStyle = PullsType.row.copy(color = c.text),\n                cursorBrush = SolidColor(c.accentTeal),\n                visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,\n                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = keyboardType == KeyboardType.Text),\n                keyboardActions = KeyboardActions(onGo = { onGo?.invoke() }, onDone = { onGo?.invoke() }),\n                modifier = Modifier.fillMaxWidth(),\n                decorationBox = { inner ->\n                    Box(contentAlignment = Alignment.TopStart) {\n                        if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.faint)\n                        inner()\n                    }\n                },\n            )\n        }\n        trailing?.invoke()\n    }\n}"
       }
     ]
   },
@@ -743,7 +753,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .alpha(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        Text(label, Modifier.weight(1f), style = PullsType.row, color = if (danger) c.error else c.text, maxLines = 1)\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
+        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .alpha(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.\n        Text(label, Modifier.weight(1f).padding(vertical = 8.dp), style = PullsType.row, color = if (danger) c.error else c.text)\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
       }
     ]
   },
@@ -752,7 +762,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 740,
+        "line": 744,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -840,7 +850,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 607,
+        "line": 611,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.",
         "params": [
           {

@@ -83,7 +83,9 @@ internal object Lu {
     val branch = LuGlyph(1.8f, LuPath("M6 3v12"), LuPath("M15,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M18 9a9 9 0 0 1-9 9"))
     val search = LuGlyph(2f, LuPath("M4,11a7,7 0 1,0 14,0a7,7 0 1,0 -14,0"), LuPath("m20 20-3.5-3.5"))
     val ask = LuGlyph(1.8f, LuPath("M7.9 20A9 9 0 1 0 4 16.1L2 22Z"))
-    val bot = LuGlyph(1.8f, LuPath("M12 8V4H8"), LuPath("M6,8h12a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-12a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z"), LuPath("M2 14h2M20 14h2M15 13v2M9 13v2"))
     val copy = LuGlyph(2f, LuPath("M11,9h7a2,2 0 0 1 2,2v7a2,2 0 0 1 -2,2h-7a2,2 0 0 1 -2,-2v-7a2,2 0 0 1 2,-2z"), LuPath("M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"))
-    val ai = LuGlyph(1.8f, LuPath("M12 8V4H8"), LuPath("M6,8h12a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-12a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z"), LuPath("M2 14h2M20 14h2M15 13v2M9 13v2"))
+    val edit = LuGlyph(1.8f, LuPath("M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"), LuPath("m15 5 4 4"))
+    val trash = LuGlyph(1.8f, LuPath("M3 6h18"), LuPath("M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"), LuPath("M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"), LuPath("M10 11v6M14 11v6"))
+    val stop = LuGlyph(1.8f, LuPath("M7,5h10a2,2 0 0 1 2,2v10a2,2 0 0 1 -2,2H7a2,2 0 0 1 -2,-2V7a2,2 0 0 1 2,-2z", fill = true))
+    val commit = LuGlyph(1.8f, LuPath("M9,12a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3 12h6M15 12h6"))
 }

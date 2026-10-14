@@ -55,10 +55,10 @@ import androidx.compose.ui.unit.sp
 import com.octaviantocan.pulls.data.DiffLine
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.ReviewThread
-import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsColors
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
@@ -198,7 +198,7 @@ private fun FileMessage(text: String, onLoad: (() -> Unit)?) {
     val c = LocalPullsColors.current
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(text, style = PullsType.sm, color = c.muted)
-        if (onLoad != null) ActionButton(onLoad, small = true) { Text(t("file.loadFull")) }
+        if (onLoad != null) PillButton(t("file.loadFull"), onLoad)
     }
 }
 

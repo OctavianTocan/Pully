@@ -83,7 +83,7 @@ export const BANS = {
   'material-sheet-menu': {
     label: 'Material sheets and menus outside the kit',
     rules: [5, 49],
-    advice: 'Use PullsSheet or AppModal.',
+    advice: 'Use PullsSheet.',
     allowIn: KIT_FILES,
     importOf: name => KIT_ONLY.some(leaf => name === `androidx.compose.material3.${leaf}`),
   },

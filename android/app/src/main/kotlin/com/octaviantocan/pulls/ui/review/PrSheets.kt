@@ -253,7 +253,7 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                 first = false
             }
             if (canShare(session)) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) { ShareButton(session) }
+                ShareButton(session, first = first)
                 first = false
             }
             SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, first = first, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {

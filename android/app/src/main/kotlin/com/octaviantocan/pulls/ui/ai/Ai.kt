@@ -19,9 +19,9 @@ import com.octaviantocan.pulls.ui.review.ReviewSession
  * `AskSelection.kt`.
  */
 
-/** `DiffShareButton` + `ShareResultModal`. Renders nothing when there is no own AI result. */
+/** The More sheet's share row and the sheet it opens. Renders nothing when there is no own AI result. */
 @Composable
-fun ShareButton(session: ReviewSession, modifier: Modifier = Modifier) = ShareButtonImpl(session, modifier)
+fun ShareButton(session: ReviewSession, modifier: Modifier = Modifier, first: Boolean = false) = ShareButtonImpl(session, modifier, first)
 
 /** `CritiquePanel` (with `FindingCard`s). Renders nothing until a critique runs or exists. */
 @Composable

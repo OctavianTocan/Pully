@@ -1,7 +1,6 @@
 {
   "composables": {
     "ActionButton": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
-    "AppModal": "A window, like PullsSheet, and the web-port modal Settings uses today (rule 49). It cannot be framed inside a page.",
     "Badge": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "BlurSwitch": "A transition wrapper for the Inbox and Tours tabs, not a visual component. Its recipe is on the Motion page.",
     "Card": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",

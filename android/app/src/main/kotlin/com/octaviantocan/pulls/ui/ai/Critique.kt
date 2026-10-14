@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.HorizontalDivider
@@ -31,6 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -40,14 +43,24 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Critique
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.ServerStore
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
+import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsCheck
+import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetField
+import com.octaviantocan.pulls.ui.design.Skeleton
+import com.octaviantocan.pulls.ui.design.SoftChip
 import com.octaviantocan.pulls.ui.design.TOUCH
-import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.tc
 import com.octaviantocan.pulls.ui.review.ReviewSession
@@ -91,47 +104,50 @@ internal fun LensPickerSheet(session: ReviewSession, onDismiss: () -> Unit, onPi
     val matches = if (needle.isEmpty()) all else all.filter { (name, description) -> needle in name.lowercase() || description?.lowercase()?.contains(needle) == true }
     val showGeneral = needle.isEmpty()
 
-    AiSheet(title = t("lens.title"), description = t("lens.description"), onDismiss = onDismiss) {
-        TextInput(
-            query, { query = it }, t("lens.search"), Modifier.fillMaxWidth(), icon = "magnifying-glass",
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Go),
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onGo = {
-                if (showGeneral) onPick(null) else matches.firstOrNull()?.let { onPick(it.first) }
-            }),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (showGeneral) LensOption("magnifying-glass-duotone", t("lens.general"), t("lens.generalDescription"), mono = false, selected = current == null) { onPick(null) }
-            matches.forEach { (name, description) -> LensOption("lightbulb-duotone", name, description, mono = true, selected = current == name) { onPick(name) } }
+    PullsSheet(onDismiss, t("lens.title"), expandable = true) {
+        Text(t("lens.description"), Modifier.padding(top = 4.dp), style = PullsType.sm, color = c.muted)
+        SheetCard {
+            SheetField(
+                null, query, { query = it }, placeholder = t("lens.search"), first = true,
+                imeAction = androidx.compose.ui.text.input.ImeAction.Go,
+                onGo = { if (showGeneral) onPick(null) else matches.firstOrNull()?.let { onPick(it.first) } },
+            )
         }
         val error = ui.lensesError
+        SheetCard {
+            if (showGeneral) LensOption(t("lens.general"), t("lens.generalDescription"), mono = false, selected = current == null, first = true) { onPick(null) }
+            matches.forEachIndexed { index, (name, description) ->
+                LensOption(name, description, mono = true, selected = current == name, first = !showGeneral && index == 0) { onPick(name) }
+            }
+            // No loading screen: the shape of the rows, replaced in place when they arrive.
+            if (ui.lensesLoading) repeat(3) { Column(Modifier.padding(horizontal = 16.dp, vertical = 17.dp)) { Skeleton(Modifier.fillMaxWidth(if (it % 2 == 0) 0.5f else 0.7f)) } }
+        }
         when {
-            ui.lensesLoading -> Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Spinner(c.fade)
-                Text(t("lens.loading"), style = PullsType.sm, color = c.fade)
-            }
-            error != null -> Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            error != null -> Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(t("lens.loadFailed", "error" to error), Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                ActionButton(onClick = ::load, small = true) { Text(t("common.retry")) }
+                PillButton(t("common.retry"), ::load)
             }
-            ui.lenses?.isEmpty() == true -> Text(t("lens.none"), Modifier.padding(horizontal = 8.dp, vertical = 6.dp), style = PullsType.sm, color = c.fade)
-            ui.lenses != null && matches.isEmpty() -> Text(t("lens.noMatch"), Modifier.padding(horizontal = 8.dp, vertical = 6.dp), style = PullsType.sm, color = c.fade)
+            ui.lenses?.isEmpty() == true -> Text(t("lens.none"), Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
+            ui.lenses != null && matches.isEmpty() -> Text(t("lens.noMatch"), Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
         }
     }
 }
 
 @Composable
-private fun LensOption(icon: String, name: String, description: String?, mono: Boolean, selected: Boolean, onClick: () -> Unit) {
+private fun LensOption(name: String, description: String?, mono: Boolean, selected: Boolean, first: Boolean, onClick: () -> Unit) {
     val c = LocalPullsColors.current
     Row(
-        Modifier.fillMaxWidth().defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(8.dp)).background(if (selected) c.active else Color.Transparent)
-            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp).clickable(role = Role.Button, onClick = onClick)
+            .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        PhIcon(icon, Modifier.padding(top = 3.dp), tint = c.fade, size = 16.dp)
-        Column {
-            Text(name, style = PullsType.sm.copy(fontWeight = FontWeight.Medium, fontFamily = if (mono) PullsType.mono else null), color = c.text)
-            if (!description.isNullOrBlank()) Text(description, style = PullsType.xs, color = c.fade, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(name, style = PullsType.row.copy(fontFamily = if (mono) PullsType.mono else null), color = c.text)
+            if (!description.isNullOrBlank()) Text(description, style = PullsType.sm, color = c.muted)
         }
+        if (selected) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
     }
 }
 
@@ -174,8 +190,8 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
     val canPost = canWrite && toPost.isNotEmpty() && !ui.posting && result?.headSha == headSha
 
     Column(
-        modifier.bringIntoViewRequester(requester).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.raised)
-            .border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier.bringIntoViewRequester(requester).fillMaxWidth().floatShadow(RoundedCornerShape(PullsRadius.card), PullsShadow.Note).clip(RoundedCornerShape(PullsRadius.card)).background(c.raised)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
@@ -183,9 +199,8 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                 Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) { ui.panelOpen = !ui.panelOpen },
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                PhIcon(if (ui.panelOpen) "caret-down" else "caret-right", tint = c.text, size = 14.dp)
-                PhIcon("magnifying-glass-duotone", tint = c.fade, size = 16.dp)
-                Text(t("critique.title"), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+                Text(t("critique.title"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                LuIcon(if (ui.panelOpen) Lu.chevd else Lu.chev, tint = c.muted, size = 18.dp)
             }
             if (lens != null) Text(lens, Modifier.clip(RoundedCornerShape(4.dp)).background(c.active).padding(horizontal = 6.dp, vertical = 2.dp), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text)
             if (result != null) Text(tc("critique.findingCount", result.findings.size), style = PullsType.xs, color = c.fade)
@@ -197,14 +212,13 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
         if (task != null && (running || task.activities.isNotEmpty())) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                 AiActivityLogFull(task.activities, running, Modifier.weight(1f), startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task))
-                if (running) ActionButton(onClick = { session.cancelTask(task.id) }, icon = "stop-duotone", small = true) { Text(t("common.stop")) }
+                if (running) PillButton(t("common.stop"), { session.cancelTask(task.id) })
             }
         }
         if (failed) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PhIcon("warning-circle-duotone", tint = c.error, size = 16.dp)
                 Text(task.error ?: t("analyze.failed"), Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                ActionButton(onClick = { session.runCritique(context, task.lens) }, small = true) { Text(t("common.retry")) }
+                PillButton(t("common.retry"), { session.runCritique(context, task.lens) })
             }
         }
 
@@ -215,9 +229,15 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
             else {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, itemVerticalAlignment = Alignment.CenterVertically) {
                     SeverityFilter(result, ui.severities) { ui.severities = it; session.findingSeverities = it }
-                    if (selectable.isNotEmpty()) AiCheckbox(allSelected, { value ->
-                        ui.selected = if (value) ui.selected + selectable.map { it.id } else ui.selected - selectable.map { it.id }.toSet()
-                    }, label = t("critique.selectAll"))
+                    if (selectable.isNotEmpty()) Row(
+                        Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(PullsRadius.md)).clickable(role = Role.Checkbox) {
+                            ui.selected = if (!allSelected) ui.selected + selectable.map { it.id } else ui.selected - selectable.map { it.id }.toSet()
+                        },
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        PullsCheck(allSelected, size = 20.dp)
+                        Text(t("critique.selectAll"), style = PullsType.sm, color = c.text)
+                    }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     visible.forEach { finding ->
@@ -235,7 +255,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
             if (result.findings.isNotEmpty() && canWrite) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     HorizontalDivider(color = c.border)
-                    TextInput(ui.postBody, { ui.postBody = it }, t("critique.bodyPlaceholder"), Modifier.fillMaxWidth(), singleLine = false, minLines = 3, enabled = !ui.posting)
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper)) { SheetField(null, ui.postBody, { ui.postBody = it }, placeholder = t("critique.bodyPlaceholder"), first = true, enabled = !ui.posting, minLines = 3) }
                     val pending = session.reviewData?.pendingCount ?: 0
                     if (session.reviewData?.pendingReviewId != null) Text(tc("critique.joinsPending", pending), style = PullsType.xs, color = c.fade)
                     ui.postError?.let { Text(it, style = PullsType.xs, color = c.error) }
@@ -243,15 +263,15 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                     FlowRow(Modifier.fillMaxWidth().padding(end = 64.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), itemVerticalAlignment = Alignment.CenterVertically) {
                         if (ui.posted.isNotEmpty()) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                PhIcon("check-circle-duotone", tint = c.success, size = 14.dp)
-                                Text(tc("critique.postedCount", ui.posted.size), style = PullsType.xs, color = c.fade)
+                                LuIcon(Lu.check, tint = c.success, size = 16.dp)
+                                Text(tc("critique.postedCount", ui.posted.size), style = PullsType.sm, color = c.muted)
                             }
                             Spacer(Modifier.weight(1f))
                         }
-                        ActionButton(
-                            onClick = { postCritique(session, toPost.map { it.id }) },
-                            variant = ButtonVariant.Primary, icon = "paper-plane-tilt-duotone", loading = ui.posting, enabled = canPost, small = true,
-                        ) { Text(tc("critique.post", toPost.size)) }
+                        CtaButton(
+                            tc("critique.post", toPost.size), { postCritique(session, toPost.map { it.id }) },
+                            enabled = canPost, leading = { if (ui.posting) Orb(size = 18.dp) },
+                        )
                     }
                 }
             }
@@ -282,19 +302,14 @@ private fun postCritique(session: ReviewSession, ids: List<String>) {
 @Composable
 private fun SeverityFilter(result: Critique, value: Set<String>, onChange: (Set<String>) -> Unit) {
     val c = LocalPullsColors.current
-    Row(Modifier.clip(RoundedCornerShape(8.dp)).background(c.sunken).padding(4.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SEVERITIES.forEach { severity ->
             val count = result.findings.count { it.severity == severity }
             val on = severity in value
-            val disabled = count == 0
-            Text(
-                "${t("critique.severity.$severity")} $count",
-                Modifier.defaultMinSize(minHeight = 36.dp).clip(RoundedCornerShape(6.dp))
-                    .background(if (on && !disabled) c.raised else Color.Transparent)
-                    .clickable(enabled = !disabled, role = Role.Checkbox) { onChange(SEVERITIES.filter { if (it == severity) !on else it in value }.toSet()) }
-                    .alpha(if (disabled) 0.4f else 1f)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                style = PullsType.sm, color = if (on) c.text else c.muted, maxLines = 1,
+            SoftChip(
+                t("critique.severity.$severity"), on && count > 0,
+                { onChange(SEVERITIES.filter { if (it == severity) !on else it in value }.toSet()) },
+                Modifier.alpha(if (count == 0) 0.4f else 1f), count = "$count",
             )
         }
     }
@@ -306,12 +321,12 @@ private fun FindingCard(finding: CritiqueFinding, posted: Boolean, selected: Boo
     val c = LocalPullsColors.current
     val location = lineRangeLabel(AskSelection(finding.path, finding.side, finding.startLine ?: finding.line, finding.line))
     Row(
-        Modifier.fillMaxWidth().alpha(if (posted) 0.65f else 1f).clip(RoundedCornerShape(8.dp)).background(c.base).border(1.dp, c.border, RoundedCornerShape(8.dp))
+        Modifier.fillMaxWidth().alpha(if (posted) 0.65f else 1f).clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper)
             .padding(start = 0.dp, end = 12.dp, top = 0.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        if (posted) Row(Modifier.padding(start = 12.dp, top = 12.dp, end = 10.dp)) { PhIcon("check-circle-duotone", tint = c.success, size = 18.dp, contentDescription = t("critique.postedFinding")) }
-        else AiCheckbox(selected, onSelect, contentDescription = t("critique.selectFinding"))
+        if (posted) Row(Modifier.padding(start = 12.dp, top = 12.dp, end = 10.dp)) { LuIcon(Lu.check, tint = c.success, size = 20.dp) }
+        else PullsCheck(selected, Modifier.padding(start = 12.dp, top = 10.dp, end = 10.dp), size = 20.dp, onClick = { onSelect(!selected) }, label = t("critique.selectFinding"))
         Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                 SeverityBadge(finding.severity)

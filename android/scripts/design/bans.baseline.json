@@ -1,38 +1,13 @@
 {
-  "ai-glyph": {
-    "ui/ai/Analyze.kt": 1,
-    "ui/book/BookFoundations.kt": 1,
-    "ui/review/Header.kt": 1
-  },
   "legacy-icons": {
-    "ui/ai/AiParts.kt": 8,
-    "ui/ai/Analyze.kt": 5,
-    "ui/ai/AnalyzeSheet.kt": 1,
-    "ui/ai/Chat.kt": 2,
-    "ui/ai/Critique.kt": 6,
+    "ui/ai/AiParts.kt": 7,
     "ui/design/Markdown.kt": 1,
-    "ui/home/CheckoutScreen.kt": 4,
-    "ui/home/Chrome.kt": 4,
-    "ui/home/HomeScreen.kt": 8,
-    "ui/home/NavControls.kt": 4,
     "ui/review/Header.kt": 1,
-    "ui/review/Overview.kt": 5,
-    "ui/review/PageBanners.kt": 4,
-    "ui/review/Threads.kt": 5
+    "ui/review/Overview.kt": 5
   },
   "legacy-kit": {
-    "ui/ai/Analyze.kt": 4,
-    "ui/ai/AnalyzeSheet.kt": 1,
-    "ui/ai/Brief.kt": 1,
-    "ui/ai/Chat.kt": 2,
-    "ui/ai/Critique.kt": 6,
-    "ui/home/CheckoutScreen.kt": 4,
-    "ui/home/HomeScreen.kt": 4,
-    "ui/review/DescriptionEditSheet.kt": 3,
-    "ui/review/FileDiff.kt": 1,
-    "ui/review/PageBanners.kt": 2,
-    "ui/review/ReviewScreen.kt": 2,
-    "ui/review/Threads.kt": 8
+    "ui/home/HomeScreen.kt": 2,
+    "ui/review/Threads.kt": 1
   },
   "material-component": {
     "ui/ai/AiParts.kt": 1,
@@ -40,13 +15,5 @@
     "ui/ai/Critique.kt": 1,
     "ui/design/Markdown.kt": 1,
     "ui/review/Threads.kt": 1
-  },
-  "material-sheet-menu": {
-    "ui/ai/AiParts.kt": 2,
-    "ui/home/Chrome.kt": 1
-  },
-  "waiting": {
-    "ui/ai/Analyze.kt": 1,
-    "ui/home/CheckoutScreen.kt": 1
   }
 }

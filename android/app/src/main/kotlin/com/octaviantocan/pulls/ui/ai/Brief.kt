@@ -40,13 +40,12 @@ import com.octaviantocan.pulls.core.FindingSeverity
 import com.octaviantocan.pulls.core.markdown
 import com.octaviantocan.pulls.data.Brief
 import com.octaviantocan.pulls.data.TourBlock
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PendingDot
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.review.ReviewSession
@@ -76,7 +75,7 @@ internal fun BriefSection(session: ReviewSession, brief: Brief, onOpen: (BriefTa
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Brief", Modifier.weight(1f), style = PullsType.xl, color = c.text)
-            if (session.key != null && !running) ActionButton({ startBrief(session) }, variant = ButtonVariant.Text, small = true) { Text("Redo") }
+            if (session.key != null && !running) PillButton("Redo", { startBrief(session) })
         }
         if (older) Text("Written for an earlier commit.", style = PullsType.sm, color = c.muted)
         brief.page.blocks.forEach { block -> BriefBlockView(session, block, onOpen) }

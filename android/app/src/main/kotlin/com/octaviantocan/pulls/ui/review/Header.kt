@@ -105,7 +105,7 @@ internal fun reviewGlyph(state: String): Glyph = when (state) {
     "changes_requested" -> decisionGlyph("changes_requested")!!
     "dismissed" -> Glyph("prohibit") { muteTint() }
     "pending" -> Glyph("hourglass-duotone") { muteTint() }
-    else -> Glyph("chat-circle-dots-duotone") { fadeTint() }
+    else -> Glyph("chat-circle-dots-duotone") { fadeTint() } // ban-ok: a review that only left comments; the fact is "commented", not an AI mark
 }
 
 @Composable

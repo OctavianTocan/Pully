@@ -98,8 +98,6 @@ import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.Triage
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.EmptyState
@@ -111,10 +109,11 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -122,19 +121,18 @@ import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SoftChip
-import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.edgeBlur
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.softBlur
-import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import com.octaviantocan.pulls.update.AppUpdater
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /** Keeps the last list per state on this device, like the web's `localStorage` copy. */
 internal fun deviceStore(context: Context, name: String = "pulls-home"): KeyValueStore {
@@ -386,7 +384,7 @@ internal fun InboxList(
                 loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
                     EmptyState("warning-duotone", t("local.home.failed"), Modifier.fillMaxWidth(), hint = failed) {
-                        ActionButton(onRetry, variant = ButtonVariant.Primary) { Text(t("common.retry")) }
+                        PillButton(t("common.retry"), onRetry)
                     }
                 }
                 groups.isEmpty() -> item(key = "empty") {
@@ -751,12 +749,12 @@ private fun ProfileSheet(
     }
 }
 
-/** `i-ph:circle-notch animate-spin`. */
+/** A small turning arrow beside work the phone is doing quietly (refreshing, loading more). */
 @Composable
 fun Spinner(size: Dp = 16.dp, tint: Color = LocalPullsColors.current.fade) {
     val transition = rememberInfiniteTransition(label = "spin")
     val angle by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart), label = "angle")
-    PhIcon("circle-notch", Modifier.rotate(angle), tint = tint, size = size)
+    LuIcon(Lu.redo, Modifier.rotate(angle), tint = tint, size = size)
 }
 
 /** `rounded bg-hover px-1.5 py-0.5 text-xs`. */
@@ -769,29 +767,6 @@ internal fun Chip(text: String, color: Color) {
         color = color,
         maxLines = 1,
     )
-}
-
-/** The CI rollup glyph next to a pull request (`CHECKS_ICON`). */
-@Composable
-internal fun ChecksIcon(checks: String, size: Dp) {
-    val dark = LocalPullsColors.current.dark
-    val label = t("pulls.checks.$checks")
-    when (checks) {
-        "success" -> PhIcon("check-bold", tint = StatusColors.green(dark), size = size, contentDescription = label)
-        "failure" -> PhIcon("x-bold", tint = StatusColors.red(dark), size = size, contentDescription = label)
-        "pending" -> PhIcon("circle-fill", tint = StatusColors.amber500, size = size, contentDescription = label)
-    }
-}
-
-/** The review decision glyph (`REVIEW`); accepts the home (`changes-requested`) and repo list (`changes_requested`) spellings. */
-@Composable
-internal fun ReviewIcon(decision: String?, size: Dp) {
-    val c = LocalPullsColors.current
-    when (decision?.replace('-', '_')) {
-        "approved" -> PhIcon("check-circle-duotone", tint = StatusColors.green(c.dark), size = size, contentDescription = t("pulls.review.approved"))
-        "changes_requested" -> PhIcon("x-circle-duotone", tint = StatusColors.red(c.dark), size = size, contentDescription = t("pulls.review.changes_requested"))
-        "review_required" -> PhIcon("eye-duotone", tint = c.fade, size = size, contentDescription = t("pulls.review.review_required"))
-    }
 }
 
 /** The app-update notice: download, check the digest and hand it to the installer, all in-app. */
@@ -813,7 +788,7 @@ private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        PhIcon("arrow-circle-up-duotone", tint = c.accentTeal, size = 22.dp)
+        LuIcon(Lu.arrow, Modifier.rotate(-90f), tint = c.accentTeal, size = 22.dp)
         Text(progress ?: notice, Modifier.weight(1f), style = PullsType.sm, color = c.text)
         val result = com.octaviantocan.pulls.update.UpdateBus.last
         LaunchedEffect(result) {
@@ -823,14 +798,14 @@ private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
                 else -> {}
             }
         }
-        ActionButton({
+        PillButton("Update", enabled = !busy, leading = { if (busy) Orb(size = 18.dp) }, onClick = {
             // Android asks once per app for "Install unknown apps"; send the user there first.
             if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
                 progress = "Allow pulls.review to install apps, then tap Update again."
                 runCatching {
                     context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${context.packageName}")))
                 }
-                return@ActionButton
+                return@PillButton
             }
             busy = true
             scope.launch {
@@ -847,7 +822,7 @@ private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
                 }
                 outcome.onFailure { progress = it.message ?: it.toString(); busy = false }.onSuccess { progress = "Installing…" }
             }
-        }, variant = ButtonVariant.Primary, small = true, loading = busy, enabled = !busy) { Text("Update") }
+        })
     }
 }
 

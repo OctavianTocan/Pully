@@ -29,18 +29,17 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.ChatMessage
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
-import com.octaviantocan.pulls.ui.design.FloatButton
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.SoftChip
-import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ReviewSession
@@ -125,11 +124,11 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         footer = {
             if (rows.isNotEmpty() && !busy) {
                 Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.End) {
-                    ActionButton({
-                        val key = session.key ?: return@ActionButton
+                    PillButton(t("common.clear"), {
+                        val key = session.key ?: return@PillButton
                         ui.chatError = null
                         session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
-                    }, variant = ButtonVariant.Text, small = true) { Text(t("common.clear")) }
+                    })
                 }
             }
             Row(
@@ -155,12 +154,9 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     },
                 )
                 if (streaming && task != null) {
-                    FloatButton({ session.cancelTask(task.id) }, t("common.stop"), size = 40.dp, container = c.primary) { PhIcon("stop-duotone", tint = Color.White, size = 18.dp) }
+                    FloatIcon(Lu.stop, t("common.stop"), { session.cancelTask(task.id) }, size = 40.dp, iconSize = 18.dp, primary = true)
                 } else {
-                    FloatButton(
-                        { val text = ui.chatInput; ui.chatInput = ""; ask(text) }, t("common.send"), size = 40.dp,
-                        enabled = !busy && ui.chatInput.isNotBlank(), container = c.primary,
-                    ) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
+                    SendButton({ val text = ui.chatInput; ui.chatInput = ""; ask(text) }, t("common.send"), enabled = !busy && ui.chatInput.isNotBlank())
                 }
             }
         },
@@ -184,7 +180,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(task?.error ?: t("chat.requestFailed"), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
                     // A failed turn saved nothing, so the question is sent again (web `retry` re-runs an errored reply).
-                    ActionButton({ val text = task?.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) }, small = true) { Text(t("common.retry")) }
+                    PillButton(t("common.retry"), { val text = task?.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) })
                 }
             } else if (!streaming && task?.status == "cancelled") {
                 Text(t("chat.stopped"), style = PullsType.sm, color = c.muted)
@@ -249,7 +245,7 @@ private fun ChatRowView(row: ChatRow) {
         is ChatRow.User -> QuestionBubble(row.text)
         is ChatRow.Assistant -> AnswerBubble(row.text)
         is ChatRow.Grouping -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            PhIcon("tree-structure-duotone", tint = c.mute, size = 14.dp)
+            LuIcon(Lu.list, tint = c.mute, size = 14.dp)
             Text(t("chat.updatedGrouping", "n" to row.groups), style = PullsType.xs, color = c.mute)
         }
     }

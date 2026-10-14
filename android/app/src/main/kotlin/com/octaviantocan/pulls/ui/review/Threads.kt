@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,19 +39,21 @@ import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.ReviewThread
 import com.octaviantocan.pulls.data.ThreadComment
 import com.octaviantocan.pulls.ui.ai.AskThreadCard
-import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.Badge
-import com.octaviantocan.pulls.ui.design.ButtonVariant
+import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.FloatButton
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.GithubAvatar
-import com.octaviantocan.pulls.ui.design.IconButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PhIcon
-import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import kotlinx.coroutines.launch
@@ -109,13 +112,13 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                PhIcon("check-circle-duotone", tint = c.success, size = 16.dp)
+                LuIcon(Lu.check, tint = c.success, size = 18.dp)
                 if (first != null) GithubAvatar(first.author, avatarUrl = first.avatarUrl, size = 18.dp)
                 Text(
                     (first?.author ?: "ghost") + ": " + first?.body.orEmpty().lineSequence().firstOrNull { it.isNotBlank() }.orEmpty(),
                     Modifier.weight(1f), style = PullsType.sm, color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                PhIcon("caret-down", tint = c.mute, size = 16.dp)
+                LuIcon(Lu.chevd, tint = c.faint, size = 18.dp)
             }
             return@CardBox
         }
@@ -134,7 +137,7 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
         actions.error?.let { Text(it, Modifier.padding(start = 12.dp, end = 12.dp, bottom = 4.dp), style = PullsType.xs, color = c.error) }
         if (thread.resolved) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-                IconButton("caret-up", t("file.collapse"), { open = false }, compact = true)
+                FloatButton({ open = false }, t("file.collapse"), size = 40.dp, flat = true) { LuIcon(Lu.chevd, Modifier.rotate(180f), tint = c.muted, size = 18.dp) }
             }
         }
         if (canWrite) {
@@ -143,18 +146,21 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.borderMute))
             if (replying) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextInput(reply, { reply = it }, t("review.replyPlaceholder"), Modifier.fillMaxWidth(), singleLine = false, minLines = 2, enabled = !actions.busy)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                        ActionButton({ replying = false }, variant = ButtonVariant.Text, small = true, enabled = !actions.busy) { Text(t("common.cancel")) }
-                        ActionButton(
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper)) {
+                        SheetField(null, reply, { reply = it }, placeholder = t("review.replyPlaceholder"), first = true, enabled = !actions.busy, minLines = 2)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        PillButton(t("common.cancel"), { replying = false }, Modifier.weight(1f), enabled = !actions.busy)
+                        CtaButton(
+                            t("common.reply"),
                             {
-                                val pull = session.pull ?: return@ActionButton
+                                val pull = session.pull ?: return@CtaButton
                                 val body = reply
-                                if (body.isBlank()) return@ActionButton
+                                if (body.isBlank()) return@CtaButton
                                 actions.run({ session.repo.reply(pull, thread.rootId, body) }) { reply = ""; replying = false }
                             },
-                            variant = ButtonVariant.Primary, small = true, loading = actions.busy, enabled = reply.isNotBlank(),
-                        ) { Text(t("common.reply")) }
+                            Modifier.weight(1.6f), enabled = reply.isNotBlank() && !actions.busy, leading = { if (actions.busy) Orb(size = 18.dp) },
+                        )
                     }
                 }
             } else {
@@ -170,10 +176,11 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
                         }
                     } else Spacer(Modifier.weight(1f))
                     if (canResolve) {
-                        ActionButton(
-                            { val pull = session.pull ?: return@ActionButton; actions.run({ session.repo.resolve(pull, thread.threadId) }) },
-                            Modifier.padding(end = 8.dp), variant = ButtonVariant.Text, small = true, enabled = !actions.busy, icon = "check-circle-duotone",
-                        ) { Text(t("review.resolve")) }
+                        PillButton(
+                            t("review.resolve"),
+                            { val pull = session.pull ?: return@PillButton; actions.run({ session.repo.resolve(pull, thread.threadId) }) },
+                            Modifier.padding(end = 8.dp), enabled = !actions.busy, leading = { LuIcon(Lu.check, tint = c.text, size = 18.dp) },
+                        )
                     }
                 }
             }
@@ -195,15 +202,17 @@ fun ReviewCommentCard(comment: ThreadComment, isViewer: Boolean, busy: Boolean, 
             if (comment.pending) Badge(t("review.pending"), color = c.amber)
             Spacer(Modifier.weight(1f))
             if (isViewer && !editing) {
-                IconButton("pencil-simple-duotone", t("review.editComment"), { draft = comment.body; editing = true }, compact = true, enabled = !busy)
-                IconButton("trash-duotone", t("review.deleteComment"), onDelete, compact = true, enabled = !busy)
+                FloatIcon(Lu.edit, t("review.editComment"), { draft = comment.body; editing = true }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted, enabled = !busy)
+                FloatIcon(Lu.trash, t("review.deleteComment"), onDelete, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted, enabled = !busy)
             }
         }
         if (editing) {
-            TextInput(draft, { draft = it }, "", Modifier.fillMaxWidth(), singleLine = false, minLines = 3, enabled = !busy)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                ActionButton({ editing = false }, variant = ButtonVariant.Text, small = true, enabled = !busy) { Text(t("common.cancel")) }
-                ActionButton({ if (draft.isNotBlank()) { onEdit(draft); editing = false } }, variant = ButtonVariant.Primary, small = true, enabled = !busy && draft.isNotBlank()) { Text(t("common.save")) }
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper)) {
+                SheetField(null, draft, { draft = it }, first = true, enabled = !busy, minLines = 3)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                PillButton(t("common.cancel"), { editing = false }, Modifier.weight(1f), enabled = !busy)
+                CtaButton(t("common.save"), { if (draft.isNotBlank()) { onEdit(draft); editing = false } }, Modifier.weight(1.6f), enabled = !busy && draft.isNotBlank())
             }
         } else {
             Markdown(comment.body, style = PullsType.sm.copy(color = c.text))
