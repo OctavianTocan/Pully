@@ -51,12 +51,14 @@ internal class BookData(
     val rules: List<RuleInfo>,
 ) {
     companion object {
-        fun load(context: Context): BookData {
-            fun read(name: String) = JSONObject(context.assets.open("book/$name").bufferedReader().use { it.readText() })
-            val book = read("book.json")
-            val spec = read("spec.json")
-            val sources = read("sources.json")
-            val rules = JSONArray(context.assets.open("book/rules.json").bufferedReader().use { it.readText() })
+        fun load(context: Context): BookData = parse { name -> context.assets.open("book/$name").bufferedReader().use { it.readText() } }
+
+        /** Reads the four files of the book through [text], which returns a file's contents by its name. */
+        fun parse(text: (String) -> String): BookData {
+            val book = JSONObject(text("book.json"))
+            val spec = JSONObject(text("spec.json"))
+            val sources = JSONObject(text("sources.json"))
+            val rules = JSONArray(text("rules.json"))
             return BookData(
                 pages = book.getJSONArray("pages").objects().map {
                     BookPage(it.getString("id"), it.getString("title"), it.getString("group"), it.optString("component").ifEmpty { null })
