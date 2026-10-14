@@ -519,7 +519,7 @@
     "declarations": [
       {
         "file": "ui/design/Sheet.kt",
-        "line": 90,
+        "line": 91,
         "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half\nthe screen and pulls up to the full height. [back] swaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the\npanel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in\n350ms, both on the smooth-out curve. It follows a finger down to dismiss and, when [expandable],\nrests at half height or full.",
         "params": [
           {
@@ -564,7 +564,7 @@
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 120,
+        "line": 121,
         "doc": "",
         "params": [
           {

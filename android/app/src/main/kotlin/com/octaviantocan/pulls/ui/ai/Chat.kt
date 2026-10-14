@@ -104,6 +104,8 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     // The question shows at once; the server saves it with the reply when the turn ends.
     val pending = ui.chatPending?.takeIf { text -> (rows.lastOrNull() as? ChatRow.User)?.text != text }
     val lastQuestion = rows.indexOfLast { it is ChatRow.User }
+    // Where the turn's own log and orb go in the rows: after all of them while it runs, after its question once saved.
+    val turnAt = if (streaming || pending != null) rows.size else lastQuestion + 1
     val failed = task?.status == "failed"
     val scroll = rememberScrollState()
     LaunchedEffect(rows.size, pending, task?.activities?.size, streaming) { scroll.animateScrollTo(scroll.maxValue) }
@@ -163,21 +165,22 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     ) {
         Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (analyzeTask?.running == true && !streaming) Text("The analysis is running. You can ask when it finishes.", style = PullsType.sm, color = c.muted)
-            rows.forEachIndexed { index, row ->
-                ChatRowView(row)
-                // The last reply's work log folds in under the question that asked for it.
-                if (index == lastQuestion && !streaming && pending == null && task != null && task.activities.isNotEmpty()) {
-                    AiActivityLogFull(task.activities, false, startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), compact = true)
-                }
-            }
+            // The turn sits under its own question: below every saved row while it runs, under the saved
+            // question once the reply is saved, with the answer after it. The orb is drawn once, at one
+            // place in the code, so the orb that ran is the one that settles, where the log was.
+            rows.take(turnAt).forEach { ChatRowView(it) }
             if (pending != null) QuestionBubble(pending)
             if (streaming && task != null && task.activities.isNotEmpty()) {
-                // The orb is drawn below, where it stays when the log is replaced by the answer.
                 AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true, mark = false)
             } else if (streaming || ui.chatPending != null) {
                 TypingDots()
             }
+            // The last reply's work log folds in under the question that asked for it.
+            if (!streaming && pending == null && lastQuestion >= 0 && task != null && task.activities.isNotEmpty()) {
+                AiActivityLogFull(task.activities, false, startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), compact = true)
+            }
             AiLiveMark(streaming && task != null && task.activities.isNotEmpty(), hint = true)
+            rows.drop(turnAt).forEach { ChatRowView(it) }
             if (!streaming && failed && ui.chatPending == null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(task?.error ?: t("chat.requestFailed"), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)

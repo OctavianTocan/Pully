@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -164,6 +165,9 @@ internal class SheetPosition {
 
     var expandable = false
 
+    /** Where the panel is resting or heading, so a change of [rest] can tell it has to move. */
+    private var goal = 0f
+
     private var closing = false
     private var expanded = false
     private var opened = false
@@ -191,24 +195,33 @@ internal class SheetPosition {
         return true
     }
 
-    /** The panel has a size: the first time it opens, later it follows a change of size when it is resting. */
+    /** The panel has a size: the first time it opens, later it follows a change of size. */
     fun measured(px: Int, scope: CoroutineScope, motion: Boolean) {
         if (px == height || px <= 0) return
-        val before = rest
         val first = height == 0
         height = px
         when {
             closing -> Unit
             first -> open(scope, motion)
-            // At rest, or on its way to it: follow the new size (content that arrives late, the keyboard).
-            opened && !dragging && (abs(offset - before) < 2f || offsetJob?.isActive == true) -> glide(scope, rest, PullsMotion.FAST, motion)
+            else -> follow(scope, motion)
         }
+    }
+
+    /**
+     * Where the panel rests moved, because it got a new size (content that arrives late) or half the
+     * window did (the keyboard, split screen): a panel that was resting, or on its way, goes to the new
+     * place. One under a finger or on its way out is left alone.
+     */
+    fun follow(scope: CoroutineScope, motion: Boolean) {
+        if (!opened || closing || dragging || abs(goal - rest) < 2f) return
+        glide(scope, rest, PullsMotion.FAST, motion)
     }
 
     private fun open(scope: CoroutineScope, motion: Boolean) {
         opened = true
         if (!motion) {
             offset = rest
+            goal = rest
             reveal = 1f
             return
         }
@@ -219,6 +232,7 @@ internal class SheetPosition {
 
     private fun glide(scope: CoroutineScope, target: Float, ms: Int, motion: Boolean) {
         offsetJob?.cancel()
+        goal = target
         if (!motion) {
             offset = target
             return
@@ -342,6 +356,8 @@ internal fun SheetPanel(
     val window = LocalWindowInfo.current.containerSize.height
     position.expandable = expandable
     position.half = (if (window > 0) window.toFloat() else with(density) { screen.toPx() }) / 2f
+    // Half the window can change with no change to the panel (the keyboard, split screen): an expandable sheet moves to its new rest.
+    LaunchedEffect(position.half, expandable) { position.follow(scope, motion) }
     val latestDismiss by rememberUpdatedState(dismiss)
     val latestMotion by rememberUpdatedState(motion)
     val speed = with(density) { 200.dp.toPx() }

@@ -17,6 +17,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -436,11 +437,12 @@ internal fun ColumnScope.AiLiveMark(active: Boolean, hint: Boolean = false) {
             lingering = false
         }
     }
-    if (active || lingering) Orb(Modifier.padding(start = 2.dp), size = 16.dp, done = !active)
-    AnimatedVisibility(
-        active && hint,
-        exit = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None,
-    ) {
+    // What sits below it glides up as the orb and the bars leave, instead of jumping.
+    val leave = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkVertically(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None
+    AnimatedVisibility(active || lingering, enter = EnterTransition.None, exit = leave) {
+        Orb(Modifier.padding(start = 2.dp), size = 16.dp, done = !active)
+    }
+    AnimatedVisibility(active && hint, exit = leave) {
         Column(Modifier.padding(start = STEP_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             HINT_BAR_WIDTHS.forEach { width -> Skeleton(Modifier.fillMaxWidth(width).height(14.dp)) }
         }
