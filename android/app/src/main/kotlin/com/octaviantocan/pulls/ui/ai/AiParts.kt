@@ -1,14 +1,19 @@
 package com.octaviantocan.pulls.ui.ai
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -79,6 +84,7 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
 import com.octaviantocan.pulls.ui.design.softBlur
@@ -143,10 +149,12 @@ internal fun Shimmer(text: String, style: TextStyle, color: Color, modifier: Mod
 @Composable
 internal fun ThinkingSwap(target: String, modifier: Modifier = Modifier, content: @Composable (String) -> Unit) {
     val travel = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
+    val motion = rememberMotionEnabled()
     AnimatedContent(
         targetState = target,
         modifier = modifier,
         transitionSpec = {
+            if (!motion) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
             val enter = fadeIn(tween(PullsMotion.QUICK, delayMillis = SWAP_GAP_MS, easing = PullsMotion.InOut)) +
                 slideInVertically(tween(PullsMotion.QUICK, delayMillis = SWAP_GAP_MS, easing = PullsMotion.InOut)) { travel }
             val exit = fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.InOut)) +
@@ -324,9 +332,11 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
 /**
  * `AiActivityLog`, complete (rule 72). While [running]: one shimmering line, a verb with the elapsed
  * seconds ("Working 12s"; "Thinking" before the first step, or [workingVerb] when given), the newest
- * steps under it as dot lines (older ones behind "+n more"), and the live orb on the dot column. Once
- * settled: a "Worked for … · Ran 3 commands" button that unfolds the steps. [outcome] is `done`,
- * `failed` or `stopped`.
+ * steps under it as dot lines (older ones behind "+n more"), and the live orb on the dot column. When
+ * the work stops the orb finishes its turn and settles before it leaves. Once settled: a "Worked for
+ * … · Ran 3 commands" button that unfolds the steps. [outcome] is `done`, `failed` or `stopped`.
+ * [hint] puts three grey bars under the orb while it runs, a sign of where the answer will arrive
+ * (rule 71): they sit under the live mark and never stand in for it.
  */
 @Composable
 internal fun AiActivityLogFull(
@@ -338,10 +348,22 @@ internal fun AiActivityLogFull(
     outcome: String = "done",
     compact: Boolean = false,
     workingVerb: String? = null,
+    hint: Boolean = false,
 ) {
     val c = LocalPullsColors.current
     val messages = LocalMessages.current
+    val motion = rememberMotionEnabled()
     val now = rememberNow(running)
+    // The orb outlives the work by a moment, enough for its last turn and the settle to be seen. A log
+    // that is first drawn already settled never had one.
+    var lingering by remember { mutableStateOf(false) }
+    LaunchedEffect(running) {
+        if (running) lingering = true
+        else if (lingering) {
+            delay(ORB_LINGER_MS)
+            lingering = false
+        }
+    }
     // Plain holder, not state: the tracked log is derived during composition and must not trigger it again.
     val log = remember { arrayOf(emptyList<TrackedActivity>()) }
     val tracked = remember(activities) { trackActivities(log[0], activities).also { log[0] = it } }
@@ -354,7 +376,10 @@ internal fun AiActivityLogFull(
     val end = endedAt ?: tracked.maxOfOrNull { it.activity.endedAt ?: it.seenAt }
     val duration = if (start == null) formatClockDuration(0) else formatClockDuration((if (running) now else end ?: start) - start)
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier.animateContentSize(if (motion) tween(PullsMotion.SLOW, easing = PullsMotion.SmoothOut) else snap()),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         if (running) {
             val verb = workingVerb ?: if (activities.isEmpty()) messages.t("ai.verb.thinking.now") else messages.t("ai.working")
             ThinkingHeader(verb, duration, style)
@@ -368,8 +393,6 @@ internal fun AiActivityLogFull(
             tracked.drop(hidden).forEachIndexed { index, row ->
                 key(row.id) { AiActivityRow(row, now, isWarning(row.activity, index + hidden), compact, style) }
             }
-            // The live mark sits under the newest line, centred on the dots' column (10dp in).
-            Orb(Modifier.padding(start = 2.dp), size = 16.dp)
         } else if (activities.isNotEmpty() || startedAt != null) {
             val label = when (outcome) {
                 "failed" -> messages.t("ai.failedAfter", "duration" to duration)
@@ -395,10 +418,27 @@ internal fun AiActivityLogFull(
                     tracked.forEachIndexed { index, row -> key(row.id) { AiActivityRow(row, now, isWarning(row.activity, index), compact, style) } }
                 }
             }
-            if (!compact) HorizontalDivider(color = c.border)
         }
+        // The live mark sits under the newest line, centred on the dots' column (10dp in). One call site
+        // for both states, so the orb that was running is the one that settles.
+        if (running || lingering) Orb(Modifier.padding(start = 2.dp), size = 16.dp, done = !running)
+        AnimatedVisibility(
+            running && hint,
+            exit = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None,
+        ) {
+            Column(Modifier.padding(start = STEP_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                HINT_BAR_WIDTHS.forEach { width -> Skeleton(Modifier.fillMaxWidth(width).height(14.dp)) }
+            }
+        }
+        if (!running && !compact && (activities.isNotEmpty() || startedAt != null)) HorizontalDivider(color = c.border)
     }
 }
+
+/** How long the orb stays after the work stops: its last turn (1600ms) and the settle. */
+private const val ORB_LINGER_MS = 2300L
+
+/** The three hint bars of rule 71, the second and third a little shorter than the first. */
+private val HINT_BAR_WIDTHS = listOf(1f, 0.86f, 0.7f)
 
 /** A red alert box: `border border-red-500/30 rounded bg-red-500/5 p-3`. */
 @Composable

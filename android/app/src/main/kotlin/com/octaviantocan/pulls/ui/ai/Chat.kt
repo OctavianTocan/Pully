@@ -172,7 +172,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
             }
             if (pending != null) QuestionBubble(pending)
             if (streaming && task != null && task.activities.isNotEmpty()) {
-                AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true)
+                AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true, hint = true)
             } else if (streaming || ui.chatPending != null) {
                 TypingDots()
             }

@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -38,14 +39,26 @@ internal fun LuIcon(
     size: Dp = 20.dp,
     strokeWidth: Float = glyph.strokeWidth,
     contentDescription: String? = null,
+    /** How much of each stroke is drawn, 0 to 1: a tick is drawn in by raising it (rule 73). */
+    progress: () -> Float = { 1f },
 ) {
     val semantic = if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier
     Canvas(modifier.size(size).then(semantic)) {
         val unit = this.size.minDimension / 24f
+        val drawn = progress().coerceIn(0f, 1f)
         scale(unit, unit, pivot = Offset.Zero) {
             glyph.paths.forEach { p ->
-                if (p.fill) drawPath(p.path, tint, style = Fill)
-                else drawPath(p.path, tint, style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                when {
+                    p.fill -> drawPath(p.path, tint, style = Fill)
+                    drawn >= 1f -> drawPath(p.path, tint, style = stroke)
+                    drawn > 0f -> {
+                        val measure = PathMeasure().apply { setPath(p.path, false) }
+                        val part = Path()
+                        measure.getSegment(0f, measure.length * drawn, part, true)
+                        drawPath(part, tint, style = stroke)
+                    }
+                }
             }
         }
     }

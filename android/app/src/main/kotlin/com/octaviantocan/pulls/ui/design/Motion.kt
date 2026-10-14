@@ -3,10 +3,14 @@ package com.octaviantocan.pulls.ui.design
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -22,6 +26,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -36,6 +41,7 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.CompositingStrategy
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -45,6 +51,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlin.math.max
 
 /*
@@ -74,6 +82,9 @@ object PullsMotion {
 
     /** A modal opens and closes through 0.96. */
     const val MODAL_SCALE = 0.96f
+
+    /** An icon swap starts and ends at a quarter size. */
+    const val ICON_SCALE = 0.25f
 
     val BlurSmall = 2.dp
     val BlurMedium = 3.dp
@@ -108,11 +119,13 @@ fun Modifier.softBlur(radius: Dp): Modifier =
 @Composable
 fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int = { 0 }, content: @Composable AnimatedContentScope.(S) -> Unit) {
     val travel = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
+    val motion = rememberMotionEnabled()
     AnimatedContent(
         targetState = target,
         modifier = modifier,
         transitionSpec = {
             val way = if (order(targetState) >= order(initialState)) 1 else -1
+            if (!motion) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
             (fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { way * travel }) togetherWith
                 (fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { -way * travel })
         },
@@ -132,15 +145,80 @@ fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int =
  */
 @Composable
 fun MenuReveal(visible: Boolean, modifier: Modifier = Modifier, origin: TransformOrigin = TransformOrigin(0.5f, 0f), content: @Composable () -> Unit) {
+    val motion = rememberMotionEnabled()
     AnimatedVisibility(
         visible, modifier,
-        enter = fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), PullsMotion.DROPDOWN_OPEN_SCALE, origin),
-        exit = fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), PullsMotion.DROPDOWN_CLOSE_SCALE, origin),
+        enter = if (!motion) EnterTransition.None else fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), PullsMotion.DROPDOWN_OPEN_SCALE, origin),
+        exit = if (!motion) ExitTransition.None else fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), PullsMotion.DROPDOWN_CLOSE_SCALE, origin),
     ) {
         val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) }, label = "menu-blur") {
             if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurSmall
         }
         Box(Modifier.softBlur(blur)) { content() }
+    }
+}
+
+/**
+ * An icon replaced by another, such as Copy by a tick (`icon swap` on transitions.dev, rule 73):
+ * the old one shrinks to a quarter through a 2px blur while the new one grows from a quarter, both at
+ * once in 250ms ease-in-out. Nothing moves while [target] stays the same.
+ */
+@Composable
+fun <S> IconSwap(target: S, modifier: Modifier = Modifier, content: @Composable (S) -> Unit) {
+    val motion = rememberMotionEnabled()
+    AnimatedContent(
+        targetState = target,
+        modifier = modifier,
+        transitionSpec = {
+            if (!motion) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
+            (fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.InOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.InOut), PullsMotion.ICON_SCALE)) togetherWith
+                (fadeOut(tween(PullsMotion.FAST, easing = PullsMotion.InOut)) + scaleOut(tween(PullsMotion.FAST, easing = PullsMotion.InOut), PullsMotion.ICON_SCALE))
+        },
+        label = "icon-swap",
+    ) { state ->
+        val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.FAST, easing = PullsMotion.InOut) }, label = "icon-blur") {
+            if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurSmall
+        }
+        Box(Modifier.softBlur(blur)) { content(state) }
+    }
+}
+
+/**
+ * A dialog window that opens in 250ms from 96% size and leaves in 150ms (`modal` on transitions.dev,
+ * rule 73). The window is kept until the exit has played, so [visible] going false does not cut it.
+ */
+@Composable
+fun ModalReveal(visible: Boolean, onDismissRequest: () -> Unit, properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false), content: @Composable () -> Unit) {
+    val motion = rememberMotionEnabled()
+    val state = remember { MutableTransitionState(false) }
+    state.targetState = visible
+    if (!visible && !state.currentState) return
+    Dialog(onDismissRequest, properties) {
+        AnimatedVisibility(
+            state,
+            enter = if (!motion) EnterTransition.None else fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), PullsMotion.MODAL_SCALE),
+            exit = if (!motion) ExitTransition.None else fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), PullsMotion.MODAL_SCALE),
+        ) { content() }
+    }
+}
+
+/**
+ * The contents of a panel arrive faded in through a 2px blur over 400ms (`panel reveal` on
+ * transitions.dev, rule 73), as the panel itself slides up. The state is read when drawing, so the
+ * panel does not recompose while it plays.
+ */
+@Composable
+fun Modifier.panelReveal(): Modifier {
+    val motion = rememberMotionEnabled()
+    val shown = remember { Animatable(if (motion) 0f else 1f) }
+    LaunchedEffect(Unit) { shown.animateTo(1f, tween(PullsMotion.SLOW, easing = PullsMotion.SmoothOut)) }
+    return this.graphicsLayer {
+        val t = shown.value
+        alpha = t
+        if (BlurSupported && t < 1f) {
+            val radius = PullsMotion.BlurSmall.toPx() * (1f - t)
+            renderEffect = BlurEffect(radius, radius, TileMode.Decal)
+        }
     }
 }
 

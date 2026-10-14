@@ -111,7 +111,7 @@ internal fun SelectionActionsImpl(session: ReviewSession, path: String, side: St
                 Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     UserBubble(sent)
                     val askedAt = remember(sent) { System.currentTimeMillis() }
-                    Row(Modifier.padding(horizontal = 4.dp)) { AiActivityLogFull(emptyList(), running = true, startedAt = askedAt, compact = true) }
+                    Row(Modifier.padding(horizontal = 4.dp)) { AiActivityLogFull(emptyList(), running = true, startedAt = askedAt, compact = true, hint = true) }
                 }
             } else AskComposer(placeholder = t("ask.placeholder"), autofocus = true) { question ->
                 sentQuestion = question
@@ -174,7 +174,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                         Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             val activities = if (running && task != null) task.activities else turn.activities.ifEmpty { task?.activities.orEmpty() }
                             val outcome = turn.outcome ?: if (task != null && !task.running) outcomeOf(task) else "done"
-                            AiActivityLogFull(activities, running, Modifier.weight(1f), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true)
+                            AiActivityLogFull(activities, running, Modifier.weight(1f), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, hint = true)
                             if (running && task != null) PillButton(t("common.stop"), { session.cancelTask(task.id) })
                         }
                     }
@@ -190,7 +190,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
             if (pending != null) {
                 val sentAt = remember(pending.first) { System.currentTimeMillis() }
                 UserBubble(pending.first)
-                Row(Modifier.padding(horizontal = 4.dp)) { AiActivityLogFull(emptyList(), running = true, startedAt = sentAt, compact = true) }
+                Row(Modifier.padding(horizontal = 4.dp)) { AiActivityLogFull(emptyList(), running = true, startedAt = sentAt, compact = true, hint = true) }
             }
             if (!asking) {
                 followError?.let { Text(it, Modifier.padding(horizontal = 4.dp), style = PullsType.xs, color = c.error) }

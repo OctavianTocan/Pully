@@ -39,8 +39,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.caverock.androidsvg.SVG
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.data.TourSource
@@ -48,6 +46,7 @@ import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.ModalReveal
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PillButton
@@ -161,12 +160,14 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
             else -> TourBlockView(session, TourBlock("shape", "Mermaid source", "flow", block.body))
         }
     }
-    if (full && svg != null) Dialog({ full = false }, DialogProperties(usePlatformDefaultWidth = false)) {
+    ModalReveal(full && svg != null, { full = false }) {
         var scale by remember { mutableStateOf(1f) }
         var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
         val state = rememberTransformableState { zoom, pan, _ -> scale = (scale * zoom).coerceIn(1f, 6f); offset += pan }
         Box(Modifier.fillMaxSize().background(c.base)) {
-            SvgView(svg, Modifier.fillMaxSize().aspectRatio(ratioOf(svg)).transformable(state).graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }.padding(16.dp))
+            svg?.let { drawing ->
+                SvgView(drawing, Modifier.fillMaxSize().aspectRatio(ratioOf(drawing)).transformable(state).graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }.padding(16.dp))
+            }
             FloatIcon(Lu.close, "Close", { full = false }, Modifier.align(Alignment.TopEnd).padding(top = headerTopPadding(), end = 16.dp))
         }
     }
