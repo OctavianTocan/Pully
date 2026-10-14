@@ -772,6 +772,24 @@
           }
         ],
         "source": "@Composable\nfun Skeleton(modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val transition = rememberInfiniteTransition(label = \"skeleton\")\n    val x by transition.animateFloat(-240f, 240f, infiniteRepeatable(tween(1500, easing = LinearEasing)), label = \"skeleton-x\")\n    Box(\n        modifier.height(12.dp).clip(RoundedCornerShape(6.dp))\n            .background(Brush.linearGradient(listOf(c.paper2, c.accentWash, c.paper2), start = Offset(x, 0f), end = Offset(x + 480f, 0f))),\n    )\n}"
+      },
+      {
+        "file": "ui/design/Skeletons.kt",
+        "line": 25,
+        "doc": "A list's first rows: a number, a title and a meta line, laid out like the Inbox rows they stand in for.",
+        "params": [
+          {
+            "name": "modifier",
+            "type": "Modifier",
+            "default": "Modifier"
+          },
+          {
+            "name": "rows",
+            "type": "Int",
+            "default": "6"
+          }
+        ],
+        "source": "@Composable\nfun RowsSkeleton(modifier: Modifier = Modifier, rows: Int = 6) {\n    Column(modifier.fillMaxWidth().semantics { contentDescription = \"Loading\" }) {\n        repeat(rows) { index ->\n            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {\n                Skeleton(Modifier.width(36.dp))\n                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {\n                    Skeleton(Modifier.fillMaxWidth(TITLE_WIDTHS[index % TITLE_WIDTHS.size]))\n                    Skeleton(Modifier.fillMaxWidth(0.42f))\n                }\n            }\n        }\n    }\n}"
       }
     ]
   },

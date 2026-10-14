@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -45,7 +46,7 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PendingDot
-import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.review.ReviewSession
@@ -75,7 +76,13 @@ internal fun BriefSection(session: ReviewSession, brief: Brief, onOpen: (BriefTa
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Brief", Modifier.weight(1f), style = PullsType.xl, color = c.text)
-            if (session.key != null && !running) PillButton("Redo", { startBrief(session) })
+            if (session.key != null && !running) {
+                Text(
+                    "Redo",
+                    Modifier.defaultMinSize(minHeight = 44.dp).clickable(role = Role.Button, onClickLabel = "Write the brief again") { startBrief(session) }.padding(start = 12.dp).wrapContentHeight(Alignment.CenterVertically),
+                    style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
+                )
+            }
         }
         if (older) Text("Written for an earlier commit.", style = PullsType.sm, color = c.muted)
         brief.page.blocks.forEach { block -> BriefBlockView(session, block, onOpen) }
@@ -136,14 +143,14 @@ private fun BriefBlockView(session: ReviewSession, block: BriefBlock, onOpen: (B
         }
         is BriefBlock.Diagram -> TourBlockView(session, TourBlock("diagram", block.caption.orEmpty(), body = block.mermaid))
         is BriefBlock.Code -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            block.caption?.let { Text(it, style = PullsType.xs, color = c.fade) }
+            block.caption?.let { Text(it, style = PullsType.sm, color = c.muted) }
             CodeWell(session, block.code)
         }
         is BriefBlock.BeforeAfter -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             block.title?.let { Text(it, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text) }
-            Text("Before", style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = c.muted)
+            Text("Before", style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.muted)
             CodeWell(session, block.before)
-            Text("After", style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = c.accentTeal)
+            Text("After", style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.accentTeal)
             CodeWell(session, block.after)
         }
         is BriefBlock.Finding -> FindingView(block, onOpen)
@@ -162,7 +169,7 @@ private fun CalloutView(block: BriefBlock.Callout) {
         CalloutTone.Info -> c.activeText
     }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(tone.copy(alpha = 0.08f))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg)).background(tone.copy(alpha = 0.08f))
             .drawBehind { drawRect(tone, Offset.Zero, Size(3.dp.toPx(), size.height)) }
             .padding(start = 15.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -182,7 +189,7 @@ private fun FindingView(block: BriefBlock.Finding, onOpen: (BriefTarget) -> Unit
     }
     Column(Modifier.fillMaxWidth().hairline(c.borderMute).padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(label, style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = tint)
+            Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = tint)
             Text(block.title, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
         if (block.text.isNotBlank()) Markdown(block.text, style = PullsType.sm.copy(color = c.text))
@@ -225,8 +232,8 @@ private fun TargetLink(target: BriefTarget, onOpen: (BriefTarget) -> Unit) {
 private fun CodeWell(session: ReviewSession, code: String) {
     val c = LocalPullsColors.current
     val zoom = session.settings.codeZoom
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.paper).horizontalScroll(rememberScrollState()).padding(12.dp)) {
-        Text(code.trimEnd(), style = PullsType.xs.copy(fontFamily = PullsType.mono, fontSize = (12f * zoom).sp, lineHeight = (18f * zoom).sp), color = c.text, softWrap = false)
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper).horizontalScroll(rememberScrollState()).padding(12.dp)) {
+        Text(code.trimEnd(), style = PullsType.sm.copy(fontFamily = PullsType.mono, fontSize = (12f * zoom).sp, lineHeight = (18f * zoom).sp), color = c.text, softWrap = false)
     }
 }
 

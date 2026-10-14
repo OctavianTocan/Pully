@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -88,16 +88,17 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.OkDot
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PendingDot
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsFonts
+import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
-import com.octaviantocan.pulls.ui.design.headerTopPadding
-import com.octaviantocan.pulls.ui.design.PillButton
-import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactAge
 import com.octaviantocan.pulls.ui.home.compactCount
@@ -636,7 +637,7 @@ private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?, onEdi
     Column {
         if (data?.overview?.viewer?.canUpdate == true) {
             Box(
-                Modifier.padding(top = 6.dp).defaultMinSize(minHeight = 40.dp).clip(RoundedCornerShape(8.dp))
+                Modifier.padding(top = 6.dp).defaultMinSize(minHeight = 40.dp).clip(RoundedCornerShape(PullsRadius.lg))
                     .clickable(role = Role.Button, onClickLabel = "Edit the description", onClick = onEdit),
                 contentAlignment = Alignment.CenterStart,
             ) { Text(if (markdown.isBlank()) "Add a description" else "Edit description", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
