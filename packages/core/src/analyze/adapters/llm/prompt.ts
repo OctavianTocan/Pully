@@ -53,12 +53,20 @@ You organize a GitHub pull request's changed files into review groups, so a revi
 - Write "label", "summary", "overallSummary" and the "files" text in the language named at the end of the user message. Keep code, paths and identifiers as they are.
 </output>`
 
+/**
+ * How an answer names a place in the code, so the phone can turn every mention into a link that
+ * scrolls there. Tours, chat answers and the brief carry it; a test keeps it in each of their prompts.
+ * The analysis does not: its summary and notes are also posted on GitHub, where a path is no link.
+ */
+export const MENTION_RULE = `Every mention of a file, function, type, field, setting or line in the code is a Markdown link to where it is, with the path from the repository root: [\`cacheKey\`](src/cache/key.ts#L42) for a line in the new version, [key.ts](src/cache/key.ts) for a whole file. Write the link text as the reader would say it; never print a bare path:line. Inside code blocks and sketches, names stay plain.`
+
 export const CHAT_SYSTEM_SECTION = `<chat>
 The reviewer is now asking follow-up questions about this pull request.
 - Always reply in the same natural language as the user's latest message, whatever language the diffs, summaries and earlier messages are in. Keep code, paths and identifiers as they are.
 - Answer from the diffs. Call read_diffs when you need a file you have not seen or whose diff was omitted.
 - Call update_grouping only when the user asks to change the grouping. Send the complete new grouping; every manifest path must appear exactly once.
-- Be concise; use Markdown and reference files by path.
+- Be concise and use Markdown.
+- ${MENTION_RULE}
 </chat>`
 
 const STATUS_LETTERS: Record<FileChange['status'], string> = {

@@ -21,11 +21,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +48,11 @@ import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.ModalReveal
+import com.octaviantocan.pulls.ui.design.CodePlace
+import com.octaviantocan.pulls.ui.design.LocalCodeBlock
+import com.octaviantocan.pulls.ui.design.LocalMentions
 import com.octaviantocan.pulls.ui.design.Markdown
+import com.octaviantocan.pulls.ui.design.Mentions
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsRadius
@@ -98,6 +104,25 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     }
 }
 
+/**
+ * Mentions in AI text go to their place: a changed file opens the diff on the line, any other
+ * file opens through [open] (rule 96). The resolver takes a whole path or the end of one.
+ */
+internal fun mentionsFor(session: ReviewSession, open: (CodePlace) -> Unit): Mentions = Mentions(resolve = { name -> resolveMention(session, name) }, open = open)
+
+/** The changed file a mention names, by its whole path or the end of it, or null. */
+internal fun resolveMention(session: ReviewSession, name: String): String? =
+    session.files.firstOrNull { it.path == name }?.path ?: session.files.firstOrNull { it.path.endsWith("/$name") }?.path
+
+/** What the AI wrote, with its mentions as links and its code as the diff's code view (rules 95 and 96). */
+@Composable
+internal fun ProvideAiText(session: ReviewSession, open: (CodePlace) -> Unit, content: @Composable () -> Unit) {
+    val latest by rememberUpdatedState(open)
+    val mentions = remember(session) { mentionsFor(session) { place -> latest(place) } }
+    val code = remember(session) { @Composable { body: String, lang: String -> AiCodeView(session, body, lang) } }
+    CompositionLocalProvider(LocalMentions provides mentions, LocalCodeBlock provides code, content = content)
+}
+
 @Composable
 internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
     val c = LocalPullsColors.current
@@ -108,13 +133,10 @@ internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
                 Text(SHAPE_LABELS[block.lang] ?: "Sketch", style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = c.accentTeal)
                 if (block.text.isNotBlank()) Text(block.text, style = PullsType.xs, color = c.fade)
             }
-            val zoom = session.settings.codeZoom
-            Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper)
-                    .horizontalScroll(rememberScrollState()).padding(12.dp),
-            ) {
-                Text(block.body, style = PullsType.xs.copy(fontFamily = PullsType.mono, fontSize = (12f * zoom).sp, lineHeight = (18f * zoom).sp), color = c.text, softWrap = false)
-            }
+            // A flow is drawn from its hops; anything else, and a flow that does not read as hops, is the diff's code view (rule 95).
+            val hops = remember(block.lang, block.body) { if (block.lang == "flow") parseFlow(block.body) else null }
+            if (hops != null) FlowView(hops)
+            else AiCodeView(session, block.body, if (block.lang == "code") block.text else "")
         }
         "diagram" -> Diagram(session, block)
     }

@@ -33,6 +33,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.AnnotatedString
@@ -87,6 +88,55 @@ private val parser: Parser = Parser.builder()
     .extensions(listOf(TablesExtension.create(), StrikethroughExtension.create(), AutolinkExtension.create(), TaskListItemsExtension.create()))
     .build()
 
+/** A place in the code a mention points at: a path from the repository root and a line in the new version (0 for the whole file). */
+data class CodePlace(val path: String, val line: Int)
+
+/**
+ * Where the mentions in AI text go (rule 96). [resolve] gives the path of a changed file a mention
+ * names (the whole path, or its end), or null; [open] scrolls to a place. A Markdown link to a path
+ * in the repository is always a mention; a bare `file.ext:12` is one only when it names a changed file.
+ */
+class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit)
+
+/** Set by AI screens: their Markdown turns mentions into links. Elsewhere Markdown links stay links. */
+val LocalMentions = staticCompositionLocalOf<Mentions?> { null }
+
+/** Set by AI screens to draw fenced code their own way (the diff's code view, rule 95); the code and its fence language. */
+val LocalCodeBlock = staticCompositionLocalOf<(@Composable (code: String, lang: String) -> Unit)?> { null }
+
+/** The place a link points at when its target is a path in the repository (`src/a.ts#L12`, `src/a.ts:12`, `./a.ts`), or null for a web link. */
+fun codePlaceOf(destination: String): CodePlace? {
+    val target = destination.trim()
+    if (target.isEmpty() || target.startsWith("#") || target.startsWith("//") || Regex("^[A-Za-z][A-Za-z0-9+.-]*:").containsMatchIn(target) && !Regex("^[^/]+:\\d").containsMatchIn(target)) return null
+    val match = Regex("^\\.?/?([^#?\\s:]+?)(?::(\\d+)|#L(\\d+)(?:-L?\\d+)?)?$").find(target) ?: return null
+    val path = match.groupValues[1].trimStart('/')
+    if (path.isEmpty() || path.endsWith("/")) return null
+    val line = (match.groupValues[2].ifEmpty { match.groupValues[3] }).toIntOrNull() ?: 0
+    return CodePlace(path, line)
+}
+
+/** Every place [markdown] mentions, in order and each once: its repository links and its bare `file.ext:12` that [resolve] knows. */
+fun mentionedPlaces(markdown: String, resolve: (String) -> String?): List<CodePlace> {
+    val places = LinkedHashSet<CodePlace>()
+    fun walk(node: Node) {
+        var child = node.firstChild
+        while (child != null) {
+            when (child) {
+                is Link -> codePlaceOf(child.destination)?.let { place -> places += place.copy(path = resolve(place.path) ?: place.path) }
+                is MdText -> BARE_CITE.findAll(child.literal).forEach { m -> resolve(m.groupValues[1])?.let { places += CodePlace(it, m.groupValues[2].toInt()) } }
+                is FencedCodeBlock, is IndentedCodeBlock, is Code -> Unit
+                else -> walk(child)
+            }
+            child = child.next
+        }
+    }
+    walk(parser.parse(markdown))
+    return places.toList()
+}
+
+/** `file.ext:12` or `[file.ext:12]` in running text, as the analysis notes write it. */
+private val BARE_CITE = Regex("""\[?([\w./-]+\.[A-Za-z0-9]+):(\d+)]?""")
+
 /**
  * GitHub-flavored Markdown as the web renders it with the `chat-markdown` shortcut
  * (`uno.config.ts`): block gap 10px, `pl-5` lists, `bg-code` inline code, bordered
@@ -112,10 +162,15 @@ private fun Block(node: Node, style: TextStyle) {
         is Paragraph -> Inline(node, style)
         is Heading -> Inline(node, style.copy(fontWeight = FontWeight.SemiBold, fontSize = if (node.level <= 2) PullsType.base.fontSize else style.fontSize))
         is BulletList, is OrderedList -> ListBlock(node, style)
-        is FencedCodeBlock ->
-            if (node.info.orEmpty().startsWith(DETAILS_INFO)) Details(node.info.removePrefix(DETAILS_INFO).trim(), node.literal, style)
-            else CodeBlock(node.literal.trimEnd('\n'))
-        is IndentedCodeBlock -> CodeBlock(node.literal.trimEnd('\n'))
+        is FencedCodeBlock -> {
+            val custom = LocalCodeBlock.current
+            when {
+                node.info.orEmpty().startsWith(DETAILS_INFO) -> Details(node.info.removePrefix(DETAILS_INFO).trim(), node.literal, style)
+                custom != null -> custom(node.literal.trimEnd('\n'), node.info.orEmpty().trim().substringBefore(' ').lowercase())
+                else -> CodeBlock(node.literal.trimEnd('\n'))
+            }
+        }
+        is IndentedCodeBlock -> LocalCodeBlock.current?.invoke(node.literal.trimEnd('\n'), "") ?: CodeBlock(node.literal.trimEnd('\n'))
         is BlockQuote -> Row {
             Box(Modifier.width(2.dp).background(c.border).padding(vertical = 2.dp))
             Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -416,8 +471,9 @@ private fun AnnotatedString.Builder.appendNode(node: Node, c: PullsColors) = app
 private fun Inline(node: Node, style: TextStyle) {
     if (hasImage(node)) { InlineWithImages(node, style); return }
     val c = LocalPullsColors.current
-    val text = remember(node, c) {
-        buildAnnotatedString { appendInline(node, c) }
+    val mentions = LocalMentions.current
+    val text = remember(node, c, mentions) {
+        buildAnnotatedString { appendInline(node, c, mentions) }
     }
     if (text.isEmpty()) return
     Text(text, style = style.copy(color = style.color.takeOrElse(c.text)))
@@ -426,24 +482,43 @@ private fun Inline(node: Node, style: TextStyle) {
 private fun androidx.compose.ui.graphics.Color.takeOrElse(other: androidx.compose.ui.graphics.Color) =
     if (this == androidx.compose.ui.graphics.Color.Unspecified) other else this
 
-private fun AnnotatedString.Builder.appendInline(parent: Node, c: PullsColors) {
+private fun AnnotatedString.Builder.appendInline(parent: Node, c: PullsColors, mentions: Mentions? = null) {
     var node = parent.firstChild
     while (node != null) {
-        appendInlineOne(node, c)
+        appendInlineOne(node, c, mentions)
         node = node.next
     }
 }
 
-private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors) {
+/** A mention: Mona Sans medium in the link colour with no underline, as the analysis cites (rule 96). */
+private fun AnnotatedString.Builder.withMention(place: CodePlace, c: PullsColors, mentions: Mentions, content: AnnotatedString.Builder.() -> Unit) {
+    val style = TextLinkStyles(SpanStyle(color = c.activeText, fontFamily = PullsType.display, fontWeight = FontWeight.Medium))
+    withLink(LinkAnnotation.Clickable("mention", style) { mentions.open(place) }) { content() }
+}
+
+private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors, mentions: Mentions? = null) {
     run {
         when (node) {
-            is MdText -> append(node.literal)
+            is MdText -> if (mentions == null) append(node.literal) else {
+                var at = 0
+                for (match in BARE_CITE.findAll(node.literal)) {
+                    val path = mentions.resolve(match.groupValues[1]) ?: continue
+                    append(node.literal.substring(at, match.range.first))
+                    withMention(CodePlace(path, match.groupValues[2].toInt()), c, mentions) { append("${match.groupValues[1].substringAfterLast('/')}:${match.groupValues[2]}") }
+                    at = match.range.last + 1
+                }
+                append(node.literal.substring(at))
+            }
+            is Link -> {
+                val place = if (mentions == null) null else codePlaceOf(node.destination)
+                if (place != null && mentions != null) withMention(place.copy(path = mentions.resolve(place.path) ?: place.path), c, mentions) { appendInline(node, c) }
+                else withLink(LinkAnnotation.Url(node.destination, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) { appendInline(node, c, mentions) }
+            }
             // `text-[max(0.85em,var(--pr-code-min))] px-1 py-0.5 rounded bg-code` (13px floor on phones).
             is Code -> withStyle(SpanStyle(fontFamily = PullsType.mono, background = c.code, fontSize = if (PullsType.wide) 0.85.em else 13.sp)) { append("\u2009${node.literal}\u2009") }
-            is Emphasis -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendInline(node, c) }
-            is StrongEmphasis -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { appendInline(node, c) }
-            is Strikethrough -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { appendInline(node, c) }
-            is Link -> withLink(LinkAnnotation.Url(node.destination, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) { appendInline(node, c) }
+            is Emphasis -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendInline(node, c, mentions) }
+            is StrongEmphasis -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { appendInline(node, c, mentions) }
+            is Strikethrough -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { appendInline(node, c, mentions) }
             is Image -> withStyle(SpanStyle(color = c.fade)) { append(node.title?.takeIf { it.isNotBlank() } ?: "[image]") }
             is SoftLineBreak -> append(' ')
             is HardLineBreak -> append('\n')
@@ -452,7 +527,7 @@ private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors) 
                 if (tag.startsWith("<br", ignoreCase = true)) append('\n')
             }
             is TaskListItemMarker -> Unit
-            else -> appendInline(node, c)
+            else -> appendInline(node, c, mentions)
         }
     }
 }

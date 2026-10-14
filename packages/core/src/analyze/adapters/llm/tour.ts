@@ -6,6 +6,7 @@ import { LOCALES } from '../../../locales'
 import { serializeRef } from '../../../types/source'
 import { isCliEngine, runCli } from './cli-stream'
 import { fencedContent, prContextOf, prHeading, renderNumberedDiff, WRITING_RULES } from './critique'
+import { MENTION_RULE } from './prompt'
 
 /*
  * A guided tour of a pull request, with no diffs. After DeepWiki: one run plans the stops,
@@ -204,6 +205,7 @@ Plan a guided tour of this pull request for a teammate who has never seen this c
 - ${MIN_STOPS} to ${MAX_STOPS} stops. Fewer is better when the change is small. Each stop is one idea a reviewer must hold in their head.
 - Order the stops so each builds on the last.
 - Skip generated files, lockfiles, snapshots and pure renames unless they are the point.
+- In the overview and the glossary meanings (not the terms): ${MENTION_RULE}
 - Write in ${languageOf(locale)}.`)
   return sections.join('\n\n')
 }
@@ -238,11 +240,12 @@ Write stop ${index + 1} of ${plan.stops.length}.
   - \`\`\`calls for a call tree of the runtime flow (indent two spaces per level),
   - \`\`\`tree for a file tree with a short comment per entry,
   - \`\`\`pseudo for the logic as pseudocode,
-  - \`\`\`flow for data moving between parts, as text arrows,
+  - \`\`\`flow for data moving between parts: one hop per line, \`From -> To: what moves\` (the label after the colon is optional), naming a part the same way each time it comes back; the app draws it,
   - \`\`\`mermaid for a small flowchart TD or sequenceDiagram (at most 10 nodes, labels under 25 characters),
   - a fence in the source language (\`\`\`ts, \`\`\`rust...) for a short excerpt of the new code, only when the exact code is the point.
 - Use two to four visuals. Pick the one that makes each point fastest.
 - Do not repeat what earlier stops cover; refer to them by name when needed.
+- ${MENTION_RULE}
 - Write in ${languageOf(locale)}. Code, paths and identifiers stay as they are.`)
   return sections.join('\n\n')
 }

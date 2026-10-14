@@ -56,6 +56,7 @@ import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.BriefSection
+import com.octaviantocan.pulls.ui.ai.ProvideAiText
 import com.octaviantocan.pulls.ui.ai.SharedAnalysisBanner
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.rememberLiveTask
@@ -329,13 +330,16 @@ private fun SummaryPane(session: ReviewSession, onCite: (Cite) -> Unit, onSheet:
     val summary = analysis?.overallSummary?.takeIf { session.hasAiResult && it.isNotBlank() }
     Column {
         AnalysisBlock(session, onSheet)
-        if (summary != null) {
-            Box(Modifier.padding(top = 12.dp)) {
-                Markdown(summary, style = PullsType.read.copy(color = c.text))
+        // The summary and the brief name places in the code; each is a link there (rule 96).
+        ProvideAiText(session, { place -> onCite(Cite(place.path, place.line)) }) {
+            if (summary != null) {
+                Box(Modifier.padding(top = 12.dp)) {
+                    Markdown(summary, style = PullsType.read.copy(color = c.text))
+                }
             }
-        }
-        session.saved?.brief?.let { brief ->
-            BriefSection(session, brief, onOpen = { target -> onCite(Cite(target.path, target.line ?: 0)) }, modifier = Modifier.padding(top = 16.dp))
+            session.saved?.brief?.let { brief ->
+                BriefSection(session, brief, onOpen = { target -> onCite(Cite(target.path, target.line ?: 0)) }, modifier = Modifier.padding(top = 16.dp))
+            }
         }
         NeedsHuman(session, onCite, onSheet)
     }

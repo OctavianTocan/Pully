@@ -14,6 +14,8 @@ import { listAiJobs, runAiJob } from './jobs'
 
 const WAIT_MS = 25_000
 const KEEP_MS = 30 * 60_000
+/** Past this an answer goes out without follow-up questions. */
+const SUGGESTIONS_TIMEOUT_MS = 20_000
 const THREADS_PREFIX = 'ask-threads:'
 
 /** What a runner gets besides its inputs: the task's abort signal, its work-log sink and a tag naming its CLI jobs. */
@@ -511,13 +513,14 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
     async chat(diff, resolved, locale, session, input, hooks) {
       const core = await llm()
       const history = session ?? core.seedChatSession(diff, locale)
-      const last = history.messages.at(-1)
-      const retrying = input.retry && last?.role === 'assistant' && last.stopReason === 'error'
+      // Try again and redo both answer the last question afresh: whatever came after it goes.
+      const asked = history.messages.findLastIndex(message => message.role === 'user')
+      const retrying = input.retry && asked >= history.chatStartIndex
       const agent = core.createChatSession({
         diff,
         resolved,
         locale,
-        messages: retrying ? history.messages.slice(0, -1) : history.messages,
+        messages: retrying ? history.messages.slice(0, asked + 1) : history.messages,
         onGroupingUpdate: hooks.onGroupingUpdate,
         onActivity: hooks.onActivity,
         context: core.prContextOf(diff),
@@ -535,9 +538,31 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
       finally {
         hooks.signal.removeEventListener('abort', abort)
       }
-      return { messages: [...agent.state.messages], chatStartIndex: history.chatStartIndex }
+      const messages = [...agent.state.messages]
+      // Two or three questions to offer under the answer, from the engine's small model (rule 99).
+      const answer = messages.at(-1)
+      const question = messages.findLast(message => message.role === 'user')
+      const engine = resolved.model.provider
+      let suggestions: string[] = []
+      if (answer?.role === 'assistant' && answer.stopReason !== 'error' && answer.stopReason !== 'aborted' && question && core.isCliEngine(engine)) {
+        // The answer is whole by now; the log says what the last seconds are for, and a slow model never holds it long.
+        const step = { id: 'suggest-questions', kind: 'status' as const, title: 'Suggesting follow-up questions', status: 'running' as const, startedAt: Date.now(), rev: 0 }
+        hooks.onActivity?.([step])
+        suggestions = await core.suggestQuestions(diff, engine, plainText(question.content), plainText(answer.content), locale, AbortSignal.any([hooks.signal, AbortSignal.timeout(SUGGESTIONS_TIMEOUT_MS)]))
+        hooks.onActivity?.([{ ...step, status: 'done', endedAt: Date.now() }])
+      }
+      return { messages, chatStartIndex: history.chatStartIndex, suggestions }
     },
     lens,
     usage: tag => sumUsage(listAiJobs().filter(job => job.label === tag && job.usage).map(job => job.usage!)),
   }
+}
+
+/** The words of a message, without its tool calls. */
+function plainText(content: unknown): string {
+  if (typeof content === 'string')
+    return content
+  if (!Array.isArray(content))
+    return ''
+  return content.map(part => (part as { type?: string, text?: string }).type === 'text' ? (part as { text?: string }).text ?? '' : '').join('\n').trim()
 }

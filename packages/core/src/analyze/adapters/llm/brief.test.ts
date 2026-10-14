@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { normalizeGroupedResult } from '../../../types/analyze'
 import { BRIEF_SYSTEM_PROMPT, briefLibrary, briefProblems, briefProgramOf, briefTree, buildBriefPrompt, buildRepairPrompt, MAX_BRIEF_REPAIRS, parseBrief, runBrief } from './brief'
 import { setCliRunner } from './cli-stream'
+import { MENTION_RULE } from './prompt'
 
 const diff: DiffsPayload = {
   ref: { kind: 'github-pr', owner: 'o', repo: 'r', number: '7' },
@@ -118,6 +119,7 @@ describe('prompts', () => {
     expect(prompt).toContain('- Parse cache: A map keyed by sha. (src/cache.ts, src/parse.ts)')
     expect(prompt).toContain('## Changed files')
     expect(prompt).toContain('Write the strings in German.')
+    expect(prompt).toContain(MENTION_RULE)
   })
 
   it('works without an analysis', () => {

@@ -187,6 +187,8 @@ data class SavedState(
     val tour: Tour? = null,
     /** The newest brief of this diff (preferring the current head), if one was designed. */
     val brief: Brief? = null,
+    /** Questions to offer under the last answer in Ask, written by a small model after the turn (rule 99). */
+    val suggestions: List<String> = emptyList(),
 )
 
 /** `brief` of `review-state`: the page the agent designed for this diff, already parsed by the server. */
@@ -258,6 +260,7 @@ fun JsonElement.asSavedState(): SavedState {
         sharedCommentUrl = o.obj("sharedComment")?.sOrNull("url"),
         tour = o.obj("tour")?.asTour(),
         brief = o.obj("brief")?.asBrief(),
+        suggestions = o.strings("suggestions"),
     )
 }
 

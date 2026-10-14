@@ -226,14 +226,8 @@ private fun TargetLink(target: BriefTarget, onOpen: (BriefTarget) -> Unit) {
     )
 }
 
-/** Code the agent quoted, in the diff's own size setting, scrolling sideways instead of wrapping. */
+/** Code the agent quoted, as the diff's code view: its size setting, a sideways scroll and pinch to zoom (rule 95). */
 @Composable
-private fun CodeWell(session: ReviewSession, code: String) {
-    val c = LocalPullsColors.current
-    val zoom = session.settings.codeZoom
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper).horizontalScroll(rememberScrollState()).padding(12.dp)) {
-        Text(code.trimEnd(), style = PullsType.sm.copy(fontFamily = PullsType.mono, fontSize = (12f * zoom).sp, lineHeight = (18f * zoom).sp), color = c.text, softWrap = false)
-    }
-}
+private fun CodeWell(session: ReviewSession, code: String) = AiCodeView(session, code.trimEnd(), "")
 
 private fun Modifier.hairline(color: Color): Modifier = drawBehind { drawRect(color, Offset.Zero, Size(size.width, 1.dp.toPx())) }

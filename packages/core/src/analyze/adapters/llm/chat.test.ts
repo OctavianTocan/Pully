@@ -8,7 +8,7 @@ import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, getCurr
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runAgent } from './agent'
 import { compactContext, createChatSession, LANGUAGE_REMINDER, MAX_CHAT_TURNS, OMITTED_DIFF_TEXT, withChatInstructions, withLanguageReminder } from './chat'
-import { AGENT_SYSTEM_PROMPT, CHAT_SYSTEM_SECTION } from './prompt'
+import { AGENT_SYSTEM_PROMPT, CHAT_SYSTEM_SECTION, MENTION_RULE } from './prompt'
 
 const runtime = vi.hoisted(() => ({ streamFn: undefined as StreamFn | undefined }))
 
@@ -134,6 +134,8 @@ describe('withChatInstructions', () => {
     const prompt = getCurrentSystemPrompt(chat)
     expect(prompt).toContain(AGENT_SYSTEM_PROMPT)
     expect(prompt).toContain(CHAT_SYSTEM_SECTION)
+    // Every answer links what it mentions (rule 96).
+    expect(prompt).toContain(MENTION_RULE)
   })
 })
 
