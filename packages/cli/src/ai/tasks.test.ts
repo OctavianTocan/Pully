@@ -35,6 +35,7 @@ async function setup(runners: Partial<TaskRunners> = {}) {
     chat: vi.fn<TaskRunners['chat']>(async (_diff, _resolved, _locale, session) => ({ chatStartIndex: session?.chatStartIndex ?? 0, messages: [...(session?.messages ?? []), { role: 'user', content: 'Why?', timestamp: 1 }] })),
     tour: vi.fn<TaskRunners['tour']>(async () => ({ title: 'Tour', overview: 'o', stops: [], glossary: [], headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-12T00:00:00Z' })),
     brief: vi.fn<TaskRunners['brief']>(async () => ({ lang: 'root = Stack([])', headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-14T00:00:00Z' })),
+    suggest: vi.fn<TaskRunners['suggest']>(async () => []),
     lens: vi.fn<TaskRunners['lens']>(async () => undefined),
     usage: vi.fn<TaskRunners['usage']>(() => ({ costUsd: 0.5 })),
     ...runners,
@@ -145,6 +146,31 @@ describe('ai tasks', () => {
     const id = await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Why?' })
     expect(await settled(tasks.wait, id)).toMatchObject({ status: 'done', text: 'Why?' })
     expect((await cache.diffs.get(KEY))?.llmSession?.messages).toHaveLength(2)
+  })
+
+  it('saves the follow-up questions with the reply', async () => {
+    const { tasks, cache } = await setup({ suggest: vi.fn<TaskRunners['suggest']>(async () => ['What evicts entries?']) })
+    await settled(tasks.wait, await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Why?' }))
+    expect((await cache.diffs.get(KEY))?.llmSession).toMatchObject({ suggestions: ['What evicts entries?'] })
+  })
+
+  it('keeps the reply when stopped while the follow-ups are written', async () => {
+    let writing!: () => void
+    const started = new Promise<void>((resolve) => {
+      writing = resolve
+    })
+    const suggest = vi.fn<TaskRunners['suggest']>(async (_diff, _resolved, _locale, _session, hooks) => {
+      writing()
+      await new Promise(resolve => hooks.signal.addEventListener('abort', resolve, { once: true }))
+      return []
+    })
+    const { tasks, cache } = await setup({ suggest })
+    const id = await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Why?' })
+    await started
+    expect(tasks.cancel(id)).toBe(true)
+    expect(await settled(tasks.wait, id)).toMatchObject({ status: 'cancelled' })
+    await vi.waitFor(async () => expect((await cache.diffs.get(KEY))?.llmSession?.messages).toHaveLength(1))
+    expect((await cache.diffs.get(KEY))?.llmSession?.suggestions).toBeUndefined()
   })
 
   it('starts a chat from the pull request when nobody analyzed it', async () => {

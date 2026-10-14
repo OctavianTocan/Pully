@@ -20,7 +20,7 @@ describe('suggested questions', () => {
     expect(prompt).toContain('o/r#7')
     expect(prompt).toContain('Why a map?')
     expect(prompt).toContain('Lookups are constant time.')
-    expect(prompt).toContain('German')
+    expect(prompt).toContain('the language of the question above (in German (Deutsch) when you cannot tell)')
   })
 
   it('keeps short questions, drops the one just asked, repeats and statements, and stops at three', () => {

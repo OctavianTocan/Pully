@@ -80,6 +80,7 @@ internal fun fenceExtension(lang: String): String? = when (lang.lowercase()) {
 
 /** Highlighted lines per theme, language and code, shared by every screen that shows AI code. */
 private val codeTokens = mutableStateMapOf<String, List<List<Tok>>>()
+private const val CODE_TOKENS_KEPT = 64
 
 /** The diff's code style at [zoom]: 12.5 on 20, scaled. */
 private fun codeTextStyle(zoom: Float): TextStyle = TextStyle(
@@ -101,6 +102,8 @@ internal fun AiCodeView(session: ReviewSession, code: String, lang: String, modi
         val lines = code.lines()
         val result = runCatching { session.repo.highlight("snippet.$ext", lines, c.dark) }.getOrNull() ?: return@LaunchedEffect
         val colored = (result["lines"] as? JsonArray) ?: return@LaunchedEffect
+        // A bound on what a long session keeps: past it the cache starts again, and what is on screen is coloured anew.
+        if (codeTokens.size >= CODE_TOKENS_KEPT) codeTokens.clear()
         codeTokens[key] = lines.indices.map { i ->
             (colored.getOrNull(i) as? JsonArray).orEmpty().mapNotNull { span ->
                 val o = span as? JsonObject ?: return@mapNotNull null
@@ -151,25 +154,22 @@ internal fun parseFlow(text: String): List<FlowHop>? {
         val marked = LABELLED_ARROW.replace(line) { m -> " ->[${m.groupValues[1]}] " }
         val parts = marked.split(ARROW)
         if (parts.size < 2) return null
-        var label = ""
+        // Each part after the first may open with the label written on the arrow into it.
+        val labels = MutableList(parts.size) { "" }
         val names = parts.mapIndexed { i, part ->
             var name = part.trim()
             if (i > 0 && name.startsWith("[")) {
                 val end = name.indexOf(']')
-                if (end > 0) { label = name.substring(1, end).trim(); name = name.substring(end + 1).trim() }
+                if (end > 0) { labels[i] = name.substring(1, end).trim(); name = name.substring(end + 1).trim() }
             }
             name
         }.toMutableList()
         // `B: what moves` on the last part labels the hop into it.
         val last = names.last()
         val colon = last.indexOf(": ")
-        var tail = ""
-        if (colon > 0) { tail = last.substring(colon + 2).trim(); names[names.lastIndex] = last.substring(0, colon).trim() }
+        if (colon > 0) { labels[names.lastIndex] = last.substring(colon + 2).trim(); names[names.lastIndex] = last.substring(0, colon).trim() }
         if (names.any { it.isEmpty() || it.length > 60 }) return null
-        for (i in 0 until names.lastIndex) {
-            val hopLabel = if (i == names.lastIndex - 1) tail.ifEmpty { label } else ""
-            hops += FlowHop(names[i], names[i + 1], hopLabel)
-        }
+        for (i in 0 until names.lastIndex) hops += FlowHop(names[i], names[i + 1], labels[i + 1])
     }
     return hops.takeIf { it.isNotEmpty() }
 }

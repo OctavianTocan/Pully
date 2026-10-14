@@ -32,6 +32,8 @@ export interface TaskRunners {
   ask: (diff: DiffsPayload, resolved: ResolvedModel, request: { selection: AiTaskSelection, question: string, history: { question: string, answer: string }[] }, hooks: TaskHooks) => Promise<CliRunResult>
   /** A reply in the diff's chat; `session` is `undefined` when the diff was never analyzed, and the chat starts from the pull request itself. */
   chat: (diff: DiffsPayload, resolved: ResolvedModel, locale: Locale, session: LlmSession | undefined, input: { text?: string, retry?: boolean }, hooks: TaskHooks & { onGroupingUpdate: (result: GroupedResult) => Promise<void> }) => Promise<LlmSession>
+  /** Up to three questions to offer under the chat's last answer (rule 99); none when there is nothing to follow. Never throws. */
+  suggest: (diff: DiffsPayload, resolved: ResolvedModel, locale: Locale, session: LlmSession, hooks: TaskHooks) => Promise<string[]>
   /** A guided tour: plan, then every stop written in parallel. */
   tour: (diff: DiffsPayload, resolved: ResolvedModel, locale: string, hooks: TaskHooks) => Promise<TourResult>
   /** The page an agent designs for the diff, building on its analysis when there is one. */
@@ -282,6 +284,10 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
           })
           task.controller.signal.throwIfAborted()
           await cache.diffs.setLlmSession(request.key, next)
+          // The answer is saved first, so stopping while the follow-ups are written drops only them.
+          const suggestions = await runners.suggest(diff, resolved, localeOf(request.locale), next, hooks)
+          if (suggestions.length && !task.controller.signal.aborted)
+            await cache.diffs.setLlmSession(request.key, { ...next, suggestions })
           return {}
         })
       }
@@ -538,20 +544,21 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
       finally {
         hooks.signal.removeEventListener('abort', abort)
       }
-      const messages = [...agent.state.messages]
-      // Two or three questions to offer under the answer, from the engine's small model (rule 99).
-      const answer = messages.at(-1)
-      const question = messages.findLast(message => message.role === 'user')
+      return { messages: [...agent.state.messages], chatStartIndex: history.chatStartIndex }
+    },
+    async suggest(diff, resolved, locale, session, hooks) {
+      const core = await llm()
+      const answer = session.messages.at(-1)
+      const question = session.messages.findLast(message => message.role === 'user')
       const engine = resolved.model.provider
-      let suggestions: string[] = []
-      if (answer?.role === 'assistant' && answer.stopReason !== 'error' && answer.stopReason !== 'aborted' && question && core.isCliEngine(engine)) {
-        // The answer is whole by now; the log says what the last seconds are for, and a slow model never holds it long.
-        const step = { id: 'suggest-questions', kind: 'status' as const, title: 'Suggesting follow-up questions', status: 'running' as const, startedAt: Date.now(), rev: 0 }
-        hooks.onActivity?.([step])
-        suggestions = await core.suggestQuestions(diff, engine, plainText(question.content), plainText(answer.content), locale, AbortSignal.any([hooks.signal, AbortSignal.timeout(SUGGESTIONS_TIMEOUT_MS)]))
-        hooks.onActivity?.([{ ...step, status: 'done', endedAt: Date.now() }])
-      }
-      return { messages, chatStartIndex: history.chatStartIndex, suggestions }
+      if (answer?.role !== 'assistant' || answer.stopReason === 'error' || answer.stopReason === 'aborted' || !question || !core.isCliEngine(engine))
+        return []
+      // The answer is whole by now; the log says what the last seconds are for, and a slow model never holds it long.
+      const step = { id: 'suggest-questions', kind: 'status' as const, title: 'Suggesting follow-up questions', status: 'running' as const, startedAt: Date.now(), rev: 0 }
+      hooks.onActivity?.([step])
+      const questions = await core.suggestQuestions(diff, engine, plainText(question.content), plainText(answer.content), locale, AbortSignal.any([hooks.signal, AbortSignal.timeout(SUGGESTIONS_TIMEOUT_MS)]))
+      hooks.onActivity?.([{ ...step, status: 'done', endedAt: Date.now() }])
+      return questions
     },
     lens,
     usage: tag => sumUsage(listAiJobs().filter(job => job.label === tag && job.usage).map(job => job.usage!)),

@@ -143,7 +143,7 @@ private fun BriefBlockView(session: ReviewSession, block: BriefBlock, onOpen: (B
         is BriefBlock.Diagram -> TourBlockView(session, TourBlock("diagram", block.caption.orEmpty(), body = block.mermaid))
         is BriefBlock.Code -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             block.caption?.let { Text(it, style = PullsType.sm, color = c.muted) }
-            CodeWell(session, block.code)
+            CodeWell(session, block.code, block.language.orEmpty())
         }
         is BriefBlock.BeforeAfter -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             block.title?.let { Text(it, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text) }
@@ -226,8 +226,8 @@ private fun TargetLink(target: BriefTarget, onOpen: (BriefTarget) -> Unit) {
     )
 }
 
-/** Code the agent quoted, as the diff's code view: its size setting, a sideways scroll and pinch to zoom (rule 95). */
+/** Code the agent quoted, as the diff's code view: coloured by its [lang], its size setting, a sideways scroll and pinch to zoom (rule 95). */
 @Composable
-private fun CodeWell(session: ReviewSession, code: String) = AiCodeView(session, code.trimEnd(), "")
+private fun CodeWell(session: ReviewSession, code: String, lang: String = "") = AiCodeView(session, code.trimEnd(), lang)
 
 private fun Modifier.hairline(color: Color): Modifier = drawBehind { drawRect(color, Offset.Zero, Size(size.width, 1.dp.toPx())) }

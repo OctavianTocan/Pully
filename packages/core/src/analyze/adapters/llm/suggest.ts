@@ -47,7 +47,7 @@ export function buildSuggestionsPrompt(diff: DiffsPayload, question: string, ans
     prHeading(diff),
     `## The question\n\n${question.trim()}`,
     `## The answer\n\n${answer.trim().slice(0, ANSWER_CHAR_LIMIT)}`,
-    `Write the questions in ${promptLanguageName(locale)}.`,
+    `Write the questions in the language of the question above (in ${promptLanguageName(locale)} when you cannot tell), as the answer does.`,
   ].join('\n\n')
 }
 

@@ -37,6 +37,14 @@ class AiCodeTest {
     }
 
     @Test
+    fun eachArrowOfAChainKeepsItsOwnLabel() {
+        assertEquals(
+            listOf(FlowHop("A", "B", "request"), FlowHop("B", "C", "response")),
+            parseFlow("A --request--> B --response--> C"),
+        )
+    }
+
+    @Test
     fun aSketchWithALineThatIsNotAHopStaysText() {
         assertNull(parseFlow("App -> Server\nthen it waits"))
         assertNull(parseFlow(""))
