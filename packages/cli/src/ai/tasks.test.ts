@@ -32,8 +32,9 @@ async function setup(runners: Partial<TaskRunners> = {}) {
     analyze: vi.fn<TaskRunners['analyze']>(async () => ({ result: grouping, transcript: [{ role: 'user', content: 'Group this', timestamp: 0 }] })),
     critique: vi.fn<TaskRunners['critique']>(async () => ({ summary: 'ok', findings: [], dropped: 0, headSha: 'h1', engine: 'claude-code', generatedAt: '2026-10-11T00:00:00Z' })),
     ask: vi.fn<TaskRunners['ask']>(async () => ({ text: 'It parses.', usage: { costUsd: 0.01 } })),
-    chat: vi.fn<TaskRunners['chat']>(async (_diff, _resolved, _locale, session) => ({ ...session, messages: [...session.messages, { role: 'user', content: 'Why?', timestamp: 1 }] })),
+    chat: vi.fn<TaskRunners['chat']>(async (_diff, _resolved, _locale, session) => ({ chatStartIndex: session?.chatStartIndex ?? 0, messages: [...(session?.messages ?? []), { role: 'user', content: 'Why?', timestamp: 1 }] })),
     tour: vi.fn<TaskRunners['tour']>(async () => ({ title: 'Tour', overview: 'o', stops: [], glossary: [], headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-12T00:00:00Z' })),
+    brief: vi.fn<TaskRunners['brief']>(async () => ({ lang: 'root = Stack([])', headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-14T00:00:00Z' })),
     lens: vi.fn<TaskRunners['lens']>(async () => undefined),
     usage: vi.fn<TaskRunners['usage']>(() => ({ costUsd: 0.5 })),
     ...runners,
@@ -146,10 +147,73 @@ describe('ai tasks', () => {
     expect((await cache.diffs.get(KEY))?.llmSession?.messages).toHaveLength(2)
   })
 
-  it('fails clearly without a cached diff or an analysis to chat about', async () => {
+  it('starts a chat from the pull request when nobody analyzed it', async () => {
+    const { tasks, cache, runners } = await setup()
+    const id = await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Why?' })
+    expect(await settled(tasks.wait, id)).toMatchObject({ status: 'done', text: 'Why?' })
+    expect(vi.mocked(runners.chat).mock.calls[0]![3]).toBeUndefined()
+    expect((await cache.diffs.get(KEY))?.llmSession?.messages).toHaveLength(1)
+  })
+
+  it('saves a brief next to the diff and builds it on the analysis', async () => {
+    const { tasks, cache, runners } = await setup()
+    await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en' }))
+    const id = await tasks.start({ kind: 'brief', key: KEY, model, locale: 'en' })
+    expect(await settled(tasks.wait, id)).toMatchObject({ status: 'done', kind: 'brief', usage: { costUsd: 0.5 } })
+    expect(vi.mocked(runners.brief).mock.calls[0]![3]).toMatchObject({ overallSummary: 'Summary' })
+    await expect(cache.briefs.latest(serializeRef(diff.ref), 'h1')).resolves.toMatchObject({ lang: 'root = Stack([])', headSha: 'h1' })
+  })
+
+  it('writes a brief without an analysis too', async () => {
+    const { tasks, runners } = await setup()
+    await settled(tasks.wait, await tasks.start({ kind: 'brief', key: KEY, model, locale: 'en' }))
+    expect(vi.mocked(runners.brief).mock.calls[0]![3]).toBeUndefined()
+  })
+
+  it('carries on with the tour and the brief after an analysis, without the phone', async () => {
+    const { tasks, cache, runners } = await setup()
+    await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['tour', 'brief'] }))
+    await vi.waitFor(async () => {
+      expect(runners.tour).toHaveBeenCalledOnce()
+      expect(runners.brief).toHaveBeenCalledOnce()
+      expect(await cache.tours.latest(serializeRef(diff.ref), 'h1')).toBeDefined()
+      expect(await cache.briefs.latest(serializeRef(diff.ref), 'h1')).toBeDefined()
+    })
+    expect(tasks.list(KEY).map(task => task.kind).sort()).toEqual(['analyze', 'brief', 'tour'])
+  })
+
+  it('does not chain after a failed or stopped analysis, and skips a tour that is current', async () => {
+    const failing = await setup({ analyze: vi.fn<TaskRunners['analyze']>(() => Promise.reject(new Error('CLI broke'))) })
+    expect(await settled(failing.tasks.wait, await failing.tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['tour', 'brief'] }))).toMatchObject({ status: 'failed' })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(failing.runners.tour).not.toHaveBeenCalled()
+    expect(failing.runners.brief).not.toHaveBeenCalled()
+
+    const { tasks, cache, runners } = await setup()
+    await cache.tours.set(serializeRef(diff.ref), { title: 'Tour', overview: 'o', stops: [], glossary: [], headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-12T00:00:00Z' })
+    await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['tour', 'brief'] }))
+    await vi.waitFor(() => expect(runners.brief).toHaveBeenCalledOnce())
+    expect(runners.tour).not.toHaveBeenCalled()
+  })
+
+  it('lists the tasks of every diff, newest first, with the pull request\'s title', async () => {
+    const { tasks, cache } = await setup()
+    const other = { ...diff, ref: { kind: 'github-pr' as const, owner: 'o', repo: 'r', number: '99' }, title: 'Other change' }
+    const otherKey = serializeRef(other.ref)
+    await cache.diffs.putDiff(otherKey, other, 'h1')
+    const first = await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en' })
+    await settled(tasks.wait, first)
+    const second = await tasks.start({ kind: 'analyze', key: otherKey, model, locale: 'en' })
+    await settled(tasks.wait, second)
+    const all = tasks.listAll()
+    expect(all.map(task => task.id)).toEqual([second, first])
+    expect(all[0]).toMatchObject({ key: otherKey, title: 'Other change' })
+    expect(all.every(task => task.activities.length === 0)).toBe(true)
+  })
+
+  it('fails clearly without a cached diff', async () => {
     const { tasks } = await setup()
     expect(await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: 'missing', model, locale: 'en' }))).toMatchObject({ status: 'failed', error: expect.stringContaining('no longer cached') })
-    expect(await settled(tasks.wait, await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'hi' }))).toMatchObject({ status: 'failed', error: expect.stringContaining('Analyze') })
     await expect(tasks.wait('nope', 0)).rejects.toThrow('That task is gone')
   })
 })

@@ -33,6 +33,8 @@ overrides:
 
 allowBuilds:
   '@google/genai': false
+  # Its postinstall sends install telemetry to PostHog; the parser needs no build step.
+  '@openuidev/lang-core': false
   esbuild: true
   protobufjs: false
   unrs-resolver: true
@@ -74,6 +76,7 @@ catalogs:
     '@comark/vue': ^0.7.0
     '@earendil-works/pi-agent-core': ^0.87.1
     '@earendil-works/pi-ai': ^0.87.1
+    '@openuidev/lang-core': ^1.0.0
     '@pierre/diffs': ^1.5.1
     '@shikijs/engine-javascript': ^4.5.0
     '@tanstack/vue-virtual': ^3.13.39

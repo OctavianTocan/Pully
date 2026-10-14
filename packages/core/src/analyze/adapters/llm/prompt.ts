@@ -54,7 +54,7 @@ You organize a GitHub pull request's changed files into review groups, so a revi
 </output>`
 
 export const CHAT_SYSTEM_SECTION = `<chat>
-The grouping has been submitted and the reviewer is now asking follow-up questions about this pull request.
+The reviewer is now asking follow-up questions about this pull request.
 - Always reply in the same natural language as the user's latest message, whatever language the diffs, summaries and earlier messages are in. Keep code, paths and identifiers as they are.
 - Answer from the diffs. Call read_diffs when you need a file you have not seen or whose diff was omitted.
 - Call update_grouping only when the user asks to change the grouping. Send the complete new grouping; every manifest path must appear exactly once.
@@ -111,8 +111,7 @@ export function buildManifest(files: FileChange[]): string {
   return lines.join('\n')
 }
 
-/** The first user message. Stays English whatever `locale` is; only the closing instruction names the output language. */
-export function buildAnalysisPrompt(diff: DiffsPayload, locale: Locale): string {
+function buildPrContextParts(diff: DiffsPayload, inlineNote: string): string[] {
   const parts = [`PR title: ${diff.title}`]
   if (diff.url)
     parts.push(`PR link: ${diff.url}`)
@@ -126,7 +125,24 @@ export function buildAnalysisPrompt(diff: DiffsPayload, locale: Locale): string 
   parts.push(`---MANIFEST--- (${diff.files.length} files, +${totalAdditions}/-${totalDeletions})\n${buildManifest(diff.files)}`)
   const diffsText = renderFilesAsText(diff.files)
   if (diffsText.length <= INLINE_DIFF_CHAR_LIMIT)
-    parts.push(`---DIFFS--- (all diffs included; you may submit directly)\n${diffsText}`)
+    parts.push(`---DIFFS--- (${inlineNote})\n${diffsText}`)
+  return parts
+}
+
+/** The first user message. Stays English whatever `locale` is; only the closing instruction names the output language. */
+export function buildAnalysisPrompt(diff: DiffsPayload, locale: Locale): string {
+  const parts = buildPrContextParts(diff, 'all diffs included; you may submit directly')
   parts.push(`Respond and categorize in ${promptLanguageName(locale)}.`)
+  return parts.join('\n\n')
+}
+
+/**
+ * The first message of a chat about a pull request nobody has analyzed: the same facts an analysis starts from,
+ * and a note that no grouping exists yet.
+ */
+export function buildChatSeedPrompt(diff: DiffsPayload, locale: Locale): string {
+  const parts = buildPrContextParts(diff, 'all diffs included')
+  parts.push('This pull request has not been analyzed, so there is no grouping yet. The reviewer will now ask questions about it.')
+  parts.push(`Reply in ${promptLanguageName(locale)} unless the reviewer writes in another language.`)
   return parts.join('\n\n')
 }

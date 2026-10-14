@@ -3,7 +3,7 @@ import type { CacheRepositories, LlmSession } from '@pulls.review/core/cache'
 import type { CliRunHooks, CliRunResult } from '@pulls.review/core/llm'
 import type { AiActivity, AiAskThread, AiAskTurn, AiJobStatus, AiTaskModel, AiTaskRequest, AiTaskSelection, AiTaskSnapshot, AiUsage } from '@pulls.review/core/local-rpc'
 import type { Locale } from '@pulls.review/core/locales'
-import type { CritiqueResult, DiffsPayload, GroupedResult, TourResult } from '@pulls.review/core/types'
+import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResult } from '@pulls.review/core/types'
 import type { Storage } from 'unstorage'
 import { randomUUID } from 'node:crypto'
 import { defaultLlmSettings, resolveModel } from '@pulls.review/core/analyze'
@@ -27,9 +27,12 @@ export interface TaskRunners {
   analyze: (diff: DiffsPayload, resolved: ResolvedModel, locale: Locale, hooks: TaskHooks) => Promise<{ result: GroupedResult, transcript: LlmSession['messages'] }>
   critique: (diff: DiffsPayload, resolved: ResolvedModel, lens: { name: string, instructions: string } | undefined, hooks: TaskHooks) => Promise<CritiqueResult>
   ask: (diff: DiffsPayload, resolved: ResolvedModel, request: { selection: AiTaskSelection, question: string, history: { question: string, answer: string }[] }, hooks: TaskHooks) => Promise<CliRunResult>
-  chat: (diff: DiffsPayload, resolved: ResolvedModel, locale: Locale, session: LlmSession, input: { text?: string, retry?: boolean }, hooks: TaskHooks & { onGroupingUpdate: (result: GroupedResult) => Promise<void> }) => Promise<LlmSession>
+  /** A reply in the diff's chat; `session` is `undefined` when the diff was never analyzed, and the chat starts from the pull request itself. */
+  chat: (diff: DiffsPayload, resolved: ResolvedModel, locale: Locale, session: LlmSession | undefined, input: { text?: string, retry?: boolean }, hooks: TaskHooks & { onGroupingUpdate: (result: GroupedResult) => Promise<void> }) => Promise<LlmSession>
   /** A guided tour: plan, then every stop written in parallel. */
   tour: (diff: DiffsPayload, resolved: ResolvedModel, locale: string, hooks: TaskHooks) => Promise<TourResult>
+  /** The page an agent designs for the diff, building on its analysis when there is one. */
+  brief: (diff: DiffsPayload, resolved: ResolvedModel, locale: string, analysis: GroupedResult | undefined, hooks: TaskHooks) => Promise<BriefResult>
   /** A review lens's instructions, or `undefined` when there is no such skill. */
   lens: (name: string) => Promise<string | undefined>
   /** What the CLI jobs tagged `tag` consumed together. */
@@ -61,6 +64,8 @@ export interface TaskManager {
   cancel: (id: string) => boolean
   /** One diff's tasks, newest first, without work logs. */
   list: (key: string) => AiTaskSnapshot[]
+  /** Every diff's tasks, newest first, without work logs. */
+  listAll: () => AiTaskSnapshot[]
   /** One diff's saved question threads. */
   threads: (key: string) => Promise<AiAskThread[]>
   /** Drops a thread and stops the answer it waits for. */
@@ -98,6 +103,7 @@ function labelOf(request: AiTaskRequest): string {
     case 'ask': return `Ask about ${selectionLabel(request.selection)}`
     case 'chat': return `Chat about ${request.key}`
     case 'tour': return `Tour ${request.key}`
+    case 'brief': return `Brief ${request.key}`
   }
 }
 
@@ -238,11 +244,16 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
         await cache.tours.set(serializeRef(diff.ref), tour)
         return { usage: tour.usage, result: JSON.stringify(tour) }
       }
+      case 'brief': {
+        const result = await runners.brief(diff, resolved, localeOf(request.locale), entry.analyzedBy.llm, hooks)
+        task.controller.signal.throwIfAborted()
+        const brief = { ...result, usage: runners.usage(hooks.tag) }
+        await cache.briefs.set(serializeRef(diff.ref), brief)
+        return { usage: brief.usage, result: JSON.stringify(brief) }
+      }
       case 'chat': {
-        const session = entry.llmSession as LlmSession | undefined
-        if (!session)
-          throw new Error('Analyze this diff with AI before chatting about it.')
-        const next = await runners.chat(diff, resolved, localeOf(request.locale), session, { text: request.text, retry: request.retry }, {
+        // A diff nobody analyzed has no transcript; the chat then starts from the pull request itself.
+        const next = await runners.chat(diff, resolved, localeOf(request.locale), entry.llmSession as LlmSession | undefined, { text: request.text, retry: request.retry }, {
           ...hooks,
           onGroupingUpdate: result => cache.diffs.setAnalyzedResult(request.key, 'llm', result),
         })
@@ -253,11 +264,35 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     }
   }
 
+  /** An analysis that succeeded starts what it was asked to, so the phone need not be awake to carry on. */
+  async function chain(request: Extract<AiTaskRequest, { kind: 'analyze' }>) {
+    for (const step of request.then ?? []) {
+      try {
+        if (step === 'tour' && await hasCurrentTour(request.key))
+          continue
+        await start({ kind: step, key: request.key, model: request.model, locale: request.locale })
+      }
+      catch {
+        // The analysis stands; a follow-up that cannot start is the reviewer's to run by hand.
+      }
+    }
+  }
+
+  async function hasCurrentTour(key: string): Promise<boolean> {
+    const entry = await cache.diffs.get(key)
+    if (!entry)
+      return false
+    const headSha = entry.diff.head?.sha
+    return (await cache.tours.latest(serializeRef(entry.diff.ref), headSha))?.headSha === headSha
+  }
+
   async function execute(task: Task) {
     const { request } = task
     const hooks: TaskHooks = { signal: task.controller.signal, onActivity: batch => record(task, batch), tag: `${task.info.label} · ${task.info.id}` }
     try {
       settle(task, 'done', await perform(task, hooks))
+      if (request.kind === 'analyze')
+        void chain(request)
     }
     catch (error) {
       const stopped = task.controller.signal.aborted
@@ -276,12 +311,14 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     if (running)
       return running.info.id
     const id = randomUUID()
+    const title = (await cache.diffs.get(request.key).catch(() => undefined))?.diff.title
     const task: Task = {
       request,
       info: {
         id,
         kind: request.kind,
         key: request.key,
+        title,
         label: labelOf(request),
         engine: request.model.engine,
         model: request.model.model,
@@ -346,12 +383,20 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     return true
   }
 
-  function list(key: string): AiTaskSnapshot[] {
+  /** Newest first; tasks started in the same millisecond keep the later one on top. */
+  function newestFirst(): Task[] {
     prune()
-    return [...tasks.values()]
+    return [...tasks.values()].reverse().sort((a, b) => b.info.startedAt - a.info.startedAt)
+  }
+
+  function list(key: string): AiTaskSnapshot[] {
+    return newestFirst()
       .filter(task => task.info.key === key)
-      .sort((a, b) => b.info.startedAt - a.info.startedAt)
       .map(task => snapshot(task, Number.POSITIVE_INFINITY))
+  }
+
+  function listAll(): AiTaskSnapshot[] {
+    return newestFirst().map(task => snapshot(task, Number.POSITIVE_INFINITY))
   }
 
   async function threads(key: string): Promise<AiAskThread[]> {
@@ -380,7 +425,7 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     })
   }
 
-  return { start, wait, cancel, list, threads, closeThread }
+  return { start, wait, cancel, list, listAll, threads, closeThread }
 }
 
 const USAGE_COUNTS = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'costUsd', 'durationMs'] as const
@@ -425,18 +470,22 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
     async tour(diff, resolved, locale, hooks) {
       return (await llm()).runTour(diff, resolved, { locale, signal: hooks.signal, onActivity: hooks.onActivity, label: hooks.tag })
     },
+    async brief(diff, resolved, locale, analysis, hooks) {
+      return (await llm()).runBrief(diff, resolved, { locale, analysis, signal: hooks.signal, onActivity: hooks.onActivity, label: hooks.tag })
+    },
     async ask(diff, resolved, request, hooks) {
       return (await llm()).askAboutSelection(diff, resolved, request, { signal: hooks.signal, onActivity: hooks.onActivity })
     },
     async chat(diff, resolved, locale, session, input, hooks) {
       const core = await llm()
-      const last = session.messages.at(-1)
+      const history = session ?? core.seedChatSession(diff, locale)
+      const last = history.messages.at(-1)
       const retrying = input.retry && last?.role === 'assistant' && last.stopReason === 'error'
       const agent = core.createChatSession({
         diff,
         resolved,
         locale,
-        messages: retrying ? session.messages.slice(0, -1) : session.messages,
+        messages: retrying ? history.messages.slice(0, -1) : history.messages,
         onGroupingUpdate: hooks.onGroupingUpdate,
         onActivity: hooks.onActivity,
         context: core.prContextOf(diff),
@@ -454,7 +503,7 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
       finally {
         hooks.signal.removeEventListener('abort', abort)
       }
-      return { messages: [...agent.state.messages], chatStartIndex: session.chatStartIndex }
+      return { messages: [...agent.state.messages], chatStartIndex: history.chatStartIndex }
     },
     lens,
     usage: tag => sumUsage(listAiJobs().filter(job => job.label === tag && job.usage).map(job => job.usage!)),
