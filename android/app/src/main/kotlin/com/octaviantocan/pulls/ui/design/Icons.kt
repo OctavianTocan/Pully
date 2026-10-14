@@ -80,6 +80,7 @@ internal object Lu {
     val req = LuGlyph(1.8f, LuPath("M21 12a8 8 0 0 1-12 7l-5 1 1-4.5A8 8 0 1 1 21 12z"), LuPath("M12 8v4M12 15h.01"))
     val draft = LuGlyph(1.8f, LuPath("M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"))
     val shut = LuGlyph(1.8f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m15 9-6 6M9 9l6 6"))
+    val branch = LuGlyph(1.8f, LuPath("M6 3v12"), LuPath("M15,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M18 9a9 9 0 0 1-9 9"))
     val search = LuGlyph(2f, LuPath("M4,11a7,7 0 1,0 14,0a7,7 0 1,0 -14,0"), LuPath("m20 20-3.5-3.5"))
     val ask = LuGlyph(1.8f, LuPath("M7.9 20A9 9 0 1 0 4 16.1L2 22Z"))
     val bot = LuGlyph(1.8f, LuPath("M12 8V4H8"), LuPath("M6,8h12a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-12a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z"), LuPath("M2 14h2M20 14h2M15 13v2M9 13v2"))

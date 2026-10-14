@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 537,
+        "line": 560,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes.",
         "params": [
           {
@@ -27,7 +27,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 183,
+        "line": 187,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -67,7 +67,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 245,
+        "line": 249,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -104,7 +104,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 274,
+        "line": 278,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -155,7 +155,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 151,
+        "line": 155,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow (sheet headers).",
         "params": [
           {
@@ -200,7 +200,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 177,
+        "line": 181,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -260,7 +260,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 554,
+        "line": 577,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -283,8 +283,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 486,
-        "doc": "`.orb`: the AI's mark. While it works, a comet ring turns around the bot and the bot breathes; done, it is a still wash.",
+        "line": 493,
+        "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot; done,\nit is a still wash with a tick. No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
             "name": "modifier",
@@ -302,7 +302,7 @@
             "default": "false"
           }
         ],
-        "source": "@Composable\nfun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {\n    val c = LocalPullsColors.current\n    Box(modifier.size(size), contentAlignment = Alignment.Center) {\n        if (done) {\n            Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))\n            LuIcon(Lu.bot, tint = c.accentTeal, size = size * 0.6f)\n        } else {\n            RunningOrb(size)\n        }\n    }\n}"
+        "source": "@Composable\nfun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {\n    val c = LocalPullsColors.current\n    Box(modifier.size(size), contentAlignment = Alignment.Center) {\n        if (done) {\n            Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))\n            LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)\n        } else {\n            RunningOrb(size)\n        }\n    }\n}"
       }
     ]
   },
@@ -311,7 +311,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 548,
+        "line": 571,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -334,7 +334,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 297,
+        "line": 301,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -357,7 +357,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 522,
+        "line": 545,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -388,7 +388,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 412,
+        "line": 416,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -418,7 +418,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 309,
+        "line": 313,
         "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [back] swaps the close X for a back arrow.",
         "params": [
           {
@@ -458,7 +458,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 359,
+        "line": 363,
         "doc": "",
         "params": [
           {
@@ -503,7 +503,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 371,
+        "line": 375,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -525,7 +525,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 381,
+        "line": 385,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -581,7 +581,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 562,
+        "line": 585,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -599,7 +599,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 207,
+        "line": 211,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -634,7 +634,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 258,
+        "line": 262,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -669,7 +669,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 448,
+        "line": 452,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.",
         "params": [
           {
@@ -691,7 +691,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 224,
+        "line": 228,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent.",
         "params": [
           {

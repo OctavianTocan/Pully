@@ -234,6 +234,7 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "search" to Lu.search,
     "ask" to Lu.ask,
     "bot" to Lu.bot,
+    "branch" to Lu.branch,
     "copy" to Lu.copy,
     "ai" to Lu.ai,
 )

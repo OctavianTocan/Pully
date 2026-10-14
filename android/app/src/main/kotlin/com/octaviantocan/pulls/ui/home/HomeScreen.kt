@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,7 +43,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -86,14 +84,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.Triage
+import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.EmptyState
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -102,18 +104,23 @@ import com.octaviantocan.pulls.ui.design.Loading
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SoftChip
-import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.edgeBlur
+import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.softBlur
+import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
@@ -121,6 +128,7 @@ import com.octaviantocan.pulls.update.AppUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Keeps the last list per state on this device, like the web's `localStorage` copy. */
@@ -170,8 +178,12 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
         )
     }
     LaunchedEffect(state) { sync.select(state) }
-    var refreshing by remember { mutableStateOf(false) }
-    val reload: () -> Unit = { scope.launch { refreshing = true; sync.reload(); refreshing = false } }
+    // Refreshing is quiet: no indicator. It runs on open and whenever the app comes back to the front.
+    val reload: () -> Unit = { scope.launch { sync.reload() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val last = sync.fetchedAt
+        if (last != null && System.currentTimeMillis() - last > 30_000) reload()
+    }
 
     val now = rememberNow(60_000)
     val pulls = sync.pulls
@@ -183,6 +195,8 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     val labels = remember(groups) { Triage.groupLabels(groups) }
     val viewer = remember(pulls) { Triage.viewerLogin(pulls.orEmpty()) }
     var profileOpen by remember { mutableStateOf(false) }
+    // The search pill also opens things: a pasted link, `owner/repo#12`, or the number of a pull request in the list.
+    val openable = remember(ui.search, pulls) { searchTarget(ui.search, pulls.orEmpty()) }
 
     // `useHomeNavigation.ts`: refresh, and a "Go to" entry per pull request and repository.
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
@@ -218,32 +232,42 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     }
 
     Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(Modifier.fillMaxSize()) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
             if (ui.tab == 0) FilterChips(ui.filter, inbox.counts) { ui.filter = it }
-            Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) {
-                if (ui.tab == 0) {
+            BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) { tab ->
+                if (tab == 0) {
                     InboxList(
                         groups = groups, labels = labels, now = now, archived = archived,
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(), updateNotice = updateNotice,
-                        refreshing = refreshing, onRefresh = reload,
+                        onRetry = reload, onCommands = { Commands.open() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                     )
                 } else {
-                    ToursList(tours.entries.filter { needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle) }, onOpen = { entry ->
-                        nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"))
-                    })
+                    ToursList(
+                        tours.entries.filter { needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle) },
+                        onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) },
+                        onRepo = { owner, repo -> nav.openRepo(owner, repo) },
+                        onRemove = { entry -> tours.remove(entry.key); toaster.show("Removed the tour for #${entry.number}") },
+                    )
                 }
             }
         }
         // `.fade` and `.search`: the list dissolves into the page under a floating search pill.
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
-        SearchPill(
-            ui.search, { ui.search = it },
-            if (ui.tab == 0) "Search pull requests" else "Search tours",
-            Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-        )
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(140.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.6f to c.base, 1f to c.base)))
+        Column(
+            Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            val target = openable
+            if (target != null) OpenSuggestion(target.label) { target.open(nav); ui.search = "" }
+            SearchPill(
+                ui.search, { ui.search = it },
+                if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
+                onGo = { if (target != null) { target.open(nav); ui.search = "" } },
+            )
+        }
         if (profileOpen) {
             ProfileSheet(
                 nav = nav, viewer = viewer, showClosed = ui.showClosed,
@@ -257,9 +281,9 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
 
 /** `.hdr`: settings, the Inbox/Tours capsule, and the profile avatar, floating over the page. */
 @Composable
-private fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit) {
+internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -276,7 +300,7 @@ private fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSetti
 
 /** `.chips`: Waiting on you, Authored and All, each with the size of the list it would show. */
 @Composable
-private fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> Unit) {
+internal fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -289,7 +313,7 @@ private fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (Str
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun InboxList(
+internal fun InboxList(
     groups: List<Triage.RepoGroup>,
     labels: Map<String, String>,
     now: Long,
@@ -299,22 +323,28 @@ private fun InboxList(
     filter: String,
     searching: Boolean,
     updateNotice: String?,
-    refreshing: Boolean,
-    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
+    onCommands: () -> Unit,
     onOpen: (PullRow) -> Unit,
     onArchive: (PullRow) -> Unit,
     onRepo: (Triage.RepoGroup) -> Unit,
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), state = rememberLazyListState(), contentPadding = PaddingValues(bottom = bottom)) {
+    val state = rememberLazyListState()
+    val band = with(LocalDensity.current) { 28.dp.toPx() }
+    PullToCommands(onCommands, Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize().edgeBlur(top = 28.dp, bottom = 130.dp, topStrength = { state.topEdgeStrength(band) }),
+            state = state,
+            contentPadding = PaddingValues(bottom = bottom),
+        ) {
             if (updateNotice != null) item(key = "update") { UpdateBanner(updateNotice, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) }
             when {
                 loading -> item(key = "loading") { Loading("Loading your pull requests…", Modifier.fillMaxWidth()) }
                 failed != null -> item(key = "failed") {
                     EmptyState("warning-duotone", t("local.home.failed"), Modifier.fillMaxWidth(), hint = failed) {
-                        ActionButton(onRefresh, variant = ButtonVariant.Primary) { Text(t("common.retry")) }
+                        ActionButton(onRetry, variant = ButtonVariant.Primary) { Text(t("common.retry")) }
                     }
                 }
                 groups.isEmpty() -> item(key = "empty") {
@@ -336,8 +366,10 @@ private fun InboxList(
                             SwipeRow(
                                 label = "#${pull.number} ${pull.title}",
                                 onOpen = { onOpen(pull) },
-                                onArchive = { onArchive(pull) },
-                                archived = key in archived,
+                                onDismiss = { onArchive(pull) },
+                                openLabel = "Review",
+                                dismissLabel = if (key in archived) "Restore" else "Archive",
+                                dismissIcon = Lu.arch,
                                 modifier = Modifier.animateItem(),
                             ) { PullRowContent(pull, now, dimmed = key in archived) }
                         }
@@ -369,17 +401,25 @@ private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, mod
             .padding(start = 16.dp, end = 16.dp, top = if (first) 16.dp else 18.dp, bottom = 6.dp),
         style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
         color = c.muted,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
     )
 }
 
 /**
- * `.sw`: a row that follows the finger. Past 110dp to the right it opens the pull request; to the left
- * it archives it. Short of that it springs back. Both are also offered to screen readers as actions.
+ * `.sw`: a row that follows the finger, blurring a little as it goes. Past 110dp to the right it opens
+ * what the row holds; to the left it dismisses it. Short of that it springs back. Both are also offered
+ * to screen readers as actions.
  */
 @Composable
-private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, archived: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+internal fun SwipeRow(
+    label: String,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+    openLabel: String,
+    dismissLabel: String,
+    dismissIcon: LuGlyph,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     val c = LocalPullsColors.current
     val density = LocalDensity.current
     var dx by remember { mutableFloatStateOf(0f) }
@@ -387,11 +427,12 @@ private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, a
     val threshold = with(density) { 110.dp.toPx() }
     val ramp = with(density) { 60.dp.toPx() }
     val drag = rememberDraggableState { delta -> dx = (dx + delta).coerceIn(-width, width) }
+    val ink = c.shadow
     Box(
         modifier
             .fillMaxWidth()
             .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
-            .semantics { customActions = listOf(CustomAccessibilityAction("Review") { onOpen(); true }, CustomAccessibilityAction(if (archived) "Restore" else "Archive") { onArchive(); true }) },
+            .semantics { customActions = listOf(CustomAccessibilityAction(openLabel) { onOpen(); true }, CustomAccessibilityAction(dismissLabel) { onDismiss(); true }) },
     ) {
         if (dx > 0f) {
             Row(
@@ -399,8 +440,8 @@ private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, a
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                LuIcon(Lu.okc, tint = Color.White, size = 18.dp)
-                Text("Review", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = Color.White)
+                LuIcon(Lu.arrow, tint = Color.White, size = 20.dp)
+                Text(openLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = Color.White)
             }
         }
         if (dx < 0f) {
@@ -409,13 +450,21 @@ private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, a
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
-                Text(if (archived) "Restore" else "Archive", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.onCta)
-                LuIcon(Lu.arch, tint = c.onCta, size = 22.dp)
+                Text(dismissLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.onCta)
+                LuIcon(dismissIcon, tint = c.onCta, size = 22.dp)
             }
         }
         Box(
             Modifier
                 .offset { IntOffset(dx.roundToInt(), 0) }
+                // The row is displaced over the panel, so it blurs as it goes (rules 17 and 46) and casts a soft edge.
+                .softBlur(SWIPE_BLUR * (abs(dx) / ramp).coerceIn(0f, 1f))
+                .drawBehind {
+                    val edge = 18.dp.toPx()
+                    val strength = (abs(dx) / ramp).coerceIn(0f, 1f)
+                    if (dx > 0f) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, ink.copy(alpha = 0.14f * strength)), startX = -edge, endX = 0f), Offset(-edge, 0f), Size(edge, size.height))
+                    if (dx < 0f) drawRect(Brush.horizontalGradient(listOf(ink.copy(alpha = 0.16f * strength), Color.Transparent), startX = size.width, endX = size.width + edge), Offset(size.width, 0f), Size(edge, size.height))
+                }
                 .background(c.base)
                 .draggable(drag, Orientation.Horizontal, onDragStopped = {
                     val end = dx
@@ -423,15 +472,15 @@ private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, a
                         end > threshold -> {
                             animate(end, with(density) { 72.dp.toPx() }, animationSpec = tween(120)) { value, _ -> dx = value }
                             onOpen()
-                            animate(dx, 0f, animationSpec = tween(250)) { value, _ -> dx = value }
+                            animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                         }
                         end < -threshold -> {
                             animate(end, -width, animationSpec = tween(200)) { value, _ -> dx = value }
-                            onArchive()
+                            onDismiss()
                             // Under All the row stays (dimmed): bring it back.
-                            animate(dx, 0f, animationSpec = tween(250)) { value, _ -> dx = value }
+                            animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                         }
-                        else -> animate(end, 0f, animationSpec = tween(250)) { value, _ -> dx = value }
+                        else -> animate(end, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                     }
                 })
                 .clickable(role = Role.Button, onClickLabel = label, onClick = onOpen),
@@ -439,22 +488,29 @@ private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, a
     }
 }
 
+/** The most a swiped row blurs: Row W's 1.3px, a little stronger so it reads on a phone. */
+private val SWIPE_BLUR = 2.dp
+
 /** `.pr`: number and title on top; author, checks, diff size and age on a second line. */
 @Composable
-private fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean) {
+internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean) {
     val c = LocalPullsColors.current
     val title = buildAnnotatedString {
         if (pull.isDraft) withStyle(SpanStyle(fontSize = 13.sp, color = c.muted)) { append("[${t("local.home.draft")}] ") }
         append(pull.title)
     }
     val requested = pull.requestedFromMe ?: (pull.role == "review-requested")
+    val inset = with(LocalDensity.current) { 16.dp.toPx() }
     Row(
-        Modifier.fillMaxWidth().alpha(if (dimmed) 0.55f else 1f).padding(horizontal = 16.dp, vertical = 13.dp),
+        Modifier.fillMaxWidth()
+            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
+            .alpha(if (dimmed) 0.55f else 1f)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text("#${pull.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(title, style = PullsType.row, color = c.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(title, style = PullsType.row, color = c.text)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
@@ -492,9 +548,43 @@ private fun DiffNumbers(pull: PullRow) {
     }
 }
 
-/** `.search`: a 54dp white pill. Typing filters the list at once. */
+/** What the search pill can open: a pasted pull request link, `owner/repo#12`, or the number of a pull request already in the list. */
+internal class SearchTarget(val label: String, val open: (Nav) -> Unit)
+
+internal fun searchTarget(text: String, pulls: List<PullRow>): SearchTarget? {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return null
+    Regex("""^#?(\d+)$""").find(trimmed)?.let { match ->
+        val hit = pulls.filter { it.number == match.groupValues[1].toInt() }.singleOrNull() ?: return null
+        val target = OpenTarget.Pull(hit.owner, hit.repo, hit.number, "github.com")
+        return SearchTarget(target.label) { it.openTarget(target) }
+    }
+    return when (val link = HomeLinks.parse(trimmed)) {
+        is HomeLink.Target -> SearchTarget(link.target.label) { it.openTarget(link.target) }
+        is HomeLink.Repo -> SearchTarget("${link.owner}/${link.repo}") { it.openRepo(link.owner, link.repo) }
+        null -> null
+    }
+}
+
+/** The one-line offer above the search pill when what you typed is something to open. */
 @Composable
-private fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+internal fun OpenSuggestion(label: String, onClick: () -> Unit) {
+    val c = LocalPullsColors.current
+    Row(
+        Modifier.fillMaxWidth().height(48.dp).floatShadow(CircleShape, PullsShadow.Note).clip(CircleShape).background(c.raised)
+            .clickable(role = Role.Button, onClickLabel = "Open $label", onClick = onClick).padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("Open", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
+        Text(label, Modifier.weight(1f), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
+        LuIcon(Lu.arrow, tint = c.accentTeal, size = 18.dp)
+    }
+}
+
+/** `.search`: a 54dp white pill. Typing filters the list at once; a pasted link or a number offers to open it. */
+@Composable
+internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, onGo: () -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
     Row(
@@ -510,7 +600,7 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: S
             textStyle = PullsType.lg.copy(color = c.text),
             cursorBrush = SolidColor(c.accentTeal),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
+            keyboardActions = KeyboardActions(onSearch = { onGo(); focus.clearFocus() }),
             modifier = Modifier.weight(1f),
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
@@ -523,40 +613,60 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: S
     }
 }
 
-/** The Tours tab: the walkthroughs opened or started here, grouped by repository. */
+/** The Tours tab: the walkthroughs opened or started here, grouped by repository. A row swipes like an inbox row: right opens it, left removes it. */
 @Composable
-private fun ToursList(entries: List<TourEntry>, onOpen: (TourEntry) -> Unit) {
+internal fun ToursList(entries: List<TourEntry>, onOpen: (TourEntry) -> Unit, onRepo: (String, String) -> Unit, onRemove: (TourEntry) -> Unit) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
     if (entries.isEmpty()) {
-        EmptyState(
-            "compass-duotone", "No tours yet", Modifier.fillMaxWidth().padding(top = 32.dp),
-            hint = "Open a pull request and tap its Tour button. Tours you open or start show up here.",
-        )
+        Column(Modifier.fillMaxWidth().padding(top = 48.dp, start = 32.dp, end = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("No tours yet", style = PullsType.lg.copy(fontWeight = FontWeight.Medium), color = c.text, textAlign = TextAlign.Center)
+            Text(
+                "Open a pull request and tap its Tour button. Tours you open or start show up here.",
+                style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center,
+            )
+        }
         return
     }
     val now = rememberNow(60_000)
     val groups = entries.groupBy { "${it.owner}/${it.repo}" }
     val labels = Triage.groupLabels(groups.map { (name, list) -> Triage.RepoGroup(name, list.first().owner, list.first().repo, emptyList()) })
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom)) {
+    val state = rememberLazyListState()
+    val band = with(LocalDensity.current) { 28.dp.toPx() }
+    LazyColumn(
+        Modifier.fillMaxSize().edgeBlur(top = 28.dp, bottom = 130.dp, topStrength = { state.topEdgeStrength(band) }),
+        state = state,
+        contentPadding = PaddingValues(bottom = bottom),
+    ) {
         groups.entries.forEachIndexed { index, (name, list) ->
-            item(key = "group:$name") { GroupHeading(labels[name] ?: name, first = index == 0, onClick = {}, modifier = Modifier.animateItem()) }
+            item(key = "group:$name") {
+                GroupHeading(labels[name] ?: name, first = index == 0, onClick = { onRepo(list.first().owner, list.first().repo) }, modifier = Modifier.animateItem())
+            }
             items(list, key = { it.key }) { entry ->
                 val inset = with(LocalDensity.current) { 16.dp.toPx() }
-                Row(
-                    Modifier.fillMaxWidth()
-                        .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
-                        .clickable(role = Role.Button, onClickLabel = entry.prTitle) { onOpen(entry) }
-                        .padding(horizontal = 16.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                SwipeRow(
+                    label = entry.prTitle,
+                    onOpen = { onOpen(entry) },
+                    onDismiss = { onRemove(entry) },
+                    openLabel = "Open",
+                    dismissLabel = "Remove",
+                    dismissIcon = Lu.close,
+                    modifier = Modifier.animateItem(),
                 ) {
-                    Box(Modifier.size(30.dp)) {
-                        if (entry.writingAt(now)) Orb(size = 30.dp) else ProgressRing(entry.reached, entry.stops, size = 30.dp)
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(entry.prTitle, style = PullsType.row, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(tourSubtitle(entry, now), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Box(Modifier.size(30.dp)) {
+                            if (entry.writingAt(now)) Orb(size = 30.dp) else ProgressRing(entry.reached, entry.stops, size = 30.dp)
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(entry.prTitle, style = PullsType.row, color = c.text)
+                            Text(tourSubtitle(entry, now), style = PullsType.sm, color = c.muted)
+                        }
                     }
                 }
             }
@@ -572,7 +682,7 @@ internal fun tourSubtitle(entry: TourEntry, now: Long): String = when {
     else -> "${entry.stops} ${if (entry.stops == 1) "stop" else "stops"} · not started"
 }
 
-/** The profile sheet: open a link, check out a branch, show closed pull requests, refresh. */
+/** The profile sheet: check out a branch, open Commands, show closed pull requests, refresh. */
 @Composable
 private fun ProfileSheet(
     nav: Nav,
@@ -588,36 +698,14 @@ private fun ProfileSheet(
 ) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
-    var url by remember { mutableStateOf("") }
-    val parsed = remember(url) { HomeLinks.parse(url) }
     val host = remember { ServerStore.load(context).url.removePrefix("https://").removePrefix("http://").trimEnd('/') }
-    fun openLink() {
-        when (val link = parsed) {
-            is HomeLink.Target -> { onClose(); nav.openTarget(link.target) }
-            is HomeLink.Repo -> { onClose(); nav.openRepo(link.owner, link.repo) }
-            null -> {}
-        }
-    }
     PullsSheet(onClose, viewer ?: "Pulls") {
         Text(host, Modifier.fillMaxWidth(), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
         SheetCard {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Open a pull request", style = PullsType.sm, color = c.muted)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextInput(
-                        url, { url = it }, t("local.home.urlPlaceholder"), Modifier.weight(1f), icon = "link-duotone",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
-                        keyboardActions = KeyboardActions(onGo = { openLink() }),
-                    )
-                    ActionButton({ openLink() }, variant = ButtonVariant.Primary, enabled = parsed != null) { Text(t("local.home.open")) }
-                }
-            }
-        }
-        SheetCard {
-            SheetRow("Check out a branch", { onClose(); nav.checkout() }, first = true, icon = { PhIcon("git-branch-duotone", tint = c.text, size = 20.dp) }) {
+            SheetRow("Check out a branch", { onClose(); nav.checkout() }, first = true, icon = { LuIcon(Lu.branch, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
-            SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
+            SheetRow("Commands", { onClose(); Commands.open() }, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
             SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, icon = { LuIcon(Lu.arch, tint = c.text) }) {

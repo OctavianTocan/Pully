@@ -10,7 +10,7 @@
     "ui/design/Markdown.kt": 1,
     "ui/home/CheckoutScreen.kt": 4,
     "ui/home/Chrome.kt": 4,
-    "ui/home/HomeScreen.kt": 9,
+    "ui/home/HomeScreen.kt": 8,
     "ui/home/NavControls.kt": 3,
     "ui/home/RepoScreen.kt": 6,
     "ui/review/Header.kt": 1,
@@ -27,7 +27,7 @@
     "ui/ai/Critique.kt": 6,
     "ui/ai/Tour.kt": 2,
     "ui/home/CheckoutScreen.kt": 4,
-    "ui/home/HomeScreen.kt": 7,
+    "ui/home/HomeScreen.kt": 4,
     "ui/home/RepoScreen.kt": 6,
     "ui/review/FileDiff.kt": 1,
     "ui/review/PageBanners.kt": 2,
@@ -42,9 +42,6 @@
     "ui/ai/Critique.kt": 1,
     "ui/design/Markdown.kt": 1,
     "ui/review/Threads.kt": 1
-  },
-  "material-pull-refresh": {
-    "ui/home/HomeScreen.kt": 1
   },
   "material-sheet-menu": {
     "ui/ai/AiParts.kt": 2,

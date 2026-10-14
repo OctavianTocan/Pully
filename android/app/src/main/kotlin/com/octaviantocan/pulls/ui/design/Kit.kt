@@ -14,6 +14,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -68,6 +69,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
@@ -78,6 +80,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -86,6 +89,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -482,14 +486,17 @@ fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
 
 // --- Progress and status marks ---
 
-/** `.orb`: the AI's mark. While it works, a comet ring turns around the bot and the bot breathes; done, it is a still wash. */
+/**
+ * `.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot; done,
+ * it is a still wash with a tick. No robot, compass or sparkle: those marks were dropped (rule 48).
+ */
 @Composable
 fun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {
     val c = LocalPullsColors.current
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         if (done) {
             Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))
-            LuIcon(Lu.bot, tint = c.accentTeal, size = size * 0.6f)
+            LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)
         } else {
             RunningOrb(size)
         }
@@ -515,7 +522,23 @@ private fun RunningOrb(size: Dp) {
             style = Stroke(stroke),
         )
     }
-    LuIcon(Lu.bot, Modifier.alpha(breath), tint = c.accentTeal, size = size * 0.6f)
+    Box(Modifier.size(size * 0.3f).graphicsLayer { alpha = breath; scaleX = 0.7f + 0.3f * breath; scaleY = 0.7f + 0.3f * breath }.clip(CircleShape).background(c.accentTeal))
+}
+
+/**
+ * The mark of an AI engine, in its own colour: Claude Code's orange or Codex's ink. It is the only AI
+ * artwork the app keeps, and it names the engine a row or a setting is using (rule 48).
+ */
+@Composable
+fun EngineMark(engine: String, modifier: Modifier = Modifier, size: Dp = 20.dp) {
+    val c = LocalPullsColors.current
+    val claude = engine != "codex"
+    Image(
+        painterResource(if (claude) R.drawable.ic_si_claude else R.drawable.ic_si_openai),
+        if (claude) "Claude Code" else "Codex",
+        modifier.size(size),
+        colorFilter = ColorFilter.tint(if (claude) Color(0xFFD97757) else c.text), // raw-value-ok: the brand colour of the Claude mark
+    )
 }
 
 /** The tour ring: a grey track and an accent arc for [n] of [of] stops. */
