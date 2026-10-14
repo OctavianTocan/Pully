@@ -1,6 +1,7 @@
 import type { DiffsPayload } from '../../../types/diff'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setCliRunner } from './cli-stream'
+import { MENTION_RULE } from './prompt'
 import { buildTourPlanPrompt, buildTourStopPrompt, MAX_STOPS, resolveTourPlan, resolveTourStop, runTour } from './tour'
 
 const diff: DiffsPayload = {
@@ -33,6 +34,15 @@ describe('tour prompts', () => {
     expect(prompt).toContain('Write in German.')
     expect(prompt).toContain('Parses once per file.')
     expect(prompt).toContain('src/cache.ts')
+  })
+
+  it('asks every prompt to write each mention of the code as a link to its place (rule 96)', () => {
+    expect(buildTourPlanPrompt(diff, 'en')).toContain(MENTION_RULE)
+    expect(buildTourStopPrompt(diff, plan, 0, 'en')).toContain(MENTION_RULE)
+  })
+
+  it('asks for flows as one hop per line, so the app can draw them', () => {
+    expect(buildTourStopPrompt(diff, plan, 0, 'en')).toContain('`From -> To: what moves`')
   })
 
   it('gives one stop the outline and only its own files', () => {

@@ -34,6 +34,13 @@ const toolError = computed(() => {
   return message.role === 'toolResult' && message.isError ? textOf(message.content) : undefined
 })
 
+/** Answers link what they mention to a path in the repository (rule 96): such a link is not a page of this app, so it must not navigate away. */
+function keepRepoLinks(event: MouseEvent) {
+  const href = (event.target as HTMLElement | null)?.closest('a')?.getAttribute('href')
+  if (href && !/^(?:[a-z][a-z\d+.-]*:|#|\/\/)/i.test(href))
+    event.preventDefault()
+}
+
 function toolCallLabel(call: ToolCall) {
   if (call.name === 'read_diffs') {
     const paths = call.arguments.paths
@@ -58,7 +65,7 @@ function toolCallLabel(call: ToolCall) {
   <div v-else-if="message.role === 'assistant'" class="max-w-full flex flex-col items-start gap-1.5">
     <template v-for="(part, index) in message.content" :key="index">
       <Suspense v-if="part.type === 'text' && part.text.trim()">
-        <Markdown :value="part.text" :streaming="message.stopReason === 'pending'" class="chat-markdown min-w-0 self-stretch" />
+        <Markdown :value="part.text" :streaming="message.stopReason === 'pending'" class="chat-markdown min-w-0 self-stretch" @click="keepRepoLinks" />
       </Suspense>
       <div v-else-if="part.type === 'toolCall'" class="flex items-center gap-1.5 text-xs op-mute">
         <span class="i-ph:wrench-duotone" aria-hidden="true" />

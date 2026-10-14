@@ -109,4 +109,6 @@ internal object Lu {
     val tool = LuGlyph(1.8f, LuPath("M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"))
     /** A new conversation: Lucide's square with a pen. */
     val newChat = LuGlyph(1.8f, LuPath("M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"), LuPath("M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"))
+    /** Lucide corner-down-right: a question to ask next, under an answer. */
+    val followUp = LuGlyph(2f, LuPath("m15 10 5 5-5 5"), LuPath("M4 4v7a4 4 0 0 0 4 4h12"))
 }

@@ -365,7 +365,9 @@ async function reviewState(cwd: string, args: unknown): Promise<Response> {
     : undefined
   const tour = entry ? await session.cache.tours.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha) : undefined
   const brief = entry ? await briefState(session.cache, entry.diff) : undefined
-  return Response.json({ result: { threads, critique, chat, aiGroups, analysis, sharedComment: entry?.sharedComment, tour, brief } })
+  // The questions offered under the last answer; none once the chat ends on a question or a failure.
+  const suggestions = chat.at(-1)?.role === 'assistant' ? stored?.suggestions ?? [] : []
+  return Response.json({ result: { threads, critique, chat, aiGroups, analysis, sharedComment: entry?.sharedComment, tour, brief, suggestions } })
 }
 
 /** GitHub review threads for one pull request, in the same shape the web diff anchors to lines. */

@@ -51,6 +51,7 @@ import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.data.TourStop
 import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.ui.ai.ProvideAiText
 import com.octaviantocan.pulls.ui.ai.Glossary
 import com.octaviantocan.pulls.ui.ai.Sources
 import com.octaviantocan.pulls.ui.ai.TourBlockView
@@ -145,47 +146,50 @@ internal fun PrTourScreen(
         if (n > 1 && resumeAt in 2..n) listState.scrollToItem(resumeAt)
     }
 
-    Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                Spacer(Modifier.weight(1f))
-                // The same capsule as the Overview, with the Tour lit. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
-                SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onCorner = onMore)
-            }
-            if (n > 0 && current in 1..n) {
-                // The ring, the stop you are on and the chevron, each in its own column so the title never runs under
-                // the ring; no "2 of 4" (rule 97). Tapping it opens the sections.
-                Row(
-                    Modifier.padding(top = 12.dp).fillMaxWidth()
-                        .cueClickable(role = Role.Button, onClickLabel = "Sections") { sections = true }
-                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    ProgressRing(progress)
-                    // One line with an ellipsis, or two whole lines: never a line cut in half.
-                    Text(stops[current - 1].title, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    LuIcon(Lu.chevd, tint = c.muted, size = 20.dp)
+    // Every mention in the tour opens its place, and its code is the diff's code view (rules 95 and 96).
+    ProvideAiText(session, { place -> onOpenSource(TourSource(place.path, place.line, "")) }) {
+        Box(Modifier.fillMaxSize().background(c.base)) {
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
+                    FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
+                    Spacer(Modifier.weight(1f))
+                    // The same capsule as the Overview, with the Tour lit. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
+                    SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onCorner = onMore)
+                }
+                if (n > 0 && current in 1..n) {
+                    // The ring, the stop you are on and the chevron, each in its own column so the title never runs under
+                    // the ring; no "2 of 4" (rule 97). Tapping it opens the sections.
+                    Row(
+                        Modifier.padding(top = 12.dp).fillMaxWidth()
+                            .cueClickable(role = Role.Button, onClickLabel = "Sections") { sections = true }
+                            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        ProgressRing(progress)
+                        // One line with an ellipsis, or two whole lines: never a line cut in half.
+                        Text(stops[current - 1].title, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        LuIcon(Lu.chevd, tint = c.muted, size = 20.dp)
+                    }
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp
+                    LazyColumn(
+                        // The cards dissolve under the strip once they move (a tour at rest is sharp) and into the page under the Ask pill (rule 74).
+                        Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { listState.topEdgeStrength(with(density) { PullsMotion.EdgeTop.toPx() }) }),
+                        state = listState,
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        item(key = "intro") { Intro(session, head, tour, running) }
+                        itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop -> StopCard(session, stop, onOpenSource) }
+                        // The tour ends with its last card: no closing line and no button back (rule 97); the header or a swipe leaves it.
+                        if (tour != null && tour.glossary.isNotEmpty()) item(key = "glossary") { Card { Glossary(tour.glossary, Modifier) } }
+                    }
                 }
             }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp
-                LazyColumn(
-                    // The cards dissolve under the strip once they move (a tour at rest is sharp) and into the page under the Ask pill (rule 74).
-                    Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { listState.topEdgeStrength(with(density) { PullsMotion.EdgeTop.toPx() }) }),
-                    state = listState,
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    item(key = "intro") { Intro(session, head, tour, running) }
-                    itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop -> StopCard(session, stop, onOpenSource) }
-                    // The tour ends with its last card: no closing line and no button back (rule 97); the header or a swipe leaves it.
-                    if (tour != null && tour.glossary.isNotEmpty()) item(key = "glossary") { Card { Glossary(tour.glossary, Modifier) } }
-                }
-            }
+            AskPill(Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
         }
-        AskPill(Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
     }
 
     if (sections) SectionsSheet(stops, current, onPick = { index ->

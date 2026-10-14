@@ -36,4 +36,10 @@ class ReviewModelsTest {
         assertNull(json("""{"threads":[],"chat":[],"aiGroups":[]}""").asSavedState().brief)
         assertNull(json("""{"threads":[],"chat":[],"aiGroups":[],"brief":{"generatedAt":"x","tree":{"type":"Stack","props":{"children":[]}}}}""").asSavedState().brief)
     }
+
+    @Test
+    fun followUpQuestionsComeWithTheSavedChat() {
+        assertEquals(listOf("What evicts entries?"), json("""{"threads":[],"chat":[],"aiGroups":[],"suggestions":["What evicts entries?"]}""").asSavedState().suggestions)
+        assertEquals(emptyList(), json("""{"threads":[],"chat":[],"aiGroups":[]}""").asSavedState().suggestions)
+    }
 }

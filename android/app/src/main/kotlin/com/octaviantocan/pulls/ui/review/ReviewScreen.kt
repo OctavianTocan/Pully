@@ -199,7 +199,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             onTour = { switchTo(PrView.Tour) },
                             onAsk = { openAsk(forTour = false) },
                             onSheet = { sheet = it },
-                            onCite = { cite -> session.focus = Focus(cite.path, cite.line) },
+                            onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, ""), uri::openUri) },
                             onOpenRepo = nav.openRepo,
                         )
                         PrView.Diff -> PrDiffScreen(
@@ -255,7 +255,10 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         }
                     }
                 }
-                ask?.let { request -> AskSheet(session, request.title, request.suggestions, request.initial, request.reference) { ask = null } }
+                ask?.let { request ->
+                    // A mention in an answer closes the sheet and opens its place, as a tour source does (rule 96).
+                    AskSheet(session, request.title, request.suggestions, request.initial, request.reference, onOpen = { place -> ask = null; openSource(session, TourSource(place.path, place.line, ""), uri::openUri) }) { ask = null }
+                }
                 ReviewProgressSheet(session, top)
                 ReviewSubmitSheet(session, top, canVerdict = head.isOpen)
                 if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)

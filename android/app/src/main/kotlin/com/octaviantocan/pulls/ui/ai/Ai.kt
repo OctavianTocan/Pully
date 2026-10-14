@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.octaviantocan.pulls.data.Activity
 import com.octaviantocan.pulls.data.AskThread
+import com.octaviantocan.pulls.ui.design.CodePlace
 import com.octaviantocan.pulls.ui.review.ReviewSession
 
 /*
@@ -41,8 +42,8 @@ data class AskReference(val label: String, val text: String)
  * field until it is sent or removed; nothing is sent until the person writes the question.
  */
 @Composable
-fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference? = null, onDismiss: () -> Unit) =
-    AskSheetImpl(session, title, suggestions, initial, reference, onDismiss)
+fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference? = null, onOpen: (CodePlace) -> Unit = {}, onDismiss: () -> Unit) =
+    AskSheetImpl(session, title, suggestions, initial, reference, onOpen, onDismiss)
 
 /** `AskThread`: a saved question thread about some lines, shown under its last line. */
 @Composable

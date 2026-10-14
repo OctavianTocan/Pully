@@ -21,9 +21,15 @@ export type PersistedGroupSource = keyof PersistedAnalyses
 const LlmSessionSchema = v.object({
   messages: v.array(v.looseObject({ role: v.string() })),
   chatStartIndex: v.number(),
+  suggestions: v.optional(v.array(v.string())),
 })
 
-export interface LlmSession { messages: AgentMessage[], chatStartIndex: number }
+export interface LlmSession {
+  messages: AgentMessage[]
+  chatStartIndex: number
+  /** Questions to offer under the last answer, written by a small model after the turn (rule 99). */
+  suggestions?: string[]
+}
 
 /**
  * The small, often-rewritten half of a cached diff: everything eviction, the recent

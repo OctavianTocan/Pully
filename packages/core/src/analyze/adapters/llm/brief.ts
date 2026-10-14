@@ -10,7 +10,7 @@ import { LOCALES } from '../../../locales'
 import { serializeRef } from '../../../types/source'
 import { isCliEngine, runCli } from './cli-stream'
 import { fencedContent, prContextOf, prHeading, renderNumberedDiff, WRITING_RULES } from './critique'
-import { buildManifest } from './prompt'
+import { buildManifest, MENTION_RULE } from './prompt'
 
 /*
  * The brief: a page the agent designs for one pull request, written in OpenUI Lang
@@ -230,6 +230,7 @@ export function buildBriefPrompt(diff: DiffsPayload, locale: string, analysis?: 
 Design the briefing page for this pull request and write it as an OpenUI Lang program.
 - Use your tools to read the files around the change and the callers it affects before you decide what the page needs.
 - Choose only the components this change calls for.
+- In Markdown strings: ${MENTION_RULE}
 - Output the program and nothing else.
 - Write the strings in ${languageOf(locale)}.`)
   return sections.join('\n\n')
