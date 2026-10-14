@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 696,
+        "line": 702,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -285,7 +285,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 713,
+        "line": 719,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -308,8 +308,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 606,
-        "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. No robot, compass or sparkle: those\nmarks were dropped (rule 48).",
+        "line": 608,
+        "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small\ndot instead of the tick, for work that has not run, or did not finish, so a tick never claims\nsomething that was not done. [stop] turns the breathing dot into a small square, because the orb is\nthen the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
             "name": "modifier",
@@ -325,9 +325,19 @@
             "name": "done",
             "type": "Boolean",
             "default": "false"
+          },
+          {
+            "name": "idle",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
+            "name": "stop",
+            "type": "Boolean",
+            "default": "false"
           }
         ],
-        "source": "@Composable\nfun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {\n    val c = LocalPullsColors.current\n    var settled by remember { mutableStateOf(done) }\n    LaunchedEffect(done) { if (!done) settled = false }\n    Crossfade(done && settled, modifier.size(size), tween(PullsMotion.QUICK), label = \"orb-settle\") { still ->\n        Box(Modifier.size(size), contentAlignment = Alignment.Center) {\n            if (still) {\n                Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))\n                LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)\n            } else {\n                RunningOrb(size, finishing = done) { settled = true }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false, idle: Boolean = false, stop: Boolean = false) {\n    val c = LocalPullsColors.current\n    val rest = done || idle\n    var settled by remember { mutableStateOf(rest) }\n    LaunchedEffect(rest) { if (!rest) settled = false }\n    Crossfade(rest && settled, modifier.size(size), tween(PullsMotion.QUICK), label = \"orb-settle\") { still ->\n        Box(Modifier.size(size), contentAlignment = Alignment.Center) {\n            if (still) {\n                Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))\n                if (done) LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)\n                else Box(Modifier.size(size * 0.3f).clip(CircleShape).background(c.accentTeal))\n            } else {\n                RunningOrb(size, finishing = rest, stop = stop) { settled = true }\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -336,7 +346,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 707,
+        "line": 713,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -468,7 +478,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 681,
+        "line": 687,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -819,7 +829,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 724,
+        "line": 730,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {

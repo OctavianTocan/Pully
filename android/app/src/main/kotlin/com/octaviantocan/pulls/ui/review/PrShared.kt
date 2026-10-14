@@ -9,7 +9,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.Color
@@ -113,9 +112,9 @@ internal fun withCites(text: String, files: List<ReviewFile>, link: Color, onCit
     }
 }
 
-/** A tappable `file:line` reference: Mona Sans medium in the link color, underlined. */
+/** A tappable `file:line` reference: Mona Sans medium in the link color, with no underline (rule 96). */
 internal fun AnnotatedString.Builder.appendCite(label: String, link: Color, onClick: () -> Unit) {
-    val style = TextLinkStyles(SpanStyle(color = link, fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline))
+    val style = TextLinkStyles(SpanStyle(color = link, fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium))
     withLink(LinkAnnotation.Clickable("cite", style) { onClick() }) { append(label) }
 }
 

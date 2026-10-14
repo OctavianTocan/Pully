@@ -600,21 +600,25 @@ fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
 /**
  * `.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When
  * [done] turns true the ring finishes the turn it is on and then settles into a still wash with a
- * tick (rule 72); one that starts out done is already still. No robot, compass or sparkle: those
- * marks were dropped (rule 48).
+ * tick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small
+ * dot instead of the tick, for work that has not run, or did not finish, so a tick never claims
+ * something that was not done. [stop] turns the breathing dot into a small square, because the orb is
+ * then the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).
  */
 @Composable
-fun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) {
+fun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false, idle: Boolean = false, stop: Boolean = false) {
     val c = LocalPullsColors.current
-    var settled by remember { mutableStateOf(done) }
-    LaunchedEffect(done) { if (!done) settled = false }
-    Crossfade(done && settled, modifier.size(size), tween(PullsMotion.QUICK), label = "orb-settle") { still ->
+    val rest = done || idle
+    var settled by remember { mutableStateOf(rest) }
+    LaunchedEffect(rest) { if (!rest) settled = false }
+    Crossfade(rest && settled, modifier.size(size), tween(PullsMotion.QUICK), label = "orb-settle") { still ->
         Box(Modifier.size(size), contentAlignment = Alignment.Center) {
             if (still) {
                 Box(Modifier.fillMaxSize().clip(CircleShape).background(c.accentWash))
-                LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)
+                if (done) LuIcon(Lu.check, tint = c.accentTeal, size = size * 0.5f)
+                else Box(Modifier.size(size * 0.3f).clip(CircleShape).background(c.accentTeal))
             } else {
-                RunningOrb(size, finishing = done) { settled = true }
+                RunningOrb(size, finishing = rest, stop = stop) { settled = true }
             }
         }
     }
@@ -624,7 +628,7 @@ fun Orb(modifier: Modifier = Modifier, size: Dp = 30.dp, done: Boolean = false) 
 private const val ORB_TURN_MS = 1600
 
 @Composable
-private fun RunningOrb(size: Dp, finishing: Boolean, onTurnDone: () -> Unit) {
+private fun RunningOrb(size: Dp, finishing: Boolean, stop: Boolean, onTurnDone: () -> Unit) {
     val c = LocalPullsColors.current
     val moving = rememberMotionEnabled()
     val turn = remember { Animatable(0f) }
@@ -658,7 +662,9 @@ private fun RunningOrb(size: Dp, finishing: Boolean, onTurnDone: () -> Unit) {
             style = Stroke(stroke),
         )
     }
-    Box(Modifier.size(size * 0.3f).graphicsLayer { alpha = breath; scaleX = 0.7f + 0.3f * breath; scaleY = 0.7f + 0.3f * breath }.clip(CircleShape).background(c.accentTeal))
+    val mark = Modifier.graphicsLayer { alpha = breath; scaleX = 0.7f + 0.3f * breath; scaleY = 0.7f + 0.3f * breath }
+    if (stop) Box(Modifier.size(size * 0.34f).then(mark).clip(RoundedCornerShape(PullsRadius.xs)).background(c.accentTeal))
+    else Box(Modifier.size(size * 0.3f).then(mark).clip(CircleShape).background(c.accentTeal))
 }
 
 /**

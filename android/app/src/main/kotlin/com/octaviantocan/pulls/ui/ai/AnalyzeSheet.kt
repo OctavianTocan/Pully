@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,38 +43,49 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.PullsSheet
+import com.octaviantocan.pulls.ui.design.PullsPagedSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.TOUCH
+import com.octaviantocan.pulls.ui.review.EffortPage
 import com.octaviantocan.pulls.ui.review.ModelCatalogs
+import com.octaviantocan.pulls.ui.review.ModelPage
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import com.octaviantocan.pulls.ui.review.analysisModelLabel
 import com.octaviantocan.pulls.ui.review.fetchCatalog
 import com.octaviantocan.pulls.ui.settings.CliCatalog
 
+/** The pages of the Analyze sheet. Each but the first slides in inside the same sheet and goes back to its [parent] (rule 78). */
+internal enum class AnalyzePage(val parent: AnalyzePage?) {
+    Main(null),
+    Custom(Main),
+    Model(Main),
+    Effort(Model),
+}
+
+private fun AnalyzePage.title(): String = when (this) {
+    AnalyzePage.Main -> "Analyze"
+    AnalyzePage.Custom -> "Custom analysis"
+    AnalyzePage.Model -> "Select model"
+    AnalyzePage.Effort -> "Effort"
+}
+
 /**
  * What the Analyze button's chevron opens: Quick, Standard and Deep, and Custom for picking the passes one by
- * one. Picking one runs it at once and becomes what the button runs next time. The analysis, the tour, the brief
+ * one. Picking one runs it at once and becomes what the button runs next time. The model, its effort and the
+ * custom passes are pages inside this one sheet (rule 78), so choosing a model never closes it. The ⋯ sheet's Model
+ * row opens it on the model page ([start]), where there is nothing to go back to. The analysis, the tour, the brief
  * and the review all run on the server, so the reviewer can leave and come back.
  */
 @Composable
-internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, onModel: () -> Unit) {
-    val c = LocalPullsColors.current
+internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: AnalyzePage = AnalyzePage.Main) {
     val context = LocalContext.current
     val toaster = LocalToaster.current
-    val messages = LocalMessages.current
     val settings = session.settings
-    val repo = remember { Repo(context) }
-    val config = remember { ServerStore.load(context) }
-    // The model's own efforts decide what Quick and Deep ask for, so fetch the list if the app has not yet.
-    val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine) {
-        if (value == null) value = fetchCatalog(repo, config.engine).getOrNull()
-    }
     val last = settings.analyzeChoice
-    var customizing by remember { mutableStateOf(false) }
+    var page by remember { mutableStateOf(start) }
     var custom by remember { mutableStateOf(AnalyzeChoice(null, last.tour, last.brief, last.review)) }
 
     fun run(choice: AnalyzeChoice) {
@@ -88,36 +99,52 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, onModel: 
         }
     }
 
-    if (customizing) {
-        PullsSheet(onClose, "Custom analysis", back = { customizing = false }) {
-            SheetCard {
-                PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
-                PassRow("Tour", "A walk through the change, stop by stop.", custom.tour) { custom = custom.copy(tour = it) }
-                PassRow("Brief", "A page made for this change: tables, checks, diagrams.", custom.brief) { custom = custom.copy(brief = it) }
-                PassRow("AI review", "Looks for bugs and risks, line by line.", custom.review) { custom = custom.copy(review = it) }
+    // Opened straight on the model page, that page is the first one: there is no Analyze page behind it.
+    val parent: (AnalyzePage) -> AnalyzePage? = { if (it == AnalyzePage.Model && start == AnalyzePage.Model) null else it.parent }
+    PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = { it.title() }) { current ->
+        when (current) {
+            AnalyzePage.Main -> AnalyzeMain(session, onRun = ::run, onCustom = { page = AnalyzePage.Custom }, onModel = { page = AnalyzePage.Model })
+            AnalyzePage.Custom -> {
+                SheetCard {
+                    PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
+                    PassRow("Tour", "A walk through the change, stop by stop.", custom.tour) { custom = custom.copy(tour = it) }
+                    PassRow("Brief", "A page made for this change: tables, checks, diagrams.", custom.brief) { custom = custom.copy(brief = it) }
+                    PassRow("AI review", "Looks for bugs and risks, line by line.", custom.review) { custom = custom.copy(review = it) }
+                }
+                CtaButton("Analyze", { run(custom) }, Modifier.fillMaxWidth().padding(top = 16.dp))
             }
-            CtaButton("Analyze", { run(custom) }, Modifier.fillMaxWidth().padding(top = 16.dp))
+            AnalyzePage.Model -> ModelPage(settings, onDone = { if (start == AnalyzePage.Model) onClose() else page = AnalyzePage.Main }, onEffort = { page = AnalyzePage.Effort })
+            AnalyzePage.Effort -> EffortPage(settings, onBack = { page = AnalyzePage.Model })
         }
-        return
     }
+}
 
-    PullsSheet(onClose, "Analyze") {
-        SheetCard {
-            AnalyzePreset.entries.forEachIndexed { index, preset ->
-                ChoiceRow(preset.title, preset.blurb, selected = last.preset == preset, first = index == 0) { run(AnalyzeChoice.of(preset)) }
-            }
-            ChoiceRow("Custom", if (last.preset == null) last.summary() else "Pick the passes yourself.", selected = last.preset == null, first = false) { customizing = true }
+/** The first page: the presets, Custom, and the model they will run with. */
+@Composable
+private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoice) -> Unit, onCustom: () -> Unit, onModel: () -> Unit) {
+    val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val messages = LocalMessages.current
+    val settings = session.settings
+    val repo = remember { Repo(context) }
+    // Read again each time the page opens, because the model page may have changed them.
+    val config = ServerStore.load(context)
+    // The model's own efforts decide what Quick and Deep ask for, so fetch the list if the app has not yet.
+    val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine, config.model) {
+        value = ModelCatalogs.get(config.engine) ?: fetchCatalog(repo, config.engine).getOrNull()
+    }
+    val last = settings.analyzeChoice
+    SheetCard {
+        AnalyzePreset.entries.forEachIndexed { index, preset ->
+            ChoiceRow(preset.title, preset.blurb, selected = last.preset == preset, first = index == 0) { onRun(AnalyzeChoice.of(preset)) }
         }
-        SheetCard {
-            SheetRow("Model", onModel, first = true, iconless = true) {
-                Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
+        ChoiceRow("Custom", if (last.preset == null) last.summary() else "Pick the passes yourself.", selected = last.preset == null, first = false, onClick = onCustom)
+    }
+    SheetCard {
+        SheetRow("Model", onModel, first = true, iconless = true) {
+            Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
         }
-        Text(
-            "The Analyze button runs the last choice. It all happens on the server, so you can leave this pull request and come back to the progress.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
     }
 }
 
