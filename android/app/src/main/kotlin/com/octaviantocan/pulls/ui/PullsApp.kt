@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -15,11 +16,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.octaviantocan.pulls.core.OpenTarget
-import com.octaviantocan.pulls.core.PrLinks
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.ToastHost
+import com.octaviantocan.pulls.ui.design.Toaster
 import com.octaviantocan.pulls.ui.home.CheckoutScreen
 import com.octaviantocan.pulls.ui.home.HomeScreen
+import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
@@ -31,7 +35,8 @@ import kotlinx.coroutines.withContext
 internal sealed interface Screen {
     data object Home : Screen
     data class Repo(val owner: String, val repo: String) : Screen
-    data class Review(val target: OpenTarget) : Screen
+    /** [tour] opens the pull request on its tour instead of its overview. */
+    data class Review(val target: OpenTarget, val tour: Boolean = false) : Screen
     data object Checkout : Screen
     data object Settings : Screen
 }
@@ -55,6 +60,7 @@ fun PullsApp(initialTarget: String?) {
     val nav = remember {
         Nav(
             openTarget = { stack.add(Screen.Review(it)) },
+            openTour = { stack.add(Screen.Review(it, tour = true)) },
             openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
             home = { stack.clear(); stack.add(Screen.Home) },
             settings = { if (stack.last() != Screen.Settings) stack.add(Screen.Settings) },
@@ -65,6 +71,9 @@ fun PullsApp(initialTarget: String?) {
     BackHandler(enabled = stack.size > 1) { nav.back() }
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     val dark = LocalPullsColors.current.dark
+    // The inbox's tab, chip and search live above the screens, so they are still there after a review.
+    val homeUi = remember { HomeUi() }
+    val toaster = remember { Toaster() }
     // `KeyboardLayer.vue`'s always-on commands.
     UseCommands {
         val group = messages.t("palette.group.general")
@@ -74,17 +83,20 @@ fun PullsApp(initialTarget: String?) {
             Command("theme", messages.t("keys.theme"), group, icon = "moon-stars-duotone") { settings.updateTheme(if (dark) "light" else "dark") },
         )
     }
-    Box(Modifier.fillMaxSize().background(LocalPullsColors.current.base)) {
-        // Settings is a modal over the page it was opened from, as on the web.
-        when (val current = stack.lastOrNull { it != Screen.Settings } ?: Screen.Home) {
-            Screen.Home -> HomeScreen(nav, updateNote)
-            is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
-            is Screen.Review -> ReviewScreen(current.target, nav)
-            Screen.Checkout -> CheckoutScreen(nav)
-            Screen.Settings -> {}
+    CompositionLocalProvider(LocalToaster provides toaster) {
+        Box(Modifier.fillMaxSize().background(LocalPullsColors.current.base)) {
+            // Settings is a modal over the page it was opened from, as on the web.
+            when (val current = stack.lastOrNull { it != Screen.Settings } ?: Screen.Home) {
+                Screen.Home -> HomeScreen(nav, updateNote, homeUi)
+                is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
+                is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
+                Screen.Checkout -> CheckoutScreen(nav)
+                Screen.Settings -> {}
+            }
+            if (stack.last() == Screen.Settings) SettingsScreen(nav)
+            CommandPalette()
+            ToastHost(toaster)
         }
-        if (stack.last() == Screen.Settings) SettingsScreen(nav)
-        CommandPalette()
     }
 }
 

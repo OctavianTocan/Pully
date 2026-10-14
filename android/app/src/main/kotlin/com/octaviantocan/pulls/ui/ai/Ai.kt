@@ -8,24 +8,16 @@ import com.octaviantocan.pulls.ui.review.ReviewSession
 
 /*
  * Owner: AI worker. Every AI surface of the review page, ported from `components/ai`,
- * `components/critique`, `components/chat`, `components/ask`, `DiffAnalyzeButton`,
- * `AnalyzeStatusModal`, `DiffShareButton`, `ShareResultModal`, `SharedAnalysisBanner`.
+ * `components/critique`, `components/chat`, `components/ask`, `DiffShareButton`,
+ * `ShareResultModal`, `SharedAnalysisBanner`.
  * Callers outside ui/ai use only the functions below; their signatures are the contract.
  *
- * Files: `Analyze.kt` (analyze button + status sheet, share, shared banner), `Critique.kt`
- * (review button, lens picker, panel, finding cards), `Ask.kt` (selection actions, threads),
- * `Chat.kt` (chat widget), `AiParts.kt` (activity log, usage line, sheet, shimmer),
+ * Files: `Analyze.kt` (running an analysis, share, shared banner), `Critique.kt`
+ * (running a review, lens picker, panel, finding cards), `Ask.kt` (selection actions, threads),
+ * `Chat.kt` (the Ask sheet), `AiParts.kt` (activity log, usage line, sheet, shimmer),
  * `AiState.kt` (page-local AI state), and the pure ports `AiFormat.kt`, `AiActivity.kt`,
  * `AskSelection.kt`.
  */
-
-/** `DiffAnalyzeButton`: Analyze with AI / Analyzing… {time} / Re-analyze, opening the status sheet. */
-@Composable
-fun AnalyzeButton(session: ReviewSession, modifier: Modifier = Modifier) = AnalyzeButtonImpl(session, modifier)
-
-/** `CritiqueButton` + `LensPicker`: Review with AI, with a lens menu. */
-@Composable
-fun CritiqueButton(session: ReviewSession, modifier: Modifier = Modifier) = CritiqueButtonImpl(session, modifier)
 
 /** `DiffShareButton` + `ShareResultModal`. Renders nothing when there is no own AI result. */
 @Composable
@@ -39,9 +31,14 @@ fun CritiquePanel(session: ReviewSession, modifier: Modifier = Modifier) = Criti
 @Composable
 fun SharedAnalysisBanner(session: ReviewSession, modifier: Modifier = Modifier) = SharedAnalysisBannerImpl(session, modifier)
 
-/** `ChatWidget`: floating button bottom-right, opening the PR chat as a bottom sheet. Draw it over the page. */
+/**
+ * The prototype's Ask sheet (the old `ChatWidget`, opened from the Ask button instead of a floating one):
+ * a full-height chat about this pull request or its tour. [suggestions] are the starter chips of an empty
+ * chat and [initial] is a question to send as it opens.
+ */
 @Composable
-fun ChatWidget(session: ReviewSession, modifier: Modifier = Modifier) = ChatWidgetImpl(session, modifier)
+fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, onDismiss: () -> Unit) =
+    AskSheetImpl(session, title, suggestions, initial, onDismiss)
 
 /** `AskThread`: a saved question thread about some lines, shown under its last line. */
 @Composable

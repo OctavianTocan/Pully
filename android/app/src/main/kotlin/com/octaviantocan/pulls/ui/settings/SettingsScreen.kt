@@ -6,40 +6,31 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import kotlin.math.roundToInt
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,9 +59,7 @@ import com.octaviantocan.pulls.ui.design.TextInput
 import com.octaviantocan.pulls.ui.design.ToggleGroup
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.DrawableIcon
-import com.octaviantocan.pulls.ui.home.NavControls
 import com.octaviantocan.pulls.ui.home.Spinner
-import com.octaviantocan.pulls.ui.home.bottomBorder
 import com.octaviantocan.pulls.ui.home.pressTint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -125,7 +114,7 @@ object AiSettingsLogic {
 }
 
 /** Per-engine model memory, so switching engines back restores the model (the web keeps `claudeCodeModel` and `codexModel`). */
-private class EngineModels(context: Context) {
+internal class EngineModels(context: Context) {
     private val prefs = context.getSharedPreferences("pulls-settings-ui", Context.MODE_PRIVATE)
     fun model(engine: String): String? = prefs.getString("model:$engine", null)
     fun setModel(engine: String, id: String) = prefs.edit().putString("model:$engine", id).apply()
@@ -141,6 +130,8 @@ private class EngineModels(context: Context) {
 fun SettingsScreen(nav: Nav) {
     com.octaviantocan.pulls.ui.design.AppModal(onClose = nav.back, title = t("common.settings")) {
         Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            AppearanceSettingsSection()
+            Divider()
             LayoutSettingsSection()
             Divider()
             AutoRefreshSettingsSection()
@@ -168,6 +159,26 @@ private fun FormField(label: String?, description: String? = null, error: String
         if (descriptionContent != null) descriptionContent()
         else if (description != null) Text(description, style = PullsType.sm, color = c.faint)
         if (error != null) Text(error, style = PullsType.sm, color = com.octaviantocan.pulls.ui.home.StatusColors.red(c.dark))
+    }
+}
+
+/** Theme and language: what the old header's toggle and language menu did, now that the home screen has no top bar. */
+@Composable
+private fun AppearanceSettingsSection() {
+    val settings = AppSettings.get(LocalContext.current)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionTitle("Appearance")
+        ToggleGroup(
+            listOf("light" to "Light", "dark" to "Dark"),
+            if (settings.theme == "dark") "dark" else "light",
+            { settings.updateTheme(it) },
+            icons = mapOf("light" to "sun-duotone", "dark" to "moon-duotone"),
+        )
+        FormField(t("settings.language")) {
+            com.octaviantocan.pulls.ui.home.SelectField(
+                settings.locale, com.octaviantocan.pulls.ui.design.Messages.LOCALES, { settings.updateLocale(it) }, t("settings.language"), Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 

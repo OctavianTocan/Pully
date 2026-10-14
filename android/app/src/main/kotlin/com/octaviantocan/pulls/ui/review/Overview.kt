@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,9 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,16 +45,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.GithubAvatar
-import com.octaviantocan.pulls.ui.design.IconButton
-import com.octaviantocan.pulls.ui.design.Loading
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.DETAILS_INFO
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
-import com.octaviantocan.pulls.ui.design.PrStatusIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.t
@@ -719,80 +710,7 @@ private fun table(node: HtmlElement): String? {
 /** GitHub's rendered (and sanitized) `bodyHTML` as GitHub-flavored Markdown with the same structure. */
 fun htmlToMarkdown(html: String): String = blocks(parseHtml(html).children).joinToString("\n\n")
 
-// ===================== PrOverviewPanel and its tabs (UI) =====================
-
-private val TABS = listOf("conversation" to "chat-circle-text-duotone", "commits" to "git-commit-duotone", "checks" to "list-checks-duotone")
-
-/**
- * Port of `PrOverviewPanel.vue`: a bordered section with a caret, the Conversation /
- * Commits / Checks tabs (scrolling sideways on a phone, wrapping from `md:`), a GitHub link,
- * and when open the merge box above the tab body (`lg:` puts it in a side column).
- */
-@Composable
-fun OverviewPanel(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
-    val overview = data?.overview
-    val open = top.overviewOpen
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp))) {
-        Row(
-            Modifier.fillMaxWidth().then(if (open) Modifier.bottomBorder(c.border) else Modifier).padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            IconButton(if (open) "caret-down" else "caret-right", t(if (open) "overview.hide" else "overview.show"), { top.setOpen(!open) }, compact = true)
-            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                TABS.forEach { (tab, icon) ->
-                    val selected = open && top.overviewTab == tab
-                    val count = when (tab) {
-                        "conversation" -> overview?.conversationCount
-                        "commits" -> overview?.let { it.commits.size + it.commitsHidden }
-                        else -> null
-                    }
-                    Row(
-                        Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(6.dp)).background(if (selected) c.active else Color.Transparent)
-                            .clickable(role = Role.Tab) { top.setTab(tab); top.setOpen(true) }
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        val fg = if (selected) c.activeText else c.fade
-                        PhIcon(icon, tint = fg, size = 16.dp)
-                        Text(t("overview.tab.$tab"), style = PullsType.sm, color = fg, maxLines = 1)
-                        if (count != null && count > 0) Text("$count", style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text.copy(alpha = 0.5f))
-                        if (tab == "checks" && overview != null && overview.checksSummary.total > 0) CheckCounts(overview.checksSummary)
-                    }
-                }
-            }
-            if (overview != null) IconButton("arrow-square-out", t("overview.viewOnGithub"), { uri.openUri(overview.url) }, compact = true)
-        }
-        if (open) {
-            Column(Modifier.padding(12.dp)) {
-                when {
-                    data != null -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        MergeBox(session, top, data)
-                        when (top.overviewTab) {
-                            "commits" -> CommitList(
-                                commits = data.overview.commits, hidden = data.overview.commitsHidden, url = data.overview.url,
-                                selection = session.selection?.let { CommitSelection(it.first, it.second) },
-                                onSelect = { selection, _ -> session.selectCommits(selection?.pair) },
-                            )
-                            "checks" -> Checks(data.overview.checks, data.overview.checksSummary, data.overview.url)
-                            else -> Conversation(data.overview) { oid -> session.selectCommits(selectCommit(oid).pair) }
-                        }
-                    }
-                    session.overviewError != null -> FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        PhIcon("warning-duotone", Modifier.align(Alignment.CenterVertically), tint = WebColors.amberIcon(c.dark), size = 16.dp)
-                        Text(t("overview.loadFailed"), Modifier.align(Alignment.CenterVertically), style = PullsType.sm, color = c.text)
-                        Text(session.overviewError.orEmpty(), Modifier.align(Alignment.CenterVertically), style = PullsType.sm, color = c.fade)
-                        ActionButton({ session.reloadOverview() }, Modifier.align(Alignment.CenterVertically), small = true) { Text(t("common.retry")) }
-                    }
-                    else -> Loading(t("overview.loading"))
-                }
-            }
-        }
-    }
-}
+// ===================== Overview UI pieces =====================
 
 internal fun Modifier.bottomBorder(color: Color) = drawBehind {
     val stroke = 1.dp.toPx()
@@ -802,20 +720,6 @@ internal fun Modifier.bottomBorder(color: Color) = drawBehind {
 internal fun Modifier.topBorder(color: Color) = drawBehind {
     val stroke = 1.dp.toPx()
     drawLine(color, Offset(0f, stroke / 2), Offset(size.width, stroke / 2), stroke)
-}
-
-/** `CheckCounts`: passing, failing and pending counts with their glyphs (`text-xs font-mono`). */
-@Composable
-fun CheckCounts(summary: PrChecksSummary, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        listOf(Triple(summary.passing, "success", 13.dp), Triple(summary.failing, "failure", 13.dp), Triple(summary.pending, "pending", 8.dp)).forEach { (n, state, size) ->
-            if (n > 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                GlyphIcon(checksGlyph(state)!!, size)
-                Text("$n", style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text)
-            }
-        }
-    }
 }
 
 /** `PrHtml`: GitHub's rendered `bodyHTML`, restyled like the app's Markdown (`chat-markdown`). */
@@ -1157,119 +1061,5 @@ fun Checks(checks: List<PrCheck>, summary: PrChecksSummary, url: String) {
             }
         }
         if (summary.hidden > 0) LinkText(t("overview.moreOnGithub", "n" to summary.hidden)) { uri.openUri("$url/checks") }
-    }
-}
-
-/**
- * `PrMergeBox`: merged/closed state, or mergeability (ready, blocker, warning); the checks
- * rollup (opens the Checks tab); the review decision, latest reviews and awaited reviewers;
- * then Merge, Update branch and the state actions the viewer may run, and the last error.
- */
-@Composable
-fun MergeBox(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData) {
-    val c = LocalPullsColors.current
-    val overview = data.overview
-    val mergeability = data.mergeability
-    val actions = stateActions(overview)
-    val canUpdateBranch = overview.isOpen && overview.viewer.canUpdateBranch
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (overview.state == "merged" || overview.state == "closed") {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PrStatusIcon(overview.state, size = 18.dp)
-                val time = prTimeAgo((if (overview.state == "merged") overview.mergedAt else overview.closedAt) ?: overview.createdAt)
-                val template = t("overview.state.${overview.state}")
-                Text(
-                    buildAnnotatedString {
-                        val parts = template.split("{time}")
-                        withStyle(SpanStyle(fontWeight = FontWeight.Medium)) { append(parts.first()) }
-                        if (parts.size > 1) {
-                            withStyle(SpanStyle(color = c.fade)) { append(time) }
-                            withStyle(SpanStyle(fontWeight = FontWeight.Medium)) { append(parts.drop(1).joinToString("")) }
-                        }
-                    },
-                    style = PullsType.sm, color = c.text,
-                )
-            }
-        } else if (mergeability.allowed) {
-            if (mergeability.ready && mergeability.blocker == null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PhIcon("check-circle-duotone", tint = WebColors.green(c.dark), size = 16.dp)
-                    Text(t("overview.merge.ready"), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-                }
-            }
-            mergeability.blocker?.let { blocker ->
-                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (blocker == "checking") com.octaviantocan.pulls.ui.design.SpinIcon(Modifier.padding(top = 4.dp), tint = c.fade, size = 14.dp, name = "circle-notch")
-                    else PhIcon("warning-duotone", Modifier.padding(top = 3.dp), tint = WebColors.amberIcon(c.dark), size = 16.dp)
-                    Text(t("overview.merge.blocked.$blocker"), style = PullsType.sm, color = c.text)
-                }
-            }
-            mergeability.warning?.let { Text(t("overview.merge.$it"), style = PullsType.xs, color = c.fade) }
-        }
-
-        overview.checksSummary.state?.let { state ->
-            Row(
-                Modifier.defaultMinSize(minHeight = TOUCH).clickable(role = Role.Button) { top.setTab("checks"); top.setOpen(true) },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                GlyphIcon(checksGlyph(state)!!, if (state == "pending") 8.dp else 13.dp)
-                Text(t("pulls.checks.$state"), style = PullsType.sm, color = c.fade)
-            }
-        }
-
-        if (overview.reviewDecision != null || overview.latestReviews.isNotEmpty() || overview.requestedReviewers.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                overview.reviewDecision?.let { decision ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        decisionGlyph(decision)?.let { GlyphIcon(it) }
-                        Text(t("pulls.review.$decision"), style = PullsType.sm, color = c.fade)
-                    }
-                }
-                if (overview.latestReviews.isNotEmpty()) Column(Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    overview.latestReviews.forEach { (author, state) ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            GithubAvatar(author.login, avatarUrl = author.avatarUrl, size = 16.dp)
-                            Text(author.login, Modifier.weight(1f), style = PullsType.sm, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            GlyphIcon(reviewGlyph(state))
-                        }
-                    }
-                }
-                if (overview.requestedReviewers.isNotEmpty()) Text(t("overview.awaitingReview", "names" to overview.requestedReviewers.joinToString(", ")), style = PullsType.xs, color = c.fade)
-            }
-        }
-
-        if (mergeability.allowed || canUpdateBranch || actions.isNotEmpty()) {
-            Column(Modifier.fillMaxWidth().topBorder(c.border).padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (mergeability.allowed) {
-                    ActionButton(
-                        { top.mergeOpen = true }, Modifier.fillMaxWidth(), variant = ButtonVariant.Primary, icon = "git-merge-duotone",
-                        enabled = mergeability.ready && top.busy == null, loading = top.busy == "merge",
-                    ) { Text(t("overview.merge.button")) }
-                }
-                if (canUpdateBranch) {
-                    ActionButton(
-                        { top.run(session, "update-branch") { session.repo.prAction(overview.id, "update-branch", expectedHeadOid = overview.headOid) } },
-                        Modifier.fillMaxWidth(), icon = "arrows-merge-duotone", small = true, enabled = top.busy == null, loading = top.busy == "update-branch",
-                    ) { Text(t("overview.actions.updateBranch")) }
-                }
-                actions.forEach { (change, icon) ->
-                    val danger = change == "close"
-                    ActionButton(
-                        { top.run(session, change) { session.repo.prAction(overview.id, change) } },
-                        Modifier.fillMaxWidth(), icon = icon, small = true, enabled = top.busy == null, loading = top.busy == change,
-                        contentColor = if (danger) WebColors.red(c.dark) else null,
-                    ) { Text(t("overview.actions.$change")) }
-                }
-            }
-        }
-
-        val error = top.actionError
-        if (error != null && !top.mergeOpen) {
-            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(t("overview.actions.failed", "message" to error), Modifier.weight(1f).padding(top = 10.dp), style = PullsType.sm, color = WebColors.red(c.dark))
-                IconButton("x", t("common.dismiss"), { top.actionError = null }, compact = true, tint = WebColors.red(c.dark))
-            }
-        }
     }
 }

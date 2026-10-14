@@ -3,29 +3,10 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AppSettings
-import com.octaviantocan.pulls.ui.design.IconButton
-import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.home.DropdownOption
-import com.octaviantocan.pulls.ui.home.PullsDropdown
 import kotlin.math.roundToInt
 
 /*
@@ -59,31 +40,6 @@ fun Modifier.pinchToZoomCode(settings: AppSettings): Modifier = pointerInput(set
                 start = settings.codeZoom
                 scale = 1f
             }
-        }
-    }
-}
-
-/** The header's code menu: zoom out, the current size (tap resets), zoom in, and wrap lines. */
-@Composable
-fun CodeViewMenu(settings: AppSettings) {
-    val c = LocalPullsColors.current
-    var open by remember { mutableStateOf(false) }
-    val changed = settings.codeZoom != 1f || settings.codeWrap
-    Box {
-        IconButton("text-aa-duotone", "Code size and wrapping", { open = !open }, active = open || changed)
-        PullsDropdown(open, { open = false }) {
-            Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton("magnifying-glass-minus", "Smaller code", { settings.zoomBy(-1) }, enabled = settings.codeZoom > AppSettings.MIN_ZOOM)
-                Text(
-                    "${(settings.codeZoom * 100).roundToInt()}%",
-                    Modifier.widthIn(min = 56.dp),
-                    style = PullsType.sm.copy(fontFamily = PullsType.mono, textAlign = TextAlign.Center),
-                    color = c.text,
-                )
-                IconButton("magnifying-glass-plus", "Larger code", { settings.zoomBy(1) }, enabled = settings.codeZoom < AppSettings.MAX_ZOOM)
-            }
-            DropdownOption("Reset size", false, { settings.updateCodeZoom(1f) })
-            DropdownOption("Wrap long lines", settings.codeWrap, { settings.updateCodeWrap(!settings.codeWrap) }, checkStart = true)
         }
     }
 }

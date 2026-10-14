@@ -13,48 +13,44 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Messages
 import com.octaviantocan.pulls.ui.design.PullsType
 
-// Web app palette: dark surface from main.css, accent trio from uno.config.ts.
-private val Teal = Color(0xFF5FC2A4)
-private val TealDeep = Color(0xFF1F8F72)
-private val Orange = Color(0xFFF57A4F)
-private val Ink = Color(0xFF111111)
-
+// The few stock Material widgets left (menus, dialogs, text selection) read these; the rest of the
+// app reads `PullsColors`, which holds the same palette under the prototype's names.
 private val Dark = darkColorScheme(
-    primary = Teal,
-    onPrimary = Ink,
-    primaryContainer = Color(0xFF16382F),
-    secondary = Orange,
-    background = Ink,
-    surface = Ink,
-    surfaceVariant = Color(0xFF1C1C1C),
-    onBackground = Color(0xFFEDEDED),
-    onSurface = Color(0xFFEDEDED),
-    onSurfaceVariant = Color(0xFFA3A3A3),
-    outline = Color(0xFF2A2A2A),
-    error = Color(0xFFE85D4C),
+    primary = DarkPullsColors.accentTeal,
+    onPrimary = DarkPullsColors.base,
+    primaryContainer = DarkPullsColors.accentWash,
+    secondary = DarkPullsColors.accentOrange,
+    background = DarkPullsColors.base,
+    surface = DarkPullsColors.base,
+    surfaceVariant = DarkPullsColors.raised,
+    onBackground = DarkPullsColors.text,
+    onSurface = DarkPullsColors.text,
+    onSurfaceVariant = DarkPullsColors.muted,
+    outline = DarkPullsColors.border,
+    error = DarkPullsColors.error,
     errorContainer = Color(0xFF3A1C18),
 )
 
 private val Light = lightColorScheme(
-    primary = TealDeep,
+    primary = LightPullsColors.primary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD7F3EA),
-    secondary = Color(0xFFD9552A),
-    background = Color.White,
-    surface = Color.White,
-    surfaceVariant = Color(0xFFF4F4F4),
-    onBackground = Color(0xFF171717),
-    onSurface = Color(0xFF171717),
-    onSurfaceVariant = Color(0xFF5C5C5C),
-    outline = Color(0xFFE4E4E4),
-    error = Color(0xFFB42318),
+    primaryContainer = LightPullsColors.accentWash,
+    secondary = LightPullsColors.accentOrange,
+    background = LightPullsColors.base,
+    surface = LightPullsColors.base,
+    surfaceVariant = LightPullsColors.paper,
+    onBackground = LightPullsColors.text,
+    onSurface = LightPullsColors.text,
+    onSurfaceVariant = LightPullsColors.muted,
+    outline = LightPullsColors.border,
+    error = LightPullsColors.error,
     errorContainer = Color(0xFFFDE8E6),
 )
 
 /**
- * Material for the few stock widgets left (menus, dialogs), the web tokens
+ * Material for the few stock widgets left (menus, dialogs), the prototype's tokens
  * ([PullsColors]) and the web's i18n messages for everything else. `dark` follows the
- * app's own setting when one is saved, the system otherwise, like the web `DarkToggle`.
+ * app's own setting; the first run is light, the look the app was designed in.
  */
 @Composable
 fun PullsTheme(dark: Boolean = isSystemInDarkTheme(), locale: String = Messages.detect(), content: @Composable () -> Unit) {

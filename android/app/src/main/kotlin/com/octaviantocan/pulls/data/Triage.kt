@@ -89,4 +89,53 @@ object Triage {
     /** The row's `PrStatusIcon` state: draft/open while open, merged/closed after. */
     fun status(pull: PullRow): String =
         if (pull.state == "open") (if (pull.isDraft) "draft" else "open") else if (pull.merged) "merged" else "closed"
+
+    // --- The phone inbox: three chips over the same list ---
+
+    /** The inbox chips, in order: what waits on you, what you wrote, everything. */
+    val inboxFilters = listOf("waiting", "authored", "all")
+
+    /** A pull request's identity in the archive and the tour index: `owner/repo#number`. */
+    fun key(pull: PullRow): String = "${pull.owner}/${pull.repo}#${pull.number}"
+
+    /**
+     * Whether the next move is yours: it is open, and either it is not a draft or it is your own
+     * (someone else's draft is not ready for you yet). Archiving is how the rest of the list is cleared.
+     */
+    fun waitingOnYou(pull: PullRow): Boolean = pull.state == "open" && (!pull.isDraft || pull.role == "authored")
+
+    /** Whether [pull] is in the [filter] chip; archived pull requests only show under `all`. */
+    fun inInbox(pull: PullRow, filter: String, archived: Set<String>): Boolean = when (filter) {
+        "waiting" -> waitingOnYou(pull) && key(pull) !in archived
+        "authored" -> pull.state == "open" && pull.role == "authored" && key(pull) !in archived
+        else -> true
+    }
+
+    data class Inbox(
+        /** The pull requests the chip and the search let through. */
+        val pulls: List<PullRow>,
+        /** Each chip's size under the search, so a count says what tapping it would show. */
+        val counts: Map<String, Int>,
+    )
+
+    fun inbox(pulls: List<PullRow>, filter: String, archived: Set<String>, needle: String): Inbox {
+        val searched = pulls.filter { matchesSearch(it, needle) }
+        return Inbox(
+            pulls = searched.filter { inInbox(it, filter, archived) },
+            counts = inboxFilters.associateWith { chip -> searched.count { inInbox(it, chip, archived) } },
+        )
+    }
+
+    /**
+     * The login the list most often shows as author of the pull requests you wrote: the closest
+     * thing the list has to "who am I", used for the avatar on the home screen.
+     */
+    fun viewerLogin(pulls: List<PullRow>): String? =
+        pulls.filter { it.role == "authored" }.groupingBy { it.author }.eachCount().maxByOrNull { it.value }?.key?.takeIf { it.isNotBlank() }
+
+    /** The label of a repository group: the repo name, with the owner when two groups share one. */
+    fun groupLabels(groups: List<RepoGroup>): Map<String, String> {
+        val repeated = groups.groupingBy { it.repo }.eachCount().filterValues { it > 1 }.keys
+        return groups.associate { it.name to if (it.repo in repeated) it.name else it.repo }
+    }
 }

@@ -14,8 +14,8 @@ import com.octaviantocan.pulls.ui.design.Messages
 class AppSettings private constructor(private val context: Context) {
     private val prefs = context.getSharedPreferences("pulls-ui", Context.MODE_PRIVATE)
 
-    /** `system`, `dark` or `light` (the web `DarkToggle` cycles dark/light; `system` until first toggled). */
-    var theme by mutableStateOf(prefs.getString("theme", "system") ?: "system")
+    /** `system`, `dark` or `light`. The first run is `light`, the look the app was designed in; Settings flips it. */
+    var theme by mutableStateOf(prefs.getString("theme", "light") ?: "light")
         private set
 
     /** A code from [Messages.LOCALES]. */

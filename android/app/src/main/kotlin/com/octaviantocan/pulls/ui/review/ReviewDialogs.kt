@@ -15,21 +15,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
@@ -45,18 +37,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
-import com.octaviantocan.pulls.ui.design.IconButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewCheckbox
 import com.octaviantocan.pulls.ui.design.ReviewState
@@ -141,6 +128,8 @@ fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val pending = session.reviewData?.pendingCount ?: 0
+    // Approve and Request changes in the More sheet open this one on their verdict.
+    LaunchedEffect(top.reviewOpen) { if (top.reviewOpen) verdict = top.reviewVerdict }
     fun run(action: suspend () -> Unit) {
         busy = true
         error = null
@@ -251,64 +240,6 @@ fun MergeSheet(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData) {
                 variant = ButtonVariant.Primary, icon = "git-merge-duotone", loading = busy,
                 enabled = data.mergeability.ready && (method == "rebase" || title.isNotBlank()),
             ) { Text(t("overview.merge.confirm")) }
-        }
-    }
-}
-
-/**
- * Port of `CommitPicker.vue`: a chip naming the selection (All commits / Commit sha / n
- * commits) opening a menu with "All commits" and the compact commit list. A plain tap
- * picks and closes; a long-press extends the range and keeps the menu open.
- */
-@Composable
-fun CommitPicker(session: ReviewSession, overview: PrOverview, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
-    var open by remember { mutableStateOf(false) }
-    val selection = session.selection?.let { CommitSelection(it.first, it.second) }
-    val count = selection?.let { resolveCommitSelection(overview.commits, it) }?.let { it.last - it.first + 1 }
-    val screen = LocalConfiguration.current.screenWidthDp.dp
-    Box(modifier) {
-        ChipButton({ open = !open }, label = t("overview.selection.picker")) {
-            val fg = if (selection != null) c.activeText else c.fade
-            PhIcon("git-commit-duotone", tint = fg, size = 16.dp)
-            val text = when {
-                selection == null -> t("overview.selection.all")
-                selection.from == selection.to -> t("overview.selection.one", "sha" to selection.from.take(7))
-                count != null -> tc("overview.selection.range", count)
-                else -> "${selection.from.take(7)}..${selection.to.take(7)}"
-            }
-            Text(text, style = PullsType.sm.copy(fontFamily = if (selection != null && count == null && selection.from != selection.to) PullsType.mono else null), color = fg, maxLines = 1)
-            PhIcon("caret-down", tint = fg, size = 12.dp)
-        }
-        DropdownMenu(
-            expanded = open,
-            onDismissRequest = { open = false },
-            offset = DpOffset(0.dp, 4.dp),
-            shape = RoundedCornerShape(8.dp),
-            containerColor = c.base,
-            tonalElevation = 0.dp,
-            shadowElevation = 8.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, c.border),
-            modifier = Modifier.width(minOf(512.dp, screen - 32.dp)).heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.6f).dp),
-        ) {
-            Column(Modifier.padding(horizontal = 4.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(6.dp))
-                        .clickable { session.selectCommits(null); open = false }.padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(t("overview.selection.all"), Modifier.weight(1f), style = PullsType.sm, color = if (selection == null) c.activeText else c.text)
-                    Text("${overview.commits.size + overview.commitsHidden}", style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text.copy(alpha = 0.5f))
-                    if (selection == null) PhIcon("check", tint = c.activeText, size = 13.dp)
-                }
-                Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).topBorder(c.border).padding(top = 1.dp))
-                CommitList(
-                    commits = overview.commits, hidden = overview.commitsHidden, url = overview.url, selection = selection, compact = true,
-                    onSelect = { picked, extend -> session.selectCommits(picked?.pair); if (!extend) open = false },
-                )
-                if (overview.commits.size > 1) Text(t("overview.commitList.hint"), Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp), style = PullsType.xs, color = c.text.copy(alpha = 0.5f))
-            }
         }
     }
 }
