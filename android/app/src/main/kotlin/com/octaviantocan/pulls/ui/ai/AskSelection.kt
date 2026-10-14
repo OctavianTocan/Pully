@@ -50,10 +50,4 @@ fun critiqueReviewBody(summary: String, engine: String, model: String?, lens: St
     return "$summary\n\n<sub>Reviewed with $by$through on pulls.review.</sub>"
 }
 
-private val ENGINE_NAMES = mapOf("claude-code" to "Claude Code", "codex" to "Codex")
-
-/** The panel's engine line; the model is only repeated when the CLI named none in its usage. */
-fun critiqueEngineLine(engine: String, model: String?, effort: String?, usageModel: String?): String =
-    listOf(ENGINE_NAMES[engine] ?: engine, if (usageModel != null) null else model, effort).filter { !it.isNullOrEmpty() }.joinToString(" · ")
-
 val SEVERITIES = listOf("bug", "risk", "nit")

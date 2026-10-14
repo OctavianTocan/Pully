@@ -1,8 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBars
@@ -24,19 +22,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -44,51 +39,37 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.data.TourStop
 import com.octaviantocan.pulls.sound.cueClickable
-import com.octaviantocan.pulls.ui.ai.AiUsageLine
 import com.octaviantocan.pulls.ui.ai.Glossary
 import com.octaviantocan.pulls.ui.ai.Sources
 import com.octaviantocan.pulls.ui.ai.TourBlockView
 import com.octaviantocan.pulls.ui.ai.TourEmpty
 import com.octaviantocan.pulls.ui.ai.TourRunning
 import com.octaviantocan.pulls.ui.ai.startTour
-import com.octaviantocan.pulls.ui.design.CtaButton
-import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.MenuReveal
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SendButton
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatShadow
@@ -97,9 +78,9 @@ import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import kotlinx.coroutines.launch
 
 /**
- * The prototype's tour: a stop picker in the header, a sticky strip with the stop you are on and a
- * ring, one white card per stop, and an Ask pill at the bottom. [onReached] reports the furthest stop
- * the reader has scrolled to, which the Tours tab shows as progress.
+ * The tour: the capsule header, a calm strip under it (the ring, the stop you are on, a chevron) that opens the
+ * sections as a sheet, one white card per stop, and an Ask pill at the bottom (rule 97). [onReached] reports the
+ * furthest stop the reader has scrolled to, which the Tours tab shows as progress.
  */
 @Composable
 internal fun PrTourScreen(
@@ -122,9 +103,7 @@ internal fun PrTourScreen(
     val n = stops.size
     val listState = rememberLazyListState()
     val density = LocalDensity.current
-    var menu by remember { mutableStateOf<String?>(null) }
-    var stripBottom by remember { mutableFloatStateOf(0f) }
-    BackHandler(enabled = menu != null) { menu = null }
+    var sections by remember { mutableStateOf(false) }
 
     // The stop you are on: the last whose top has passed 64dp plus a fifth of the screen (at most 120dp), or the last at the end.
     val current by remember(n) {
@@ -139,6 +118,23 @@ internal fun PrTourScreen(
                     else -> 1
                 }
             }
+        }
+    }
+    // The ring: how far the reading line has gone through the stops, moving with the scroll and full at the end.
+    val progress by remember(n) {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val line = with(density) { 64.dp.toPx() } + minOf(with(density) { 120.dp.toPx() }, info.viewportSize.height * 0.2f)
+            val last = info.visibleItemsInfo.lastOrNull()?.takeIf { it.index == info.totalItemsCount - 1 }
+            tourProgress(
+                count = n,
+                stops = info.visibleItemsInfo.filter { it.index in 1..n }.map { Triple(it.index, it.offset, it.size) },
+                firstVisible = listState.firstVisibleItemIndex,
+                line = line,
+                bottom = (info.viewportEndOffset - info.afterContentPadding).toFloat(),
+                rest = last?.let { (it.offset + it.size + info.afterContentPadding - info.viewportEndOffset).toFloat().coerceAtLeast(0f) },
+                lastHeight = last?.size?.toFloat() ?: 0f,
+            )
         }
     }
     LaunchedEffect(current, n) {
@@ -158,58 +154,65 @@ internal fun PrTourScreen(
                 SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onCorner = onMore)
             }
             if (n > 0 && current in 1..n) {
-                // The stop you are on, whole; tapping it opens the list of stops.
+                // The ring, the stop you are on and the chevron, each in its own column so the title never runs under
+                // the ring; no "2 of 4" (rule 97). Tapping it opens the sections.
                 Row(
                     Modifier.padding(top = 12.dp).fillMaxWidth()
-                        .onGloballyPositioned { stripBottom = it.positionInRoot().y + it.size.height }
-                        .drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
-                        .cueClickable(role = Role.Button, onClickLabel = "Choose a stop") { menu = if (menu == "stops") null else "stops" }
-                        .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp),
+                        .cueClickable(role = Role.Button, onClickLabel = "Sections") { sections = true }
+                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(color = c.muted)) { append("$current of $n · ") }
-                            append(stops[current - 1].title)
-                        },
-                        Modifier.weight(1f), style = PullsType.sm, color = c.text,
-                    )
-                    ProgressRing(current, n)
-                    LuIcon(Lu.chevd, Modifier.rotate(if (menu == "stops") 180f else 0f), tint = c.muted, size = 20.dp)
+                    ProgressRing(progress)
+                    // One line with an ellipsis, or two whole lines: never a line cut in half.
+                    Text(stops[current - 1].title, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    LuIcon(Lu.chevd, tint = c.muted, size = 20.dp)
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp
                 LazyColumn(
-                    Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, topStrength = { listState.topEdgeStrength(with(density) { PullsMotion.EdgeTop.toPx() }) }),
+                    // The cards dissolve under the strip once they move (a tour at rest is sharp) and into the page under the Ask pill (rule 74).
+                    Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { listState.topEdgeStrength(with(density) { PullsMotion.EdgeTop.toPx() }) }),
                     state = listState,
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     item(key = "intro") { Intro(session, head, tour, running) }
                     itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop -> StopCard(session, stop, onOpenSource) }
+                    // The tour ends with its last card: no closing line and no button back (rule 97); the header or a swipe leaves it.
                     if (tour != null && tour.glossary.isNotEmpty()) item(key = "glossary") { Card { Glossary(tour.glossary, Modifier) } }
-                    if (tour != null) item(key = "end") {
-                        Column(Modifier.fillMaxWidth().padding(start = 2.dp, top = 8.dp)) {
-                            Text("That is the whole tour.", style = PullsType.read, color = c.text)
-                            CtaButton("Back to the pull request", onOverview, Modifier.padding(top = 16.dp), leading = { LuIcon(Lu.back, tint = c.onCta, size = 22.dp) })
-                        }
-                    }
                 }
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(140.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
         AskPill(Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
-
-        if (menu == "stops") Box(Modifier.fillMaxSize().cueClickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
-        MenuReveal(menu == "stops", Modifier.offset { IntOffset(0, stripBottom.toInt()) }) {
-            StopPicker(stops, current, onPick = { index ->
-                menu = null
-                scope.launch { listState.animateScrollToItem(index + 1) }
-            })
-        }
     }
+
+    if (sections) SectionsSheet(stops, current, onPick = { index ->
+        sections = false
+        scope.launch { listState.animateScrollToItem(index + 1) }
+    }) { sections = false }
+}
+
+/**
+ * How far through the tour's [count] stops the reader is, 0 to 1, moving with the scroll and never jumping: the stops
+ * above the reading [line] plus the part of the one it crosses. [stops] are the stop cards on screen as (number from 1,
+ * top, height). Once the last item ([lastHeight] tall) is on screen, [rest] is how far the list can still scroll, and
+ * the line slides down to the [bottom] of the content as that runs out, so the ring is full exactly when the list
+ * cannot scroll further. The slide is spread over the last item's height when that is shorter than the way down, so
+ * the line does not leap when a short last card comes into view.
+ */
+internal fun tourProgress(count: Int, stops: List<Triple<Int, Int, Int>>, firstVisible: Int, line: Float, bottom: Float, rest: Float?, lastHeight: Float = 0f): Float {
+    if (count <= 0) return 0f
+    if (firstVisible > count) return 1f
+    val way = (bottom - line).coerceAtLeast(0f)
+    val reading = if (rest == null) line else {
+        val window = minOf(way, lastHeight).coerceAtLeast(1f)
+        line + way * (1f - (rest / window).coerceIn(0f, 1f))
+    }
+    val (number, top, height) = stops.lastOrNull { it.second <= reading } ?: return 0f
+    val through = if (height <= 0) 1f else ((reading - top) / height).coerceIn(0f, 1f)
+    return ((number - 1 + through) / count).coerceIn(0f, 1f)
 }
 
 /** `.sec`: a white 18dp card with a soft shadow. */
@@ -244,11 +247,9 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
                         com.octaviantocan.pulls.ui.design.BreathingDot()
                         Text("Writing a new tour…", style = PullsType.sm, color = c.muted)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(1f)) {
-                            AiUsageLine(tour.usage?.copy(model = tour.usage.model ?: tour.model) ?: com.octaviantocan.pulls.data.Usage(model = tour.model))
-                        }
-                        if (!running) PillButton("Rewrite", { startTour(session) }, leading = { LuIcon(Lu.redo, size = 20.dp) })
+                    // No model name and no token counts here (rule 98); rewriting is a quiet icon at the card's corner, with no word.
+                    else Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                        FloatIcon(Lu.redo, "Rewrite the tour", { startTour(session) }, Modifier.offset(x = 10.dp, y = 6.dp), flat = true, size = 40.dp, tint = c.muted)
                     }
                 }
             }
@@ -277,27 +278,24 @@ private fun StopCard(session: ReviewSession, stop: TourStop, onOpenSource: (Tour
     }
 }
 
-/** `.dd` for the tour: the stops, those already passed ticked and the current one shaded. */
+/**
+ * The tour's sections as a sheet (rule 97): one row per stop in a white card, ticked once you have read past it, a ring
+ * in the accent on the one you are on and an empty ring on the rest. The rows are the kit's sheet rows, so a long
+ * title wraps with the same padding as every other sheet. Tapping one closes the sheet and scrolls there.
+ */
 @Composable
-private fun StopPicker(stops: List<TourStop>, current: Int, onPick: (Int) -> Unit) {
+internal fun SectionsSheet(stops: List<TourStop>, current: Int, onPick: (Int) -> Unit, onClose: () -> Unit) {
     val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(16.dp)
-    val screen = LocalConfiguration.current.screenHeightDp
-    Column(
-        Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp)
-            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised)
-            .verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
-    ) {
-        stops.forEachIndexed { index, stop ->
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 48.dp).background(if (index + 1 == current) c.paper else Color.Transparent)
-                    .cueClickable(role = Role.Button) { onPick(index) }.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { if (index + 1 < current) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp) }
-                Text(stop.title, Modifier.weight(1f), style = PullsType.sm, color = c.text)
-                Text("${index + 1}", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted)
+    PullsSheet(onClose, "Sections") {
+        SheetCard(Modifier.padding(bottom = 16.dp)) {
+            stops.forEachIndexed { index, stop ->
+                val number = index + 1
+                SheetRow(stop.title, { onPick(index) }, first = index == 0, icon = {
+                    when {
+                        number < current -> LuIcon(Lu.okc, tint = c.accentTeal, size = 20.dp)
+                        else -> Box(Modifier.size(15.dp).border(1.5.dp, if (number == current) c.accentTeal else c.faint, CircleShape))
+                    }
+                })
             }
         }
     }
@@ -311,9 +309,10 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
     var text by remember { mutableStateOf("") }
     fun send() {
         val question = text.trim()
+        if (question.isEmpty()) return
         text = ""
         focus.clearFocus()
-        onAsk(question.ifEmpty { null })
+        onAsk(question)
     }
     Row(
         modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = 6.dp),
@@ -336,6 +335,7 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
                 }
             },
         )
-        SendButton({ send() }, "Send")
+        // Grey and inert until there is a question to send (rule 84).
+        SendButton({ send() }, "Send", enabled = text.isNotBlank())
     }
 }

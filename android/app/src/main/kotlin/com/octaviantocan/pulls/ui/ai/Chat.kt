@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -91,10 +90,11 @@ private fun ReviewSession.sendChat(text: String?, retry: Boolean = false) {
 }
 
 /**
- * The prototype's Ask sheet: a full-height sheet of bubbles (your questions on the right in a teal
- * wash, the answers on the left in white), starter chips while it is empty, and a send pill. It continues
- * the analysis session when there is one and starts from the pull request itself when there is not, so Ask
- * never waits on Analyze. [initial] is asked on open.
+ * The Ask sheet: your questions on the right in the accent bubble, the answers as plain text with no box (rule 99),
+ * starter chips while it is empty, a send pill, and a new-chat button at the top right once there is a conversation.
+ * While an answer is on its way the work log shows each step with its icon, the orb and the grey bars under it, never
+ * a bubble of dots. It continues the analysis session when there is one and starts from the pull request itself when
+ * there is not, so Ask never waits on Analyze. [initial] is asked on open.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -136,16 +136,15 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         title = title,
         full = true,
         scroll = scroll,
+        // A fresh conversation, in place of a "Clear" button (F69).
+        trailing = if (rows.isNotEmpty() && !busy) ({
+            FloatIcon(Lu.newChat, "New chat", {
+                val key = session.key ?: return@FloatIcon
+                ui.chatError = null
+                session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
+            })
+        }) else null,
         footer = {
-            if (rows.isNotEmpty() && !busy) {
-                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.End) {
-                    PillButton(t("common.clear"), {
-                        val key = session.key ?: return@PillButton
-                        ui.chatError = null
-                        session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
-                    })
-                }
-            }
             attached?.let { about -> AttachedReference(about) { attached = null } }
             Row(
                 Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
@@ -164,7 +163,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     modifier = Modifier.weight(1f),
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
-                            if (ui.chatInput.isEmpty()) Text("Ask Pulls…", style = PullsType.base, color = c.muted, maxLines = 1)
+                            if (ui.chatInput.isEmpty()) Text(if (rows.isEmpty()) "Ask Pulls…" else "Ask a follow-up…", style = PullsType.base, color = c.muted, maxLines = 1)
                             inner()
                         }
                     },
@@ -183,17 +182,19 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
             // question once the reply is saved, with the answer after it. The orb is drawn once, at one
             // place in the code, so the orb that ran is the one that settles, where the log was.
             rows.take(turnAt).forEach { ChatRowView(it) }
-            if (pending != null) QuestionBubble(pending)
-            if (streaming && task != null && task.activities.isNotEmpty()) {
-                AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true, mark = false)
-            } else if (streaming || ui.chatPending != null) {
-                TypingDots()
+            if (pending != null) UserBubble(pending)
+            // From the moment the question is sent: "Thinking" and the time, then each step with its icon (rule 72).
+            val working = streaming || ui.chatPending != null
+            val sentAt = remember(ui.chatPending) { System.currentTimeMillis() }
+            if (working) {
+                val live = task?.takeIf { streaming }
+                AiActivityLogFull(live?.activities.orEmpty(), true, startedAt = live?.startedAt?.takeIf { it > 0 } ?: sentAt, compact = true, mark = false)
             }
             // The last reply's work log folds in under the question that asked for it.
             if (!streaming && pending == null && lastQuestion >= 0 && task != null && task.activities.isNotEmpty()) {
                 AiActivityLogFull(task.activities, false, startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), compact = true)
             }
-            AiLiveMark(streaming && task != null && task.activities.isNotEmpty(), hint = true)
+            AiLiveMark(working, hint = true)
             rows.drop(turnAt).forEach { ChatRowView(it) }
             if (!streaming && failed && ui.chatPending == null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -231,47 +232,11 @@ private fun AttachedReference(about: AskReference, onRemove: () -> Unit) {
     }
 }
 
-/** `.q`: your question, right-aligned in a teal wash. */
+/** An answer: plain text in the reading size, with no box, fill or shadow (rule 99). */
 @Composable
-private fun QuestionBubble(text: String) {
+private fun Answer(text: String) {
     val c = LocalPullsColors.current
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-        Box(Modifier.fillMaxWidth(0.85f), contentAlignment = Alignment.CenterEnd) {
-            SelectionContainer {
-                Text(
-                    text,
-                    Modifier.clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 4.dp, bottomStart = 16.dp)).background(c.accentWash).padding(horizontal = 14.dp, vertical = 10.dp),
-                    style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.accentWashInk,
-                )
-            }
-        }
-    }
-}
-
-/** `.a`: an answer, left-aligned on a white card. */
-@Composable
-private fun AnswerBubble(text: String) {
-    val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp)
-    Box(Modifier.fillMaxWidth(0.92f)) {
-        Box(Modifier.floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 10.dp)) {
-            Markdown(text, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f, color = c.text))
-        }
-    }
-}
-
-/** `.typing`: three breathing dots while the answer is not started. */
-@Composable
-private fun TypingDots() {
-    val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp)
-    Row(
-        Modifier.floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        // Three dots that pulse 150ms apart, like Perplexity's.
-        repeat(3) { com.octaviantocan.pulls.ui.design.BreathingDot(size = 6.dp, delayMs = it * 150) }
-    }
+    Markdown(text, Modifier.fillMaxWidth(), style = PullsType.read.copy(color = c.text))
 }
 
 /** Port of `ChatMessage.vue` for the saved (text-only) messages. */
@@ -279,8 +244,8 @@ private fun TypingDots() {
 private fun ChatRowView(row: ChatRow) {
     val c = LocalPullsColors.current
     when (row) {
-        is ChatRow.User -> QuestionBubble(row.text)
-        is ChatRow.Assistant -> AnswerBubble(row.text)
+        is ChatRow.User -> UserBubble(row.text)
+        is ChatRow.Assistant -> Answer(row.text)
         is ChatRow.Grouping -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             LuIcon(Lu.list, tint = c.mute, size = 14.dp)
             Text(t("chat.updatedGrouping", "n" to row.groups), style = PullsType.xs, color = c.mute)

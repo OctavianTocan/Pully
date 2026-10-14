@@ -204,9 +204,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
             }
             if (lens != null) Text(lens, Modifier.clip(RoundedCornerShape(4.dp)).background(c.active).padding(horizontal = 6.dp, vertical = 2.dp), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text)
             if (result != null) Text(tc("critique.findingCount", result.findings.size), style = PullsType.xs, color = c.fade)
-            val engine = result?.let { critiqueEngineLine(it.engine, it.model, it.effort, it.usage?.model) }.orEmpty()
-            if (engine.isNotEmpty()) Text(engine, style = PullsType.xs, color = c.mute)
-            if (result != null && !running) AiUsageLine(result.usage)
+            // No engine, model or token line: they live in the pickers, not on what the AI wrote (rule 98).
         }
 
         if (task != null && (running || task.activities.isNotEmpty())) {

@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.ai
 
 import com.octaviantocan.pulls.data.Activity
+import com.octaviantocan.pulls.ui.design.Lu
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -83,5 +84,23 @@ class AiActivityTest {
         assertFalse(isWarning(activity("start", kind = "status", status = "done"), 0))
         assertTrue(isWarning(activity("retry-1", kind = "status", status = "done"), 3))
         assertFalse(isWarning(activity("retry-1", kind = "status", status = "running"), 3))
+    }
+
+    @Test
+    fun eachStepShowsTheIconOfWhatItDoes() {
+        assertEquals(Lu.file, stepGlyph(activity("a", tool = "read_source"), false))
+        assertEquals(Lu.search, stepGlyph(activity("a", tool = "grep"), false))
+        assertEquals(Lu.terminal, stepGlyph(activity("a", tool = "bash"), false))
+        assertEquals(Lu.edit, stepGlyph(activity("a", tool = "apply_patch"), false))
+        assertEquals(Lu.tool, stepGlyph(activity("a", tool = "fetch_pr"), false))
+        assertEquals(Lu.think, stepGlyph(activity("a", kind = "thinking"), false))
+        assertEquals(Lu.write, stepGlyph(activity("a", kind = "text"), false))
+        assertEquals(Lu.cog, stepGlyph(activity("a", kind = "status"), false))
+    }
+
+    @Test
+    fun aFailedStepOrANoticeOverridesWhatItDoes() {
+        assertEquals(Lu.fail, stepGlyph(activity("a", tool = "bash", status = "failed"), false))
+        assertEquals(Lu.refresh, stepGlyph(activity("a", kind = "status", status = "done"), true))
     }
 }

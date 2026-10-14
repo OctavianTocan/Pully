@@ -101,4 +101,12 @@ internal object Lu {
     val trash = LuGlyph(1.8f, LuPath("M3 6h18"), LuPath("M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"), LuPath("M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"), LuPath("M10 11v6M14 11v6"))
     val stop = LuGlyph(1.8f, LuPath("M7,5h10a2,2 0 0 1 2,2v10a2,2 0 0 1 -2,2H7a2,2 0 0 1 -2,-2V7a2,2 0 0 1 2,-2z", fill = true))
     val commit = LuGlyph(1.8f, LuPath("M9,12a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3 12h6M15 12h6"))
+    // The steps of AI work, one per kind of action (rule 72): reading a file, running a command, thinking, writing, another tool.
+    val file = LuGlyph(1.8f, LuPath("M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"), LuPath("M14 2v4a2 2 0 0 0 2 2h4"), LuPath("M16 13H8M16 17H8M10 9H8"))
+    val terminal = LuGlyph(1.8f, LuPath("m4 17 6-6-6-6"), LuPath("M12 19h8"))
+    val think = LuGlyph(1.8f, LuPath("M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"), LuPath("M9 18h6M10 22h4"))
+    val write = LuGlyph(1.8f, LuPath("M12 20h9"), LuPath("M16.4 3.6a2.1 2.1 0 0 1 3 3L7.4 18.6 3 20l1.4-4.4Z"))
+    val tool = LuGlyph(1.8f, LuPath("M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"))
+    /** A new conversation: Lucide's square with a pen. */
+    val newChat = LuGlyph(1.8f, LuPath("M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"), LuPath("M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"))
 }

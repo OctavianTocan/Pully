@@ -27,8 +27,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -38,10 +36,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -59,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
@@ -75,15 +70,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import com.octaviantocan.pulls.data.Activity
-import com.octaviantocan.pulls.data.Usage
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.TOUCH
@@ -190,12 +186,32 @@ internal fun ThinkingHeader(verb: String, seconds: String, style: TextStyle, mod
 /** Where a step line's text starts. The dot sits 7dp in, so its centre is 10dp from the margin. */
 private val STEP_INDENT = 28.dp
 
-/** The dot in front of a step line: 6dp, centred on the first line of text (rule 72). */
+/**
+ * What a step did, as the icon in front of its line (rule 72): a file read, a search, a command, an edit, thinking,
+ * writing the answer, another tool, or the engine itself for a status line. A failed step shows the cross, a notice
+ * (a retry after a rate limit) the retry arrows.
+ */
+internal fun stepGlyph(activity: Activity, warning: Boolean): LuGlyph = when {
+    activity.status == "failed" -> Lu.fail
+    warning -> Lu.refresh
+    activity.kind == "thinking" -> Lu.think
+    activity.kind == "text" -> Lu.write
+    activity.kind == "status" -> Lu.cog
+    else -> when (toolCategory(activity.tool)) {
+        ToolCategory.Read -> Lu.file
+        ToolCategory.Search -> Lu.search
+        ToolCategory.Command -> Lu.terminal
+        ToolCategory.Edit -> Lu.edit
+        ToolCategory.Other -> Lu.tool
+    }
+}
+
+/** The icon in front of a step line: 16dp, centred on the first line of text, its centre 10dp in (rule 72). */
 @Composable
-private fun StepDot(color: Color, style: TextStyle) {
+private fun StepIcon(glyph: LuGlyph, color: Color, style: TextStyle) {
     val lineHeight = with(LocalDensity.current) { (if (style.lineHeight.isSpecified) style.lineHeight else style.fontSize * 1.4f).toDp() }
-    Box(Modifier.width(STEP_INDENT).height(lineHeight), contentAlignment = Alignment.CenterStart) {
-        Box(Modifier.padding(start = 7.dp).size(6.dp).clip(CircleShape).background(color))
+    Box(Modifier.width(STEP_INDENT).height(maxOf(lineHeight, 16.dp)), contentAlignment = Alignment.CenterStart) {
+        LuIcon(glyph, Modifier.padding(start = 2.dp), tint = color, size = 16.dp)
     }
 }
 
@@ -210,35 +226,6 @@ internal fun SeverityBadge(severity: String) {
         style = PullsType.xs.copy(fontWeight = FontWeight.Medium, lineHeight = PullsType.xs.fontSize),
         color = if (severity == "nit") c.muted else color,
     )
-}
-
-/** `AiUsageLine`: model · tokens · cost · time, `text-xs tabular-nums op-mute`. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun AiUsageLine(usage: Usage?, modifier: Modifier = Modifier, durationMs: Long? = null) {
-    val c = LocalPullsColors.current
-    val messages = LocalMessages.current
-    fun tokens(key: String, n: Long?) = if (n != null && n > 0) messages.t("ai.usage.$key", "n" to formatTokens(n)) else null
-    val u = usage ?: Usage()
-    val duration = u.durationMs ?: durationMs
-    val parts = listOfNotNull(
-        u.model,
-        tokens("input", u.inputTokens),
-        tokens("output", u.outputTokens),
-        tokens("cacheRead", u.cacheReadTokens),
-        tokens("cacheWrite", u.cacheWriteTokens),
-        tokens("reasoning", u.reasoningTokens),
-        // Codex reports no cost at all; an unset or zero cost is unknown, not free.
-        u.costUsd?.takeIf { it > 0 }?.let(::formatCost),
-        duration?.takeIf { it > 0 }?.let(::formatClockDuration),
-    )
-    if (parts.isEmpty()) return
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        parts.forEachIndexed { index, part ->
-            if (index > 0) Text("·", style = PullsType.xs, color = c.mute)
-            Text(part, style = PullsType.xs, color = c.mute)
-        }
-    }
 }
 
 /** `AiWorkedFor`: "Worked for 2m 3s · Ran 3 commands", a button with a chevron (right folded, down open) that unfolds the log. */
@@ -261,7 +248,7 @@ private fun AiWorkedFor(label: String, summary: String, failed: Boolean, expanda
     }
 }
 
-/** `AiActivityRow`: a dot, the step as one sentence (shimmering while it runs), timing, unfoldable text. Never italic (rule 72). */
+/** `AiActivityRow`: the icon of what the step did, the step as one sentence (shimmering while it runs), timing, unfoldable text. Never italic (rule 72). */
 @Composable
 private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean, compact: Boolean, style: TextStyle) {
     val c = LocalPullsColors.current
@@ -289,10 +276,10 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
         activity.kind == "status" -> c.mute
         else -> c.muted
     }
-    val dot = when {
+    val ink = when {
         failed -> c.error
         warning -> c.amber
-        else -> c.text
+        else -> c.muted
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
@@ -301,7 +288,7 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
             contentAlignment = Alignment.CenterStart,
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                StepDot(dot, style)
+                StepIcon(stepGlyph(activity, warning), ink, style)
                 Row(Modifier.weight(1f)) {
                     // Phones: two lines (`max-md:line-clamp-2`).
                     if (running) Shimmer(activity.title, style, tone, maxLines = 2)
@@ -333,8 +320,8 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
 /**
  * `AiActivityLog`, complete (rule 72). While [running]: one shimmering line, a verb with the elapsed
  * seconds ("Working 12s"; "Thinking" before the first step, or [workingVerb] when given), the newest
- * steps under it as dot lines (older ones behind "+n more"), and the live orb on the dot column. When
- * the work stops the orb finishes its turn and settles before it leaves. Once settled: a "Worked for
+ * steps under it, each after the icon of what it did (older ones behind "+n more"), and the live orb
+ * on the icons' column. When the work stops the orb finishes its turn and settles before it leaves. Once settled: a "Worked for
  * … · Ran 3 commands" button that unfolds the steps. [outcome] is `done`, `failed` or `stopped`.
  * [hint] puts three grey bars under the orb while it runs, a sign of where the answer will arrive
  * (rule 71): they sit under the live mark and never stand in for it. A screen that draws the orb
@@ -395,20 +382,8 @@ internal fun AiActivityLogFull(
             }
             val summary = summarizeTools(activities).joinToString(", ") { (category, count) -> messages.tc("ai.groups.${category.key}", count) }
             AiWorkedFor(label, summary, outcome == "failed", activities.isNotEmpty(), open, { open = !open }, style) {
-                // The steps hang from a 1dp line through the dots that fades to nothing over its last 200dp (or its last half, when the log is short).
-                val line = c.border
-                Column(
-                    Modifier.drawBehind {
-                        val fade = minOf(200.dp.toPx(), size.height / 2)
-                        val x = 10.dp.toPx()
-                        val top = style.lineHeight.toPx() / 2
-                        drawLine(
-                            Brush.verticalGradient(0f to line, 1f - fade / size.height to line, 1f to Color.Transparent),
-                            Offset(x, top), Offset(x, size.height), strokeWidth = 1.dp.toPx(),
-                        )
-                    },
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+                // The icons make the column the steps hang from, so no line runs through them.
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     tracked.forEachIndexed { index, row -> key(row.id) { AiActivityRow(row, now, isWarning(row.activity, index), compact, style) } }
                 }
             }
@@ -420,7 +395,7 @@ internal fun AiActivityLogFull(
 }
 
 /**
- * The live mark of AI work, for a [ColumnScope]: the orb under the newest line, centred on the dots'
+ * The live mark of AI work, for a [ColumnScope]: the orb under the newest line, centred on the icons'
  * column (10dp in), and with [hint] the three grey bars of rule 71 under it. When [active] turns false
  * the orb finishes its turn, settles into its tick and stays a moment before it leaves; a mark that is
  * first drawn inactive never shows one. It has to stay in one place of the composition for the orb that
@@ -471,14 +446,23 @@ internal fun ErrorBox(title: String, message: String?) {
     }
 }
 
-/** The user bubble of the chat and ask threads: `max-w-[85%] rounded-lg bg-active px-3 py-2 text-sm`. */
+/**
+ * Your own message in Ask and in a question on lines of the diff, the one bubble there is (rule 99): on the right, at
+ * most 85% wide, white on the accent fill, its corner by the edge pinched to point at you. The AI's reply is plain text.
+ */
 @Composable
 internal fun UserBubble(text: String, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
+    val shape = RoundedCornerShape(topStart = PullsRadius.card, topEnd = PullsRadius.card, bottomEnd = PullsRadius.sm, bottomStart = PullsRadius.card)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         Box(Modifier.fillMaxWidth(0.85f), contentAlignment = Alignment.CenterEnd) {
             SelectionContainer {
-                Text(text, Modifier.clip(RoundedCornerShape(8.dp)).background(c.active).padding(horizontal = 12.dp, vertical = 8.dp), style = PullsType.sm, color = c.text)
+                Text(
+                    text,
+                    Modifier.clip(shape).background(c.primary).padding(horizontal = 14.dp, vertical = 10.dp),
+                    style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f),
+                    color = Color.White, // raw-value-ok: the ink on the primary fill is white in both themes
+                )
             }
         }
     }

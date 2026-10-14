@@ -79,12 +79,6 @@ class AskSelectionTest {
     }
 
     @Test
-    fun engineLineRepeatsTheModelOnlyWhenUsageNamesNone() {
-        assertEquals("Claude Code · haiku · high", critiqueEngineLine("claude-code", "haiku", "high", null))
-        assertEquals("Codex", critiqueEngineLine("codex", "gpt-5", null, "gpt-5-2025"))
-    }
-
-    @Test
     fun chatRowsShowUserAssistantAndGroupingUpdatesOnly() {
         val rows = chatRows(
             listOf(

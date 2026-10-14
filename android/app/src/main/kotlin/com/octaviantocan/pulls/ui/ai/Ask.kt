@@ -188,7 +188,6 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                         answer != null -> Markdown(answer, Modifier.fillMaxWidth().padding(horizontal = 4.dp))
                         error != null -> Text(error, Modifier.padding(horizontal = 4.dp), style = PullsType.xs, color = c.error)
                     }
-                    (turn.usage ?: task?.usage)?.let { AiUsageLine(it, Modifier.padding(horizontal = 4.dp)) }
                 }
             }
             if (pending != null) {

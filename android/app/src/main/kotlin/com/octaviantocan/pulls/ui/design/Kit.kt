@@ -783,11 +783,18 @@ fun EngineMark(engine: String, modifier: Modifier = Modifier, size: Dp = 20.dp) 
     )
 }
 
-/** The tour ring: a grey track and an accent arc for [n] of [of] stops. */
+/** The tour ring: a grey track and an accent arc for [n] of [of] stops, moving to a new count over 400ms. */
 @Composable
 fun ProgressRing(n: Int, of: Int, modifier: Modifier = Modifier, size: Dp = 30.dp) {
+    val fraction by animateFloatAsState(if (of <= 0) 0f else n.coerceIn(0, of).toFloat() / of, tween(400), label = "ring")
+    ProgressRing(fraction, modifier, size)
+}
+
+/** The tour ring filled to [fraction] (0 to 1) as given, for a ring that follows the tour's scroll without jumps (rule 97). */
+@Composable
+fun ProgressRing(fraction: Float, modifier: Modifier = Modifier, size: Dp = 30.dp) {
     val c = LocalPullsColors.current
-    val sweep by animateFloatAsState(if (of <= 0) 0f else 360f * n.coerceIn(0, of) / of, tween(400), label = "ring")
+    val sweep = 360f * fraction.coerceIn(0f, 1f)
     Canvas(modifier.size(size)) {
         val stroke = this.size.minDimension * (4f / 30f)
         // The arc's centre line sits 4/30 in from the edge, so a 4/30 stroke ends flush with it.

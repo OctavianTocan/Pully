@@ -14,22 +14,6 @@ class AiFormatTest {
     }
 
     @Test
-    fun formatTokens() {
-        listOf(
-            0L to "0", 950L to "950", 1000L to "1k", 1500L to "1.5k", 12_345L to "12.3k", 99_960L to "100k",
-            200_000L to "200k", 123_456L to "123k", 999_499L to "999k", 999_500L to "1m", 1_234_567L to "1.2m", 250_000_000L to "250m",
-        ).forEach { (count, expected) -> assertEquals(expected, formatTokens(count), "$count tokens") }
-    }
-
-    @Test
-    fun formatCost() {
-        listOf(
-            0.00004 to "$0.000040", 0.0004 to "$0.00040", 0.0042 to "$0.0042", 0.042 to "$0.042",
-            0.1 to "$0.10", 1.2749 to "$1.27", 12.0 to "$12.00",
-        ).forEach { (usd, expected) -> assertEquals(expected, formatCost(usd), "$usd") }
-    }
-
-    @Test
     fun effortLabelNamesKnownEffortsThroughI18n() {
         val translate: Translate = { key, _ -> "<$key>" }
         assertEquals("<ai.effort.xhigh>", effortLabel("xhigh", translate))

@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 802,
+        "line": 809,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -285,7 +285,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 819,
+        "line": 826,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -346,7 +346,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 813,
+        "line": 820,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -479,7 +479,7 @@
       {
         "file": "ui/design/Kit.kt",
         "line": 787,
-        "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
+        "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops, moving to a new count over 400ms.",
         "params": [
           {
             "name": "n",
@@ -500,7 +500,29 @@
             "default": "30.dp"
           }
         ],
-        "source": "@Composable\nfun ProgressRing(n: Int, of: Int, modifier: Modifier = Modifier, size: Dp = 30.dp) {\n    val c = LocalPullsColors.current\n    val sweep by animateFloatAsState(if (of <= 0) 0f else 360f * n.coerceIn(0, of) / of, tween(400), label = \"ring\")\n    Canvas(modifier.size(size)) {\n        val stroke = this.size.minDimension * (4f / 30f)\n        // The arc's centre line sits 4/30 in from the edge, so a 4/30 stroke ends flush with it.\n        val inset = this.size.minDimension * (4f / 30f)\n        val arcSize = Size(this.size.width - 2 * inset, this.size.height - 2 * inset)\n        drawArc(c.border, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))\n        if (sweep > 0f) drawArc(c.accentTeal, -90f, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))\n    }\n}"
+        "source": "@Composable\nfun ProgressRing(n: Int, of: Int, modifier: Modifier = Modifier, size: Dp = 30.dp) {\n    val fraction by animateFloatAsState(if (of <= 0) 0f else n.coerceIn(0, of).toFloat() / of, tween(400), label = \"ring\")\n    ProgressRing(fraction, modifier, size)\n}"
+      },
+      {
+        "file": "ui/design/Kit.kt",
+        "line": 794,
+        "doc": "The tour ring filled to [fraction] (0 to 1) as given, for a ring that follows the tour's scroll without jumps (rule 97).",
+        "params": [
+          {
+            "name": "fraction",
+            "type": "Float"
+          },
+          {
+            "name": "modifier",
+            "type": "Modifier",
+            "default": "Modifier"
+          },
+          {
+            "name": "size",
+            "type": "Dp",
+            "default": "30.dp"
+          }
+        ],
+        "source": "@Composable\nfun ProgressRing(fraction: Float, modifier: Modifier = Modifier, size: Dp = 30.dp) {\n    val c = LocalPullsColors.current\n    val sweep = 360f * fraction.coerceIn(0f, 1f)\n    Canvas(modifier.size(size)) {\n        val stroke = this.size.minDimension * (4f / 30f)\n        // The arc's centre line sits 4/30 in from the edge, so a 4/30 stroke ends flush with it.\n        val inset = this.size.minDimension * (4f / 30f)\n        val arcSize = Size(this.size.width - 2 * inset, this.size.height - 2 * inset)\n        drawArc(c.border, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))\n        if (sweep > 0f) drawArc(c.accentTeal, -90f, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))\n    }\n}"
       }
     ]
   },
@@ -539,8 +561,8 @@
     "declarations": [
       {
         "file": "ui/design/Sheet.kt",
-        "line": 97,
-        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer. The body scrolls under the header, which stays put (rule 77); [full] makes it\nnearly full height (chat, Commands: sheets that open a keyboard), otherwise it is as tall as its\ncontent. Content taller than half the screen makes the sheet rest at half height and lift to full,\nand [expandable] off keeps it from lifting. [back] swaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the\npanel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in\n350ms, both on the smooth-out curve. It follows a finger down to dismiss and, when [expandable],\nrests at half height or full.",
+        "line": 98,
+        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls\nunder the header, which stays put (rule 77); [full] makes it nearly full height (chat, Commands:\nsheets that open a keyboard), otherwise it is as tall as its content. Content taller than half the\nscreen makes the sheet rest at half height and lift to full, and [expandable] off keeps it from\nlifting. [back] swaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the\npanel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in\n350ms, both on the smooth-out curve. It follows a finger down to dismiss and, when [expandable],\nrests at half height or full.",
         "params": [
           {
             "name": "onClose",
@@ -576,15 +598,20 @@
             "default": "true"
           },
           {
+            "name": "trailing",
+            "type": "(@Composable () -> Unit)?",
+            "default": "null"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val scrollState = scroll ?: rememberScrollState()\n    SheetHost(onClose, onBack = back) { position, dismiss ->\n        SheetPanel(position, dismiss, full, expandable && !full) {\n            SheetHeader(\n                leading = { if (back != null) FloatIcon(Lu.back, \"Back\", back) else FloatIcon(Lu.close, \"Close\", dismiss) },\n                title = title,\n            )\n            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)\n        }\n    }\n}"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val scrollState = scroll ?: rememberScrollState()\n    SheetHost(onClose, onBack = back) { position, dismiss ->\n        SheetPanel(position, dismiss, full, expandable && !full) {\n            SheetHeader(\n                leading = { if (back != null) FloatIcon(Lu.back, \"Back\", back) else FloatIcon(Lu.close, \"Close\", dismiss) },\n                title = title,\n                trailing = trailing,\n            )\n            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)\n        }\n    }\n}"
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 120,
+        "line": 123,
         "doc": "",
         "params": [
           {
@@ -621,15 +648,20 @@
             "default": "true"
           },
           {
+            "name": "trailing",
+            "type": "(@Composable () -> Unit)?",
+            "default": "null"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, content)\n\n/**\n * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\n * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\n * into ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]\n * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\n * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\n * The panel grows or shrinks to the next page's height as the body slides.\n */"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, content)\n\n/**\n * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\n * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\n * into ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]\n * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\n * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\n * The panel grows or shrinks to the next page's height as the body slides.\n */"
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 140,
+        "line": 144,
         "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nThe panel grows or shrinks to the next page's height as the body slides.",
         "params": [
           {
@@ -864,7 +896,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 830,
+        "line": 837,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {

@@ -258,6 +258,12 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "edit" to Lu.edit,
     "trash" to Lu.trash,
     "commit" to Lu.commit,
+    "file" to Lu.file,
+    "terminal" to Lu.terminal,
+    "think" to Lu.think,
+    "write" to Lu.write,
+    "tool" to Lu.tool,
+    "newChat" to Lu.newChat,
 )
 
 @Composable
