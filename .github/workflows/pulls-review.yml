@@ -18,21 +18,40 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
+      # Without a key there is nothing to analyze with, so the job skips instead of failing.
+      # The secret is only given to this step and to Analyze, never to the install or the build.
+      - name: Check for an LLM key
+        id: key
+        env:
+          KEY: ${{ secrets.VERCEL_AI_GATEWAY_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::VERCEL_AI_GATEWAY_API_KEY is not set, so this pull request is not analyzed."
+          fi
+
       - uses: actions/checkout@v7
+        if: steps.key.outputs.present == 'true'
       - uses: pnpm/action-setup@v6
+        if: steps.key.outputs.present == 'true'
       - uses: actions/setup-node@v7
+        if: steps.key.outputs.present == 'true'
         with:
           node-version: lts/*
           cache: pnpm
 
       - name: Install
+        if: steps.key.outputs.present == 'true'
         run: pnpm install
 
       # Dogfood the CLI as built from the default branch rather than the published package.
       - name: Build
+        if: steps.key.outputs.present == 'true'
         run: pnpm run build
 
       - name: Analyze
+        if: steps.key.outputs.present == 'true'
         run: node packages/actions/dist/index.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}

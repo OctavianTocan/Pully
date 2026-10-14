@@ -70,4 +70,6 @@ dependencies {
     implementation("org.commonmark:commonmark-ext-autolink:0.24.0")
     implementation("org.commonmark:commonmark-ext-task-list-items:0.24.0")
     testImplementation(kotlin("test-junit"))
+    // Android's org.json is a stub in unit tests; the real one lets BookDataTest read the book the way the app does.
+    testImplementation("org.json:json:20250517")
 }

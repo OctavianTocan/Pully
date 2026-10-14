@@ -10,6 +10,8 @@ class Nav(
     val openRepo: (owner: String, repo: String) -> Unit,
     val home: () -> Unit,
     val settings: () -> Unit,
+    /** Opens the UI Book, the design system as screens (Settings, at the bottom). */
+    val uiBook: () -> Unit = {},
     val checkout: () -> Unit,
     val back: () -> Unit,
 )

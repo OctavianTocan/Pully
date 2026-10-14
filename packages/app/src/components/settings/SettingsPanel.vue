@@ -18,14 +18,14 @@ defineProps<{
   modelsError?: string
 }>()
 
-// The server's `gh` login supplies GitHub access, so the local build has no token to enter.
-const isLocal = import.meta.env.PR_LOCAL
-
 defineEmits<{
   /** Save a new GitHub token (validated by the container); `''` removes it. */
   'saveGithubToken': [token: string]
   'update:llmSettings': [value: LlmSettings]
 }>()
+
+// The server's `gh` login supplies GitHub access, so the local build has no token to enter.
+const isLocal = import.meta.env.PR_LOCAL
 </script>
 
 <template>

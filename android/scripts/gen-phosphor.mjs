@@ -48,7 +48,7 @@ for (const name of [...used].sort()) {
   }
   const paths = []
   // Groups in Phosphor only carry `fill="currentColor"`; opacity sits on the paths.
-  for (const match of svg.matchAll(/<path([^>]*)\/?>/g)) {
+  for (const match of svg.matchAll(/<path([^>]*)>/g)) {
     const attrs = match[1]
     const d = /\bd="([^"]+)"/.exec(attrs)?.[1]
     if (!d)

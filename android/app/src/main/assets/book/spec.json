@@ -1,0 +1,484 @@
+{
+  "colors": {
+    "base": {
+      "light": "#FDFCF9",
+      "dark": "#0C1B1F"
+    },
+    "text": {
+      "light": "#0E333A",
+      "dark": "#E4EEEF"
+    },
+    "muted": {
+      "light": "#6E8285",
+      "dark": "#8FA6A9"
+    },
+    "faint": {
+      "light": "#93A2A4",
+      "dark": "#6B8286"
+    },
+    "border": {
+      "light": "#E3E5E3",
+      "dark": "#263A3E"
+    },
+    "border-mute": {
+      "light": "#ECEBE7",
+      "dark": "#1B2D31"
+    },
+    "hover": {
+      "light": "#0E333A12",
+      "dark": "#FFFFFF14"
+    },
+    "active": {
+      "light": "#0E333A1A",
+      "dark": "#FFFFFF1F"
+    },
+    "raised": {
+      "light": "#FFFFFF",
+      "dark": "#13282C"
+    },
+    "sunken": {
+      "light": "#F1F0EC",
+      "dark": "#173035"
+    },
+    "code": {
+      "light": "#F4F2EF",
+      "dark": "#112429"
+    },
+    "secondary": {
+      "light": "#F4F2EF",
+      "dark": "#112429"
+    },
+    "primary": {
+      "light": "#1B7580",
+      "dark": "#1B7580"
+    },
+    "primary-600": {
+      "light": "#165E66",
+      "dark": "#165E66"
+    },
+    "active-text": {
+      "light": "#1E6F78",
+      "dark": "#6CC3CB"
+    },
+    "success": {
+      "light": "#1C8A5A",
+      "dark": "#3CC98F"
+    },
+    "error": {
+      "light": "#C94F55",
+      "dark": "#E8777C"
+    },
+    "warning": {
+      "light": "#D9822B",
+      "dark": "#F2A14B"
+    },
+    "blue": {
+      "light": "#3B82F6",
+      "dark": "#60A5FA"
+    },
+    "purple": {
+      "light": "#A855F7",
+      "dark": "#C084FC"
+    },
+    "gray": {
+      "light": "#93A2A4",
+      "dark": "#6B8286"
+    },
+    "orange": {
+      "light": "#EA580C",
+      "dark": "#FB923C"
+    },
+    "amber": {
+      "light": "#B45309",
+      "dark": "#FBBF24"
+    },
+    "accent-teal": {
+      "light": "#24929C",
+      "dark": "#4FB7C1"
+    },
+    "accent-orange": {
+      "light": "#D9552A",
+      "dark": "#F57A4F"
+    },
+    "accent-magenta": {
+      "light": "#9C3A95",
+      "dark": "#C65FBF"
+    },
+    "paper": {
+      "light": "#F4F2EF",
+      "dark": "#112429"
+    },
+    "paper-2": {
+      "light": "#F1F0EC",
+      "dark": "#173035"
+    },
+    "cta": {
+      "light": "#13343B",
+      "dark": "#E4EEEF"
+    },
+    "on-cta": {
+      "light": "#FFFFFF",
+      "dark": "#0C1B1F"
+    },
+    "chip-on": {
+      "light": "#E9E8E3",
+      "dark": "#1F3A3F"
+    },
+    "accent-wash": {
+      "light": "#E6F1F2",
+      "dark": "#14363B"
+    },
+    "accent-wash-ink": {
+      "light": "#165E66",
+      "dark": "#9AD3D6"
+    },
+    "diff-add": {
+      "light": "#CFE6E3",
+      "dark": "#123B3A"
+    },
+    "diff-del": {
+      "light": "#F6D7D0",
+      "dark": "#3F2420"
+    },
+    "diff-add-ink": {
+      "light": "#1E7E8A",
+      "dark": "#6CC3CB"
+    },
+    "diff-del-ink": {
+      "light": "#B4533F",
+      "dark": "#E08A76"
+    },
+    "diff-add-mark": {
+      "light": "#A8D6D0",
+      "dark": "#1C5A58"
+    },
+    "diff-del-mark": {
+      "light": "#EDB5AA",
+      "dark": "#6A3A32"
+    },
+    "shadow": {
+      "light": "#0E333A",
+      "dark": "#000000"
+    },
+    "scrim": {
+      "light": "#0E333A61",
+      "dark": "#00000099"
+    }
+  },
+  "typography": {
+    "xs": {
+      "fontFamily": "Geist",
+      "fontSize": 13,
+      "fontWeight": 400,
+      "lineHeight": 18,
+      "letterSpacing": 0
+    },
+    "xs-wide": {
+      "fontFamily": "Geist",
+      "fontSize": 12,
+      "fontWeight": 400,
+      "lineHeight": 16,
+      "letterSpacing": 0
+    },
+    "sm": {
+      "fontFamily": "Geist",
+      "fontSize": 15,
+      "fontWeight": 400,
+      "lineHeight": 21,
+      "letterSpacing": 0
+    },
+    "sm-wide": {
+      "fontFamily": "Geist",
+      "fontSize": 14,
+      "fontWeight": 400,
+      "lineHeight": 20,
+      "letterSpacing": 0
+    },
+    "base": {
+      "fontFamily": "Geist",
+      "fontSize": 16,
+      "fontWeight": 400,
+      "lineHeight": 22,
+      "letterSpacing": 0
+    },
+    "lg": {
+      "fontFamily": "Geist",
+      "fontSize": 18,
+      "fontWeight": 400,
+      "lineHeight": 26,
+      "letterSpacing": 0
+    },
+    "xl": {
+      "fontFamily": "Geist",
+      "fontSize": 20,
+      "fontWeight": 500,
+      "lineHeight": 26,
+      "letterSpacing": 0
+    },
+    "xxl": {
+      "fontFamily": "Geist",
+      "fontSize": 26,
+      "fontWeight": 500,
+      "lineHeight": 32,
+      "letterSpacing": -0.26
+    },
+    "body": {
+      "fontFamily": "Geist",
+      "fontSize": 17,
+      "fontWeight": 400,
+      "lineHeight": 25,
+      "letterSpacing": 0
+    },
+    "read": {
+      "fontFamily": "Geist",
+      "fontSize": 16,
+      "fontWeight": 400,
+      "lineHeight": 24,
+      "letterSpacing": 0
+    },
+    "row": {
+      "fontFamily": "Geist",
+      "fontSize": 17,
+      "fontWeight": 400,
+      "lineHeight": 22,
+      "letterSpacing": 0
+    },
+    "num": {
+      "fontFamily": "Mona Sans",
+      "fontSize": 15,
+      "fontWeight": 600,
+      "lineHeight": 22,
+      "letterSpacing": 0
+    },
+    "micro": {
+      "fontFamily": "Geist",
+      "fontSize": 10,
+      "fontWeight": 400,
+      "lineHeight": 14,
+      "letterSpacing": 0
+    },
+    "mini": {
+      "fontFamily": "Geist",
+      "fontSize": 11,
+      "fontWeight": 400,
+      "lineHeight": 16,
+      "letterSpacing": 0
+    },
+    "compact": {
+      "fontFamily": "Geist",
+      "fontSize": 12,
+      "fontWeight": 400,
+      "lineHeight": 18,
+      "letterSpacing": 0
+    }
+  },
+  "rounded": {
+    "xs": 2,
+    "sm": 4,
+    "md": 6,
+    "lg": 8,
+    "xl": 12,
+    "card": 16,
+    "sheet": 24,
+    "full": 9999
+  },
+  "spacing": {
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "6": 24,
+    "8": 32
+  },
+  "elevation": {
+    "float": 8,
+    "raised": 4,
+    "thumb": 2,
+    "modal": 24
+  },
+  "motion": {
+    "tick": "150ms",
+    "state": "200ms",
+    "slide": "240ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+    "toast": "250ms",
+    "progress": "400ms",
+    "press": "scale 0.97",
+    "breathe": "1200ms reverse loop",
+    "orb-turn": "1600ms linear loop",
+    "orb-breath": "900ms reverse loop",
+    "shimmer": "1500ms linear loop"
+  },
+  "components": {
+    "float-button": {
+      "size": 44,
+      "width": 44,
+      "height": 44,
+      "rounded": 9999,
+      "background": "raised",
+      "color": "text",
+      "typography": null
+    },
+    "capsule-tabs": {
+      "size": null,
+      "width": null,
+      "height": 44,
+      "rounded": 9999,
+      "background": "raised",
+      "color": "text",
+      "typography": "sm"
+    },
+    "soft-chip": {
+      "size": null,
+      "width": null,
+      "height": 36,
+      "rounded": 9999,
+      "background": "chip-on",
+      "color": "text",
+      "typography": "sm"
+    },
+    "underline-tabs": {
+      "size": null,
+      "width": null,
+      "height": 42,
+      "rounded": null,
+      "background": null,
+      "color": "text",
+      "typography": "base"
+    },
+    "check": {
+      "size": 22,
+      "width": 22,
+      "height": 22,
+      "rounded": 7,
+      "background": "primary",
+      "color": null,
+      "typography": null
+    },
+    "switch": {
+      "size": null,
+      "width": 52,
+      "height": 32,
+      "rounded": 9999,
+      "background": "primary",
+      "color": null,
+      "typography": null
+    },
+    "cta-button": {
+      "size": null,
+      "width": null,
+      "height": 52,
+      "rounded": 9999,
+      "background": "cta",
+      "color": "on-cta",
+      "typography": "row"
+    },
+    "sheet": {
+      "size": null,
+      "width": null,
+      "height": null,
+      "rounded": 24,
+      "background": "paper",
+      "color": "text",
+      "typography": null
+    },
+    "sheet-card": {
+      "size": null,
+      "width": null,
+      "height": null,
+      "rounded": 16,
+      "background": "raised",
+      "color": null,
+      "typography": null
+    },
+    "sheet-row": {
+      "size": null,
+      "width": null,
+      "height": 52,
+      "rounded": null,
+      "background": null,
+      "color": "text",
+      "typography": "row"
+    },
+    "quick-action": {
+      "size": null,
+      "width": null,
+      "height": 72,
+      "rounded": 16,
+      "background": "raised",
+      "color": "text",
+      "typography": "sm"
+    },
+    "toast": {
+      "size": null,
+      "width": null,
+      "height": 44,
+      "rounded": 9999,
+      "background": "cta",
+      "color": "on-cta",
+      "typography": "sm"
+    },
+    "orb": {
+      "size": 30,
+      "width": 30,
+      "height": 30,
+      "rounded": 9999,
+      "background": "accent-wash",
+      "color": null,
+      "typography": null
+    },
+    "progress-ring": {
+      "size": 30,
+      "width": 30,
+      "height": 30,
+      "rounded": 9999,
+      "background": null,
+      "color": null,
+      "typography": null
+    },
+    "breathing-dot": {
+      "size": 10,
+      "width": 10,
+      "height": 10,
+      "rounded": 9999,
+      "background": "accent-teal",
+      "color": null,
+      "typography": null
+    },
+    "pending-dot": {
+      "size": 10,
+      "width": 10,
+      "height": 10,
+      "rounded": 9999,
+      "background": null,
+      "color": null,
+      "typography": null
+    },
+    "ok-dot": {
+      "size": 14,
+      "width": 14,
+      "height": 14,
+      "rounded": 9999,
+      "background": "success",
+      "color": null,
+      "typography": null
+    },
+    "skeleton": {
+      "size": null,
+      "width": null,
+      "height": 12,
+      "rounded": 6,
+      "background": "paper-2",
+      "color": null,
+      "typography": null
+    },
+    "profile-dot": {
+      "size": 40,
+      "width": 40,
+      "height": 40,
+      "rounded": 9999,
+      "background": null,
+      "color": null,
+      "typography": null
+    }
+  }
+}
