@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.octaviantocan.pulls.R
@@ -55,6 +56,7 @@ import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.QuickAction
 import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.DrawableIcon
@@ -326,6 +328,18 @@ internal fun ModelSheet(settings: AppSettings, onClose: () -> Unit, onEffort: ()
         config = next
         ServerStore.save(context, next)
     }
+    var custom by remember { mutableStateOf("") }
+    // A model the list does not name, for a catalog that failed to load or an id the CLI accepts but does not list.
+    fun useCustom() {
+        val id = custom.trim()
+        if (id.isEmpty()) return
+        val kept = AiSettingsLogic.keptEffort(catalog, id, settings.effort)
+        memory.setModel(config.engine, id)
+        save(config.copy(model = id))
+        settings.updateEffort(kept)
+        onClose()
+        toaster.show("Analysis model: ${analysisModelLabel(config.copy(model = id), catalog, kept, messages)}")
+    }
 
     PullsSheet(onClose, "Select model", expandable = true) {
         Box(Modifier.padding(top = 14.dp)) {
@@ -367,6 +381,13 @@ internal fun ModelSheet(settings: AppSettings, onClose: () -> Unit, onEffort: ()
                     }
                 }
             }
+        }
+        SheetCard {
+            SheetField(
+                "Custom model ID", custom, { custom = it }, first = true, placeholder = t("settings.models.placeholder"),
+                imeAction = ImeAction.Done, onGo = ::useCustom,
+                trailing = { PillButton(t("common.save"), ::useCustom, enabled = custom.isNotBlank()) },
+            )
         }
         val choice = AiSettingsLogic.current(catalog, config.model)
         if (choice != null && choice.efforts.isNotEmpty()) {

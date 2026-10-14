@@ -59,6 +59,7 @@ internal object Lu {
     val list = LuGlyph(1.8f, LuPath("M4 6h16M4 12h16M4 18h10"))
     val diff = LuGlyph(1.8f, LuPath("M5 7.5h5M7.5 5v5M14 17.5h5M15.5 4l-7 16"))
     val tour = LuGlyph(1.8f, LuPath("M3,6a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M17,18a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M7 6h8a4 4 0 0 1 0 8H9a4 4 0 0 0 0 8h8"))
+    val refresh = LuGlyph(2f, LuPath("M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"), LuPath("M21 3v5h-5"), LuPath("M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"), LuPath("M8 16H3v5"))
     val chev = LuGlyph(2f, LuPath("m9 6 6 6-6 6"))
     val chevd = LuGlyph(2f, LuPath("m6 9 6 6 6-6"))
     val arrow = LuGlyph(2f, LuPath("M5 12h14M13 6l6 6-6 6"))

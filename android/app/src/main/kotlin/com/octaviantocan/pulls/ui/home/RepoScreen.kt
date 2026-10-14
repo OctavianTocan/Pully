@@ -199,6 +199,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", nav.back, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
+                FloatIcon(Lu.refresh, t("common.refresh"), { scope.launch { store.refresh() } }, enabled = !store.isRefreshing && !store.isLoading)
+                Spacer(Modifier.width(10.dp))
                 FloatIcon(Lu.ext, "Open on GitHub", { uri.openUri("https://github.com/$owner/$repo/pulls") })
             }
             Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {

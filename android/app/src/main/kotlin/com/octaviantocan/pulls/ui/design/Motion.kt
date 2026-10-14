@@ -13,6 +13,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -39,6 +41,7 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -98,15 +101,20 @@ fun Modifier.softBlur(radius: Dp): Modifier =
 
 /**
  * Swaps between screens of one page, such as the Inbox and Tours tabs: the leaving content fades
- * out blurring, the arriving content fades in sharpening (`--p8-*`, 250ms smooth-out).
+ * out blurring and slides 8dp away, the arriving content fades in sharpening from 8dp the other
+ * side (`--p8-*`, 250ms smooth-out). [order] ranks the screens left to right, so going back
+ * slides the other way; without it every change moves forward.
  */
 @Composable
-fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, content: @Composable AnimatedContentScope.(S) -> Unit) {
+fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int = { 0 }, content: @Composable AnimatedContentScope.(S) -> Unit) {
+    val travel = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
     AnimatedContent(
         targetState = target,
         modifier = modifier,
         transitionSpec = {
-            fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) togetherWith fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
+            val way = if (order(targetState) >= order(initialState)) 1 else -1
+            (fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { way * travel }) togetherWith
+                (fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { -way * travel })
         },
         label = "blur-switch",
     ) { state ->

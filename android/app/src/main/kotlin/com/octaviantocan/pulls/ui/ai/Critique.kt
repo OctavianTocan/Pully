@@ -308,7 +308,8 @@ private fun SeverityFilter(result: Critique, value: Set<String>, onChange: (Set<
             val on = severity in value
             SoftChip(
                 t("critique.severity.$severity"), on && count > 0,
-                { onChange(SEVERITIES.filter { if (it == severity) !on else it in value }.toSet()) },
+                // A severity with no findings is dimmed and cannot be toggled, so the filter keeps its value.
+                { if (count > 0) onChange(SEVERITIES.filter { if (it == severity) !on else it in value }.toSet()) },
                 Modifier.alpha(if (count == 0) 0.4f else 1f), count = "$count",
             )
         }

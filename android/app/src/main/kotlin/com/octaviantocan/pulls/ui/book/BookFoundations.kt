@@ -236,6 +236,7 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "branch" to Lu.branch,
     "copy" to Lu.copy,
     "stop" to Lu.stop,
+    "refresh" to Lu.refresh,
     "edit" to Lu.edit,
     "trash" to Lu.trash,
     "commit" to Lu.commit,

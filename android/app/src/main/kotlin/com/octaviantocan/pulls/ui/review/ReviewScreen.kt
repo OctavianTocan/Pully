@@ -186,7 +186,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
             opened == null -> PrOpening(target, preview, onBack = nav.back)
             opened != null && head != null -> {
-                BlurSwitch(pages.last()) { page ->
+                BlurSwitch(pages.last(), order = { it.ordinal }) { page ->
                     when (page) {
                         PrView.Overview -> PrOverviewScreen(
                             session, ui, top, data, head, overviewScroll, pane, { pane = it },

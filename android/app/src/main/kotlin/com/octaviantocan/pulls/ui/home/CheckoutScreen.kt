@@ -92,10 +92,10 @@ fun JsonObject.asRepoInfo(): RepoInfo {
 
 private const val BRANCH_LIMIT = 10
 
-/** Branches and tags whose name contains what was typed, none once it names one exactly. */
+/** Branches and tags whose name contains what was typed (the first few while it is blank), none once it names one exactly. */
 internal fun refSuggestions(value: String, names: List<String>, limit: Int = 8): List<String> {
     val q = value.trim().lowercase()
-    if (q.isEmpty() || names.any { it == value.trim() }) return emptyList()
+    if (q.isNotEmpty() && names.any { it == value.trim() }) return emptyList()
     return names.filter { it.lowercase().contains(q) }.take(limit)
 }
 
