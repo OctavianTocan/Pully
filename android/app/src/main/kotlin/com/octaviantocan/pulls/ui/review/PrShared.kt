@@ -36,6 +36,9 @@ internal data class PrHead(
     val repo: String?,
 )
 
+/** Approving or requesting changes needs an open pull request; an unknown state (a compare, or no overview yet) counts as open. */
+internal val PrHead.isOpen: Boolean get() = state != "merged" && state != "closed"
+
 internal fun prHead(session: ReviewSession, data: PrOverviewData?): PrHead? {
     val opened = session.prOpened ?: session.opened ?: return null
     val parent = when (val target = session.target) {

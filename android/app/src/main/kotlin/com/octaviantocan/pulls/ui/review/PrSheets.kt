@@ -134,7 +134,8 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
         if (value == null) value = fetchCatalog(repo, config.engine).getOrNull()
     }
     val pending = session.reviewData?.pendingCount ?: 0
-    val canReview = session.pull != null && session.canWrite && overview?.isOpen == true
+    // A pending review can be submitted or discarded on a closed pull request too; a new verdict needs an open one.
+    val canReview = session.pull != null && session.canWrite
     val number = head.label
     val blockedText = t("overview.merge.blocked.${data?.mergeability?.blocker ?: "blocked"}")
 
@@ -147,8 +148,12 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             QuickAction("GitHub", { if (head.url.isNotBlank()) uri.openUri(head.url) }, Modifier.weight(1f)) { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 22.dp) }
             QuickAction("Analyze again", {
                 onClose()
-                session.runAnalyze()
-                toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
+                if (session.taskFor("analyze")?.running == true) {
+                    toaster.show("Already analyzing")
+                } else {
+                    session.runAnalyze()
+                    toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
+                }
             }, Modifier.weight(1f)) { LuIcon(Lu.redo, tint = c.text, size = 22.dp) }
         }
 
@@ -159,13 +164,16 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             }
         }
 
-        if (canReview) SheetCard {
+        if (canReview && (pending > 0 || head.isOpen)) SheetCard {
             if (pending > 0) SheetRow("Submit comments", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, icon = { LuIcon(Lu.ask, tint = c.text) }) {
                 Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
             }
-            SheetRow("Approve", { top.reviewVerdict = "APPROVE"; top.reviewOpen = true; onClose() }, first = pending == 0, icon = { LuIcon(Lu.check, tint = c.text) })
-            SheetRow("Request changes", { top.reviewVerdict = "REQUEST_CHANGES"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.req, tint = c.text) }) {
-                if (pending > 0) Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
+            if (head.isOpen) {
+                if (pending == 0) SheetRow("Leave a comment", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, icon = { LuIcon(Lu.ask, tint = c.text) })
+                SheetRow("Approve", { top.reviewVerdict = "APPROVE"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.check, tint = c.text) })
+                SheetRow("Request changes", { top.reviewVerdict = "REQUEST_CHANGES"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.req, tint = c.text) }) {
+                    if (pending > 0) Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
+                }
             }
         }
 
@@ -224,8 +232,12 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             if (session.key != null && cliEngine(context)) {
                 SheetRow("Review with AI", {
                     onClose()
-                    session.runCritique(context, null)
-                    toaster.show("Reviewing $number")
+                    if (session.taskFor("critique")?.running == true) {
+                        toaster.show("Already reviewing $number")
+                    } else {
+                        session.runCritique(context, null)
+                        toaster.show("Reviewing $number")
+                    }
                 }, first = true, icon = { PhIcon("magnifying-glass-duotone", tint = c.text, size = 20.dp) })
                 SheetRow("Review through a lens", { onSheet("lens") }, icon = { PhIcon("lightbulb-duotone", tint = c.text, size = 20.dp) }) {
                     LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
@@ -290,11 +302,11 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
     val memory = remember { EngineModels(context) }
     var config by remember { mutableStateOf(ServerStore.load(context)) }
     var attempt by remember { mutableStateOf(0) }
+    // Restarts with the engine, so the producer starts from whatever the new engine has cached, never the old engine's list.
     val loaded by produceState<Result<CliCatalog>?>(ModelCatalogs.get(config.engine)?.let { Result.success(it) }, config.engine, attempt) {
-        if (value?.isSuccess != true || attempt > 0) {
-            value = null
-            value = fetchCatalog(repo, config.engine, refresh = attempt > 0)
-        }
+        val cached = if (attempt == 0) ModelCatalogs.get(config.engine) else null
+        value = cached?.let { Result.success(it) }
+        if (cached == null) value = fetchCatalog(repo, config.engine, refresh = attempt > 0)
     }
     val catalog = loaded?.getOrNull()
     fun save(next: ServerConfig) {

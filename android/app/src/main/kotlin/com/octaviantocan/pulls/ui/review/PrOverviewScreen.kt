@@ -123,6 +123,8 @@ internal fun PrOverviewScreen(
                     StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))
                 }
                 SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
+                val overviewError = session.overviewError
+                if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
                 StatsLine(session, data, onSheet)
                 val labels = buildList {
                     add("Summary")
@@ -138,10 +140,23 @@ internal fun PrOverviewScreen(
             }
         }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
-        BottomBar(session, ui, data, Modifier.align(Alignment.BottomCenter), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
+        BottomBar(session, head, Modifier.align(Alignment.BottomCenter), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
             top.reviewVerdict = "APPROVE"
             top.reviewOpen = true
         })
+    }
+}
+
+/** The conversation, checks and merge state did not load: say why, and offer to try again. */
+@Composable
+private fun OverviewError(message: String, onRetry: () -> Unit) {
+    val c = LocalPullsColors.current
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Couldn't load checks and conversation", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            Text(message, style = PullsType.xs, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        com.octaviantocan.pulls.ui.design.ActionButton(onRetry, small = true) { Text("Retry") }
     }
 }
 
@@ -382,7 +397,7 @@ private fun AnalysisBlock(session: ReviewSession) {
         running -> "Analyzing"
         failed -> "Analysis failed"
         tourRunning -> "Writing the tour"
-        else -> "Analyzed just now"
+        else -> "Analyzed"
     }
     Column(Modifier.fillMaxWidth().padding(top = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(
@@ -393,12 +408,7 @@ private fun AnalysisBlock(session: ReviewSession) {
                 Orb(done = !running && !tourRunning)
                 Text(title, Modifier.weight(1f), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                 if (running || tourRunning) {
-                    Box(
-                        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 40.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button) {
-                            listOf(analyzeTask, tourTask).forEach { task -> if (task?.running == true) session.cancelTask(task.id) }
-                        },
-                        contentAlignment = Alignment.Center,
-                    ) { Text("Stop", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
+                    StopButton { listOf(analyzeTask, tourTask).forEach { task -> if (task?.running == true) session.cancelTask(task.id) } }
                 }
                 LuIcon(Lu.chev, Modifier.rotate(if (logOpen) 90f else 0f), tint = c.faint, size = 18.dp)
             }
@@ -422,6 +432,16 @@ private fun AnalysisBlock(session: ReviewSession) {
             if (tourTask != null) AiActivityLog(tourTask.activities, tourRunning)
         }
     }
+}
+
+/** A text button that stops the AI work above it; 40dp tall so it is easy to hit. */
+@Composable
+private fun StopButton(onClick: () -> Unit) {
+    val c = LocalPullsColors.current
+    Box(
+        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 40.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text("Stop", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
 }
 
 /** `What needs a human`: what the AI review found, most serious first, each pointing at its line. */
@@ -449,16 +469,18 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
                 style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.text,
             )
         }
-        if (findings.size > shown.size) {
+        if (findings.isNotEmpty()) {
+            // The findings sheet is also where findings are picked and posted as a review, so it is offered for a short list too.
             Text(
-                "Show all ${findings.size}", Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
+                if (findings.size > shown.size) "Show all ${findings.size}" else "Open the review", Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
                 style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
             )
         }
         when {
             reviewing -> Row(Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BreathingDot()
-                Text("Looking for problems…", style = PullsType.sm, color = c.muted)
+                Text("Looking for problems…", Modifier.weight(1f), style = PullsType.sm, color = c.muted)
+                StopButton { critiqueTask?.let { session.cancelTask(it.id) } }
             }
             findings.isEmpty() && session.saved?.critique != null -> Text(
                 "The review found nothing that needs you.", Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,
@@ -569,8 +591,7 @@ private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
 @Composable
 private fun BottomBar(
     session: ReviewSession,
-    ui: DiffUi,
-    data: PrOverviewData?,
+    head: PrHead,
     modifier: Modifier,
     onAsk: () -> Unit,
     onMore: () -> Unit,
@@ -579,7 +600,7 @@ private fun BottomBar(
 ) {
     val c = LocalPullsColors.current
     val left = session.files.count { it.sha !in session.reviewed }
-    val canApprove = session.pull != null && session.canWrite && data?.overview?.isOpen == true
+    val canApprove = session.pull != null && session.canWrite && head.isOpen
     Row(
         modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),

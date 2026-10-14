@@ -171,6 +171,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     fun selectCommits(range: Pair<String, String>?) {
         val pull = pull ?: return
         val seq = ++selectSeq
+        val previous = selection
         selection = range
         loadError = null
         if (range == null) {
@@ -185,7 +186,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             val result = runCatching { repo.open(narrowed) }
             // A newer selection (fast previous/next taps) wins; drop this answer.
             if (seq != selectSeq) return@launch
-            result.onSuccess { opened = it; afterOpen() }.onFailure { loadError = it.message }
+            // On failure the diff on screen is still the previous one, so the selection goes back to match it.
+            result.onSuccess { opened = it; afterOpen() }.onFailure { loadError = it.message; selection = previous }
             loading = false
         }
     }

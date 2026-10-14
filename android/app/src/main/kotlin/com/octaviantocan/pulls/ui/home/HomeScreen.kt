@@ -204,6 +204,12 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     fun openPull(pull: PullRow) = nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
     fun archivePull(pull: PullRow) {
         val key = Triage.key(pull)
+        // Under All an archived row is still there, dimmed; swiping it again brings it back.
+        if (key in archive.keys) {
+            archive.restore(key)
+            toaster.show("Restored #${pull.number}")
+            return
+        }
         archive.archive(key)
         toaster.show("Archived #${pull.number}", "Undo") { archive.restore(key) }
     }
@@ -328,6 +334,7 @@ private fun InboxList(
                                 label = "#${pull.number} ${pull.title}",
                                 onOpen = { onOpen(pull) },
                                 onArchive = { onArchive(pull) },
+                                archived = key in archived,
                                 modifier = Modifier.animateItem(),
                             ) { PullRowContent(pull, now, dimmed = key in archived) }
                         }
@@ -369,7 +376,7 @@ private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, mod
  * it archives it. Short of that it springs back. Both are also offered to screen readers as actions.
  */
 @Composable
-private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, archived: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
     val density = LocalDensity.current
     var dx by remember { mutableFloatStateOf(0f) }
@@ -381,7 +388,7 @@ private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, m
         modifier
             .fillMaxWidth()
             .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
-            .semantics { customActions = listOf(CustomAccessibilityAction("Review") { onOpen(); true }, CustomAccessibilityAction("Archive") { onArchive(); true }) },
+            .semantics { customActions = listOf(CustomAccessibilityAction("Review") { onOpen(); true }, CustomAccessibilityAction(if (archived) "Restore" else "Archive") { onArchive(); true }) },
     ) {
         if (dx > 0f) {
             Row(
@@ -399,7 +406,7 @@ private fun SwipeRow(label: String, onOpen: () -> Unit, onArchive: () -> Unit, m
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
-                Text("Archive", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.onCta)
+                Text(if (archived) "Restore" else "Archive", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.onCta)
                 LuIcon(Lu.arch, tint = c.onCta, size = 22.dp)
             }
         }
@@ -525,6 +532,7 @@ private fun ToursList(entries: List<TourEntry>, onOpen: (TourEntry) -> Unit) {
         )
         return
     }
+    val now = rememberNow(60_000)
     val groups = entries.groupBy { "${it.owner}/${it.repo}" }
     val labels = Triage.groupLabels(groups.map { (name, list) -> Triage.RepoGroup(name, list.first().owner, list.first().repo, emptyList()) })
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom)) {
@@ -541,11 +549,11 @@ private fun ToursList(entries: List<TourEntry>, onOpen: (TourEntry) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Box(Modifier.size(30.dp)) {
-                        if (entry.writing) Orb(size = 30.dp) else ProgressRing(entry.reached, entry.stops, size = 30.dp)
+                        if (entry.writingAt(now)) Orb(size = 30.dp) else ProgressRing(entry.reached, entry.stops, size = 30.dp)
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(entry.prTitle, style = PullsType.row, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(tourSubtitle(entry), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(tourSubtitle(entry, now), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -554,8 +562,8 @@ private fun ToursList(entries: List<TourEntry>, onOpen: (TourEntry) -> Unit) {
 }
 
 /** `3 of 7 · Three lines that fix it`, `Writing · about a minute`, `Done · 4 stops`. */
-internal fun tourSubtitle(entry: TourEntry): String = when {
-    entry.writing -> "Writing · about a minute"
+internal fun tourSubtitle(entry: TourEntry, now: Long): String = when {
+    entry.writingAt(now) -> "Writing · about a minute"
     entry.done -> "Done · ${entry.stops} ${if (entry.stops == 1) "stop" else "stops"}"
     entry.reached > 0 -> "${entry.reached} of ${entry.stops} · ${entry.stopTitle}".trimEnd(' ', '·')
     else -> "${entry.stops} ${if (entry.stops == 1) "stop" else "stops"} · not started"
@@ -606,7 +614,7 @@ private fun ProfileSheet(
             SheetRow("Check out a branch", { onClose(); nav.checkout() }, first = true, icon = { PhIcon("git-branch-duotone", tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
-            SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, icon = { PhIcon("archive-duotone", tint = c.text, size = 20.dp) }) {
+            SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, icon = { LuIcon(Lu.arch, tint = c.text) }) {
                 PullsSwitch(showClosed, onShowClosed, "Show closed pull requests")
             }
             SheetRow("Refresh", if (updating) null else onRefresh, icon = { LuIcon(Lu.redo, tint = c.text, size = 20.dp) }) {

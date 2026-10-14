@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.ui.review
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -100,6 +101,7 @@ internal fun PrDiffScreen(session: ReviewSession, ui: DiffUi, path: String?, onP
     val index = files.indexOfFirst { it.path == path }.let { if (it < 0) 0 else it }
     val file = files.getOrNull(index)
     var menu by remember { mutableStateOf<String?>(null) }
+    BackHandler(enabled = menu != null) { menu = null }
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
 
@@ -255,7 +257,9 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
     val toaster = LocalToaster.current
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
-    var text by remember(file.path, selected?.line, selected?.startLine) { mutableStateOf("") }
+    // Tapping another line keeps what was typed (the comment follows the selection); deselecting or posting clears it.
+    var text by remember(file.path) { mutableStateOf("") }
+    LaunchedEffect(selected == null) { if (selected == null) text = "" }
     var busy by remember { mutableStateOf(false) }
     val canComment = session.canWrite && session.pull != null && !file.isBinary
     val label = selected?.let { s ->
@@ -389,6 +393,11 @@ internal fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onD
                 }
             }
             MenuRow("Wrap long lines", trailing = { PullsSwitch(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long lines") }) { settings.updateCodeWrap(!settings.codeWrap) }
+            if (session.reviewData != null) {
+                MenuRow("Show review comments", trailing = { PullsSwitch(settings.showThreads, { settings.updateShowThreads(it) }, "Show review comments") }) {
+                    settings.updateShowThreads(!settings.showThreads)
+                }
+            }
             if (file != null) MenuRow("Copy path") { copyText(context, file.path); toaster.show("Copied ${file.path.substringAfterLast('/')}"); onDismiss() }
             if (blob != null) MenuRow("Open on GitHub") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(blob))) }; onDismiss() }
             if (file != null && ui.canLoadFull(file)) MenuRow("Load the whole file") { ui.loadFullFile(file); onDismiss() }
@@ -439,7 +448,12 @@ private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, list
         val at = key?.let { ui.indexOf[it] }
         if (at != null) listState.animateScrollToItem(at, scrollOffset = -240)
         if (session.focus === target) session.focus = null
+    }
+    // Consuming the request changes the key above and cancels that effect, so the mark fades on its own timer.
+    val mark = ui.mark
+    LaunchedEffect(mark) {
+        if (mark == null) return@LaunchedEffect
         delay(2500)
-        if (ui.mark?.line == target.line && ui.mark?.path == file.path) ui.mark = null
+        if (ui.mark == mark) ui.mark = null
     }
 }

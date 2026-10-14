@@ -8,6 +8,7 @@ import com.octaviantocan.pulls.ui.home.TourEntry
 import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.ui.home.compactAge
 import com.octaviantocan.pulls.ui.home.compactCount
+import com.octaviantocan.pulls.ui.home.tourSubtitle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -134,6 +135,17 @@ class InboxTest {
         assertTrue(entry.copy(reached = 4).done)
         assertFalse(entry.copy(reached = 4, writing = true).done)
         assertFalse(entry.copy(stops = 0, reached = 0).done)
+    }
+
+    @Test
+    fun aTourLeftMidWriteStopsClaimingToBeWriting() {
+        val entry = TourEntry("acme", "app", 1, "First", stops = 0, reached = 0, stopTitle = "", writing = true, updatedAt = 1_000)
+        assertTrue(entry.writingAt(1_000 + 60_000))
+        assertEquals("Writing · about a minute", tourSubtitle(entry, 1_000 + 60_000))
+        val later = 1_000 + TourEntry.WRITING_STALE_MS
+        assertFalse(entry.writingAt(later))
+        assertEquals("0 stops · not started", tourSubtitle(entry, later))
+        assertFalse(entry.copy(writing = false).writingAt(1_000))
     }
 
     @Test

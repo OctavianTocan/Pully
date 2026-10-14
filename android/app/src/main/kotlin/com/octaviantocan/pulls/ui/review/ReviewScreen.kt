@@ -100,6 +100,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     fun orderedFiles() = fileSections(session, ui).flatMap { it.files }
     fun push(page: PrView) { if (pages.last() != page) pages.add(page) }
     fun back() { if (pages.size > 1) pages.removeAt(pages.lastIndex) else nav.back() }
+    // The tour can be the first page (opened from the Tours tab), so the overview may not be below it.
+    fun toOverview() {
+        if (PrView.Overview !in pages) pages.add(0, PrView.Overview)
+        while (pages.last() != PrView.Overview) pages.removeAt(pages.lastIndex)
+    }
     fun openDiff(path: String?) {
         val files = orderedFiles()
         diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
@@ -126,6 +131,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         }
         diffPath = wanted.path
         push(PrView.Diff)
+    }
+    // A refresh or a commit range failed while a diff is already on screen: the full-page error only shows before one is.
+    val loadError = session.loadError
+    LaunchedEffect(loadError) {
+        if (loadError != null && session.opened != null) toaster.show("Couldn't update: $loadError")
     }
     // GitHub refused an action (close, ready, draft…) while no sheet was there to say so.
     LaunchedEffect(top.actionError) {
@@ -177,8 +187,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         PrView.Tour -> PrTourScreen(
                             session, ui, head,
                             resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.reached } ?: 0 },
-                            onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title) },
+                            onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                             onBack = ::back,
+                            onOverview = ::toOverview,
                             onOpenSource = { source -> openSource(session, source, uri::openUri) },
                             onAsk = { question -> openAsk(forTour = true, initial = question) },
                         )
@@ -194,8 +205,12 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "effort" -> EffortSheet(session, onBack = { sheet = "model" }, onClose = { sheet = null })
                     "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->
                         sheet = null
-                        session.runCritique(context, lens)
-                        toaster.show("Reviewing ${head.label}")
+                        if (session.taskFor("critique")?.running == true) {
+                            toaster.show("Already reviewing ${head.label}")
+                        } else {
+                            session.runCritique(context, lens)
+                            toaster.show("Reviewing ${head.label}")
+                        }
                     }
                 }
                 ask?.let { request -> AskSheet(session, request.title, request.suggestions, request.initial) { ask = null } }
@@ -228,17 +243,17 @@ private fun openSource(session: ReviewSession, source: TourSource, openUri: (Str
 }
 
 /** Remembers how far into the tour the reader has been, never going back. */
-private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead, stop: Int, total: Int, title: String) {
+private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead, stop: Int, total: Int, title: String, writing: Boolean) {
     if (pull == null) return
     val key = "${pull.owner}/${pull.repo}#${pull.number}"
     val existing = tours.get(key)
-    if (existing != null && existing.reached >= stop && existing.stops == total && !existing.writing) return
+    if (existing != null && existing.reached >= stop && existing.stops == total && existing.writing == writing) return
     tours.upsert(
         TourEntry(
             pull.owner, pull.repo, pull.number, head.title, total,
             reached = maxOf(existing?.reached ?: 0, stop),
             stopTitle = if (existing == null || stop > existing.reached) title else existing.stopTitle,
-            writing = false, updatedAt = System.currentTimeMillis(),
+            writing = writing, updatedAt = System.currentTimeMillis(),
         ),
     )
 }

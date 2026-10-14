@@ -94,6 +94,16 @@ data class TourEntry(
 ) {
     val key: String get() = "$owner/$repo#$number"
     val done: Boolean get() = !writing && stops > 0 && reached >= stops
+
+    /**
+     * Whether it is still being written. Only an open review of the pull request updates the entry, so one
+     * that was left mid-write must not claim to be writing for ever.
+     */
+    fun writingAt(now: Long): Boolean = writing && now - updatedAt < WRITING_STALE_MS
+
+    companion object {
+        const val WRITING_STALE_MS = 15 * 60_000L
+    }
 }
 
 /** The tours listed under Tours, newest activity first. */
