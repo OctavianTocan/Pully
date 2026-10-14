@@ -192,7 +192,8 @@ fun ModalReveal(visible: Boolean, onDismissRequest: () -> Unit, properties: Dial
     val motion = rememberMotionEnabled()
     val state = remember { MutableTransitionState(false) }
     state.targetState = visible
-    if (!visible && !state.currentState) return
+    // Not yet idle covers a close during the entrance, when currentState is still false but the window is up.
+    if (!visible && !state.currentState && state.isIdle) return
     Dialog(onDismissRequest, properties) {
         AnimatedVisibility(
             state,
