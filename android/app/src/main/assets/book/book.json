@@ -1,0 +1,545 @@
+{
+  "pages": [
+    {
+      "id": "foundations/colors",
+      "title": "Colors",
+      "group": "Foundations"
+    },
+    {
+      "id": "foundations/typography",
+      "title": "Typography",
+      "group": "Foundations"
+    },
+    {
+      "id": "foundations/shapes",
+      "title": "Shapes",
+      "group": "Foundations"
+    },
+    {
+      "id": "foundations/spacing",
+      "title": "Spacing",
+      "group": "Foundations"
+    },
+    {
+      "id": "foundations/elevation",
+      "title": "Elevation",
+      "group": "Foundations"
+    },
+    {
+      "id": "foundations/motion",
+      "title": "Motion",
+      "group": "Foundations"
+    },
+    {
+      "id": "foundations/icons",
+      "title": "Icons",
+      "group": "Foundations"
+    },
+    {
+      "id": "components/float-button",
+      "title": "Float button",
+      "group": "Components",
+      "component": "float-button"
+    },
+    {
+      "id": "components/capsule-tabs",
+      "title": "Capsule tabs",
+      "group": "Components",
+      "component": "capsule-tabs"
+    },
+    {
+      "id": "components/soft-chip",
+      "title": "Soft chip",
+      "group": "Components",
+      "component": "soft-chip"
+    },
+    {
+      "id": "components/underline-tabs",
+      "title": "Underline tabs",
+      "group": "Components",
+      "component": "underline-tabs"
+    },
+    {
+      "id": "components/check",
+      "title": "Check",
+      "group": "Components",
+      "component": "check"
+    },
+    {
+      "id": "components/switch",
+      "title": "Switch",
+      "group": "Components",
+      "component": "switch"
+    },
+    {
+      "id": "components/cta-button",
+      "title": "CTA button",
+      "group": "Components",
+      "component": "cta-button"
+    },
+    {
+      "id": "components/sheet",
+      "title": "Sheet",
+      "group": "Components",
+      "component": "sheet"
+    },
+    {
+      "id": "components/sheet-card",
+      "title": "Sheet card",
+      "group": "Components",
+      "component": "sheet-card"
+    },
+    {
+      "id": "components/sheet-row",
+      "title": "Sheet row",
+      "group": "Components",
+      "component": "sheet-row"
+    },
+    {
+      "id": "components/quick-action",
+      "title": "Quick action",
+      "group": "Components",
+      "component": "quick-action"
+    },
+    {
+      "id": "components/toast",
+      "title": "Toast",
+      "group": "Components",
+      "component": "toast"
+    },
+    {
+      "id": "components/orb",
+      "title": "Orb",
+      "group": "Components",
+      "component": "orb"
+    },
+    {
+      "id": "components/progress-ring",
+      "title": "Progress ring",
+      "group": "Components",
+      "component": "progress-ring"
+    },
+    {
+      "id": "components/breathing-dot",
+      "title": "Breathing dot",
+      "group": "Components",
+      "component": "breathing-dot"
+    },
+    {
+      "id": "components/pending-dot",
+      "title": "Pending dot",
+      "group": "Components",
+      "component": "pending-dot"
+    },
+    {
+      "id": "components/ok-dot",
+      "title": "OK dot",
+      "group": "Components",
+      "component": "ok-dot"
+    },
+    {
+      "id": "components/skeleton",
+      "title": "Skeleton",
+      "group": "Components",
+      "component": "skeleton"
+    },
+    {
+      "id": "components/profile-dot",
+      "title": "Profile dot",
+      "group": "Components",
+      "component": "profile-dot"
+    },
+    {
+      "id": "checks/specs",
+      "title": "Component specs",
+      "group": "Checks"
+    },
+    {
+      "id": "checks/rules",
+      "title": "Rules",
+      "group": "Checks"
+    }
+  ],
+  "components": {
+    "float-button": {
+      "composable": "FloatButton",
+      "also": [
+        "FloatIcon"
+      ],
+      "summary": "A 44dp circle that floats on the page with the canvas shadow. Flat drops the fill and the shadow for sheet headers.",
+      "usage": [
+        "Hold one icon, and give it a label for accessibility: FloatIcon does both for a Lu glyph.",
+        "Every floating element carries the canvas shadow, so use this rather than a bare Box with a shadow.",
+        "Flat is for sheet headers only, where the sheet already floats."
+      ],
+      "rules": [
+        45,
+        47
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "flat",
+          "title": "Flat"
+        }
+      ]
+    },
+    "capsule-tabs": {
+      "composable": "CapsuleTabs",
+      "summary": "A white pill of equal segments with a sliding paper pill under the selected one.",
+      "usage": [
+        "Equal segments, one line of text each.",
+        "The selected segment slides with the slide curve.",
+        "Flat drops the shadow when the pill sits inside something that already floats."
+      ],
+      "rules": [
+        45,
+        54
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "flat",
+          "title": "Flat"
+        }
+      ]
+    },
+    "soft-chip": {
+      "composable": "SoftChip",
+      "summary": "A 36dp outlined pill that fills when selected. An optional count sits in the muted ink.",
+      "usage": [
+        "Use it for filters and choices that can be on or off.",
+        "The count is tabular so digits do not move the chip."
+      ],
+      "rules": [
+        47
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "underline-tabs": {
+      "composable": "UnderlineTabs",
+      "summary": "Text tabs on a hairline, the selected one underlined in the accent.",
+      "usage": [
+        "Summary and Description are underline tabs, never a boxed control.",
+        "The hairline is under the tabs only, none above.",
+        "Each tab is 42dp tall so it is easy to hit."
+      ],
+      "rules": [
+        28,
+        38,
+        54
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "check": {
+      "composable": "PullsCheck",
+      "summary": "A 22dp rounded box, white with a grey edge, filled with the accent and a white tick once on.",
+      "usage": [
+        "A bare checkbox and a word. No pill, no count.",
+        "Pass onClick for a tappable one, null for one that only shows state."
+      ],
+      "rules": [
+        41,
+        65
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "switch": {
+      "composable": "PullsSwitch",
+      "summary": "A 52 by 32dp switch: grey track off, accent track on, white thumb with a small shadow.",
+      "usage": [
+        "Give it a label: it is the accessible name.",
+        "Disabled dims it to half."
+      ],
+      "rules": [
+        47
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "cta-button": {
+      "composable": "CtaButton",
+      "summary": "The 52dp dark pill that carries one screen's main action.",
+      "usage": [
+        "One per screen, and never an irreversible action: those go behind the more menu.",
+        "The label is one line.",
+        "Leading and trailing take a Lu icon only when it carries a fact."
+      ],
+      "rules": [
+        7,
+        24
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "with-icon",
+          "title": "With icon"
+        }
+      ]
+    },
+    "sheet": {
+      "composable": "PullsSheet",
+      "summary": "A paper bottom sheet with 24dp top corners, a grabber, and a header of close button and centred title.",
+      "usage": [
+        "Sheets over pages: grouped actions, chat, composer and files open in one.",
+        "Content scrolls and a long one pulls all the way up (full).",
+        "It is a window, so this page draws its surface inline and opens the real one from a button."
+      ],
+      "rules": [
+        5,
+        58,
+        59
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "sheet-card": {
+      "composable": "SheetCard",
+      "summary": "A white 16dp card on a sheet's paper, with a soft shadow.",
+      "usage": [
+        "Put SheetRow children in it.",
+        "It is for sheets and grouped screens, one dialect everywhere."
+      ],
+      "rules": [
+        5,
+        49
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "sheet-row": {
+      "composable": "SheetRow",
+      "summary": "A 52dp row: a 22dp icon column, the label, a trailing value, and a hairline that starts after the icon.",
+      "usage": [
+        "First drops the hairline above it.",
+        "Danger colours the label for the action that cannot be undone, which still never sits first.",
+        "Iconless spans the hairline across the row and starts the label at the edge."
+      ],
+      "rules": [
+        5,
+        7,
+        49
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "iconless",
+          "title": "Iconless"
+        }
+      ]
+    },
+    "quick-action": {
+      "composable": "QuickAction",
+      "summary": "A 72dp tile with an icon over a label, used in rows of equal tiles on a sheet.",
+      "usage": [
+        "Put them in a Row with weight 1 each.",
+        "Keep the label to one word."
+      ],
+      "rules": [
+        5,
+        29
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "toast": {
+      "composable": "ToastHost",
+      "summary": "A dark pill above the bottom bars. It leaves after 2.4 seconds, or 4.2 when it offers an action.",
+      "usage": [
+        "There is one host for the whole app. Show a message with LocalToaster.current.show.",
+        "An action such as Undo is optional."
+      ],
+      "rules": [
+        47
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "orb": {
+      "composable": "Orb",
+      "summary": "The AI's mark. While work runs, a comet ring turns around the bot and the bot breathes. Done, it is a still wash.",
+      "usage": [
+        "AI work looks alive: show the orb while it runs and the outputs as they arrive.",
+        "One AI mark per screen."
+      ],
+      "rules": [
+        18,
+        37,
+        63
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "progress-ring": {
+      "composable": "ProgressRing",
+      "summary": "A grey track and an accent arc for n of N stops of a tour.",
+      "usage": [
+        "The arc animates between values.",
+        "Tour position lives in a sticky strip, not a counter in words."
+      ],
+      "rules": [
+        42,
+        43
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "breathing-dot": {
+      "composable": "BreathingDot",
+      "summary": "The live marker: a 10dp accent dot that breathes.",
+      "usage": [
+        "Use it for a thing that is happening now."
+      ],
+      "rules": [
+        18
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "pending-dot": {
+      "composable": "PendingDot",
+      "summary": "A hollow 10dp ring for a step that has not started.",
+      "usage": [
+        "Pair with OkDot and BreathingDot for the three states of a step."
+      ],
+      "rules": [
+        43
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "ok-dot": {
+      "composable": "OkDot",
+      "summary": "A 14dp green dot with a white tick, for a finished step.",
+      "usage": [
+        "Pair with PendingDot and BreathingDot for the three states of a step."
+      ],
+      "rules": [
+        43
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "skeleton": {
+      "composable": "Skeleton",
+      "summary": "A 12dp shimmering bar that stands in for text that is still being written.",
+      "usage": [
+        "Give it a width with the modifier.",
+        "Use it where the shape of the content is known, never as a loading screen."
+      ],
+      "rules": [
+        50,
+        51
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "profile-dot": {
+      "composable": "ProfileDot",
+      "summary": "The avatar placeholder: the warm gradient disc.",
+      "usage": [
+        "Only where a real author photo is not available, and never as decoration."
+      ],
+      "rules": [
+        1,
+        33
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    }
+  }
+}

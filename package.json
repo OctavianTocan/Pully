@@ -19,6 +19,9 @@
     "dev": "pnpm -F @pulls.review/app run dev",
     "lint": "eslint .",
     "typecheck": "pnpm -r run typecheck",
+    "android:design": "node android/scripts/design/check.mjs",
+    "android:design:update": "node android/scripts/design/check.mjs --update",
+    "android:design:test": "vitest run android/scripts/design",
     "test": "vitest run",
     "test:watch": "vitest",
     "release": "bumpp -r",
@@ -28,6 +31,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "catalog:dev",
     "@antfu/skills": "catalog:agentic",
+    "@google/design.md": "catalog:dev",
     "@types/node": "catalog:dev",
     "@unocss/eslint-config": "catalog:build",
     "bumpp": "catalog:dev",
@@ -38,6 +42,7 @@
     "skills-npm": "catalog:agentic",
     "tsdown": "catalog:build",
     "typescript": "catalog:dev",
-    "vitest": "catalog:testing"
+    "vitest": "catalog:testing",
+    "yaml": "catalog:dev"
   }
 }

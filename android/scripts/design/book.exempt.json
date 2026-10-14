@@ -1,0 +1,33 @@
+{
+  "composables": {
+    "ActionButton": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "AppModal": "A window, like PullsSheet, and the web-port modal Settings uses today (rule 49). It cannot be framed inside a page.",
+    "Badge": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "Card": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "DiffStats": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",
+    "EmptyState": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "FeedbackSpinner": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "FileIcon": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",
+    "FileStatus": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",
+    "GithubAvatar": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",
+    "IconButton": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "Loading": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "LuIcon": "Drawn for every glyph on the Icons page.",
+    "Markdown": "Renders the rules on the Rules page.",
+    "PhIcon": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "PrStatusIcon": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",
+    "ReviewCheckbox": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "SpinIcon": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "TextInput": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "ToggleGroup": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "faded": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "floatShadow": "Shown at each elevation on the Elevation page.",
+    "ink": "A TextStyle helper, not a visual component.",
+    "spin": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
+    "t": "An i18n lookup, not a visual component.",
+    "tc": "An i18n lookup, not a visual component."
+  },
+  "components": {
+    "toast": "ToastHost is one host for the whole app and draws at the bottom of the screen, so it cannot be measured inline. Its page shows the real one."
+  }
+}

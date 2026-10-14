@@ -1,0 +1,607 @@
+[
+  {
+    "n": 1,
+    "title": "Information first, decoration never.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "An element earns pixels by telling the reader something. Initial avatars, doc thumbnails, row glyphs, FAB, Share: cut. A real author photo is information; an initial is not."
+  },
+  {
+    "n": 2,
+    "title": "Complete identifiers, never truncated.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "PR titles wrap, never ellipsise. Repo + number always scannable. Branch means both ends: head → base. Diffstat always coloured."
+  },
+  {
+    "n": 3,
+    "title": "Dense but calm meta.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "All the facts (number, author, diffstat, checks, age) but never one cluttered line. Group, align, give variable fields fixed width."
+  },
+  {
+    "n": 4,
+    "title": "Lists are the backbone.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Rows grouped by repo, chips for scope. Tappable rows look tappable (chevron, pressed state). Swipe actions are the fast path. No explanatory copy or empty-state prose under a populated list."
+  },
+  {
+    "n": 5,
+    "title": "Sheets over the page, not new pages.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "Bottom sheets for grouped actions, chat, composer, files. Dim everything beneath, uniformly, including the header and the trigger."
+  },
+  {
+    "n": 6,
+    "title": "Words mean what they do.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Sections, not stops. Buttons name their effect. Cites say where they lead and are tappable. Every paragraph is labelled (Summary / Description)."
+  },
+  {
+    "n": 7,
+    "title": "Irreversible actions are never primary.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Merge lives behind the ⋯ menu. The bottom primary is the reviewing action (Review 4 files, Next)."
+  },
+  {
+    "n": 8,
+    "title": "No cards for numbers.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "Stat tiles / KPI cards are ugly. No boxed mini-widgets; typographic hierarchy on a flat page."
+  },
+  {
+    "n": 9,
+    "title": "The diff is the product.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Full-width lines, hunk expanders, word highlights, line numbers. Add/remove backgrounds clearly visible. Inline thread cards on their line. Files via a drawer or menu plus ‹ ›, never snapped tabs or horizontal swipe."
+  },
+  {
+    "n": 10,
+    "title": "Composer: two modes.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "Comment and Ask Pulls only. Split visual layout, not three text chips. No counters, no voice."
+  },
+  {
+    "n": 11,
+    "title": "Not wanted, ever.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "Voice/dictation. Suggestion mode. Share on PR/tour. “Up next” inside a tour. FAB with unclear scope. “Later” as a row action. Numbered step pips. Tiny provenance labels. Step counters in progress states."
+  },
+  {
+    "n": 12,
+    "title": "Scale and tone.",
+    "source": "canvas",
+    "checkedBy": [
+      "tokens",
+      "review"
+    ],
+    "text": "26px+ plain PR title (no chat bubble). Perplexity palette: warm off-white, teal accent, deep ink. Generous element size."
+  },
+  {
+    "n": 13,
+    "title": "Alignment first.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Number, author, age, diffstat sit in fixed columns so every row lines up. Test: add a digit, swap a longer author name. Nothing else may move. Misalignment is the first thing he sees."
+  },
+  {
+    "n": 14,
+    "title": "No tiny grey text.",
+    "source": "canvas",
+    "checkedBy": [
+      "raw-values",
+      "review"
+    ],
+    "text": "Small uppercase labels, eyebrows, provenance lines, counters (“1 of 4 reviewed”, “Section 3 of 7”) are awful. Body-size ink or nothing. Never below 15px, never uppercase-tracked. A section label is one word: Summary."
+  },
+  {
+    "n": 15,
+    "title": "One row anatomy everywhere.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A PR row is identical in Inbox, Tours, search: title, number, author, coloured diffstat, checks, age. Context-free counts (“7 sections”) never replace them."
+  },
+  {
+    "n": 16,
+    "title": "Status words only where they vary.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A group titled “Ready to read” does not repeat Ready on each row. Failing / passing get a real icon, not a dot."
+  },
+  {
+    "n": 17,
+    "title": "Swipe commits, tap opens.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Swipe left archives, swipe right opens the review, as full Mail-style gestures. No reveal-then-tap. Blur the displaced row content slightly. Keep clearance from anything revealed."
+  },
+  {
+    "n": 18,
+    "title": "AI work looks alive.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "In-progress analysis is a live, animated thinking indicator that feels smart. Never show the internal step. Make it tappable."
+  },
+  {
+    "n": 19,
+    "title": "Analyze is one action, three outputs.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Analysing a PR = summary + per-file explanations + tour. Call it Analyze, not Write tour. An unanalysed PR is a real state with a visible way in. Per-file explanations show on the file rows."
+  },
+  {
+    "n": 20,
+    "title": "Summary and Description, both first-class.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Description = what the author wrote. Summary = what the AI produced. One easy switch on the PR page."
+  },
+  {
+    "n": 21,
+    "title": "Identifiers look like GitHub's.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Branches are squarish pills, head → base, tap to copy. Cites keep the concept but drop mono and the current pill style; try Mona Sans."
+  },
+  {
+    "n": 22,
+    "title": "Counts: neither cards nor a run-on sentence.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "No stat tiles, and no “+180 −32 across 4 files · 2 commits · 2 checks failing · 0 of 4 reviewed” either. Aligned label/value columns where nothing moves when digits change."
+  },
+  {
+    "n": 23,
+    "title": "Sub-pages keep their context.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A tour section page carries the PR title and number in its header, with progress as a small element there. No pips, no eyebrow, no bottom “X of Y”."
+  },
+  {
+    "n": 24,
+    "title": "Buttons are one line.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "“Next unreviewed” becomes “Next”. A wrapped label is a defect."
+  },
+  {
+    "n": 25,
+    "title": "Nothing overflows the frame.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "No horizontal scroll, no scrollbar, nothing inside the 16px margin. Sliding rows clip inside the frame. Render at 390×844 before publishing."
+  },
+  {
+    "n": 26,
+    "title": "Meta lines are one line.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Author · repo #number · age on one line; head → base on one line. Each segment ellipsises, nothing wraps."
+  },
+  {
+    "n": 27,
+    "title": "Icons, not words, for segment navigation.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Overview / Changes / Tour is three icons in a capsule. Words are for tabs inside a page."
+  },
+  {
+    "n": 28,
+    "title": "Summary / Description are underline tabs.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "Pills are spent on chips, branches and cites."
+  },
+  {
+    "n": 29,
+    "title": "The ⋯ sheet is on every PR screen.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Checks, GitHub, Analyze again; Approve, Request changes, Squash and merge, Merge when checks pass, Convert to draft, Close. Reachable from the PR, diff and tour headers."
+  },
+  {
+    "n": 30,
+    "title": "Ask is a quiet toolbar.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "“✦ Ask | ⋯” in a floating capsule beside the primary button. Never a second Ask inside a comment card. A sparkle alone is not a label: AI actions get a word or a real icon."
+  },
+  {
+    "n": 31,
+    "title": "Tour sections scroll.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "One scrolling page, no Next button. Progress is the ring in the header. Room at the bottom for the Ask toolbar."
+  },
+  {
+    "n": 32,
+    "title": "Both swipes.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Right = Review (accent). Left = Archive (dark). Both commit, both blur the displaced row."
+  },
+  {
+    "n": 33,
+    "title": "No avatars on list rows.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Identity on a row is the author name in its own column. The reader’s avatar lives in the inbox header; the author’s photo on the PR page."
+  },
+  {
+    "n": 34,
+    "title": "Notes about a file look like comments.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "An AI note on a diff is a comment card by “Pulls”: white, rounded, soft shadow. Not a loose line above the code."
+  },
+  {
+    "n": 35,
+    "title": "Search is a bottom bar on every inbox.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Profile at the top, “Search or ask Pulls” floating at the bottom, no search icon in the header."
+  },
+  {
+    "n": 36,
+    "title": "Two accepted row anatomies.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Canonical: P’s number column, then the title; author, checks, diffstat, age in fixed columns. Alternative: U’s status circle + number leading the row. Nothing else."
+  },
+  {
+    "n": 37,
+    "title": "One real AI icon.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "An icon from a published set (Lucide sparkles), never a hand-drawn glyph. One per screen: it marks the AI actor, not labels that are already words."
+  },
+  {
+    "n": 38,
+    "title": "Tabs are an underline, not a box.",
+    "source": "canvas",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "A hairline under Summary / Description and the accent underline on the active tab. No hairline above."
+  },
+  {
+    "n": 39,
+    "title": "Cites sit on the text line.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Same cap height as the body, no vertical padding; tint and a thin border do the “different” work. Never taller than the line, never alone on a line."
+  },
+  {
+    "n": 40,
+    "title": "Air between blocks.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A comment card or stats row never touches the diff. At least 24px above the diff’s top edge."
+  },
+  {
+    "n": 41,
+    "title": "Checkboxes are bare.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Reviewed is a checkbox and a word. No pill, chip or border around it."
+  },
+  {
+    "n": 42,
+    "title": "Tour position lives in a sticky strip.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "N of M · title · ring is a sticky strip under the header; it updates as the next section reaches the top. The count exists only there, never inline above a section title."
+  },
+  {
+    "n": 43,
+    "title": "Progress states show the work, not blanks.",
+    "source": "canvas",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "No shimmer bars standing in for content. The live orb plus the outputs with their state: done, writing, pending."
+  },
+  {
+    "n": 44,
+    "title": "Show states interactively.",
+    "source": "canvas",
+    "checkedBy": [
+      "book",
+      "review"
+    ],
+    "text": "Once a row is accepted, the next deliverable is a clickable prototype with real transitions: tabs, sheets, swipes, comment reply, the tour scroll."
+  },
+  {
+    "n": 45,
+    "title": "Shadows match the canvas on every floating element.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "raw-values",
+      "book",
+      "review"
+    ],
+    "text": "The header round buttons, the bottom search pill, the comment bar, the Tour card and the Ask bar all carry the canvas shadow (`floatShadow`). A missing or different shadow is a defect, not a nit. It was the most repeated complaint in the walkthrough.\n\nCheck: put each floating element beside Row W. Same shadow, or fix it."
+  },
+  {
+    "n": 46,
+    "title": "Blur is part of how things move, in three places.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "- Scroll edges: row titles blur as they scroll under the top header and under the bottom bar.\n- The swiped row blurs as it is displaced, as in the design. This is the same thing as rules 17 and 32.\n- Tab switches: the list rearranging between Inbox tabs is liked and keeps its motion. It needs a blur transition. The exact blur is not specified yet."
+  },
+  {
+    "n": 47,
+    "title": "Build to the canvas measurably. \"Different\" is a defect.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "tokens",
+      "raw-values",
+      "book",
+      "review"
+    ],
+    "text": "\"Close\" is not accepted. What was flagged:\n\n- Spacing inside Inbox rows, horizontal and vertical.\n- A divider under the top buttons that the canvas has and the Inbox lacks. Tours has it, so the header treatment must be the same on every tab.\n- The bottom search pill sits too low. Raise it. On the Tour the Ask bar is not high enough either.\n- On the Overview the top part is bigger in the design and is not stuck to the top of the phone.\n\nCheck: render the screen and the canvas row at the same size, side by side, before showing it. Measure gaps. Do not eyeball them."
+  },
+  {
+    "n": 48,
+    "title": "Icons: keep the coloured Claude Code and Codex marks, cut the rest.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "- Only the Claude Code and Codex marks stay, in colour.\n- The model is shown by its own icon. The Model row on the Tour should show the icon of the model that was selected, not a generic one.\n- No generic AI glyph, no decorative icon.\n- Never the same icon twice on one card. Ask of every icon what fact it carries. This is rule 1 applied to icons.\n\nOpen: rule 37 keeps one Lucide sparkles icon per screen as the AI mark. The walkthrough does not say whether that mark stays. Keep rule 37 unless Tavi says otherwise. Which icons on the Tours rows, the Overview, the old menu, the Tour card and the buttons were meant is not named, so those need the frames or Tavi."
+  },
+  {
+    "n": 49,
+    "title": "One visual dialect: every screen is in the mobile style.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "A screen that looks like the old app is a defect. Seen on:\n\n- Settings: font, spacing and pills differ from the rest, and it has the old icons. Its model selector must be the mobile one already made.\n- The Commands menu.\n- The menu behind the project name.\n- A menu in the Diff with the wrong font, whose rows should be coloured as in the diff.\n- Another old-looking menu with an old icon.\n\nReuse the components already built for mobile (model selector, sheets) instead of rebuilding a web version. The profile sheet is the reference for right.\n\nCheck: for every screen reachable from the main flow, ask \"does this look like the old app?\" before shipping."
+  },
+  {
+    "n": 50,
+    "title": "Never make the reader wait for what the app already knows.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Opening a PR shows the title, the number and the rest of the header at once, because they are already loaded. Moving between the Overview tabs has no load: content loads as the reader scrolls, the first items appear immediately, and the data is already fetched in the background. Which tab was meant is not named."
+  },
+  {
+    "n": 51,
+    "title": "No loading screens. If something must wait, use skeletons.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "This is for page and list content whose shape is known. It does not override rule 43: AI work in progress (Analyzing) still shows the live orb and its outputs, with no shimmer bars."
+  },
+  {
+    "n": 52,
+    "title": "Refresh is silent.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "Pull down must not show a refresh indicator. The app refreshes by itself and does not show it."
+  },
+  {
+    "n": 53,
+    "title": "If it looks tappable, it does something.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The project heading on Tours looks tappable and does nothing. It should open the project. On the Overview, tapping the project name goes to a menu in the old style, so the project destination must be in the new style (rule 49). The author name on the Overview does respond to a tap, which is right. This is rule 4's \"tappable rows look tappable\", run the other way."
+  },
+  {
+    "n": 54,
+    "title": "Tabs are easy to hit.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The tabs on the Overview are hard to hit. The hit area was not measured. Rule 12 asks for generous element size, and the kit's touch target is 44dp (`TOUCH`)."
+  },
+  {
+    "n": 55,
+    "title": "The bottom pill is the one way to find a PR.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "- It reads \"Search or ask Pulls\" as in the design (rule 35). The app shows \"Search\".\n- It takes pasted links and PR numbers as well as text.\n- So the \"Open pull request\" field in the profile sheet goes."
+  },
+  {
+    "n": 56,
+    "title": "Row gestures are the same on Inbox and Tours.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tours rows do nothing when swiped. They get a cancel on one side and open on the other, and tap still opens. This follows rules 15, 17 and 32: one row anatomy, both swipes, blur the displaced row."
+  },
+  {
+    "n": 57,
+    "title": "Swiping moves between the Overview tabs.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Swiping left and right changes between the Overview tabs (the canvas calls them Summary and Description; the walkthrough says Description and Conversation) with easy, clean swipes. Rule 9 still holds: files in the diff are never switched by horizontal swipe."
+  },
+  {
+    "n": 58,
+    "title": "Sheets with long content pull all the way up.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Two bottom sheets on the Tour cannot be pulled fully up. Rule 5 prefers sheets over pages, so a sheet has to behave like a full surface when its content needs it. Sheets at their normal height are fine, the profile sheet included."
+  },
+  {
+    "n": 59,
+    "title": "Menus and sheets open and close with a transition.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A menu in the Diff, probably the file menu, needs an open and a close transition. A reference showing how those transitions should look is pending from Tavi. Rule 44 applies once it arrives."
+  },
+  {
+    "n": 60,
+    "title": "A control appears only where it works.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The Smaller / Default / Larger menu on the Tour does nothing there, so drop it. Same principle as rule 1: if it does not tell or do anything, cut it."
+  },
+  {
+    "n": 61,
+    "title": "Commands is a designed menu in the app's style, with fewer things in it.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "- The current one is in the wrong style. Make a new design in the same style as everything else, and make it nice.\n- It may hold too many things. \"Review with AI\" and \"Review through lens\" need a decision.\n- Tentative, not a rule yet: open it on pull down.\n- Open: how Commands relates to rule 29's ⋯ sheet."
+  },
+  {
+    "n": 62,
+    "title": "Ask never needs Analyze first.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tapping Ask opens the bottom sheet with the chat, and the reader chats straight away. The current screen is not acceptable. Rule 19 makes an unanalysed PR a real state, so Ask has to work in that state."
+  },
+  {
+    "n": 63,
+    "title": "AI actions answer the tap at once and never strand the reader.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Pressing Analyze gave slow feedback. A double tap cancelled the run, and after the cancel there was no way to restart.\n\nChecks:\n\n- The first tap shows a response immediately.\n- A second tap cannot cancel. Cancelling is a deliberate action.\n- A cancelled or failed run always offers a way to start again.\n- No state is a dead end."
+  },
+  {
+    "n": 64,
+    "title": "The comment composer is a bar you type into.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tapping at the bottom of the diff opens a comment and in-review control that is not liked. It used to be a bar you could just type in, which is better, and the buttons can be integrated into it. It is also missing its shadow (rule 45). A few variants are to be tried, so treat the form as open. This is the app-side counterpart of rule 10."
+  },
+  {
+    "n": 65,
+    "title": "Reviewed moves you on.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Pressing Reviewed moves to the next file that is not reviewed, and marks the finished file, for example by greying it out a little. Rule 41 still holds: Reviewed itself stays a bare checkbox and a word."
+  }
+]

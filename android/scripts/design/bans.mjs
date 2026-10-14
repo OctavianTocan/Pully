@@ -1,0 +1,181 @@
+// Ratchet on banned imports and calls: Material widgets the kit replaces, Material icons,
+// speech input, outgoing share, stat tiles, the web-port kit and the waiting components.
+// A ban with an empty baseline is a hard ban. A ban with a baseline is frozen: the departures that
+// exist today are counted per file and may only fall. Lift a ban by editing the table below, or
+// excuse one line with `// ban-ok: <reason>`. Nothing is skipped silently.
+import { join } from 'node:path'
+import { ANDROID, blank, excusedLines, kotlinFiles, lineIndex, readAndroid, shortPath } from './kotlin.mjs'
+import { compare, readBaseline, writeBaseline } from './ratchet.mjs'
+
+export const NAME = 'bans'
+export const BASELINE = join(ANDROID, 'scripts', 'design', 'bans.baseline.json')
+const UPDATE = 'pnpm run android:design:update'
+
+/** Material components the kit has no use for or has replaced. Anything else under material3 is a ban. */
+const MATERIAL_OK = [
+  'Text',
+  'Icon',
+  'MaterialTheme',
+  'ColorScheme',
+  'Typography',
+  'lightColorScheme',
+  'darkColorScheme',
+  'LocalContentColor',
+  'LocalTextStyle',
+  'ProvideTextStyle',
+  'ExperimentalMaterial3Api',
+  'contentColorFor',
+]
+
+/** Material pieces that only the kit's own wrappers may use. */
+const KIT_ONLY = [
+  'ModalBottomSheet',
+  'ModalBottomSheetDefaults',
+  'rememberModalBottomSheetState',
+  'SheetState',
+  'SheetValue',
+  'BottomSheetDefaults',
+  'DropdownMenu',
+  'DropdownMenuItem',
+]
+
+/** Files that may use KIT_ONLY: the kit. */
+const KIT_FILES = ['ui/design/']
+
+/** The web-port kit in `Components.kt`: one visual dialect only (rule 49). */
+const LEGACY_KIT = ['ActionButton', 'ToggleGroup', 'ReviewCheckbox', 'TextInput', 'Badge', 'EmptyState', 'Card']
+
+/** Its icon dialect: Phosphor glyphs by name instead of the Lucide `Lu` glyphs. */
+const LEGACY_ICONS = ['PhIcon', 'IconButton', 'HeaderIcon']
+
+const WAITING = ['Loading', 'SpinIcon', 'FeedbackSpinner', 'CircularProgressIndicator', 'LinearProgressIndicator']
+
+const MATERIAL = /^androidx\.compose\.material3\.(\w+(?:\.\w+)*)$/
+
+const call = names => new RegExp(`(?<!fun\\s)(?<![\\w.])(?:${names.join('|')})\\s*\\(`, 'g')
+
+/**
+ * `import` bans test the imported name; `call` bans test code with strings and comments blanked.
+ * `allowIn` lists path prefixes that are exempt.
+ */
+export const BANS = {
+  'material-component': {
+    label: 'Material components the kit replaces',
+    rules: [1, 8, 28, 38, 49],
+    advice: 'Use the kit: CtaButton, FloatButton, PullsSwitch, PullsCheck, UnderlineTabs, CapsuleTabs, SoftChip.',
+    importOf(name) {
+      if (name === 'androidx.compose.material3.*')
+        return true
+      const m = MATERIAL.exec(name)
+      if (!m)
+        return false
+      const leaf = m[1].split('.')[0]
+      return !MATERIAL_OK.includes(leaf) && !KIT_ONLY.includes(leaf) && leaf !== 'pulltorefresh'
+    },
+  },
+  'material-sheet-menu': {
+    label: 'Material sheets and menus outside the kit',
+    rules: [5, 49],
+    advice: 'Use PullsSheet or AppModal.',
+    allowIn: KIT_FILES,
+    importOf: name => KIT_ONLY.some(leaf => name === `androidx.compose.material3.${leaf}`),
+  },
+  'material-pull-refresh': {
+    label: 'pull-to-refresh indicators',
+    rules: [52],
+    advice: 'Refresh is silent: refresh in the background and show nothing.',
+    importOf: name => name.startsWith('androidx.compose.material3.pulltorefresh.'),
+  },
+  'material-icons': {
+    label: 'Material icons',
+    rules: [1, 48],
+    advice: 'Ask which fact the icon carries. If one is needed, use a Lu glyph.',
+    importOf: name => name.startsWith('androidx.compose.material.icons.') || name.startsWith('androidx.compose.material.Icon'),
+  },
+  'speech': {
+    label: 'speech input',
+    rules: [10, 11],
+    advice: 'No voice or dictation, ever.',
+    importOf: name => name.startsWith('android.speech.'),
+    call: /\b(?:SpeechRecognizer|RecognizerIntent)\b/g,
+  },
+  'share-out': {
+    label: 'outgoing share',
+    rules: [11],
+    advice: 'No Share on a PR or a tour.',
+    call: /\bIntent\.createChooser\(|\bShareCompat\b/g,
+  },
+  'stat-tile': {
+    label: 'stat tiles',
+    rules: [8, 22],
+    advice: 'Typographic hierarchy on a flat page, with aligned label and value columns.',
+    call: /\bfun\s+(?:Stat|Kpi|Metric)(?:Tile|Card)\b/g,
+  },
+  'legacy-kit': {
+    label: 'uses of the web-port kit',
+    rules: [49],
+    advice: 'Use the mobile kit in Kit.kt. The web-port kit is frozen.',
+    allowIn: ['ui/design/Components.kt'],
+    call: call(LEGACY_KIT),
+  },
+  'legacy-icons': {
+    label: 'uses of the Phosphor icon dialect',
+    rules: [48, 49],
+    advice: 'Use Lu glyphs from Icons.kt, and only where the icon carries a fact.',
+    allowIn: ['ui/design/Components.kt'],
+    call: call(LEGACY_ICONS),
+  },
+  'waiting': {
+    label: 'loading screens and spinners',
+    rules: [51],
+    advice: 'Show a Skeleton where the content will be. AI work in progress keeps its orb.',
+    allowIn: ['ui/design/Components.kt'],
+    call: call(WAITING),
+  },
+}
+
+export const RULES = [...new Set(Object.values(BANS).flatMap(ban => ban.rules))].sort((a, b) => a - b)
+
+/** The kinds the ratchet reports, in the shape `compare` wants. */
+export const KINDS = BANS
+
+const allowed = (ban, file) => (ban.allowIn ?? []).some(prefix => file.startsWith(prefix))
+
+const IMPORT = /^import\s+([\w.]+(?:\.\*)?)(?:\s+as\s+\w+)?\s*$/gm
+
+/** Offsets in `code` where `ban` matches, by its imports and by its call pattern. */
+function offsetsOf(ban, code, imports) {
+  const found = ban.importOf ? imports.filter(m => ban.importOf(m[1])).map(m => m.index) : []
+  return ban.call ? [...found, ...[...code.matchAll(ban.call)].map(m => m.index)] : found
+}
+
+/** `hits[ban][file]`: the line of every ban hit in `sources` (short path to text) not excused with `// ban-ok:`. */
+export function scan(sources) {
+  const hits = Object.fromEntries(Object.keys(BANS).map(id => [id, {}]))
+  for (const [file, source] of Object.entries(sources)) {
+    const code = blank(source)
+    const lineAt = lineIndex(code)
+    const excused = excusedLines(source, 'ban-ok')
+    const imports = [...code.matchAll(IMPORT)]
+    for (const [id, ban] of Object.entries(BANS).filter(([, b]) => !allowed(b, file))) {
+      const lines = offsetsOf(ban, code, imports).map(lineAt).filter(line => !excused.has(line))
+      if (lines.length > 0) {
+        hits[id][file] = lines
+      }
+    }
+  }
+  return hits
+}
+
+export function readSources() {
+  return Object.fromEntries(kotlinFiles().map(path => [shortPath(path), readAndroid(path)]))
+}
+
+export function check({ update = false } = {}) {
+  const hits = scan(readSources())
+  if (update) {
+    writeBaseline(BASELINE, hits)
+    return { name: NAME, problems: [], written: [BASELINE] }
+  }
+  return { name: NAME, problems: compare(hits, readBaseline(BASELINE), KINDS, UPDATE), written: [] }
+}
