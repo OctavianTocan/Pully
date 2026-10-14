@@ -200,7 +200,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             onOpenRepo = nav.openRepo,
                         )
                         PrView.Diff -> PrDiffScreen(
-                            session, ui, diffPath, { diffPath = it },
+                            session, ui, diffPath, data?.overview, { diffPath = it },
                             onBack = ::back,
                             tourLive = tourRunning,
                             onOverview = ::toOverview,
@@ -225,8 +225,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "more" -> MoreSheet(session, top, data, head, onClose = { sheet = null }, onSheet = { sheet = it })
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
                     "commits" -> data?.overview?.let { CommitsSheet(session, it) { sheet = null } }
+                    "files" -> FilesSheet(session, ui, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
-                    "edit" -> data?.overview?.let { DescriptionEditSheet(session, it) { sheet = null } }
                     "analyze" -> AnalyzeSheet(session, onClose = { sheet = null }, onModel = { sheet = "model" })
                     "model" -> ModelSheet(session.settings, onClose = { sheet = null }, onEffort = { sheet = "effort" })
                     "effort" -> EffortSheet(session.settings, onBack = { sheet = "model" }, onClose = { sheet = null })

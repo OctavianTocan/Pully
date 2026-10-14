@@ -79,22 +79,6 @@ internal data class Glyph(val name: String, val tint: @Composable () -> Color)
 @Composable private fun fadeTint() = LocalPullsColors.current.fade
 @Composable private fun muteTint() = LocalPullsColors.current.text.copy(alpha = 0.5f)
 
-/** `CHECKS_ICON` in `status-icons.ts`, keyed by `ChecksStatus`. */
-internal fun checksGlyph(state: String?): Glyph? = when (state) {
-    "success" -> Glyph("check-bold") { WebColors.green(LocalPullsColors.current.dark) }
-    "failure" -> Glyph("x-bold") { WebColors.red(LocalPullsColors.current.dark) }
-    "pending" -> Glyph("circle-fill") { WebColors.amber500 }
-    else -> null
-}
-
-/** `CHECK_BUCKET_ICON`. */
-internal fun bucketGlyph(bucket: String): Glyph = when (bucket) {
-    "failing" -> checksGlyph("failure")!!
-    "pending" -> checksGlyph("pending")!!
-    "passing" -> checksGlyph("success")!!
-    else -> Glyph("prohibit") { muteTint() }
-}
-
 /** `REVIEW_DECISION_ICON`. */
 internal fun decisionGlyph(decision: String?): Glyph? = when (decision) {
     "approved" -> Glyph("check-circle-duotone") { WebColors.green(LocalPullsColors.current.dark) }

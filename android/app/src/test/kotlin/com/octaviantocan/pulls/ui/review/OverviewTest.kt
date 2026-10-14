@@ -232,6 +232,24 @@ class OverviewFormatTest {
     }
 
     @Test
+    fun aFoldedCommentShowsItsFirstLineAsPlainWords() {
+        assertEquals("Why this change?", commentPreview("<h2>Why this change?</h2><p>See the cache key.</p>"))
+        assertEquals("See the cache key and a note.", commentPreview("<p>See the <a href=\"https://x\"><code>cache key</code></a> and a <strong>note</strong>.</p>"))
+        assertEquals("Looks good to me", commentPreview("<p dir=\"auto\">Looks <em>good</em> to me</p><p>second paragraph</p>"))
+        assertEquals("first line after the blank ones", commentPreview("<p></p><ul><li>first line after the blank ones</li></ul>"))
+        assertEquals("", commentPreview(""))
+    }
+
+    @Test
+    fun botsAreToolsNotPeople() {
+        assertTrue(isBotLogin("coderabbitai"))
+        assertTrue(isBotLogin("CodeRabbitAI"))
+        assertTrue(isBotLogin("some-app[bot]"))
+        assertFalse(isBotLogin("OctavianTocan"))
+        assertFalse(isBotLogin(null))
+    }
+
+    @Test
     fun htmlKeepsHeadingsListsAndLinks() {
         val md = htmlToMarkdown(
             """<h2 dir="auto">Why</h2>

@@ -115,6 +115,7 @@ internal fun PrDiffScreen(
     session: ReviewSession,
     ui: DiffUi,
     path: String?,
+    overview: PrOverview?,
     onPath: (String) -> Unit,
     onBack: () -> Unit,
     tourLive: Boolean,
@@ -139,6 +140,8 @@ internal fun PrDiffScreen(
                 Spacer(Modifier.weight(1f))
                 SectionCapsule(selected = 1, live = tourLive, onOverview = onOverview, onChanges = {}, onTour = onTour, onMore = onMore)
             }
+            // The diff is narrowed to a commit: say so, with the way back, where the page cannot scroll it away (rule 80).
+            CommitRangeBanner(session, overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             FileStrip(
                 file, position = index + 1, count = files.size, expanded = menu == "files",
                 modifier = Modifier.onGloballyPositioned { stripBottom = it.positionInRoot().y + it.size.height },
