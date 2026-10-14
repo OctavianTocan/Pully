@@ -196,7 +196,8 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                 }
             }
             // Merging later is the row under merging now (rule 29): on while it waits, off again from the same row. Its label
-            // lines up under the merge row's, and the row and its switch do the same thing.
+            // lines up under the merge row's, and the row and its switch do the same thing. It follows the blocker, not
+            // `ready`: an admin who could bypass protection may still choose to wait for it.
             val method = overview.merge.defaultMethod
             val autoMerge: (() -> Unit)? = when {
                 overview.autoMergeMethod != null && overview.viewer.canDisableAutoMerge -> {
@@ -207,7 +208,7 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                         }
                     }
                 }
-                !mergeability.ready && overview.viewer.canEnableAutoMerge && mergeability.blocker in AUTO_MERGE_WAITS -> {
+                overview.viewer.canEnableAutoMerge && mergeability.blocker in AUTO_MERGE_WAITS -> {
                     {
                         onClose()
                         top.run(session, "auto-merge", onOk = { toaster.show("$number will merge when its checks pass") }) {
