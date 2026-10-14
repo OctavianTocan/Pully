@@ -10,7 +10,7 @@ import { compare, countsOf } from './ratchet.mjs'
 import * as rawValues from './raw-values.mjs'
 import { checkChecklist, checkRules } from './rules.mjs'
 import { buildSpec, parseDesign, parseRules } from './spec.mjs'
-import { compareColors, compareScale, compareTypography } from './tokens.mjs'
+import { compareColors, compareScale, compareTypography, neutralDarkProblems } from './tokens.mjs'
 
 const FRONT = {
   typography: { 'xs': { fontSize: '13px' }, 'xs-wide': { fontSize: '12px' }, 'sm': { fontSize: '15px' } },
@@ -240,6 +240,16 @@ describe('tokens', () => {
     assert.ok(problems.some(p => p.includes('dark palette has extra')))
     assert.ok(problems.some(p => p.includes('colors.muted: DESIGN.md #888888, Tokens.kt #999999')))
     assert.deepEqual(compareColors({ colors: { 'a': '#ABCDEF', 'dark-a': '#012345' } }, { a: '#abcdef' }, { a: '#012345' }), [])
+  })
+
+  it('wants the dark surfaces to be neutral greys', () => {
+    const neutral = Object.fromEntries(['base', 'text', 'muted', 'faint', 'border', 'border-mute', 'raised', 'sunken', 'code', 'secondary', 'gray', 'paper', 'paper-2', 'cta', 'on-cta', 'chip-on'].map(n => [`dark-${n}`, '#1D1D1D']))
+    assert.deepEqual(neutralDarkProblems({ colors: neutral }), [])
+    assert.deepEqual(neutralDarkProblems({ colors: { ...neutral, 'dark-raised': '#1D1D1F' } }), [])
+    const cast = neutralDarkProblems({ colors: { ...neutral, 'dark-base': '#0C1B1F' } })
+    assert.equal(cast.length, 1)
+    assert.match(cast[0], /colors\.dark-base is #0C1B1F, which has a colour cast/)
+    assert.match(neutralDarkProblems({ colors: {} })[0], /not a six digit hex colour/)
   })
 
   it('compares every field of a type role and treats missing tracking as zero', () => {

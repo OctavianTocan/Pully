@@ -86,12 +86,14 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.MenuReveal
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.PullsShadow
-import com.octaviantocan.pulls.ui.design.edgeBlur
+import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import kotlinx.coroutines.launch
 
 /**
@@ -180,7 +182,7 @@ internal fun PrTourScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp
                 LazyColumn(
-                    Modifier.fillMaxSize().edgeBlur(top = 20.dp, topStrength = { if (listState.canScrollBackward) 1f else 0f }),
+                    Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, topStrength = { listState.topEdgeStrength(with(density) { PullsMotion.EdgeTop.toPx() }) }),
                     state = listState,
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                     verticalArrangement = Arrangement.spacedBy(14.dp),

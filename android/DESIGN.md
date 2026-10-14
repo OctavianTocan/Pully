@@ -50,18 +50,18 @@ colors:
   diff-del-mark: "#EDB5AA"
   shadow: "#0E333A"
   scrim: "#0E333A61"
-  dark-base: "#0C1B1F"
-  dark-text: "#E4EEEF"
-  dark-muted: "#8FA6A9"
-  dark-faint: "#6B8286"
-  dark-border: "#263A3E"
-  dark-border-mute: "#1B2D31"
+  dark-base: "#161616"
+  dark-text: "#E3E3E3"
+  dark-muted: "#9D9D9D"
+  dark-faint: "#707070"
+  dark-border: "#2B2B2B"
+  dark-border-mute: "#242424"
   dark-hover: "#FFFFFF14"
   dark-active: "#FFFFFF1F"
-  dark-raised: "#13282C"
-  dark-sunken: "#173035"
-  dark-code: "#112429"
-  dark-secondary: "#112429"
+  dark-raised: "#1D1D1D"
+  dark-sunken: "#212121"
+  dark-code: "#1B1B1B"
+  dark-secondary: "#1B1B1B"
   dark-primary: "#1B7580"
   dark-primary-600: "#165E66"
   dark-active-text: "#6CC3CB"
@@ -70,17 +70,17 @@ colors:
   dark-warning: "#F2A14B"
   dark-blue: "#60A5FA"
   dark-purple: "#C084FC"
-  dark-gray: "#6B8286"
+  dark-gray: "#707070"
   dark-orange: "#FB923C"
   dark-amber: "#FBBF24"
   dark-accent-teal: "#4FB7C1"
   dark-accent-orange: "#F57A4F"
   dark-accent-magenta: "#C65FBF"
-  dark-paper: "#112429"
-  dark-paper-2: "#173035"
-  dark-cta: "#E4EEEF"
-  dark-on-cta: "#0C1B1F"
-  dark-chip-on: "#1F3A3F"
+  dark-paper: "#1B1B1B"
+  dark-paper-2: "#212121"
+  dark-cta: "#E3E3E3"
+  dark-on-cta: "#161616"
+  dark-chip-on: "#2A2A2A"
   dark-accent-wash: "#14363B"
   dark-accent-wash-ink: "#9AD3D6"
   dark-diff-add: "#123B3A"
@@ -191,11 +191,11 @@ motion:
   toast: 350ms in, 250ms out
   swap: 150ms ease-in-out
   progress: 400ms
-  press: scale 0.97
+  press: tint while held, nothing moves
   breathe: 1200ms reverse loop
   orb-turn: 1600ms linear loop
   orb-breath: 900ms reverse loop
-  shimmer: 1500ms linear loop
+  shimmer: 1200ms linear loop
   thinking-shimmer: 1200ms linear loop
 elevation:
   button: 10px
@@ -307,7 +307,7 @@ components:
     rounded: "{rounded.full}"
     size: 14px
   skeleton:
-    backgroundColor: "{colors.paper-2}"
+    backgroundColor: "{colors.chip-on}"
     rounded: "{rounded.md}"
     height: 12px
   profile-dot:
@@ -351,7 +351,7 @@ Spacing steps are 4, 8, 12, 16, 24 and 32. The code also uses 6, 10, 14 and 18 i
 
 ## Elevation & Depth
 
-Floating things carry the canvas shadow from Row W, drawn by `floatShadow`: a soft ink drop two pixels down (`0 2px 10px` at 8% for a header circle or capsule), never an even glow all round. Compose's own elevation cannot offset a shadow, which is why it looked faint and flat on the phone, so `floatShadow` draws the drop itself from API 28 and falls back to a plain elevation below that. It comes in seven levels, named for what carries them: `button` (10px blur, 8%), `note` (12px, 10%, cards and quick actions), `bar` (14px, 12%, the bottom and comment bars), `search` (16px, 12%, the search pill and the Ask bar), `menu` (20px, 14%, four pixels down, for popovers), `thumb` (3px, 20%, the switch thumb) and `modal` (40px, 22%, a centered dialog). The `elevation` tokens are those blurs in dp. In dark mode the strength is multiplied by 2.7 so the drop still reads on the dark paper. A missing or different shadow on a floating element is a defect (rule 45).
+Floating things carry the canvas shadow from Row W, drawn by `floatShadow`: a soft ink drop two pixels down (`0 2px 10px` at 8% for a header circle or capsule), never an even glow all round. Compose's own elevation cannot offset a shadow, which is why it looked faint and flat on the phone, so `floatShadow` draws the drop itself from API 28 and falls back to a plain elevation below that. It comes in seven levels, named for what carries them: `button` (10px blur, 8%), `note` (12px, 10%, cards and quick actions), `bar` (14px, 12%, the bottom and comment bars), `search` (16px, 12%, the search pill and the Ask bar), `menu` (20px, 14%, four pixels down, for popovers), `thumb` (3px, 20%, the switch thumb) and `modal` (40px, 22%, a centered dialog). The `elevation` tokens are those blurs in dp. Under each drop sits a tight layer, a 1dp drop with a 1px blur at half the strength, which is the dark edge right at the border that Perplexity's shadows have. In dark mode the strength is multiplied by 2.7 so the drop still reads on the dark paper. A missing or different shadow on a floating element is a defect (rule 45).
 
 The canvas shadows are one soft layer pushed down, in the ink colour `rgba(14,51,58)` (the sheet's is black): the round header buttons and the mode capsule `0 2px 10px` at 8%, the search pill `0 2px 16px` at 12%, the bottom toolbar `0 2px 14px` at 12%, a note card `0 2px 12px` at 10%, and the bottom sheet `0 -4px 30px rgba(0,0,0,.18)`. `floatShadow` draws it: one soft layer pushed down, at a level for each of those elements (rule 45 and the Decision log).
 
@@ -400,15 +400,15 @@ The web-port kit (`ActionButton`, `IconButton`, `ToggleGroup`, `TextInput`, `Bad
 
 ## Motion
 
-The `motion` tokens record what the kit uses today. It animates with `tween`. Durations in use: 150ms for a check filling, 200ms for chips, switches and tab ink, 250ms with the smooth-out curve for the capsule's sliding pill, 350ms in and 250ms out for the toast and 400ms for the progress ring. Live marks loop: the breathing dot at 1200ms, the orb's ring at 1600ms linear and its bot at 900ms, the skeleton shimmer at 1500ms.
+The `motion` tokens record what the kit uses today. It animates with `tween`. Durations in use: 150ms for a check filling, 200ms for chips, switches and tab ink, 250ms with the smooth-out curve for the capsule's sliding pill, 350ms in and 250ms out for the toast and 400ms for the progress ring. Live marks loop: the breathing dot at 1200ms, the orb's ring at 1600ms linear and its bot at 900ms, the skeleton's light band at 1200ms (rule 85).
 
-Every pressable scales to 0.97 on pointer-down and answers with no delay. AI work in progress is a live, animated mark and never a blank (rules 18 and 43). A swiped row blurs slightly as it is displaced (rules 17, 32 and 46): the canvas row moves about 132 to 136dp with a 1.3px blur and a side shadow, `-8px 0 18px` at 14% one way and `8px 0 18px` at 16% the other. A segmented pill's highlight slides to the tapped segment and the content fades in (rule 67). Anything that exists in both states of a screen keeps its position (rule 69). Move things with transform and opacity.
+Pressing tints the pressed thing flat (`active`, through `PullsIndication`, in 80ms in and 150ms out) and nothing moves, scales or ripples (rule 82). It answers with no delay. AI work in progress is a live, animated mark and never a blank (rules 18 and 43). A swiped row blurs slightly as it is displaced (rules 17, 32 and 46): the canvas row moves about 132 to 136dp with a 1.3px blur, which is what the app uses now and a side shadow, `-8px 0 18px` at 14% one way and `8px 0 18px` at 16% the other. A segmented pill's highlight slides to the tapped segment and the content fades in (rule 67). Anything that exists in both states of a screen keeps its position (rule 69). Move things with transform and opacity.
 
 Rule 73 gives the numbers motion is moving to, taken from transitions.dev: 150ms for closes and text swaps, 250ms for opens and tabs, 400ms for panels, one smooth-out curve `cubic-bezier(0.22, 1, 0.36, 1)`, 2px of blur on small things. Menus (`MenuReveal`), tab and page switches (`BlurSwitch`), the capsule's sliding pill, the toast and the thinking line (`ThinkingSwap`) use them, and so now do icon swaps (`IconSwap`: 250ms, the old glyph shrinks to a quarter and blurs 2px away as the new one grows in), the dialog (`ModalReveal`: 250ms in from 0.96, 150ms out), the checkbox (the box fills in 150ms, then the tick is drawn in 350ms) and the bottom sheet (`PullsSheet`, our own window since 0.7.3: it slides up in 400ms and down in 350ms while it fades through a 2px blur, follows a drag with its scrim, and a pull or flick down past a third of the way, or a fast throw, closes it; a sheet that opens half way lifts to full height when dragged or flicked up, and scrolling its content raises it first). Looping effects, the menus, tab and page switches, the thinking line, icon swaps, the dialog and the sheet hold still when the system setting "Remove animations" is on (`rememberMotionEnabled`); the older tweens (chips, switches, tab ink, the capsule's pill, the toast, the checkbox and the progress ring) do not check it themselves.
 
 ## Rules
 
-Rule numbers are one running list, so "rule 47" is unambiguous. Rules 1 to 44 come from the design canvas (Row W is the latest row) and are copied word for word from its rule notes, which Tavi wrote from his earlier recordings. Rules 45 to 65 were written from Tavi's phone walkthrough of the built app on 2026-10-14, one rule for each thing said, so each applies to screens that were not mentioned. Rules 66 to 70 come from Tavi's review of the Perplexity mobile app on 2026-10-13, kept as a reference: 66 to 70 are rules (70 was confirmed on 2026-10-14). Rules 71 to 73 come from Tavi's answers of 2026-10-14: bars beside a live indicator, the thinking text, and the motion numbers.
+Rule numbers are one running list, so "rule 47" is unambiguous. Rules 1 to 44 come from the design canvas (Row W is the latest row) and are copied word for word from its rule notes, which Tavi wrote from his earlier recordings. Rules 45 to 65 were written from Tavi's phone walkthrough of the built app on 2026-10-14, one rule for each thing said, so each applies to screens that were not mentioned. Rules 66 to 70 come from Tavi's review of the Perplexity mobile app on 2026-10-13, kept as a reference: 66 to 70 are rules (70 was confirmed on 2026-10-14). Rules 71 to 73 come from Tavi's answers of 2026-10-14: bars beside a live indicator, the thinking text, and the motion numbers. Rules 74 to 99 come from his second phone walkthrough of the same day (build 0.7.3, 28 minutes): fading edges, two-height sheets, a neutral dark mode, pressing that never moves anything, a fixed-height Analyze card, the diff's short top, and what the AI writes.
 
 Each rule ends with where it is checked. `review` means a person looks, against the checklist below. The other names are scripts in `android/scripts/design` and are explained under Enforcement. The `rules` check fails when a rule has no such line, names a check that does not exist, or a check names a rule that does not list it.
 
@@ -926,6 +926,228 @@ Check: open and close one menu, one sheet, one dialog and one toast. Each takes 
 
 Source: answers. Checked by: bans, review.
 
+### Rules 74 to 99, from the second phone walkthrough of 2026-10-14
+
+The 73 points of Tavi's second walk through build 0.7.3 became rules 74 to 99. Features and one-off fixes that are not rules (the repository switches, Check out a branch going, the follow-up questions) live in the plan, not here. Rule 9's "never switched by a horizontal swipe" is replaced by rule 93, rule 64 by rule 94, and the profile sheet's exemption in rule 58 by rule 77.
+
+#### 74. Fixed edges fade. They never cut or smear.
+
+Anything pinned at the edge of something that scrolls has an edge fade on the content that passes under it: the chips and header on Home, a sheet's header, the Tour strip, the bottom search pill. The content goes to the page colour over about 32dp at the top (longer at a tall pill, about 130dp at the bottom of Home) with a blur that grows toward the pinned edge. The blur is made from content that continues past the edge, so a row at the edge is softened and faded, never stretched or sliced. The fade stops at the pinned thing. It never blurs a chip, a button or a header. Nothing white sits behind a floating pill: the rows fade into the page and the pill carries its own shadow.
+This is rule 46's first bullet, made exact.
+
+Check: scroll a list slowly and fast under each pinned header and pill. No row ends in a hard line, no text is stretched into blocks, the chips and buttons stay sharp, and nothing white sits under a pill.
+
+Source: overhaul. Checked by: review.
+
+#### 75. A group title has one line under it. A heading has none.
+
+A group title in a list (the repository titles in the Inbox) has the single hairline under it that the canvas has (rule 47). It has none above it, so the first title has nothing between it and the chips, and a title never has a line above and below at once. A section heading on a page (Files, What needs a human, Brief) has no line under it in any state of the page.
+It replaces the "try a separator under Files" of B3 and B4: nothing is added, and the line under What needs a human goes.
+
+Check: look at every heading on Home, the Overview and the Analyze result. Group titles have one line under them. Headings have none.
+
+Source: overhaul. Checked by: review.
+
+#### 76. Dark mode is a neutral grey.
+
+In dark mode every surface is a grey with no colour cast: the red, green and blue values differ by at most 2. The accent stays teal. Values read off Perplexity's dark mode in his recording (frames 05:42 and 06:06): page #161616, raised surfaces and the composer #1D1D1D, chips and the segment track #212121, sheet paper #1B1B1B, border #2B2B2B, text #E3E3E3, muted text #9D9D9D. The light theme is unchanged.
+
+Check: dark mode beside Perplexity's, with the same content. The greys match and nothing looks blue or green.
+
+Source: overhaul. Checked by: tokens, review.
+
+#### 77. Sheets rest at two heights.
+
+A sheet with more content than fits rests at half height (or at its content height when that is less) or at full height, and slides between them. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text.
+It replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.
+
+Check: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it.
+
+Source: overhaul. Checked by: review.
+
+#### 78. A sheet opened from a sheet is a page inside it.
+
+Language from Settings, Select model from the Analyze card, Effort from the model list: the new content slides sideways inside the same sheet. The sheet and its lip stay still, the header stays fixed, the ✕ becomes ←, and back returns to where you were with the scroll position kept. The parent never closes and reopens. This is how Claude's app does it. Switching an engine inside a picker changes its list in place and does not close the sheet.
+It makes rule 66 exact for sheets.
+
+Check: open a page inside a sheet and go back. Only the content moved, the sheet did not blink, and the list is where you left it.
+
+Source: overhaul. Checked by: review.
+
+#### 79. A sheet's body is its list.
+
+Commits, Files and Checks are plain lists in a sheet, with no panel inside the panel. Rows are bigger (at least 60dp) with whole titles that wrap, as rows are everywhere else. No instruction names a key a phone does not have ("shift-click"). Checks lists failed first, then running, then passed, and a row taps through to the check.
+
+Check: open each of the three sheets. A list on the sheet's own paper, whole titles, rows as big as in the Inbox.
+
+Source: overhaul. Checked by: review.
+
+#### 80. A narrowed view always shows the way back.
+
+When a screen shows part of something, such as one commit of six, a bar that stays on screen says so ("Viewing commit 3 of 6") and carries a "Show all" pill. Nobody has to find the way back.
+
+Check: pick one commit. The way to see all changes is visible without scrolling or opening a menu.
+
+Source: overhaul. Checked by: review.
+
+#### 81. Settings show what you are choosing.
+
+Where a setting changes how something looks, the control is the thing itself, as a small sample. Diff layout is two small diffs you tap. Code size is three sizes with a line of code under them that resizes. Code font is a list where each font is set in its own face on a sample line. A word or an icon is only for a setting that has no look.
+
+Check: open Settings. Every look-changing setting shows its result without leaving the sheet.
+
+Source: overhaul. Checked by: review.
+
+#### 82. Pressing tints. It never moves anything.
+
+A row, a tile, a card or a sheet row tints while it is held and nothing else: no scale, no shift, no growth. Small controls (round buttons, pills, chips, the send circle) may keep their 0.97 press. A tap on a heading that opens nothing does not change colour either.
+Which "these" he meant at 27:56 is my reading: he says it right after the Checks and ⋯ sheets, so I took it to be the sheet's rows and tiles.
+
+Check: press and hold a row in each sheet, a card on the Overview and a tile in the ⋯ sheet. Only the tint changes.
+
+Source: overhaul. Checked by: review.
+
+#### 83. Edit where it is. Confirm with a toast.
+
+Text you own is edited where it is: tapping the title or description of your own pull request turns it into a field, and leaving it saves. There is no "Edit" button. A control that copies or toggles keeps its face: copying the branch shows a small toast ("Branch name copied") and the pill goes on showing the branch.
+
+Check: tap the title of your own PR. Tap the branch pill. Neither changes what is around it.
+
+Source: overhaul. Checked by: review.
+
+#### 84. Send is off until there is something to send.
+
+A send button is grey and does nothing until the field has text.
+
+Check: open every composer empty. The send button is disabled.
+
+Source: overhaul. Checked by: review.
+
+#### 85. Skeletons shimmer.
+
+Every skeleton bar carries a shimmer: a soft band, about 40% of the bar's width, sweeps left to right every 1200ms on a linear curve, in light and dark. With the system setting "Remove animations" the bar sits still. A skeleton that does not move is a defect. Under a live indicator the bars of rule 71 do the same.
+
+Check: put each skeleton on screen for three seconds. The light visibly passes through it.
+
+Source: overhaul. Checked by: review.
+
+#### 86. A card that works keeps its height.
+
+Nothing on a page moves while AI works. The Analyze card is one fixed height (72dp) in every state: idle, running and finished. Its status is one line that ends in an ellipsis, because this is not important content and tapping it shows more. The step chips are not in the card while it runs, and the log opens in a sheet. A new line or a wrapped chip never moves what is below.
+
+Check: run an analysis and watch the page. Nothing above or below the card moves.
+
+Source: overhaul. Checked by: review.
+
+#### 87. One job, one control.
+
+Stop is the orb: tapping where the orb is stops the run, and there is no second Stop pill or second icon. A repeat action is the try-again arrow with an accessibility label, not the word Redo. A control that explains itself in a line of its own ("The Analyze button runs the last choice") goes, which is rule 1.
+Rule 63 holds: a second quick tap never cancels.
+
+Check: look at the Analyzing card and the result. Each job has one control.
+
+Source: overhaul. Checked by: review.
+
+#### 88. Pages slide. They never pop.
+
+Opening a PR from a row, going between Overview tabs and returning all slide the new page in from the side it belongs to, with the numbers of rule 73 for "page side by side" (250ms, 8dp, a fade, 3px of blur). Swiping between Summary and Description moves the whole section with the finger, as a page. Opening from a swiped row uses the same slide as opening by a tap.
+It extends rule 57.
+
+Check: open a PR from a row by tap and by swipe, then swipe between tabs. A slide every time and the section follows the finger.
+
+Source: overhaul. Checked by: review.
+
+#### 89. A picker shows the short list first.
+
+A list of models or engines shows the few most people want, newest first, and folds the rest under one closed "Older models" heading. A row is a name only, with no ID line and no description unless the name alone is not enough. The recommended choice carries a "Recommended" pill (26dp tall, 13sp bold, in the accent wash) and the selected one a plain, larger ✓, never the word "Default" beside a check. The footnote under a list is tiny, as in Claude's. There is no custom model ID field.
+F34 stays: choosing a model on this sheet starts the analysis.
+
+Check: open the model sheet for each engine beside Claude's. The same shape.
+
+Source: overhaul. Checked by: review.
+
+#### 90. A path is cut from the left.
+
+A path shows its end, because the end is what tells files apart: "…/domains/practice/components". Tapping the path line shows the whole path. The file name comes first. People's names and titles wrap whole (rule 2) and are not cut with an ellipsis.
+
+Check: put a long path on a file row and in the diff header. The end of the path is readable, the whole path is one tap away and no name is cut.
+
+Source: overhaul. Checked by: review.
+
+#### 91. Long threads fold.
+
+Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. "commented" is never written, because it can only be a comment. The commit groups stay as they are.
+
+Check: open a Conversation with ten comments. Every one folds and unfolds, and none says "commented".
+
+Source: overhaul. Checked by: review.
+
+#### 92. The top of a code screen is short. The code gets the screen.
+
+The file name is centred in the header, big enough to read, with the folder path above it in small dim mono (rule 90) and the counter beside it. A note about the file is part of the scrolling content and scrolls away with the code, so pinned chrome is the header and a compact file bar, about 20% of the screen and not 45%. The file ends where the code ends: nothing scrolls into empty space, only room to clear the ‹ › buttons.
+
+Check: open a file with a long path and a long note. Pinned chrome is no more than a fifth of the screen. Scroll to the end: the last line is the last thing.
+
+Source: overhaul. Checked by: review.
+
+#### 93. Swiping the diff goes to the next file. The header never shifts.
+
+A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons. This reverses the "never switched by horizontal swipe" half of rule 9, as he asked. From the last file, a swipe left continues to the next view. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and Aa on the Diff. Swiping between the three never moves the header, and the Aa menu is a bottom sheet.
+
+Check: swipe between files and between views. The header is the same pixels throughout.
+
+Source: overhaul. Checked by: review.
+
+#### 94. One way to start a comment, one sheet to write it in.
+
+The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. A sheet opens with a field, a small selector for "In review" or "Comment now" that is the two states of the Comment button, and the thread under the line as a card (rule 9). It does not repeat what is already on screen. Tapping a file note opens Ask with that note attached.
+This replaces rule 64's "a bar you type into" and the toolbar of rule 49. The form is open: he is making options in a Claude Design artifact, and the default until then is option A, one sheet.
+
+Check: comment on three lines. One sheet, one field, and nothing on the screen says the same thing twice.
+
+Source: overhaul. Checked by: review.
+
+#### 95. Code, flows and tables in AI text work like the diff.
+
+A code block in a tour or an answer is the diff's code view: syntax colours, sideways scroll, pinch zoom. A flow is drawn by the app from structured data, never printed as text. A table keeps a readable width for each column (the description never below about 230dp) and scrolls sideways with a fade at its edge. Inline code shows as code and never with its backticks.
+
+Check: open a tour with a code block, a flow and a table. The code scrolls and zooms, the flow is drawn, no column is squeezed to four characters.
+
+Source: overhaul. Checked by: review.
+
+#### 96. What the AI mentions is a link.
+
+Every mention of a file, line, symbol or dimension, in a note, the summary, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline. They look like what they are and sit on the text line (rule 39).
+He called F43 "super, super, super important", so the agents' instructions say it and a check makes sure.
+
+Check: tap every cite in an analysis. Each scrolls to its place.
+
+Source: overhaul. Checked by: review.
+
+#### 97. The Tour strip is calm.
+
+The strip is one line under the header: a ring, the title and a chevron, each in its own column so the text never runs under the ring. The title is one line with an ellipsis or two whole lines, never cut in half. The ring fills continuously with the tour's scroll position, not in jumps. "2 of 4" is not shown (rule 11). The chevron opens the sections as a bottom sheet with the read ones ticked. When the tour ends there is no "Back to the pull request" button: the header or a swipe leaves it. The strip takes the edge fade of rule 74.
+
+Check: scroll a tour slowly. The ring fills as you go, the title is whole, and the last screen has no button.
+
+Source: overhaul. Checked by: review.
+
+#### 98. No machinery on content screens.
+
+A tour or a note does not show the model name, token counts or cache numbers. They live in Settings and the model sheet. Rewrite is an icon at the card's corner with no word.
+
+Check: search each AI screen for a model name or a token count. None, except in the pickers.
+
+Source: overhaul. Checked by: review.
+
+#### 99. Ask replies are plain text.
+
+The AI's reply has no box, fill or shadow. Only your own message is a bubble, in the accent colour. There is never a bubble with dots in it. "Clear" is not a word on the screen: a new-chat button sits at the top right. Under each answer, sources are chips that scroll to the place, and two or three follow-up questions that tap to send, written each turn by a small fast model. The thinking streams as it happens (rule 72). The ⋯ menu of Perplexity is not copied.
+
+Check: ask a question. A plain reply, source chips, follow-ups, no dots bubble and no "Clear".
+
+Source: overhaul. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -936,6 +1158,12 @@ These were liked in the walkthrough and must not regress:
 - The Files list on the Overview. A separator under the "Files" heading may be tried: in the not-analyzed state nothing divides it from the Analyze card above.
 - The description on the Overview.
 - The Diff screen, and its pinch zoom.
+- Pull down for Commands, and its search.
+- The Settings sheet.
+- Choosing a model on the Analyze sheet starts the analysis.
+- The Analyze button, the Analyzing card's look and the "Look for problems" row.
+- Mark reviewed, then the next file.
+- The Tour's sections and the Glossary, and the commit groups in Conversation.
 
 ## Checklist
 
@@ -972,8 +1200,20 @@ Run before showing any new screen.
 29. The header line is a verb with elapsed seconds and the step lines are sentences with a dot, no icon and no italics, and a dim band shimmers through the text (rule 72).
 30. Search every screen for an AI icon (a sparkle, a robot, a brain). None. The brand marks of Claude Code and Codex (rule 48) and the live indicator are not AI icons in this sense.
 31. Open and close a menu, a sheet, a dialog and a toast; the times and easing match rule 73.
+32. Scroll a list slowly and fast under each pinned header and pill. No row ends in a hard line, no text is stretched, chips and buttons stay sharp, and nothing white sits under a pill (rule 74).
+33. Every heading: group titles have one line under them and none above, headings have none (rule 75).
+34. Open every sheet: two stops, a fixed header, nothing sliced under it (rule 77).
+35. Open a page inside a sheet and go back: only the content moved, and the scroll position is kept (rule 78).
+36. Press a row, a tile and a card: only the tint changes (rule 82).
+37. Run an analysis: nothing on the page moves (rule 86).
+38. Dark mode has no colour cast in any surface (rule 76).
+39. Scroll to the end of a diff file: the last line is the end, and pinned chrome is no more than a fifth of the screen (rule 92).
+40. Swipe between files and between the three views: the header does not move (rule 93).
+41. Comment on a line: one way in, one sheet (rule 94).
+42. Tap every cite in an analysis: each scrolls to its place (rule 96).
+43. Every skeleton visibly shimmers for three seconds in light and in dark (rule 85).
 
-The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) and the checks from Tavi's answers (28 to 31). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
+The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) the checks from Tavi's answers (28 to 31) and the checks from the second walkthrough (32 to 43). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
 
 ## Enforcement
 
@@ -985,11 +1225,11 @@ pnpm run android:design:update    rewrite the generated files and the baselines,
 pnpm run android:design:test      vitest suite of the checks themselves
 ```
 
-1. **tokens.** `design.md lint` (from `@google/design.md`) on this file: it fails on a broken reference. Then the Kotlin is compared with the front matter: every colour and its dark pair, every type role (family, size, weight, line height, tracking), `PullsRadius` and `PullsSpace`. A colour without a dark pair fails. `app/src/main/assets/book/spec.json` is written from this file and fails when stale. Rules 12 and 47.
+1. **tokens.** `design.md lint` (from `@google/design.md`) on this file: it fails on a broken reference. Then the Kotlin is compared with the front matter: every colour and its dark pair, every type role (family, size, weight, line height, tracking), `PullsRadius` and `PullsSpace`. A colour without a dark pair fails. `app/src/main/assets/book/spec.json` is written from this file and fails when stale. Rules 12, 47 and 76.
 2. **raw-values.** A ratchet. It counts raw hex colours, raw font sizes and raw radii in the Kotlin per file, text set below 15 (`xs`, `compact`, `mini`, `micro`), uppercase and tracked text, and raw shadows (`.shadow(`) outside the shadow helper, and compares them with `raw-values.baseline.json`. The count may only go down: a new raw value fails, and a file that drops below its baseline fails until `android:design:update` lowers it, which locks the gain in. A line can opt out with `// raw-value-ok: <reason>`. Rules 14, 45 and 47.
 3. **bans.** Importing a Material widget the kit replaces (buttons, switches, checkboxes, text fields, dialogs, tabs, cards, dividers, progress indicators, FABs), Material icons or Android speech input, and an outgoing share, fail. Material's `ModalBottomSheet` is banned everywhere, because its slide and close timing cannot follow rule 73, and `DropdownMenu` is only for the kit's wrappers in `ui/design`. The web-port kit (`Components.kt`), its Phosphor icons, the waiting components (`Loading`, spinners) and pull-to-refresh are banned for new code. A call or a Material name spelled out with its full package counts the same as an imported one. The generic AI glyphs of rule 48, the robot head, the sparkle, the compass and the chat bubble (`ai-glyph`), are counted the same way: a new one fails, and the count may only fall. The uses that exist today are counted per file in `bans.baseline.json` and may only fall. Bans lift in the config at the top of `bans.mjs` or with `// ban-ok: <reason>` on the line, never silently. Rules 1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52 and 73.
 4. **book.** `book.json` is the one typed list of UI Book pages and components. Every page has a route in `UiBook.kt`, and every route is listed. Every component has exactly one default variant, and every named composable exists. Every public composable in `ui/design` has a page or an exemption with a reason in `book.exempt.json`. Every `components` token here is rendered in a `DesignSpecimen`, or exempt with a reason. `sources.json`, the code and props the Book shows, is read from the Kotlin and fails when stale. Rules 44, 45 and 47.
-5. **rules.** A check on this file's own list. Rules 1 to 73 are contiguous, each has a source and a `Checked by` line naming a check that exists, and each check enforces exactly the rules that name it. The checklist is contiguous too. `rules` is not a `Checked by` name: it checks the rules, not the code.
+5. **rules.** A check on this file's own list. Rules 1 to 99 are contiguous, each has a source and a `Checked by` line naming a check that exists, and each check enforces exactly the rules that name it. The checklist is contiguous too. `rules` is not a `Checked by` name: it checks the rules, not the code.
 6. **Measure on the phone.** The UI Book's Component specs page measures each `DesignSpecimen` and prints `name ok` or `name.size: expected 44px, rendered 52px`. It replaces the browser render check the web UI Book runs, because Compose cannot be measured from Node. It runs when someone opens the page.
 7. **Review against the checklist.** A person or an agent walks the screen against the checklist above and the rules, and reports breaks with `file:line` and the rule number.
 
@@ -1015,7 +1255,8 @@ Every difference between this file and the rendered app, and how it was settled.
 - **2026-10-14, rule 45 and `floatShadow`. Settled the same day:** `floatShadow` now draws one soft layer pushed down, with a level for each kind of element (`PullsShadow`). Earlier text: The canvas shadow is a soft layer pushed down (`0 2px 10px` at 8% ink on the round buttons), and on the phone the app's shadows read faint and flat. `floatShadow` in `Kit.kt` calls Compose `shadow()` with an elevation and no offset. The fix is one drawn shadow with a downward offset, in that one function, judged side by side on a device. It was not changed here, because it restyles every floating element and belongs to the screen work. An earlier reading, that the app's shadows were stronger than the canvas's, was wrong.
 - **2026-10-14, rules 66 to 70 added from the Perplexity review.** Rules 66 to 69 are rules. Rule 70 was a proposal from the frames, not from anything Tavi said. He confirmed it the same day, see the entry on rules 71 to 73.
 - **2026-10-14, rule 51 and rule 43. Settled the same day:** Tavi said bars are fine next to a live indicator, which is rule 71. Earlier text: The Analyzing state puts shimmer bars under each file row, against the wording of rule 43, which keeps the live orb and its outputs and no bars. A reading for Tavi to confirm: bars are fine as a hint for the one text being written, next to a live indicator, and rule 43 forbids bars in place of the live indicator and its outputs. The canvas text of rule 43 is unchanged.
-- **2026-10-14, the phone walkthrough applied.** Every point in Tavi's feedback that is about how the app looks or moves now follows the mobile kit: the drawn shadow, blur at scroll edges and between tabs and pages (`edgeBlur`, `BlurSwitch`), menus that grow out of their trigger (`MenuReveal`, from the `dropdown` recipe on transitions.dev), the header capsule on Overview, Diff and Tour, the pill input with its send circle inside (`PillInput`, `SendButton`), fields inside sheets (`SheetField`), and Settings, Commands, the repository list, Check out, the review dialogs, the share sheet, the AI review panel, thread cards and the banners rebuilt from kit parts. Labels in a sheet row wrap instead of being cut. The loading screens are skeleton rows. The robot, sparkle and compass are gone, along with `AppModal`, the web header and its footer. The baselines fell to 14 Phosphor icon calls, 3 web-port kit calls and 5 Material components, and 32 raw colours, 73 raw radii and 72 text runs below 15. What is left sits in the Overview timeline, the activity log, `Markdown.kt` and the CI and review status glyphs, which carry facts and need Lucide drawings of their own.
+- **2026-10-14, the phone walkthrough applied.** Every point in Tavi's feedback that is about how the app looks or moves now follows the mobile kit: the drawn shadow, blur at scroll edges and between tabs and pages (`edgeFade`, `BlurSwitch`), menus that grow out of their trigger (`MenuReveal`, from the `dropdown` recipe on transitions.dev), the header capsule on Overview, Diff and Tour, the pill input with its send circle inside (`PillInput`, `SendButton`), fields inside sheets (`SheetField`), and Settings, Commands, the repository list, Check out, the review dialogs, the share sheet, the AI review panel, thread cards and the banners rebuilt from kit parts. Labels in a sheet row wrap instead of being cut. The loading screens are skeleton rows. The robot, sparkle and compass are gone, along with `AppModal`, the web header and its footer. The baselines fell to 14 Phosphor icon calls, 3 web-port kit calls and 5 Material components, and 32 raw colours, 73 raw radii and 72 text runs below 15. What is left sits in the Overview timeline, the activity log, `Markdown.kt` and the CI and review status glyphs, which carry facts and need Lucide drawings of their own.
 - **2026-10-14, rules 71 to 73 added, rule 37 withdrawn, rule 70 confirmed.** Tavi answered yes to bars beside a live indicator (71), no to keeping the sparkle (37 is withdrawn, so is Row W check 11), yes to rule 70, asked for the thinking text to look more like Perplexity's (72) and sent transitions.dev (73). Rule 70's direction for segmented controls is still open: the app follows the canvas capsule, so Settings, which already uses it, stays as it is, and a sheet's ✕ and back are now the round white button with its shadow.
 - **2026-10-14, the thinking text applied (rule 72). Open edges.** `AiActivityLogFull` shows the shimmering verb and seconds, dot steps and the orb at 16dp, and its settled form has a chevron and a fading line. Since then the orb finishes its turn and settles into its still tick for about two seconds when work stops, and the Ask thread and the chat draw the three shimmer bars of rule 71 under it. The orb does not stay once settled. In the chat the orb and the bars are drawn by the message itself (`AiLiveMark`), not by the live log, so the orb stays where it is while the log hands over to the finished one and settles there; the activity log still has no favicons or grouped steps. Measured sizes need a phone: the band, the dot column and the 16dp orb come from screenshots of Perplexity.
 - **2026-10-14, the sheet is the kit's own (0.7.3). Open edges.** Material's `ModalBottomSheet` cannot take a duration, so `PullsSheet` is now a dialog window with its own panel and scrim (`Sheet.kt`): 400ms up, 350ms down, smooth-out curve, a 2px blur fading with it, and the scrim fades with the panel. A drag on the panel, a flick, a scrolled-to-top pull and the system back all go through one position, so closing by any of them takes the same 350ms from wherever the sheet is. Frame stepping under Robolectric showed the open and close curves, the blur and the drag hand-offs; what it cannot show is the feel of a finger on a real phone, the keyboard moving a sheet with a field in it, or the dialog window drawn by the system, so those need a phone. The old sheet's fixed behaviours were kept on purpose: height up to 62% of the screen, `expandable` opening half way and lifting to full, `full` filling to 44dp under the top, the header with the round close or back button.
+- **2026-10-14, the second walkthrough, first batch (rules 74 to 99, 0.8.0).** Tavi's 29-minute recording of the app on his phone is digested into 73 points, and rules 74 to 99 hold what they decided. This first batch fixes what is on every screen. The top blur smeared over the filter chips because `edgeBlur` recorded its blurred band at its own size and the blur bled out of it. `edgeFade` replaces it with a page-colour fade over three progressively blurred layers, each clipped to the band, and it also fades the bottom under the search pill, so the 140dp gradient box and the hairline under the chips are gone. The dark surfaces are neutral greys now (red, green and blue within 2 of each other), and the tokens check fails if one drifts back to blue. Press feedback is a flat tint (`PullsIndication`) instead of the Material ripple, the skeleton sweeps a visible sheen across the whole bar every 1200ms, floating shadows have a tight edge layer under the wide drop, and the PR meta line wraps whole names instead of cutting them. Open edges: how the press feels, whether the shimmer reads as alive and whether the edge fade is strong enough all need a phone, because Robolectric stills show geometry and not feel.

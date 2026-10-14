@@ -67,10 +67,11 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SoftChip
-import com.octaviantocan.pulls.ui.design.edgeBlur
+import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
@@ -185,7 +186,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
     val rows = remember(store.items, query, sort) { PullListQuery.sort(PullListQuery.filter(store.items, query), sort) }
     val isSearching = query.isNotBlank() && store.hasMore
     val listState = rememberLazyListState()
-    val band = with(LocalDensity.current) { 28.dp.toPx() }
+    val band = with(LocalDensity.current) { PullsMotion.EdgeTop.toPx() }
     val now = rememberNow()
 
     // Fetch the next page once the tail comes within 10 rows, which also covers a short first page.
@@ -214,10 +215,9 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PullListQuery.sorts.forEach { option -> SoftChip(t("pulls.sort.$option"), option == sort, { sort = option }) }
             }
-            Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).fillMaxWidth().height(1.dp).background(c.borderMute))
             val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
             LazyColumn(
-                Modifier.weight(1f).fillMaxWidth().edgeBlur(top = 28.dp, bottom = 130.dp, topStrength = { listState.topEdgeStrength(band) }),
+                Modifier.weight(1f).fillMaxWidth().edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { listState.topEdgeStrength(band) }),
                 state = listState,
                 contentPadding = PaddingValues(bottom = bottom),
             ) {

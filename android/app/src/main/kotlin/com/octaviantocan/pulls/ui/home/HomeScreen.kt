@@ -122,7 +122,7 @@ import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SoftChip
-import com.octaviantocan.pulls.ui.design.edgeBlur
+import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.softBlur
@@ -259,8 +259,6 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
             if (ui.tab == 0) FilterChips(ui.filter, inbox.counts) { ui.filter = it }
             if (ui.tab == 0) ActivityStrip(workTasks, { activityOpen = true })
-            // A hairline under the chips, as in the design: the Tours list has its own under each heading.
-            if (ui.tab == 0) Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).fillMaxWidth().height(1.dp).background(c.borderMute))
             BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth().padding(top = if (ui.tab == 0) 0.dp else 10.dp), order = { it }) { tab ->
                 if (tab == 0) {
                     InboxList(
@@ -295,8 +293,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
                 }
             }
         }
-        // `.fade` and `.search`: the list dissolves into the page under a floating search pill.
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(140.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.6f to c.base, 1f to c.base)))
+        // `.search`: the list fades into the page under this pill (`edgeFade` on the lists), and nothing else sits behind it.
         SearchPill(
             ui.search, { ui.search = it },
             if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
@@ -372,11 +369,11 @@ internal fun InboxList(
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
     val state = rememberLazyListState()
-    val band = with(LocalDensity.current) { 28.dp.toPx() }
+    val band = with(LocalDensity.current) { PullsMotion.EdgeTop.toPx() }
     // Pulling down past the top opens Commands; the list itself refreshes quietly.
     PullToCommands(onCommands, Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize().edgeBlur(top = 28.dp, bottom = 130.dp, topStrength = { state.topEdgeStrength(band) }),
+            Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { state.topEdgeStrength(band) }),
             state = state,
             contentPadding = PaddingValues(bottom = bottom),
         ) {
@@ -426,16 +423,14 @@ internal fun InboxList(
     }
 }
 
-/** `.grp`: the repository name over its rows; later groups start under a hairline. */
+/** `.grp`: the repository name over its rows. The one line under it is the first row's own (rule 75), and there is none above. */
 @Composable
 private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
-    val inset = with(LocalDensity.current) { 16.dp.toPx() }
     Text(
         label,
         modifier
             .fillMaxWidth()
-            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
             .cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onClick)
             .padding(start = 16.dp, end = 16.dp, top = if (first) 16.dp else 18.dp, bottom = 6.dp),
         style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
@@ -530,7 +525,7 @@ internal fun SwipeRow(
 }
 
 /** The most a swiped row blurs: Row W's 1.3px, a little stronger so it reads on a phone. */
-private val SWIPE_BLUR = 2.dp
+private val SWIPE_BLUR = 1.3.dp
 
 /** `.pr`: number and title on top; author, checks, diff size and age on a second line. */
 @Composable
@@ -659,9 +654,9 @@ internal fun ToursList(
     val groups = entries.groupBy { "${it.owner}/${it.repo}" }
     val labels = Triage.groupLabels(groups.map { (name, list) -> Triage.RepoGroup(name, list.first().owner, list.first().repo, emptyList()) })
     val state = rememberLazyListState()
-    val band = with(LocalDensity.current) { 28.dp.toPx() }
+    val band = with(LocalDensity.current) { PullsMotion.EdgeTop.toPx() }
     LazyColumn(
-        Modifier.fillMaxSize().edgeBlur(top = 28.dp, bottom = 130.dp, topStrength = { state.topEdgeStrength(band) }),
+        Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { state.topEdgeStrength(band) }),
         state = state,
         contentPadding = PaddingValues(bottom = bottom),
     ) {

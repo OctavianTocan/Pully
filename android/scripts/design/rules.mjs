@@ -8,7 +8,7 @@ import * as tokens from './tokens.mjs'
 
 export const NAME = 'rules'
 
-const SOURCES = ['canvas', 'walkthrough', 'perplexity', 'answers']
+const SOURCES = ['canvas', 'walkthrough', 'perplexity', 'answers', 'overhaul']
 
 /** What each check says it enforces. */
 export const DECLARED = {

@@ -2,27 +2,27 @@
   "colors": {
     "base": {
       "light": "#FDFCF9",
-      "dark": "#0C1B1F"
+      "dark": "#161616"
     },
     "text": {
       "light": "#0E333A",
-      "dark": "#E4EEEF"
+      "dark": "#E3E3E3"
     },
     "muted": {
       "light": "#6E8285",
-      "dark": "#8FA6A9"
+      "dark": "#9D9D9D"
     },
     "faint": {
       "light": "#93A2A4",
-      "dark": "#6B8286"
+      "dark": "#707070"
     },
     "border": {
       "light": "#E3E5E3",
-      "dark": "#263A3E"
+      "dark": "#2B2B2B"
     },
     "border-mute": {
       "light": "#ECEBE7",
-      "dark": "#1B2D31"
+      "dark": "#242424"
     },
     "hover": {
       "light": "#0E333A12",
@@ -34,19 +34,19 @@
     },
     "raised": {
       "light": "#FFFFFF",
-      "dark": "#13282C"
+      "dark": "#1D1D1D"
     },
     "sunken": {
       "light": "#F1F0EC",
-      "dark": "#173035"
+      "dark": "#212121"
     },
     "code": {
       "light": "#F4F2EF",
-      "dark": "#112429"
+      "dark": "#1B1B1B"
     },
     "secondary": {
       "light": "#F4F2EF",
-      "dark": "#112429"
+      "dark": "#1B1B1B"
     },
     "primary": {
       "light": "#1B7580",
@@ -82,7 +82,7 @@
     },
     "gray": {
       "light": "#93A2A4",
-      "dark": "#6B8286"
+      "dark": "#707070"
     },
     "orange": {
       "light": "#EA580C",
@@ -106,23 +106,23 @@
     },
     "paper": {
       "light": "#F4F2EF",
-      "dark": "#112429"
+      "dark": "#1B1B1B"
     },
     "paper-2": {
       "light": "#F1F0EC",
-      "dark": "#173035"
+      "dark": "#212121"
     },
     "cta": {
       "light": "#13343B",
-      "dark": "#E4EEEF"
+      "dark": "#E3E3E3"
     },
     "on-cta": {
       "light": "#FFFFFF",
-      "dark": "#0C1B1F"
+      "dark": "#161616"
     },
     "chip-on": {
       "light": "#E9E8E3",
-      "dark": "#1F3A3F"
+      "dark": "#2A2A2A"
     },
     "accent-wash": {
       "light": "#E6F1F2",
@@ -306,11 +306,11 @@
     "toast": "350ms in, 250ms out",
     "swap": "150ms ease-in-out",
     "progress": "400ms",
-    "press": "scale 0.97",
+    "press": "tint while held, nothing moves",
     "breathe": "1200ms reverse loop",
     "orb-turn": "1600ms linear loop",
     "orb-breath": "900ms reverse loop",
-    "shimmer": "1500ms linear loop",
+    "shimmer": "1200ms linear loop",
     "thinking-shimmer": "1200ms linear loop"
   },
   "components": {
@@ -499,7 +499,7 @@
       "width": null,
       "height": 12,
       "rounded": 6,
-      "background": "paper-2",
+      "background": "chip-on",
       "color": null,
       "typography": null
     },

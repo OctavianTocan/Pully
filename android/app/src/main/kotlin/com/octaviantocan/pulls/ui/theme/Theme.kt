@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.theme
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -11,6 +12,7 @@ import com.octaviantocan.pulls.ui.design.LightPullsColors
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Messages
+import com.octaviantocan.pulls.ui.design.PullsIndication
 import com.octaviantocan.pulls.ui.design.PullsType
 
 // The few stock Material widgets left (menus, dialogs, text selection) read these; the rest of the
@@ -61,6 +63,7 @@ fun PullsTheme(dark: Boolean = isSystemInDarkTheme(), locale: String = Messages.
     MaterialTheme(colorScheme = if (dark) Dark else Light) {
         androidx.compose.runtime.CompositionLocalProvider(
             LocalPullsColors provides if (dark) DarkPullsColors else LightPullsColors,
+            LocalIndication provides PullsIndication,
             LocalMessages provides messages,
             androidx.compose.material3.LocalTextStyle provides PullsType.base,
             content = content,

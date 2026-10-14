@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.layer.CompositingStrategy
 import androidx.compose.ui.graphics.layer.GraphicsLayer
@@ -50,6 +53,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlin.math.ceil
 import kotlin.math.max
 
 /*
@@ -66,6 +70,9 @@ object PullsMotion {
     const val MEDIUM = 350
     const val SLOW = 400
     const val VERY_SLOW = 500
+
+    /** One pass of the skeleton's light band (rule 85). */
+    const val SHIMMER = 1200
 
     /** `--ease-smooth-out`: modals, dropdowns, panels, page slides and resizes. */
     val SmoothOut = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
@@ -85,6 +92,13 @@ object PullsMotion {
 
     val BlurSmall = 2.dp
     val BlurMedium = 3.dp
+
+    /** The most an edge fade blurs, at the edge itself (rule 74). */
+    val EdgeBlur = 9.dp
+
+    /** How deep the fade under a pinned header goes, and under a bottom pill (rule 74). */
+    val EdgeTop = 32.dp
+    val EdgeBottom = 120.dp
 
     /** How far a page slides in (`--distance-base`). */
     val SlideDistance = 8.dp
@@ -212,44 +226,71 @@ internal fun ModalSurface(state: MutableTransitionState<Boolean>, motion: Boolea
 fun headerTopPadding(): Dp = max(WindowInsets.statusBars.asPaddingValues().calculateTopPadding().value + 8f, 48f).dp
 
 /**
- * Content that scrolls under a floating header or bar dissolves instead of being cut: the [top]
- * and [bottom] bands are drawn again, blurred, fading in towards the edge. [topStrength] and
- * [bottomStrength] (0 to 1) read scroll state in the draw phase, so a list at rest at the top
- * stays sharp. Below Android 12 there is no blur and the content is drawn as it is.
+ * Content that scrolls under a pinned header or bar dissolves instead of being cut (rule 74). The
+ * [top] and [bottom] bands go to the page [color] over their length, and the content in them is
+ * blurred a little more the nearer it is to the edge, in [FADE_STEPS] layers of growing radius.
+ * Each blurred layer is made from content that reaches [pad] beyond the band on both sides, then
+ * clipped to the band: a blur that only saw the band would stretch its own edge into streaks, and
+ * one that was not clipped would smear the header above it.
+ *
+ * [topStrength] and [bottomStrength] (0 to 1) are read in the draw phase, so a list at rest at the
+ * top stays sharp. Below Android 12 there is no blur and the fade alone is drawn.
  */
 @Composable
-fun Modifier.edgeBlur(
+fun Modifier.edgeFade(
     top: Dp = 0.dp,
     bottom: Dp = 0.dp,
-    radius: Dp = 10.dp,
+    color: Color = LocalPullsColors.current.base,
+    blur: Dp = PullsMotion.EdgeBlur,
     topStrength: () -> Float = { 1f },
     bottomStrength: () -> Float = { 1f },
 ): Modifier {
-    if (!BlurSupported || (top <= 0.dp && bottom <= 0.dp)) return this
+    if (top <= 0.dp && bottom <= 0.dp) return this
     val source = rememberGraphicsLayer()
-    val topBand = rememberGraphicsLayer()
-    val bottomBand = rememberGraphicsLayer()
+    val topLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
+    val bottomLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
     return this.drawWithContent {
         source.record { this@drawWithContent.drawContent() }
         drawLayer(source)
-        val r = radius.toPx()
-        if (top > 0.dp) blurBand(source, topBand, 0f, top.toPx(), true, r, topStrength())
-        if (bottom > 0.dp) blurBand(source, bottomBand, size.height - bottom.toPx(), bottom.toPx(), false, r, bottomStrength())
+        if (top > 0.dp) fadeBand(source, topLayers, color, 0f, top.toPx(), true, blur.toPx(), topStrength())
+        if (bottom > 0.dp) fadeBand(source, bottomLayers, color, size.height - bottom.toPx(), bottom.toPx(), false, blur.toPx(), bottomStrength())
     }
 }
 
-private fun DrawScope.blurBand(source: GraphicsLayer, band: GraphicsLayer, y: Float, height: Float, strongAtStart: Boolean, radius: Float, strength: Float) {
-    if (strength <= 0f || height < 1f) return
-    band.renderEffect = BlurEffect(radius, radius, TileMode.Clamp)
-    band.compositingStrategy = CompositingStrategy.Offscreen
-    band.alpha = strength.coerceIn(0f, 1f)
-    band.record(size = IntSize(size.width.toInt(), height.toInt())) {
-        translate(top = -y) { drawLayer(source) }
-        // raw-value-ok: an alpha mask, never drawn as a colour
-        val mask = if (strongAtStart) arrayOf(0f to Color.Black, 1f to Color.Transparent) else arrayOf(0f to Color.Transparent, 1f to Color.Black)
-        drawRect(Brush.verticalGradient(colorStops = mask), blendMode = BlendMode.DstIn)
+/** How many blur layers make a band: radius a third, two thirds and all of the blur, reaching all, two thirds and a third of the way in. */
+private const val FADE_STEPS = 3
+
+/** How opaque the page colour is at each tenth of the way out from the inside of a band to its edge: an ease, so the rows go quietly. */
+private val FADE_CURVE = floatArrayOf(0f, 0.03f, 0.12f, 0.26f, 0.44f, 0.62f, 0.78f, 0.9f, 0.97f, 1f)
+
+private fun DrawScope.fadeBand(source: GraphicsLayer, layers: List<GraphicsLayer>, color: Color, y: Float, height: Float, atTop: Boolean, blur: Float, strength: Float) {
+    if (strength <= 0f || height < 1f || size.width < 1f) return
+    val amount = strength.coerceIn(0f, 1f)
+    if (BlurSupported && blur > 0f) {
+        layers.forEachIndexed { i, layer ->
+            val radius = blur * (i + 1) / layers.size
+            val reach = height * (layers.size - i) / layers.size
+            val pad = ceil(radius * 3f)
+            val edge = if (atTop) pad else pad + height
+            layer.renderEffect = BlurEffect(radius, radius, TileMode.Decal)
+            layer.compositingStrategy = CompositingStrategy.Offscreen
+            layer.alpha = amount
+            layer.record(size = IntSize(size.width.toInt(), (height + 2f * pad).toInt())) {
+                translate(top = pad - y) { drawLayer(source) }
+                // raw-value-ok: an alpha mask, never drawn as a colour
+                val keep = Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = edge, endY = if (atTop) edge + reach else edge - reach)
+                drawRect(keep, blendMode = BlendMode.DstIn)
+            }
+            clipRect(0f, y, size.width, y + height) { translate(top = y - pad) { drawLayer(layer) } }
+        }
     }
-    translate(top = y) { drawLayer(band) }
+    val stops = Array(FADE_CURVE.size) { n ->
+        val outward = n / (FADE_CURVE.size - 1f)
+        // Index 0 is the inside of the band and the last is the page edge; a top band runs the other way round.
+        val at = if (atTop) 1f - outward else outward
+        at to color.copy(alpha = FADE_CURVE[n])
+    }.sortedBy { it.first }.toTypedArray()
+    drawRect(Brush.verticalGradient(*stops, startY = y, endY = y + height), topLeft = Offset(0f, y), size = Size(size.width, height), alpha = amount)
 }
 
 /** How far a list has scrolled under its top edge: 0 at rest, 1 once it is [band] px past. */

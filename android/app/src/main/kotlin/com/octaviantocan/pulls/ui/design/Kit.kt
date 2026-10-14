@@ -124,6 +124,11 @@ enum class PullsShadow(val dy: Dp, val blur: Dp, val alpha: Float) {
     Modal(8.dp, PullsElevation.modal, 0.22f),
 }
 
+/** The tight layer of a shadow: a 1dp drop with a 1px blur, at half the strength of the wide layer. */
+private val EDGE_DROP = 1.dp
+private const val EDGE_RADIUS = 1f
+private const val EDGE_SHARE = 0.5f
+
 /**
  * Draws [level] behind this element. Put it before `clip` and `background`, so the shadow lands
  * outside the shape. The drop is a Paint shadow layer, which draws on a hardware canvas from
@@ -142,9 +147,15 @@ fun Modifier.floatShadow(shape: Shape, level: PullsShadow = PullsShadow.Button):
         // turns a blur of B into sigma B / 2. This is the radius that gives the canvas the same blur.
         val radius = ((level.blur.toPx() / 2f - 0.5f) / 0.57735f).coerceAtLeast(0.5f)
         val paint = Paint().apply { color = fill }
-        paint.asFrameworkPaint().setShadowLayer(radius, 0f, level.dy.toPx(), tint.toArgb())
         val outline = shape.createOutline(size, layoutDirection, this)
-        drawIntoCanvas { it.drawOutline(outline, paint) }
+        // Two layers, as in the reference apps: a tight, faint edge right at the border, then the wide soft drop (rule 45).
+        val edge = Paint().apply { color = fill }
+        edge.asFrameworkPaint().setShadowLayer(EDGE_RADIUS, 0f, EDGE_DROP.toPx(), tint.copy(alpha = tint.alpha * EDGE_SHARE).toArgb())
+        paint.asFrameworkPaint().setShadowLayer(radius, 0f, level.dy.toPx(), tint.toArgb())
+        drawIntoCanvas {
+            it.drawOutline(outline, edge)
+            it.drawOutline(outline, paint)
+        }
     }
 }
 
@@ -706,15 +717,28 @@ fun OkDot(modifier: Modifier = Modifier, size: Dp = 14.dp) {
     }
 }
 
-/** `.sk`: a 12dp shimmering bar standing in for text that is still being written. */
+/**
+ * `.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it
+ * from left to right every 1200ms on a linear curve (rule 85). With the system setting "Remove animations" it sits still.
+ */
 @Composable
 fun Skeleton(modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
+    val motion = rememberMotionEnabled()
     val transition = rememberInfiniteTransition(label = "skeleton")
-    val x by transition.animateFloat(-240f, 240f, infiniteRepeatable(tween(1500, easing = LinearEasing)), label = "skeleton-x")
+    val sweep by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(PullsMotion.SHIMMER, easing = LinearEasing)), label = "skeleton-sweep")
+    val sheen = if (c.dark) c.active else c.raised
     Box(
-        modifier.height(12.dp).clip(RoundedCornerShape(6.dp))
-            .background(Brush.linearGradient(listOf(c.paper2, c.accentWash, c.paper2), start = Offset(x, 0f), end = Offset(x + 480f, 0f))),
+        modifier.height(12.dp).clip(RoundedCornerShape(6.dp)).background(c.chipOn)
+            .drawBehind {
+                if (!motion) return@drawBehind
+                val band = size.width * 0.4f
+                val left = -band + (size.width + band) * sweep
+                drawRect(
+                    Brush.horizontalGradient(listOf(sheen.copy(alpha = 0f), sheen, sheen.copy(alpha = 0f)), startX = left, endX = left + band),
+                    topLeft = Offset(left, 0f), size = Size(band, size.height),
+                )
+            },
     )
 }
 

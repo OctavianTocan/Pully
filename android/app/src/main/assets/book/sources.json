@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 685,
+        "line": 696,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 197,
+        "line": 208,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -82,7 +82,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 284,
+        "line": 295,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -119,7 +119,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 315,
+        "line": 326,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -170,7 +170,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 152,
+        "line": 163,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -220,7 +220,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 180,
+        "line": 191,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -285,7 +285,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 702,
+        "line": 713,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -308,7 +308,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 595,
+        "line": 606,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. No robot, compass or sparkle: those\nmarks were dropped (rule 48).",
         "params": [
           {
@@ -336,7 +336,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 696,
+        "line": 707,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -359,7 +359,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 338,
+        "line": 349,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -395,7 +395,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 358,
+        "line": 369,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -445,7 +445,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 397,
+        "line": 408,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -468,7 +468,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 670,
+        "line": 681,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -499,7 +499,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 500,
+        "line": 511,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -624,7 +624,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 405,
+        "line": 416,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -646,7 +646,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 451,
+        "line": 462,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -721,7 +721,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 415,
+        "line": 426,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -777,8 +777,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 710,
-        "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
+        "line": 724,
+        "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
             "name": "modifier",
@@ -786,7 +786,7 @@
             "default": "Modifier"
           }
         ],
-        "source": "@Composable\nfun Skeleton(modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val transition = rememberInfiniteTransition(label = \"skeleton\")\n    val x by transition.animateFloat(-240f, 240f, infiniteRepeatable(tween(1500, easing = LinearEasing)), label = \"skeleton-x\")\n    Box(\n        modifier.height(12.dp).clip(RoundedCornerShape(6.dp))\n            .background(Brush.linearGradient(listOf(c.paper2, c.accentWash, c.paper2), start = Offset(x, 0f), end = Offset(x + 480f, 0f))),\n    )\n}"
+        "source": "@Composable\nfun Skeleton(modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val motion = rememberMotionEnabled()\n    val transition = rememberInfiniteTransition(label = \"skeleton\")\n    val sweep by transition.animateFloat(0f, 1f, infiniteRepeatable(tween(PullsMotion.SHIMMER, easing = LinearEasing)), label = \"skeleton-sweep\")\n    val sheen = if (c.dark) c.active else c.raised\n    Box(\n        modifier.height(12.dp).clip(RoundedCornerShape(6.dp)).background(c.chipOn)\n            .drawBehind {\n                if (!motion) return@drawBehind\n                val band = size.width * 0.4f\n                val left = -band + (size.width + band) * sweep\n                drawRect(\n                    Brush.horizontalGradient(listOf(sheen.copy(alpha = 0f), sheen, sheen.copy(alpha = 0f)), startX = left, endX = left + band),\n                    topLeft = Offset(left, 0f), size = Size(band, size.height),\n                )\n            },\n    )\n}"
       },
       {
         "file": "ui/design/Skeletons.kt",
@@ -813,7 +813,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 238,
+        "line": 249,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -848,7 +848,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 299,
+        "line": 310,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -883,7 +883,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 541,
+        "line": 552,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -905,7 +905,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 258,
+        "line": 269,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.",
         "params": [
           {
