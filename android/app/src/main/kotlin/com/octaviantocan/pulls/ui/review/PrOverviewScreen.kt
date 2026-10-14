@@ -3,10 +3,15 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -31,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,6 +51,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
@@ -54,13 +61,23 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.core.StepMark
+import com.octaviantocan.pulls.core.analyzeCard
+import com.octaviantocan.pulls.core.swipedTab
+import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ReviewFile
+import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.ui.ai.AiActivityLog
+import com.octaviantocan.pulls.ui.ai.AnalyzeSplitButton
+import com.octaviantocan.pulls.ui.ai.BriefSection
 import com.octaviantocan.pulls.ui.ai.SharedAnalysisBanner
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.rememberLiveTask
 import com.octaviantocan.pulls.ui.ai.runAnalyze
 import com.octaviantocan.pulls.ui.ai.runCritique
+import com.octaviantocan.pulls.ui.ai.startBrief
+import com.octaviantocan.pulls.ui.ai.startTour
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -122,9 +139,17 @@ internal fun PrOverviewScreen(
                 if (data != null) add("Conversation${data.overview.conversationCount.takeIf { it > 0 }?.let { " $it" }.orEmpty()}")
             }
             val shown = pane.coerceAtMost(labels.lastIndex)
+            // A swipe left or right moves between the tabs; the files of the diff are never switched this way.
+            var drag by remember { mutableFloatStateOf(0f) }
+            val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
+            val swipe = rememberDraggableState { delta -> drag += delta }
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
-                Modifier.weight(1f).fillMaxWidth(),
+                Modifier.weight(1f).fillMaxWidth().draggable(
+                    swipe, Orientation.Horizontal,
+                    onDragStarted = { drag = 0f },
+                    onDragStopped = { onPane(swipedTab(shown, labels.size, drag, swipeFrom)); drag = 0f },
+                ),
                 state = scroll,
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
             ) {
@@ -149,7 +174,7 @@ internal fun PrOverviewScreen(
                         item(key = "summary") { SummaryPane(session, onCite, onSheet) }
                         filesItems(session, ui, top, onDiff)
                     }
-                    1 -> item(key = "description") { DescriptionPane(session, data) }
+                    1 -> item(key = "description") { DescriptionPane(session, data, onEdit = { onSheet("edit") }) }
                     else -> item(key = "conversation") {
                         data?.let { Box(Modifier.padding(top = 14.dp)) { Conversation(it.overview) { oid -> session.selectCommits(selectCommit(oid).pair) } } }
                     }
@@ -329,48 +354,58 @@ private fun SummaryPane(session: ReviewSession, onCite: (Cite) -> Unit, onSheet:
     val analysis = session.saved?.analysis
     val summary = analysis?.overallSummary?.takeIf { session.hasAiResult && it.isNotBlank() }
     Column {
-        AnalysisBlock(session)
+        AnalysisBlock(session, onSheet)
         if (summary != null) {
             Box(Modifier.padding(top = 12.dp)) {
                 Markdown(summary, style = PullsType.read.copy(color = c.text))
             }
         }
+        session.saved?.brief?.let { brief ->
+            BriefSection(session, brief, onOpen = { target -> onCite(Cite(target.path, target.line ?: 0)) }, modifier = Modifier.padding(top = 16.dp))
+        }
         NeedsHuman(session, onCite, onSheet)
     }
 }
 
-private enum class Step { Pending, Active, Done, Failed }
-
 @Composable
-private fun StepMark(step: Step) {
+private fun StepDot(mark: StepMark) {
     val c = LocalPullsColors.current
-    when (step) {
-        Step.Pending -> PendingDot()
-        Step.Active -> BreathingDot()
-        Step.Done -> OkDot()
-        Step.Failed -> LuIcon(Lu.xc, tint = c.error, size = 14.dp)
+    when (mark) {
+        StepMark.Pending, StepMark.Stopped -> PendingDot()
+        StepMark.Active -> BreathingDot()
+        StepMark.Done -> OkDot()
+        StepMark.Failed -> LuIcon(Lu.xc, tint = c.error, size = 14.dp)
     }
 }
 
+/** What the card says under its title while something runs: the latest step of the work log, or that the engine is starting. */
+private fun liveLine(task: TaskState, engine: String): String =
+    task.activities.lastOrNull()?.title ?: "Starting ${if (engine == "codex") "Codex" else "Claude Code"}…"
+
 /**
- * `.anz`: the AI's progress. An orb and "Analyzing" with File notes, Summary and Tour beneath it, each
- * switching from a hollow ring to a breathing dot to a tick; tapping it opens the work log. Before any
- * analysis it offers to start one.
+ * `.anz`: the AI's progress. An orb and "Analyzing" with File notes, Summary, Tour and Brief beneath it, each
+ * switching from a hollow ring to a breathing dot to a tick; tapping it opens the work log. The card is there
+ * the instant Analyze is pressed, and a stopped or failed run keeps a way to start again. Before any analysis it
+ * offers to start one: the button runs the last choice and its chevron opens the others.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AnalysisBlock(session: ReviewSession) {
+private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     if (session.key == null || !cliEngine(context)) return
     val analyzeTask = rememberLiveTask(session, "analyze")
     val tourTask = rememberLiveTask(session, "tour")
-    val running = analyzeTask?.running == true
-    val tourRunning = tourTask?.running == true
-    val failed = analyzeTask?.status == "failed"
+    val briefTask = rememberLiveTask(session, "brief")
     var logOpen by rememberSaveable { mutableStateOf(false) }
+    val engine = remember { ServerStore.load(context).engine }
 
-    if (analyzeTask == null && !tourRunning) {
+    if (analyzeTask == null && tourTask?.running != true && briefTask?.running != true) {
         if (session.hasAiResult) return
+        // Quick and Deep read the model's efforts from its list; have it before the button is pressed.
+        val repo = remember { Repo(context) }
+        LaunchedEffect(engine) { if (ModelCatalogs.get(engine) == null) fetchCatalog(repo, engine) }
+        val choice = session.settings.analyzeChoice
         Row(
             Modifier.fillMaxWidth().padding(top = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -379,66 +414,68 @@ private fun AnalysisBlock(session: ReviewSession) {
             Orb(done = true)
             Column(Modifier.weight(1f)) {
                 Text("Not analyzed yet", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                Text("A summary, a note per file and a tour.", style = PullsType.sm, color = c.muted)
+                Text("${choice.title}: ${choice.summary().replaceFirstChar { it.lowercase() }}", style = PullsType.sm, color = c.muted)
             }
-            com.octaviantocan.pulls.ui.design.ActionButton({ session.runAnalyze() }, variant = com.octaviantocan.pulls.ui.design.ButtonVariant.Primary, small = true) { Text("Analyze") }
+            AnalyzeSplitButton(choice.title, onRun = { session.runAnalyze(context) }, onMenu = { onSheet("analyze") })
         }
         return
     }
 
-    val notes = when {
-        running -> Step.Active
-        failed -> Step.Failed
-        else -> Step.Done
-    }
-    val summary = when {
-        running -> Step.Pending
-        failed -> Step.Pending
-        else -> Step.Done
-    }
-    val tour = when {
-        tourRunning -> Step.Active
-        session.saved?.tour != null -> Step.Done
-        tourTask?.status == "failed" -> Step.Failed
-        else -> Step.Pending
-    }
-    val title = when {
-        running -> "Analyzing"
-        failed -> "Analysis failed"
-        tourRunning -> "Writing the tour"
-        else -> "Analyzed"
-    }
+    val card = analyzeCard(
+        analyze = analyzeTask?.status,
+        tour = tourTask?.status,
+        brief = briefTask?.status,
+        hasTour = session.saved?.tour != null,
+        hasBrief = session.saved?.brief != null,
+        then = analyzeTask?.then.orEmpty(),
+    )
+    val tasks = listOfNotNull(analyzeTask, tourTask, briefTask)
+    val live = tasks.firstOrNull { it.running }
     Column(Modifier.fillMaxWidth().padding(top = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClickLabel = "Show the steps") { logOpen = !logOpen },
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Orb(done = !running && !tourRunning)
-                Text(title, Modifier.weight(1f), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                if (running || tourRunning) {
-                    StopButton { listOf(analyzeTask, tourTask).forEach { task -> if (task?.running == true) session.cancelTask(task.id) } }
+                Orb(done = !card.working)
+                Column(Modifier.weight(1f)) {
+                    Text(card.title, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                    if (live != null) Text(liveLine(live, engine), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                if (card.working) StopButton { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } }
                 LuIcon(Lu.chev, Modifier.rotate(if (logOpen) 90f else 0f), tint = c.faint, size = 18.dp)
             }
-            Row(Modifier.padding(start = 42.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                listOf("File notes" to notes, "Summary" to summary, "Tour" to tour).forEach { (label, step) ->
+            FlowRow(Modifier.padding(start = 42.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                card.steps.forEach { step ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        StepMark(step)
-                        Text(label, style = PullsType.sm, color = if (step == Step.Pending) c.muted else c.text, maxLines = 1)
+                        StepDot(step.mark)
+                        Text(step.label, style = PullsType.sm, color = if (step.mark == StepMark.Pending) c.muted else c.text, maxLines = 1)
                     }
                 }
             }
         }
-        if (failed) {
+        if (card.restart) {
+            val failed = analyzeTask?.status == "failed"
             Row(Modifier.padding(start = 42.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(analyzeTask?.error ?: "The analysis did not finish.", Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                com.octaviantocan.pulls.ui.design.ActionButton({ session.runAnalyze() }, small = true) { Text("Try again") }
+                Text(
+                    if (failed) (analyzeTask?.error ?: "The analysis did not finish.") else "You stopped it.",
+                    Modifier.weight(1f, fill = false), style = PullsType.sm, color = if (failed) c.error else c.muted, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                )
+                com.octaviantocan.pulls.ui.design.ActionButton({ session.runAnalyze(context) }, small = true) { Text(if (failed) "Try again" else "Analyze again") }
+            }
+        }
+        // A tour or brief that failed after a good analysis does not undo it; each can be run again on its own.
+        if (!card.working) {
+            listOf("The tour" to tourTask, "The brief" to briefTask).forEach { (name, found) ->
+                val task = found?.takeIf { it.status == "failed" } ?: return@forEach
+                Row(Modifier.padding(start = 42.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(task.error ?: "$name did not finish.", Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    com.octaviantocan.pulls.ui.design.ActionButton({ if (task.kind == "tour") startTour(session) else startBrief(session) }, small = true) { Text("Try again") }
+                }
             }
         }
         if (logOpen) Column(Modifier.padding(start = 42.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (analyzeTask != null) AiActivityLog(analyzeTask.activities, running)
-            if (tourTask != null) AiActivityLog(tourTask.activities, tourRunning)
+            tasks.forEach { task -> AiActivityLog(task.activities, task.running) }
         }
     }
 }
@@ -583,16 +620,26 @@ private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoa
 
 // --- Description ---
 
+/** The description, with an Edit link when the viewer may change this pull request (their own, or one they maintain). */
 @Composable
-private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
+private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?, onEdit: () -> Unit) {
     val c = LocalPullsColors.current
     val html = data?.overview?.bodyHTML.orEmpty()
     val markdown = remember(html, session.prOpened?.description) {
         if (html.isNotBlank()) htmlToMarkdown(html) else (session.prOpened ?: session.opened)?.description.orEmpty()
     }
-    Box(Modifier.padding(top = 14.dp)) {
-        if (markdown.isNotBlank()) Markdown(markdown, style = PullsType.read.copy(color = c.text))
-        else Text("No description.", style = PullsType.read, color = c.muted)
+    Column {
+        if (data?.overview?.viewer?.canUpdate == true) {
+            Box(
+                Modifier.padding(top = 6.dp).defaultMinSize(minHeight = 40.dp).clip(RoundedCornerShape(8.dp))
+                    .clickable(role = Role.Button, onClickLabel = "Edit the description", onClick = onEdit),
+                contentAlignment = Alignment.CenterStart,
+            ) { Text(if (markdown.isBlank()) "Add a description" else "Edit description", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
+        }
+        Box(Modifier.padding(top = 8.dp)) {
+            if (markdown.isNotBlank()) Markdown(markdown, style = PullsType.read.copy(color = c.text))
+            else Text("No description.", style = PullsType.read, color = c.muted)
+        }
     }
 }
 

@@ -224,23 +224,31 @@ fun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Mo
     }
 }
 
-/** `.tb`: text tabs on a hairline, the selected one underlined in the accent. */
+/**
+ * `.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches
+ * halfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.
+ */
 @Composable
 fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
     Row(
         modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         labels.forEachIndexed { index, label ->
             val on = index == selected
             val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = "tab-ink")
             Box(
-                Modifier.height(42.dp).clickable(role = Role.Tab) { onSelect(index) }.drawBehind {
-                    if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))
-                },
+                Modifier.height(48.dp).clickable(role = Role.Tab, onClickLabel = label) { onSelect(index) }
+                    .padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }
+            ) {
+                Box(
+                    Modifier.fillMaxHeight().drawBehind {
+                        if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))
+                    },
+                    contentAlignment = Alignment.Center,
+                ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }
+            }
         }
     }
 }
@@ -308,7 +316,8 @@ fun ProfileDot(modifier: Modifier = Modifier, size: Dp = 40.dp) {
 /**
  * `.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of close button, centered
  * title and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is
- * as tall as its content up to 62% of the screen. [back] swaps the close X for a back arrow.
+ * as tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half
+ * the screen and pulls up to the full height. [back] swaps the close X for a back arrow.
  */
 @Composable
 fun PullsSheet(
@@ -318,18 +327,23 @@ fun PullsSheet(
     back: (() -> Unit)? = null,
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: ScrollState? = null,
+    expandable: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = LocalPullsColors.current
     val scrollState = scroll ?: rememberScrollState()
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val state = rememberModalBottomSheetState(skipPartiallyExpanded = !expandable)
     val scope = rememberCoroutineScope()
     val dismiss: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }
     val density = LocalDensity.current
     val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     val screen = LocalConfiguration.current.screenHeightDp.dp
     val ceiling = screen - maxOf(top, 16.dp)
-    val sized = if (full) Modifier.height(ceiling - 44.dp) else Modifier.heightIn(max = screen * 0.62f)
+    val sized = when {
+        full -> Modifier.height(ceiling - 44.dp)
+        expandable -> Modifier.heightIn(max = ceiling - 44.dp)
+        else -> Modifier.heightIn(max = screen * 0.62f)
+    }
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = state,
@@ -368,8 +382,9 @@ fun PullsSheet(
     back: (() -> Unit)? = null,
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: ScrollState? = null,
+    expandable: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
-) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, content)
+) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, expandable, content)
 
 /** `.r-card`: a white 16dp card on the sheet's paper. */
 @Composable

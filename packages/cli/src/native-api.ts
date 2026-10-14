@@ -30,6 +30,7 @@ const ALLOWED = new Set<string>([
   LOCAL_RPC.aiTaskWait,
   LOCAL_RPC.aiTaskCancel,
   LOCAL_RPC.aiTaskList,
+  LOCAL_RPC.aiTaskListAll,
   LOCAL_RPC.askThreads,
   LOCAL_RPC.askThreadClose,
 ])
@@ -316,6 +317,21 @@ function messageText(content: unknown): string {
   return content.map(part => typeof part === 'string' ? part : (part as { text?: string })?.text ?? '').join('')
 }
 
+/**
+ * The brief as the phone draws it. Only the OpenUI Lang is stored, so a parser upgrade
+ * reaches briefs written before it; the phone gets the parsed tree, never the source.
+ */
+async function briefState(cache: Awaited<ReturnType<typeof serverSession>>['cache'], diff: import('@pulls.review/core/types').DiffsPayload) {
+  const saved = await cache.briefs.latest(serializeRef(diff.ref), diff.head?.sha)
+  if (!saved)
+    return undefined
+  const { briefTree } = await import('@pulls.review/core/llm')
+  const tree = briefTree(saved.lang)
+  return tree
+    ? { tree, headSha: saved.headSha, engine: saved.engine, model: saved.model, effort: saved.effort, locale: saved.locale, generatedAt: saved.generatedAt }
+    : undefined
+}
+
 /** Saved questions, the latest AI review, and the chat, so a reopened pull request shows what already happened. */
 async function reviewState(cwd: string, args: unknown): Promise<Response> {
   const key = textOf((args as { key?: unknown } | undefined)?.key)
@@ -347,7 +363,8 @@ async function reviewState(cwd: string, args: unknown): Promise<Response> {
     ? { overallSummary: llm.overallSummary, files: llm.files ?? [], model: llm.model, generatedAt: llm.generatedAt, sharedBy: llm.sharedBy }
     : undefined
   const tour = entry ? await session.cache.tours.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha) : undefined
-  return Response.json({ result: { threads, critique, chat, aiGroups, analysis, sharedComment: entry?.sharedComment, tour } })
+  const brief = entry ? await briefState(session.cache, entry.diff) : undefined
+  return Response.json({ result: { threads, critique, chat, aiGroups, analysis, sharedComment: entry?.sharedComment, tour, brief } })
 }
 
 /** GitHub review threads for one pull request, in the same shape the web diff anchors to lines. */

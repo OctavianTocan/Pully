@@ -72,14 +72,11 @@ import com.octaviantocan.pulls.ui.home.Spinner
  * indented under their line. Tapping a line selects it; the screen's bottom bar comments on it.
  */
 
-/** The prototype's `.dl`: Geist Mono 12.5 on 20. */
-private val CODE = TextStyle(
-    fontFamily = PullsType.mono, fontSize = 12.5.sp, lineHeight = 20.sp,
+/** The prototype's `.dl`: 12.5 on 20 in the reader's code face (Geist Mono by default), scaled by the phone's code zoom so size and line height move together. */
+private fun codeStyle(zoom: Float): TextStyle = TextStyle(
+    fontFamily = PullsType.mono, fontSize = (12.5f * zoom).sp, lineHeight = (20f * zoom).sp,
     lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
 )
-
-/** [CODE] at the phone's code zoom: size and line height scale together. */
-private fun codeStyle(zoom: Float): TextStyle = if (zoom == 1f) CODE else CODE.copy(fontSize = (12.5f * zoom).sp, lineHeight = (20f * zoom).sp)
 
 /** The line-number column: wide enough for [digits] at [zoom], never under 26dp. */
 internal fun numberWidth(digits: Int, zoom: Float): Dp = (maxOf(34f, digits * 8f + 10f) * zoom).coerceAtLeast(26f).dp

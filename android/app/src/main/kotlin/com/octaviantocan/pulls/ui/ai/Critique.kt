@@ -54,11 +54,11 @@ import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
-/** Starts an AI review through [lens] (null: the general review), like `critique.run`. */
-internal fun ReviewSession.runCritique(context: android.content.Context, lens: String?) {
+/** Starts an AI review through [lens] (null: the general review), like `critique.run`. [effort] overrides the Settings effort. */
+internal fun ReviewSession.runCritique(context: android.content.Context, lens: String?, effort: String? = null) {
     val config = ServerStore.load(context)
-    val variant = critiqueVariant(opened?.headSha, config.engine, config.model, settings.effort.ifBlank { null }, lens)
-    startAiTask("critique", extra = {
+    val variant = critiqueVariant(opened?.headSha, config.engine, config.model, (effort ?: settings.effort).ifBlank { null }, lens)
+    startAiTask("critique", effort = effort, extra = {
         put("variant", variant)
         if (lens != null) put("lens", lens)
     })

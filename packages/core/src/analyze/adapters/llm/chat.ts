@@ -8,7 +8,7 @@ import { Agent } from '@earendil-works/pi-agent-core'
 import { serializeRef } from '../../../types/source'
 import { toLlmMessages } from './agent'
 import { toGroupedResult } from './index'
-import { CHAT_SYSTEM_SECTION } from './prompt'
+import { buildChatSeedPrompt, CHAT_SYSTEM_SECTION } from './prompt'
 import { createStreamFn } from './runtime'
 import { createLedger, createReadDiffsTool, createUpdateGroupingTool, UPDATE_GROUPING_DECLARATION } from './tools'
 
@@ -16,6 +16,14 @@ export const MAX_CHAT_TURNS = 8
 export const CHAT_CONTEXT_CHAR_LIMIT = 400_000
 export const OMITTED_DIFF_TEXT = '(diff omitted, call read_diffs again if needed)'
 export const LANGUAGE_REMINDER = '<reminder>Reply in the same language as this message.</reminder>'
+
+/**
+ * A transcript to chat from when the diff was never analyzed: the pull request as the first
+ * message, which `chatStartIndex` keeps out of the visible conversation.
+ */
+export function seedChatSession(diff: DiffsPayload, locale: Locale): { messages: AgentMessage[], chatStartIndex: number } {
+  return { messages: [{ role: 'user', content: buildChatSeedPrompt(diff, locale), timestamp: Date.now() }], chatStartIndex: 1 }
+}
 
 export function withChatInstructions(messages: AgentMessage[]): AgentMessage[] {
   if (messages.some(message => message.role === 'system' && message.sections?.chat !== undefined))

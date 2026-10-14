@@ -51,6 +51,8 @@ export const LOCAL_RPC = {
   aiTaskCancel: 'ai-task-cancel',
   /** One diff's tasks, running or recently finished, newest first. */
   aiTaskList: 'ai-task-list',
+  /** Every diff's tasks, running or recently finished, newest first, without work logs. */
+  aiTaskListAll: 'ai-task-list-all',
   /** One diff's saved question threads. */
   askThreads: 'ask-threads',
   /** Drops a question thread and stops its running answer. */
@@ -233,8 +235,12 @@ export interface MyPullsSnapshot {
 }
 
 /** What a server task does; each saves its result where the page reads it back. */
-export const AI_TASK_KINDS = ['analyze', 'critique', 'ask', 'chat', 'tour'] as const
+export const AI_TASK_KINDS = ['analyze', 'critique', 'ask', 'chat', 'tour', 'brief'] as const
 export type AiTaskKind = typeof AI_TASK_KINDS[number]
+
+/** What an analysis starts by itself once it succeeds, so the whole job finishes with the phone asleep. */
+export const AI_FOLLOW_UPS = ['tour', 'brief'] as const
+export type AiFollowUp = typeof AI_FOLLOW_UPS[number]
 
 /** The CLI, model and effort a task runs with, resolved by the page from its settings. */
 export interface AiTaskModel {
@@ -260,20 +266,23 @@ interface AiTaskRequestBase {
 /**
  * A server task. It keeps running when the page reloads or closes, and writes its
  * result into the shared cache: the AI grouping and chat session of the diff entry,
- * the critique cache, or the diff's saved question threads.
+ * the critique, tour and brief caches, or the diff's saved question threads.
  */
 export type AiTaskRequest
-  = | AiTaskRequestBase & { kind: 'analyze', locale: string }
+  = | AiTaskRequestBase & { kind: 'analyze', locale: string, then?: AiFollowUp[] }
     | AiTaskRequestBase & { kind: 'critique', variant: string, lens?: string }
     | AiTaskRequestBase & { kind: 'ask', threadId: string, selection: AiTaskSelection, question: string }
     | AiTaskRequestBase & { kind: 'chat', locale: string, text?: string, retry?: boolean }
     | AiTaskRequestBase & { kind: 'tour', locale: string }
+    | AiTaskRequestBase & { kind: 'brief', locale: string }
 
 /** A task as of revision `rev`; `activities` holds only entries changed since the caller's `after`. */
 export interface AiTaskSnapshot {
   id: string
   kind: AiTaskKind
   key: string
+  /** The diff's title, so a list across diffs can name each one. */
+  title?: string
   label: string
   engine: LlmEngine
   model?: string
@@ -294,6 +303,8 @@ export interface AiTaskSnapshot {
   threadId?: string
   /** `ask`: the question; `chat`: the message sent. */
   text?: string
+  /** `analyze`: what it starts after itself, so a client can show those steps from the first moment. */
+  then?: AiFollowUp[]
 }
 
 /** One saved question of a thread and its answer. */

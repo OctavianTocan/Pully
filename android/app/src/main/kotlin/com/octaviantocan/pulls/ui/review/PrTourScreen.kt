@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -93,7 +95,6 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun PrTourScreen(
     session: ReviewSession,
-    ui: DiffUi,
     head: PrHead,
     resumeAt: Int,
     onReached: (stop: Int, total: Int, title: String) -> Unit,
@@ -154,7 +155,8 @@ internal fun PrTourScreen(
                     Text(head.label, style = PullsType.base.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
                     if (n > 0) LuIcon(Lu.chevd, Modifier.rotate(if (menu == "stops") 180f else 0f), tint = c.muted, size = 20.dp)
                 }
-                FloatButton({ menu = if (menu == "aa") null else "aa" }, "Text size") { Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text) }
+                // Balances the back button so the stop picker stays centred. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
+                Spacer(Modifier.width(44.dp))
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 110.dp
@@ -201,7 +203,6 @@ internal fun PrTourScreen(
             menu = null
             scope.launch { listState.animateScrollToItem(index + 1) }
         }, onDismiss = { menu = null })
-        if (menu == "aa") ViewMenu(session, ui, null, onDismiss = { menu = null })
     }
 }
 

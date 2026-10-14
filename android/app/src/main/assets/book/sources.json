@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 560,
+        "line": 575,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes.",
         "params": [
           {
@@ -67,7 +67,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 249,
+        "line": 257,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -104,7 +104,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 278,
+        "line": 286,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -260,7 +260,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 577,
+        "line": 592,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -283,7 +283,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 493,
+        "line": 508,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot; done,\nit is a still wash with a tick. No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -311,7 +311,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 571,
+        "line": 586,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -334,7 +334,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 301,
+        "line": 309,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -357,7 +357,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 545,
+        "line": 560,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -388,7 +388,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 416,
+        "line": 431,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -418,8 +418,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 313,
-        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [back] swaps the close X for a back arrow.",
+        "line": 322,
+        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of close button, centered\ntitle and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is\nas tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half\nthe screen and pulls up to the full height. [back] swaps the close X for a back arrow.",
         "params": [
           {
             "name": "onClose",
@@ -450,15 +450,20 @@
             "default": "null"
           },
           {
+            "name": "expandable",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val c = LocalPullsColors.current\n    val scrollState = scroll ?: rememberScrollState()\n    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)\n    val scope = rememberCoroutineScope()\n    val dismiss: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }\n    val density = LocalDensity.current\n    val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }\n    val screen = LocalConfiguration.current.screenHeightDp.dp\n    val ceiling = screen - maxOf(top, 16.dp)\n    val sized = if (full) Modifier.height(ceiling - 44.dp) else Modifier.heightIn(max = screen * 0.62f)\n    ModalBottomSheet(\n        onDismissRequest = onClose,\n        sheetState = state,\n        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),\n        containerColor = c.paper,\n        contentColor = c.text,\n        tonalElevation = 0.dp,\n        scrimColor = c.scrim,\n        dragHandle = null,\n        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },\n    ) {\n        Column(Modifier.fillMaxWidth().then(sized).imePadding()) {\n            Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))\n            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {\n                if (back != null) FloatIcon(Lu.back, \"Back\", back, flat = true, iconSize = 22.dp)\n                else FloatIcon(Lu.close, \"Close\", dismiss, flat = true, iconSize = 22.dp)\n                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {\n                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }\n                }\n                Spacer(Modifier.width(44.dp))\n            }\n            Column(\n                Modifier.fillMaxWidth().weight(1f, fill = full).verticalScroll(scrollState).padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },\n                content = content,\n            )\n            if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)\n        }\n    }\n}"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val c = LocalPullsColors.current\n    val scrollState = scroll ?: rememberScrollState()\n    val state = rememberModalBottomSheetState(skipPartiallyExpanded = !expandable)\n    val scope = rememberCoroutineScope()\n    val dismiss: () -> Unit = { scope.launch { state.hide() }.invokeOnCompletion { onClose() } }\n    val density = LocalDensity.current\n    val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }\n    val screen = LocalConfiguration.current.screenHeightDp.dp\n    val ceiling = screen - maxOf(top, 16.dp)\n    val sized = when {\n        full -> Modifier.height(ceiling - 44.dp)\n        expandable -> Modifier.heightIn(max = ceiling - 44.dp)\n        else -> Modifier.heightIn(max = screen * 0.62f)\n    }\n    ModalBottomSheet(\n        onDismissRequest = onClose,\n        sheetState = state,\n        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),\n        containerColor = c.paper,\n        contentColor = c.text,\n        tonalElevation = 0.dp,\n        scrimColor = c.scrim,\n        dragHandle = null,\n        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },\n    ) {\n        Column(Modifier.fillMaxWidth().then(sized).imePadding()) {\n            Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFD9D9D6)))\n            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {\n                if (back != null) FloatIcon(Lu.back, \"Back\", back, flat = true, iconSize = 22.dp)\n                else FloatIcon(Lu.close, \"Close\", dismiss, flat = true, iconSize = 22.dp)\n                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {\n                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }\n                }\n                Spacer(Modifier.width(44.dp))\n            }\n            Column(\n                Modifier.fillMaxWidth().weight(1f, fill = full).verticalScroll(scrollState).padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },\n                content = content,\n            )\n            if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)\n        }\n    }\n}"
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 363,
+        "line": 377,
         "doc": "",
         "params": [
           {
@@ -490,11 +495,16 @@
             "default": "null"
           },
           {
+            "name": "expandable",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, content)\n\n/** `.r-card`: a white 16dp card on the sheet's paper. */"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, expandable, content)\n\n/** `.r-card`: a white 16dp card on the sheet's paper. */"
       }
     ]
   },
@@ -503,7 +513,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 375,
+        "line": 390,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -525,7 +535,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 385,
+        "line": 400,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
         "params": [
           {
@@ -581,7 +591,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 585,
+        "line": 600,
         "doc": "`.sk`: a 12dp shimmering bar standing in for text that is still being written.",
         "params": [
           {
@@ -634,7 +644,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 262,
+        "line": 270,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -669,7 +679,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 452,
+        "line": 467,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.",
         "params": [
           {
@@ -691,8 +701,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 228,
-        "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent.",
+        "line": 231,
+        "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.",
         "params": [
           {
             "name": "labels",
@@ -712,7 +722,7 @@
             "default": "Modifier"
           }
         ],
-        "source": "@Composable\nfun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },\n        horizontalArrangement = Arrangement.spacedBy(24.dp),\n    ) {\n        labels.forEachIndexed { index, label ->\n            val on = index == selected\n            val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = \"tab-ink\")\n            Box(\n                Modifier.height(42.dp).clickable(role = Role.Tab) { onSelect(index) }.drawBehind {\n                    if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))\n                },\n                contentAlignment = Alignment.Center,\n            ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }\n        }\n    }\n}"
+        "source": "@Composable\nfun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },\n    ) {\n        labels.forEachIndexed { index, label ->\n            val on = index == selected\n            val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = \"tab-ink\")\n            Box(\n                Modifier.height(48.dp).clickable(role = Role.Tab, onClickLabel = label) { onSelect(index) }\n                    .padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp),\n                contentAlignment = Alignment.Center,\n            ) {\n                Box(\n                    Modifier.fillMaxHeight().drawBehind {\n                        if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))\n                    },\n                    contentAlignment = Alignment.Center,\n                ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }\n            }\n        }\n    }\n}"
       }
     ]
   }

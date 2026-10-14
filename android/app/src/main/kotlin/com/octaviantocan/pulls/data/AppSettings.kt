@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.ui.design.Messages
 
 /**
@@ -36,12 +37,19 @@ class AppSettings private constructor(private val context: Context) {
     var effort by mutableStateOf(prefs.getString("effort", "") ?: "")
         private set
 
+    /** What the Analyze button runs: the preset last picked, or the passes picked under Customize. */
+    var analyzeChoice by mutableStateOf(AnalyzeChoice.decode(prefs.getString("analyzeChoice", null)))
+        private set
+
     /** Phone-only: diff code size multiplier (pinch on the diff, or Settings), 0.6x to 2x. */
     var codeZoom by mutableStateOf(prefs.getFloat("codeZoom", 1f))
         private set
 
     /** Phone-only: wrap long code lines instead of scrolling them sideways. */
     var codeWrap by mutableStateOf(prefs.getBoolean("codeWrap", false))
+
+    /** The face code is set in, by its `CodeFont.id`: Geist Mono until the reader picks another. */
+    var codeFont by mutableStateOf(prefs.getString("codeFont", null) ?: "geist-mono")
         private set
 
     fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply() }
@@ -49,12 +57,17 @@ class AppSettings private constructor(private val context: Context) {
     fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply() }
     fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply() }
     fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply() }
+    fun updateAnalyzeChoice(value: AnalyzeChoice) { analyzeChoice = value; prefs.edit().putString("analyzeChoice", value.encode()).apply() }
     fun updateEffort(value: String) { effort = value; prefs.edit().putString("effort", value).apply() }
     fun updateCodeZoom(value: Float) {
         codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM)
         prefs.edit().putFloat("codeZoom", codeZoom).apply()
     }
+
+    /** Moves the code size on screen without writing it down: a pinch calls this every frame and [updateCodeZoom] once at the end. */
+    fun previewCodeZoom(value: Float) { codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM) }
     fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
+    fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply() }
 
     companion object {
         const val MIN_ZOOM = 0.6f

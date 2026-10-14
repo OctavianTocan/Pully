@@ -28,15 +28,20 @@ fun Modifier.pinchToZoomCode(settings: AppSettings): Modifier = pointerInput(set
         awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         var start = settings.codeZoom
         var scale = 1f
+        var moved = false
         while (true) {
             val event = awaitPointerEvent(PointerEventPass.Initial)
             val pressed = event.changes.count { it.pressed }
-            if (pressed == 0) break
             if (pressed >= 2) {
-                scale *= event.calculateZoom()
-                settings.updateCodeZoom(start * scale)
+                // Kept inside the limits as it goes, so pinching past one and back does not lag behind the fingers.
+                scale = (scale * event.calculateZoom()).coerceIn(AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
+                settings.previewCodeZoom(start * scale)
+                moved = true
                 event.changes.forEach { it.consume() }
             } else {
+                // Written once the fingers lift, not on every frame of the pinch.
+                if (moved) { settings.updateCodeZoom(settings.codeZoom); moved = false }
+                if (pressed == 0) break
                 start = settings.codeZoom
                 scale = 1f
             }

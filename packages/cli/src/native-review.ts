@@ -1,4 +1,4 @@
-import type { MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
+import type { GithubClient, MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
 import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
 import process from 'node:process'
 import {
@@ -12,6 +12,7 @@ import {
   fetchPullRequestOverview,
   mergePullRequest,
   updatePullRequestBranch,
+  updatePullRequestText,
 } from '@pulls.review/core/github'
 import { createLocalSource } from '@pulls.review/core/local'
 import { staticCredentials } from '@pulls.review/core/types'
@@ -29,6 +30,17 @@ type Handler = (cwd: string, args: Args) => Promise<unknown>
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+/** Edits a pull request's title or description. An empty description is a real edit; only a missing field is left alone. */
+async function editPullRequest(github: GithubClient, id: string, args: Args): Promise<void> {
+  const title = typeof args?.title === 'string' ? args.title.trim() : undefined
+  const body = typeof args?.body === 'string' ? args.body : undefined
+  if (title === '')
+    throw new Error('A pull request needs a title.')
+  if (title === undefined && body === undefined)
+    throw new Error('Edit needs a title or a description.')
+  await updatePullRequestText(github, id, { title, body })
 }
 
 function pullOf(args: Args): { owner: string, repo: string, number: string } {
@@ -143,7 +155,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return { overview, mergeability: assessMergeability(overview), defaultCommits: commits }
   },
 
-  /** Merge, close, reopen, ready, draft, or update the branch. */
+  /** Merge, close, reopen, ready, draft, edit the title or description, or update the branch. */
   'pr-action': async function (_cwd, args) {
     const id = text(args?.id)
     const action = text(args?.action)
@@ -159,6 +171,9 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     }
     else if (action === 'update-branch') {
       await updatePullRequestBranch(github, id, { method: args?.method === 'rebase' ? 'rebase' : 'merge', expectedHeadOid })
+    }
+    else if (action === 'edit') {
+      await editPullRequest(github, id, args)
     }
     else if (STATE_CHANGES.includes(action as PullRequestStateChange)) {
       await changePullRequestState(github, id, action as PullRequestStateChange)

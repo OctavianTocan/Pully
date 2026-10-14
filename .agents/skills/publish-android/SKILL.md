@@ -9,9 +9,22 @@ Nothing builds or publishes the APK automatically. CI (`ci.yml`) does not touch 
 `release.yml` only runs for `v*` tags and publishes the packages. Merging to `main` changes no
 installed app. A person (or an agent with the toolchain) has to run the steps below.
 
-The sandbox agents run in cannot build: `dl.google.com` and `maven.google.com` are blocked, so there is
-no Android SDK or AGP. Do not claim an Android change was built or run unless it was, on a machine that
-can.
+## Building in a cloud sandbox
+
+A cloud sandbox can compile and unit-test the app (checked 14 Oct 2026: `dl.google.com`,
+`maven.google.com` and Maven Central all answer through the egress proxy). What it cannot do is run the app,
+so say "compiled and unit-tested", never "tried on a phone", unless a device was used.
+
+1. Install a JDK 17+, then the SDK: download the Linux command-line tools zip from
+   `https://dl.google.com/android/repository/`, unpack it to `$ANDROID_HOME/cmdline-tools/latest`, run
+   `sdkmanager --licenses`, then `sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"`.
+   Gradle installs the build-tools version AGP asks for by itself.
+2. `export ANDROID_HOME=$HOME/Android/Sdk ANDROID_SDK_ROOT=$ANDROID_HOME`, then from `android/` run
+   `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug`.
+3. The first build downloads a few hundred artifacts and Maven Central often answers `429 Too Many
+   Requests` through the proxy. Gradle keeps everything it did download, so run the same command again until
+   it passes (a loop with a 45 second pause works). A real compile error shows as `e: file:///...`.
+4. Run it in the background and read the log; a foreground `sleep` is blocked in the sandbox.
 
 ## Publish an update
 
@@ -43,8 +56,8 @@ replaced, every installed app must be reinstalled — never let Gradle fall back
 
 ## First build after a big UI change
 
-Expect compile errors the first time: the code may only have been type-checked against a different
-Compose version. Fix those before publishing. Then check on the phone: inbox swipe (review right,
+Build it before publishing (see above); code written without a compiler may not build against this Compose
+version. Then check on the phone: inbox swipe (review right,
 archive left), a pull request's overview and diff, selecting a line and commenting, the More sheet
 (Model, Effort, Commands), a tour, Settings → Appearance (System, Light, Dark), and a large pull
 request for list performance.
