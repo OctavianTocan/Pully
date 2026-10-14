@@ -18,6 +18,16 @@ android {
         versionCode = 16
         versionName = "0.6.1"
     }
+    signingConfigs {
+        // The published APK is debug-signed; pin the key so every machine signs
+        // identically and installed apps keep accepting updates.
+        named("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     buildFeatures {
         compose = true
     }
