@@ -48,6 +48,7 @@ import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerConfig
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.Nav
+import com.octaviantocan.pulls.ui.book.UiBookRow
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.IconButton
@@ -139,6 +140,8 @@ fun SettingsScreen(nav: Nav) {
             LlmSettingsSection()
             Divider()
             ServerSection()
+            Divider()
+            UiBookRow(nav.uiBook)
         }
     }
 }

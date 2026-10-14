@@ -62,8 +62,9 @@ async function androidFile(name: string, type: string): Promise<Response> {
 /**
  * The phone's HTTP API: the same RPC handlers the page uses, plus the updater files.
  * Returns undefined when the request is not one of ours.
- * @param request - Method, URL and a JSON body reader.
+ * @param name - The RPC name.
  * @param cwd - The repository the server was started in.
+ * @param args - The decoded JSON body.
  */
 function nativeCall(name: string, cwd: string, args: unknown): Promise<Response> | undefined {
   if (name === 'github-pr' || name === 'github-compare' || name === 'github-commit')

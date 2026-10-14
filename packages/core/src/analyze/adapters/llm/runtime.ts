@@ -1,9 +1,9 @@
 import type { StreamFn } from '@earendil-works/pi-agent-core'
+import type { CliStreamHooks } from './cli-stream'
 import type { ResolvedModel } from './model'
 import { createModels, createProvider } from '@earendil-works/pi-ai'
 import { anthropicMessagesApi } from '@earendil-works/pi-ai/api/anthropic-messages.lazy'
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
-import type { CliStreamHooks } from './cli-stream'
 import { createCliStreamFn, isCliEngine } from './cli-stream'
 
 /**

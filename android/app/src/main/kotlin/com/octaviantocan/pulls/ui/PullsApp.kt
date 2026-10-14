@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.ToastHost
@@ -39,6 +40,7 @@ internal sealed interface Screen {
     data class Review(val target: OpenTarget, val tour: Boolean = false) : Screen
     data object Checkout : Screen
     data object Settings : Screen
+    data object UiBook : Screen
 }
 
 @Composable
@@ -64,6 +66,7 @@ fun PullsApp(initialTarget: String?) {
             openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
             home = { stack.clear(); stack.add(Screen.Home) },
             settings = { if (stack.last() != Screen.Settings) stack.add(Screen.Settings) },
+            uiBook = { if (stack.last() != Screen.UiBook) stack.add(Screen.UiBook) },
             checkout = { stack.add(Screen.Checkout) },
             back = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
         )
@@ -91,6 +94,7 @@ fun PullsApp(initialTarget: String?) {
                 is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
                 is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
                 Screen.Checkout -> CheckoutScreen(nav)
+                Screen.UiBook -> UiBook(nav.back)
                 Screen.Settings -> {}
             }
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
