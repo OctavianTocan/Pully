@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -186,19 +187,21 @@ private fun PassRow(title: String, hint: String, checked: Boolean, first: Boolea
     }
 }
 
-/** Analyze with a chevron: the button runs the last choice, the chevron opens the others. The dark pill, as the screen's one action. */
+/** Analyze with a chevron: the button runs the last choice, the chevron opens the others. The page's accent fill with white ink, the colour of the Review button below it, so the two main actions on the page match. */
 @Composable
 internal fun AnalyzeSplitButton(choice: String, onRun: () -> Unit, onMenu: () -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
-    Row(modifier.clip(CircleShape).background(c.cta), verticalAlignment = Alignment.CenterVertically) {
+    // raw-value-ok: white on the accent fill, the same ink as the Review button
+    val ink = Color.White
+    Row(modifier.clip(CircleShape).background(c.primary), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.defaultMinSize(minHeight = TOUCH).cueClickable(role = Role.Button, onClickLabel = "Analyze, $choice", onClick = onRun).padding(start = 18.dp, end = 12.dp),
             contentAlignment = Alignment.Center,
-        ) { Text("Analyze", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
-        Box(Modifier.width(1.dp).height(20.dp).background(c.onCta.copy(alpha = 0.3f)))
+        ) { Text("Analyze", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = ink, maxLines = 1) }
+        Box(Modifier.width(1.dp).height(20.dp).background(ink.copy(alpha = 0.3f)))
         Box(
             Modifier.size(TOUCH).cueClickable(role = Role.Button, onClickLabel = "Choose how to analyze", onClick = onMenu),
             contentAlignment = Alignment.Center,
-        ) { LuIcon(Lu.chevd, tint = c.onCta, size = 18.dp) }
+        ) { LuIcon(Lu.chevd, tint = ink, size = 18.dp) }
     }
 }
