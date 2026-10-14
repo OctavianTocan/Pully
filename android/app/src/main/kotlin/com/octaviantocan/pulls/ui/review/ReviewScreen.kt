@@ -215,7 +215,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                 }
                 ask?.let { request -> AskSheet(session, request.title, request.suggestions, request.initial) { ask = null } }
                 ReviewProgressSheet(session, top)
-                ReviewSubmitSheet(session, top)
+                ReviewSubmitSheet(session, top, canVerdict = head.isOpen)
                 if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)
             }
         }

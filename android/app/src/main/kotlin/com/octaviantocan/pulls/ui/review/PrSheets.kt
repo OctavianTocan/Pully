@@ -302,12 +302,15 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
     val memory = remember { EngineModels(context) }
     var config by remember { mutableStateOf(ServerStore.load(context)) }
     var attempt by remember { mutableStateOf(0) }
-    // Restarts with the engine, so the producer starts from whatever the new engine has cached, never the old engine's list.
-    val loaded by produceState<Result<CliCatalog>?>(ModelCatalogs.get(config.engine)?.let { Result.success(it) }, config.engine, attempt) {
-        val cached = if (attempt == 0) ModelCatalogs.get(config.engine) else null
-        value = cached?.let { Result.success(it) }
-        if (cached == null) value = fetchCatalog(repo, config.engine, refresh = attempt > 0)
+    val engine = config.engine
+    // The producer restarts with the engine, but only after a frame; a result is tagged with its engine and
+    // ignored for any other, so a tap in that frame cannot save the old engine's model under the new one.
+    val produced by produceState<Pair<String, Result<CliCatalog>>?>(ModelCatalogs.get(engine)?.let { engine to Result.success(it) }, engine, attempt) {
+        val cached = if (attempt == 0) ModelCatalogs.get(engine) else null
+        value = cached?.let { engine to Result.success(it) }
+        if (cached == null) value = engine to fetchCatalog(repo, engine, refresh = attempt > 0)
     }
+    val loaded = produced?.takeIf { it.first == engine }?.second
     val catalog = loaded?.getOrNull()
     fun save(next: ServerConfig) {
         config = next

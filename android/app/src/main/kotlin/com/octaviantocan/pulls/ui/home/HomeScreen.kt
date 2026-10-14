@@ -564,7 +564,7 @@ private fun ToursList(entries: List<TourEntry>, onOpen: (TourEntry) -> Unit) {
 /** `3 of 7 · Three lines that fix it`, `Writing · about a minute`, `Done · 4 stops`. */
 internal fun tourSubtitle(entry: TourEntry, now: Long): String = when {
     entry.writingAt(now) -> "Writing · about a minute"
-    entry.done -> "Done · ${entry.stops} ${if (entry.stops == 1) "stop" else "stops"}"
+    entry.doneAt(now) -> "Done · ${entry.stops} ${if (entry.stops == 1) "stop" else "stops"}"
     entry.reached > 0 -> "${entry.reached} of ${entry.stops} · ${entry.stopTitle}".trimEnd(' ', '·')
     else -> "${entry.stops} ${if (entry.stops == 1) "stop" else "stops"} · not started"
 }

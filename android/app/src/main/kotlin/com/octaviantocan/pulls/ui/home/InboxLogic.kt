@@ -101,6 +101,9 @@ data class TourEntry(
      */
     fun writingAt(now: Long): Boolean = writing && now - updatedAt < WRITING_STALE_MS
 
+    /** [done], but a rewrite that has expired no longer keeps a finished tour from counting as done. */
+    fun doneAt(now: Long): Boolean = !writingAt(now) && stops > 0 && reached >= stops
+
     companion object {
         const val WRITING_STALE_MS = 15 * 60_000L
     }

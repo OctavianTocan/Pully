@@ -149,6 +149,15 @@ class InboxTest {
     }
 
     @Test
+    fun aFinishedTourWhoseRewriteExpiredShowsAsDone() {
+        val rewriting = TourEntry("acme", "app", 1, "First", stops = 4, reached = 4, stopTitle = "Last", writing = true, updatedAt = 1_000)
+        val later = 1_000 + TourEntry.WRITING_STALE_MS
+        assertFalse(rewriting.doneAt(1_000 + 60_000))
+        assertTrue(rewriting.doneAt(later))
+        assertEquals("Done · 4 stops", tourSubtitle(rewriting, later))
+    }
+
+    @Test
     fun agesAndCountsStayShort() {
         val now = 1_000_000_000_000L
         fun ago(seconds: Long) = compactAge(now - seconds * 1000, now)

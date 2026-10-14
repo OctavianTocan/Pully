@@ -119,7 +119,7 @@ private val VERDICTS = listOf("COMMENT" to R.drawable.ic_oct_comment_16, "APPROV
 
 /** Port of `ReviewSubmitModal.vue`: pending note, summary, verdict, Discard review, Submit. */
 @Composable
-fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi) {
+fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi, canVerdict: Boolean = true) {
     val c = LocalPullsColors.current
     val pull = session.pull ?: return
     val scope = rememberCoroutineScope()
@@ -128,6 +128,7 @@ fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val pending = session.reviewData?.pendingCount ?: 0
+    val sent = if (canVerdict) verdict else "COMMENT"
     // Approve and Request changes in the More sheet open this one on their verdict.
     LaunchedEffect(top.reviewOpen) { if (top.reviewOpen) verdict = top.reviewVerdict }
     fun run(action: suspend () -> Unit) {
@@ -145,7 +146,8 @@ fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi) {
         TextInput(body, { body = it }, t("review.summaryPlaceholder"), Modifier.fillMaxWidth(), singleLine = false, minLines = 4, enabled = !busy)
         error?.let { Text(it, style = PullsType.sm, color = WebColors.red(c.dark)) }
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-            VerdictToggle(verdict) { verdict = it }
+            // A closed or merged pull request only takes a plain comment; Approve and Request changes are for open ones.
+            if (canVerdict) VerdictToggle(verdict) { verdict = it }
             // `justify-end` with `flex-auto` spacers: the actions take the rest of the line, or a line of
             // their own when they wrap, and sit at its right end.
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
@@ -156,9 +158,9 @@ fun ReviewSubmitSheet(session: ReviewSession, top: ReviewTopUi) {
                     Spacer(Modifier.weight(1f))
                 }
                 ActionButton(
-                    { run { session.repo.submitReview(pull, verdict, body) } },
+                    { run { session.repo.submitReview(pull, sent, body) } },
                     variant = ButtonVariant.Primary, loading = busy,
-                    enabled = verdict == "APPROVE" || body.isNotBlank() || pending > 0,
+                    enabled = sent == "APPROVE" || body.isNotBlank() || pending > 0,
                 ) { Text(t("common.submit")) }
             }
         }

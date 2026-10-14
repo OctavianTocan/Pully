@@ -110,7 +110,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             loading = true
             loadError = null
             runCatching { repo.open(target) }
-                .onSuccess { prOpened = it; if (selection == null) opened = it; afterOpen() }
+                .onSuccess { prOpened = it; if (selection == null) { opened = it; shownSelection = null }; afterOpen() }
                 .onFailure { loadError = it.message ?: it.toString() }
             loading = false
         }
@@ -168,14 +168,17 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** Narrows the diff to commits `from..to` of the PR (web `CommitPicker`); null restores all commits. */
     private var selectSeq = 0
 
+    /** The range [opened] actually shows (null: all commits), which a newer, unfinished selection has not changed yet. */
+    private var shownSelection: Pair<String, String>? = null
+
     fun selectCommits(range: Pair<String, String>?) {
         val pull = pull ?: return
         val seq = ++selectSeq
-        val previous = selection
         selection = range
         loadError = null
         if (range == null) {
             opened = prOpened
+            shownSelection = null
             scope.launch { afterOpen() }
             return
         }
@@ -186,8 +189,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             val result = runCatching { repo.open(narrowed) }
             // A newer selection (fast previous/next taps) wins; drop this answer.
             if (seq != selectSeq) return@launch
-            // On failure the diff on screen is still the previous one, so the selection goes back to match it.
-            result.onSuccess { opened = it; afterOpen() }.onFailure { loadError = it.message; selection = previous }
+            // On failure the diff on screen is still the one for [shownSelection], so the selection goes back to match it.
+            result.onSuccess { opened = it; shownSelection = range; afterOpen() }.onFailure { loadError = it.message; selection = shownSelection }
             loading = false
         }
     }
