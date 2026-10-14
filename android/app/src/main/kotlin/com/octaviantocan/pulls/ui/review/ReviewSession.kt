@@ -127,7 +127,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 .onSuccess {
                     prOpened = it
                     if (selection == null) { opened = it; shownSelection = null }
-                    rememberedAs?.let { name -> recent[name] = Remembered(it, recent[name]?.overview) }
+                    // The overview can arrive before the diff does, so this page's own copy counts too.
+                    rememberedAs?.let { name -> recent[name] = Remembered(it, overview ?: recent[name]?.overview) }
                     afterOpen()
                 }
                 .onFailure { loadError = it.message ?: it.toString() }

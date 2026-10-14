@@ -180,6 +180,12 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     val now = rememberNow(60_000)
     val workTasks = rememberWork(repo)
     val work = remember(workTasks) { pullWorkByKey(workTasks) }
+    // A tour the server started or finished while no page was open still gets its row.
+    LaunchedEffect(workTasks) {
+        tours.reconcile(workTasks, System.currentTimeMillis()) { key ->
+            try { repo.savedState(key).tour?.stops?.size } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
+        }
+    }
     var activityOpen by remember { mutableStateOf(false) }
     val pulls = sync.pulls
     val needle = ui.search.trim().lowercase()
@@ -258,13 +264,16 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
                         onRepo = { owner, name -> nav.openRepo(owner, name) },
                         onDismiss = { entry ->
                             // A tour still being written is stopped; a finished one leaves the list (it stays saved on the server).
-                            val running = runningTaskId(workTasks, pullKey(entry.owner, entry.repo, entry.number), "tour")
-                            if (entry.writingAt(now) && running != null) {
+                            val serverKey = pullKey(entry.owner, entry.repo, entry.number)
+                            val running = runningTaskId(workTasks, serverKey, "tour")
+                            val taskIds = workTasks.filter { it.kind == "tour" && it.key == serverKey }.map { it.id }
+                            if (running != null) {
                                 scope.launch { repo.cancelTask(running) }
-                                tours.upsert(entry.copy(writing = false))
+                                // A tour stopped before it had a stop has nothing to list; one that had keeps its row.
+                                if (entry.stops > 0) tours.upsert(entry.copy(writing = false)) else tours.dismiss(entry.key, taskIds)
                                 toaster.show("Stopped the tour for #${entry.number}")
                             } else {
-                                tours.remove(entry.key)
+                                tours.dismiss(entry.key, taskIds)
                                 toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
                             }
                         },
@@ -619,7 +628,7 @@ private fun ToursList(
             }
             items(list, key = { it.key }) { entry ->
                 val inset = with(LocalDensity.current) { 16.dp.toPx() }
-                val stoppable = entry.writingAt(now) && runningTaskId(tasks, pullKey(entry.owner, entry.repo, entry.number), "tour") != null
+                val stoppable = runningTaskId(tasks, pullKey(entry.owner, entry.repo, entry.number), "tour") != null
                 SwipeRow(
                     label = entry.prTitle,
                     onOpen = { onOpen(entry) },

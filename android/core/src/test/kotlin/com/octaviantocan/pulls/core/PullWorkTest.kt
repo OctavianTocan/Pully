@@ -20,6 +20,20 @@ class PullWorkTest {
     }
 
     @Test
+    fun aFailedRerunHidesTheOlderSuccessInEitherOrderOfTheList() {
+        val older = task("a", "analyze", "done", startedAt = 100)
+        val newer = task("a", "analyze", "failed", startedAt = 200)
+        assertEquals(emptyMap(), pullWorkByKey(listOf(newer, older)))
+        assertEquals(emptyMap(), pullWorkByKey(listOf(older, newer)))
+    }
+
+    @Test
+    fun aSuccessfulRerunOutranksAnOlderFailure() {
+        val marks = pullWorkByKey(listOf(task("a", "analyze", "done", startedAt = 200), task("a", "analyze", "failed", startedAt = 100)))
+        assertEquals(mapOf("a" to PullWork.Analyzed), marks)
+    }
+
+    @Test
     fun aQuestionOrAChatReplyIsNotAnalysis() {
         assertEquals(emptyMap(), pullWorkByKey(listOf(task("a", "ask", "running"), task("a", "chat", "running"))))
     }

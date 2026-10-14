@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.home
 
+import com.octaviantocan.pulls.core.WorkTask
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Triage
 import com.octaviantocan.pulls.ui.home.ArchiveStore
@@ -9,6 +10,7 @@ import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.ui.home.compactAge
 import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.home.tourSubtitle
+import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -226,5 +228,61 @@ class InboxTest {
         storage.set(TourIndex.STORAGE_KEY, "{not json")
         assertEquals(emptyList(), TourIndex(storage).entries)
         assertEquals(emptySet(), ArchiveStore(InboxTestStore()).keys)
+    }
+
+    private val key = "github:acme/app#7"
+    private fun tour(status: String, id: String, startedAt: Long = 1, title: String? = "Seven") = WorkTask(key, "tour", status, title, startedAt, id)
+
+    @Test
+    fun aTourTheServerStartedGetsItsRowWhileNoPageIsOpen() = runBlocking {
+        val index = TourIndex(InboxTestStore())
+        index.reconcile(listOf(tour("running", "t1")), now = 1_000) { null }
+        val row = index.get("acme/app#7")
+        assertEquals("Seven", row?.prTitle)
+        assertTrue(row?.writing == true)
+    }
+
+    @Test
+    fun aTourThatFinishedInTheBackgroundGetsItsStopCountAndStopsWriting() = runBlocking {
+        val index = TourIndex(InboxTestStore())
+        index.reconcile(listOf(tour("running", "t1")), now = 1_000) { null }
+        index.reconcile(listOf(tour("done", "t1")), now = 2_000) { 5 }
+        val row = index.get("acme/app#7")
+        assertEquals(5, row?.stops)
+        assertFalse(row?.writing == true)
+    }
+
+    @Test
+    fun aTourThatEndedWithoutAResultLeavesNoEmptyRow() = runBlocking {
+        val index = TourIndex(InboxTestStore())
+        index.reconcile(listOf(tour("running", "t1")), now = 1_000) { null }
+        index.reconcile(listOf(tour("failed", "t1")), now = 2_000) { null }
+        assertNull(index.get("acme/app#7"))
+    }
+
+    @Test
+    fun aRowTheReviewerRemovedDoesNotComeBackWhileTheServerStillListsItsTask() = runBlocking {
+        val storage = InboxTestStore()
+        val index = TourIndex(storage)
+        index.reconcile(listOf(tour("done", "t1")), now = 1_000) { 4 }
+        index.dismiss("acme/app#7", listOf("t1"))
+        index.reconcile(listOf(tour("done", "t1")), now = 2_000) { 4 }
+        assertNull(index.get("acme/app#7"))
+        // Remembered across launches, and a newer tour of the same pull still counts.
+        val again = TourIndex(storage)
+        again.reconcile(listOf(tour("done", "t1")), now = 3_000) { 4 }
+        assertNull(again.get("acme/app#7"))
+        again.reconcile(listOf(tour("done", "t2", startedAt = 9)), now = 4_000) { 6 }
+        assertEquals(6, again.get("acme/app#7")?.stops)
+    }
+
+    @Test
+    fun aLongWriteIsKeptFromExpiringAndTasksOfOtherSourcesAreIgnored() = runBlocking {
+        val index = TourIndex(InboxTestStore())
+        index.reconcile(listOf(tour("running", "t1")), now = 1_000) { null }
+        val later = 1_000 + TourEntry.WRITING_STALE_MS / 2
+        index.reconcile(listOf(tour("running", "t1"), WorkTask("local:abc", "tour", "running", id = "x")), now = later) { null }
+        assertTrue(index.get("acme/app#7")?.writingAt(later + 60_000) == true)
+        assertEquals(1, index.entries.size)
     }
 }

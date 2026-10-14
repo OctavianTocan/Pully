@@ -199,6 +199,33 @@ describe('ai tasks', () => {
     expect(runners.tour).not.toHaveBeenCalled()
   })
 
+  it('starts nothing more once Stop lands while the follow-ups are being set up', async () => {
+    const { tasks, cache, runners } = await setup()
+    const gate = deferred<Awaited<ReturnType<typeof cache.tours.latest>>>()
+    const latest = vi.spyOn(cache.tours, 'latest').mockImplementation(() => gate.promise)
+    const id = await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['tour', 'brief'] })
+    await vi.waitFor(() => expect(latest).toHaveBeenCalled())
+    expect(tasks.cancel(id)).toBe(true)
+    gate.resolve(undefined)
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(runners.tour).not.toHaveBeenCalled()
+    expect(runners.brief).not.toHaveBeenCalled()
+    expect(tasks.list(KEY).map(task => [task.kind, task.status])).toEqual([['analyze', 'cancelled']])
+  })
+
+  it('lets a chat started during an analysis wait its turn and carry on from the analysis transcript', async () => {
+    const gate = deferred<Awaited<ReturnType<TaskRunners['analyze']>>>()
+    const { tasks, cache, runners } = await setup({ analyze: vi.fn<TaskRunners['analyze']>(() => gate.promise) })
+    await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en' })
+    const chat = await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Why?' })
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(runners.chat).not.toHaveBeenCalled()
+    gate.resolve({ result: grouping, transcript: [{ role: 'user', content: 'Group this', timestamp: 0 }] })
+    expect(await settled(tasks.wait, chat)).toMatchObject({ status: 'done' })
+    expect(vi.mocked(runners.chat).mock.calls[0]![3]).toMatchObject({ messages: [{ content: 'Group this' }], chatStartIndex: 1 })
+    expect((await cache.diffs.get(KEY))?.llmSession?.messages).toHaveLength(2)
+  })
+
   it('runs only the follow-ups it knows when a client sends others', async () => {
     const { tasks, runners } = await setup()
     await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en', then: ['brief', 'brief', 'ask', 'nonsense'] as never }))

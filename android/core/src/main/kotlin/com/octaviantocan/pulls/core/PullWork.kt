@@ -22,16 +22,18 @@ fun parsePullKey(key: String): PullRef? {
 }
 
 /**
- * Per pull request: [PullWork.Analyzing] while any of its passes runs, [PullWork.Analyzed] when its analysis finished
- * and nothing runs. A pull request whose last run failed or was stopped has no mark.
+ * Per pull request: [PullWork.Analyzing] while any of its passes runs, [PullWork.Analyzed] when its newest analysis
+ * finished and nothing runs. A pull request whose newest analysis failed or was stopped has no mark, even if an older
+ * run of it succeeded.
  */
 fun pullWorkByKey(tasks: List<WorkTask>): Map<String, PullWork> {
     val result = mutableMapOf<String, PullWork>()
-    for (task in tasks) {
-        if (task.kind !in ANALYSIS_KINDS) continue
+    val byKey = tasks.filter { it.kind in ANALYSIS_KINDS }.groupBy { it.key }
+    for ((key, group) in byKey) {
+        val newestAnalysis = group.filter { it.kind == "analyze" }.maxByOrNull { it.startedAt }
         when {
-            task.status == "running" -> result[task.key] = PullWork.Analyzing
-            task.kind == "analyze" && task.status == "done" && result[task.key] == null -> result[task.key] = PullWork.Analyzed
+            group.any { it.status == "running" } -> result[key] = PullWork.Analyzing
+            newestAnalysis?.status == "done" -> result[key] = PullWork.Analyzed
         }
     }
     return result

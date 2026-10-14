@@ -132,6 +132,7 @@ function sameWork(a: AiTaskRequest, b: AiTaskRequest): boolean {
 export function createTaskManager({ cache, storage, runners }: { cache: CacheRepositories, storage: Storage, runners: TaskRunners }): TaskManager {
   const tasks = new Map<string, Task>()
   const threadLocks = new Map<string, Promise<unknown>>()
+  const sessionLocks = new Map<string, Promise<void>>()
 
   function wake(task: Task) {
     for (const waiter of [...task.waiters])
@@ -182,6 +183,18 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     }
   }
 
+  // An analysis and a chat reply both write the diff's saved transcript, so they take turns per diff.
+  function withSession<T>(key: string, run: () => Promise<T>): Promise<T> {
+    const turn = (sessionLocks.get(key) ?? Promise.resolve()).then(run)
+    const tail = turn.then(() => {}, () => {})
+    sessionLocks.set(key, tail)
+    void tail.then(() => {
+      if (sessionLocks.get(key) === tail)
+        sessionLocks.delete(key)
+    })
+    return turn
+  }
+
   // Thread writes for one diff run one at a time, so a question and an answer never drop each other.
   function withThreads<T>(key: string, change: (threads: AiAskThread[]) => T): Promise<T> {
     const run = (threadLocks.get(key) ?? Promise.resolve()).then(async () => {
@@ -215,12 +228,15 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     const { diff } = entry
     switch (request.kind) {
       case 'analyze': {
-        const { result, transcript } = await runners.analyze(diff, resolved, localeOf(request.locale), hooks)
-        task.controller.signal.throwIfAborted()
-        await cache.diffs.setAnalyzedResult(request.key, 'llm', result)
-        await cache.diffs.setLlmSession(request.key, { messages: transcript, chatStartIndex: transcript.length })
-        // The page also gets the grouping itself, so a browser write racing this one can't lose it.
-        return { usage: runners.usage(hooks.tag), result: JSON.stringify(result) }
+        return withSession(request.key, async () => {
+          task.controller.signal.throwIfAborted()
+          const { result, transcript } = await runners.analyze(diff, resolved, localeOf(request.locale), hooks)
+          task.controller.signal.throwIfAborted()
+          await cache.diffs.setAnalyzedResult(request.key, 'llm', result)
+          await cache.diffs.setLlmSession(request.key, { messages: transcript, chatStartIndex: transcript.length })
+          // The page also gets the grouping itself, so a browser write racing this one can't lose it.
+          return { usage: runners.usage(hooks.tag), result: JSON.stringify(result) }
+        })
       }
       case 'critique': {
         const instructions = request.lens ? await runners.lens(request.lens) : undefined
@@ -253,20 +269,25 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
         return { usage: brief.usage, result: JSON.stringify(brief) }
       }
       case 'chat': {
-        // A diff nobody analyzed has no transcript; the chat then starts from the pull request itself.
-        const next = await runners.chat(diff, resolved, localeOf(request.locale), entry.llmSession as LlmSession | undefined, { text: request.text, retry: request.retry }, {
-          ...hooks,
-          onGroupingUpdate: result => cache.diffs.setAnalyzedResult(request.key, 'llm', result),
+        return withSession(request.key, async () => {
+          task.controller.signal.throwIfAborted()
+          // Read once it is this chat's turn: an analysis that ran first leaves its transcript to carry on from.
+          // A diff nobody analyzed has no transcript; the chat then starts from the pull request itself.
+          const session = ((await cache.diffs.get(request.key)) ?? entry).llmSession as LlmSession | undefined
+          const next = await runners.chat(diff, resolved, localeOf(request.locale), session, { text: request.text, retry: request.retry }, {
+            ...hooks,
+            onGroupingUpdate: result => cache.diffs.setAnalyzedResult(request.key, 'llm', result),
+          })
+          task.controller.signal.throwIfAborted()
+          await cache.diffs.setLlmSession(request.key, next)
+          return {}
         })
-        task.controller.signal.throwIfAborted()
-        await cache.diffs.setLlmSession(request.key, next)
-        return {}
       }
     }
   }
 
   /** An analysis that succeeded starts what it was asked to, so the phone need not be awake to carry on. */
-  async function chain(request: Extract<AiTaskRequest, { kind: 'analyze' }>) {
+  async function chain(request: Extract<AiTaskRequest, { kind: 'analyze' }>, signal: AbortSignal) {
     // The phone's native API hands requests over unvalidated, so only the known follow-ups run.
     for (const step of new Set(request.then ?? [])) {
       try {
@@ -274,6 +295,9 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
           continue
         if (step === 'tour' && await hasCurrentTour(request.key))
           continue
+        // Stop can land during any of these reads; a stopped analysis starts nothing more.
+        if (signal.aborted)
+          return
         await start({ kind: step, key: request.key, model: request.model, locale: request.locale })
       }
       catch {
@@ -297,7 +321,7 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
       const outcome = await perform(task, hooks)
       // Registered before the analysis reads as done, so a client that sees it settle already finds what follows in the list.
       if (request.kind === 'analyze')
-        await chain(request)
+        await chain(request, task.controller.signal)
       settle(task, 'done', outcome)
     }
     catch (error) {

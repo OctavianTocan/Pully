@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.data.PullRow
+import com.octaviantocan.pulls.core.WorkTask
+import com.octaviantocan.pulls.core.parsePullKey
 import com.octaviantocan.pulls.data.Triage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -150,6 +152,44 @@ class TourIndex(private val storage: KeyValueStore?) {
         write()
     }
 
+    /** Server tour tasks whose rows the reviewer removed, so a task the server still lists does not bring its row back. */
+    private var dismissed: Set<String> = runCatching { storage?.get(STORAGE_DISMISSED)?.split(',')?.filter { it.isNotBlank() }?.toSet() }.getOrNull().orEmpty()
+
+    /** Removes the row and remembers the tasks it came from. */
+    fun dismiss(key: String, taskIds: Collection<String>) {
+        dismissed = (dismissed + taskIds.filter { it.isNotBlank() }).toList().takeLast(DISMISSED_LIMIT).toSet()
+        runCatching { storage?.set(STORAGE_DISMISSED, dismissed.joinToString(",")) }
+        remove(key)
+    }
+
+    /**
+     * Brings the list in line with the server's tours. A tour started while no page was open (an analysis chains one) gets
+     * its row, a row stops saying it is being written when its task ends, and a tour written in the background gets its
+     * stop count from [stopsOf] (asked with the server's key). A tour that ended with nothing to show leaves no empty row.
+     */
+    suspend fun reconcile(tasks: List<WorkTask>, now: Long, stopsOf: suspend (key: String) -> Int?) {
+        for ((key, group) in tasks.filter { it.kind == "tour" && it.id !in dismissed }.groupBy { it.key }) {
+            val ref = parsePullKey(key) ?: continue
+            val entryKey = "${ref.owner}/${ref.repo}#${ref.number}"
+            val existing = get(entryKey)
+            val newest = group.maxBy { it.startedAt }
+            val fresh = TourEntry(ref.owner, ref.repo, ref.number, newest.title?.takeIf { it.isNotBlank() } ?: "#${ref.number}", stops = 0, reached = 0, stopTitle = "", writing = false, updatedAt = now)
+            when {
+                group.any { it.status == "running" } -> {
+                    // Only an open page refreshes a row, so a long write is kept from expiring here.
+                    if (existing == null) upsert(fresh.copy(writing = true))
+                    else if (!existing.writing || now - existing.updatedAt > TourEntry.WRITING_STALE_MS / 3) upsert(existing.copy(writing = true, updatedAt = now))
+                }
+                newest.status == "done" && (existing == null || existing.writing) -> {
+                    val stops = stopsOf(key) ?: existing?.stops ?: 0
+                    if (stops > 0) upsert((existing ?: fresh).copy(writing = false, stops = stops, updatedAt = now))
+                    else if (existing != null) remove(entryKey)
+                }
+                existing?.writing == true -> if (existing.stops > 0) upsert(existing.copy(writing = false)) else remove(entryKey)
+            }
+        }
+    }
+
     private fun read(): List<TourEntry> = runCatching {
         val raw = storage?.get(STORAGE_KEY) ?: return emptyList()
         (json.parseToJsonElement(raw) as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.toEntry() }
@@ -161,7 +201,9 @@ class TourIndex(private val storage: KeyValueStore?) {
 
     companion object {
         const val STORAGE_KEY = "pulls-review:tours:v1"
+        const val STORAGE_DISMISSED = "pulls-review:tours:dismissed:v1"
         const val LIMIT = 60
+        const val DISMISSED_LIMIT = 100
         private val json = Json { ignoreUnknownKeys = true }
     }
 }
