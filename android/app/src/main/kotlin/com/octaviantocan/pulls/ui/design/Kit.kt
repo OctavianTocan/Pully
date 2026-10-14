@@ -190,7 +190,16 @@ internal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modif
 
 /** `.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill. */
 @Composable
-fun CapsuleTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, height: Dp = 44.dp, flat: Boolean = false) {
+fun CapsuleTabs(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    height: Dp = 44.dp,
+    flat: Boolean = false,
+    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */
+    leading: (@Composable (index: Int) -> Unit)? = null,
+) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(50)
     BoxWithConstraints(
@@ -205,7 +214,10 @@ fun CapsuleTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, mo
                     Modifier.weight(1f).fillMaxHeight().clip(shape).clickable(role = Role.Tab) { onSelect(index) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        leading?.invoke(index)
+                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)
+                    }
                 }
             }
         }

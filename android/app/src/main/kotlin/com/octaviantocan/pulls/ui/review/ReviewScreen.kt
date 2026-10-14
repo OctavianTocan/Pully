@@ -224,8 +224,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "findings" -> FindingsSheet(session) { sheet = null }
                     "edit" -> data?.overview?.let { DescriptionEditSheet(session, it) { sheet = null } }
                     "analyze" -> AnalyzeSheet(session, onClose = { sheet = null }, onModel = { sheet = "model" })
-                    "model" -> ModelSheet(session, onClose = { sheet = null }, onEffort = { sheet = "effort" })
-                    "effort" -> EffortSheet(session, onBack = { sheet = "model" }, onClose = { sheet = null })
+                    "model" -> ModelSheet(session.settings, onClose = { sheet = null }, onEffort = { sheet = "effort" })
+                    "effort" -> EffortSheet(session.settings, onBack = { sheet = "model" }, onClose = { sheet = null })
                     "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->
                         sheet = null
                         if (session.taskFor("critique")?.running == true) {
