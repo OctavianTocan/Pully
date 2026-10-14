@@ -12,13 +12,14 @@ import com.octaviantocan.pulls.ui.home.LabelStyle
 import com.octaviantocan.pulls.ui.home.MyPullsSync
 import com.octaviantocan.pulls.ui.home.PullListQuery
 import com.octaviantocan.pulls.ui.home.PullsSnapshot
-import com.octaviantocan.pulls.ui.home.RepoInfo
 import com.octaviantocan.pulls.ui.home.RepoPull
 import com.octaviantocan.pulls.ui.home.TimeUnit
 import com.octaviantocan.pulls.ui.home.asRepoInfo
 import com.octaviantocan.pulls.ui.home.asRepoPullsPage
 import com.octaviantocan.pulls.ui.home.asSnapshot
 import com.octaviantocan.pulls.ui.home.relativeTime
+import com.octaviantocan.pulls.ui.home.inShownRepos
+import com.octaviantocan.pulls.ui.home.repoChoices
 import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
 import com.octaviantocan.pulls.ui.settings.asCatalog
 import kotlinx.coroutines.CompletableDeferred
@@ -257,30 +258,52 @@ class LabelStyleTest {
     }
 }
 
-class CheckoutLogicTest {
+class RepoInfoTest {
     private val info = Json.parseToJsonElement("""{"currentBranch":"feat/android-app","defaultBranch":{"name":"main","ref":"origin/main"},"branches":["feat/a","main","feat/android-app"],"tags":["v1"],"commits":[{"sha":"3d6c4713a9","subject":"refactor"}]}""").jsonObject.asRepoInfo()
 
     @Test
     fun readsRepoInfo() {
-        assertEquals("feat/android-app", info.shownCurrentBranch)
-        assertEquals(listOf("feat/a", "feat/android-app"), info.pickerBranches())
+        assertEquals("feat/android-app", info.currentBranch)
+        assertEquals("main" to "origin/main", info.defaultBranch)
+        assertEquals(listOf("feat/a", "main", "feat/android-app"), info.branches)
         assertEquals(listOf("3d6c4713a9" to "refactor"), info.commits)
         assertEquals(listOf("v1"), info.tags)
     }
+}
+
+class RepoChoicesTest {
+    private fun row(owner: String, repo: String, number: Int) = PullRow(
+        owner = owner, repo = repo, number = number, title = "t", author = "a", updatedAt = "", isDraft = false,
+        role = "authored", checks = "success", updatedAtMs = 0L, additions = 0, deletions = 0,
+    )
+
+    private val pulls = listOf(row("human-plus", "ojin", 1), row("human-plus", "ojin", 2), row("OctavianTocan", "pulls.review", 3))
 
     @Test
-    fun hidesTheCurrentBranchWhenItIsTheDefault() {
-        assertNull(info.copy(currentBranch = "main").shownCurrentBranch)
+    fun listsEveryRepositoryByNameWithItsCount() {
+        val choices = repoChoices(pulls, emptySet())
+        assertEquals(listOf("human-plus/ojin", "OctavianTocan/pulls.review"), choices.map { it.key })
+        assertEquals(listOf(2, 1), choices.map { it.count })
+        assertTrue(choices.all { it.shown })
     }
 
     @Test
-    fun mapsADefaultBranchCompareToABranchTarget() {
-        assertEquals(OpenTarget.Local("origin/main...feat/a"), info.compareTarget("origin/main", "feat/a"))
-        assertEquals(OpenTarget.Local("main...feat/a"), info.compareTarget("main", " feat/a "))
-        assertEquals(OpenTarget.Local("feat/b...feat/a"), info.compareTarget("feat/b", "feat/a"))
-        assertNull(info.compareTarget("", "feat/a"))
-        assertNull(info.compareTarget("-x", "feat/a"))
-        assertEquals(OpenTarget.Local("main...x"), RepoInfo(null, null, emptyList(), emptyList(), emptyList()).compareTarget("main", "x"))
+    fun aRepositoryThatIsSwitchedOffStaysListedEvenWithNoPullRequests() {
+        val choices = repoChoices(pulls, setOf("human-plus/ojin", "luca/labs"))
+        assertEquals(listOf("human-plus/ojin", "luca/labs", "OctavianTocan/pulls.review"), choices.map { it.key })
+        assertEquals(listOf(false, false, true), choices.map { it.shown })
+        assertEquals(0, choices.first { it.key == "luca/labs" }.count)
+    }
+
+    @Test
+    fun theSearchKeepsRepositoriesWhoseNameContainsIt() {
+        assertEquals(listOf("OctavianTocan/pulls.review"), repoChoices(pulls, emptySet(), " PULLS ").map { it.key })
+    }
+
+    @Test
+    fun theInboxLeavesOutWhatIsSwitchedOff() {
+        assertEquals(listOf(3), pulls.inShownRepos(setOf("human-plus/ojin")).map { it.number })
+        assertEquals(3, pulls.inShownRepos(emptySet()).size)
     }
 }
 

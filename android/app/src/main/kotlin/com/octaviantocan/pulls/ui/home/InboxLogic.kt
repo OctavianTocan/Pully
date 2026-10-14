@@ -47,6 +47,33 @@ fun compactCount(n: Int): String = when {
     else -> "${n / 1_000}k"
 }
 
+/** One repository in Profile's list: how many of your pull requests it has right now, and whether the Inbox shows it. */
+data class RepoChoice(val owner: String, val repo: String, val count: Int, val shown: Boolean) {
+    val key: String get() = "$owner/$repo"
+}
+
+/**
+ * Every repository your pull requests are in, and every one switched off even when it has none right now
+ * (so it can be switched back on), by name. [query] keeps those whose `owner/repo` contains it.
+ */
+fun repoChoices(pulls: List<PullRow>, hidden: Set<String>, query: String = ""): List<RepoChoice> {
+    val counts = pulls.groupingBy { "${it.owner}/${it.repo}" }.eachCount()
+    val keys = counts.keys + hidden
+    val needle = query.trim().lowercase()
+    return keys
+        .filter { needle.isEmpty() || it.lowercase().contains(needle) }
+        .sortedBy { it.lowercase() }
+        .mapNotNull { key ->
+            val owner = key.substringBefore('/', "")
+            val repo = key.substringAfter('/', "")
+            if (owner.isEmpty() || repo.isEmpty()) null else RepoChoice(owner, repo, counts[key] ?: 0, key !in hidden)
+        }
+}
+
+/** The pull requests the Inbox shows: all of them but those in a switched-off repository. */
+fun List<PullRow>.inShownRepos(hidden: Set<String>): List<PullRow> =
+    if (hidden.isEmpty()) this else filterNot { "${it.owner}/${it.repo}" in hidden }
+
 /**
  * The pull requests archived from the inbox, by `owner/repo#number`, each with the head commit it had when
  * it was archived. Archiving hides one from Waiting on you and Authored (it stays under All) until its head

@@ -30,14 +30,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -63,6 +67,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -79,9 +84,10 @@ import kotlinx.coroutines.launch
 
 /**
  * `.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered
- * title and a spacer. The body scrolls; [full] makes it nearly full height (chat), otherwise it is
- * as tall as its content up to 62% of the screen. [expandable] is for long content: the sheet opens at half
- * the screen and pulls up to the full height. [back] swaps the close X for a back arrow.
+ * title and a spacer. The body scrolls under the header, which stays put (rule 77); [full] makes it
+ * nearly full height (chat, Commands: sheets that open a keyboard), otherwise it is as tall as its
+ * content. Content taller than half the screen makes the sheet rest at half height and lift to full,
+ * and [expandable] off keeps it from lifting. [back] swaps the close X for a back arrow.
  *
  * The sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the
  * panel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in
@@ -96,25 +102,18 @@ fun PullsSheet(
     back: (() -> Unit)? = null,
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: ScrollState? = null,
-    expandable: Boolean = false,
+    expandable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val motion = rememberMotionEnabled()
-    val scope = rememberCoroutineScope()
-    val position = remember { SheetPosition() }
-    val dismiss: () -> Unit = {
-        // The panel leaves first and the caller is told once it has gone.
-        if (position.startClosing()) scope.launch {
-            position.hide(motion)
-            onClose()
+    val scrollState = scroll ?: rememberScrollState()
+    SheetHost(onClose, onBack = back) { position, dismiss ->
+        SheetPanel(position, dismiss, full, expandable && !full) {
+            SheetHeader(
+                leading = { if (back != null) FloatIcon(Lu.back, "Back", back) else FloatIcon(Lu.close, "Close", dismiss) },
+                title = title,
+            )
+            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)
         }
-    }
-    Dialog(
-        onDismissRequest = dismiss,
-        properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        SheetWindow()
-        SheetPanel(position, dismiss, full, expandable, back, title, footer, scroll ?: rememberScrollState(), content)
     }
 }
 
@@ -126,9 +125,59 @@ fun PullsSheet(
     back: (() -> Unit)? = null,
     footer: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: ScrollState? = null,
-    expandable: Boolean = false,
+    expandable: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
-) = PullsSheet(onClose, { Text(title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1) }, full, back, footer, scroll, expandable, content)
+) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, content)
+
+/**
+ * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze
+ * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns
+ * into ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]
+ * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller
+ * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.
+ * The panel grows or shrinks to the next page's height as the body slides.
+ */
+@Composable
+fun <P : Any> PullsPagedSheet(
+    onClose: () -> Unit,
+    page: P,
+    parent: (P) -> P?,
+    onPage: (P) -> Unit,
+    title: @Composable (P) -> String,
+    full: Boolean = false,
+    footer: (@Composable ColumnScope.(P) -> Unit)? = null,
+    content: @Composable ColumnScope.(P) -> Unit,
+) {
+    SheetHost(onClose, onBack = parent(page)?.let { up -> { onPage(up) } }) { position, dismiss ->
+        PagedSheetPanel(position, dismiss, full, page, parent, onPage, title, footer, content)
+    }
+}
+
+/**
+ * The dialog window and the position of the panel in it; [panel] draws the scrim and the panel from where they are.
+ * The system back goes to [onBack] when the sheet has a page to go back to, and closes the sheet when it has not.
+ */
+@Composable
+private fun SheetHost(onClose: () -> Unit, onBack: (() -> Unit)? = null, panel: @Composable (SheetPosition, () -> Unit) -> Unit) {
+    val motion = rememberMotionEnabled()
+    val scope = rememberCoroutineScope()
+    val position = remember { SheetPosition() }
+    val dismiss: () -> Unit = {
+        // The panel leaves first and the caller is told once it has gone.
+        if (position.startClosing()) scope.launch {
+            position.hide(motion)
+            onClose()
+        }
+    }
+    val latestBack by rememberUpdatedState(onBack)
+    Dialog(
+        onDismissRequest = { latestBack?.invoke() ?: dismiss() },
+        properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    ) {
+        SheetWindow()
+        panel(position, dismiss)
+    }
+}
 
 /** The window the sheet draws in: edge to edge, no dim of its own (the scrim fades with the panel) and no window animation. */
 @Composable
@@ -148,9 +197,12 @@ private fun SheetWindow() {
 
 /**
  * Where a sheet's panel is, and how it gets there. [offset] is how far the panel is pushed down from
- * fully up, in px; [reveal] is 0 to 1 and drives the fade, the 2px blur and the scrim. Opening and
- * closing take 400ms and 350ms (rule 73); a finger moves [offset] directly and the panel settles on
- * release.
+ * fully up, in px, while it is on its way or under a finger; [reveal] is 0 to 1 and drives the fade,
+ * the 2px blur and the scrim. Opening and closing take 400ms and 350ms (rule 73); a finger moves
+ * [offset] directly and the panel settles on release. Once the panel rests it is pinned to its stop:
+ * [shift] then works the stop out from the panel's size on every frame, so a panel that is growing
+ * or shrinking (a page of another height sliding in) keeps its top where it belongs, with no frame
+ * of lag.
  */
 @Stable
 internal class SheetPosition {
@@ -159,6 +211,7 @@ internal class SheetPosition {
     var reveal by mutableFloatStateOf(0f)
         private set
     private var height by mutableIntStateOf(0)
+    private var pinned by mutableStateOf(false)
 
     /** Half the window, where an expandable sheet opens. */
     var half = 0f
@@ -175,17 +228,25 @@ internal class SheetPosition {
     private var offsetJob: Job? = null
     private var revealJob: Job? = null
 
-    private val partial: Float get() = if (expandable) (height - half).coerceAtLeast(0f) else 0f
-    private val rest: Float get() = if (expanded) 0f else partial
+    private fun partialFor(h: Float): Float = if (expandable) (h - half).coerceAtLeast(0f) else 0f
+    private fun restFor(h: Float): Float = if (expanded) 0f else partialFor(h)
+    private val partial: Float get() = partialFor(height.toFloat())
+    private val rest: Float get() = restFor(height.toFloat())
+
+    /** How far down the panel sits, in px, for a panel [h] px tall: its stop while it rests, [offset] while it moves. */
+    fun shift(h: Float): Float = if (pinned) restFor(h) else offset
+
+    /** The panel has come to rest: not opening, not under a finger, not leaving. */
+    val settled: Boolean get() = pinned
 
     /** Pushed down at all, so a finger moving up should raise it before the content scrolls. */
-    val isDown: Boolean get() = offset > 0.5f
+    val isDown: Boolean get() = shift(height.toFloat()) > 0.5f
 
     /** The scrim: fully there while the panel rests, gone as it is pushed off the screen. */
     val scrim: Float
         get() {
             val span = height - rest
-            val gone = if (span <= 0f) 0f else ((offset - rest) / span).coerceIn(0f, 1f)
+            val gone = if (span <= 0f) 0f else ((shift(height.toFloat()) - rest) / span).coerceIn(0f, 1f)
             return reveal * (1f - gone)
         }
 
@@ -193,6 +254,13 @@ internal class SheetPosition {
         if (closing) return false
         closing = true
         return true
+    }
+
+    /** Takes the panel off its stop, so [offset] is where it is and can be moved. */
+    private fun unpin() {
+        if (!pinned) return
+        offset = rest
+        pinned = false
     }
 
     /** The panel has a size: the first time it opens, later it follows a change of size. */
@@ -203,18 +271,39 @@ internal class SheetPosition {
         when {
             closing -> Unit
             first -> open(scope, motion)
-            else -> follow(scope, motion)
+            else -> resized(scope, motion)
         }
     }
 
     /**
-     * Where the panel rests moved, because it got a new size (content that arrives late) or half the
-     * window did (the keyboard, split screen): a panel that was resting, or on its way, goes to the new
-     * place. One under a finger or on its way out is left alone.
+     * The panel changed size while open. One resting on its stop stays pinned, and [shift] moves it
+     * with the size; one on its way is sent to the stop's new place. One under a finger or on its way
+     * out is left alone.
+     */
+    private fun resized(scope: CoroutineScope, motion: Boolean) {
+        if (!opened || closing || dragging) return
+        if (pinned) {
+            goal = rest
+            return
+        }
+        follow(scope, motion)
+    }
+
+    /**
+     * Where the panel rests moved with no change of size, because half the window did (the keyboard,
+     * split screen): a panel that was resting, or on its way, goes to the new place. One under a
+     * finger or on its way out is left alone.
      */
     fun follow(scope: CoroutineScope, motion: Boolean) {
         if (!opened || closing || dragging || abs(goal - rest) < 2f) return
         glide(scope, rest, PullsMotion.FAST, motion)
+    }
+
+    /** Half the window moved: a panel resting on its old stop is taken off it first, so it glides rather than jumps. */
+    fun updateHalf(value: Float) {
+        if (value == half) return
+        unpin()
+        half = value
     }
 
     private fun open(scope: CoroutineScope, motion: Boolean) {
@@ -223,6 +312,7 @@ internal class SheetPosition {
             offset = rest
             goal = rest
             reveal = 1f
+            pinned = true
             return
         }
         offset = height.toFloat()
@@ -232,18 +322,25 @@ internal class SheetPosition {
 
     private fun glide(scope: CoroutineScope, target: Float, ms: Int, motion: Boolean) {
         offsetJob?.cancel()
+        unpin()
         goal = target
         if (!motion) {
             offset = target
+            pinned = !closing && abs(target - rest) < 2f
             return
         }
-        offsetJob = scope.launch { animate(offset, target, animationSpec = tween(ms, easing = PullsMotion.SmoothOut)) { v, _ -> offset = v } }
+        offsetJob = scope.launch {
+            animate(offset, target, animationSpec = tween(ms, easing = PullsMotion.SmoothOut)) { v, _ -> offset = v }
+            // It got where it was going: from here the stop follows the panel's size.
+            pinned = !closing && abs(target - rest) < 2f
+        }
     }
 
     /** Moves the panel with a finger; returns how much of [dy] it used. */
     fun dragBy(dy: Float): Float {
         if (closing || height == 0) return 0f
         offsetJob?.cancel()
+        unpin()
         dragging = true
         val next = (offset + dy).coerceIn(0f, height.toFloat())
         val used = next - offset
@@ -258,6 +355,7 @@ internal class SheetPosition {
      */
     fun settle(scope: CoroutineScope, velocity: Float, speed: Float, motion: Boolean, dismiss: () -> Unit) {
         if (closing) return
+        unpin()
         dragging = false
         val rests = if (partial > 0f) listOf(0f, partial) else listOf(0f)
         val gone = height.toFloat()
@@ -274,6 +372,7 @@ internal class SheetPosition {
     suspend fun hide(motion: Boolean) {
         offsetJob?.cancel()
         revealJob?.cancel()
+        unpin()
         if (!motion) {
             reveal = 0f
             offset = height.toFloat()
@@ -328,18 +427,17 @@ private class SheetScroll(
     }
 }
 
-/** The scrim and the panel, with the header and body of a sheet. The window is [PullsSheet]'s; this part can be drawn in a page. */
+/**
+ * The scrim and the panel with its lip; [body] is what goes in the panel, the header first and then a page. The window is
+ * [PullsSheet]'s; this part can be drawn in a page. [detents] lets the panel rest at half the window and lift to full.
+ */
 @Composable
 internal fun SheetPanel(
     position: SheetPosition,
     dismiss: () -> Unit,
     full: Boolean,
-    expandable: Boolean,
-    back: (() -> Unit)?,
-    title: @Composable () -> Unit,
-    footer: (@Composable ColumnScope.() -> Unit)?,
-    scrollState: ScrollState,
-    content: @Composable ColumnScope.() -> Unit,
+    detents: Boolean,
+    body: @Composable ColumnScope.() -> Unit,
 ) {
     val c = LocalPullsColors.current
     val motion = rememberMotionEnabled()
@@ -348,16 +446,12 @@ internal fun SheetPanel(
     val top = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     val screen = LocalConfiguration.current.screenHeightDp.dp
     val ceiling = screen - maxOf(top, 16.dp)
-    val sized = when {
-        full -> Modifier.height(ceiling - 44.dp)
-        expandable -> Modifier.heightIn(max = ceiling - 44.dp)
-        else -> Modifier.heightIn(max = screen * 0.62f)
-    }
+    val sized = if (full) Modifier.height(ceiling - 44.dp) else Modifier.heightIn(max = ceiling - 44.dp)
     val window = LocalWindowInfo.current.containerSize.height
-    position.expandable = expandable
-    position.half = (if (window > 0) window.toFloat() else with(density) { screen.toPx() }) / 2f
+    position.expandable = detents
+    position.updateHalf((if (window > 0) window.toFloat() else with(density) { screen.toPx() }) / 2f)
     // Half the window can change with no change to the panel (the keyboard, split screen): an expandable sheet moves to its new rest.
-    LaunchedEffect(position.half, expandable) { position.follow(scope, motion) }
+    LaunchedEffect(position.half, detents) { position.follow(scope, motion) }
     val latestDismiss by rememberUpdatedState(dismiss)
     val latestMotion by rememberUpdatedState(motion)
     val speed = with(density) { 200.dp.toPx() }
@@ -373,7 +467,7 @@ internal fun SheetPanel(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                 .onSizeChanged { position.measured(it.height, scope, motion) }
                 .graphicsLayer {
-                    translationY = position.offset
+                    translationY = position.shift(size.height)
                     val t = position.reveal
                     alpha = t
                     // The cross-blur of the panel reveal: 2px at the start, sharp once it is up.
@@ -389,20 +483,88 @@ internal fun SheetPanel(
                 .imePadding(),
         ) {
             Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(CircleShape).background(Color(0xFFD9D9D6)))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).
-                if (back != null) FloatIcon(Lu.back, "Back", back)
-                else FloatIcon(Lu.close, "Close", dismiss)
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }
-                }
-                Spacer(Modifier.width(44.dp))
-            }
-            Column(
-                Modifier.fillMaxWidth().weight(1f, fill = full).verticalScroll(scrollState).padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },
-                content = content,
-            )
-            if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)
+            CompositionLocalProvider(LocalSheetSettled provides position.settled) { body() }
+        }
+    }
+}
+
+/**
+ * False while a sheet slides in, drags or leaves, true once its panel rests. A sheet that opens a keyboard
+ * waits for it: the keyboard takes the panel's height, and doing that mid-slide stops the slide short.
+ */
+val LocalSheetSettled = compositionLocalOf { true }
+
+/**
+ * The header of a sheet: a round button, the title centered and a spacer as wide as the button. It sits
+ * above the body (`zIndex`), so the button's shadow is never cut by the content below it, and the body
+ * fades out under it (rule 74).
+ */
+@Composable
+private fun SheetHeader(leading: @Composable () -> Unit, title: @Composable () -> Unit) {
+    // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).
+    Row(Modifier.fillMaxWidth().zIndex(1f).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        leading()
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            CompositionLocalProvider(LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }
+        }
+        Spacer(Modifier.width(44.dp))
+    }
+}
+
+@Composable
+private fun SheetTitle(text: String) {
+    Text(text, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1)
+}
+
+/** How deep the body fades out under the header and above a footer. */
+private val PageFade = 20.dp
+
+/**
+ * One page of a sheet: the scrolling body, which dissolves under the header as it scrolls (rule 74,
+ * so the ✕ never overlaps text and nothing is sliced), and the [footer] under it.
+ */
+@Composable
+private fun SheetPage(scroll: ScrollState, full: Boolean, footer: (@Composable ColumnScope.() -> Unit)?, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val c = LocalPullsColors.current
+    val density = LocalDensity.current
+    val band = with(density) { PageFade.toPx() }
+    Column(modifier.fillMaxWidth()) {
+        Column(
+            Modifier.fillMaxWidth().weight(1f, fill = full)
+                .edgeFade(top = PageFade, color = c.paper, blur = PullsMotion.BlurMedium, topStrength = { (scroll.value / band).coerceIn(0f, 1f) })
+                .verticalScroll(scroll)
+                .padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },
+            content = content,
+        )
+        if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)
+    }
+}
+
+/** The panel of a [PullsPagedSheet]: the header changes with the page, and the page slides through [BlurSwitch]. */
+@Composable
+internal fun <P : Any> PagedSheetPanel(
+    position: SheetPosition,
+    dismiss: () -> Unit,
+    full: Boolean,
+    page: P,
+    parent: (P) -> P?,
+    onPage: (P) -> Unit,
+    title: @Composable (P) -> String,
+    footer: (@Composable ColumnScope.(P) -> Unit)?,
+    content: @Composable ColumnScope.(P) -> Unit,
+) {
+    // Each page's scroll position lives with the sheet, not with the page, so going back finds the list where it was left.
+    val scrolls = remember { mutableMapOf<P, ScrollState>() }
+    val depth = { p: P -> generateSequence(p, parent).count() }
+    val up = parent(page)
+    SheetPanel(position, dismiss, full, detents = !full) {
+        SheetHeader(
+            leading = { if (up != null) FloatIcon(Lu.back, "Back", { onPage(up) }) else FloatIcon(Lu.close, "Close", dismiss) },
+            title = { BlurSwitch(page, order = depth) { SheetTitle(title(it)) } },
+        )
+        BlurSwitch(page, Modifier.weight(1f, fill = full), order = depth) { p ->
+            val pageFooter: (@Composable ColumnScope.() -> Unit)? = footer?.let { f -> { f(p) } }
+            SheetPage(scrolls.getOrPut(p) { ScrollState(0) }, full, pageFooter, if (full) Modifier.fillMaxSize() else Modifier) { content(p) }
         }
     }
 }

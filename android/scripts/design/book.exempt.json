@@ -23,6 +23,7 @@
     "PrStatusIcon": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",
     "ReviewCheckbox": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "SendButton": "The send circle shown inside the Pill input page's With send variant.",
+    "PagedSheetPanel": "The inside of PullsPagedSheet (scrim, panel, fixed header, sliding pages), split from the sheet's window so a test can step it; the Sheet page's Pages variant shows the real sheet.",
     "SheetPanel": "The inside of PullsSheet (scrim, panel, header and body), split from the sheet's window so a test can step its motion; the Sheet page shows the real sheet.",
     "SpinIcon": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "TextInput": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",

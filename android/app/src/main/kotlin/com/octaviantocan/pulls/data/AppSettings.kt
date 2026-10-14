@@ -60,6 +60,10 @@ class AppSettings private constructor(private val context: Context) {
     var soundMaterial by mutableStateOf(prefs.getString("soundMaterial", null) ?: "default")
         private set
 
+    /** Repositories kept out of the Inbox and its counts, as `owner/repo`; none until Profile switches one off. */
+    var hiddenRepos by mutableStateOf(prefs.getStringSet("hiddenRepos", null)?.toSet() ?: emptySet())
+        private set
+
     fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply() }
     fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply() }
     fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply() }
@@ -77,6 +81,12 @@ class AppSettings private constructor(private val context: Context) {
     fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
     fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply() }
     fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply() }
+    /** Switches a repository on or off for the Inbox. */
+    fun setRepoShown(repo: String, shown: Boolean) {
+        hiddenRepos = if (shown) hiddenRepos - repo else hiddenRepos + repo
+        prefs.edit().putStringSet("hiddenRepos", hiddenRepos).apply()
+    }
+
     fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply() }
 
     companion object {

@@ -16,7 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * Reads the real routes the home, repo, checkout and settings screens use. Runs only with
+ * Reads the real routes the home, repo and settings screens use. Runs only with
  * `PULLS_LIVE_SERVER=http://127.0.0.1:8793` set; read-only calls.
  */
 class LiveServerTest {
@@ -66,7 +66,7 @@ class LiveServerTest {
     fun repoInfoAndModels() {
         val api = api()
         val info = api.call("repo-info").jsonObject.asRepoInfo()
-        println("repo-info: current=${info.currentBranch} default=${info.defaultBranch} branches=${info.pickerBranches()} commits=${info.commits.size}")
+        println("repo-info: current=${info.currentBranch} default=${info.defaultBranch} branches=${info.branches.size} commits=${info.commits.size}")
         assertTrue(info.defaultBranch != null && info.commits.isNotEmpty())
         for (engine in listOf("claude-code", "codex")) {
             val catalog = api.call("ai-models", buildJsonObject { put("engine", engine) }).jsonObject.asCatalog()

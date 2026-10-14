@@ -411,24 +411,34 @@
     },
     "sheet": {
       "composable": "PullsSheet",
-      "summary": "A paper bottom sheet with 24dp top corners, a grabber, and a header of close button and centred title.",
+      "also": [
+        "PullsPagedSheet"
+      ],
+      "summary": "A paper bottom sheet with 24dp top corners, a grabber, and a header of close button and centred title. PullsPagedSheet is the same sheet with pages that slide inside it.",
       "usage": [
         "Sheets over pages: grouped actions, chat, composer and files open in one.",
-        "Content scrolls and a long one pulls all the way up (full).",
+        "A sheet with more content than fits rests at half height and pulls up to full; a short one rests at its content height (rule 77).",
         "It slides up in 400ms and down in 350ms on the smooth-out curve, fading through a 2px blur, and follows a drag: pull it down to close, flick it to throw it.",
+        "A sheet opened from a sheet is a page inside it: the panel and its lip stay still, the new page slides in, the ✕ becomes ← and back keeps the scroll place (rule 78).",
         "It is a window, so this page draws its surface inline and opens the real one from a button."
       ],
       "rules": [
         5,
         58,
         59,
-        73
+        73,
+        77,
+        78
       ],
       "variants": [
         {
           "id": "default",
           "title": "Default",
           "default": true
+        },
+        {
+          "id": "pages",
+          "title": "Pages inside a sheet"
         }
       ]
     },

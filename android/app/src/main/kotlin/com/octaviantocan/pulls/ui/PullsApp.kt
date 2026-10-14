@@ -22,7 +22,6 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.ToastHost
 import com.octaviantocan.pulls.ui.design.Toaster
-import com.octaviantocan.pulls.ui.home.CheckoutScreen
 import com.octaviantocan.pulls.ui.home.HomeScreen
 import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
@@ -32,13 +31,12 @@ import com.octaviantocan.pulls.update.AppUpdater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** The web routes: `/` home, `/:owner/:repo` a repo's PRs, a diff page, `/checkout`, and the settings modal as a screen. */
+/** The web routes: `/` home, `/:owner/:repo` a repo's PRs, a diff page, and the settings modal as a screen. */
 internal sealed interface Screen {
     data object Home : Screen
     data class Repo(val owner: String, val repo: String) : Screen
     /** [tour] opens the pull request on its tour instead of its overview. */
     data class Review(val target: OpenTarget, val tour: Boolean = false) : Screen
-    data object Checkout : Screen
     data object Settings : Screen
     data object UiBook : Screen
 }
@@ -67,7 +65,6 @@ fun PullsApp(initialTarget: String?) {
             home = { stack.clear(); stack.add(Screen.Home) },
             settings = { if (stack.last() != Screen.Settings) stack.add(Screen.Settings) },
             uiBook = { if (stack.last() != Screen.UiBook) stack.add(Screen.UiBook) },
-            checkout = { stack.add(Screen.Checkout) },
             back = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
         )
     }
@@ -95,7 +92,6 @@ fun PullsApp(initialTarget: String?) {
                 Screen.Home -> HomeScreen(nav, updateNote, homeUi)
                 is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
                 is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
-                Screen.Checkout -> CheckoutScreen(nav)
                 Screen.UiBook -> UiBook(nav.back)
                 Screen.Settings -> {}
             }
