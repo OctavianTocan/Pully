@@ -240,19 +240,28 @@ private fun RowScope.Segment(label: String, selected: Boolean, onClick: (() -> U
     )
 }
 
-/** `.meta`: `#241 · author · opened 6h ago · repo`, on one line. The author and repository are links. */
+/**
+ * `.meta`: `#241 · author · opened 6h ago · repo`. The author and repository are links. A name is never cut with an
+ * ellipsis (rule 2): when the parts do not fit one line, the line breaks between them and each stays whole.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MetaLine(head: PrHead, onOpenRepo: (String, String) -> Unit) {
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
     val sep = @Composable { Text("·", style = PullsType.sm, color = c.muted) }
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(head.label, style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1)
+    FlowRow(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(head.label, style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1, softWrap = false)
         head.author?.let { login ->
             sep()
             Text(
-                login, Modifier.weight(1f, fill = false).cueClickable(role = Role.Button, onClickLabel = "Open $login on GitHub") { uri.openUri("https://github.com/${login.removeSuffix("[bot]")}") },
-                style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                login, Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $login on GitHub") { uri.openUri("https://github.com/${login.removeSuffix("[bot]")}") },
+                style = PullsType.sm, color = c.muted, softWrap = false,
             )
         }
         head.createdAt?.let { iso ->
@@ -265,8 +274,8 @@ private fun MetaLine(head: PrHead, onOpenRepo: (String, String) -> Unit) {
         if (head.owner != null && head.repo != null) {
             sep()
             Text(
-                head.repo, Modifier.weight(1f, fill = false).cueClickable(role = Role.Button, onClickLabel = "Open ${head.repo}") { onOpenRepo(head.owner, head.repo) },
-                style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                head.repo, Modifier.cueClickable(role = Role.Button, onClickLabel = "Open ${head.repo}") { onOpenRepo(head.owner, head.repo) },
+                style = PullsType.sm, color = c.muted, softWrap = false,
             )
         }
     }
@@ -290,7 +299,7 @@ private fun BranchRow(head: PrHead) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (done) LuIcon(Lu.tick, tint = c.accentWashInk, size = 14.dp)
-            Text(if (done) "Copied" else name, style = PullsType.sm.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium), color = c.accentWashInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (done) "Copied" else name, style = PullsType.sm.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium), color = c.accentWashInk)
         }
     }
     Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

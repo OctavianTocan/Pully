@@ -676,5 +676,240 @@
       "review"
     ],
     "text": "Tavi sent transitions.dev as the reference. Durations: 150ms for closes and text swaps, 250ms for opens, tabs and page slides, 350ms for a panel closing, 400ms for a panel opening. One easing, smooth out, `cubic-bezier(0.22, 1, 0.36, 1)`, for opens, closes and slides; ease-in-out for swaps; linear for shimmer. Blur is 2px for small things and 3px for page-sized changes. Scale is 0.97 for menus and 0.96 for dialogs. Travel is 4 to 8dp for text and pages. The mapping from the library's transitions to this app's surfaces was proposed by the rules file and Tavi can retune any row: menus use the dropdown recipe, dialogs the modal one, sheets panel reveal, the capsule tabs sliding, page changes page side-by-side, the thinking line shimmer text and thinking states. Looping effects follow the system setting \"Remove animations\".\n\nCheck: open and close one menu, one sheet, one dialog and one toast. Each takes the time above and eases out."
+  },
+  {
+    "n": 74,
+    "title": "Fixed edges fade. They never cut or smear.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Anything pinned at the edge of something that scrolls has an edge fade on the content that passes under it: the chips and header on Home, a sheet's header, the Tour strip, the bottom search pill. The content goes to the page colour over about 32dp at the top (longer at a tall pill, about 130dp at the bottom of Home) with a blur that grows toward the pinned edge. The blur is made from content that continues past the edge, so a row at the edge is softened and faded, never stretched or sliced. The fade stops at the pinned thing. It never blurs a chip, a button or a header. Nothing white sits behind a floating pill: the rows fade into the page and the pill carries its own shadow.\nThis is rule 46's first bullet, made exact.\n\nCheck: scroll a list slowly and fast under each pinned header and pill. No row ends in a hard line, no text is stretched into blocks, the chips and buttons stay sharp, and nothing white sits under a pill."
+  },
+  {
+    "n": 75,
+    "title": "A group title has one line under it. A heading has none.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A group title in a list (the repository titles in the Inbox) has the single hairline under it that the canvas has (rule 47). It has none above it, so the first title has nothing between it and the chips, and a title never has a line above and below at once. A section heading on a page (Files, What needs a human, Brief) has no line under it in any state of the page.\nIt replaces the \"try a separator under Files\" of B3 and B4: nothing is added, and the line under What needs a human goes.\n\nCheck: look at every heading on Home, the Overview and the Analyze result. Group titles have one line under them. Headings have none."
+  },
+  {
+    "n": 76,
+    "title": "Dark mode is a neutral grey.",
+    "source": "overhaul",
+    "checkedBy": [
+      "tokens",
+      "review"
+    ],
+    "text": "In dark mode every surface is a grey with no colour cast: the red, green and blue values differ by at most 2. The accent stays teal. Values read off Perplexity's dark mode in his recording (frames 05:42 and 06:06): page #161616, raised surfaces and the composer #1D1D1D, chips and the segment track #212121, sheet paper #1B1B1B, border #2B2B2B, text #E3E3E3, muted text #9D9D9D. The light theme is unchanged.\n\nCheck: dark mode beside Perplexity's, with the same content. The greys match and nothing looks blue or green."
+  },
+  {
+    "n": 77,
+    "title": "Sheets rest at two heights.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A sheet with more content than fits rests at half height (or at its content height when that is less) or at full height, and slides between them. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text.\nIt replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.\n\nCheck: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it."
+  },
+  {
+    "n": 78,
+    "title": "A sheet opened from a sheet is a page inside it.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Language from Settings, Select model from the Analyze card, Effort from the model list: the new content slides sideways inside the same sheet. The sheet and its lip stay still, the header stays fixed, the ✕ becomes ←, and back returns to where you were with the scroll position kept. The parent never closes and reopens. This is how Claude's app does it. Switching an engine inside a picker changes its list in place and does not close the sheet.\nIt makes rule 66 exact for sheets.\n\nCheck: open a page inside a sheet and go back. Only the content moved, the sheet did not blink, and the list is where you left it."
+  },
+  {
+    "n": 79,
+    "title": "A sheet's body is its list.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Commits, Files and Checks are plain lists in a sheet, with no panel inside the panel. Rows are bigger (at least 60dp) with whole titles that wrap, as rows are everywhere else. No instruction names a key a phone does not have (\"shift-click\"). Checks lists failed first, then running, then passed, and a row taps through to the check.\n\nCheck: open each of the three sheets. A list on the sheet's own paper, whole titles, rows as big as in the Inbox."
+  },
+  {
+    "n": 80,
+    "title": "A narrowed view always shows the way back.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "When a screen shows part of something, such as one commit of six, a bar that stays on screen says so (\"Viewing commit 3 of 6\") and carries a \"Show all\" pill. Nobody has to find the way back.\n\nCheck: pick one commit. The way to see all changes is visible without scrolling or opening a menu."
+  },
+  {
+    "n": 81,
+    "title": "Settings show what you are choosing.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Where a setting changes how something looks, the control is the thing itself, as a small sample. Diff layout is two small diffs you tap. Code size is three sizes with a line of code under them that resizes. Code font is a list where each font is set in its own face on a sample line. A word or an icon is only for a setting that has no look.\n\nCheck: open Settings. Every look-changing setting shows its result without leaving the sheet."
+  },
+  {
+    "n": 82,
+    "title": "Pressing tints. It never moves anything.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A row, a tile, a card or a sheet row tints while it is held and nothing else: no scale, no shift, no growth. Small controls (round buttons, pills, chips, the send circle) may keep their 0.97 press. A tap on a heading that opens nothing does not change colour either.\nWhich \"these\" he meant at 27:56 is my reading: he says it right after the Checks and ⋯ sheets, so I took it to be the sheet's rows and tiles.\n\nCheck: press and hold a row in each sheet, a card on the Overview and a tile in the ⋯ sheet. Only the tint changes."
+  },
+  {
+    "n": 83,
+    "title": "Edit where it is. Confirm with a toast.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Text you own is edited where it is: tapping the title or description of your own pull request turns it into a field, and leaving it saves. There is no \"Edit\" button. A control that copies or toggles keeps its face: copying the branch shows a small toast (\"Branch name copied\") and the pill goes on showing the branch.\n\nCheck: tap the title of your own PR. Tap the branch pill. Neither changes what is around it."
+  },
+  {
+    "n": 84,
+    "title": "Send is off until there is something to send.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A send button is grey and does nothing until the field has text.\n\nCheck: open every composer empty. The send button is disabled."
+  },
+  {
+    "n": 85,
+    "title": "Skeletons shimmer.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Every skeleton bar carries a shimmer: a soft band, about 40% of the bar's width, sweeps left to right every 1200ms on a linear curve, in light and dark. With the system setting \"Remove animations\" the bar sits still. A skeleton that does not move is a defect. Under a live indicator the bars of rule 71 do the same.\n\nCheck: put each skeleton on screen for three seconds. The light visibly passes through it."
+  },
+  {
+    "n": 86,
+    "title": "A card that works keeps its height.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Nothing on a page moves while AI works. The Analyze card is one fixed height (72dp) in every state: idle, running and finished. Its status is one line that ends in an ellipsis, because this is not important content and tapping it shows more. The step chips are not in the card while it runs, and the log opens in a sheet. A new line or a wrapped chip never moves what is below.\n\nCheck: run an analysis and watch the page. Nothing above or below the card moves."
+  },
+  {
+    "n": 87,
+    "title": "One job, one control.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Stop is the orb: tapping where the orb is stops the run, and there is no second Stop pill or second icon. A repeat action is the try-again arrow with an accessibility label, not the word Redo. A control that explains itself in a line of its own (\"The Analyze button runs the last choice\") goes, which is rule 1.\nRule 63 holds: a second quick tap never cancels.\n\nCheck: look at the Analyzing card and the result. Each job has one control."
+  },
+  {
+    "n": 88,
+    "title": "Pages slide. They never pop.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Opening a PR from a row, going between Overview tabs and returning all slide the new page in from the side it belongs to, with the numbers of rule 73 for \"page side by side\" (250ms, 8dp, a fade, 3px of blur). Swiping between Summary and Description moves the whole section with the finger, as a page. Opening from a swiped row uses the same slide as opening by a tap.\nIt extends rule 57.\n\nCheck: open a PR from a row by tap and by swipe, then swipe between tabs. A slide every time and the section follows the finger."
+  },
+  {
+    "n": 89,
+    "title": "A picker shows the short list first.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A list of models or engines shows the few most people want, newest first, and folds the rest under one closed \"Older models\" heading. A row is a name only, with no ID line and no description unless the name alone is not enough. The recommended choice carries a \"Recommended\" pill (26dp tall, 13sp bold, in the accent wash) and the selected one a plain, larger ✓, never the word \"Default\" beside a check. The footnote under a list is tiny, as in Claude's. There is no custom model ID field.\nF34 stays: choosing a model on this sheet starts the analysis.\n\nCheck: open the model sheet for each engine beside Claude's. The same shape."
+  },
+  {
+    "n": 90,
+    "title": "A path is cut from the left.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A path shows its end, because the end is what tells files apart: \"…/domains/practice/components\". Tapping the path line shows the whole path. The file name comes first. People's names and titles wrap whole (rule 2) and are not cut with an ellipsis.\n\nCheck: put a long path on a file row and in the diff header. The end of the path is readable, the whole path is one tap away and no name is cut."
+  },
+  {
+    "n": 91,
+    "title": "Long threads fold.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. \"commented\" is never written, because it can only be a comment. The commit groups stay as they are.\n\nCheck: open a Conversation with ten comments. Every one folds and unfolds, and none says \"commented\"."
+  },
+  {
+    "n": 92,
+    "title": "The top of a code screen is short. The code gets the screen.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The file name is centred in the header, big enough to read, with the folder path above it in small dim mono (rule 90) and the counter beside it. A note about the file is part of the scrolling content and scrolls away with the code, so pinned chrome is the header and a compact file bar, about 20% of the screen and not 45%. The file ends where the code ends: nothing scrolls into empty space, only room to clear the ‹ › buttons.\n\nCheck: open a file with a long path and a long note. Pinned chrome is no more than a fifth of the screen. Scroll to the end: the last line is the last thing."
+  },
+  {
+    "n": 93,
+    "title": "Swiping the diff goes to the next file. The header never shifts.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. From the last file, a swipe left continues to the next view. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and Aa on the Diff. Swiping between the three never moves the header, and the Aa menu is a bottom sheet.\n\nCheck: swipe between files and between views. The header is the same pixels throughout."
+  },
+  {
+    "n": 94,
+    "title": "One way to start a comment, one sheet to write it in.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. A sheet opens with a field, a small selector for \"In review\" or \"Comment now\" that is the two states of the Comment button, and the thread under the line as a card (rule 9). It does not repeat what is already on screen. Tapping a file note opens Ask with that note attached.\nThis replaces rule 64's \"a bar you type into\" and the toolbar of rule 49. The form is open: he is making options in a Claude Design artifact, and the default until then is option A, one sheet.\n\nCheck: comment on three lines. One sheet, one field, and nothing on the screen says the same thing twice."
+  },
+  {
+    "n": 95,
+    "title": "Code, flows and tables in AI text work like the diff.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A code block in a tour or an answer is the diff's code view: syntax colours, sideways scroll, pinch zoom. A flow is drawn by the app from structured data, never printed as text. A table keeps a readable width for each column (the description never below about 230dp) and scrolls sideways with a fade at its edge. Inline code shows as code and never with its backticks.\n\nCheck: open a tour with a code block, a flow and a table. The code scrolls and zooms, the flow is drawn, no column is squeezed to four characters."
+  },
+  {
+    "n": 96,
+    "title": "What the AI mentions is a link.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Every mention of a file, line, symbol or dimension, in a note, the summary, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline. They look like what they are and sit on the text line (rule 39).\nHe called F43 \"super, super, super important\", so the agents' instructions say it and a check makes sure.\n\nCheck: tap every cite in an analysis. Each scrolls to its place."
+  },
+  {
+    "n": 97,
+    "title": "The Tour strip is calm.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The strip is one line under the header: a ring, the title and a chevron, each in its own column so the text never runs under the ring. The title is one line with an ellipsis or two whole lines, never cut in half. The ring fills continuously with the tour's scroll position, not in jumps. \"2 of 4\" is not shown (rule 11). The chevron opens the sections as a bottom sheet with the read ones ticked. When the tour ends there is no \"Back to the pull request\" button: the header or a swipe leaves it. The strip takes the edge fade of rule 74.\n\nCheck: scroll a tour slowly. The ring fills as you go, the title is whole, and the last screen has no button."
+  },
+  {
+    "n": 98,
+    "title": "No machinery on content screens.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A tour or a note does not show the model name, token counts or cache numbers. They live in Settings and the model sheet. Rewrite is an icon at the card's corner with no word.\n\nCheck: search each AI screen for a model name or a token count. None, except in the pickers."
+  },
+  {
+    "n": 99,
+    "title": "Ask replies are plain text.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The AI's reply has no box, fill or shadow. Only your own message is a bubble, in the accent colour. There is never a bubble with dots in it. \"Clear\" is not a word on the screen: a new-chat button sits at the top right. Under each answer, sources are chips that scroll to the place, and two or three follow-up questions that tap to send, written each turn by a small fast model. The thinking streams as it happens (rule 72). The ⋯ menu of Perplexity is not copied.\n\nCheck: ask a question. A plain reply, source chips, follow-ups, no dots bubble and no \"Clear\"."
   }
 ]

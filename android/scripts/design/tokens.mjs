@@ -8,7 +8,7 @@ import { ANDROID, ASSETS, dpScale, paletteColors, readAndroid, typeRoles } from 
 import { buildRules, buildSpec, DESIGN_PATH, px, readDesign, stable } from './spec.mjs'
 
 export const NAME = 'tokens'
-export const RULES = [12, 47]
+export const RULES = [12, 47, 76]
 export const SPEC_JSON = join(ASSETS, 'book', 'spec.json')
 export const RULES_JSON = join(ASSETS, 'book', 'rules.json')
 const KOTLIN = 'app/src/main/kotlin/com/octaviantocan/pulls/ui/design'
@@ -55,6 +55,22 @@ export function compareColors(front, light, dark) {
   const lightDoc = Object.fromEntries(entries.filter(([k]) => !k.startsWith('dark-')))
   const darkDoc = Object.fromEntries(entries.filter(([k]) => k.startsWith('dark-')).map(([k, v]) => [k.slice(5), v]))
   return [...darkPairs(lightDoc, darkDoc), ...paletteProblems('light', light, lightDoc), ...paletteProblems('dark', dark, darkDoc)]
+}
+
+/** The dark surfaces and text, which must be a grey with no colour cast (rule 76). The accent, the diff washes and status colours are not neutral. */
+export const NEUTRAL_DARK = ['base', 'text', 'muted', 'faint', 'border', 'border-mute', 'raised', 'sunken', 'code', 'secondary', 'gray', 'paper', 'paper-2', 'cta', 'on-cta', 'chip-on']
+
+/** Dark colours that name a neutral but carry a hue: red, green and blue differ by more than 2. */
+export function neutralDarkProblems(front) {
+  const colors = front.colors ?? {}
+  return NEUTRAL_DARK.flatMap((name) => {
+    const hex = String(colors[`dark-${name}`] ?? '').replace('#', '')
+    if (!/^[0-9a-f]{6}$/i.test(hex)) {
+      return [`DESIGN.md colors.dark-${name} is not a six digit hex colour, so it cannot be checked for a colour cast (rule 76)`]
+    }
+    const [r, g, b] = [0, 2, 4].map(i => Number.parseInt(hex.slice(i, i + 2), 16))
+    return Math.max(r, g, b) - Math.min(r, g, b) > 2 ? [`colors.dark-${name} is #${hex.toUpperCase()}, which has a colour cast. Dark surfaces are neutral greys: red, green and blue within 2 (rule 76)`] : []
+  })
 }
 
 const TEXT_KEYS = ['fontFamily', 'fontWeight']
@@ -124,6 +140,7 @@ export function check({ update = false } = {}) {
   const problems = [
     ...lintDesign(),
     ...compareColors(front, paletteColors(tokens, 'LightPullsColors'), paletteColors(tokens, 'DarkPullsColors')),
+    ...neutralDarkProblems(front),
     ...compareTypography(front, typeRoles(tokens)),
     ...compareScale('rounded', front.rounded, dpScale(scale, 'PullsRadius'), 'PullsRadius'),
     ...compareScale('spacing', front.spacing, dpScale(scale, 'PullsSpace'), 'PullsSpace', name => name.replace(/^x/, '')),

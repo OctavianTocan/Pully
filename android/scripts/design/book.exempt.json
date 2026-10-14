@@ -27,7 +27,7 @@
     "SpinIcon": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "TextInput": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "ToggleGroup": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
-    "edgeBlur": "A modifier: it dissolves scrolled content under a floating bar. Its recipe is on the Motion page.",
+    "edgeFade": "A modifier: it fades scrolled content into the page, with a blur that grows toward the edge, under a pinned header or bar (rule 74). Its recipe is on the Motion page.",
     "faded": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "floatShadow": "Shown at each elevation on the Elevation page.",
     "headerTopPadding": "A layout helper that returns the header's top padding, not a visual component.",
