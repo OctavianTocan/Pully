@@ -134,7 +134,8 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
         if (value == null) value = fetchCatalog(repo, config.engine).getOrNull()
     }
     val pending = session.reviewData?.pendingCount ?: 0
-    val canReview = session.pull != null && session.canWrite && overview?.isOpen == true
+    // A pending review can be submitted or discarded on a closed pull request too; a new verdict needs an open one.
+    val canReview = session.pull != null && session.canWrite
     val number = head.label
     val blockedText = t("overview.merge.blocked.${data?.mergeability?.blocker ?: "blocked"}")
 
@@ -147,8 +148,12 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             QuickAction("GitHub", { if (head.url.isNotBlank()) uri.openUri(head.url) }, Modifier.weight(1f)) { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 22.dp) }
             QuickAction("Analyze again", {
                 onClose()
-                session.runAnalyze()
-                toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
+                if (session.taskFor("analyze")?.running == true) {
+                    toaster.show("Already analyzing")
+                } else {
+                    session.runAnalyze()
+                    toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
+                }
             }, Modifier.weight(1f)) { LuIcon(Lu.redo, tint = c.text, size = 22.dp) }
         }
 
@@ -159,13 +164,16 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             }
         }
 
-        if (canReview) SheetCard {
+        if (canReview && (pending > 0 || head.isOpen)) SheetCard {
             if (pending > 0) SheetRow("Submit comments", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, icon = { LuIcon(Lu.ask, tint = c.text) }) {
                 Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
             }
-            SheetRow("Approve", { top.reviewVerdict = "APPROVE"; top.reviewOpen = true; onClose() }, first = pending == 0, icon = { LuIcon(Lu.check, tint = c.text) })
-            SheetRow("Request changes", { top.reviewVerdict = "REQUEST_CHANGES"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.req, tint = c.text) }) {
-                if (pending > 0) Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
+            if (head.isOpen) {
+                if (pending == 0) SheetRow("Leave a comment", { top.reviewVerdict = "COMMENT"; top.reviewOpen = true; onClose() }, first = true, icon = { LuIcon(Lu.ask, tint = c.text) })
+                SheetRow("Approve", { top.reviewVerdict = "APPROVE"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.check, tint = c.text) })
+                SheetRow("Request changes", { top.reviewVerdict = "REQUEST_CHANGES"; top.reviewOpen = true; onClose() }, icon = { LuIcon(Lu.req, tint = c.text) }) {
+                    if (pending > 0) Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)
+                }
             }
         }
 
@@ -224,8 +232,12 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             if (session.key != null && cliEngine(context)) {
                 SheetRow("Review with AI", {
                     onClose()
-                    session.runCritique(context, null)
-                    toaster.show("Reviewing $number")
+                    if (session.taskFor("critique")?.running == true) {
+                        toaster.show("Already reviewing $number")
+                    } else {
+                        session.runCritique(context, null)
+                        toaster.show("Reviewing $number")
+                    }
                 }, first = true, icon = { PhIcon("magnifying-glass-duotone", tint = c.text, size = 20.dp) })
                 SheetRow("Review through a lens", { onSheet("lens") }, icon = { PhIcon("lightbulb-duotone", tint = c.text, size = 20.dp) }) {
                     LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
@@ -236,7 +248,10 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                 Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) { ShareButton(session) }
                 first = false
             }
-            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, first = first, icon = { PhIcon("arrows-clockwise-duotone", tint = c.text, size = 20.dp) })
+            SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, first = first, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, icon = { PhIcon("arrows-clockwise-duotone", tint = c.text, size = 20.dp) })
         }
     }
 }
@@ -290,12 +305,15 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
     val memory = remember { EngineModels(context) }
     var config by remember { mutableStateOf(ServerStore.load(context)) }
     var attempt by remember { mutableStateOf(0) }
-    val loaded by produceState<Result<CliCatalog>?>(ModelCatalogs.get(config.engine)?.let { Result.success(it) }, config.engine, attempt) {
-        if (value?.isSuccess != true || attempt > 0) {
-            value = null
-            value = fetchCatalog(repo, config.engine, refresh = attempt > 0)
-        }
+    val engine = config.engine
+    // The producer restarts with the engine, but only after a frame; a result is tagged with its engine and
+    // ignored for any other, so a tap in that frame cannot save the old engine's model under the new one.
+    val produced by produceState<Pair<String, Result<CliCatalog>>?>(ModelCatalogs.get(engine)?.let { engine to Result.success(it) }, engine, attempt) {
+        val cached = if (attempt == 0) ModelCatalogs.get(engine) else null
+        value = cached?.let { engine to Result.success(it) }
+        if (cached == null) value = engine to fetchCatalog(repo, engine, refresh = attempt > 0)
     }
+    val loaded = produced?.takeIf { it.first == engine }?.second
     val catalog = loaded?.getOrNull()
     fun save(next: ServerConfig) {
         config = next

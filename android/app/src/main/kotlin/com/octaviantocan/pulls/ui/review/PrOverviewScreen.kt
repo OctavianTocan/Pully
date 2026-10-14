@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,7 +95,7 @@ internal fun PrOverviewScreen(
     top: ReviewTopUi,
     data: PrOverviewData?,
     head: PrHead,
-    scroll: ScrollState,
+    scroll: LazyListState,
     pane: Int,
     onPane: (Int) -> Unit,
     onBack: () -> Unit,
@@ -112,36 +115,64 @@ internal fun PrOverviewScreen(
                 Spacer(Modifier.weight(1f))
                 SectionCapsule(live = tourRunning, onChanges = { onDiff(null) }, onTour = onTour, onMore = { onSheet("more") })
             }
-            Column(
-                Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
+            val labels = buildList {
+                add("Summary")
+                add("Description")
+                if (data != null) add("Conversation${data.overview.conversationCount.takeIf { it > 0 }?.let { " $it" }.orEmpty()}")
+            }
+            val shown = pane.coerceAtMost(labels.lastIndex)
+            // Lazy, so a pull request with thousands of files only composes the rows on screen.
+            LazyColumn(
+                Modifier.weight(1f).fillMaxWidth(),
+                state = scroll,
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
             ) {
-                Text(head.title, style = PullsType.xxl, color = c.text)
-                MetaLine(head, onOpenRepo)
-                if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head)
-                CommitRangeBanner(session, data?.overview, Modifier.padding(top = 12.dp))
-                if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
-                    StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))
+                item(key = "head") {
+                    Column {
+                        Text(head.title, style = PullsType.xxl, color = c.text)
+                        MetaLine(head, onOpenRepo)
+                        if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head)
+                        CommitRangeBanner(session, data?.overview, Modifier.padding(top = 12.dp))
+                        if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
+                            StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))
+                        }
+                        SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
+                        val overviewError = session.overviewError
+                        if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
+                        StatsLine(session, data, onSheet)
+                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp))
+                    }
                 }
-                SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
-                StatsLine(session, data, onSheet)
-                val labels = buildList {
-                    add("Summary")
-                    add("Description")
-                    if (data != null) add("Conversation${data.overview.conversationCount.takeIf { it > 0 }?.let { " $it" }.orEmpty()}")
-                }
-                UnderlineTabs(labels, pane.coerceAtMost(labels.lastIndex), onPane, Modifier.padding(top = 2.dp))
-                when (pane.coerceAtMost(labels.lastIndex)) {
-                    0 -> SummaryPane(session, ui, top, onDiff, onCite, onSheet)
-                    1 -> DescriptionPane(session, data)
-                    else -> data?.let { Box(Modifier.padding(top = 14.dp)) { Conversation(it.overview) { oid -> session.selectCommits(selectCommit(oid).pair) } } }
+                when (shown) {
+                    0 -> {
+                        item(key = "summary") { SummaryPane(session, onCite, onSheet) }
+                        filesItems(session, ui, top, onDiff)
+                    }
+                    1 -> item(key = "description") { DescriptionPane(session, data) }
+                    else -> item(key = "conversation") {
+                        data?.let { Box(Modifier.padding(top = 14.dp)) { Conversation(it.overview) { oid -> session.selectCommits(selectCommit(oid).pair) } } }
+                    }
                 }
             }
         }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
-        BottomBar(session, ui, data, Modifier.align(Alignment.BottomCenter), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
+        BottomBar(session, head, Modifier.align(Alignment.BottomCenter), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
             top.reviewVerdict = "APPROVE"
             top.reviewOpen = true
         })
+    }
+}
+
+/** The conversation, checks and merge state did not load: say why, and offer to try again. */
+@Composable
+private fun OverviewError(message: String, onRetry: () -> Unit) {
+    val c = LocalPullsColors.current
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Couldn't load checks and conversation", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            Text(message, style = PullsType.xs, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        com.octaviantocan.pulls.ui.design.ActionButton(onRetry, small = true) { Text("Retry") }
     }
 }
 
@@ -290,17 +321,10 @@ private fun Cell(label: String, modifier: Modifier, onClick: (() -> Unit)? = nul
 
 // --- Summary ---
 
+/** What the AI made of the pull request: its progress, the summary and what needs a human. The files follow as list rows. */
 @Composable
-private fun SummaryPane(
-    session: ReviewSession,
-    ui: DiffUi,
-    top: ReviewTopUi,
-    onDiff: (String?) -> Unit,
-    onCite: (Cite) -> Unit,
-    onSheet: (String) -> Unit,
-) {
+private fun SummaryPane(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: (String) -> Unit) {
     val c = LocalPullsColors.current
-    val context = LocalContext.current
     val analysis = session.saved?.analysis
     val summary = analysis?.overallSummary?.takeIf { session.hasAiResult && it.isNotBlank() }
     Column {
@@ -311,7 +335,6 @@ private fun SummaryPane(
             }
         }
         NeedsHuman(session, onCite, onSheet)
-        FilesList(session, ui, top, onDiff)
     }
 }
 
@@ -382,7 +405,7 @@ private fun AnalysisBlock(session: ReviewSession) {
         running -> "Analyzing"
         failed -> "Analysis failed"
         tourRunning -> "Writing the tour"
-        else -> "Analyzed just now"
+        else -> "Analyzed"
     }
     Column(Modifier.fillMaxWidth().padding(top = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(
@@ -393,12 +416,7 @@ private fun AnalysisBlock(session: ReviewSession) {
                 Orb(done = !running && !tourRunning)
                 Text(title, Modifier.weight(1f), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                 if (running || tourRunning) {
-                    Box(
-                        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 40.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button) {
-                            listOf(analyzeTask, tourTask).forEach { task -> if (task?.running == true) session.cancelTask(task.id) }
-                        },
-                        contentAlignment = Alignment.Center,
-                    ) { Text("Stop", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
+                    StopButton { listOf(analyzeTask, tourTask).forEach { task -> if (task?.running == true) session.cancelTask(task.id) } }
                 }
                 LuIcon(Lu.chev, Modifier.rotate(if (logOpen) 90f else 0f), tint = c.faint, size = 18.dp)
             }
@@ -422,6 +440,16 @@ private fun AnalysisBlock(session: ReviewSession) {
             if (tourTask != null) AiActivityLog(tourTask.activities, tourRunning)
         }
     }
+}
+
+/** A text button that stops the AI work above it; 40dp tall so it is easy to hit. */
+@Composable
+private fun StopButton(onClick: () -> Unit) {
+    val c = LocalPullsColors.current
+    Box(
+        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 40.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text("Stop", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
 }
 
 /** `What needs a human`: what the AI review found, most serious first, each pointing at its line. */
@@ -449,16 +477,18 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
                 style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.text,
             )
         }
-        if (findings.size > shown.size) {
+        if (findings.isNotEmpty()) {
+            // The findings sheet is also where findings are picked and posted as a review, so it is offered for a short list too.
             Text(
-                "Show all ${findings.size}", Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
+                if (findings.size > shown.size) "Show all ${findings.size}" else "Open the review", Modifier.fillMaxWidth().hairlineTop(c.borderMute).clickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
                 style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
             )
         }
         when {
             reviewing -> Row(Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BreathingDot()
-                Text("Looking for problems…", style = PullsType.sm, color = c.muted)
+                Text("Looking for problems…", Modifier.weight(1f), style = PullsType.sm, color = c.muted)
+                StopButton { critiqueTask?.let { session.cancelTask(it.id) } }
             }
             findings.isEmpty() && session.saved?.critique != null -> Text(
                 "The review found nothing that needs you.", Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,
@@ -478,15 +508,16 @@ private fun Modifier.hairlineTop(color: Color): Modifier = drawBehind { drawRect
 
 // --- Files ---
 
-@Composable
-private fun FilesList(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDiff: (String?) -> Unit) {
-    val c = LocalPullsColors.current
+/** The heading and one list row per file, grouped under the section headings when there are any. */
+private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDiff: (String?) -> Unit) {
     val sections = fileSections(session, ui)
-    val reviewed = session.files.count { it.sha in session.reviewed }
     val analysis = session.saved?.analysis
+    val notes = analysis?.files?.associate { it.path to it.summary }.orEmpty()
     val analyzing = session.taskFor("analyze")?.running == true
-    Column(Modifier.fillMaxWidth().padding(top = 22.dp)) {
-        Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+    item(key = "files-head") {
+        val c = LocalPullsColors.current
+        val reviewed = session.files.count { it.sha in session.reviewed }
+        Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 2.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Files", style = PullsType.xl, color = c.text)
             Text(
                 "$reviewed of ${session.files.size} reviewed",
@@ -494,19 +525,20 @@ private fun FilesList(session: ReviewSession, ui: DiffUi, top: ReviewTopUi, onDi
                 style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted,
             )
         }
-        sections.forEach { section ->
-            if (section.label != null) {
-                Text(section.label, Modifier.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            section.files.forEach { file ->
-                val state = session.reviewState(file)
-                val note = analysis?.files?.firstOrNull { it.path == file.path }?.summary?.takeIf { it.isNotBlank() }
-                FileRow(
-                    file, state, note, analyzing && note == null,
-                    onOpen = { onDiff(file.path) },
-                    onToggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) },
-                )
-            }
+    }
+    sections.forEachIndexed { index, section ->
+        if (section.label != null) item(key = "section:$index") {
+            val c = LocalPullsColors.current
+            Text(section.label, Modifier.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        items(section.files, key = { "file:${it.path}" }) { file ->
+            val state = session.reviewState(file)
+            val note = notes[file.path]?.takeIf { it.isNotBlank() }
+            FileRow(
+                file, state, note, analyzing && note == null,
+                onOpen = { onDiff(file.path) },
+                onToggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) },
+            )
         }
     }
 }
@@ -569,8 +601,7 @@ private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
 @Composable
 private fun BottomBar(
     session: ReviewSession,
-    ui: DiffUi,
-    data: PrOverviewData?,
+    head: PrHead,
     modifier: Modifier,
     onAsk: () -> Unit,
     onMore: () -> Unit,
@@ -579,7 +610,7 @@ private fun BottomBar(
 ) {
     val c = LocalPullsColors.current
     val left = session.files.count { it.sha !in session.reviewed }
-    val canApprove = session.pull != null && session.canWrite && data?.overview?.isOpen == true
+    val canApprove = session.pull != null && session.canWrite && head.isOpen
     Row(
         modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),

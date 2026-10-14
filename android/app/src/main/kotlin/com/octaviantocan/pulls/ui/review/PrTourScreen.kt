@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -96,6 +97,7 @@ internal fun PrTourScreen(
     resumeAt: Int,
     onReached: (stop: Int, total: Int, title: String) -> Unit,
     onBack: () -> Unit,
+    onOverview: () -> Unit,
     onOpenSource: (TourSource) -> Unit,
     onAsk: (String?) -> Unit,
 ) {
@@ -108,6 +110,7 @@ internal fun PrTourScreen(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     var menu by remember { mutableStateOf<String?>(null) }
+    BackHandler(enabled = menu != null) { menu = null }
 
     // The stop you are on: the last whose top has passed 64dp plus a fifth of the screen (at most 120dp), or the last at the end.
     val current by remember(n) {
@@ -165,7 +168,7 @@ internal fun PrTourScreen(
                     if (tour != null) item(key = "end") {
                         Column(Modifier.fillMaxWidth().padding(start = 2.dp, top = 8.dp)) {
                             Text("That is the whole tour.", style = PullsType.read, color = c.text)
-                            CtaButton("Back to the pull request", onBack, Modifier.padding(top = 16.dp), leading = { LuIcon(Lu.back, tint = c.onCta, size = 22.dp) })
+                            CtaButton("Back to the pull request", onOverview, Modifier.padding(top = 16.dp), leading = { LuIcon(Lu.back, tint = c.onCta, size = 22.dp) })
                         }
                     }
                 }
@@ -229,6 +232,10 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
                         if (!running) com.octaviantocan.pulls.ui.design.ActionButton({ startTour(session) }, small = true) { Text("Update") }
                     }
                     Markdown(tour.overview, style = PullsType.read.copy(color = c.text))
+                    if (running) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        com.octaviantocan.pulls.ui.design.BreathingDot()
+                        Text("Writing a new tour…", style = PullsType.sm, color = c.muted)
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(Modifier.weight(1f)) {
                             AiUsageLine(tour.usage?.copy(model = tour.usage.model ?: tour.model) ?: com.octaviantocan.pulls.data.Usage(model = tour.model))

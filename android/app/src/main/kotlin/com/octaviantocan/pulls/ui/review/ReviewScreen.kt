@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,6 +40,7 @@ import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
+import com.octaviantocan.pulls.ui.ai.startTourAfter
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.EmptyState
@@ -75,14 +76,20 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val toaster = LocalToaster.current
     val messages = LocalMessages.current
     val c = LocalPullsColors.current
-    val session = remember(target) { ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also { it.load() } }
+    val session = remember(target) {
+        ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also {
+            // An analysis still running from an earlier visit also ends with a tour.
+            it.onResumedAnalyzeDone = { done -> it.startTourAfter(done) }
+            it.load()
+        }
+    }
     DisposableEffect(session) { onDispose { session.detach() } }
     val ui = rememberDiffUi(session)
     val top = remember(session) { ReviewTopUi() }
     val data = remember(session.overview) { parsePrOverviewData(session.overview) }
     val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
     val pages = remember(session) { mutableStateListOf(if (startOnTour) PrView.Tour else PrView.Overview) }
-    val overviewScroll = rememberScrollState()
+    val overviewScroll = rememberLazyListState()
     var pane by rememberSaveable { mutableIntStateOf(0) }
     var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
@@ -100,6 +107,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     fun orderedFiles() = fileSections(session, ui).flatMap { it.files }
     fun push(page: PrView) { if (pages.last() != page) pages.add(page) }
     fun back() { if (pages.size > 1) pages.removeAt(pages.lastIndex) else nav.back() }
+    // The tour can be the first page (opened from the Tours tab), so the overview may not be below it.
+    fun toOverview() {
+        if (PrView.Overview !in pages) pages.add(0, PrView.Overview)
+        while (pages.last() != PrView.Overview) pages.removeAt(pages.lastIndex)
+    }
     fun openDiff(path: String?) {
         val files = orderedFiles()
         diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
@@ -127,6 +139,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         diffPath = wanted.path
         push(PrView.Diff)
     }
+    // A refresh or a commit range failed while a diff is already on screen: the full-page error only shows before one is.
+    val loadError = session.loadError
+    LaunchedEffect(loadError) {
+        if (loadError != null && session.opened != null) toaster.show("Couldn't update: $loadError")
+    }
     // GitHub refused an action (close, ready, draft…) while no sheet was there to say so.
     LaunchedEffect(top.actionError) {
         val error = top.actionError ?: return@LaunchedEffect
@@ -147,7 +164,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             TourEntry(
                 pull.owner, pull.repo, pull.number, head.title, stops,
                 reached = minOf(existing?.reached ?: 0, stops), stopTitle = existing?.stopTitle.orEmpty(),
-                writing = tourRunning, updatedAt = System.currentTimeMillis(),
+                writing = tourRunning, updatedAt = System.currentTimeMillis(), at = minOf(existing?.at ?: 0, stops),
             ),
         )
     }
@@ -176,9 +193,10 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         PrView.Diff -> PrDiffScreen(session, ui, diffPath, { diffPath = it }, onBack = ::back)
                         PrView.Tour -> PrTourScreen(
                             session, ui, head,
-                            resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.reached } ?: 0 },
-                            onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title) },
+                            resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
+                            onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                             onBack = ::back,
+                            onOverview = ::toOverview,
                             onOpenSource = { source -> openSource(session, source, uri::openUri) },
                             onAsk = { question -> openAsk(forTour = true, initial = question) },
                         )
@@ -194,13 +212,17 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "effort" -> EffortSheet(session, onBack = { sheet = "model" }, onClose = { sheet = null })
                     "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->
                         sheet = null
-                        session.runCritique(context, lens)
-                        toaster.show("Reviewing ${head.label}")
+                        if (session.taskFor("critique")?.running == true) {
+                            toaster.show("Already reviewing ${head.label}")
+                        } else {
+                            session.runCritique(context, lens)
+                            toaster.show("Reviewing ${head.label}")
+                        }
                     }
                 }
                 ask?.let { request -> AskSheet(session, request.title, request.suggestions, request.initial) { ask = null } }
                 ReviewProgressSheet(session, top)
-                ReviewSubmitSheet(session, top)
+                ReviewSubmitSheet(session, top, canVerdict = head.isOpen)
                 if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)
             }
         }
@@ -228,17 +250,17 @@ private fun openSource(session: ReviewSession, source: TourSource, openUri: (Str
 }
 
 /** Remembers how far into the tour the reader has been, never going back. */
-private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead, stop: Int, total: Int, title: String) {
+private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead, stop: Int, total: Int, title: String, writing: Boolean) {
     if (pull == null) return
     val key = "${pull.owner}/${pull.repo}#${pull.number}"
     val existing = tours.get(key)
-    if (existing != null && existing.reached >= stop && existing.stops == total && !existing.writing) return
+    if (existing != null && existing.reached >= stop && existing.at == stop && existing.stops == total && existing.writing == writing) return
     tours.upsert(
         TourEntry(
             pull.owner, pull.repo, pull.number, head.title, total,
             reached = maxOf(existing?.reached ?: 0, stop),
             stopTitle = if (existing == null || stop > existing.reached) title else existing.stopTitle,
-            writing = false, updatedAt = System.currentTimeMillis(),
+            writing = writing, updatedAt = System.currentTimeMillis(), at = stop,
         ),
     )
 }

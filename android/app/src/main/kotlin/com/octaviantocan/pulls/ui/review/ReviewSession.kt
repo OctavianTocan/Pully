@@ -110,7 +110,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             loading = true
             loadError = null
             runCatching { repo.open(target) }
-                .onSuccess { prOpened = it; if (selection == null) opened = it; afterOpen() }
+                .onSuccess { prOpened = it; if (selection == null) { opened = it; shownSelection = null }; afterOpen() }
                 .onFailure { loadError = it.message ?: it.toString() }
             loading = false
         }
@@ -168,6 +168,9 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** Narrows the diff to commits `from..to` of the PR (web `CommitPicker`); null restores all commits. */
     private var selectSeq = 0
 
+    /** The range [opened] actually shows (null: all commits), which a newer, unfinished selection has not changed yet. */
+    private var shownSelection: Pair<String, String>? = null
+
     fun selectCommits(range: Pair<String, String>?) {
         val pull = pull ?: return
         val seq = ++selectSeq
@@ -175,6 +178,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         loadError = null
         if (range == null) {
             opened = prOpened
+            shownSelection = null
             scope.launch { afterOpen() }
             return
         }
@@ -185,7 +189,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             val result = runCatching { repo.open(narrowed) }
             // A newer selection (fast previous/next taps) wins; drop this answer.
             if (seq != selectSeq) return@launch
-            result.onSuccess { opened = it; afterOpen() }.onFailure { loadError = it.message }
+            // On failure the diff on screen is still the one for [shownSelection], so the selection goes back to match it.
+            result.onSuccess { opened = it; shownSelection = range; afterOpen() }.onFailure { loadError = it.message; selection = shownSelection }
             loading = false
         }
     }
@@ -239,13 +244,19 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         }
     }
 
+    /**
+     * What to do when an analysis this session picked up again finishes (set by the screen). The one started here
+     * carries its own follow-up; this is for an analysis begun before the page was left and reopened.
+     */
+    var onResumedAnalyzeDone: (TaskState) -> Unit = {}
+
     /** Picks up tasks already running on the server for this diff (started before a reload, or on the web). */
     private suspend fun resumeTasks() {
         val key = key ?: return
         runCatching { repo.tasks(key) }.onSuccess { list ->
             list.forEach { task ->
                 if (tasks[task.id] == null) tasks[task.id] = task
-                if (task.running) follow(task.id)
+                if (task.running) follow(task.id, if (task.kind == "analyze") onResumedAnalyzeDone else ({ _ -> }))
             }
         }
     }

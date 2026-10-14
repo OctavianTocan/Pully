@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.GithubAvatar
@@ -58,9 +59,12 @@ fun runAnalyzeFromCommand(session: ReviewSession) {
  */
 internal fun ReviewSession.runAnalyze() {
     val locale = settings.locale
-    startAiTask("analyze", extra = { put("locale", locale) }, onDone = { done ->
-        if (done.status == "done" && saved?.tour == null && taskFor("tour")?.running != true) startTour(this)
-    })
+    startAiTask("analyze", extra = { put("locale", locale) }, onDone = { done -> startTourAfter(done) })
+}
+
+/** An analysis settled: when it succeeded and the diff has no tour yet (and none is being written), write one. */
+internal fun ReviewSession.startTourAfter(done: TaskState) {
+    if (done.status == "done" && saved?.tour == null && taskFor("tour")?.running != true) startTour(this)
 }
 
 /** A 16dp spinner in the button's color, for `i-ph:spinner-duotone animate-spin`. */

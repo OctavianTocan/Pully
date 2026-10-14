@@ -8,6 +8,7 @@ import com.octaviantocan.pulls.ui.home.TourEntry
 import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.ui.home.compactAge
 import com.octaviantocan.pulls.ui.home.compactCount
+import com.octaviantocan.pulls.ui.home.tourSubtitle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -112,6 +113,53 @@ class InboxTest {
     }
 
     @Test
+    fun anArchivedPullRequestComesBackWhenItsHeadMoves() {
+        val storage = InboxTestStore()
+        val store = ArchiveStore(storage)
+        val two = pull(2).copy(headSha = "aaa")
+        val three = pull(3).copy(headSha = "bbb")
+        store.archive(Triage.key(two), two.headSha)
+        store.archive(Triage.key(three), three.headSha)
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.active(listOf(two, three)))
+        // New commits on #2 bring it back; #3 and the unchanged archive file are untouched.
+        assertEquals(setOf("acme/app#3"), ArchiveStore(storage).active(listOf(two.copy(headSha = "ccc"), three)))
+        // Archiving it again records the new head.
+        store.archive(Triage.key(two), "ccc")
+        assertEquals(setOf("acme/app#2", "acme/app#3"), ArchiveStore(storage).active(listOf(two.copy(headSha = "ccc"), three)))
+    }
+
+    @Test
+    fun anArchivedPullRequestWithAnUnknownHeadStaysArchived() {
+        val store = ArchiveStore(InboxTestStore())
+        store.archive("acme/app#2")
+        store.archive("acme/app#3", "bbb")
+        // No head recorded for #2; the list does not know #3's head.
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.active(listOf(pull(2).copy(headSha = "zzz"), pull(3))))
+    }
+
+    @Test
+    fun anArchiveWrittenBeforeHeadsWereKeptStillLoads() {
+        val storage = InboxTestStore()
+        storage.set(ArchiveStore.STORAGE_KEY, "acme/app#2\nacme/app#3")
+        val store = ArchiveStore(storage)
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.keys)
+        assertEquals(setOf("acme/app#2", "acme/app#3"), store.active(listOf(pull(2).copy(headSha = "aaa"))))
+    }
+
+    @Test
+    fun aTourReopensWhereYouLeftIt() {
+        val storage = InboxTestStore()
+        val index = TourIndex(storage)
+        val entry = TourEntry("acme", "app", 1, "First", stops = 7, reached = 5, stopTitle = "Five", writing = false, updatedAt = 1, at = 2)
+        index.upsert(entry)
+        assertEquals(2, TourIndex(storage).get("acme/app#1")?.at)
+        assertEquals(2, entry.resumeAt)
+        // Never opened since `at` was kept (or out of range): the furthest stop.
+        assertEquals(5, entry.copy(at = 0).resumeAt)
+        assertEquals(5, entry.copy(at = 9).resumeAt)
+    }
+
+    @Test
     fun tourIndexKeepsOneEntryPerPullNewestFirstAndRoundTrips() {
         val storage = InboxTestStore()
         val index = TourIndex(storage)
@@ -134,6 +182,26 @@ class InboxTest {
         assertTrue(entry.copy(reached = 4).done)
         assertFalse(entry.copy(reached = 4, writing = true).done)
         assertFalse(entry.copy(stops = 0, reached = 0).done)
+    }
+
+    @Test
+    fun aTourLeftMidWriteStopsClaimingToBeWriting() {
+        val entry = TourEntry("acme", "app", 1, "First", stops = 0, reached = 0, stopTitle = "", writing = true, updatedAt = 1_000)
+        assertTrue(entry.writingAt(1_000 + 60_000))
+        assertEquals("Writing · about a minute", tourSubtitle(entry, 1_000 + 60_000))
+        val later = 1_000 + TourEntry.WRITING_STALE_MS
+        assertFalse(entry.writingAt(later))
+        assertEquals("0 stops · not started", tourSubtitle(entry, later))
+        assertFalse(entry.copy(writing = false).writingAt(1_000))
+    }
+
+    @Test
+    fun aFinishedTourWhoseRewriteExpiredShowsAsDone() {
+        val rewriting = TourEntry("acme", "app", 1, "First", stops = 4, reached = 4, stopTitle = "Last", writing = true, updatedAt = 1_000)
+        val later = 1_000 + TourEntry.WRITING_STALE_MS
+        assertFalse(rewriting.doneAt(1_000 + 60_000))
+        assertTrue(rewriting.doneAt(later))
+        assertEquals("Done · 4 stops", tourSubtitle(rewriting, later))
     }
 
     @Test
