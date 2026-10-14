@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -94,6 +93,7 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.home.StatusColors
@@ -127,11 +127,11 @@ internal fun PrOverviewScreen(
     val c = LocalPullsColors.current
     val tourRunning = session.taskFor("tour")?.running == true
     Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
-                SectionCapsule(live = tourRunning, onChanges = { onDiff(null) }, onTour = onTour, onMore = { onSheet("more") })
+                SectionCapsule(selected = 0, live = tourRunning, onOverview = {}, onChanges = { onDiff(null) }, onTour = onTour, onMore = { onSheet("more") })
             }
             val labels = buildList {
                 add("Summary")
@@ -166,7 +166,7 @@ internal fun PrOverviewScreen(
                         val overviewError = session.overviewError
                         if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
                         StatsLine(session, data, onSheet)
-                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp))
+                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true)
                     }
                 }
                 when (shown) {
@@ -202,17 +202,21 @@ private fun OverviewError(message: String, onRetry: () -> Unit) {
     }
 }
 
-/** `.cap` with the page icons: Overview (here), Changes, Tour (a live dot while it is written), and More. */
+/**
+ * `.cap` with the page icons: Overview, Changes, Tour (a live dot while it is written), and More. The
+ * Overview and the Tour wear it alike, so a page of the pull request never loses its way home.
+ * [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour.
+ */
 @Composable
-private fun SectionCapsule(live: Boolean, onChanges: () -> Unit, onTour: () -> Unit, onMore: () -> Unit) {
+internal fun SectionCapsule(selected: Int, live: Boolean, onOverview: () -> Unit, onChanges: () -> Unit, onTour: () -> Unit, onMore: () -> Unit) {
     val c = LocalPullsColors.current
     Row(
         Modifier.width(212.dp).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Segment("Overview", selected = true, onClick = null) { LuIcon(Lu.list, tint = c.text) }
-        Segment("Changes", selected = false, onClick = onChanges) { LuIcon(Lu.diff, tint = c.text) }
-        Segment("Tour", selected = false, onClick = onTour) {
+        Segment("Overview", selected = selected == 0, onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
+        Segment("Changes", selected = selected == 1, onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
+        Segment("Tour", selected = selected == 2, onClick = if (selected == 2) null else onTour) {
             LuIcon(Lu.tour, tint = c.text)
             if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
         }
@@ -555,7 +559,10 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
     item(key = "files-head") {
         val c = LocalPullsColors.current
         val reviewed = session.files.count { it.sha in session.reviewed }
-        Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 2.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 18.dp).hairlineTop(c.borderMute).padding(top = 14.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             Text("Files", style = PullsType.xl, color = c.text)
             Text(
                 "$reviewed of ${session.files.size} reviewed",
@@ -567,7 +574,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
     sections.forEachIndexed { index, section ->
         if (section.label != null) item(key = "section:$index") {
             val c = LocalPullsColors.current
-            Text(section.label, Modifier.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(section.label, Modifier.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         }
         items(section.files, key = { "file:${it.path}" }) { file ->
             val state = session.reviewState(file)

@@ -229,7 +229,7 @@ fun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Mo
  * halfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.
  */
 @Composable
-fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false) {
     val c = LocalPullsColors.current
     Row(
         modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },
@@ -238,9 +238,9 @@ fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, 
             val on = index == selected
             val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = "tab-ink")
             Box(
-                Modifier.height(48.dp).clickable(role = Role.Tab, onClickLabel = label) { onSelect(index) }
-                    .padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp),
-                contentAlignment = Alignment.Center,
+                Modifier.then(if (spread) Modifier.weight(1f) else Modifier).height(48.dp).clickable(role = Role.Tab, onClickLabel = label) { onSelect(index) }
+                    .padding(start = if (index == 0 || spread) 0.dp else 12.dp, end = if (spread) 0.dp else 12.dp),
+                contentAlignment = if (spread) Alignment.CenterStart else Alignment.Center,
             ) {
                 Box(
                     Modifier.fillMaxHeight().drawBehind {
