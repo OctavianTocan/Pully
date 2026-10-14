@@ -41,6 +41,7 @@ import com.octaviantocan.pulls.ui.ai.runAnalyze
 import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.LocalMessages
+import com.octaviantocan.pulls.ui.design.EngineMark
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
@@ -154,12 +155,12 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                     session.runAnalyze(context)
                     toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
                 }
-            }, Modifier.weight(1f)) { LuIcon(Lu.redo, tint = c.text, size = 22.dp) }
+            }, Modifier.weight(1f)) { LuIcon(Lu.search, tint = c.text, size = 22.dp) }
         }
 
         SheetCard {
-            SheetRow("Model", { onSheet("model") }, first = true, icon = { LuIcon(Lu.bot, tint = c.activeText) }) {
-                Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            SheetRow("Model", { onSheet("model") }, first = true, icon = { EngineMark(config.engine, size = 22.dp) }) {
+                Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
             if (session.key != null && cliEngine(context)) {

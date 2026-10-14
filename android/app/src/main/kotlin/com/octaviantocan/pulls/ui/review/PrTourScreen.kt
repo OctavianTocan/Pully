@@ -313,11 +313,10 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
         onAsk(question.ifEmpty { null })
     }
     Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 18.dp, end = 6.dp),
+        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        LuIcon(Lu.ask, tint = c.muted, size = 20.dp)
         BasicTextField(
             value = text,
             onValueChange = { text = it },

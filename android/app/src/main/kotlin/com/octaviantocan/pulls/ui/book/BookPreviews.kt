@@ -17,10 +17,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -30,6 +32,7 @@ import com.octaviantocan.pulls.ui.design.OkDot
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PendingDot
 import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsCheck
@@ -65,6 +68,7 @@ internal fun bookPreviews(id: String): List<BookVariant> = when (id) {
     "switch" -> switchVariants()
     "cta-button" -> ctaButtonVariants()
     "pill-button" -> pillButtonVariants()
+    "pill-input" -> pillInputVariants()
     "sheet" -> sheetVariants()
     "sheet-card" -> sheetCardVariants()
     "sheet-row" -> sheetRowVariants()
@@ -159,6 +163,26 @@ private fun switchVariants() = listOf(
             BookState("Off") { PullsSwitch(false, {}, "Auto refresh") },
             BookState("On") { PullsSwitch(true, {}, "Auto refresh") },
             BookState("Disabled") { PullsSwitch(true, {}, "Auto refresh", enabled = false) },
+        ),
+    ),
+)
+
+private fun pillInputVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Empty") { PillInput("", {}, "Ask about this tour…") },
+            BookState("Typed") { PillInput("Why is the cache keyed by SHA?", {}, "Ask about this tour…") },
+        ),
+    ),
+    BookVariant(
+        "with-send",
+        listOf(
+            BookState("Send") {
+                PillInput("", {}, "Comment on line 12…") {
+                    FloatButton({}, "Send", size = 40.dp, container = LocalPullsColors.current.primary) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
+                }
+            },
         ),
     ),
 )

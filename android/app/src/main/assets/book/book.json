@@ -84,6 +84,12 @@
       "component": "pill-button"
     },
     {
+      "id": "components/pill-input",
+      "title": "Pill input",
+      "group": "Components",
+      "component": "pill-input"
+    },
+    {
       "id": "components/sheet",
       "title": "Sheet",
       "group": "Components",
@@ -339,6 +345,30 @@
         {
           "id": "with-icon",
           "title": "With icon"
+        }
+      ]
+    },
+    "pill-input": {
+      "composable": "PillInput",
+      "summary": "The 52dp raised pill that holds a one-line question or comment, with its send button inside.",
+      "usage": [
+        "Float it over the page at the bottom with 24dp below it, above a fade.",
+        "The send button inside is the primary circle; nothing else sits in the pill.",
+        "The placeholder says what to type, in a few words."
+      ],
+      "rules": [
+        7,
+        24
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "with-send",
+          "title": "With send"
         }
       ]
     },

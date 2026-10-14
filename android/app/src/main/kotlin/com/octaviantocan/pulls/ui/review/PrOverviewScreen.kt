@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -94,6 +95,7 @@ import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
 import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.home.StatusColors
@@ -198,7 +200,7 @@ private fun OverviewError(message: String, onRetry: () -> Unit) {
             Text("Couldn't load checks and conversation", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             Text(message, style = PullsType.xs, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        com.octaviantocan.pulls.ui.design.ActionButton(onRetry, small = true) { Text("Retry") }
+        PillButton("Retry", onRetry)
     }
 }
 
@@ -410,17 +412,15 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
         val repo = remember { Repo(context) }
         LaunchedEffect(engine) { if (ModelCatalogs.get(engine) == null) fetchCatalog(repo, engine) }
         val choice = session.settings.analyzeChoice
-        Row(
-            Modifier.fillMaxWidth().padding(top = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Orb(done = true)
-            Column(Modifier.weight(1f)) {
-                Text("Not analyzed yet", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                Text("${choice.title}: ${choice.summary().replaceFirstChar { it.lowercase() }}", style = PullsType.sm, color = c.muted)
+        AnalyzeCard(Modifier.padding(top = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Orb(done = true)
+                Column(Modifier.weight(1f)) {
+                    Text("Not analyzed yet", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                    Text("${choice.title}: ${choice.summary().replaceFirstChar { it.lowercase() }}", style = PullsType.sm, color = c.muted)
+                }
+                AnalyzeSplitButton(choice.title, onRun = { session.runAnalyze(context) }, onMenu = { onSheet("analyze") })
             }
-            AnalyzeSplitButton(choice.title, onRun = { session.runAnalyze(context) }, onMenu = { onSheet("analyze") })
         }
         return
     }
@@ -435,7 +435,7 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     )
     val tasks = listOfNotNull(analyzeTask, tourTask, briefTask)
     val live = tasks.firstOrNull { it.running }
-    Column(Modifier.fillMaxWidth().padding(top = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    AnalyzeCard(Modifier.padding(top = 16.dp).animateContentSize(), spacing = 10.dp) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClickLabel = "Show the steps") { logOpen = !logOpen },
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -444,9 +444,9 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
                 Orb(done = !card.working)
                 Column(Modifier.weight(1f)) {
                     Text(card.title, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                    if (live != null) Text(liveLine(live, engine), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (live != null) Text(liveLine(live, engine), style = PullsType.sm, color = c.muted)
                 }
-                if (card.working) StopButton { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } }
+                if (card.working) PillButton("Stop", { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } })
                 LuIcon(Lu.chev, Modifier.rotate(if (logOpen) 90f else 0f), tint = c.faint, size = 18.dp)
             }
             FlowRow(Modifier.padding(start = 42.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -463,9 +463,9 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
             Row(Modifier.padding(start = 42.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     if (failed) (analyzeTask?.error ?: "The analysis did not finish.") else "You stopped it.",
-                    Modifier.weight(1f, fill = false), style = PullsType.sm, color = if (failed) c.error else c.muted, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    Modifier.weight(1f, fill = false), style = PullsType.sm, color = if (failed) c.error else c.muted,
                 )
-                com.octaviantocan.pulls.ui.design.ActionButton({ session.runAnalyze(context) }, small = true) { Text(if (failed) "Try again" else "Analyze again") }
+                PillButton(if (failed) "Try again" else "Analyze again", { session.runAnalyze(context) })
             }
         }
         // A tour or brief that failed after a good analysis does not undo it; each can be run again on its own.
@@ -473,8 +473,8 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
             listOf("The tour" to tourTask, "The brief" to briefTask).forEach { (name, found) ->
                 val task = found?.takeIf { it.status == "failed" } ?: return@forEach
                 Row(Modifier.padding(start = 42.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(task.error ?: "$name did not finish.", Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    com.octaviantocan.pulls.ui.design.ActionButton({ if (task.kind == "tour") startTour(session) else startBrief(session) }, small = true) { Text("Try again") }
+                    Text(task.error ?: "$name did not finish.", Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
+                    PillButton("Try again", { if (task.kind == "tour") startTour(session) else startBrief(session) })
                 }
             }
         }
@@ -484,14 +484,12 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     }
 }
 
-/** A text button that stops the AI work above it; 40dp tall so it is easy to hit. */
+/** `.anz`: the card the AI's progress sits in, raised on the page like the tour's cards. */
 @Composable
-private fun StopButton(onClick: () -> Unit) {
+private fun AnalyzeCard(modifier: Modifier = Modifier, spacing: androidx.compose.ui.unit.Dp = 0.dp, content: @Composable ColumnScope.() -> Unit) {
     val c = LocalPullsColors.current
-    Box(
-        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 40.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Text("Stop", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
+    val shape = RoundedCornerShape(18.dp)
+    Column(modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(16.dp), verticalArrangement = Arrangement.spacedBy(spacing), content = content)
 }
 
 /** `What needs a human`: what the AI review found, most serious first, each pointing at its line. */
@@ -530,7 +528,7 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
             reviewing -> Row(Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BreathingDot()
                 Text("Looking for problems…", Modifier.weight(1f), style = PullsType.sm, color = c.muted)
-                StopButton { critiqueTask?.let { session.cancelTask(it.id) } }
+                PillButton("Stop", { critiqueTask?.let { session.cancelTask(it.id) } })
             }
             findings.isEmpty() && session.saved?.critique != null -> Text(
                 "The review found nothing that needs you.", Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,

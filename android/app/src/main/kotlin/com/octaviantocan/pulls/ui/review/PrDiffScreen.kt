@@ -3,10 +3,11 @@ package com.octaviantocan.pulls.ui.review
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -86,13 +87,14 @@ import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.MenuReveal
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
-import com.octaviantocan.pulls.ui.home.Spinner
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
 import kotlinx.coroutines.delay
@@ -343,55 +345,67 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
     }
 
     Row(
-        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
-        Box(Modifier.weight(1f)) {
-            androidx.compose.animation.AnimatedVisibility(selected != null, enter = fadeIn() + scaleIn(initialScale = 0.96f), exit = fadeOut() + scaleOut(targetScale = 0.96f)) {
+        AnimatedContent(
+            targetState = selected != null,
+            transitionSpec = {
+                fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) togetherWith fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
+            },
+            label = "comment-bar",
+        ) { selecting ->
+            if (!selecting) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
+                    Spacer(Modifier.weight(1f))
+                    FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, container = c.primary, tint = Color.White)
+                }
+            } else {
+                // A line is selected: the bar is one pill you type straight into, with everything it needs built in.
                 Row(
-                    Modifier.fillMaxWidth().height(48.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 4.dp),
+                    Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(start = 4.dp, end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    FloatIcon(Lu.close, "Deselect line", { ui.drafts.remove(file.path); ui.selectionStart.remove(file.path) }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
                     if (canComment) {
                         BasicTextField(
                             value = text,
                             onValueChange = { text = it },
                             singleLine = true,
                             enabled = !busy,
-                            textStyle = PullsType.sm.copy(color = c.text),
+                            textStyle = PullsType.base.copy(color = c.text),
                             cursorBrush = SolidColor(c.accentTeal),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = { send() }),
                             modifier = Modifier.weight(1f),
                             decorationBox = { inner ->
                                 Box(contentAlignment = Alignment.CenterStart) {
-                                    if (text.isEmpty()) Text("Comment on ${label ?: "a line"}…", style = PullsType.sm, color = c.muted, maxLines = 1)
+                                    if (text.isEmpty()) Text("Comment on ${label ?: "a line"}", style = PullsType.base, color = c.muted, maxLines = 1)
                                     inner()
                                 }
                             },
                         )
-                        if (busy) Spinner(16.dp, c.muted)
                         if (!hasPending) {
                             Box(
                                 Modifier.defaultMinSize(minHeight = 40.dp).clip(CircleShape)
                                     .clickable(role = Role.Switch, onClickLabel = if (single) "Add comments to a review instead" else "Post comments at once instead") { single = !single }
-                                    .padding(horizontal = 10.dp),
+                                    .padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(if (single) "Post now" else "In review", style = PullsType.xs.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
+                                Text(if (single) "Post now" else "In review", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
                             }
                         }
+                        FloatButton({ send() }, "Send comment", size = 40.dp, enabled = text.isNotBlank() && !busy, container = c.primary) {
+                            if (busy) Orb(size = 20.dp) else LuIcon(Lu.arrow, tint = Color.White, size = 20.dp)
+                        }
                     } else {
-                        Text(label?.replaceFirstChar { it.uppercase() } ?: "", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1)
+                        Text(label?.let { it.take(1).uppercase() + it.drop(1) } ?: "", Modifier.weight(1f), style = PullsType.base, color = c.muted, maxLines = 1)
                     }
-                    FloatIcon(Lu.close, "Deselect line", { ui.drafts.remove(file.path); ui.selectionStart.remove(file.path) }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
                 }
             }
         }
-        FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, container = c.primary, tint = Color.White)
     }
 }
 

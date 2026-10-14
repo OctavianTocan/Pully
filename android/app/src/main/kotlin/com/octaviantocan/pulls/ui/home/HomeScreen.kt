@@ -260,7 +260,9 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
             if (ui.tab == 0) FilterChips(ui.filter, inbox.counts) { ui.filter = it }
             if (ui.tab == 0) ActivityStrip(workTasks, { activityOpen = true })
-            BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) { tab ->
+            // A hairline under the chips, as in the design: the Tours list has its own under each heading.
+            if (ui.tab == 0) Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).fillMaxWidth().height(1.dp).background(c.borderMute))
+            BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth().padding(top = if (ui.tab == 0) 0.dp else 10.dp)) { tab ->
                 if (tab == 0) {
                     InboxList(
                         groups = groups, labels = labels, now = now, archived = archived, work = work,

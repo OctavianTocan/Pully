@@ -25,6 +25,7 @@ import com.octaviantocan.pulls.ui.design.OkDot
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PendingDot
 import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsCheck
@@ -54,6 +55,7 @@ private val SPECIMENS = listOf(
     Specimen("switch") { PullsSwitch(false, {}, "Auto refresh") },
     Specimen("cta-button") { CtaButton("Approve", {}) },
     Specimen("pill-button") { PillButton("Retry", {}) },
+    Specimen("pill-input") { PillInput("", {}, "Ask about this tour…") },
     Specimen("sheet-row") { SheetRow("Copy link", {}, first = true) },
     Specimen("quick-action") { QuickAction("Copy", {}, Modifier.fillMaxWidth()) { LuIcon(Lu.copy, size = 22.dp) } },
     Specimen("orb") { Orb() },

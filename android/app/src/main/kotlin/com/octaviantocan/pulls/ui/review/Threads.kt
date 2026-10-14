@@ -267,15 +267,12 @@ fun InlineFinding(session: ReviewSession, finding: CritiqueFinding, highlighted:
     }
 }
 
-/** `AiAnnotations`: hunk notes (sparkle, `text-xs op-fade`), findings, ask threads. */
+/** `AiAnnotations`: hunk notes (plain muted text, no icon), findings, ask threads. */
 @Composable
 fun AiAnnotationBlock(session: ReviewSession, anchor: AiAnchor, highlightedFinding: String?) {
     val c = LocalPullsColors.current
     anchor.notes.forEach { note ->
-        Row(Modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            PhIcon("sparkle-duotone", Modifier.padding(top = 2.dp), tint = c.fade, size = 14.dp)
-            Text(note, style = PullsType.xs, color = c.fade)
-        }
+        Text(note, Modifier.padding(horizontal = 16.dp, vertical = 6.dp).widthIn(max = CARD_MAX), style = PullsType.sm, color = c.muted)
     }
     anchor.findings.forEach { InlineFinding(session, it, highlighted = it.id == highlightedFinding) }
     anchor.asks.forEach { AskThreadCard(session, it, Modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX)) }
