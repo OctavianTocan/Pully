@@ -48,6 +48,7 @@ object Sounds {
             val ringer = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     silent = audio.ringerMode != AudioManager.RINGER_MODE_NORMAL
+                    refresh()
                 }
             }
             ContextCompat.registerReceiver(app, ringer, IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -61,18 +62,33 @@ object Sounds {
                 val player = CuePlayer(mixer)
                 val built = Cuelume(palette, mixer, Synth(), worker, onVoice = player::wake)
                 built.warm()
+                built.enabled = allowed()
                 engine = built
+                // Settings or the ringer may have changed while the engine was being built.
+                refresh()
             } catch (error: Exception) {
                 Log.w(TAG, "Sounds are off: ${error.message}")
             }
         }
     }
 
+    /** Sound is on in Settings and the phone is not on silent or vibrate. */
+    private fun allowed() = settings?.sounds == true && !silent
+
+    /**
+     * Brings the engine in step with Settings and the ringer. Turning sound off here, not only refusing the
+     * next cue, is what lets a note that is still ringing fade out. Call it after changing `settings.sounds`.
+     */
+    fun refresh() {
+        engine?.let { if (it.enabled != allowed()) it.enabled = allowed() }
+    }
+
     /** The engine when a cue may sound, set to the material Settings chose. */
     private fun ready(): Cuelume? {
         val current = settings ?: return null
         val sounds = engine ?: return null
-        if (!current.sounds || silent) return null
+        refresh()
+        if (!allowed()) return null
         sounds.material = Material.of(current.soundMaterial)
         return sounds
     }

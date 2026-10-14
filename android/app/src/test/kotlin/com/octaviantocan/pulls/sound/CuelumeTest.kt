@@ -142,6 +142,16 @@ class CuelumeTest {
     }
 
     @Test
+    fun aPlayOvertakenWhileItRendersNeverSounds() {
+        lateinit var sounds: Cuelume
+        sounds = Cuelume(palette, Mixer(), synth, { it.run() }, onVoice = { woken++ }, now = { clock }, dice = { sounds.enabled = false; 0.5 })
+        sounds.play(Cue.Success)
+        assertEquals(0, woken)
+        assertEquals(0f, sounds.heard(480))
+        assertFalse(sounds.mixer.busy)
+    }
+
+    @Test
     fun aBurstPastTheLimitIsDropped() {
         val queued = ArrayDeque<Runnable>()
         val sounds = engine(Executor { queued.add(it) })

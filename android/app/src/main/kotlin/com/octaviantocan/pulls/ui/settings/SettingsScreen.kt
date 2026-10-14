@@ -215,10 +215,11 @@ private fun MainSheet(nav: Nav, open: (String) -> Unit) {
                         picked,
                         {
                             settings.updateSoundMaterial(materials[it].id)
-                            // Said in the new material, so choosing one is hearing it.
+                            // The picker is silent itself and says one cue in the new material, so choosing one is hearing it.
                             Sounds.play(Cue.Select, Emphasis.Normal, if (it > picked) Direction.Forward else Direction.Back)
                         },
                         Modifier.fillMaxWidth(),
+                        sound = false,
                     )
                 }
             }
@@ -265,6 +266,7 @@ private fun MainSheet(nav: Nav, open: (String) -> Unit) {
 /** Turns the button sounds on or off. Turning them on answers with a toggle, so the first sound is the proof they work. */
 private fun toggleSounds(settings: AppSettings, on: Boolean) {
     settings.updateSounds(on)
+    Sounds.refresh()
     if (on) Sounds.play(Cue.Toggle, Emphasis.Normal, Direction.Forward)
 }
 

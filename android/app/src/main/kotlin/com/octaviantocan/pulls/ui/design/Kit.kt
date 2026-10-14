@@ -17,6 +17,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -203,6 +204,8 @@ fun CapsuleTabs(
     flat: Boolean = false,
     /** A mark before a label, such as an engine's own; the only icons a tab may carry. */
     leading: (@Composable (index: Int) -> Unit)? = null,
+    /** False for a picker that sounds its own choice, so a tab does not also make the generic one. */
+    sound: Boolean = true,
 ) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(50)
@@ -215,7 +218,10 @@ fun CapsuleTabs(
         Row(Modifier.fillMaxSize()) {
             labels.forEachIndexed { index, label ->
                 Box(
-                    Modifier.weight(1f).fillMaxHeight().clip(shape).cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) },
+                    Modifier.weight(1f).fillMaxHeight().clip(shape).then(
+                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) }
+                        else Modifier.clickable(role = Role.Tab) { onSelect(index) },
+                    ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

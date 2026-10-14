@@ -25,11 +25,15 @@ class Cuelume(
     @Volatile
     var enabled = true
         set(value) {
-            field = value
-            if (!value) {
-                synchronized(this) { held.clear() }
-                epoch.incrementAndGet()
-                mixer.silence()
+            // Under the lock the worker takes to put a finished voice in the mixer, so a voice is either in
+            // before the silence (and fades with it) or sees the new epoch and is dropped.
+            synchronized(this) {
+                field = value
+                if (!value) {
+                    held.clear()
+                    epoch.incrementAndGet()
+                    mixer.silence()
+                }
             }
         }
 
@@ -108,9 +112,12 @@ class Cuelume(
                 val layers = layersFor(played, part, dice)
                 val master = played.recipe.masterGain * played.volume
                 val rendered = synth.render(layers, master, ROOM_SEND * (played.recipe.room ?: 1.0), dice) ?: return@execute
-                if (stamp != epoch.get()) return@execute
                 val notes = played.recipe.layers.any { it.note }
-                mixer.add(Voice(cue, rendered, master, if (notes) NOTE_HANDOFF_SECONDS else HANDOFF_SECONDS, replaces = part != Part.Release))
+                val voice = Voice(cue, rendered, master, if (notes) NOTE_HANDOFF_SECONDS else HANDOFF_SECONDS, replaces = part != Part.Release)
+                synchronized(this) {
+                    if (stamp != epoch.get()) return@execute
+                    mixer.add(voice)
+                }
                 onVoice()
             } finally {
                 pending.decrementAndGet()
