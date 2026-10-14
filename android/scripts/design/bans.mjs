@@ -48,14 +48,21 @@ const LEGACY_KIT = ['ActionButton', 'ToggleGroup', 'ReviewCheckbox', 'TextInput'
 /** Its icon dialect: Phosphor glyphs by name instead of the Lucide `Lu` glyphs. */
 const LEGACY_ICONS = ['PhIcon', 'IconButton', 'HeaderIcon']
 
+/** The robot head as a Lucide glyph, and the sparkle, compass and chat bubble as Phosphor names in any weight. */
+const AI_GLYPH = /\bLu\.bot\b|"(?:robot|sparkles?|compass|chat-circle|chat-circle-dots|chat-dots|chat-teardrop|chat-text)(?:-(?:duotone|bold|fill|light|thin))?"/g
+
 const WAITING = ['Loading', 'SpinIcon', 'FeedbackSpinner', 'CircularProgressIndicator', 'LinearProgressIndicator']
 
 const MATERIAL = /^androidx\.compose\.material3\.(\w+(?:\.\w+)*)$/
 
-const call = names => new RegExp(`(?<!fun\\s)(?<![\\w.])(?:${names.join('|')})\\s*\\(`, 'g')
+/** The kit's own package: a call spelled out in full is still a call to the kit. */
+const KIT_PACKAGE = 'com\\.octaviantocan\\.pulls\\.ui\\.design\\.'
+
+const call = names => new RegExp(`(?<!fun\\s)(?<![\\w.])(?:${KIT_PACKAGE})?(?:${names.join('|')})\\s*\\(`, 'g')
 
 /**
- * `import` bans test the imported name; `call` bans test code with strings and comments blanked.
+ * `import` bans test the imported name; `call` bans test code with strings and comments blanked,
+ * unless `strings` is set, which keeps string literals for icon names.
  * `allowIn` lists path prefixes that are exempt.
  */
 export const BANS = {
@@ -125,6 +132,14 @@ export const BANS = {
     allowIn: ['ui/design/Components.kt'],
     call: call(LEGACY_ICONS),
   },
+  'ai-glyph': {
+    label: 'generic AI glyphs (robot head, sparkle, compass, chat bubble)',
+    rules: [1, 48],
+    advice: 'Ask which fact the icon carries. The model is shown by its own icon. A line that has to keep one says why with // ban-ok.',
+    allowIn: ['ui/design/Components.kt'],
+    strings: true,
+    call: AI_GLYPH,
+  },
   'waiting': {
     label: 'loading screens and spinners',
     rules: [51],
@@ -141,11 +156,20 @@ export const KINDS = BANS
 
 const allowed = (ban, file) => (ban.allowIn ?? []).some(prefix => file.startsWith(prefix))
 
+const IMPORT_LINE = /^import .*$/gm
+
 const IMPORT = /^import\s+([\w.]+(?:\.\*)?)(?:\s+as\s+\w+)?\s*$/gm
 
-/** Offsets in `code` where `ban` matches, by its imports and by its call pattern. */
+/** A Material or speech name spelled out in full where it is used, which needs no import. */
+const QUALIFIED = /(?<![\w.])(?:androidx\.compose\.material3|androidx\.compose\.material\.icons|androidx\.compose\.material|android\.speech)(?:\.\w+)+/g
+
+/** Offsets in `code` where `ban` matches, by its imports, its names spelled out in full and its call pattern. */
 function offsetsOf(ban, code, imports) {
   const found = ban.importOf ? imports.filter(m => ban.importOf(m[1])).map(m => m.index) : []
+  if (ban.importOf) {
+    const body = code.replace(IMPORT_LINE, line => ' '.repeat(line.length))
+    found.push(...[...body.matchAll(QUALIFIED)].filter(m => ban.importOf(m[0])).map(m => m.index))
+  }
   return ban.call ? [...found, ...[...code.matchAll(ban.call)].map(m => m.index)] : found
 }
 
@@ -154,11 +178,12 @@ export function scan(sources) {
   const hits = Object.fromEntries(Object.keys(BANS).map(id => [id, {}]))
   for (const [file, source] of Object.entries(sources)) {
     const code = blank(source)
+    const literal = blank(source, { keepStrings: true })
     const lineAt = lineIndex(code)
     const excused = excusedLines(source, 'ban-ok')
     const imports = [...code.matchAll(IMPORT)]
     for (const [id, ban] of Object.entries(BANS).filter(([, b]) => !allowed(b, file))) {
-      const lines = offsetsOf(ban, code, imports).map(lineAt).filter(line => !excused.has(line))
+      const lines = offsetsOf(ban, ban.strings ? literal : code, imports).map(lineAt).filter(line => !excused.has(line))
       if (lines.length > 0) {
         hits[id][file] = lines
       }

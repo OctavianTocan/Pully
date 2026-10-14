@@ -334,6 +334,8 @@ Spacing steps are 4, 8, 12, 16, 24 and 32. The code also uses 6, 10, 14 and 18 i
 
 Floating things carry the canvas shadow from Row W, drawn by `floatShadow`: a soft ink drop two pixels down (`0 2px 10px` at 8% for a header circle or capsule), never an even glow all round. Compose's own elevation cannot offset a shadow, which is why it looked faint and flat on the phone, so `floatShadow` draws the drop itself from API 28 and falls back to a plain elevation below that. It comes in seven levels, named for what carries them: `button` (10px blur, 8%), `note` (12px, 10%, cards and quick actions), `bar` (14px, 12%, the bottom and comment bars), `search` (16px, 12%, the search pill and the Ask bar), `menu` (20px, 14%, four pixels down, for popovers), `thumb` (3px, 20%, the switch thumb) and `modal` (40px, 22%, a centered dialog). The `elevation` tokens are those blurs in dp. In dark mode the strength is multiplied by 2.7 so the drop still reads on the dark paper. A missing or different shadow on a floating element is a defect (rule 45).
 
+The canvas shadows are one soft layer pushed down, in the ink colour `rgba(14,51,58)` (the sheet's is black): the round header buttons and the mode capsule `0 2px 10px` at 8%, the search pill `0 2px 16px` at 12%, the bottom toolbar `0 2px 14px` at 12%, a note card `0 2px 12px` at 10%, and the bottom sheet `0 -4px 30px rgba(0,0,0,.18)`. `floatShadow` does not draw that yet: it calls Compose `shadow()` with an elevation and no offset, and on the phone the result is faint and flat (rule 45 and the Decision log).
+
 Everything beneath a sheet dims uniformly through `scrim`, the header and the trigger included (rule 5). Depth comes from the shadow and the scrim. A border or a fill alone never lifts a surface.
 
 ## Shapes
@@ -379,11 +381,11 @@ The web-port kit (`ActionButton`, `IconButton`, `ToggleGroup`, `TextInput`, `Bad
 
 The `motion` tokens record what the kit uses today. It animates with `tween`. Durations in use: 150ms for a check filling, 200ms for chips, switches and tab ink, 240ms with `cubic-bezier(0.2, 0.8, 0.2, 1)` for the capsule's sliding pill, 250ms for the toast and 400ms for the progress ring. Live marks loop: the breathing dot at 1200ms, the orb's ring at 1600ms linear and its bot at 900ms, the skeleton shimmer at 1500ms.
 
-Every pressable scales to 0.97 on pointer-down and answers with no delay. AI work in progress is a live, animated mark and never a blank (rules 18 and 43). A swiped row blurs slightly as it is displaced (rules 17, 32 and 46). Move things with transform and opacity.
+Every pressable scales to 0.97 on pointer-down and answers with no delay. AI work in progress is a live, animated mark and never a blank (rules 18 and 43). A swiped row blurs slightly as it is displaced (rules 17, 32 and 46): the canvas row moves about 132 to 136dp with a 1.3px blur and a side shadow, `-8px 0 18px` at 14% one way and `8px 0 18px` at 16% the other. A segmented pill's highlight slides to the tapped segment and the content fades in (rule 67). Anything that exists in both states of a screen keeps its position (rule 69). Move things with transform and opacity.
 
 ## Rules
 
-Rule numbers are one running list, so "rule 47" is unambiguous. Rules 1 to 44 come from the design canvas (Row W is the latest row) and are copied word for word from its rule notes, which Tavi wrote from his earlier recordings. Rules 45 to 65 were written from Tavi's phone walkthrough of the built app on 2026-10-14, one rule for each thing said, so each applies to screens that were not mentioned.
+Rule numbers are one running list, so "rule 47" is unambiguous. Rules 1 to 44 come from the design canvas (Row W is the latest row) and are copied word for word from its rule notes, which Tavi wrote from his earlier recordings. Rules 45 to 65 were written from Tavi's phone walkthrough of the built app on 2026-10-14, one rule for each thing said, so each applies to screens that were not mentioned. Rules 66 to 70 come from Tavi's review of the Perplexity mobile app on 2026-10-13, kept as a reference: 66 to 69 are rules, and 70 is a proposal that Tavi has not confirmed.
 
 Each rule ends with where it is checked. `review` means a person looks, against the checklist below. The other names are scripts in `android/scripts/design` and are explained under Enforcement. The `rules` check fails when a rule has no such line, names a check that does not exist, or a check names a rule that does not list it.
 
@@ -665,15 +667,17 @@ Source: canvas. Checked by: book, review.
 
 The header round buttons, the bottom search pill, the comment bar, the Tour card and the Ask bar all carry the canvas shadow (`floatShadow`). A missing or different shadow is a defect, not a nit. It was the most repeated complaint in the walkthrough.
 
-Check: put each floating element beside Row W. Same shadow, or fix it.
+On the phone today the shadows are there but faint and flat: a pale halo spread evenly round the edge, with no visible drop below it. The canvas shadow is faint too (8% ink on the round buttons), but it is pushed 2dp down (`0 2px 10px`), and that offset is what makes a button look lifted. The fix is a drawn shadow with a downward offset like the canvas, not a stronger glow. See Elevation & Depth.
+
+Check: put each floating element beside Row W. Same shadow, with a visible drop below it, or fix it.
 
 Source: walkthrough. Checked by: raw-values, book, review.
 
 #### 46. Blur is part of how things move, in three places.
 
-- Scroll edges: row titles blur as they scroll under the top header and under the bottom bar.
-- The swiped row blurs as it is displaced, as in the design. This is the same thing as rules 17 and 32.
-- Tab switches: the list rearranging between Inbox tabs is liked and keeps its motion. It needs a blur transition. The exact blur is not specified yet.
+- Scroll edges: row titles blur as they scroll under the top header and under the bottom bar. Today every scroll edge is a hard cut: rows end in a sharp line under the chip row, text runs up to the bottom pill and stops, and content is sliced under a sheet's fixed header and under the diff's sub-header. The blur belongs at all of them.
+- The swiped row blurs as it is displaced, as in the design. This is the same thing as rules 17 and 32. The canvas row moves sideways about 132 to 136dp with a 1.3px blur and a side shadow. Today it slides fully sharp, and the Review action is a flat teal rectangle with square corners and no shadow.
+- The scope chips: switching between Waiting on you, Authored and All is liked and keeps its motion. It needs a blur transition, where the outgoing and incoming text overlap. The exact blur is not specified yet. Rule 67 is one possible reference.
 
 Source: walkthrough. Checked by: review.
 
@@ -681,9 +685,9 @@ Source: walkthrough. Checked by: review.
 
 "Close" is not accepted. What was flagged:
 
-- Spacing inside Inbox rows, horizontal and vertical.
-- A divider under the top buttons that the canvas has and the Inbox lacks. Tours has it, so the header treatment must be the same on every tab.
-- The bottom search pill sits too low. Raise it. On the Tour the Ask bar is not high enough either.
+- Spacing inside Inbox rows, horizontal and vertical. The columns are not fixed (rule 13): the gap between the added and removed numbers changes from row to row, and the status marks sit at slightly different positions.
+- A divider that the canvas has and the Inbox lacks: a line directly under the project heading. Tours has a hairline under its heading, and the Inbox draws hairlines only above later groups, so the group heading must be treated the same on every tab.
+- The bottom search pill sits too low, with its lower edge almost on the system gesture bar. Raise it. The Ask bar on the Tour is in the same low position.
 - On the Overview the top part is bigger in the design and is not stuck to the top of the phone.
 
 Check: render the screen and the canvas row at the same size, side by side, before showing it. Measure gaps. Do not eyeball them.
@@ -692,12 +696,16 @@ Source: walkthrough. Checked by: tokens, raw-values, book, review.
 
 #### 48. Icons: keep the coloured Claude Code and Codex marks, cut the rest.
 
-- Only the Claude Code and Codex marks stay, in colour.
-- The model is shown by its own icon. The Model row on the Tour should show the icon of the model that was selected, not a generic one.
-- No generic AI glyph, no decorative icon.
+- Only the Claude Code and Codex marks stay, in colour. Both are monochrome today, a black asterisk and a grey knot.
+- The model is shown by its own icon. The Model row in the ⋯ sheet shows a robot head, and should show the icon of the model that was selected.
+- No generic AI glyph, no decorative icon. The ones named so far: the robot head (on each Tours row, on the Overview's "Not analyzed yet" card and on the Model row), the sparkle (on "AI Analysis" in Settings and on "Ask AI" in the toolbar over a selected line), the compass (beside "Take a tour of this pull request" and inside the "Give me a tour" button), the chat bubble (in the Ask bar) and the speech bubble on "Request changes". By the same kind: the plug on Server, the layout glyphs on Unified and Split, the zoom magnifiers on Code size, and the globe, key and eye in the Server fields.
 - Never the same icon twice on one card. Ask of every icon what fact it carries. This is rule 1 applied to icons.
 
-Open: rule 37 keeps one Lucide sparkles icon per screen as the AI mark. The walkthrough does not say whether that mark stays. Keep rule 37 unless Tavi says otherwise. Which icons on the Tours rows, the Overview, the old menu, the Tour card and the buttons were meant is not named, so those need the frames or Tavi.
+The robot head also works as a status indicator, because the ring around it turns while a tour is writing. Not complained about: the three icons in the header capsule on the Overview, the gear, and the icons in the profile sheet.
+
+Open: rule 37 keeps one Lucide sparkles icon per screen as the AI mark. The sparkle called hideous on "Ask AI" is the kind of mark rule 37 asks for, so the open question is whether that mark stays. Keep rule 37 unless Tavi says otherwise.
+
+The `bans` check counts uses of the robot head, the sparkle, the compass and the chat bubble (`ai-glyph`), so new code cannot add one. The count may only fall.
 
 Source: walkthrough. Checked by: bans, review.
 
@@ -705,11 +713,11 @@ Source: walkthrough. Checked by: bans, review.
 
 A screen that looks like the old app is a defect. Seen on:
 
-- Settings: font, spacing and pills differ from the rest, and it has the old icons. Its model selector must be the mobile one already made.
-- The Commands menu.
-- The menu behind the project name.
-- A menu in the Diff with the wrong font, whose rows should be coloured as in the diff.
-- Another old-looking menu with an old icon.
+- Settings: font, spacing and pills differ from the rest, and it has the old icons. The sheet is a greyer cream than the Inbox, its close button is a bare ✕, and its segmented controls are the reverse of the Inbox capsule (rule 70). Its model selector must be the mobile one already made. Today it is a cramped dropdown that reads "Default (reco…" with "Default" shown twice.
+- The Commands menu: flat rows straight on the cream with no cards, small grey icons, and rows cut by an ellipsis.
+- The screen behind the project name: a breadcrumb, bare icons, a bordered filter box and select, and a loading spinner, with none of the round shadowed buttons.
+- The file switcher in the Diff: plain grey counts that should be coloured as in the diff, a font that differs from the file name above it, and different files cut to the identical text.
+- The toolbar that floats over a selected diff line, with a cut label and the sparkle (rule 48).
 
 Reuse the components already built for mobile (model selector, sheets) instead of rebuilding a web version. The profile sheet is the reference for right.
 
@@ -719,7 +727,7 @@ Source: walkthrough. Checked by: bans, review.
 
 #### 50. Never make the reader wait for what the app already knows.
 
-Opening a PR shows the title, the number and the rest of the header at once, because they are already loaded. Moving between the Overview tabs has no load: content loads as the reader scrolls, the first items appear immediately, and the data is already fetched in the background. Which tab was meant is not named.
+Opening a PR shows the title, the number and the rest of the header at once, because they are already loaded. Today a PR opens with "Checks None" and only two tabs, and the Conversation count and the real check state arrive a moment later, so the page fills in piece by piece. Moving between the Overview tabs has no load: content loads as the reader scrolls, the first items appear immediately, and the data is already fetched in the background. Which tab was meant is not named.
 
 Source: walkthrough. Checked by: review.
 
@@ -727,29 +735,31 @@ Source: walkthrough. Checked by: review.
 
 This is for page and list content whose shape is known. It does not override rule 43: AI work in progress (Analyzing) still shows the live orb and its outputs, with no shimmer bars.
 
+Today opening a PR puts up an empty page with a spinner and "Loading pull request…", and the project screen does the same, although the title, number and author are already known from the row that was tapped. The Analyzing state puts shimmer bars under each file row, against the wording of rule 43. See the Decision log.
+
 Source: walkthrough. Checked by: bans, review.
 
 #### 52. Refresh is silent.
 
-Pull down must not show a refresh indicator. The app refreshes by itself and does not show it.
+Pull down must not show a refresh indicator. The app refreshes by itself and does not show it. Today the pull-to-refresh spinner is drawn on top of the first row's title, with no space reserved for it.
 
 Source: walkthrough. Checked by: bans, review.
 
 #### 53. If it looks tappable, it does something.
 
-The project heading on Tours looks tappable and does nothing. It should open the project. On the Overview, tapping the project name goes to a menu in the old style, so the project destination must be in the new style (rule 49). The author name on the Overview does respond to a tap, which is right. This is rule 4's "tappable rows look tappable", run the other way.
+The project heading on Tours looks tappable and does nothing: tapping it lights a grey press highlight across the heading and then nothing opens. It should open the project. On the Overview, the project name at the end of the meta line opens a screen in the old style, so the project destination must be in the new style (rule 49). The author name on the Overview does respond to a tap, which is right, and the branch chip copies the branch name. This is rule 4's "tappable rows look tappable", run the other way.
 
 Source: walkthrough. Checked by: review.
 
 #### 54. Tabs are easy to hit.
 
-The tabs on the Overview are hard to hit. The hit area was not measured. Rule 12 asks for generous element size, and the kit's touch target is 44dp (`TOUCH`).
+The tabs on the Overview are hard to hit. The hit area was not measured. Rule 12 asks for generous element size, and the kit's touch target is 44dp (`TOUCH`). In the frames the tabs are plain text labels with a teal underline under the active one, with no fill or padding, and "Conversation 23" runs close to the right edge.
 
 Source: walkthrough. Checked by: review.
 
 #### 55. The bottom pill is the one way to find a PR.
 
-- It reads "Search or ask Pulls" as in the design (rule 35). The app shows "Search".
+- It reads "Search or ask Pulls" as in the design (rule 35). The app shows "Search pull requests" on the Inbox and "Search tours" on Tours. With the keyboard up the pill rides on top of it.
 - It takes pasted links and PR numbers as well as text.
 - So the "Open pull request" field in the profile sheet goes.
 
@@ -757,31 +767,31 @@ Source: walkthrough. Checked by: review.
 
 #### 56. Row gestures are the same on Inbox and Tours.
 
-Tours rows do nothing when swiped. They get a cancel on one side and open on the other, and tap still opens. This follows rules 15, 17 and 32: one row anatomy, both swipes, blur the displaced row.
+Tours rows do nothing when swiped. They get a cancel on one side and open on the other, and tap still opens. This follows rules 15, 17 and 32: one row anatomy, both swipes, blur the displaced row. Today a Tours row is a robot icon in a ring, a one-line title cut with an ellipsis, and "Writing · about a minute" under it.
 
 Source: walkthrough. Checked by: review.
 
 #### 57. Swiping moves between the Overview tabs.
 
-Swiping left and right changes between the Overview tabs (the canvas calls them Summary and Description; the walkthrough says Description and Conversation) with easy, clean swipes. Rule 9 still holds: files in the diff are never switched by horizontal swipe.
+The Overview has three tabs: Summary, Description and Conversation (with a count). The canvas rules name only Summary and Description. Swiping left and right changes between them, with easy, clean swipes. Rule 9 still holds: files in the diff are never switched by horizontal swipe.
 
 Source: walkthrough. Checked by: review.
 
 #### 58. Sheets with long content pull all the way up.
 
-Two bottom sheets on the Tour cannot be pulled fully up. Rule 5 prefers sheets over pages, so a sheet has to behave like a full surface when its content needs it. Sheets at their normal height are fine, the profile sheet included.
+Two bottom sheets cannot be pulled fully up. The ⋯ sheet is cut off at "Close pull request", with Review with AI, Review through a lens, Commands and Refresh below the fold, and the Select model sheet is cut off after Sonnet 5.5. The Ask sheet is nearly full height, so sheets are not all one height. Rule 5 prefers sheets over pages, so a sheet has to behave like a full surface when its content needs it. Sheets at their normal height are fine, the profile sheet included.
 
 Source: walkthrough. Checked by: review.
 
 #### 59. Menus and sheets open and close with a transition.
 
-A menu in the Diff, probably the file menu, needs an open and a close transition. A reference showing how those transitions should look is pending from Tavi. Rule 44 applies once it arrives.
+A menu in the Diff needs an open and a close transition. The menu at that moment is the Aa menu (Smaller, Default, Larger, Wrap long lines, Show review comments, Copy path, Open on GitHub, Load the whole file), not the file switcher. What is wrong with the motion is still Tavi's to say, and a reference showing how those transitions should look is pending. Rule 44 applies once it arrives. Rule 68 applies now: answer at once.
 
 Source: walkthrough. Checked by: review.
 
 #### 60. A control appears only where it works.
 
-The Smaller / Default / Larger menu on the Tour does nothing there, so drop it. Same principle as rule 1: if it does not tell or do anything, cut it.
+The Smaller / Default / Larger menu on the Tour does nothing there, so drop it. The Aa button on the Tour header opens it together with Wrap long lines and Show review comments, which are settings for code, and the Tour has no code on it. The same button on the Diff also holds Copy path, Open on GitHub and Load the whole file, which are fine. Same principle as rule 1: if it does not tell or do anything, cut it.
 
 Source: walkthrough. Checked by: review.
 
@@ -790,19 +800,19 @@ Source: walkthrough. Checked by: review.
 - The current one is in the wrong style. Make a new design in the same style as everything else, and make it nice.
 - It may hold too many things. "Review with AI" and "Review through lens" need a decision.
 - Tentative, not a rule yet: open it on pull down.
-- Open: how Commands relates to rule 29's ⋯ sheet.
+- Open: how Commands relates to rule 29's ⋯ sheet. Today "Commands ›" is a row in the ⋯ sheet and in the profile sheet, and tapping it closes the sheet and opens the palette with the keyboard up. Whether it stays a row in the ⋯ sheet is Tavi's call.
 
 Source: walkthrough. Checked by: review.
 
 #### 62. Ask never needs Analyze first.
 
-Tapping Ask opens the bottom sheet with the chat, and the reader chats straight away. The current screen is not acceptable. Rule 19 makes an unanalysed PR a real state, so Ask has to work in that state.
+Tapping Ask opens the bottom sheet with the chat, and the reader chats straight away. The current screen is not acceptable: it is a title, one grey line reading "Analyze this pull request first, then you can ask about it.", a centred Analyze button, and no composer. Rule 19 makes an unanalysed PR a real state, so Ask has to work in that state.
 
 Source: walkthrough. Checked by: review.
 
 #### 63. AI actions answer the tap at once and never strand the reader.
 
-Pressing Analyze gave slow feedback. A double tap cancelled the run, and after the cancel there was no way to restart.
+Pressing Analyze gave slow feedback. A double tap cancelled the run, and after the cancel there was no way to restart. The card then said "Analyzed" with the Tour step still an empty circle and an italic "Starting Claude…". Nothing said the run was stopped, and the only "Analyze again" was a tile inside the ⋯ sheet.
 
 Checks:
 
@@ -815,15 +825,57 @@ Source: walkthrough. Checked by: review.
 
 #### 64. The comment composer is a bar you type into.
 
-Tapping at the bottom of the diff opens a comment and in-review control that is not liked. It used to be a bar you could just type in, which is better, and the buttons can be integrated into it. It is also missing its shadow (rule 45). A few variants are to be tried, so treat the form as open. This is the app-side counterpart of rule 10.
+Tapping a line of the diff opens a comment and in-review control at the bottom that is not liked. Two things appear together: a pill reading "Comment · In review ✕" between a round ‹ button and a round teal › button, and a small white toolbar floating over the selected line (rule 49). The words sit in a pill, so it reads as a label and not as a field you can type in. It used to be a bar you could just type in, which is better, and the buttons can be integrated into it. It is also missing its shadow (rule 45). A few variants are to be tried, so treat the form as open. This is the app-side counterpart of rule 10.
 
 Source: walkthrough. Checked by: review.
 
 #### 65. Reviewed moves you on.
 
-Pressing Reviewed moves to the next file that is not reviewed, and marks the finished file, for example by greying it out a little. Rule 41 still holds: Reviewed itself stays a bare checkbox and a word.
+Pressing Reviewed moves to the next file that is not reviewed, and marks the finished file, for example by greying it out a little. Today ticking Reviewed leaves the reader on the same file and shows a toast ("1 of 134 files reviewed") over the bottom of the diff. Back on the Overview the file is struck through and the button says "Review 133 files", so the count of what is left already updates. Rule 41 still holds: Reviewed itself stays a bare checkbox and a word.
 
 Source: walkthrough. Checked by: review.
+
+### Rules 66 to 70, from the Perplexity review of 2026-10-13
+
+#### 66. One destination, one presentation.
+
+The same screen always opens the same way: always as a sheet, or always as a page. In the reference app the sign-in screen is a bottom sheet from one place and a full page from another, which is confusing. This extends rule 5: once a destination is a sheet, every route to it uses the sheet. In this app, check destinations that can be reached from more than one place, such as the model selector (rule 49).
+
+Check: for each screen reachable from two or more places, open it from each. Same presentation every time.
+
+Source: perplexity. Checked by: review.
+
+#### 67. A segmented pill moves its highlight, and the new content fades in.
+
+When a pill that switches between modes is tapped, the active highlight slides across to the new segment instead of jumping, and the new content fades in. This is the motion that goes with rule 27. It is one possible reference for the blur transition on the scope chips left open in rule 46, and it is not said to be the one.
+
+Check: tap a segment. The highlight travels to it and the content fades in.
+
+Source: perplexity. Checked by: review.
+
+#### 68. Reactive first, springy second.
+
+A control or sheet answers the instant it is touched. A spring or bounce is a bonus, not the requirement. A small bounce that fires the moment a character is typed was liked. This applies to rule 59 (transitions) and rule 63 (AI actions answer at once): sheets, the Analyze tap and the comment bar.
+
+Check: tap or type and note how soon anything visibly changes. A plain transition that starts at once beats a springy one that starts late.
+
+Source: perplexity. Checked by: review.
+
+#### 69. Elements that exist in both states keep their position.
+
+When a screen changes state, whatever is present in both states stays exactly where it was, so the change reads as a layer arriving instead of a new screen. In this app the nearest cases are the Overview header across the Tour (rule 23) and the bottom bar across screens.
+
+Check: flip between two states of a screen and watch. Anything that exists in both must not jump.
+
+Source: perplexity. Checked by: review.
+
+#### 70. The same control looks the same on a page and in a sheet.
+
+Proposal, awaiting Tavi's confirmation. It comes from the frames of the reference recording, not from anything said. In the reference app the round ✕ in a sheet is the same white circle with a soft shadow as the round buttons on the page behind it. In this app the Settings sheet has a bare ✕ and segmented controls that are the reverse of the Inbox capsule (rule 49), so one kind of control looks different on a page and in a sheet. Which way a segmented control should go is Tavi's call: the canvas capsule is a white track with a grey selected segment, while Settings and the reference app use a grey track with a white selected segment.
+
+Check: take one kind of control (close button, segmented control, chip, round button). Find it on a page and in a sheet. Same shape, fill and shadow.
+
+Source: perplexity. Checked by: review.
 
 ### Keep as is
 
@@ -831,8 +883,8 @@ These were liked in the walkthrough and must not regress:
 
 - The profile sheet, which uses the right style.
 - Bottom sheets at their normal height.
-- The list rearranging when Tours tabs switch.
-- The Files list on the Overview. A separator may be tried.
+- The list rearranging when the scope chips switch (Waiting on you, Authored, All).
+- The Files list on the Overview. A separator under the "Files" heading may be tried: in the not-analyzed state nothing divides it from the Analyze card above.
 - The description on the Overview.
 - The Diff screen, and its pinch zoom.
 
@@ -853,17 +905,22 @@ Run before showing any new screen.
 11. One AI icon per screen.
 12. A cite never grows its line.
 13. At least 24dp above the diff.
-14. Every floating element has the canvas shadow. Compare it with Row W.
-15. Blur at the top and bottom scroll edges, on the swiped row, and on tab switches.
+14. Every floating element has the canvas shadow, with a visible drop below it. Compare it with Row W.
+15. Blur at every scroll edge (under the header, under the bottom pills, under a sheet's header), on the swiped row, and when the scope chips switch.
 16. Screen and canvas row side by side at the same size, with gaps measured, not eyeballed.
-17. Icons: only the coloured Claude Code and Codex marks, the chosen model's own icon, and rule 37's single AI mark. For every other icon, which fact does it carry? None means cut it.
-18. Does any screen look like the old app? Settings, Commands, the project menu, the Aa menu and the review dialogs are all in the mobile style.
+17. Icons: only the Claude Code and Codex marks (in colour), the chosen model's own icon, and rule 37's single AI mark while it stays. For every other icon, which fact does it carry? None means cut it. Check the robot head, the sparkle and the compass first.
+18. Does any screen look like the old app? Settings, the Commands palette, the project screen, the file switcher and the toolbar over a selected line are all in the mobile style.
 19. Open a PR: title and number appear at once, there is no loading screen, and skeletons only stand in for waiting content.
 20. Double-tap Analyze, then cancel it: the first tap responds, the second does not cancel, and a restart is offered.
 21. Ask works on an unanalysed PR.
-22. Every tappable-looking thing does something, and tabs are easy to hit.
+22. Every tappable-looking thing does something. Tabs and the "Stop ›" text on the Analyzing card are easy to hit.
+23. Open each screen that is reachable from two or more places from each. Same presentation, sheet or page, every time.
+24. Tap a segmented pill: does the highlight slide to the segment, and does the content fade in?
+25. Tap and type: how soon does anything visibly change?
+26. Flip between two states of a screen: does anything present in both jump?
+27. Find one kind of control (close button, segmented control, chip, round button) on a page and in a sheet. Same shape, fill and shadow?
 
-The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
+The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) and the Perplexity checks (23 to 27). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
 
 ## Enforcement
 
@@ -877,9 +934,9 @@ pnpm run android:design:test      vitest suite of the checks themselves
 
 1. **tokens.** `design.md lint` (from `@google/design.md`) on this file: it fails on a broken reference. Then the Kotlin is compared with the front matter: every colour and its dark pair, every type role (family, size, weight, line height, tracking), `PullsRadius` and `PullsSpace`. A colour without a dark pair fails. `app/src/main/assets/book/spec.json` is written from this file and fails when stale. Rules 12 and 47.
 2. **raw-values.** A ratchet. It counts raw hex colours, raw font sizes and raw radii in the Kotlin per file, text set below 15 (`xs`, `compact`, `mini`, `micro`), uppercase and tracked text, and raw shadows (`.shadow(`) outside the shadow helper, and compares them with `raw-values.baseline.json`. The count may only go down: a new raw value fails, and a file that drops below its baseline fails until `android:design:update` lowers it, which locks the gain in. A line can opt out with `// raw-value-ok: <reason>`. Rules 14, 45 and 47.
-3. **bans.** Importing a Material widget the kit replaces (buttons, switches, checkboxes, text fields, dialogs, tabs, cards, dividers, progress indicators, FABs), Material icons or Android speech input, and an outgoing share, fail. Material's `ModalBottomSheet` and `DropdownMenu` are only for the kit's wrappers in `ui/design`. The web-port kit (`Components.kt`), its Phosphor icons, the waiting components (`Loading`, spinners) and pull-to-refresh are banned for new code. The uses that exist today (three Material sheet or menu imports in `AiParts.kt` and `Chrome.kt` among them) are counted per file in `bans.baseline.json` and may only fall. Bans lift in the config at the top of `bans.mjs` or with `// ban-ok: <reason>` on the line, never silently. Rules 1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51 and 52.
+3. **bans.** Importing a Material widget the kit replaces (buttons, switches, checkboxes, text fields, dialogs, tabs, cards, dividers, progress indicators, FABs), Material icons or Android speech input, and an outgoing share, fail. Material's `ModalBottomSheet` and `DropdownMenu` are only for the kit's wrappers in `ui/design`. The web-port kit (`Components.kt`), its Phosphor icons, the waiting components (`Loading`, spinners) and pull-to-refresh are banned for new code. A call or a Material name spelled out with its full package counts the same as an imported one. The generic AI glyphs of rule 48, the robot head, the sparkle, the compass and the chat bubble (`ai-glyph`), are counted the same way: a new one fails, and the count may only fall. The uses that exist today (three Material sheet or menu imports in `AiParts.kt` and `Chrome.kt` among them) are counted per file in `bans.baseline.json` and may only fall. Bans lift in the config at the top of `bans.mjs` or with `// ban-ok: <reason>` on the line, never silently. Rules 1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51 and 52.
 4. **book.** `book.json` is the one typed list of UI Book pages and components. Every page has a route in `UiBook.kt`, and every route is listed. Every component has exactly one default variant, and every named composable exists. Every public composable in `ui/design` has a page or an exemption with a reason in `book.exempt.json`. Every `components` token here is rendered in a `DesignSpecimen`, or exempt with a reason. `sources.json`, the code and props the Book shows, is read from the Kotlin and fails when stale. Rules 44, 45 and 47.
-5. **rules.** A check on this file's own list. Rules 1 to 65 are contiguous, each has a source and a `Checked by` line naming a check that exists, and each check enforces exactly the rules that name it. The checklist is contiguous too. `rules` is not a `Checked by` name: it checks the rules, not the code.
+5. **rules.** A check on this file's own list. Rules 1 to 70 are contiguous, each has a source and a `Checked by` line naming a check that exists, and each check enforces exactly the rules that name it. The checklist is contiguous too. `rules` is not a `Checked by` name: it checks the rules, not the code.
 6. **Measure on the phone.** The UI Book's Component specs page measures each `DesignSpecimen` and prints `name ok` or `name.size: expected 44px, rendered 52px`. It replaces the browser render check the web UI Book runs, because Compose cannot be measured from Node. It runs when someone opens the page.
 7. **Review against the checklist.** A person or an agent walks the screen against the checklist above and the rules, and reports breaks with `file:line` and the rule number.
 
@@ -896,9 +953,12 @@ To add a component: write it in `ui/design`, add its entry and variants to `book
 Every difference between this file and the rendered app, and how it was settled.
 
 - **2026-10-14, this file written from the source at version 0.6.1 (build 16).** The tokens are what `Tokens.kt` renders today, not the other way round, so no visible change. Kotlin is compared with this file instead of being generated from it: `Tokens.kt` carries computed properties and the app is being edited in parallel, and a generator would overwrite those edits. The checks still fail closed.
-- **2026-10-14, departures are frozen, not fixed.** The raw-values and bans baselines record how far the code is from these rules today: 288 raw values (40 hex colours, 131 raw radii, 2 raw font sizes, 3 raw shadows, 106 text runs below 15, 6 uppercase or tracked) and 172 banned uses (89 Phosphor icon calls, 68 web-port kit calls, 5 Material components, 3 Material sheets or menus, 1 pull-to-refresh, 6 loading indicators). No screen was restyled to get there. Each fix lowers a number and the check asks for the baseline to be lowered with it.
+- **2026-10-14, departures are frozen, not fixed.** The raw-values and bans baselines record how far the code is from these rules today: 288 raw values (40 hex colours, 131 raw radii, 2 raw font sizes, 3 raw shadows, 106 text runs below 15, 6 uppercase or tracked) and 187 banned uses (93 Phosphor icon calls, 75 web-port kit calls, 6 Material components, 3 Material sheets or menus, 1 pull-to-refresh, 9 loading indicators). No screen was restyled to get there. Each fix lowers a number and the check asks for the baseline to be lowered with it.
 - **2026-10-14, raw colours in the kit that are not tokens yet. Open.** `Kit.kt` and `AppModal.kt` hold literals for the sheet grabber (`D9D9D6`), the unchecked box edge (`C9CFCE`), the pending ring (`B9C4C5`), the orb and toast accent (`9AD3D6`) and the profile gradient (`D9B38C`, `8C5A3C`). They need tokens, with dark values. They sit in the raw-values baseline until then.
 - **2026-10-14, the PR row has no page. Open.** Rule 15 says one row anatomy everywhere, but the row is private to `HomeScreen.kt` and the Tours list, so the UI Book cannot render it. Pulling it into `ui/design` is a change to the screens and was left to the work that owns them.
 - **2026-10-14, forced states.** The web book forces hover, focus and active with CSS. Compose cannot, so the book forces the states a component takes as parameters (selected, disabled, loading, running, done) and shows the pressed scale on the Motion page with a live pressable. A sheet is a window and cannot be framed inside a page, so its page shows the sheet's body inline and opens the real sheet from a button.
-- **2026-10-14, rule 48 and rule 37. Open.** One Lucide sparkles icon per screen as the AI mark is still in force. The walkthrough does not say whether it stays.
+- **2026-10-14, rule 48 and rule 37. Open.** One Lucide sparkles icon per screen as the AI mark is still in force. The walkthrough does not say whether it stays, and the sparkle called hideous on "Ask AI" is the kind of mark rule 37 asks for. The `ai-glyph` ban counts the sparkle with the robot head, the compass and the chat bubble, so none can be added. Counting is not removing: the existing ones stay until Tavi decides.
 - **2026-10-14, rule 61 and rule 29. Open.** How the Commands menu relates to the ⋯ sheet is not decided.
+- **2026-10-14, rule 45 and `floatShadow`. Open.** The canvas shadow is a soft layer pushed down (`0 2px 10px` at 8% ink on the round buttons), and on the phone the app's shadows read faint and flat. `floatShadow` in `Kit.kt` calls Compose `shadow()` with an elevation and no offset. The fix is one drawn shadow with a downward offset, in that one function, judged side by side on a device. It was not changed here, because it restyles every floating element and belongs to the screen work. An earlier reading, that the app's shadows were stronger than the canvas's, was wrong.
+- **2026-10-14, rules 66 to 70 added from the Perplexity review.** Rules 66 to 69 are rules. Rule 70 is a proposal from the frames, not from anything Tavi said, and stays marked as one until confirmed.
+- **2026-10-14, rule 51 and rule 43. Open.** The Analyzing state puts shimmer bars under each file row, against the wording of rule 43, which keeps the live orb and its outputs and no bars. A reading for Tavi to confirm: bars are fine as a hint for the one text being written, next to a live indicator, and rule 43 forbids bars in place of the live indicator and its outputs. The canvas text of rule 43 is unchanged.

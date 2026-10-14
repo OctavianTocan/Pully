@@ -262,11 +262,11 @@ internal fun IconsPage() {
 internal fun RulesPage(book: BookData) {
     val c = LocalPullsColors.current
     var mode by remember { mutableIntStateOf(0) }
-    val wanted = if (mode == 1) "canvas" else "walkthrough"
-    val shown = book.rules.filter { mode == 0 || it.source == wanted }
+    val sources = listOf(null, "canvas", "walkthrough", "perplexity")
+    val shown = book.rules.filter { sources[mode] == null || it.source == sources[mode] }
     PageColumn {
         PageTitle("Rules", "The numbered rules from DESIGN.md. Cite them by number. Each says who checks it.")
-        CapsuleTabs(listOf("All", "Canvas", "Walkthrough"), mode, { mode = it })
+        CapsuleTabs(listOf("All", "Canvas", "Walkthrough", "Perplexity"), mode, { mode = it })
         shown.forEach { rule ->
             Column(Modifier.padding(top = PullsSpace.x3), verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
                 Text("${rule.n}. ${rule.title}", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)

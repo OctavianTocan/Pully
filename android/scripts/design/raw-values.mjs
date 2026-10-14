@@ -44,11 +44,11 @@ export function smallRoles(front) {
 const offsets = (code, pattern) => [...code.matchAll(pattern)].map(m => m.index)
 
 /** Constructors given a literal size or a percent instead of a radius token. */
-function radiusOffsets(code, source) {
+function radiusOffsets(code) {
   return [...code.matchAll(/\b(?:RoundedCornerShape|CornerRadius)\(/g)].filter((m) => {
     const open = m.index + m[0].length - 1
     const close = matching(code, open)
-    return close !== -1 && LITERAL_RADIUS.test(source.slice(open + 1, close))
+    return close !== -1 && LITERAL_RADIUS.test(code.slice(open + 1, close))
   }).map(m => m.index)
 }
 
@@ -62,12 +62,12 @@ function trackedOffsets(code) {
 }
 
 /** Offsets of every raw value in one file, by kind. */
-function offsetsByKind(code, source, small) {
+function offsetsByKind(code, small) {
   const sizes = [...code.matchAll(FONT_SIZE)]
   return {
     hex: [...offsets(code, HEX_COLOR), ...offsets(code, NAMED_COLOR)],
     fontSize: sizes.map(m => m.index),
-    radius: radiusOffsets(code, source),
+    radius: radiusOffsets(code),
     smallText: [...sizes.filter(m => Number.parseFloat(m[1]) < 15).map(m => m.index), ...offsets(code, small)],
     uppercase: [...offsets(code, UPPERCASE), ...trackedOffsets(code)],
     shadow: shadowOffsets(code),
@@ -85,7 +85,7 @@ export function scan(sources, front) {
     const code = blank(source)
     const lineAt = lineIndex(code)
     const excused = excusedLines(source, 'raw-value-ok')
-    for (const [kind, found] of Object.entries(offsetsByKind(code, source, small))) {
+    for (const [kind, found] of Object.entries(offsetsByKind(code, small))) {
       const lines = found.map(lineAt).filter(line => !excused.has(line)).sort((x, y) => x - y)
       if (lines.length > 0) {
         hits[kind][file] = lines
