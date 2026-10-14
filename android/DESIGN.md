@@ -250,6 +250,16 @@ components:
     rounded: "{rounded.full}"
     height: 44px
     padding: 0px 16px
+  pill-input:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.text}"
+    typography: "{typography.base}"
+    rounded: "{rounded.full}"
+    height: 52px
+  sheet-field:
+    textColor: "{colors.text}"
+    typography: "{typography.row}"
+    padding: 10px 16px
   sheet:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.text}"
@@ -363,7 +373,8 @@ The kit lives in `ui/design`. Use it before writing anything new. A new shared c
 - `switch`: a 52 by 32 switch.
 - `cta-button`: the 52dp dark pill that carries the screen's one main action (rule 7: never an irreversible one).
 - `pill-button`: the quiet 44dp paper pill for the actions beside it (Retry, Stop, Rewrite).
-- `sheet`, `sheet-card`, `sheet-row`, `quick-action`: the bottom sheet and what goes in it.
+- `pill-input`: the 52dp raised pill that holds a one-line question or comment, its send circle inside at the right.
+- `sheet`, `sheet-card`, `sheet-row`, `sheet-field`, `quick-action`: the bottom sheet and what goes in it. A field in a sheet is a `sheet-field` in the white card, never a bordered input.
 - `toast`: one dark pill above the bottom bars, with an optional action such as Undo.
 - `orb`, `progress-ring`, `breathing-dot`, `pending-dot`, `ok-dot`: AI and progress marks (rules 18 and 43).
 - `skeleton`: a shimmering bar for content that is still arriving (rule 51).

@@ -268,7 +268,7 @@ private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: ()
     val c = LocalPullsColors.current
     val inset = with(LocalDensity.current) { 16.dp.toPx() }
     val title = buildAnnotatedString {
-        if (pr.state == "draft") withStyle(SpanStyle(fontSize = 13.sp, color = c.muted)) { append("[${t("local.home.draft")}] ") }
+        if (pr.state == "draft") withStyle(PullsType.xs.toSpanStyle().copy(color = c.muted)) { append("[${t("local.home.draft")}] ") }
         append(pr.title)
     }
     Row(

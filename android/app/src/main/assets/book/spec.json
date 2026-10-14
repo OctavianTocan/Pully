@@ -375,6 +375,33 @@
       "color": "on-cta",
       "typography": "row"
     },
+    "pill-button": {
+      "size": null,
+      "width": null,
+      "height": 44,
+      "rounded": 9999,
+      "background": "paper-2",
+      "color": "text",
+      "typography": "row"
+    },
+    "pill-input": {
+      "size": null,
+      "width": null,
+      "height": 52,
+      "rounded": 9999,
+      "background": "raised",
+      "color": "text",
+      "typography": "base"
+    },
+    "sheet-field": {
+      "size": null,
+      "width": null,
+      "height": null,
+      "rounded": null,
+      "background": null,
+      "color": "text",
+      "typography": "row"
+    },
     "sheet": {
       "size": null,
       "width": null,

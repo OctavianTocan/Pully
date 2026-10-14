@@ -51,6 +51,7 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.headerTopPadding
@@ -120,7 +121,7 @@ internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
             }
             val zoom = session.settings.codeZoom
             Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.paper)
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.paper)
                     .horizontalScroll(rememberScrollState()).padding(12.dp),
             ) {
                 Text(block.body, style = PullsType.xs.copy(fontFamily = PullsType.mono, fontSize = (12f * zoom).sp, lineHeight = (18f * zoom).sp), color = c.text, softWrap = false)
@@ -153,7 +154,7 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
         }
         when {
             svg != null -> androidx.compose.foundation.layout.BoxWithConstraints(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).border(1.dp, c.border, RoundedCornerShape(6.dp))
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.md)).border(1.dp, c.border, RoundedCornerShape(PullsRadius.md))
                     .clickable(onClickLabel = "Open the diagram") { full = true }.padding(8.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -164,7 +165,7 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
                 val fit = minOf(1f, maxWidth.value / w0, 480f / h0)
                 SvgView(svg, Modifier.size((w0 * fit).dp, (h0 * fit).dp))
             }
-            result == null -> Skeleton(Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)))
+            result == null -> Skeleton(Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(PullsRadius.xl)))
             // Could not render: the source still says what the diagram meant.
             else -> TourBlockView(session, TourBlock("shape", "Mermaid source", "flow", block.body))
         }
@@ -223,7 +224,7 @@ internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
         Text("In the code", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         sources.forEach { source ->
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onOpen(source) }.padding(vertical = 8.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg)).clickable(role = Role.Button) { onOpen(source) }.padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(

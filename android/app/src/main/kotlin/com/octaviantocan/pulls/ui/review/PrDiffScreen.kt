@@ -91,6 +91,7 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
@@ -359,7 +360,7 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
                     Spacer(Modifier.weight(1f))
-                    FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, container = c.primary, tint = Color.White)
+                    FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, primary = true)
                 }
             } else {
                 // A line is selected: the bar is one pill you type straight into, with everything it needs built in.
@@ -397,9 +398,7 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
                                 Text(if (single) "Post now" else "In review", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
                             }
                         }
-                        FloatButton({ send() }, "Send comment", size = 40.dp, enabled = text.isNotBlank() && !busy, container = c.primary) {
-                            if (busy) Orb(size = 20.dp) else LuIcon(Lu.arrow, tint = Color.White, size = 20.dp)
-                        }
+                        SendButton({ send() }, "Send comment", enabled = text.isNotBlank() && !busy, busy = busy)
                     } else {
                         Text(label?.let { it.take(1).uppercase() + it.drop(1) } ?: "", Modifier.weight(1f), style = PullsType.base, color = c.muted, maxLines = 1)
                     }

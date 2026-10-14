@@ -87,6 +87,7 @@ import com.octaviantocan.pulls.ui.design.MenuReveal
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.edgeBlur
 import com.octaviantocan.pulls.ui.design.floatShadow
@@ -333,6 +334,6 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
                 }
             },
         )
-        FloatButton({ send() }, "Send", size = 40.dp, container = c.primary) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
+        SendButton({ send() }, "Send")
     }
 }

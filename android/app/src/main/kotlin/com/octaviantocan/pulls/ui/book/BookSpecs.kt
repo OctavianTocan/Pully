@@ -33,6 +33,8 @@ import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.QuickAction
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.SoftChip
@@ -56,6 +58,7 @@ private val SPECIMENS = listOf(
     Specimen("cta-button") { CtaButton("Approve", {}) },
     Specimen("pill-button") { PillButton("Retry", {}) },
     Specimen("pill-input") { PillInput("", {}, "Ask about this tour…") },
+    Specimen("sheet-field") { SheetCard { SheetField("Title", "Fix the cache key", {}, first = true) } },
     Specimen("sheet-row") { SheetRow("Copy link", {}, first = true) },
     Specimen("quick-action") { QuickAction("Copy", {}, Modifier.fillMaxWidth()) { LuIcon(Lu.copy, size = 22.dp) } },
     Specimen("orb") { Orb() },

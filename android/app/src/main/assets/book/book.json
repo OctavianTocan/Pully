@@ -90,6 +90,12 @@
       "component": "pill-input"
     },
     {
+      "id": "components/sheet-field",
+      "title": "Sheet field",
+      "group": "Components",
+      "component": "sheet-field"
+    },
+    {
       "id": "components/sheet",
       "title": "Sheet",
       "group": "Components",
@@ -369,6 +375,35 @@
         {
           "id": "with-send",
           "title": "With send"
+        }
+      ]
+    },
+    "sheet-field": {
+      "composable": "SheetField",
+      "summary": "A text field that lives inside a sheet's white card: the label small and muted over the value, a hairline above.",
+      "usage": [
+        "Put it in a SheetCard, never on the bare sheet or the page.",
+        "First drops the hairline above it; a trailing word such as Show is text, never an icon.",
+        "Two or more lines makes it a note area for a description or a comment."
+      ],
+      "rules": [
+        5,
+        7,
+        49
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "note",
+          "title": "Note area"
+        },
+        {
+          "id": "secret",
+          "title": "Secret"
         }
       ]
     },

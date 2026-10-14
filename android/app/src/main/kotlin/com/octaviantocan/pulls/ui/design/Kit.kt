@@ -187,8 +187,19 @@ fun FloatButton(
 
 /** A [FloatButton] holding one prototype icon. */
 @Composable
-internal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text) {
-    FloatButton(onClick, label, modifier, size, enabled, flat, container) { LuIcon(glyph, tint = tint, size = iconSize) }
+internal fun FloatIcon(glyph: LuGlyph, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, flat: Boolean = false, size: Dp = 44.dp, iconSize: Dp = 20.dp, container: Color = LocalPullsColors.current.raised, tint: Color = LocalPullsColors.current.text, primary: Boolean = false) {
+    val c = LocalPullsColors.current
+    FloatButton(onClick, label, modifier, size, enabled, flat, if (primary) c.primary else container) {
+        LuIcon(glyph, tint = if (primary) Color.White else tint, size = iconSize) // raw-value-ok: the ink on the primary fill is white in both themes
+    }
+}
+
+/** The send circle inside a [PillInput]: 40dp on the primary fill, the Orb in its place while [busy]. */
+@Composable
+fun SendButton(onClick: () -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false) {
+    FloatButton(onClick, label, modifier, size = 40.dp, enabled = enabled, container = LocalPullsColors.current.primary) {
+        if (busy) Orb(size = 20.dp) else LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) // raw-value-ok: the ink on the primary fill is white in both themes
+    }
 }
 
 /** `.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill. */

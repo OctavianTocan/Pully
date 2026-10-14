@@ -41,6 +41,7 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.delay
@@ -136,7 +137,7 @@ private fun AskComposer(placeholder: String, autofocus: Boolean, onSend: (String
         if (text.isNotEmpty()) { question = ""; onSend(text) }
     }
     PillInput(question, { question = it }, placeholder, Modifier.padding(8.dp).focusRequester(focus), onSend = ::send) {
-        FloatButton({ send() }, "Send", size = 40.dp, enabled = question.isNotBlank(), container = c.primary) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
+        SendButton({ send() }, "Send", enabled = question.isNotBlank())
     }
 }
 
