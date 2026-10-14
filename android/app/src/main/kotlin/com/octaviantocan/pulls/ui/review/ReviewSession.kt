@@ -19,8 +19,10 @@ import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
 
 /** Where the diff should scroll: a file, optionally a line on one side, optionally a finding. */
 data class Focus(val path: String, val line: Int = 0, val side: String = "additions", val findingId: String? = null, val nonce: Long = System.nanoTime())
@@ -83,6 +85,18 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     private val followers = mutableMapOf<String, Job>()
 
     val pull: OpenTarget.Pull? get() = target as? OpenTarget.Pull
+
+    /** Where a pull request opened earlier in this run is kept, so opening it again shows it at once. */
+    private val rememberedAs: String? = (target as? OpenTarget.Pull)?.label
+
+    init {
+        // Opened before: show what was there straight away and refresh it underneath, instead of waiting on the server.
+        rememberedAs?.let { recent[it] }?.let { before ->
+            prOpened = before.opened
+            opened = before.opened
+            overview = before.overview
+        }
+    }
     val key: String? get() = opened?.key
     val files: List<ReviewFile> get() = opened?.files.orEmpty()
 
@@ -110,7 +124,13 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             loading = true
             loadError = null
             runCatching { repo.open(target) }
-                .onSuccess { prOpened = it; if (selection == null) { opened = it; shownSelection = null }; afterOpen() }
+                .onSuccess {
+                    prOpened = it
+                    if (selection == null) { opened = it; shownSelection = null }
+                    // The overview can arrive before the diff does, so this page's own copy counts too.
+                    rememberedAs?.let { name -> recent[name] = Remembered(it, overview ?: recent[name]?.overview) }
+                    afterOpen()
+                }
                 .onFailure { loadError = it.message ?: it.toString() }
             loading = false
         }
@@ -141,7 +161,11 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     fun reloadOverview() {
         val pull = pull ?: return
         scope.launch {
-            runCatching { repo.overview(pull) }.onSuccess { overview = it; overviewError = null }.onFailure { overviewError = it.message }
+            runCatching { repo.overview(pull) }.onSuccess {
+                overview = it
+                overviewError = null
+                rememberedAs?.let { name -> recent[name]?.let { before -> recent[name] = before.copy(overview = it) } }
+            }.onFailure { overviewError = it.message }
         }
     }
 
@@ -203,19 +227,39 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     /**
      * Starts a server task and follows it; [onDone] runs after it settles and the saved
-     * state has been reloaded. It keeps running on the server if the page goes away.
+     * state has been reloaded. It keeps running on the server if the page goes away. [effort] overrides the
+     * Settings effort for this task, and [then] are the passes an `analyze` makes the server start after itself.
+     * The task shows on screen the moment this is called, under a placeholder id the server's own replaces.
      */
-    fun startTask(kind: String, extra: JsonObjectBuilder.() -> Unit = {}, onStarted: (String) -> Unit = {}, onDone: (TaskState) -> Unit = {}) {
+    fun startTask(
+        kind: String,
+        extra: JsonObjectBuilder.() -> Unit = {},
+        effort: String? = null,
+        then: List<String> = emptyList(),
+        onStarted: (String) -> Unit = {},
+        onDone: (TaskState) -> Unit = {},
+    ) {
         val key = key ?: return
         scope.launch {
-            val id = runCatching { repo.startTask(kind, key, extra) }.getOrElse { error ->
-                val failed = TaskState(id = "failed-${System.nanoTime()}", kind = kind, key = key, status = "failed", error = error.message, startedAt = System.currentTimeMillis())
+            val now = System.currentTimeMillis()
+            val pending = TaskState(id = "pending-${System.nanoTime()}", kind = kind, key = key, then = then, startedAt = now)
+            tasks[pending.id] = pending
+            val id = runCatching {
+                repo.startTask(kind, key, effort) {
+                    extra()
+                    if (then.isNotEmpty()) put("then", JsonArray(then.map(::JsonPrimitive)))
+                }
+            }.getOrElse { error ->
+                val failed = TaskState(id = "failed-${System.nanoTime()}", kind = kind, key = key, status = "failed", error = error.message, startedAt = now)
                 tasks[failed.id] = failed
+                tasks.remove(pending.id)
                 onStarted(failed.id)
                 onDone(failed)
                 return@launch
             }
-            tasks[id] = TaskState(id = id, kind = kind, key = key, startedAt = System.currentTimeMillis())
+            // The server joins a task already doing this work; keep what the page already knows of it.
+            if (tasks[id] == null) tasks[id] = pending.copy(id = id)
+            tasks.remove(pending.id)
             onStarted(id)
             follow(id, onDone)
         }
@@ -239,16 +283,14 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 if (tasks[id]?.running != true) break
             }
             reloadSavedNow()
-            if (tasks[id]?.kind == "analyze" && hasAiResult) analyzeMode = "ai"
+            if (tasks[id]?.kind == "analyze") {
+                if (hasAiResult) analyzeMode = "ai"
+                // The server starts the tour and the brief itself and lists them before the analysis reads as done.
+                if (tasks[id]?.status == "done") resumeTasks()
+            }
             tasks[id]?.let(onDone)
         }
     }
-
-    /**
-     * What to do when an analysis this session picked up again finishes (set by the screen). The one started here
-     * carries its own follow-up; this is for an analysis begun before the page was left and reopened.
-     */
-    var onResumedAnalyzeDone: (TaskState) -> Unit = {}
 
     /** Picks up tasks already running on the server for this diff (started before a reload, or on the web). */
     private suspend fun resumeTasks() {
@@ -256,7 +298,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         runCatching { repo.tasks(key) }.onSuccess { list ->
             list.forEach { task ->
                 if (tasks[task.id] == null) tasks[task.id] = task
-                if (task.running) follow(task.id, if (task.kind == "analyze") onResumedAnalyzeDone else ({ _ -> }))
+                if (task.running) follow(task.id)
             }
         }
     }
@@ -264,6 +306,18 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** Jump to a finding's line in the diff (web `critique.focus`). */
     fun focusFinding(finding: CritiqueFinding) {
         focus = Focus(finding.path, finding.line, finding.side, finding.id)
+    }
+
+    /** A pull request's diff and overview as last loaded in this run. */
+    private data class Remembered(val opened: OpenedReview, val overview: JsonObject?)
+
+    private companion object {
+        const val REMEMBERED = 6
+
+        // Least recently opened first; the oldest goes when a seventh arrives. Touched on the main thread only.
+        val recent = object : LinkedHashMap<String, Remembered>(8, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Remembered>?): Boolean = size > REMEMBERED
+        }
     }
 }
 

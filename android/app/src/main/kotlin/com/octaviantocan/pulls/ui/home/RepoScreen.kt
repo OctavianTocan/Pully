@@ -76,6 +76,7 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PrStatusIcon
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.TextInput
 import com.octaviantocan.pulls.ui.design.t
@@ -83,11 +84,23 @@ import com.octaviantocan.pulls.ui.design.tc
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
+/** The first page of each repository's list as last seen, so opening it again shows rows at once and refreshes underneath. */
+private object FirstPages {
+    class Page(val items: List<RepoPull>, val totalCount: Int?, val next: String?)
+
+    private val pages = HashMap<String, Page>()
+
+    fun get(owner: String, name: String): Page? = pages["$owner/$name".lowercase()]
+
+    fun put(owner: String, name: String, page: Page) { pages["$owner/$name".lowercase()] = page }
+}
+
 /** `PullRequestListStore`: the first page, then pages appended through the `next` cursor. */
 private class RepoPullsStore(private val repo: Repo, val owner: String, val name: String) {
-    var items by mutableStateOf<List<RepoPull>>(emptyList())
-    var totalCount by mutableStateOf<Int?>(null)
-    var next by mutableStateOf<String?>(null)
+    private val seen = FirstPages.get(owner, name)
+    var items by mutableStateOf(seen?.items.orEmpty())
+    var totalCount by mutableStateOf(seen?.totalCount)
+    var next by mutableStateOf(seen?.next)
     var isLoading by mutableStateOf(false)
     var isRefreshing by mutableStateOf(false)
     var isLoadingMore by mutableStateOf(false)
@@ -102,6 +115,7 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
             val page = repo.repoPulls(owner, name).asRepoPullsPage()
             if (current != generation) return
             items = page.items; totalCount = page.totalCount; next = page.next
+            FirstPages.put(owner, name, FirstPages.Page(page.items, page.totalCount, page.next))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -191,7 +205,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
             val side = ((maxWidth - 1152.dp) / 2).coerceAtLeast(0.dp) // mxa max-w-6xl
             LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(horizontal = side)) {
                 when {
-                    store.isLoading -> item { Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), contentAlignment = Alignment.Center) { Loading(t("pulls.loading")) } }
+                    // No loading screen: the shape of the rows, replaced in place when they arrive.
+                    store.isLoading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 8.dp)) }
                     store.error != null && store.items.isEmpty() -> item {
                         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(32.dp)) {
                             EmptyState("warning-duotone", t("pulls.loadFailed"), hint = store.error) {

@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.data
 
+import com.octaviantocan.pulls.core.BriefPage
+import com.octaviantocan.pulls.core.parseBriefPage
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -78,6 +80,10 @@ data class TaskState(
     val lens: String? = null,
     val threadId: String? = null,
     val text: String? = null,
+    /** The pull request's title, set on tasks listed across diffs. */
+    val title: String? = null,
+    /** `analyze`: what the server starts after it (`tour`, `brief`). */
+    val then: List<String> = emptyList(),
 ) {
     val running: Boolean get() = status == "running"
 
@@ -102,7 +108,7 @@ fun JsonObject.asTaskState(): TaskState = TaskState(
     model = sOrNull("model"), effort = sOrNull("effort"), status = s("status").ifBlank { "running" }, rev = i("rev") ?: 0,
     activities = arr("activities").map { it.asActivity() }, error = sOrNull("error"), usage = obj("usage").asUsage(),
     result = sOrNull("result"), startedAt = l("startedAt") ?: 0, endedAt = l("endedAt"), lens = sOrNull("lens"),
-    threadId = sOrNull("threadId"), text = sOrNull("text"),
+    threadId = sOrNull("threadId"), text = sOrNull("text"), title = sOrNull("title"), then = strings("then"),
 )
 
 /** `CritiqueFinding`. `side` is `additions` or `deletions`. */
@@ -179,7 +185,14 @@ data class SavedState(
     val sharedCommentUrl: String?,
     /** The newest tour of this diff (preferring the current head), if one was made. */
     val tour: Tour? = null,
+    /** The newest brief of this diff (preferring the current head), if one was designed. */
+    val brief: Brief? = null,
 )
+
+/** `brief` of `review-state`: the page the agent designed for this diff, already parsed by the server. */
+data class Brief(val page: BriefPage, val headSha: String?, val model: String?, val generatedAt: String)
+
+fun JsonObject.asBrief(): Brief? = parseBriefPage(this["tree"])?.let { Brief(it, sOrNull("headSha"), sOrNull("model"), s("generatedAt")) }
 
 /** One piece of a tour stop: `text` (Markdown), `shape` (monospace sketch of kind [lang]) or `diagram` (Mermaid). */
 data class TourBlock(val kind: String, val text: String, val lang: String = "", val body: String = "")
@@ -244,6 +257,7 @@ fun JsonElement.asSavedState(): SavedState {
         },
         sharedCommentUrl = o.obj("sharedComment")?.sOrNull("url"),
         tour = o.obj("tour")?.asTour(),
+        brief = o.obj("brief")?.asBrief(),
     )
 }
 

@@ -1,0 +1,176 @@
+{
+  "type": "Stack",
+  "props": {
+    "children": [
+      {
+        "type": "Callout",
+        "props": {
+          "tone": "risk",
+          "text": "The new column is NOT NULL and the backfill runs in the same migration, so it locks `orders` while it runs.",
+          "title": "Locks on deploy"
+        }
+      },
+      {
+        "type": "KeyValues",
+        "props": {
+          "rows": [
+            {
+              "type": "KeyValue",
+              "props": {
+                "label": "Table",
+                "value": "orders"
+              }
+            },
+            {
+              "type": "KeyValue",
+              "props": {
+                "label": "Flag",
+                "value": "none"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "Table",
+        "props": {
+          "columns": [
+            "Column",
+            "Before",
+            "After"
+          ],
+          "rows": [
+            [
+              "status",
+              "text",
+              "enum"
+            ],
+            [
+              "total",
+              "integer cents"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Checklist",
+        "props": {
+          "items": [
+            {
+              "type": "CheckItem",
+              "props": {
+                "text": "A renamed file is still found",
+                "path": "src/group-utils.ts",
+                "line": 42
+              }
+            },
+            {
+              "type": "CheckItem",
+              "props": {
+                "text": "A deleted file shows as removed"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "Diagram",
+        "props": {
+          "mermaid": "flowchart TD\n  A[API] --> B[(orders)]",
+          "caption": "Write path after this change"
+        }
+      },
+      {
+        "type": "Steps",
+        "props": {
+          "items": [
+            {
+              "type": "Step",
+              "props": {
+                "title": "Validate",
+                "text": "The request is checked."
+              }
+            },
+            {
+              "type": "Step",
+              "props": {
+                "title": "Write",
+                "text": "The row is stored."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "FileList",
+        "props": {
+          "files": [
+            {
+              "type": "FileEntry",
+              "props": {
+                "path": "db/migrations/0042_orders.sql",
+                "note": "Adds the column",
+                "line": 1
+              }
+            },
+            {
+              "type": "FileEntry",
+              "props": {
+                "path": "api/orders.ts",
+                "note": "Writes it"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "Code",
+        "props": {
+          "code": "const x = 1",
+          "language": "ts",
+          "caption": "The new default"
+        }
+      },
+      {
+        "type": "BeforeAfter",
+        "props": {
+          "before": "timeout: 5",
+          "after": "timeout: 30",
+          "title": "Timeout"
+        }
+      },
+      {
+        "type": "Finding",
+        "props": {
+          "severity": "bug",
+          "title": "Null total crashes",
+          "text": "A cart with no total reaches `format()`.",
+          "path": "api/orders.ts",
+          "line": 12
+        }
+      },
+      {
+        "type": "Section",
+        "props": {
+          "title": "Details",
+          "children": [
+            {
+              "type": "Text",
+              "props": {
+                "markdown": "Secondary notes with `code`."
+              }
+            },
+            {
+              "type": "Callout",
+              "props": {
+                "tone": "good",
+                "text": "Tests cover the migration."
+              }
+            }
+          ],
+          "open": false
+        }
+      }
+    ]
+  }
+}

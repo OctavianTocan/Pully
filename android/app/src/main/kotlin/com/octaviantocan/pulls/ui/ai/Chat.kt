@@ -85,8 +85,9 @@ private fun ReviewSession.sendChat(text: String?, retry: Boolean = false) {
 
 /**
  * The prototype's Ask sheet: a full-height sheet of bubbles (your questions on the right in a teal
- * wash, the answers on the left in white), starter chips while it is empty, and a send pill. It
- * continues the analysis session, so it needs an analysis of your own. [initial] is asked on open.
+ * wash, the answers on the left in white), starter chips while it is empty, and a send pill. It continues
+ * the analysis session when there is one and starts from the pull request itself when there is not, so Ask
+ * never waits on Analyze. [initial] is asked on open.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -96,10 +97,8 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     val task = rememberLiveTask(session, "chat")
     val analyzeTask = session.taskFor("analyze")
     val streaming = task?.running == true
+    // A chat shares the diff's saved transcript with the analysis, so the two do not run at once.
     val busy = streaming || analyzeTask?.running == true
-    val analysis = session.saved?.analysis
-    // A chat continues the analysis session; a loaded shared analysis has none.
-    val available = analysis != null && analysis.sharedBy == null
     val saved = session.saved?.chat.orEmpty()
     val rows = remember(saved) { chatRows(saved) }
     // The question shows at once; the server saves it with the reply when the turn ends.
@@ -108,13 +107,13 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     val failed = task?.status == "failed"
     val scroll = rememberScrollState()
     LaunchedEffect(rows.size, pending, task?.activities?.size, streaming) { scroll.animateScrollTo(scroll.maxValue) }
-    LaunchedEffect(initial, available) {
-        if (!initial.isNullOrBlank() && available && !busy) session.sendChat(initial)
+    LaunchedEffect(initial) {
+        if (!initial.isNullOrBlank() && !busy) session.sendChat(initial)
     }
 
     fun ask(text: String) {
         val question = text.trim()
-        if (question.isNotEmpty() && !busy && available) session.sendChat(question)
+        if (question.isNotEmpty() && !busy) session.sendChat(question)
     }
 
     PullsSheet(
@@ -123,63 +122,50 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         full = true,
         scroll = scroll,
         footer = {
-            if (available) {
-                if (rows.isNotEmpty() && !busy) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.End) {
-                        ActionButton({
-                            val key = session.key ?: return@ActionButton
-                            ui.chatError = null
-                            session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
-                        }, variant = ButtonVariant.Text, small = true) { Text(t("common.clear")) }
-                    }
+            if (rows.isNotEmpty() && !busy) {
+                Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.End) {
+                    ActionButton({
+                        val key = session.key ?: return@ActionButton
+                        ui.chatError = null
+                        session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
+                    }, variant = ButtonVariant.Text, small = true) { Text(t("common.clear")) }
                 }
-                Row(
-                    Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    LuIcon(Lu.ask, tint = c.muted, size = 20.dp)
-                    BasicTextField(
-                        value = ui.chatInput,
-                        onValueChange = { ui.chatInput = it },
-                        singleLine = true,
-                        textStyle = PullsType.base.copy(color = c.text),
-                        cursorBrush = SolidColor(c.accentTeal),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) }),
-                        modifier = Modifier.weight(1f),
-                        decorationBox = { inner ->
-                            Box(contentAlignment = Alignment.CenterStart) {
-                                if (ui.chatInput.isEmpty()) Text("Ask Pulls…", style = PullsType.base, color = c.muted, maxLines = 1)
-                                inner()
-                            }
-                        },
-                    )
-                    if (streaming && task != null) {
-                        FloatButton({ session.cancelTask(task.id) }, t("common.stop"), size = 40.dp, container = c.primary) { PhIcon("stop-duotone", tint = Color.White, size = 18.dp) }
-                    } else {
-                        FloatButton(
-                            { val text = ui.chatInput; ui.chatInput = ""; ask(text) }, t("common.send"), size = 40.dp,
-                            enabled = !busy && ui.chatInput.isNotBlank(), container = c.primary,
-                        ) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
-                    }
+            }
+            Row(
+                Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                LuIcon(Lu.ask, tint = c.muted, size = 20.dp)
+                BasicTextField(
+                    value = ui.chatInput,
+                    onValueChange = { ui.chatInput = it },
+                    singleLine = true,
+                    textStyle = PullsType.base.copy(color = c.text),
+                    cursorBrush = SolidColor(c.accentTeal),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) }),
+                    modifier = Modifier.weight(1f),
+                    decorationBox = { inner ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (ui.chatInput.isEmpty()) Text("Ask Pulls…", style = PullsType.base, color = c.muted, maxLines = 1)
+                            inner()
+                        }
+                    },
+                )
+                if (streaming && task != null) {
+                    FloatButton({ session.cancelTask(task.id) }, t("common.stop"), size = 40.dp, container = c.primary) { PhIcon("stop-duotone", tint = Color.White, size = 18.dp) }
+                } else {
+                    FloatButton(
+                        { val text = ui.chatInput; ui.chatInput = ""; ask(text) }, t("common.send"), size = 40.dp,
+                        enabled = !busy && ui.chatInput.isNotBlank(), container = c.primary,
+                    ) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
                 }
             }
         },
     ) {
-        if (!available) {
-            Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    if (analysis == null) "Analyze this pull request first, then you can ask about it." else t("chat.reanalyzeToEnable"),
-                    style = PullsType.sm, color = c.muted,
-                )
-                ActionButton({ session.runAnalyze() }, variant = ButtonVariant.Primary, small = true, enabled = analyzeTask?.running != true) {
-                    Text(if (analyzeTask?.running == true) "Analyzing…" else "Analyze")
-                }
-            }
-            return@PullsSheet
-        }
         Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (analyzeTask?.running == true && !streaming) Text("The analysis is running. You can ask when it finishes.", style = PullsType.sm, color = c.muted)
             rows.forEachIndexed { index, row ->
                 ChatRowView(row)
                 // The last reply's work log folds in under the question that asked for it.

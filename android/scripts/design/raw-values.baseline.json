@@ -1,7 +1,6 @@
 {
   "fontSize": {
-    "ui/home/HomeScreen.kt": 1,
-    "ui/review/FileDiff.kt": 1
+    "ui/home/HomeScreen.kt": 1
   },
   "hex": {
     "ui/ai/AiParts.kt": 1,
@@ -11,7 +10,6 @@
     "ui/design/Kit.kt": 10,
     "ui/design/Markdown.kt": 1,
     "ui/home/Chrome.kt": 7,
-    "ui/home/HomeScreen.kt": 2,
     "ui/review/Header.kt": 2,
     "ui/review/PageBanners.kt": 2,
     "ui/review/PrDiffScreen.kt": 1,
@@ -67,7 +65,6 @@
     "ui/home/HomeScreen.kt": 2,
     "ui/home/NavControls.kt": 1,
     "ui/home/RepoScreen.kt": 9,
-    "ui/review/FileDiff.kt": 1,
     "ui/review/Overview.kt": 20,
     "ui/review/PrDiffScreen.kt": 1,
     "ui/review/PrOverviewScreen.kt": 1,

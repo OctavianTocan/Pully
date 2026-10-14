@@ -3,8 +3,11 @@ package com.octaviantocan.pulls.ui.home
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.PrLinks
+import com.octaviantocan.pulls.core.listedPullByNumber
+import com.octaviantocan.pulls.core.searchNumber
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.asPulls
 import kotlinx.coroutines.CancellationException
@@ -54,6 +57,18 @@ object HomeLinks {
             }
         }
         return PrLinks.parse(trimmed)?.let { HomeLink.Target(it) }
+    }
+
+    /**
+     * What the search pill's text opens: a link [parse] understands, or a bare number (`42`, `#42`) that only one of the
+     * [listed] pull requests has. `null` when the text is just a search.
+     */
+    fun fromSearch(text: String, listed: List<ListedPull>): HomeLink? {
+        val trimmed = text.trim()
+        searchNumber(trimmed)?.let { number ->
+            return listedPullByNumber(number, listed)?.let { HomeLink.Target(OpenTarget.Pull(it.owner, it.repo, it.number, "github.com")) }
+        }
+        return parse(trimmed)
     }
 
     /** `base...head`, both sides non-empty. */

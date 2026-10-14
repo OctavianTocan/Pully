@@ -39,11 +39,11 @@
   "legacy-kit": {
     "ui/ai/Analyze.kt": 4,
     "ui/ai/Ask.kt": 4,
-    "ui/ai/Chat.kt": 3,
+    "ui/ai/Chat.kt": 2,
     "ui/ai/Critique.kt": 6,
     "ui/ai/Tour.kt": 2,
     "ui/home/CheckoutScreen.kt": 4,
-    "ui/home/HomeScreen.kt": 7,
+    "ui/home/HomeScreen.kt": 5,
     "ui/home/RepoScreen.kt": 6,
     "ui/review/FileDiff.kt": 1,
     "ui/review/PageBanners.kt": 2,
@@ -74,8 +74,6 @@
     "ui/ai/Analyze.kt": 1,
     "ui/ai/Tour.kt": 2,
     "ui/home/CheckoutScreen.kt": 1,
-    "ui/home/HomeScreen.kt": 1,
-    "ui/home/RepoScreen.kt": 3,
-    "ui/review/ReviewScreen.kt": 1
+    "ui/home/RepoScreen.kt": 2
   }
 }

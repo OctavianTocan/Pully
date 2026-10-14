@@ -234,7 +234,8 @@ object PullsType {
     val micro = TextStyle(fontFamily = PullsFonts.sans, fontSize = 10.sp, lineHeight = 14.sp)
     val mini = TextStyle(fontFamily = PullsFonts.sans, fontSize = 11.sp, lineHeight = 16.sp)
     val compact = TextStyle(fontFamily = PullsFonts.sans, fontSize = 12.sp, lineHeight = 18.sp)
-    val mono: FontFamily = PullsFonts.mono
+    /** The code face the reader chose (Geist Mono until they pick another); see [CodeFonts]. */
+    val mono: FontFamily get() = CodeFonts.family
     val display: FontFamily = PullsFonts.display
     val semibold = FontWeight.SemiBold
     val medium = FontWeight.Medium

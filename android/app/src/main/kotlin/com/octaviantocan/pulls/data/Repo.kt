@@ -99,16 +99,16 @@ class Repo(private val context: Context) {
 
     // --- AI ---
 
-    /** Starts a server task; returns its id. Model and effort come from the phone settings. */
-    suspend fun startTask(kind: String, key: String, extra: JsonObjectBuilder.() -> Unit = {}): String {
+    /** Starts a server task; returns its id. Model and effort come from the phone settings unless [effort] is given. */
+    suspend fun startTask(kind: String, key: String, effort: String? = null, extra: JsonObjectBuilder.() -> Unit = {}): String {
         val config = ServerStore.load(context)
-        val settings = AppSettings.get(context)
+        val chosen = effort ?: AppSettings.get(context).effort
         return call("ai-task-start") {
             put("kind", kind); put("key", key)
             put("model", buildJsonObject {
                 put("engine", config.engine)
                 if (config.model.isNotBlank()) put("model", config.model)
-                if (settings.effort.isNotBlank()) put("effort", settings.effort)
+                if (chosen.isNotBlank()) put("effort", chosen)
             })
             extra()
         }.jsonPrimitive.content
@@ -121,6 +121,9 @@ class Repo(private val context: Context) {
 
     /** This diff's tasks, running or recently finished, newest first: how a reopened page resumes them. */
     suspend fun tasks(key: String): List<TaskState> = (call("ai-task-list") { put("key", key) } as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asTaskState() }
+
+    /** Every diff's running and recent tasks, newest first, with the pull request's title and no work log or result. */
+    suspend fun allTasks(): List<TaskState> = (call("ai-task-list-all") as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asTaskState() }
 
     suspend fun askThreads(key: String): List<AskThread> = (call("ask-threads") { put("key", key) } as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asAskThread() }
     suspend fun closeAsk(key: String, threadId: String) { call("ask-thread-close") { put("key", key); put("threadId", threadId) } }

@@ -45,7 +45,7 @@ an AI review, a question about selected lines, a chat reply - is a server *task*
 (`LOCAL_RPC.aiTaskStart`), not a browser-held promise. The task reads the diff from
 the shared cache by its key, runs, and writes its result where the page reads it:
 `analyzedBy.llm` + `llmSession` of the diff entry, `critiques` under its variant, or
-the diff's saved question threads (`ask-threads:<key>`). Contract:
+the diff's saved question threads (`ask-threads:<key>`), or `briefs` (below). Contract:
 
 - Reloading, closing the tab or a phone sleeping MUST NOT stop or lose a task.
   Stores therefore have two ways out: `abort()` cancels the task (the Stop button),
@@ -53,11 +53,43 @@ the diff's saved question threads (`ask-threads:<key>`). Contract:
 - Opening a diff lists its tasks (`aiTaskList`) and follows the running ones again;
   finished results are already in the cache. A running task doing the same work
   (same kind and diff, same critique variant or ask thread) is joined, not started twice.
+- Anything that follows an analysis runs on the server, not in the page. The analyze
+  request carries `then` (`tour`, `brief`); when the analysis succeeds the task manager
+  starts those itself, skipping a tour that is already current. A phone that is asleep,
+  or closed, when the analysis ends still gets its tour and brief. `--preanalyze` runs
+  the analysis only.
+- `aiTaskListAll` lists every diff's running and recent tasks, newest first, each with
+  its pull request's title, so a client can show progress outside the PR page (the
+  Inbox mark, the Activity sheet). Task records live in server memory: a restart drops
+  them, and the results stay in the cache.
+- A chat does not need an analysis. With none saved it starts from the pull request
+  itself (`seedChatSession`), with the same diff tools.
 - devframe's socket does not reconnect, so the local build reloads the page once the
   connection drops and the tab is visible again; nothing is lost because the work is
   on the server.
 - Browser-run providers (gateway, Anthropic, OpenAI-compatible) and builds without a
   local server keep the in-page path.
+
+## The brief: a page the agent designs (`core/src/analyze/adapters/llm/brief.ts`)
+
+A `brief` task asks the agent to design the page a reviewer reads before the diff. It
+writes **OpenUI Lang** (`@openuidev/lang-core`, MIT), so upstream parser and prompt
+generator improvements apply with a version bump. Contract:
+
+- The component library in `brief.ts` decides what the agent may build. Components
+  take references (a changed path and line), never retyped data, and a client opens
+  the diff there. Adding a component means adding it to the library and to every
+  renderer; an unknown name never renders.
+- Only the OpenUI Lang is stored (`briefs` cache, newest per head commit). It is parsed
+  on read, so a parser upgrade reaches old briefs. A program that does not parse
+  cleanly goes back to the agent with the parser's findings (`MAX_BRIEF_REPAIRS`); a page
+  that still has blocks after that is kept, because the parser drops invalid components.
+- Clients never see the Lang. The native review state carries `brief.tree`, a plain
+  `{type, props}` tree with children resolved, and a client draws it natively.
+  Output is data, never executed.
+- `@openuidev/lang-core` is allowed no install script (`allowBuilds` in
+  `pnpm-workspace.yaml`): its postinstall sends install telemetry, and the parser needs
+  no build.
 
 ## Invariants
 
