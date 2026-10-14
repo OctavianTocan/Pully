@@ -672,6 +672,7 @@
     "title": "Motion uses one set of numbers.",
     "source": "answers",
     "checkedBy": [
+      "bans",
       "review"
     ],
     "text": "Tavi sent transitions.dev as the reference. Durations: 150ms for closes and text swaps, 250ms for opens, tabs and page slides, 350ms for a panel closing, 400ms for a panel opening. One easing, smooth out, `cubic-bezier(0.22, 1, 0.36, 1)`, for opens, closes and slides; ease-in-out for swaps; linear for shimmer. Blur is 2px for small things and 3px for page-sized changes. Scale is 0.97 for menus and 0.96 for dialogs. Travel is 4 to 8dp for text and pages. The mapping from the library's transitions to this app's surfaces was proposed by the rules file and Tavi can retune any row: menus use the dropdown recipe, dialogs the modal one, sheets panel reveal, the capsule tabs sliding, page changes page side-by-side, the thinking line shimmer text and thinking states. Looping effects follow the system setting \"Remove animations\".\n\nCheck: open and close one menu, one sheet, one dialog and one toast. Each takes the time above and eases out."

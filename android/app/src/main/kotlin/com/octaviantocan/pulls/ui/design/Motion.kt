@@ -8,7 +8,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDp
@@ -26,7 +25,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -41,7 +39,6 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.CompositingStrategy
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -194,33 +191,17 @@ fun ModalReveal(visible: Boolean, onDismissRequest: () -> Unit, properties: Dial
     state.targetState = visible
     // Not yet idle covers a close during the entrance, when currentState is still false but the window is up.
     if (!visible && !state.currentState && state.isIdle) return
-    Dialog(onDismissRequest, properties) {
-        AnimatedVisibility(
-            state,
-            enter = if (!motion) EnterTransition.None else fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), PullsMotion.MODAL_SCALE),
-            exit = if (!motion) ExitTransition.None else fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), PullsMotion.MODAL_SCALE),
-        ) { content() }
-    }
+    Dialog(onDismissRequest, properties) { ModalSurface(state, motion, content) }
 }
 
-/**
- * The contents of a panel arrive faded in through a 2px blur over 400ms (`panel reveal` on
- * transitions.dev, rule 73), as the panel itself slides up. The state is read when drawing, so the
- * panel does not recompose while it plays.
- */
+/** What [ModalReveal] draws inside its window: the 250ms grow-in and 150ms leave. */
 @Composable
-fun Modifier.panelReveal(): Modifier {
-    val motion = rememberMotionEnabled()
-    val shown = remember { Animatable(if (motion) 0f else 1f) }
-    LaunchedEffect(Unit) { shown.animateTo(1f, tween(PullsMotion.SLOW, easing = PullsMotion.SmoothOut)) }
-    return this.graphicsLayer {
-        val t = shown.value
-        alpha = t
-        if (BlurSupported && t < 1f) {
-            val radius = PullsMotion.BlurSmall.toPx() * (1f - t)
-            renderEffect = BlurEffect(radius, radius, TileMode.Decal)
-        }
-    }
+internal fun ModalSurface(state: MutableTransitionState<Boolean>, motion: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(
+        state,
+        enter = if (!motion) EnterTransition.None else fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), PullsMotion.MODAL_SCALE),
+        exit = if (!motion) ExitTransition.None else fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), PullsMotion.MODAL_SCALE),
+    ) { content() }
 }
 
 /**

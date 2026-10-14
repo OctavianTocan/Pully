@@ -17,6 +17,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -336,7 +337,9 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
  * the work stops the orb finishes its turn and settles before it leaves. Once settled: a "Worked for
  * … · Ran 3 commands" button that unfolds the steps. [outcome] is `done`, `failed` or `stopped`.
  * [hint] puts three grey bars under the orb while it runs, a sign of where the answer will arrive
- * (rule 71): they sit under the live mark and never stand in for it.
+ * (rule 71): they sit under the live mark and never stand in for it. A screen that draws the orb
+ * itself, where the log is replaced when the work ends, passes `mark = false` and puts
+ * [AiLiveMark] in a place that stays.
  */
 @Composable
 internal fun AiActivityLogFull(
@@ -349,21 +352,12 @@ internal fun AiActivityLogFull(
     compact: Boolean = false,
     workingVerb: String? = null,
     hint: Boolean = false,
+    mark: Boolean = true,
 ) {
     val c = LocalPullsColors.current
     val messages = LocalMessages.current
     val motion = rememberMotionEnabled()
     val now = rememberNow(running)
-    // The orb outlives the work by a moment, enough for its last turn and the settle to be seen. A log
-    // that is first drawn already settled never had one.
-    var lingering by remember { mutableStateOf(false) }
-    LaunchedEffect(running) {
-        if (running) lingering = true
-        else if (lingering) {
-            delay(ORB_LINGER_MS)
-            lingering = false
-        }
-    }
     // Plain holder, not state: the tracked log is derived during composition and must not trigger it again.
     val log = remember { arrayOf(emptyList<TrackedActivity>()) }
     val tracked = remember(activities) { trackActivities(log[0], activities).also { log[0] = it } }
@@ -419,18 +413,39 @@ internal fun AiActivityLogFull(
                 }
             }
         }
-        // The live mark sits under the newest line, centred on the dots' column (10dp in). One call site
-        // for both states, so the orb that was running is the one that settles.
-        if (running || lingering) Orb(Modifier.padding(start = 2.dp), size = 16.dp, done = !running)
-        AnimatedVisibility(
-            running && hint,
-            exit = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None,
-        ) {
-            Column(Modifier.padding(start = STEP_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                HINT_BAR_WIDTHS.forEach { width -> Skeleton(Modifier.fillMaxWidth(width).height(14.dp)) }
-            }
-        }
+        // One call site for both states, so the orb that was running is the one that settles.
+        if (mark) AiLiveMark(running, hint)
         if (!running && !compact && (activities.isNotEmpty() || startedAt != null)) HorizontalDivider(color = c.border)
+    }
+}
+
+/**
+ * The live mark of AI work, for a [ColumnScope]: the orb under the newest line, centred on the dots'
+ * column (10dp in), and with [hint] the three grey bars of rule 71 under it. When [active] turns false
+ * the orb finishes its turn, settles into its tick and stays a moment before it leaves; a mark that is
+ * first drawn inactive never shows one. It has to stay in one place of the composition for the orb that
+ * ran to be the one that settles.
+ */
+@Composable
+internal fun ColumnScope.AiLiveMark(active: Boolean, hint: Boolean = false) {
+    val motion = rememberMotionEnabled()
+    var lingering by remember { mutableStateOf(false) }
+    LaunchedEffect(active) {
+        if (active) lingering = true
+        else if (lingering) {
+            delay(ORB_LINGER_MS)
+            lingering = false
+        }
+    }
+    // What sits below it glides up as the orb and the bars leave, instead of jumping.
+    val leave = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkVertically(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None
+    AnimatedVisibility(active || lingering, enter = EnterTransition.None, exit = leave) {
+        Orb(Modifier.padding(start = 2.dp), size = 16.dp, done = !active)
+    }
+    AnimatedVisibility(active && hint, exit = leave) {
+        Column(Modifier.padding(start = STEP_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            HINT_BAR_WIDTHS.forEach { width -> Skeleton(Modifier.fillMaxWidth(width).height(14.dp)) }
+        }
     }
 }
 

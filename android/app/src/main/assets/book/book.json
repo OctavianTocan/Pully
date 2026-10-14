@@ -415,12 +415,14 @@
       "usage": [
         "Sheets over pages: grouped actions, chat, composer and files open in one.",
         "Content scrolls and a long one pulls all the way up (full).",
+        "It slides up in 400ms and down in 350ms on the smooth-out curve, fading through a 2px blur, and follows a drag: pull it down to close, flick it to throw it.",
         "It is a window, so this page draws its surface inline and opens the real one from a button."
       ],
       "rules": [
         5,
         58,
-        59
+        59,
+        73
       ],
       "variants": [
         {
