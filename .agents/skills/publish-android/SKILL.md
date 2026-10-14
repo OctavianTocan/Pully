@@ -31,6 +31,11 @@ Needs JDK (the script uses `mise where java`), the Android SDK (`ANDROID_HOME`, 
 5. On the phone the installed app compares its version code with `latest.json` and offers the update.
    Accept it; Android asks once for permission to install from the app.
 
+Debug signing is pinned to `android/app/debug.keystore` (committed), so a build on any machine
+produces the same signature and installed apps keep accepting updates. If it is ever regenerated or
+replaced, every installed app must be reinstalled — never let Gradle fall back to an auto-generated
+`~/.android/debug.keystore`.
+
 ## Test without publishing
 
 - Phone on USB or wireless debugging: `cd android && ./gradlew :app:installDebug`.
