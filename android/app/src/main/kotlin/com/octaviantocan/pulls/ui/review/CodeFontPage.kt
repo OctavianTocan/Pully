@@ -23,18 +23,11 @@ import com.octaviantocan.pulls.ui.design.CodeFonts
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 
 /** A line of code that shows what a face does with brackets, zeros and the letters that get mistaken for each other. */
 private const val SAMPLE = "review(0) { Il1 }"
-
-/** [CodeFontPage] as a sheet of its own. Settings shows it as a page inside its sheet. */
-@Composable
-internal fun CodeFontSheet(settings: AppSettings, onClose: () -> Unit) {
-    PullsSheet(onClose, "Code font") { CodeFontPage(settings, onClose) }
-}
 
 /** The faces code can be set in, each drawn in itself over a sample line. Picking one changes every code view at once, then runs [onDone]. */
 @Composable

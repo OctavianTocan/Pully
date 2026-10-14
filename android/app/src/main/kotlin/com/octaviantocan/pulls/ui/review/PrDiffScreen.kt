@@ -1,15 +1,13 @@
 package com.octaviantocan.pulls.ui.review
 
-import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,16 +20,13 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,68 +42,65 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextAlign
+import com.octaviantocan.pulls.core.softBreaks
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.nextUnreviewed
+import com.octaviantocan.pulls.core.swipedFile
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
-import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.LocalToaster
-import com.octaviantocan.pulls.ui.design.CodeFont
-import com.octaviantocan.pulls.ui.design.Lu
-import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.FloatButton
+import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.design.FloatIcon
+import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.edgeFade
+import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.PageSlide
 import com.octaviantocan.pulls.ui.design.PullsCheck
-import com.octaviantocan.pulls.ui.design.MenuReveal
-import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsMotion
-import com.octaviantocan.pulls.ui.design.PullsSwitch
-import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.SendButton
-import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.ReviewState
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.pageSlide
+import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
-/** The three code sizes of the Aa menu, as multiples of the 12.5sp default (the prototype's 11, 12.5 and 14.5). */
-private val SIZES = listOf("Smaller" to 0.88f, "Default" to 1f, "Larger" to 1.16f)
+/** What the code keeps clear under its last line: the bar's 52dp pill and the space around it (rule 92). */
+private val BAR_ROOM = 84.dp
 
 /**
- * The prototype's diff: the page capsule over a strip with the file picker and the Aa menu, the AI's
- * note about the file, its counts and Reviewed box, the rows, and a bottom bar with Previous, the
- * comment field (once a line is selected) and Next. [path] is the file shown; [onPath] moves to another.
+ * The prototype's diff: the page capsule (with Aa in its corner, rule 93), then one scrolling file: the AI's note about
+ * it, its counts and Reviewed box, and its rows. Pinned under it is the bar: ‹, the file you are on and ›, which turns
+ * into the comment field while lines are selected (rule 94). [path] is the file shown; [onPath] moves to another, and a
+ * swipe on the file does the same, past the ends into [onOverview] and [onTour].
  */
 @Composable
 internal fun PrDiffScreen(
@@ -122,97 +114,69 @@ internal fun PrDiffScreen(
     onOverview: () -> Unit,
     onTour: () -> Unit,
     onMore: () -> Unit,
+    onFiles: () -> Unit,
+    onAsk: (AskReference) -> Unit,
 ) {
     val c = LocalPullsColors.current
     val files = fileSections(session, ui).flatMap { it.files }
     val index = files.indexOfFirst { it.path == path }.let { if (it < 0) 0 else it }
     val file = files.getOrNull(index)
-    var menu by remember { mutableStateOf<String?>(null) }
-    var stripBottom by remember { mutableFloatStateOf(0f) }
-    BackHandler(enabled = menu != null) { menu = null }
+    var tools by remember { mutableStateOf(false) }
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
+    // Another file arrives as a page (rule 88): for a beat the rows still hold the one that is leaving.
+    val slide = rememberPageSlide(file?.path, order = { p -> files.indexOfFirst { it.path == p } })
+    val shown = files.firstOrNull { it.path == slide.shown } ?: file
 
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
-                SectionCapsule(selected = 1, live = tourLive, onOverview = onOverview, onChanges = {}, onTour = onTour, onMore = onMore)
+                SectionCapsule(
+                    selected = 1, live = tourLive, onOverview = onOverview, onChanges = {}, onTour = onTour,
+                    onCorner = { tools = true }, corner = CapsuleCorner.TextTools,
+                )
             }
             // The diff is narrowed to a commit: say so, with the way back, where the page cannot scroll it away (rule 80).
             CommitRangeBanner(session, overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
-            FileStrip(
-                file, position = index + 1, count = files.size, expanded = menu == "files",
-                modifier = Modifier.onGloballyPositioned { stripBottom = it.positionInRoot().y + it.size.height },
-                onFiles = { menu = if (menu == "files") null else "files" },
-                onAa = { menu = if (menu == "aa") null else "aa" },
-            )
-            if (file == null) {
+            if (file == null || shown == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No files in this change.", style = PullsType.sm, color = c.muted) }
             } else {
-                FileBody(session, ui, file, files, index, onPath, Modifier.weight(1f).fillMaxWidth())
+                FileBody(
+                    session, ui, shown, file, files, index, slide, onPath, onOverview, onTour, onFiles, onAsk,
+                    Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp),
+                )
             }
         }
-        if (menu == "files" || menu == "aa") Box(Modifier.fillMaxSize().cueClickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
-        MenuReveal(menu == "files", Modifier.offset { IntOffset(0, stripBottom.toInt()) }) {
-            FilePicker(session, files, file, onPick = { onPath(it); menu = null })
-        }
-        MenuReveal(menu == "aa", Modifier.align(Alignment.TopEnd).offset { IntOffset(0, stripBottom.toInt()) }, origin = TransformOrigin(1f, 0f)) {
-            ViewMenu(session, ui, file, onFont = { menu = "font" }, onDismiss = { menu = null })
-        }
-        if (menu == "font") CodeFontSheet(session.settings) { menu = null }
+        if (tools) TextAndToolsSheet(session, ui, file, onClose = { tools = false }, onActions = onMore)
     }
 }
 
 /**
- * `.dtitle`: the file you are on, whole (the folder faded, the name in the mono face, wrapping rather
- * than cut), its place in the change, a caret that flips while the list is open, and the Aa button.
+ * One file's note, counts and rows, scrolling as one (rule 92), with the bar over them. [file] is the file the rows
+ * hold and [target] the one the bar names; they differ only while a swipe's page change runs.
  */
 @Composable
-private fun FileStrip(file: ReviewFile?, position: Int, count: Int, expanded: Boolean, modifier: Modifier, onFiles: () -> Unit, onAa: () -> Unit) {
+private fun FileBody(
+    session: ReviewSession,
+    ui: DiffUi,
+    file: ReviewFile,
+    target: ReviewFile,
+    files: List<ReviewFile>,
+    index: Int,
+    slide: PageSlide<String?>,
+    onPath: (String) -> Unit,
+    onOverview: () -> Unit,
+    onTour: () -> Unit,
+    onFiles: () -> Unit,
+    onAsk: (AskReference) -> Unit,
+    modifier: Modifier,
+) {
     val c = LocalPullsColors.current
-    val dir = file?.path?.substringBeforeLast('/', "")?.let { if (it.isEmpty()) "" else "$it/" }.orEmpty()
-    val base = file?.path?.substringAfterLast('/').orEmpty()
-    Row(
-        modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(
-            Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).cueClickable(role = Role.Button, onClickLabel = "Choose a file", onClick = onFiles),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = c.faint, fontWeight = FontWeight.Normal)) { append(dir) }
-                    append(base)
-                },
-                Modifier.weight(1f, fill = false),
-                style = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium), color = c.text,
-            )
-            if (count > 1) Text("$position/$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1)
-            LuIcon(Lu.chevd, Modifier.rotate(if (expanded) 180f else 0f), tint = c.muted, size = 20.dp)
-        }
-        FloatButton(onAa, "Text size") {
-            Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-        }
-    }
-}
-
-/** The note card, the counts line and the rows of one file, with the bottom bar over them. */
-@Composable
-private fun FileBody(session: ReviewSession, ui: DiffUi, file: ReviewFile, files: List<ReviewFile>, index: Int, onPath: (String) -> Unit, modifier: Modifier) {
-    val c = LocalPullsColors.current
-    val toaster = LocalToaster.current
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    val state = session.reviewState(file)
-    val reviewed = state == ReviewState.Reviewed
     val note = session.saved?.analysis?.files?.firstOrNull { it.path == file.path }?.summary?.takeIf { it.isNotBlank() }
-    val threads = session.reviewData?.threads.orEmpty().count { it.path == file.path && !it.outdated }
-    val selected = ui.drafts[file.path]
     val dark = c.dark
 
     // A new file starts at its top with nothing selected.
@@ -227,69 +191,188 @@ private fun FileBody(session: ReviewSession, ui: DiffUi, file: ReviewFile, files
     LaunchedEffect(file.path, texts, dark) { if (!file.isBinary) ui.highlight(file, texts, dark) }
     DiffFocus(session, ui, file, listState)
 
+    // A sideways swipe is the next or previous file, and past the ends the view either side (rule 93). The rows follow
+    // the finger like the Overview's tabs do; a swipe that falls short puts them back.
+    val density = LocalDensity.current
+    val swipeFrom = with(density) { 64.dp.toPx() }
+    val range = with(density) { PullsMotion.FingerRange.toPx() }
+    var drag by remember { mutableFloatStateOf(0f) }
+    val count = files.size
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val leading = if (note != null) 2 else 1
+
     Box(modifier) {
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (note != null) NoteCard(note)
-            Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(dark), maxLines = 1)
-                    Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(dark), maxLines = 1)
-                }
-                Text(
-                    when (threads) { 0 -> "No threads"; 1 -> "1 thread"; else -> "$threads threads" },
-                    style = PullsType.sm, color = c.muted, maxLines = 1,
-                )
-                Spacer(Modifier.weight(1f))
-                Row(
-                    Modifier.height(36.dp).clip(RoundedCornerShape(8.dp)).cueClickable(role = Role.Checkbox, onClickLabel = "Reviewed") {
-                        session.setReviewed(listOf(file.sha), !reviewed)
-                        if (!reviewed) {
-                            val done = files.count { it.sha in session.reviewed || it.path == file.path }
-                            toaster.show(if (done == files.size) "All ${files.size} files reviewed" else "$done of ${files.size} files reviewed", cue = if (done == files.size) Cue.Success else null)
-                            // Reviewing a file moves on to the next one still to review, after a beat to see the tick land.
-                            val shaOf = files.associate { it.path to it.sha }
-                            nextUnreviewed(files.map { it.path }, file.path) { path -> shaOf[path] in session.reviewed }?.let { next ->
-                                scope.launch { delay(220); onPath(next) }
-                            }
-                        }
-                    },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(9.dp),
-                ) {
-                    PullsCheck(reviewed, size = 20.dp)
-                    Text("Reviewed", style = PullsType.sm, color = c.text)
-                }
-            }
-        }
-        val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 110.dp
         Box(
-            Modifier.weight(1f).fillMaxWidth().background(c.raised)
-                .drawBehind { drawRect(c.borderMute, Offset.Zero, Size(size.width, 1.dp.toPx())) },
+            // The code dissolves into the page under the bar at the bottom instead of being cut by it (rule 74).
+            Modifier.fillMaxSize().edgeFade(bottom = PullsMotion.EdgeBottom, color = c.raised).fileSwipe(
+                enabled = { ui.drafts[file.path] == null && ui.dragSel == null && ui.selectionStart[file.path] == null },
+                onCode = { y -> onCodeRow(listState, y) },
+                codeHasRoom = { dx -> !session.settings.codeWrap && codeHasRoom(ui, file.path, dx) },
+                onDrag = { delta -> drag += delta; slide.follow(delta, range) },
+                onEnd = {
+                    val to = swipedFile(index, count, drag, swipeFrom)
+                    drag = 0f
+                    when {
+                        to < 0 -> onOverview()
+                        to >= count -> onTour()
+                        to != index -> onPath(files[to].path)
+                    }
+                    scope.launch { slide.release() }
+                },
+            ),
         ) {
-            LazyColumn(Modifier.fillMaxSize().pinchToZoomCode(session.settings), state = listState, contentPadding = PaddingValues(bottom = bottom)) {
-                fileDiffItems(session, ui, file)
+            LazyColumn(Modifier.fillMaxSize().pageSlide(slide).pinchToZoomCode(session.settings), state = listState) {
+                if (note != null) {
+                    item(key = "note:${file.path}", contentType = "note") {
+                        NoteCard(note, Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp)) {
+                            onAsk(AskReference("the note on ${file.path.substringAfterLast('/')}", note))
+                        }
+                    }
+                }
+                item(key = "counts:${file.path}", contentType = "counts") { CountsRow(session, file, files, onPath) }
+                fileDiffItems(session, ui, file, leading = leading, tail = BAR_ROOM + bottom)
             }
         }
-    }
-    CommentBar(
-        session, ui, file, index, files.size,
-        onPrev = { files.getOrNull(index - 1)?.let { onPath(it.path) } },
-        onNext = { files.getOrNull(index + 1)?.let { onPath(it.path) } },
-        selected = selected,
-        modifier = Modifier.align(Alignment.BottomCenter),
-    )
+        DiffBar(
+            session, ui, file, target, index, count,
+            onPrev = { files.getOrNull(index - 1)?.let { onPath(it.path) } },
+            onNext = { files.getOrNull(index + 1)?.let { onPath(it.path) } },
+            onFiles = onFiles,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
-/** `.note`: the AI's one-line note about this file, from "Pulls". */
+/** Is the row under [y] (in the list's own pixels) a line of code, which scrolls sideways itself? */
+private fun onCodeRow(state: LazyListState, y: Float): Boolean {
+    val info = state.layoutInfo
+    val at = y - info.beforeContentPadding
+    val row = info.visibleItemsInfo.firstOrNull { at >= it.offset && at < it.offset + it.size } ?: return false
+    return row.contentType == "line" || row.contentType == "split"
+}
+
+/** Can the code of [path] still scroll sideways the way a finger moving by [dx] pushes it? */
+private fun codeHasRoom(ui: DiffUi, path: String, dx: Float): Boolean =
+    ui.scrolls.any { (key, scroll) -> key.first == path && if (dx < 0f) scroll.offset < scroll.max - 1f else scroll.offset > 1f }
+
+/**
+ * The sideways swipe that changes file. It watches each touch before the rows do and takes it only once the finger
+ * has gone sideways past the touch slop: off the code, or on code that has no room left to scroll that way, so the
+ * code still scrolls first and a pinch, a long press or a scroll down the file stay theirs. The callbacks are read
+ * fresh at each touch, so a file change mid-screen never leaves the gesture acting on the old file.
+ */
 @Composable
-private fun NoteCard(note: String) {
+private fun Modifier.fileSwipe(
+    enabled: () -> Boolean,
+    onCode: (Float) -> Boolean,
+    codeHasRoom: (Float) -> Boolean,
+    onDrag: (Float) -> Unit,
+    onEnd: () -> Unit,
+): Modifier {
+    val isOn = rememberUpdatedState(enabled)
+    val codeAt = rememberUpdatedState(onCode)
+    val room = rememberUpdatedState(codeHasRoom)
+    val drag = rememberUpdatedState(onDrag)
+    val end = rememberUpdatedState(onEnd)
+    return pointerInput(Unit) { awaitEachGesture { swipeGesture(isOn.value, codeAt.value, room.value, drag.value, end.value) } }
+}
+
+private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swipeGesture(
+    enabled: () -> Boolean,
+    onCode: (Float) -> Boolean,
+    codeHasRoom: (Float) -> Boolean,
+    onDrag: (Float) -> Unit,
+    onEnd: () -> Unit,
+) {
+    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    if (!enabled()) return
+    val code = onCode(down.position.y)
+    val slop = viewConfiguration.touchSlop
+    val longPress = viewConfiguration.longPressTimeoutMillis
+    var dx = 0f
+    var dy = 0f
+    var taken = false
+    while (true) {
+        val event = awaitPointerEvent(PointerEventPass.Initial)
+        if (event.changes.count { it.pressed } > 1) break
+        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+        if (!change.pressed) break
+        val delta = change.positionChange()
+        if (taken) {
+            change.consume()
+            onDrag(delta.x)
+            continue
+        }
+        dx += delta.x
+        dy += delta.y
+        when {
+            // Held still past a long press: that is a selection, not a swipe.
+            change.uptimeMillis - down.uptimeMillis > longPress && abs(dx) <= slop -> return
+            abs(dy) > slop && abs(dy) >= abs(dx) -> return
+            abs(dx) > slop && abs(dx) > abs(dy) -> {
+                if (code && codeHasRoom(dx)) return
+                taken = true
+                change.consume()
+                onDrag(dx)
+            }
+        }
+    }
+    if (taken) onEnd()
+}
+
+/** The file's counts and threads, and the Reviewed box; reviewing a file moves on to the next one still to review. */
+@Composable
+private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit) {
+    val c = LocalPullsColors.current
+    val toaster = LocalToaster.current
+    val scope = rememberCoroutineScope()
+    val reviewed = session.reviewState(file) == ReviewState.Reviewed
+    val threads = session.reviewData?.threads.orEmpty().count { it.path == file.path && !it.outdated }
+    // The code starts under a hairline, on its own white.
+    Row(
+        Modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
+            .padding(horizontal = 16.dp).height(44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1)
+            Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1)
+        }
+        Text(when (threads) { 0 -> "No threads"; 1 -> "1 thread"; else -> "$threads threads" }, style = PullsType.sm, color = c.muted, maxLines = 1)
+        Spacer(Modifier.weight(1f))
+        Row(
+            Modifier.height(36.dp).clip(RoundedCornerShape(8.dp)).cueClickable(role = Role.Checkbox, onClickLabel = "Reviewed") {
+                session.setReviewed(listOf(file.sha), !reviewed)
+                if (!reviewed) {
+                    val done = files.count { it.sha in session.reviewed || it.path == file.path }
+                    toaster.show(if (done == files.size) "All ${files.size} files reviewed" else "$done of ${files.size} files reviewed", cue = if (done == files.size) Cue.Success else null)
+                    // Reviewing a file moves on to the next one still to review, after a beat to see the tick land.
+                    val shaOf = files.associate { it.path to it.sha }
+                    nextUnreviewed(files.map { it.path }, file.path) { path -> shaOf[path] in session.reviewed }?.let { next ->
+                        scope.launch { delay(220); onPath(next) }
+                    }
+                }
+            },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            PullsCheck(reviewed, size = 20.dp)
+            Text("Reviewed", style = PullsType.sm, color = c.text)
+        }
+    }
+}
+
+/** `.note`: the AI's note about this file, from "Pulls". A tap asks about it, with the note attached (rule 94). */
+@Composable
+private fun NoteCard(note: String, modifier: Modifier, onAsk: () -> Unit) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(16.dp)
     Column(
-        Modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised)
+            .cueClickable(role = Role.Button, onClickLabel = "Ask about this note", onClick = onAsk)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -298,22 +381,35 @@ private fun NoteCard(note: String) {
             }
             Text("Pulls", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             Spacer(Modifier.weight(1f))
-            Text("File note", style = PullsType.sm, color = c.muted)
+            Text("Ask about it", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
         }
         Text(note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.text)
     }
 }
 
 /**
- * `.dctl`: Previous, the comment field and Next. The field appears once a line is selected and posts
- * the comment into the viewer's pending review; with no write access it only names the selection.
+ * `.dctl`: ‹, the file you are on and ›. While lines are selected the whole bar is the comment field instead, and it
+ * comes back when they are not (rule 94): the field posts into the viewer's pending review, and with no write access
+ * it only names the selection.
  */
 @Composable
-private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, index: Int, count: Int, onPrev: () -> Unit, onNext: () -> Unit, selected: DraftTarget?, modifier: Modifier) {
+private fun DiffBar(
+    session: ReviewSession,
+    ui: DiffUi,
+    file: ReviewFile,
+    target: ReviewFile,
+    index: Int,
+    count: Int,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onFiles: () -> Unit,
+    modifier: Modifier,
+) {
     val c = LocalPullsColors.current
     val toaster = LocalToaster.current
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
+    val selected = ui.drafts[file.path]
     // Tapping another line keeps what was typed (the comment follows the selection); deselecting or posting clears it.
     var text by remember(file.path) { mutableStateOf("") }
     LaunchedEffect(selected == null) { if (selected == null) text = "" }
@@ -350,7 +446,7 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
     }
 
     Row(
-        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedContent(
@@ -358,12 +454,12 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
             transitionSpec = {
                 fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) togetherWith fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
             },
-            label = "comment-bar",
+            label = "diff-bar",
         ) { selecting ->
             if (!selecting) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
-                    Spacer(Modifier.weight(1f))
+                    FilePill(target, index, count, onFiles, Modifier.weight(1f))
                     FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, primary = true)
                 }
             } else {
@@ -412,98 +508,37 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
     }
 }
 
-/** `.dd`: the pull request's files, whole names, each with its counts in the diff's own green and red; the one on screen is shaded and reviewed ones are ticked. */
+/**
+ * The file you are on, between ‹ and ›: its name whole in the code face, and under it the end of its folder (rule 90)
+ * and where it sits in the change. A long name takes the room instead of the folder. A tap opens every file, whole.
+ */
 @Composable
-private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current: ReviewFile?, onPick: (String) -> Unit) {
+private fun FilePill(file: ReviewFile, index: Int, count: Int, onClick: () -> Unit, modifier: Modifier) {
     val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(16.dp)
-    val screen = LocalConfiguration.current.screenHeightDp
-    // Lazy, and opened on the file you are reading, so a long list neither costs a row per file nor starts at the top.
-    val state = rememberLazyListState(initialFirstVisibleItemIndex = (files.indexOfFirst { it.path == current?.path } - 2).coerceAtLeast(0))
+    val name = file.path.substringAfterLast('/')
+    val dir = file.path.substringBeforeLast('/', "").takeIf { name.length <= SHORT_NAME }.orEmpty()
     val mono = PullsType.sm.copy(fontFamily = PullsType.mono)
-    LazyColumn(
-        Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp)
-            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised),
-        state = state,
-        contentPadding = PaddingValues(vertical = 6.dp),
+    Column(
+        modifier.defaultMinSize(minHeight = 52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised)
+            .cueClickable(role = Role.Button, onClickLabel = "Choose a file", onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        items(files, key = { it.path }) { file ->
-            val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 48.dp).background(if (file.path == current?.path) c.paper else Color.Transparent)
-                    .cueClickable(role = Role.Button) { onPick(file.path) }.alpha(if (file.sha in session.reviewed && file.path != current?.path) 0.6f else 1f).padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
-                    if (file.sha in session.reviewed) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
-                }
-                Text(
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(color = c.faint)) { append(dir) }
-                        append(file.path.substringAfterLast('/'))
-                    },
-                    Modifier.weight(1f), style = mono, color = c.text,
-                )
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("+${compactCount(file.additions)}", style = mono.copy(fontFeatureSettings = "tnum"), color = StatusColors.green(c.dark), maxLines = 1)
-                    Text("−${compactCount(file.deletions)}", style = mono.copy(fontFeatureSettings = "tnum"), color = StatusColors.red(c.dark), maxLines = 1)
-                }
+        // The name in the face it has on the file rows, which fits a long one on a line where the code font would break it.
+        // A long name wraps between its words, in lines of even length.
+        Text(softBreaks(name), style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, lineBreak = LineBreak.Heading), color = c.text, maxLines = 3)
+        if (dir.isNotEmpty() || count > 1) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (dir.isNotEmpty()) PathTail(dir, mono, c.muted, Modifier.weight(1f, fill = false))
+                if (count > 1) Text("${if (dir.isNotEmpty()) " · " else ""}${index + 1}/$count", style = mono.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
             }
         }
     }
 }
 
-/** `.pop`: the code size (Smaller, Default, Larger), line wrapping, and, when a [file] is open, its own actions. */
-@Composable
-private fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFont: () -> Unit, onDismiss: () -> Unit) {
-    val c = LocalPullsColors.current
-    val context = LocalContext.current
-    val toaster = LocalToaster.current
-    val settings = session.settings
-    val shape = RoundedCornerShape(20.dp)
-    val opened = session.opened
-    val repo = FileLinks.repoOf(session.target)
-    val sha = if (file?.status == "removed") opened?.baseSha else opened?.headSha
-    val blob = if (file != null && repo != null && opened?.refKind.orEmpty().startsWith("github") && !sha.isNullOrBlank()) FileLinks.blob(repo.first, repo.second, sha, file.path) else null
-    Box(Modifier.padding(top = 6.dp, end = 16.dp, start = 16.dp)) {
-        Column(Modifier.width(300.dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                SIZES.forEach { (name, zoom) ->
-                    val on = kotlin.math.abs(settings.codeZoom - zoom) < 0.04f
-                    Box(
-                        Modifier.height(36.dp).clip(CircleShape).background(if (on) c.chipOn else Color.Transparent)
-                            .cueClickable(role = Role.Tab) { settings.updateCodeZoom(zoom) }.padding(horizontal = 14.dp),
-                        contentAlignment = Alignment.Center,
-                    ) { Text(name, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1) }
-                }
-            }
-            MenuRow("Code font", trailing = { Text(CodeFont.of(settings.codeFont).label, style = PullsType.sm, color = c.muted, maxLines = 1) }, onClick = onFont)
-            MenuRow("Wrap long lines", trailing = { PullsSwitch(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long lines") }) { settings.updateCodeWrap(!settings.codeWrap) }
-            if (session.reviewData != null) {
-                MenuRow("Show review comments", trailing = { PullsSwitch(settings.showThreads, { settings.updateShowThreads(it) }, "Show review comments") }) {
-                    settings.updateShowThreads(!settings.showThreads)
-                }
-            }
-            if (file != null) MenuRow("Copy path") { copyText(context, file.path); toaster.show("Copied ${file.path.substringAfterLast('/')}", cue = Cue.Success); onDismiss() }
-            if (blob != null) MenuRow("Open on GitHub") { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(blob))) }; onDismiss() }
-            if (file != null && ui.canLoadFull(file)) MenuRow("Load the whole file") { ui.loadFullFile(file); onDismiss() }
-        }
-    }
-}
-
-@Composable
-private fun MenuRow(label: String, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
-    val c = LocalPullsColors.current
-    Row(
-        Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).cueClickable(role = Role.Button, onClick = onClick).padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label, style = PullsType.sm, color = c.text, maxLines = 1)
-        trailing?.invoke()
-    }
-}
+/** A file name up to this long leaves room in the pill for the end of its folder. */
+private const val SHORT_NAME = 22
 
 /**
  * Brings a focus request into view: opens the file's gap when the line sits in unchanged text,
@@ -511,7 +546,7 @@ private fun MenuRow(label: String, trailing: (@Composable () -> Unit)? = null, o
  * consumed once it has been shown, so coming back to the screen does not jump again.
  */
 @Composable
-private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, listState: androidx.compose.foundation.lazy.LazyListState) {
+private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, listState: LazyListState) {
     val focus = session.focus
     LaunchedEffect(focus, file.path) {
         val target = focus ?: return@LaunchedEffect

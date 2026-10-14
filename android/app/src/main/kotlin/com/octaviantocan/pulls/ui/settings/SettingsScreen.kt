@@ -53,6 +53,7 @@ import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.CodeFontPage
 import com.octaviantocan.pulls.ui.review.EffortPage
 import com.octaviantocan.pulls.ui.review.ModelCatalogs
+import com.octaviantocan.pulls.ui.review.SPLIT_MIN_DP
 import com.octaviantocan.pulls.ui.review.ModelPage
 import com.octaviantocan.pulls.ui.review.analysisModelLabel
 import kotlinx.coroutines.CancellationException
@@ -162,14 +163,32 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
     }
 }
 
+/**
+ * The two diff layouts as small diffs you tap, here and in the diff's own Text and tools sheet. Split needs a screen
+ * [SPLIT_MIN_DP] wide, so on a phone held upright it is dimmed and says so, and Unified is the one shown as chosen.
+ */
+@Composable
+internal fun LayoutChoices(settings: AppSettings, modifier: Modifier = Modifier) {
+    val split = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= SPLIT_MIN_DP
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        LayoutChoice(split = false, selected = !split || settings.layout != "split", label = t("settings.unified"), onClick = { settings.updateLayout("unified") }, modifier = Modifier.weight(1f))
+        LayoutChoice(
+            split = true, selected = split && settings.layout == "split",
+            label = if (split) t("settings.split") else "${t("settings.split")} · wider screens",
+            onClick = { settings.updateLayout("split") }, modifier = Modifier.weight(1f), enabled = split,
+        )
+    }
+}
+
 /** A small muted heading above a card. */
 @Composable
-private fun Group(title: String, content: @Composable () -> Unit) {
+internal fun Group(title: String, content: @Composable () -> Unit) {
     Text(title, Modifier.padding(start = 16.dp, top = 24.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = LocalPullsColors.current.muted)
     content()
 }
 
-private val ZOOMS = listOf("Smaller" to 0.88f, "Default" to 1f, "Larger" to 1.16f)
+/** The three code sizes, as multiples of the 12.5sp default (the prototype's 11, 12.5 and 14.5). */
+internal val ZOOMS = listOf("Smaller" to 0.88f, "Default" to 1f, "Larger" to 1.16f)
 
 @Composable
 private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (SettingsPage) -> Unit) {
@@ -199,16 +218,13 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     }
     Group(t("settings.layout")) {
         // The two layouts drawn small, so the choice is the thing chosen (rule 81).
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LayoutChoice(split = false, selected = settings.layout != "split", label = t("settings.unified"), onClick = { settings.updateLayout("unified") }, modifier = Modifier.weight(1f))
-            LayoutChoice(split = true, selected = settings.layout == "split", label = t("settings.split"), onClick = { settings.updateLayout("split") }, modifier = Modifier.weight(1f))
-        }
+        LayoutChoices(settings, Modifier.padding(top = 10.dp))
     }
     Group("Code") {
         SheetCard {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 CapsuleTabs(ZOOMS.map { it.first }, zoomIndex, { settings.updateCodeZoom(ZOOMS[it].second) }, Modifier.fillMaxWidth())
-                CodeSample(settings.codeZoom)
+                CodeSample(settings.codeZoom, wrap = settings.codeWrap)
             }
             SheetRow("Code font", { open(SettingsPage.Font) }, iconless = true) {
                 Text(com.octaviantocan.pulls.ui.design.CodeFont.of(settings.codeFont).label, style = PullsType.sm, color = c.muted)

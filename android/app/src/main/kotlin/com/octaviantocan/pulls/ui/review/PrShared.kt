@@ -83,6 +83,15 @@ internal fun fileSections(session: ReviewSession, ui: DiffUi): List<FileSection>
     return sections
 }
 
+/** Above this many files a pull request's file sections start folded, so a huge one opens as a short list of headings. */
+internal const val FOLD_ABOVE = 80
+
+/** The sheet route for a file's actions: this, then the file's path. */
+internal const val FILE_SHEET = "file:"
+
+/** Is the section headed [label] folded? Only what the reader chose, or the default for a pull request of [total] files. */
+internal fun DiffUi.isFolded(label: String, total: Int): Boolean = folds[label] ?: (total > FOLD_ABOVE)
+
 /** Puts [text] on the clipboard. Android 13+ shows its own confirmation; the app's toast covers older ones. */
 internal fun copyText(context: Context, text: String) {
     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("pulls.review", text))

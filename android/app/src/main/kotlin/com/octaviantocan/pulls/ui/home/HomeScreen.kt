@@ -11,6 +11,15 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import com.octaviantocan.pulls.sound.cued
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
@@ -259,6 +268,8 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
         toaster.show("Archived #${pull.number}", "Undo", Cue.Success) { archive.restore(key) }
     }
 
+    var searchFocused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
@@ -298,12 +309,23 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
                 }
             }
         }
+        // While the search waits for its first letter the list dims a little, and a tap on it puts the keyboard away; once
+        // something is typed the matches are what the search is for, so they are shown at full strength and take taps.
+        val waiting = searchFocused && ui.search.isEmpty() && WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        val dim by animateFloatAsState(if (waiting) 1f else 0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "search-dim")
+        if (dim > 0f) {
+            Box(
+                Modifier.fillMaxSize().graphicsLayer { alpha = dim * SEARCH_DIM }.background(c.scrim)
+                    .then(if (waiting) Modifier.pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } } else Modifier),
+            )
+        }
         // `.search`: the list fades into the page under this pill (`edgeFade` on the lists), and nothing else sits behind it.
         SearchPill(
             ui.search, { ui.search = it },
             if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
             openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
             onOpen = ::openSearch,
+            onFocus = { searchFocused = it },
             modifier = Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         )
         if (activityOpen) {
@@ -445,8 +467,10 @@ private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, mod
 /**
  * `.sw`: a row that follows the finger. Past 110dp to the right it opens the pull request; to the left
  * it archives it (on the Tours tab: stops or removes the tour). Short of that it springs back. Tapping opens, and
- * both swipes are also offered to screen readers as actions.
+ * both swipes are also offered to screen readers as actions. A file row (rule 56) swipes right to mark it reviewed
+ * and left to open it, so it passes its own [onClick], [startIcon] and [onLongClick] for its actions.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun SwipeRow(
     label: String,
@@ -457,6 +481,9 @@ internal fun SwipeRow(
     startLabel: String = "Review",
     endLabel: String = if (archived) "Restore" else "Archive",
     endIcon: LuGlyph = Lu.arch,
+    startIcon: LuGlyph = Lu.arrow,
+    onClick: () -> Unit = onOpen,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val c = LocalPullsColors.current
@@ -480,7 +507,7 @@ internal fun SwipeRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 val ink = Color.White // raw-value-ok: ink on the primary fill is white in both themes, like the send button
-                LuIcon(Lu.arrow, tint = ink, size = 20.dp)
+                LuIcon(startIcon, tint = ink, size = 20.dp)
                 Text(startLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = ink)
             }
         }
@@ -523,10 +550,16 @@ internal fun SwipeRow(
                         else -> animate(end, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                     }
                 })
-                .cueClickable(role = Role.Button, onClickLabel = label, onClick = onOpen),
+                .then(
+                    if (onLongClick != null) Modifier.combinedClickable(role = Role.Button, onClickLabel = label, onClick = cued(onClick = onClick), onLongClickLabel = "More actions", onLongClick = onLongClick)
+                    else Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick),
+                ),
         ) { content() }
     }
 }
+
+/** How much of the scrim dims the Inbox while the search waits for a letter: about half a sheet's. */
+private const val SEARCH_DIM = 0.5f
 
 /** The most a swiped row blurs: Row W's 1.3px, a little stronger so it reads on a phone. */
 private val SWIPE_BLUR = 1.3.dp
@@ -594,7 +627,7 @@ private fun DiffNumbers(pull: PullRow) {
  * pull request, an Open pill appears in it and the keyboard's action opens it, so no separate field is needed.
  */
 @Composable
-internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier, onFocus: (Boolean) -> Unit = {}) {
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
     Row(
@@ -611,7 +644,7 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
             cursorBrush = SolidColor(c.accentTeal),
             keyboardOptions = KeyboardOptions(imeAction = if (openLabel != null) ImeAction.Go else ImeAction.Search, autoCorrectEnabled = false),
             keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }, onGo = { onOpen() }),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) Text(placeholder, style = PullsType.lg, color = c.muted, maxLines = 1)

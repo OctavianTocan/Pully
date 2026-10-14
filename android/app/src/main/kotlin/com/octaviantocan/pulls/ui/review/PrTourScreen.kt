@@ -155,7 +155,7 @@ internal fun PrTourScreen(
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
                 // The same capsule as the Overview, with the Tour lit. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
-                SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onMore = onMore)
+                SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onCorner = onMore)
             }
             if (n > 0 && current in 1..n) {
                 // The stop you are on, whole; tapping it opens the list of stops.

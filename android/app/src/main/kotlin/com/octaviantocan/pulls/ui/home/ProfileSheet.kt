@@ -20,8 +20,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.ServerStore
@@ -31,7 +31,7 @@ import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.PillInput
+import com.octaviantocan.pulls.ui.design.SheetSearch
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.PullsPagedSheet
 import com.octaviantocan.pulls.ui.design.PullsRadius
@@ -97,20 +97,19 @@ private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShow
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(viewer ?: "Pulls", style = PullsType.xl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
             if (host.isNotBlank()) {
-                // The website the server lives at: it opens, and the mark says it leaves the app.
+                // The website the server lives at: it is teal text and a tap opens it, like any link.
                 Row(
                     Modifier.clip(RoundedCornerShape(PullsRadius.md)).cueClickable(role = Role.Button, onClickLabel = "Open $host") { uri.openUri(server) },
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(host, style = PullsType.sm, color = c.activeText, maxLines = 1)
-                    LuIcon(Lu.ext, tint = c.activeText, size = 14.dp)
                 }
             }
         }
     }
     SheetCard {
         if (viewer != null) {
-            SheetRow("GitHub profile", { uri.openUri("https://github.com/$viewer") }, first = true, iconless = true) { LuIcon(Lu.ext, tint = c.faint, size = 18.dp) }
+            SheetRow("Open GitHub profile", { uri.openUri("https://github.com/$viewer") }, first = true, icon = { DrawableIcon(R.drawable.ic_carbon_logo_github, size = 22.dp) })
         }
         SheetRow("Repositories", onRepos, first = viewer == null, iconless = true) {
             val on = choices.count { it.shown }
@@ -130,11 +129,7 @@ private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
     val c = LocalPullsColors.current
     var query by remember { mutableStateOf("") }
     val choices = repoChoices(pulls, settings.hiddenRepos, query)
-    PillInput(query, { query = it }, "Find a repository", Modifier.padding(top = 14.dp), imeAction = ImeAction.Search)
-    Text(
-        "A repository that is switched off is left out of the Inbox and of the numbers on its chips.",
-        Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-    )
+    SheetSearch(query, { query = it }, "Find a repository", Modifier.padding(top = 14.dp))
     if (choices.isEmpty()) {
         Text(
             if (query.isBlank()) "No repositories yet. They appear once you have a pull request." else "No repository matches “${query.trim()}”.",
@@ -143,11 +138,17 @@ private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
     } else {
         SheetCard {
             choices.forEachIndexed { index, choice ->
-                SheetRow(choice.key, { settings.setRepoShown(choice.key, !choice.shown) }, first = index == 0, iconless = true) {
-                    if (choice.count > 0) Text("${choice.count}", style = PullsType.sm, color = c.muted)
+                // The repository's name, with its owner under it, so a long owner never pushes the name into a wrap.
+                SheetRow(choice.repo, { settings.setRepoShown(choice.key, !choice.shown) }, first = index == 0, iconless = true, detail = choice.owner) {
+                    if (choice.count > 0) Text("${choice.count}", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted)
                     PullsSwitch(choice.shown, { settings.setRepoShown(choice.key, it) }, "Show ${choice.key}")
                 }
             }
         }
+        // What the switches do, under the list rather than between the field and the list (rule 1).
+        Text(
+            "A repository that is switched off is left out of the Inbox and of the numbers on its chips.",
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+        )
     }
 }

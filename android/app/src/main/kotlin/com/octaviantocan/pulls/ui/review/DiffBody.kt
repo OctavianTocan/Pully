@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,10 +14,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.FileGroup
 import com.octaviantocan.pulls.data.FullFile
 import com.octaviantocan.pulls.data.ReviewFile
+import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -82,6 +85,9 @@ class DiffUi(val session: ReviewSession) {
     /** Labels that need i18n outside composition; [DiffFocusEffect] keeps them current. */
     var uncategorizedLabel by mutableStateOf("Uncategorized")
     var uncategorizedSummary by mutableStateOf("Files not covered by the current analysis.")
+
+    /** File-list sections the reader folded (true) or opened (false), by heading; an unset one follows [isFolded]'s default. */
+    val folds = mutableStateMapOf<String, Boolean>()
 
     /** Shared sideways scroll of each file's code, by path and column (0 unified, 1 left, 2 right). */
     internal val scrolls = HashMap<Pair<String, Int>, HScroll>()
@@ -197,9 +203,9 @@ internal fun groupViews(session: ReviewSession, ui: DiffUi): List<GroupView> {
     return session.groups.map(::view)
 }
 
-/** Emits items and records each one's local index, file path, and the line anchors it holds. */
-internal class Emitter(private val scope: LazyListScope) {
-    var count = 0
+/** Emits items and records each one's local index, file path, and the line anchors it holds. [leading] items sit above the first. */
+internal class Emitter(private val scope: LazyListScope, leading: Int = 0) {
+    var count = leading
     val index = HashMap<String, Int>()
     val paths = HashMap<String, String>()
     val lines = HashMap<String, String>()
@@ -213,13 +219,13 @@ internal class Emitter(private val scope: LazyListScope) {
 
 /**
  * Emits the rows of one [file] into this list and records where each item and line landed, so
- * [PrDiffScreen] can scroll to a line. Nothing comes before the rows, so an item's index here is
- * its index in the list.
+ * [PrDiffScreen] can scroll to a line. [leading] is how many items the screen put above the rows, and
+ * [tail] the room under the last row, so the file ends where its code ends and only the bar is cleared (rule 92).
  */
-internal fun LazyListScope.fileDiffItems(session: ReviewSession, ui: DiffUi, file: ReviewFile) {
-    val emit = Emitter(this)
+internal fun LazyListScope.fileDiffItems(session: ReviewSession, ui: DiffUi, file: ReviewFile, leading: Int = 0, tail: Dp = 140.dp) {
+    val emit = Emitter(this, leading)
     fileBodyItems(emit, session, ui, file)
-    emit.item("diff:end:${file.path}", "end") { Box(Modifier.fillMaxWidth().height(140.dp)) }
+    emit.item("diff:end:${file.path}", "end") { Box(Modifier.fillMaxWidth().height(tail).background(LocalPullsColors.current.raised)) }
     ui.indexOf = emit.index
     ui.pathOfKey = emit.paths
     ui.lineKey = emit.lines

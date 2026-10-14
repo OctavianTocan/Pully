@@ -199,8 +199,13 @@ fun <T> rememberPageSlide(target: T, order: (T) -> Int = { 0 }): PageSlide<T> {
     val slide = remember { PageSlide(target) }
     val motion = rememberMotionEnabled()
     LaunchedEffect(target) {
-        if (target == slide.shown) return@LaunchedEffect
+        // Back to the page still on screen before it finished leaving: the rows come back from wherever they got to.
+        if (target == slide.shown) {
+            if (slide.travel.value != 0f) slide.travel.animateTo(0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))
+            return@LaunchedEffect
+        }
         if (!motion) {
+            slide.travel.snapTo(0f)
             slide.shown = target
             return@LaunchedEffect
         }

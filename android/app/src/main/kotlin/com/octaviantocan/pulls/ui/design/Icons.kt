@@ -88,7 +88,6 @@ internal object Lu {
     val check = LuGlyph(2f, LuPath("m5 12 5 5 9-10"))
     val tick = LuGlyph(3f, LuPath("m5 12 5 5 9-10"))
     val fail = LuGlyph(1.8f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m15 9-6 6M9 9l6 6"))
-    val ext = LuGlyph(1.8f, LuPath("M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"))
     val redo = LuGlyph(1.8f, LuPath("M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"))
     val merge = LuGlyph(1.8f, LuPath("M4,5a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M4,19a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M16,12a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M6 7v10M6 7a6 6 0 0 0 6 6h4"))
     val req = LuGlyph(1.8f, LuPath("M21 12a8 8 0 0 1-12 7l-5 1 1-4.5A8 8 0 1 1 21 12z"), LuPath("M12 8v4M12 15h.01"))

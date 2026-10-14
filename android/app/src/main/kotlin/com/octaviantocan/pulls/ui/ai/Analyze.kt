@@ -1,8 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -104,7 +101,7 @@ internal fun ShareButtonImpl(session: ReviewSession, modifier: Modifier, first: 
         t(if (ui.sharing) "share.sharing" else if (own != null) "share.updateButton" else "share.button"),
         if (ui.sharing) null else ({ confirmOpen = true }),
         modifier, first = first,
-        icon = { if (ui.sharing) Orb(size = 20.dp) else LuIcon(Lu.ext, tint = c.text, size = 20.dp) },
+        icon = { if (ui.sharing) Orb(size = 20.dp) else LuIcon(Lu.ask, tint = c.text, size = 20.dp) },
     )
     if (confirmOpen) ShareSheet(session) { confirmOpen = false }
 }
@@ -114,7 +111,6 @@ internal fun ShareButtonImpl(session: ReviewSession, modifier: Modifier, first: 
 private fun ShareSheet(session: ReviewSession, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
-    val context = LocalContext.current
     val messages = LocalMessages.current
     val own = session.saved?.sharedCommentUrl ?: ui.sharedUrl
     var done by remember { mutableStateOf<String?>(null) }
@@ -176,13 +172,11 @@ private fun ShareSheet(session: ReviewSession, onDismiss: () -> Unit) {
         val url = done
         if (url != null) {
             SheetCard {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        buildAnnotatedString { withLink(LinkAnnotation.Url(url, link)) { append(url) } },
-                        Modifier.weight(1f).padding(vertical = 12.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text,
-                    )
-                    FloatIcon(Lu.ext, "Open on GitHub", { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }, flat = true, size = 40.dp, tint = c.muted)
-                }
+                // The link is the text itself and opens on a tap; no mark is needed beside it.
+                Text(
+                    buildAnnotatedString { withLink(LinkAnnotation.Url(url, link)) { append(url) } },
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text,
+                )
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

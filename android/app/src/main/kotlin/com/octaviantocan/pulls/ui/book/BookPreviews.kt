@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
@@ -48,10 +49,12 @@ import com.octaviantocan.pulls.ui.design.QuickAction
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
+import com.octaviantocan.pulls.ui.design.SheetSearch
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.SoftChip
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
+import com.octaviantocan.pulls.ui.home.DrawableIcon
 
 /** One state of a variant, forced: a label and the live component. */
 internal class BookState(val label: String, val content: @Composable () -> Unit)
@@ -77,6 +80,7 @@ internal fun bookPreviews(id: String): List<BookVariant> = when (id) {
     "sheet" -> sheetVariants()
     "sheet-card" -> sheetCardVariants()
     "sheet-field" -> sheetFieldVariants()
+    "sheet-search" -> sheetSearchVariants()
     "sheet-row" -> sheetRowVariants()
     "quick-action" -> quickActionVariants()
     "toast" -> toastVariants()
@@ -235,7 +239,7 @@ private fun DemoRows() {
     val c = LocalPullsColors.current
     SheetCard {
         SheetRow("Copy link", {}, first = true, icon = { LuIcon(Lu.copy, tint = c.text, size = 20.dp) })
-        SheetRow("Open on GitHub", {}, icon = { LuIcon(Lu.ext, tint = c.text, size = 20.dp) })
+        SheetRow("Open on GitHub", {}, icon = { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 20.dp) })
         SheetRow("Archive", {}, icon = { LuIcon(Lu.arch, tint = c.text, size = 20.dp) })
     }
 }
@@ -300,6 +304,16 @@ private fun sheetVariants() = listOf(
 
 private fun sheetCardVariants() = listOf(
     BookVariant("default", listOf(BookState("Card of rows") { OnPaper { DemoRows() } })),
+)
+
+private fun sheetSearchVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Empty") { OnPaper { SheetSearch("", {}, "Find a repository") } },
+            BookState("Typed") { OnPaper { SheetSearch("pulls", {}, "Find a repository") } },
+        ),
+    ),
 )
 
 private fun sheetFieldVariants() = listOf(

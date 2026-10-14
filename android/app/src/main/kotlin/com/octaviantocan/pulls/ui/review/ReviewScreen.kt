@@ -40,6 +40,7 @@ import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.ai.AnalyzePage
 import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
+import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
@@ -57,8 +58,8 @@ import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.ui.home.deviceStore
 import kotlinx.coroutines.delay
 
-/** What the Ask sheet opens with: its title, the starter chips and a question to send at once. */
-private data class AskRequest(val title: String, val suggestions: List<String>, val initial: String?)
+/** What the Ask sheet opens with: its title, the starter chips, a question to send at once, and what the next question is about. */
+private data class AskRequest(val title: String, val suggestions: List<String>, val initial: String?, val reference: AskReference? = null)
 
 private val PR_SUGGESTIONS = listOf("What changed, in a sentence?", "Anything risky?", "What do the tests cover?")
 private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should I check by hand?", "What is the riskiest part?")
@@ -124,11 +125,12 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
         push(PrView.Diff)
     }
-    fun openAsk(forTour: Boolean, initial: String? = null) {
+    fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
         ask = AskRequest(
             if (forTour) "Ask about this tour" else "Ask about ${head?.label ?: "this pull request"}",
             if (forTour) TOUR_SUGGESTIONS else PR_SUGGESTIONS,
             initial,
+            reference,
         )
     }
 
@@ -207,6 +209,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             onOverview = ::toOverview,
                             onTour = { switchTo(PrView.Tour) },
                             onMore = { sheet = "more" },
+                            onFiles = { sheet = "files" },
+                            onAsk = { reference -> openAsk(forTour = false, reference = reference) },
                         )
                         PrView.Tour -> PrTourScreen(
                             session, head,
@@ -225,8 +229,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                 when (sheet) {
                     "more" -> MoreSheet(session, top, data, head, onClose = { sheet = null }, onSheet = { sheet = it })
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
-                    "commits" -> data?.overview?.let { CommitsSheet(session, it) { sheet = null } }
-                    "files" -> FilesSheet(session, ui, onOpen = { path -> openDiff(path) }) { sheet = null }
+                    "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
                     "analyze" -> AnalyzeSheet(session, onClose = { sheet = null })
                     "model" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Model)
@@ -240,8 +243,19 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             toaster.show("Reviewing ${head.label}")
                         }
                     }
+                    // A long-press on a file row: "file:" and the file's path.
+                    else -> sheet?.takeIf { it.startsWith(FILE_SHEET) }?.let { route ->
+                        val path = route.removePrefix(FILE_SHEET)
+                        session.files.firstOrNull { it.path == path }?.let { file ->
+                            FileActionsSheet(
+                                session, file,
+                                onOpen = { openDiff(path) },
+                                onAsk = { openAsk(forTour = false, reference = AskReference("the file ${path.substringAfterLast('/')}", path)) },
+                            ) { sheet = null }
+                        }
+                    }
                 }
-                ask?.let { request -> AskSheet(session, request.title, request.suggestions, request.initial) { ask = null } }
+                ask?.let { request -> AskSheet(session, request.title, request.suggestions, request.initial, request.reference) { ask = null } }
                 ReviewProgressSheet(session, top)
                 ReviewSubmitSheet(session, top, canVerdict = head.isOpen)
                 if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)

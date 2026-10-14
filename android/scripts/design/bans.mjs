@@ -52,6 +52,9 @@ const LEGACY_ICONS = ['PhIcon', 'IconButton', 'HeaderIcon']
 /** The robot head as a Lucide glyph, and the sparkle, compass and chat bubble as Phosphor names in any weight. */
 const AI_GLYPH = /\bLu\.bot\b|"(?:robot|sparkles?|compass|chat-circle|chat-circle-dots|chat-dots|chat-teardrop|chat-text)(?:-(?:duotone|bold|fill|light|thin))?"/g
 
+/** The arrow-out-of-a-box icon in the kit's glyph, as a Phosphor name or as a Material one. */
+const EXTERNAL_LINK = /\bLu\.ext\b|\bOpenInNew\b|"(?:external-link|arrow-square-out|arrow-up-right|open-in-new)(?:-(?:duotone|bold|fill|light|thin))?"/g
+
 const WAITING = ['Loading', 'SpinIcon', 'FeedbackSpinner', 'CircularProgressIndicator', 'LinearProgressIndicator']
 
 const MATERIAL = /^androidx\.compose\.material3\.(\w+(?:\.\w+)*)$/
@@ -146,6 +149,14 @@ export const BANS = {
     allowIn: ['ui/design/Components.kt'],
     strings: true,
     call: AI_GLYPH,
+  },
+  'external-link-icon': {
+    label: 'the external-link icon',
+    rules: [100],
+    advice: 'Never mark a row that leaves the app with an arrow-out icon. Say it in words ("Open on GitHub"); the GitHub mark may stand beside those words.',
+    allowIn: ['ui/design/Components.kt'],
+    strings: true,
+    call: EXTERNAL_LINK,
   },
   'waiting': {
     label: 'loading screens and spinners',

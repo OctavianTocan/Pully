@@ -45,6 +45,13 @@ import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
+import androidx.compose.foundation.border
+import com.octaviantocan.pulls.ui.design.PullsRadius
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 
 private val GROUPING_UPDATED = Regex("Grouping updated: (\\d+) groups?")
 
@@ -91,7 +98,7 @@ private fun ReviewSession.sendChat(text: String?, retry: Boolean = false) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, onDismiss: () -> Unit) {
+internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference?, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
     val task = rememberLiveTask(session, "chat")
@@ -113,9 +120,15 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         if (!initial.isNullOrBlank() && !busy) session.sendChat(initial)
     }
 
+    // A file note (or a file) the question is about: it rides on the next question and then goes.
+    var attached by remember(reference) { mutableStateOf(reference) }
+
     fun ask(text: String) {
         val question = text.trim()
-        if (question.isNotEmpty() && !busy) session.sendChat(question)
+        if (question.isEmpty() || busy) return
+        val about = attached
+        session.sendChat(if (about == null) question else "About ${about.label}: \"${about.text}\"\n\n$question")
+        attached = null
     }
 
     PullsSheet(
@@ -133,6 +146,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     })
                 }
             }
+            attached?.let { about -> AttachedReference(about) { attached = null } }
             Row(
                 Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -197,6 +211,23 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                 suggestions.forEach { suggestion -> SoftChip(suggestion, selected = false, onClick = { ask(suggestion) }) }
             }
         }
+    }
+}
+
+/** What the next question is about, over the field: its name, its text cut to three lines, and ✕ to leave it out. */
+@Composable
+private fun AttachedReference(about: AskReference, onRemove: () -> Unit) {
+    val c = LocalPullsColors.current
+    val shape = RoundedCornerShape(PullsRadius.xl)
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(shape).background(c.raised).border(1.dp, c.borderMute, shape).padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 2.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(about.label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            Text(about.text, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.4f), color = c.muted, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
+        FloatIcon(Lu.close, "Leave it out", onRemove, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
     }
 }
 

@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 702,
+        "line": 798,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 208,
+        "line": 215,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -82,7 +82,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 295,
+        "line": 351,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -119,7 +119,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 326,
+        "line": 382,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -170,7 +170,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 163,
+        "line": 170,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -220,7 +220,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 191,
+        "line": 198,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -285,7 +285,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 719,
+        "line": 815,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -308,7 +308,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 608,
+        "line": 704,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small\ndot instead of the tick, for work that has not run, or did not finish, so a tick never claims\nsomething that was not done. [stop] turns the breathing dot into a small square, because the orb is\nthen the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -346,7 +346,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 713,
+        "line": 809,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -369,7 +369,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 349,
+        "line": 405,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -405,7 +405,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 369,
+        "line": 425,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -455,7 +455,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 408,
+        "line": 464,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -478,7 +478,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 687,
+        "line": 783,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops.",
         "params": [
           {
@@ -509,7 +509,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 511,
+        "line": 607,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -676,7 +676,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 416,
+        "line": 472,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
         "params": [
           {
@@ -698,7 +698,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 462,
+        "line": 522,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -773,8 +773,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 426,
-        "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline.",
+        "line": 482,
+        "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline. [detail] is a second, muted line under the label.",
         "params": [
           {
             "name": "label",
@@ -815,12 +815,47 @@
             "default": "null"
           },
           {
+            "name": "detail",
+            "type": "String?",
+            "default": "null"
+          },
+          {
             "name": "value",
             "type": "(@Composable RowScope.() -> Unit)?",
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.cueClickable(emphasis = if (danger) Emphasis.Strong else Emphasis.Subtle, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .alpha(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.\n        Text(label, Modifier.weight(1f).padding(vertical = 8.dp), style = PullsType.row, color = if (danger) c.error else c.text)\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
+        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    detail: String? = null,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.cueClickable(emphasis = if (danger) Emphasis.Strong else Emphasis.Subtle, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .alpha(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.\n        Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n            Text(label, style = PullsType.row, color = if (danger) c.error else c.text)\n            if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)\n        }\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
+      }
+    ]
+  },
+  "sheet-search": {
+    "composable": "SheetSearch",
+    "declarations": [
+      {
+        "file": "ui/design/Kit.kt",
+        "line": 575,
+        "doc": "`.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,\nwhite with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over\nit: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.",
+        "params": [
+          {
+            "name": "value",
+            "type": "String"
+          },
+          {
+            "name": "onChange",
+            "type": "(String) -> Unit"
+          },
+          {
+            "name": "placeholder",
+            "type": "String"
+          },
+          {
+            "name": "modifier",
+            "type": "Modifier",
+            "default": "Modifier"
+          }
+        ],
+        "source": "@Composable\nfun SheetSearch(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val focus = LocalFocusManager.current\n    val shape = RoundedCornerShape(PullsRadius.card)\n    Row(\n        modifier.fillMaxWidth().height(48.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 14.dp, end = 4.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(10.dp),\n    ) {\n        LuIcon(Lu.search, tint = c.muted, size = 20.dp)\n        BasicTextField(\n            value = value,\n            onValueChange = onChange,\n            singleLine = true,\n            textStyle = PullsType.row.copy(color = c.text),\n            cursorBrush = SolidColor(c.accentTeal),\n            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),\n            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),\n            modifier = Modifier.weight(1f),\n            decorationBox = { inner ->\n                Box(contentAlignment = Alignment.CenterStart) {\n                    if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.muted, maxLines = 1)\n                    inner()\n                }\n            },\n        )\n        if (value.isNotEmpty()) FloatIcon(Lu.close, \"Clear\", { onChange(\"\") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)\n    }\n}"
       }
     ]
   },
@@ -829,7 +864,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 730,
+        "line": 826,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
@@ -865,7 +900,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 249,
+        "line": 256,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -900,7 +935,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 310,
+        "line": 366,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -935,7 +970,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 552,
+        "line": 648,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -957,8 +992,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 269,
-        "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.",
+        "line": 279,
+        "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.\n[spread] lays the labels across the whole width, the first at the start and the last at the end with even gaps\nbetween. When they do not fit with 16dp between them the labels step down to body size (15sp), and only when they\nstill do not fit does the row keep a 24dp gap and scroll sideways; a label is never cut.",
         "params": [
           {
             "name": "labels",
@@ -983,7 +1018,7 @@
             "default": "false"
           }
         ],
-        "source": "@Composable\nfun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },\n    ) {\n        labels.forEachIndexed { index, label ->\n            val on = index == selected\n            val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = \"tab-ink\")\n            Box(\n                Modifier.then(if (spread) Modifier.weight(1f) else Modifier).height(48.dp).cueClickable(direction = directionOf(selected, index), role = Role.Tab, onClickLabel = label) { onSelect(index) }\n                    .padding(start = if (index == 0 || spread) 0.dp else 12.dp, end = if (spread) 0.dp else 12.dp),\n                contentAlignment = if (spread) Alignment.CenterStart else Alignment.Center,\n            ) {\n                Box(\n                    Modifier.fillMaxHeight().drawBehind {\n                        if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))\n                    },\n                    contentAlignment = Alignment.Center,\n                ) { Text(label, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1) }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false) {\n    val c = LocalPullsColors.current\n    val hairline = Modifier.drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }\n    if (!spread) {\n        Row(modifier.fillMaxWidth().then(hairline)) {\n            labels.forEachIndexed { index, label ->\n                UnderlineTab(label, index, selected, onSelect, Modifier.padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp), Alignment.Center)\n            }\n        }\n        return\n    }\n    BoxWithConstraints(modifier.fillMaxWidth().then(hairline)) {\n        val viewport = constraints.maxWidth\n        val last = labels.lastIndex\n        val measurer = rememberTextMeasurer()\n        val density = LocalDensity.current\n        val style = remember(labels, viewport, density) {\n            val base = PullsType.base.copy(fontWeight = FontWeight.Medium)\n            val room = viewport - with(density) { 16.dp.roundToPx() } * last\n            if (labels.sumOf { measurer.measure(it, base, softWrap = false, maxLines = 1).size.width } <= room) base else PullsType.sm.copy(fontWeight = FontWeight.Medium)\n        }\n        Layout(\n            content = {\n                labels.forEachIndexed { index, label ->\n                    val align = when (index) {\n                        0 -> Alignment.CenterStart\n                        last -> Alignment.CenterEnd\n                        else -> Alignment.Center\n                    }\n                    UnderlineTab(label, index, selected, onSelect, Modifier, align, style)\n                }\n            },\n            modifier = Modifier.horizontalScroll(rememberScrollState()),\n        ) { measurables, constraints ->\n            val height = 48.dp.roundToPx()\n            val natural = measurables.map { it.maxIntrinsicWidth(height) }\n            val fits = last == 0 || natural.sum() + 16.dp.roundToPx() * last <= viewport\n            val gap = if (fits && last > 0) (viewport - natural.sum()) / last else 24.dp.roundToPx()\n            // Every tab reaches halfway into the gaps beside it, so the whole row is a target.\n            val placeables = measurables.mapIndexed { index, measurable ->\n                val reach = (if (index > 0) gap / 2 else 0) + (if (index < last) gap - gap / 2 else 0)\n                measurable.measure(Constraints.fixed(natural[index] + reach, height))\n            }\n            val width = if (fits) maxOf(viewport, placeables.sumOf { it.width }) else placeables.sumOf { it.width }\n            layout(width.coerceAtLeast(constraints.minWidth), height) {\n                var x = 0\n                placeables.forEach { it.place(x, 0); x += it.width }\n            }\n        }\n    }\n}"
       }
     ]
   }

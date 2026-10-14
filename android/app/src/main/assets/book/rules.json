@@ -829,7 +829,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A path shows its end, because the end is what tells files apart: \"…/domains/practice/components\". Tapping the path line shows the whole path. The file name comes first. People's names and titles wrap whole (rule 2) and are not cut with an ellipsis.\n\nCheck: put a long path on a file row and in the diff header. The end of the path is readable, the whole path is one tap away and no name is cut."
+    "text": "A path shows its end, because the end is what tells files apart: \"…/domains/practice/components\". Folders are dropped from the front whole, never cut in the middle of a name. Tapping the path line shows the whole path. The file name comes first. People's names and titles wrap whole (rule 2) and are not cut with an ellipsis.\n\nCheck: put a long path on a file row and in the diff header. The end of the path is readable, the whole path is one tap away and no name is cut."
   },
   {
     "n": 91,
@@ -838,7 +838,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. \"commented\" is never written, because it can only be a comment. The commit groups stay as they are.\n\nCheck: open a Conversation with ten comments. Every one folds and unfolds, and none says \"commented\"."
+    "text": "Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. \"commented\" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name, and a long name is cut with an ellipsis rather than push them (\"align these always\").\nPushed commits are not in the Conversation. They have a tab of their own, Commits, between Description and Conversation (\"Commits should be somewhere else. Maybe a tab\"). It lists them oldest first and says so at the top, numbers each one, gives every row room (14dp above and below, a hairline between), and keeps \"All commits\" as the first row. A tap shows only that commit, a long-press stretches the range from the last one tapped, and the banner of rule 80 says what is shown. The Commits cell on the page opens this tab. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs carry no counts, so four fit a phone: they spread from the first label at the start to the last at the end with even gaps, and when they cannot fit they scroll sideways instead of cutting a label.\n\nCheck: open a Conversation with ten comments. Every one folds and unfolds, none says \"commented\", the ages are in one column, and no commit is in it. Open Commits: the order is written, every commit has its number."
   },
   {
     "n": 92,
@@ -847,7 +847,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "The file name is centred in the header, big enough to read, with the folder path above it in small dim mono (rule 90) and the counter beside it. A note about the file is part of the scrolling content and scrolls away with the code, so pinned chrome is the header and a compact file bar, about 20% of the screen and not 45%. The file ends where the code ends: nothing scrolls into empty space, only room to clear the ‹ › buttons.\n\nCheck: open a file with a long path and a long note. Pinned chrome is no more than a fifth of the screen. Scroll to the end: the last line is the last thing."
+    "text": "The header of the Diff is the back button and the capsule, nothing else. The file's name sits at the bottom between the ‹ › buttons (\"put it between the arrows\"), centred in a round pill, in the face it has on the file rows (the code font would break a long name), whole, on up to three lines; under a short name the end of its folder (rule 90) and \"3 of 12\". A tap on it opens the Files sheet, the one place a file is picked (rule 101). The note about the file and the line with its counts and the Reviewed box are part of the scrolling content and scroll away with the code, so pinned chrome is no more than a fifth of the screen. The file ends where the code ends: nothing scrolls into empty space, only room to clear the bar.\n\nCheck: open a file with a long path and a long note. Pinned chrome is no more than a fifth of the screen. The name is whole at the bottom between the arrows. Scroll to the end: the last line is the last thing."
   },
   {
     "n": 93,
@@ -856,7 +856,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. From the last file, a swipe left continues to the next view. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and Aa on the Diff. Swiping between the three never moves the header, and the Aa menu is a bottom sheet.\n\nCheck: swipe between files and between views. The header is the same pixels throughout."
+    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the last file, a swipe left continues to the Tour; from the first, a swipe right goes back to the Overview. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header.\nAa opens \"Text and tools\" as a bottom sheet, and every choice in it shows what it does instead of describing it (\"why am I not seeing what these do\"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with \"wider screens\"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.\n\nCheck: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you."
   },
   {
     "n": 94,
@@ -865,7 +865,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. A sheet opens with a field, a small selector for \"In review\" or \"Comment now\" that is the two states of the Comment button, and the thread under the line as a card (rule 9). It does not repeat what is already on screen. Tapping a file note opens Ask with that note attached.\nThis replaces rule 64's \"a bar you type into\" and the toolbar of rule 49. The form is open: he is making options in a Claude Design artifact, and the default until then is option A, one sheet.\n\nCheck: comment on three lines. One sheet, one field, and nothing on the screen says the same thing twice."
+    "text": "The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. Selecting lines turns the bar at the bottom into the comment bar: what is selected with a ✕ to let it go, the field, a small toggle for \"In review\" or \"Post now\" and the send button; letting the lines go turns it back into ‹ name ›. The thread under the line stays a card in the code (rule 9). Nothing repeats what is already on screen. Tapping a file note opens Ask with that note attached as a card above the field, which a ✕ leaves out.\nThis replaces rule 64's \"a bar you type into\" and the toolbar of rule 49. He chose option B of the target designs, the bar (\"I'll live with this option for now\"), over the sheet of option A (\"I hate this so much\").\n\nCheck: comment on three lines. One bar, one field, and nothing on the screen says the same thing twice. Let the lines go: the file name is back."
   },
   {
     "n": 95,
@@ -911,5 +911,42 @@
       "review"
     ],
     "text": "The AI's reply has no box, fill or shadow. Only your own message is a bubble, in the accent colour. There is never a bubble with dots in it. \"Clear\" is not a word on the screen: a new-chat button sits at the top right. Under each answer, sources are chips that scroll to the place, and two or three follow-up questions that tap to send, written each turn by a small fast model. The thinking streams as it happens (rule 72). The ⋯ menu of Perplexity is not copied.\n\nCheck: ask a question. A plain reply, source chips, follow-ups, no dots bubble and no \"Clear\"."
+  },
+  {
+    "n": 100,
+    "title": "No link-out icons.",
+    "source": "overhaul",
+    "checkedBy": [
+      "bans",
+      "review"
+    ],
+    "text": "The app never shows an arrow leaving a box, or any other \"opens elsewhere\" mark (\"never this kind of icon. We're not a web app. We don't open links, not like this\"). A row that goes to GitHub carries GitHub's own mark, and any other row says in words what it does.\n\nCheck: open every sheet and list. No arrow-out icon anywhere."
+  },
+  {
+    "n": 101,
+    "title": "A long list can be searched, and its sections fold.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A list that can run long (the files, the repositories) has a search field at the top of its sheet (`SheetSearch`: 48dp, the card radius, the float shadow, ✕ to clear), and a row matches when every word typed is in it. The files are one sheet, opened from the Files cell on the Overview and from the file name in the Diff, with the file on screen marked. Sections of files fold under their headings, on the Overview and in the sheet, and a fold is kept while the pull request is open. A pull request with more than 80 files opens with every section folded (in the sheet, the section holding the file on screen stays open), so 80,000 changed lines start as a short list of headings, and the sheet shows the first 300 rows with a row to show all of them. A search opens every section it finds something in.\n\nCheck: open a pull request of a few hundred files. Headings first, each opens and folds, the search finds a file by two words of its path, and nothing stutters."
+  },
+  {
+    "n": 102,
+    "title": "A file row swipes like a pull request row.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A file row on the Overview takes the gestures of the Inbox rows (rule 56): a swipe right marks it reviewed (or not reviewed), a swipe left opens it, a tap opens it and a long-press opens its actions (open, mark reviewed, copy the path, ask about the file). The checkbox sits on the first line of text. The file name comes first, its folder under it cut from the front (rule 90), the counts at the right, and the AI's note in two lines at most.\n\nCheck: swipe a file both ways, tap it and hold it. The swipe blurs the row like the Inbox's, and the box lines up with the name."
+  },
+  {
+    "n": 103,
+    "title": "Searching dims what is behind.",
+    "source": "overhaul",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "While the search on Home waits for its first letter with the keyboard up, the Inbox behind it dims a little (half the sheet's scrim), and a tap on it puts the keyboard away. Once something is typed, the matches are what the search is for, so they are shown at full strength and take taps.\n\nCheck: tap the search pill. The list dims. Type a letter: the matches are bright and open with one tap."
   }
 ]

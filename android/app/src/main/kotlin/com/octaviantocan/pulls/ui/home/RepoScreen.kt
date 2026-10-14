@@ -58,9 +58,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.ui.Nav
+import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -202,7 +204,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
                 Spacer(Modifier.weight(1f))
                 FloatIcon(Lu.refresh, t("common.refresh"), { scope.launch { store.refresh() } }, enabled = !store.isRefreshing && !store.isLoading)
                 Spacer(Modifier.width(10.dp))
-                FloatIcon(Lu.ext, "Open on GitHub", { uri.openUri("https://github.com/$owner/$repo/pulls") })
+                // The GitHub mark says where it goes; no arrow-out icon is ever used for that (rule 100).
+                FloatButton({ uri.openUri("https://github.com/$owner/$repo/pulls") }, "Open on GitHub") { DrawableIcon(R.drawable.ic_carbon_logo_github, size = 22.dp) }
             }
             Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
