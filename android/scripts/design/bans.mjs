@@ -52,7 +52,10 @@ const WAITING = ['Loading', 'SpinIcon', 'FeedbackSpinner', 'CircularProgressIndi
 
 const MATERIAL = /^androidx\.compose\.material3\.(\w+(?:\.\w+)*)$/
 
-const call = names => new RegExp(`(?<!fun\\s)(?<![\\w.])(?:${names.join('|')})\\s*\\(`, 'g')
+/** The kit's own package: a call spelled out in full is still a call to the kit. */
+const KIT_PACKAGE = 'com\\.octaviantocan\\.pulls\\.ui\\.design\\.'
+
+const call = names => new RegExp(`(?<!fun\\s)(?<![\\w.])(?:${KIT_PACKAGE})?(?:${names.join('|')})\\s*\\(`, 'g')
 
 /**
  * `import` bans test the imported name; `call` bans test code with strings and comments blanked.
@@ -141,11 +144,20 @@ export const KINDS = BANS
 
 const allowed = (ban, file) => (ban.allowIn ?? []).some(prefix => file.startsWith(prefix))
 
+const IMPORT_LINE = /^import .*$/gm
+
 const IMPORT = /^import\s+([\w.]+(?:\.\*)?)(?:\s+as\s+\w+)?\s*$/gm
 
-/** Offsets in `code` where `ban` matches, by its imports and by its call pattern. */
+/** A Material or speech name spelled out in full where it is used, which needs no import. */
+const QUALIFIED = /(?<![\w.])(?:androidx\.compose\.material3|androidx\.compose\.material\.icons|androidx\.compose\.material|android\.speech)(?:\.\w+)+/g
+
+/** Offsets in `code` where `ban` matches, by its imports, its names spelled out in full and its call pattern. */
 function offsetsOf(ban, code, imports) {
   const found = ban.importOf ? imports.filter(m => ban.importOf(m[1])).map(m => m.index) : []
+  if (ban.importOf) {
+    const body = code.replace(IMPORT_LINE, line => ' '.repeat(line.length))
+    found.push(...[...body.matchAll(QUALIFIED)].filter(m => ban.importOf(m[0])).map(m => m.index))
+  }
   return ban.call ? [...found, ...[...code.matchAll(ban.call)].map(m => m.index)] : found
 }
 

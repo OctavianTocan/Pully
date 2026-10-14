@@ -128,6 +128,11 @@ describe('raw-values', () => {
     assert.deepEqual(lines(hits, 'fontSize'), [8])
   })
 
+  it('reads the radius from live code, not from a comment inside the call', () => {
+    const hits = scan('val a = RoundedCornerShape(PullsRadius.card /* 16.dp */)\nval b = RoundedCornerShape(PullsRadius.card, // 12.dp\n)')
+    assert.deepEqual(hits.radius, {})
+  })
+
   it('counts text under 15 by role and by raw size, uppercase and tracked text', () => {
     const hits = scan([
       'Text(a, style = PullsType.xs)',
@@ -189,6 +194,17 @@ describe('bans', () => {
     const found = scan('ActionButton("a") {}\nval x = MyBadge(1)\nPhIcon("check")\nLoading("wait")\nfun Card() {}')
     assert.deepEqual(found, { 'legacy-icons': { 'ui/x/Screen.kt': 1 }, 'legacy-kit': { 'ui/x/Screen.kt': 1 }, 'waiting': { 'ui/x/Screen.kt': 1 } })
     assert.deepEqual(scan('ActionButton("a") {}', 'ui/design/Components.kt'), {})
+  })
+
+  it('counts a call spelled out with the kit package, not a call on some other receiver', () => {
+    const found = scan('com.octaviantocan.pulls.ui.design.ActionButton({}) {}\ncom.octaviantocan.pulls.ui.design.PhIcon("check")\nother.ActionButton({})\nval x = com.octaviantocan.pulls.ui.design.ButtonVariant.Primary')
+    assert.deepEqual(found, { 'legacy-icons': { 'ui/x/Screen.kt': 1 }, 'legacy-kit': { 'ui/x/Screen.kt': 1 } })
+  })
+
+  it('counts Material names spelled out where they are used, once, with no import', () => {
+    const found = scan('androidx.compose.material3.HorizontalDivider(color = c)\nandroidx.compose.material3.Text("ok")\nandroidx.compose.material3.ModalBottomSheet({}) {}\nval s = android.speech.RecognizerIntent.ACTION')
+    assert.deepEqual(found, { 'material-component': { 'ui/x/Screen.kt': 1 }, 'material-sheet-menu': { 'ui/x/Screen.kt': 1 }, 'speech': { 'ui/x/Screen.kt': 2 } })
+    assert.deepEqual(scan('import androidx.compose.material3.Switch\nandroidx.compose.material3.Switch(true, {})'), { 'material-component': { 'ui/x/Screen.kt': 2 } })
   })
 
   it('lets a line opt out with a reason, and not without one', () => {
