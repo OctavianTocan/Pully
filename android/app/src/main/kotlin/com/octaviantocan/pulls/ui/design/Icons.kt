@@ -1,0 +1,88 @@
+package com.octaviantocan.pulls.ui.design
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+/** One SVG path of a 24x24 icon; [fill] paints it solid (the dots of "more"), otherwise it is a stroke. */
+internal class LuPath(val d: String, val fill: Boolean = false) {
+    val path: Path by lazy { PathParser().parsePathString(d).toPath() }
+}
+
+/** A line icon: round-capped strokes of [strokeWidth] on a 24x24 grid. */
+internal class LuGlyph(val strokeWidth: Float, vararg val paths: LuPath)
+
+/**
+ * Draws a prototype icon. The paths are the prototype's own (`I` in the Android prototype), so
+ * strokes keep their weight at any [size]: the stroke width scales with the grid.
+ */
+@Composable
+internal fun LuIcon(
+    glyph: LuGlyph,
+    modifier: Modifier = Modifier,
+    tint: Color = LocalPullsColors.current.text,
+    size: Dp = 20.dp,
+    strokeWidth: Float = glyph.strokeWidth,
+    contentDescription: String? = null,
+) {
+    val semantic = if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier
+    Canvas(modifier.size(size).then(semantic)) {
+        val unit = this.size.minDimension / 24f
+        scale(unit, unit, pivot = Offset.Zero) {
+            glyph.paths.forEach { p ->
+                if (p.fill) drawPath(p.path, tint, style = Fill)
+                else drawPath(p.path, tint, style = Stroke(width = strokeWidth, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+        }
+    }
+}
+
+/** The prototype's icon set, by its own names. */
+internal object Lu {
+    val cog = LuGlyph(1.75f, LuPath("M9,12a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"))
+    val back = LuGlyph(2f, LuPath("M15 18l-6-6 6-6"))
+    val more = LuGlyph(1.75f, LuPath("M3.3,12a1.7,1.7 0 1,0 3.4,0a1.7,1.7 0 1,0 -3.4,0", fill = true), LuPath("M10.3,12a1.7,1.7 0 1,0 3.4,0a1.7,1.7 0 1,0 -3.4,0", fill = true), LuPath("M17.3,12a1.7,1.7 0 1,0 3.4,0a1.7,1.7 0 1,0 -3.4,0", fill = true))
+    val list = LuGlyph(1.8f, LuPath("M4 6h16M4 12h16M4 18h10"))
+    val diff = LuGlyph(1.8f, LuPath("M5 7.5h5M7.5 5v5M14 17.5h5M15.5 4l-7 16"))
+    val tour = LuGlyph(1.8f, LuPath("M3,6a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M17,18a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M7 6h8a4 4 0 0 1 0 8H9a4 4 0 0 0 0 8h8"))
+    val chev = LuGlyph(2f, LuPath("m9 6 6 6-6 6"))
+    val chevd = LuGlyph(2f, LuPath("m6 9 6 6 6-6"))
+    val arrow = LuGlyph(2f, LuPath("M5 12h14M13 6l6 6-6 6"))
+    val arch = LuGlyph(2f, LuPath("M4 6h16v3H4zM5 9v10h14V9M10 13h4"))
+    val xc = LuGlyph(2.1f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m15 9-6 6M9 9l6 6"))
+    val okc = LuGlyph(2.1f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m8.2 12.4 2.6 2.6 5-5.6"))
+    val to = LuGlyph(2f, LuPath("M5 12h14M13 6l6 6-6 6"))
+    val exp = LuGlyph(2f, LuPath("m7 10 5-5 5 5M7 14l5 5 5-5"))
+    val prev = LuGlyph(2f, LuPath("M15 18l-6-6 6-6"))
+    val next = LuGlyph(2f, LuPath("m9 6 6 6-6 6"))
+    val reply = LuGlyph(2f, LuPath("M9 17l-5-5 5-5M4 12h11a5 5 0 0 1 5 5v2"))
+    val close = LuGlyph(2f, LuPath("M6 6l12 12M18 6 6 18"))
+    val check = LuGlyph(2f, LuPath("m5 12 5 5 9-10"))
+    val tick = LuGlyph(3f, LuPath("m5 12 5 5 9-10"))
+    val fail = LuGlyph(1.8f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m15 9-6 6M9 9l6 6"))
+    val ext = LuGlyph(1.8f, LuPath("M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"))
+    val redo = LuGlyph(1.8f, LuPath("M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"))
+    val merge = LuGlyph(1.8f, LuPath("M4,5a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M4,19a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M16,12a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"), LuPath("M6 7v10M6 7a6 6 0 0 0 6 6h4"))
+    val req = LuGlyph(1.8f, LuPath("M21 12a8 8 0 0 1-12 7l-5 1 1-4.5A8 8 0 1 1 21 12z"), LuPath("M12 8v4M12 15h.01"))
+    val draft = LuGlyph(1.8f, LuPath("M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"))
+    val shut = LuGlyph(1.8f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m15 9-6 6M9 9l6 6"))
+    val search = LuGlyph(2f, LuPath("M4,11a7,7 0 1,0 14,0a7,7 0 1,0 -14,0"), LuPath("m20 20-3.5-3.5"))
+    val ask = LuGlyph(1.8f, LuPath("M7.9 20A9 9 0 1 0 4 16.1L2 22Z"))
+    val bot = LuGlyph(1.8f, LuPath("M12 8V4H8"), LuPath("M6,8h12a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-12a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z"), LuPath("M2 14h2M20 14h2M15 13v2M9 13v2"))
+    val copy = LuGlyph(2f, LuPath("M11,9h7a2,2 0 0 1 2,2v7a2,2 0 0 1 -2,2h-7a2,2 0 0 1 -2,-2v-7a2,2 0 0 1 2,-2z"), LuPath("M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"))
+    val ai = LuGlyph(1.8f, LuPath("M12 8V4H8"), LuPath("M6,8h12a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-12a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z"), LuPath("M2 14h2M20 14h2M15 13v2M9 13v2"))
+}

@@ -77,10 +77,10 @@ data class Breakpoints(val widthDp: Int) {
 @Composable
 fun rememberBreakpoints(): Breakpoints = Breakpoints(LocalConfiguration.current.screenWidthDp)
 
-/** Tailwind colors the web rows use for checks and review state (`text-green-600 dark:text-green-400` …). */
+/** The prototype's status colors: `--green` and `--danger` (lifted a step in the dark theme), the web's amber for pending. */
 object StatusColors {
-    fun green(dark: Boolean) = if (dark) Color(0xFF4ADE80) else Color(0xFF16A34A)
-    fun red(dark: Boolean) = if (dark) Color(0xFFF87171) else Color(0xFFDC2626)
+    fun green(dark: Boolean) = if (dark) Color(0xFF3CC98F) else Color(0xFF1C8A5A)
+    fun red(dark: Boolean) = if (dark) Color(0xFFE8777C) else Color(0xFFC94F55)
     val amber500 = Color(0xFFF59E0B)
     fun amberText(dark: Boolean) = if (dark) Color(0xFFFBBF24) else Color(0xFFB45309)
 }

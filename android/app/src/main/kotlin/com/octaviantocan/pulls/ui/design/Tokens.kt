@@ -6,47 +6,50 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.octaviantocan.pulls.R
 
 /**
- * The web app's design tokens, read from the compiled CSS (`packages/cli/dist/client/assets/index-*.css`)
- * and `@antfu/design/unocss/shortcuts.ts`. Names follow the web shortcuts so a port reads
- * like the template: `bg-base` -> [PullsColors.base], `border-base` -> [PullsColors.border],
- * `op-fade` -> [PullsColors.fade], `color-success-500` -> [PullsColors.success].
+ * The app's design tokens. The light set is the Android prototype's palette (warm paper, deep
+ * teal ink, one teal accent); the dark set is derived from it so the theme setting keeps working.
+ * Names follow the web shortcuts the screens were first ported from (`bg-base` -> [PullsColors.base],
+ * `border-base` -> [PullsColors.border], `op-fade` -> [PullsColors.fade]), with the prototype's own
+ * names for what the web has no word for ([paper], [hair], [cta], the diff washes).
  */
 @Immutable
 data class PullsColors(
     val dark: Boolean,
-    /** `bg-base`: #111 dark, white light. */
+    /** Screen background: `--bg` #FDFCF9. */
     val base: Color,
-    /** `color-base`: neutral-200 dark, neutral-800 light. */
+    /** Ink: `--ink` #0E333A. */
     val text: Color,
-    /** `color-muted`: neutral-400 dark, neutral-600 light. */
+    /** Secondary text: `--muted` #6E8285. */
     val muted: Color,
-    /** `color-faint`: neutral-500. */
+    /** Tertiary text and icons: `--grey` #93A2A4. */
     val faint: Color,
-    /** `border-base`: #9992. */
+    /** Borders: `--bd` #E3E5E3. */
     val border: Color,
-    /** `border-mute`: #9991. */
+    /** Hairlines between rows: `--hair` #ECEBE7. */
     val borderMute: Color,
-    /** `bg-hover`: #99999915. */
+    /** Pressed and hovered rows. */
     val hover: Color,
-    /** `bg-active`: #99999920. */
+    /** Selected rows. */
     val active: Color,
-    /** `bg-raised`: white/65 light, black/60 dark. */
+    /** Cards, floating buttons and inputs: white. */
     val raised: Color,
-    /** `bg-sunken`: black/4 light, white/6 dark (segment tracks). */
+    /** Segment tracks and the selected segment: `--paper2`. */
     val sunken: Color,
-    /** `bg-code`: gray-500/5. */
+    /** Code and quote backgrounds: `--paper`. */
     val code: Color,
-    /** `bg-secondary`. */
+    /** Sheets and grouped backgrounds: `--paper`. */
     val secondary: Color,
-    /** antfu green `primary-500` (#5b9544): primary buttons, checked boxes. */
+    /** The accent used for fills and checked boxes: `--accent2` #1B7580. */
     val primary: Color,
     val primary600: Color,
-    /** `color-active`: primary-300 dark, primary-600 light. */
+    /** Accent text and links: `--link` #1E6F78. */
     val activeText: Color,
     val success: Color,
     val error: Color,
@@ -56,105 +59,185 @@ data class PullsColors(
     val gray: Color,
     val orange: Color,
     val amber: Color,
-    /** `color-accent-teal`, `color-accent-orange`, `color-accent-magenta`. */
+    /** The brighter accent: `--accent` #24929C (progress, live dots, selection bars). */
     val accentTeal: Color,
     val accentOrange: Color,
     val accentMagenta: Color,
+    /** `--paper` #F4F2EF: sheets, hunk bars, code wells. */
+    val paper: Color,
+    /** `--paper2` #F1F0EC: the selected segment. */
+    val paper2: Color,
+    /** The dark call-to-action fill: `--dark` #13343B. */
+    val cta: Color,
+    val onCta: Color,
+    /** A pressed or selected filter chip: #E9E8E3. */
+    val chipOn: Color,
+    /** Tinted fill behind accent badges and bubbles: #E6F1F2. */
+    val accentWash: Color,
+    /** Text on [accentWash]: #165E66. */
+    val accentWashInk: Color,
+    /** Diff row washes and the ink of their gutters. */
+    val diffAdd: Color,
+    val diffDel: Color,
+    val diffAddInk: Color,
+    val diffDelInk: Color,
+    val diffAddMark: Color,
+    val diffDelMark: Color,
+    /** The shadow tint of floating surfaces: the ink at low alpha. */
+    val shadow: Color,
+    /** Behind sheets: `rgba(14,51,58,.38)`. */
+    val scrim: Color,
 ) {
-    /** `op-fade` (op65) applied to body text. */
-    val fade: Color get() = text.copy(alpha = 0.65f)
+    /** `op-fade`: secondary text. */
+    val fade: Color get() = muted
 
-    /** `op-mute` (op40). */
-    val mute: Color get() = text.copy(alpha = 0.40f)
+    /** `op-mute`: tertiary text. */
+    val mute: Color get() = faint
 }
-
-val DarkPullsColors = PullsColors(
-    dark = true,
-    base = Color(0xFF111111),
-    text = Color(0xFFE5E5E5),
-    muted = Color(0xFFA3A3A3),
-    faint = Color(0xFF737373),
-    border = Color(0x22999999),
-    borderMute = Color(0x11999999),
-    hover = Color(0x15999999),
-    active = Color(0x20999999),
-    raised = Color(0x99000000),
-    sunken = Color(0x0FFFFFFF),
-    code = Color(0x0D6B7280),
-    secondary = Color(0xFF101010),
-    primary = Color(0xFF5B9544),
-    primary600 = Color(0xFF49833E),
-    activeText = Color(0xFFA8CF96),
-    success = Color(0xFF12B76A),
-    error = Color(0xFFF63D68),
-    warning = Color(0xFFF79009),
-    blue = Color(0xFF3B82F6),
-    purple = Color(0xFFA855F7),
-    gray = Color(0xFF6B7280),
-    orange = Color(0xFFF97316),
-    amber = Color(0xFFFBBF24),
-    accentTeal = Color(0xFF5FC2A4),
-    accentOrange = Color(0xFFF57A4F),
-    accentMagenta = Color(0xFFC65FBF),
-)
 
 val LightPullsColors = PullsColors(
     dark = false,
-    base = Color(0xFFFFFFFF),
-    text = Color(0xFF262626),
-    muted = Color(0xFF525252),
-    faint = Color(0xFF737373),
-    border = Color(0x22999999),
-    borderMute = Color(0x11999999),
-    hover = Color(0x15999999),
-    active = Color(0x20999999),
-    raised = Color(0xA6FFFFFF),
-    sunken = Color(0x0A000000),
-    code = Color(0x0D6B7280),
-    secondary = Color(0xFFF6F6F6),
-    primary = Color(0xFF5B9544),
-    primary600 = Color(0xFF49833E),
-    activeText = Color(0xFF49833E),
-    success = Color(0xFF12B76A),
-    error = Color(0xFFF63D68),
-    warning = Color(0xFFF79009),
+    base = Color(0xFFFDFCF9),
+    text = Color(0xFF0E333A),
+    muted = Color(0xFF6E8285),
+    faint = Color(0xFF93A2A4),
+    border = Color(0xFFE3E5E3),
+    borderMute = Color(0xFFECEBE7),
+    hover = Color(0x120E333A),
+    active = Color(0x1A0E333A),
+    raised = Color(0xFFFFFFFF),
+    sunken = Color(0xFFF1F0EC),
+    code = Color(0xFFF4F2EF),
+    secondary = Color(0xFFF4F2EF),
+    primary = Color(0xFF1B7580),
+    primary600 = Color(0xFF165E66),
+    activeText = Color(0xFF1E6F78),
+    success = Color(0xFF1C8A5A),
+    error = Color(0xFFC94F55),
+    warning = Color(0xFFD9822B),
     blue = Color(0xFF3B82F6),
     purple = Color(0xFFA855F7),
-    gray = Color(0xFF6B7280),
+    gray = Color(0xFF93A2A4),
     orange = Color(0xFFEA580C),
     amber = Color(0xFFB45309),
-    accentTeal = Color(0xFF1F8F72),
+    accentTeal = Color(0xFF24929C),
     accentOrange = Color(0xFFD9552A),
     accentMagenta = Color(0xFF9C3A95),
+    paper = Color(0xFFF4F2EF),
+    paper2 = Color(0xFFF1F0EC),
+    cta = Color(0xFF13343B),
+    onCta = Color(0xFFFFFFFF),
+    chipOn = Color(0xFFE9E8E3),
+    accentWash = Color(0xFFE6F1F2),
+    accentWashInk = Color(0xFF165E66),
+    diffAdd = Color(0xFFCFE6E3),
+    diffDel = Color(0xFFF6D7D0),
+    diffAddInk = Color(0xFF1E7E8A),
+    diffDelInk = Color(0xFFB4533F),
+    diffAddMark = Color(0xFFA8D6D0),
+    diffDelMark = Color(0xFFEDB5AA),
+    shadow = Color(0xFF0E333A),
+    scrim = Color(0x610E333A),
 )
 
+val DarkPullsColors = PullsColors(
+    dark = true,
+    base = Color(0xFF0C1B1F),
+    text = Color(0xFFE4EEEF),
+    muted = Color(0xFF8FA6A9),
+    faint = Color(0xFF6B8286),
+    border = Color(0xFF263A3E),
+    borderMute = Color(0xFF1B2D31),
+    hover = Color(0x14FFFFFF),
+    active = Color(0x1FFFFFFF),
+    raised = Color(0xFF13282C),
+    sunken = Color(0xFF173035),
+    code = Color(0xFF112429),
+    secondary = Color(0xFF112429),
+    primary = Color(0xFF1B7580),
+    primary600 = Color(0xFF165E66),
+    activeText = Color(0xFF6CC3CB),
+    success = Color(0xFF3CC98F),
+    error = Color(0xFFE8777C),
+    warning = Color(0xFFF2A14B),
+    blue = Color(0xFF60A5FA),
+    purple = Color(0xFFC084FC),
+    gray = Color(0xFF6B8286),
+    orange = Color(0xFFFB923C),
+    amber = Color(0xFFFBBF24),
+    accentTeal = Color(0xFF4FB7C1),
+    accentOrange = Color(0xFFF57A4F),
+    accentMagenta = Color(0xFFC65FBF),
+    paper = Color(0xFF112429),
+    paper2 = Color(0xFF173035),
+    cta = Color(0xFFE4EEEF),
+    onCta = Color(0xFF0C1B1F),
+    chipOn = Color(0xFF1F3A3F),
+    accentWash = Color(0xFF14363B),
+    accentWashInk = Color(0xFF9AD3D6),
+    diffAdd = Color(0xFF123B3A),
+    diffDel = Color(0xFF3F2420),
+    diffAddInk = Color(0xFF6CC3CB),
+    diffDelInk = Color(0xFFE08A76),
+    diffAddMark = Color(0xFF1C5A58),
+    diffDelMark = Color(0xFF6A3A32),
+    shadow = Color(0xFF000000),
+    scrim = Color(0x99000000),
+)
+
+/** Geist for the interface, Geist Mono for code and branch names, Mona Sans for numbers and file names. */
+object PullsFonts {
+    val sans = FontFamily(
+        Font(R.font.geist_regular, FontWeight.Normal),
+        Font(R.font.geist_medium, FontWeight.Medium),
+        Font(R.font.geist_semibold, FontWeight.SemiBold),
+    )
+    val mono = FontFamily(
+        Font(R.font.geist_mono_regular, FontWeight.Normal),
+        Font(R.font.geist_mono_medium, FontWeight.Medium),
+    )
+    val display = FontFamily(
+        Font(R.font.mona_sans_regular, FontWeight.Normal),
+        Font(R.font.mona_sans_medium, FontWeight.Medium),
+        Font(R.font.mona_sans_semibold, FontWeight.SemiBold),
+    )
+}
+
 /**
- * The phone type scale from `main.css` (max-width 767.9px): `text-sm` is 16px, `text-xs`
- * 13px; `text-base` 16, `text-lg` 18, `text-2xl` 24. Families are the system ones the web
- * stack resolves to on Android (`ui-sans-serif` -> Roboto, `ui-monospace` -> monospace).
+ * The prototype's type scale: 15/20 for lists and meta, 17 for row titles and body copy, 26 for page
+ * titles, 20 for section headings. [sm] and [xs] step down a notch from 768dp up, as before.
  */
 object PullsType {
-    /**
-     * Below `md` (768dp) `main.css` raises `text-sm` to 16px and `text-xs` to 13px for phones;
-     * from `md` up they are the desktop 14px/12px. Set by `PullsTheme` from the window width,
-     * read here so every `PullsType.sm`/`xs` follows it (the unfolded Fold is ~840dp wide).
-     */
+    /** Set by `PullsTheme` from the window width (the unfolded Fold is ~840dp wide). */
     var wide by androidx.compose.runtime.mutableStateOf(false)
         internal set
-    val xs: TextStyle get() = if (wide) TextStyle(fontSize = 12.sp, lineHeight = 16.sp) else TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
-    val sm: TextStyle get() = if (wide) TextStyle(fontSize = 14.sp, lineHeight = 20.sp) else TextStyle(fontSize = 16.sp, lineHeight = 24.sp)
-    val base = TextStyle(fontSize = 16.sp, lineHeight = 24.sp)
-    val lg = TextStyle(fontSize = 18.sp, lineHeight = 28.sp)
-    val xl = TextStyle(fontSize = 20.sp, lineHeight = 28.sp)
-    val xxl = TextStyle(fontSize = 24.sp, lineHeight = 32.sp)
+    val xs: TextStyle get() = if (wide) TextStyle(fontFamily = PullsFonts.sans, fontSize = 12.sp, lineHeight = 16.sp) else TextStyle(fontFamily = PullsFonts.sans, fontSize = 13.sp, lineHeight = 18.sp)
+    val sm: TextStyle get() = if (wide) TextStyle(fontFamily = PullsFonts.sans, fontSize = 14.sp, lineHeight = 20.sp) else TextStyle(fontFamily = PullsFonts.sans, fontSize = 15.sp, lineHeight = 21.sp)
+    val base = TextStyle(fontFamily = PullsFonts.sans, fontSize = 16.sp, lineHeight = 22.sp)
+    val lg = TextStyle(fontFamily = PullsFonts.sans, fontSize = 18.sp, lineHeight = 26.sp)
+    val xl = TextStyle(fontFamily = PullsFonts.sans, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Medium)
+    val xxl = TextStyle(fontFamily = PullsFonts.sans, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.26).sp)
+
+    /** `.body`: 17/25. */
+    val body = TextStyle(fontFamily = PullsFonts.sans, fontSize = 17.sp, lineHeight = 25.sp)
+
+    /** `.p16` and `.tp`: 16/24, the reading size of summaries, descriptions and tour text. */
+    val read = TextStyle(fontFamily = PullsFonts.sans, fontSize = 16.sp, lineHeight = 24.sp)
+
+    /** `.pr .tt`: 17/22, a row's title. */
+    val row = TextStyle(fontFamily = PullsFonts.sans, fontSize = 17.sp, lineHeight = 22.sp)
+
+    /** `.pr .num` and the PR number in headings: Mona Sans 15/22 semibold. */
+    val num = TextStyle(fontFamily = PullsFonts.display, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
 
     /** `text-micro` 10px, `text-mini` 11px, `text-compact` 12px. */
-    val micro = TextStyle(fontSize = 10.sp, lineHeight = 14.sp)
-    val mini = TextStyle(fontSize = 11.sp, lineHeight = 16.sp)
-    val compact = TextStyle(fontSize = 12.sp, lineHeight = 18.sp)
-    val mono = FontFamily.Monospace
+    val micro = TextStyle(fontFamily = PullsFonts.sans, fontSize = 10.sp, lineHeight = 14.sp)
+    val mini = TextStyle(fontFamily = PullsFonts.sans, fontSize = 11.sp, lineHeight = 16.sp)
+    val compact = TextStyle(fontFamily = PullsFonts.sans, fontSize = 12.sp, lineHeight = 18.sp)
+    val mono: FontFamily = PullsFonts.mono
+    val display: FontFamily = PullsFonts.display
     val semibold = FontWeight.SemiBold
     val medium = FontWeight.Medium
 }
 
-val LocalPullsColors = staticCompositionLocalOf { DarkPullsColors }
+val LocalPullsColors = staticCompositionLocalOf { LightPullsColors }

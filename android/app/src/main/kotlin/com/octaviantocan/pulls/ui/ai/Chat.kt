@@ -1,54 +1,46 @@
 package com.octaviantocan.pulls.ui.ai
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.ChatMessage
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
-import com.octaviantocan.pulls.ui.design.IconButton
+import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.TOUCH
-import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.SoftChip
+import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.launch
@@ -91,30 +83,16 @@ private fun ReviewSession.sendChat(text: String?, retry: Boolean = false) {
     })
 }
 
-/** Port of `ChatWidget.vue`: a floating button bottom-right, opening the chat as a full-height sheet. */
+/**
+ * The prototype's Ask sheet: a full-height sheet of bubbles (your questions on the right in a teal
+ * wash, the answers on the left in white), starter chips while it is empty, and a send pill. It
+ * continues the analysis session, so it needs an analysis of your own. [initial] is asked on open.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ChatWidgetImpl(session: ReviewSession, modifier: Modifier) {
+internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
-    if (!session.hasAiResult || session.key == null) return
-    Box(modifier.fillMaxSize().navigationBarsPadding().padding(16.dp), contentAlignment = Alignment.BottomEnd) {
-        if (!ui.chatOpen) {
-            Box(
-                Modifier.size(TOUCH + 4.dp).shadow(8.dp, CircleShape).clip(CircleShape).background(c.base).border(1.dp, c.border, CircleShape)
-                    .clickable(role = Role.Button, onClickLabel = t("chat.title")) { ui.chatOpen = true },
-                contentAlignment = Alignment.Center,
-            ) { PhIcon("chat-circle-dots-duotone", tint = c.text, size = 24.dp, contentDescription = t("chat.title")) }
-        }
-    }
-    if (ui.chatOpen) ChatSheet(session) { ui.chatOpen = false }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-private fun ChatSheet(session: ReviewSession, onDismiss: () -> Unit) {
-    val c = LocalPullsColors.current
-    val ui = aiUi(session)
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val task = rememberLiveTask(session, "chat")
     val analyzeTask = session.taskFor("analyze")
     val streaming = task?.running == true
@@ -128,85 +106,151 @@ private fun ChatSheet(session: ReviewSession, onDismiss: () -> Unit) {
     val pending = ui.chatPending?.takeIf { text -> (rows.lastOrNull() as? ChatRow.User)?.text != text }
     val lastQuestion = rows.indexOfLast { it is ChatRow.User }
     val failed = task?.status == "failed"
-    val listState = rememberLazyListState()
-    val itemCount = rows.size + (if (pending != null) 1 else 0) + 2
-    LaunchedEffect(itemCount, task?.activities?.size) { if (itemCount > 0) listState.animateScrollToItem(itemCount - 1) }
+    val scroll = rememberScrollState()
+    LaunchedEffect(rows.size, pending, task?.activities?.size, streaming) { scroll.animateScrollTo(scroll.maxValue) }
+    LaunchedEffect(initial, available) {
+        if (!initial.isNullOrBlank() && available && !busy) session.sendChat(initial)
+    }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = state,
-        shape = RoundedCornerShape(0.dp),
-        containerColor = c.base,
-        contentColor = c.text,
-        dragHandle = null,
-        scrimColor = Color.Transparent,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+    fun ask(text: String) {
+        val question = text.trim()
+        if (question.isNotEmpty() && !busy && available) session.sendChat(question)
+    }
+
+    PullsSheet(
+        onClose = onDismiss,
+        title = title,
+        full = true,
+        scroll = scroll,
+        footer = {
+            if (available) {
+                if (rows.isNotEmpty() && !busy) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.End) {
+                        ActionButton({
+                            val key = session.key ?: return@ActionButton
+                            ui.chatError = null
+                            session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
+                        }, variant = ButtonVariant.Text, small = true) { Text(t("common.clear")) }
+                    }
+                }
+                Row(
+                    Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    LuIcon(Lu.ask, tint = c.muted, size = 20.dp)
+                    BasicTextField(
+                        value = ui.chatInput,
+                        onValueChange = { ui.chatInput = it },
+                        singleLine = true,
+                        textStyle = PullsType.base.copy(color = c.text),
+                        cursorBrush = SolidColor(c.accentTeal),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) }),
+                        modifier = Modifier.weight(1f),
+                        decorationBox = { inner ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (ui.chatInput.isEmpty()) Text("Ask Pulls…", style = PullsType.base, color = c.muted, maxLines = 1)
+                                inner()
+                            }
+                        },
+                    )
+                    if (streaming && task != null) {
+                        FloatButton({ session.cancelTask(task.id) }, t("common.stop"), size = 40.dp, container = c.primary) { PhIcon("stop-duotone", tint = Color.White, size = 18.dp) }
+                    } else {
+                        FloatButton(
+                            { val text = ui.chatInput; ui.chatInput = ""; ask(text) }, t("common.send"), size = 40.dp,
+                            enabled = !busy && ui.chatInput.isNotBlank(), container = c.primary,
+                        ) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
+                    }
+                }
+            }
+        },
     ) {
-        Column(Modifier.fillMaxWidth().fillMaxHeight().statusBarsPadding().imePadding()) {
-            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PhIcon("chat-circle-dots-duotone", tint = c.mute, size = 18.dp)
-                Text(t("chat.title"), Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.text)
-                if (available) ActionButton(onClick = {
-                    val key = session.key ?: return@ActionButton
-                    task?.takeIf { it.running }?.let { session.cancelTask(it.id) }
-                    ui.chatError = null
-                    session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
-                }, variant = ButtonVariant.Text, small = true) { Text(t("common.clear")) }
-                IconButton("caret-down", t("chat.collapse"), onDismiss, compact = true)
-            }
-            HorizontalDivider(color = c.border)
-            if (!available) {
-                Box(Modifier.fillMaxWidth().weight(1f).padding(24.dp), contentAlignment = Alignment.Center) {
-                    Text(t("chat.reanalyzeToEnable"), style = PullsType.sm, color = c.mute)
-                }
-                return@Column
-            }
-            LazyColumn(Modifier.fillMaxWidth().weight(1f), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                rows.forEachIndexed { index, row ->
-                    item(key = "m$index") {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ChatRowView(row)
-                            // The last reply's work log folds in under the question that asked for it.
-                            if (index == lastQuestion && !streaming && pending == null && task != null && task.activities.isNotEmpty()) {
-                                AiActivityLogFull(task.activities, false, startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), compact = true)
-                            }
-                        }
-                    }
-                }
-                if (pending != null) item(key = "pending") { UserBubble(pending) }
-                item(key = "live") {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (streaming && task.activities.isNotEmpty()) AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true)
-                        else if (streaming || ui.chatPending != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Spinner(c.mute, 12.dp)
-                            Text(t("chat.thinking"), style = PullsType.xs, color = c.mute)
-                        }
-                        if (!streaming && failed && ui.chatPending == null) {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                                Text(task.error ?: t("chat.requestFailed"), style = PullsType.sm, color = c.error)
-                                // A failed turn saved nothing, so the question is sent again (web `retry` re-runs an errored reply).
-                                ActionButton(onClick = { val text = task.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) }, icon = "arrow-clockwise-duotone", small = true) { Text(t("common.retry")) }
-                            }
-                        } else if (!streaming && task?.status == "cancelled") {
-                            Text(t("chat.stopped"), Modifier.border(1.dp, c.border, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp), style = PullsType.xs, color = c.mute)
-                        }
-                    }
+        if (!available) {
+            Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    if (analysis == null) "Analyze this pull request first, then you can ask about it." else t("chat.reanalyzeToEnable"),
+                    style = PullsType.sm, color = c.muted,
+                )
+                ActionButton({ session.runAnalyze() }, variant = ButtonVariant.Primary, small = true, enabled = analyzeTask?.running != true) {
+                    Text(if (analyzeTask?.running == true) "Analyzing…" else "Analyze")
                 }
             }
-            ui.chatError?.takeIf { !failed }?.let { Text(it, Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = PullsType.xs, color = c.error) }
-            HorizontalDivider(color = c.border)
-            Row(Modifier.fillMaxWidth().padding(8.dp).navigationBarsPadding(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextInput(ui.chatInput, { ui.chatInput = it }, t("chat.placeholder"), Modifier.weight(1f), singleLine = false, minLines = 2, enabled = !busy)
-                if (streaming) ActionButton(onClick = { session.cancelTask(task.id) }, icon = "stop-duotone", small = true) { Text(t("common.stop")) }
-                else ActionButton(
-                    onClick = {
-                        val text = ui.chatInput
-                        if (text.isNotBlank() && !busy) { ui.chatInput = ""; session.sendChat(text) }
-                    },
-                    variant = ButtonVariant.Primary, icon = "paper-plane-right-duotone", enabled = !busy && ui.chatInput.isNotBlank(), small = true,
-                ) { Text(t("common.send")) }
+            return@PullsSheet
+        }
+        Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            rows.forEachIndexed { index, row ->
+                ChatRowView(row)
+                // The last reply's work log folds in under the question that asked for it.
+                if (index == lastQuestion && !streaming && pending == null && task != null && task.activities.isNotEmpty()) {
+                    AiActivityLogFull(task.activities, false, startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), compact = true)
+                }
+            }
+            if (pending != null) QuestionBubble(pending)
+            if (streaming && task != null && task.activities.isNotEmpty()) {
+                AiActivityLogFull(task.activities, true, startedAt = task.startedAt.takeIf { it > 0 }, compact = true)
+            } else if (streaming || ui.chatPending != null) {
+                TypingDots()
+            }
+            if (!streaming && failed && ui.chatPending == null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(task?.error ?: t("chat.requestFailed"), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
+                    // A failed turn saved nothing, so the question is sent again (web `retry` re-runs an errored reply).
+                    ActionButton({ val text = task?.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) }, small = true) { Text(t("common.retry")) }
+                }
+            } else if (!streaming && task?.status == "cancelled") {
+                Text(t("chat.stopped"), style = PullsType.sm, color = c.muted)
+            }
+            ui.chatError?.takeIf { !failed }?.let { Text(it, style = PullsType.sm, color = c.error) }
+        }
+        if (rows.isEmpty() && pending == null && suggestions.isNotEmpty()) {
+            FlowRow(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                suggestions.forEach { suggestion -> SoftChip(suggestion, selected = false, onClick = { ask(suggestion) }) }
             }
         }
+    }
+}
+
+/** `.q`: your question, right-aligned in a teal wash. */
+@Composable
+private fun QuestionBubble(text: String) {
+    val c = LocalPullsColors.current
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Box(Modifier.fillMaxWidth(0.85f), contentAlignment = Alignment.CenterEnd) {
+            SelectionContainer {
+                Text(
+                    text,
+                    Modifier.clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 4.dp, bottomStart = 16.dp)).background(c.accentWash).padding(horizontal = 14.dp, vertical = 10.dp),
+                    style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.accentWashInk,
+                )
+            }
+        }
+    }
+}
+
+/** `.a`: an answer, left-aligned on a white card. */
+@Composable
+private fun AnswerBubble(text: String) {
+    val c = LocalPullsColors.current
+    val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp)
+    Box(Modifier.fillMaxWidth(0.92f)) {
+        Box(Modifier.floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Markdown(text, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f, color = c.text))
+        }
+    }
+}
+
+/** `.typing`: three breathing dots while the answer is not started. */
+@Composable
+private fun TypingDots() {
+    val c = LocalPullsColors.current
+    val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 4.dp)
+    Row(
+        Modifier.floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        repeat(3) { com.octaviantocan.pulls.ui.design.BreathingDot(size = 6.dp) }
     }
 }
 
@@ -215,8 +259,8 @@ private fun ChatSheet(session: ReviewSession, onDismiss: () -> Unit) {
 private fun ChatRowView(row: ChatRow) {
     val c = LocalPullsColors.current
     when (row) {
-        is ChatRow.User -> UserBubble(row.text)
-        is ChatRow.Assistant -> Markdown(row.text, Modifier.fillMaxWidth())
+        is ChatRow.User -> QuestionBubble(row.text)
+        is ChatRow.Assistant -> AnswerBubble(row.text)
         is ChatRow.Grouping -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PhIcon("tree-structure-duotone", tint = c.mute, size = 14.dp)
             Text(t("chat.updatedGrouping", "n" to row.groups), style = PullsType.xs, color = c.mute)

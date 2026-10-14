@@ -2,29 +2,21 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.FileGroup
 import com.octaviantocan.pulls.data.FullFile
 import com.octaviantocan.pulls.data.ReviewFile
-import com.octaviantocan.pulls.ui.design.LocalMessages
-import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -46,22 +38,10 @@ data class DiffTheme(val background: Color?, val foreground: Color?, val added: 
 data class LineMark(val path: String, val side: String, val line: Int, val findingId: String?)
 
 /**
- * Per-page UI state of the diff body: collapsed groups and files, drafts and selections,
- * highlight spans, loaded full files, and the item index map the focus scroller reads.
+ * Per-page UI state of the diff body: drafts and selections, highlight spans, loaded full files,
+ * and the item index map the focus scroller reads.
  */
 class DiffUi(val session: ReviewSession) {
-    /** Items [diffBodyItems] emitted last time, so focus can scroll: index = total - bodyCount + local. */
-    var bodyCount: Int = 0
-
-    /** Collapsed top-level and child groups (`collapsedGroups`, `collapsedChildren`); child keys are `parent/child`. */
-    val collapsedGroups = mutableStateMapOf<String, Boolean>()
-
-    /** Explicit file collapse state; absent falls back to reviewed-or-noisy (web initial `collapsed`). */
-    val collapsedFiles = mutableStateMapOf<String, Boolean>()
-
-    /** Phones only: whether a file's folded actions row is open. */
-    val actionsOpen = mutableStateMapOf<String, Boolean>()
-
     /** Full file contents by path, and which loads are running or failed. */
     val fullFiles = mutableStateMapOf<String, FullFile>()
     val fullLoading = mutableStateMapOf<String, Boolean>()
@@ -96,9 +76,6 @@ class DiffUi(val session: ReviewSession) {
     /** The line a focus request points at. */
     var mark by mutableStateOf<LineMark?>(null)
 
-    /** Paths whose diff rows are on screen (the tree highlights them). */
-    var visiblePaths by mutableStateOf(setOf<String>())
-
     /** Width of the page in dp, for the split/unified choice (kept by [DiffFocusEffect]). */
     var widthDp by mutableStateOf(0)
 
@@ -113,16 +90,6 @@ class DiffUi(val session: ReviewSession) {
     internal var indexOf: Map<String, Int> = emptyMap()
     internal var pathOfKey: Map<String, String> = emptyMap()
     internal var lineKey: Map<String, String> = emptyMap()
-    /** Item key -> group key it renders under (`groupsVisable` in `DiffsPage.vue`). */
-    internal var groupOfKey: Map<String, String> = emptyMap()
-
-    fun isFileCollapsed(file: ReviewFile): Boolean =
-        collapsedFiles[file.path] ?: (file.sha in session.reviewed || isNoisyFile(file.path))
-
-    fun setFileCollapsed(path: String, value: Boolean) { collapsedFiles[path] = value }
-
-    fun isGroupCollapsed(key: String): Boolean = collapsedGroups[key] == true
-    fun toggleGroup(key: String) { collapsedGroups[key] = !isGroupCollapsed(key) }
 
     fun canLoadFull(file: ReviewFile): Boolean = !file.isBinary && fullFiles[file.path] == null && session.key != null
 
@@ -236,175 +203,24 @@ internal class Emitter(private val scope: LazyListScope) {
     val index = HashMap<String, Int>()
     val paths = HashMap<String, String>()
     val lines = HashMap<String, String>()
-    val files = HashSet<String>()
-    /** Item key -> the group key (last segment) it renders under, for the header's group highlight. */
-    val groups = HashMap<String, String>()
-    var group: String? = null
 
     fun item(key: String, type: String, path: String? = null, content: @Composable LazyItemScope.() -> Unit) {
         index[key] = count++
-        group?.let { groups[key] = it }
         if (path != null) paths[key] = path
         scope.item(key = key, contentType = type) { content() }
     }
-
-    fun sticky(key: String, type: String, path: String? = null, content: @Composable LazyItemScope.() -> Unit) {
-        index[key] = count++
-        group?.let { groups[key] = it }
-        if (path != null) paths[key] = path
-        scope.stickyHeader(key = key, contentType = type) { content() }
-    }
 }
 
 /**
- * Ports `DiffGroup.vue`, `FileTree.vue`, `FileDiff.vue` and the review threads. MUST be the
- * last call in the page's LazyColumn (it ends with the "end of diff" footer). Emits small
- * items (group header, tree, file header, one per diff row, one per annotation group) so
- * long diffs scroll smoothly.
+ * Emits the rows of one [file] into this list and records where each item and line landed, so
+ * [PrDiffScreen] can scroll to a line. Nothing comes before the rows, so an item's index here is
+ * its index in the list.
  */
-fun LazyListScope.diffBodyItems(session: ReviewSession, ui: DiffUi) {
+internal fun LazyListScope.fileDiffItems(session: ReviewSession, ui: DiffUi, file: ReviewFile) {
     val emit = Emitter(this)
-    if (session.opened != null) {
-        groupViews(session, ui).forEach { view ->
-            if (view.children.isNotEmpty()) {
-                // A parent with children is a full-width chapter band; children render as ordinary groups.
-                val collapsed = ui.isGroupCollapsed(view.key)
-                emit.group = view.key
-                emit.item("diff:g:${view.key}", "chapter") {
-                    ChapterHeader(view, collapsed, session.reviewed, { ui.toggleGroup(view.key) }) { child -> session.focusGroupKey = "${view.key}/$child" }
-                }
-                if (!collapsed) {
-                    if (view.files.isNotEmpty()) groupBody(emit, session, ui, view, view.key)
-                    view.children.forEach { child -> normalGroup(emit, session, ui, child, "${view.key}/${child.key}", parent = view) }
-                }
-            } else {
-                normalGroup(emit, session, ui, view, view.key, parent = null)
-            }
-        }
-        emit.item("diff:end", "end") { EndOfDiff() }
-    }
-    ui.bodyCount = emit.count
+    fileBodyItems(emit, session, ui, file)
+    emit.item("diff:end:${file.path}", "end") { Box(Modifier.fillMaxWidth().height(140.dp)) }
     ui.indexOf = emit.index
     ui.pathOfKey = emit.paths
     ui.lineKey = emit.lines
-    ui.groupOfKey = emit.groups
-}
-
-private fun normalGroup(emit: Emitter, session: ReviewSession, ui: DiffUi, view: GroupView, key: String, parent: GroupView?) {
-    val collapsed = ui.isGroupCollapsed(key)
-    emit.group = view.key
-    emit.item("diff:g:$key", "group") {
-        GroupHeader(view, collapsed, session.reviewed, parent?.label, { ui.toggleGroup(key) }) { parent?.let { session.focusGroupKey = it.key } }
-    }
-    if (!collapsed) groupBody(emit, session, ui, view, key)
-}
-
-/** The group's tree, then each of its files (the web `aside` + files column, stacked on phones). */
-private fun groupBody(emit: Emitter, session: ReviewSession, ui: DiffUi, view: GroupView, key: String) {
-    val rows = treeRows(view.files, view.missing)
-    if (rows.isNotEmpty()) {
-        emit.item("diff:t:$key", "tree") {
-            FileTreeView(session, rows, ui.visiblePaths, { path -> session.focus = Focus(path) }, Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp))
-        }
-    }
-    // A file two groups both name renders once (item keys must be unique), under the first.
-    view.files.forEach { file -> if (emit.files.add(file.path)) fileItems(emit, session, ui, file) }
-    emit.item("diff:gend:$key", "spacer") { Box(Modifier.fillMaxWidth().padding(top = 16.dp)) }
-}
-
-/**
- * Keeps `session.focus` and `session.focusGroupKey` on screen: opens the group and file,
- * loads the full file when a gap hides the line, scrolls to the file header or the exact
- * line and marks it. Also folds files on review changes and tracks the files on screen.
- */
-@Composable
-fun DiffFocusEffect(session: ReviewSession, ui: DiffUi, listState: LazyListState) {
-    val width = LocalConfiguration.current.screenWidthDp
-    val messages = LocalMessages.current
-    val label = messages.t("group.uncategorized")
-    val summary = messages.t("group.uncategorizedSummary")
-    SideEffect {
-        if (ui.widthDp != width) ui.widthDp = width
-        if (ui.uncategorizedLabel != label) ui.uncategorizedLabel = label
-        if (ui.uncategorizedSummary != summary) ui.uncategorizedSummary = summary
-    }
-    val dark = LocalPullsColors.current.dark
-    LaunchedEffect(dark) { if (ui.themeDark != null && ui.themeDark != dark) { ui.tokens.clear(); ui.themeDark = dark } }
-
-    suspend fun indexWhenReady(key: String): Int? {
-        repeat(90) {
-            ui.indexOf[key]?.let { local ->
-                val total = listState.layoutInfo.totalItemsCount
-                if (total >= ui.bodyCount && ui.bodyCount > 0) return total - ui.bodyCount + local
-            }
-            delay(16)
-        }
-        return null
-    }
-
-    val focus = session.focus
-    LaunchedEffect(focus) {
-        val target = focus ?: return@LaunchedEffect
-        val file = session.files.firstOrNull { it.path == target.path } ?: return@LaunchedEffect
-        groupViews(session, ui).forEach { view ->
-            if (file in view.files) ui.collapsedGroups[view.key] = false
-            view.children.forEach { child ->
-                if (file in child.files) { ui.collapsedGroups[view.key] = false; ui.collapsedGroups["${view.key}/${child.key}"] = false }
-            }
-        }
-        ui.setFileCollapsed(file.path, false)
-        if (target.line <= 0) {
-            indexWhenReady("diff:fh:${file.path}")?.let { listState.animateScrollToItem(it) }
-            return@LaunchedEffect
-        }
-        ui.mark = LineMark(file.path, target.side, target.line, target.findingId)
-        val anchor = "${file.path}|${target.side}|${target.line}"
-        delay(32)
-        if (ui.lineKey[anchor] == null && !file.isBinary) {
-            // The line sits in an unmodified gap: load the full file and open every gap.
-            ui.loadFullFile(file)
-            repeat(250) { if (ui.fullLoading[file.path] != true) return@repeat; delay(20) }
-            if (ui.fullFiles[file.path] != null) ui.expandedGaps[file.path] = null
-        }
-        var key: String? = null
-        repeat(60) { if (key == null) { key = ui.lineKey[anchor]; if (key == null) delay(16) } }
-        val index = key?.let { indexWhenReady(it) } ?: indexWhenReady("diff:fh:${file.path}")
-        // Leave room above the line for the sticky file header and some context.
-        if (index != null) listState.animateScrollToItem(index, scrollOffset = if (key != null) -240 else 0)
-    }
-
-    val groupKey = session.focusGroupKey
-    LaunchedEffect(groupKey) {
-        val key = groupKey ?: return@LaunchedEffect
-        ui.collapsedGroups[key] = false
-        if (key.contains('/')) ui.collapsedGroups[key.substringBefore('/')] = false
-        // A top-level key may name a chapter child (the nav lists children without their parent).
-        val resolved = if (ui.indexOf.containsKey("diff:g:$key") || key.contains('/')) key
-        else groupViews(session, ui).firstNotNullOfOrNull { v -> v.children.firstOrNull { it.key == key }?.let { "${v.key}/${it.key}".also { k -> ui.collapsedGroups[v.key] = false; ui.collapsedGroups[k] = false } } } ?: key
-        indexWhenReady("diff:g:$resolved")?.let { listState.animateScrollToItem(it) }
-        // Consumed, so tapping the same group again scrolls again.
-        if (session.focusGroupKey == key) session.focusGroupKey = null
-    }
-
-    // Web `watch(isReviewed)`: marking a file reviewed folds it, unmarking unfolds it; a file
-    // folded while scrolled past is pinned back to its header so the next file starts on screen.
-    LaunchedEffect(session) {
-        var previous: Set<String>? = null
-        snapshotFlow { session.reviewed }.collect { current ->
-            val before = previous
-            previous = current
-            if (before == null) return@collect
-            val changed = session.files.filter { (it.sha in before) != (it.sha in current) }
-            changed.forEach { ui.setFileCollapsed(it.path, it.sha in current) }
-            val folded = changed.singleOrNull { it.sha in current } ?: return@collect
-            val local = ui.indexOf["diff:fh:${folded.path}"] ?: return@collect
-            val index = listState.layoutInfo.totalItemsCount - ui.bodyCount + local
-            if (listState.firstVisibleItemIndex > index) listState.scrollToItem(index)
-        }
-    }
-
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { info -> (info.key as? String)?.let { ui.pathOfKey[it] } }.toSet() }
-            .collect { paths -> if (paths != ui.visiblePaths) ui.visiblePaths = paths }
-    }
 }

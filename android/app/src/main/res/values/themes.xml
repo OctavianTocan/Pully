@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Pulls" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- The paper colour behind the first frame, so launch does not flash white. -->
+    <style name="Theme.Pulls" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFFDFCF9</item>
+    </style>
 </resources>

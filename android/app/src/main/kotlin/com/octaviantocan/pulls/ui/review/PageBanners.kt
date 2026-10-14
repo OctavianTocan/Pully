@@ -7,7 +7,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -28,15 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.data.ReviewSummary
 import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.IconButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TOUCH
@@ -134,46 +129,4 @@ private fun FormCheckbox(checked: Boolean) {
         Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(if (checked) c.primary else c.raised).border(1.dp, if (checked) c.primary else c.border, RoundedCornerShape(4.dp)),
         contentAlignment = Alignment.Center,
     ) { if (checked) PhIcon("check-bold", tint = Color.White, size = 11.dp) }
-}
-
-/** Port of `ReviewSummaries.vue`: the submitted reviews, collapsed behind "Reviews n". */
-@Composable
-fun ReviewSummaries(summaries: List<ReviewSummary>, modifier: Modifier = Modifier) {
-    if (summaries.isEmpty()) return
-    val c = LocalPullsColors.current
-    var open by rememberSaveable { mutableStateOf(false) }
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp))) {
-        Row(
-            Modifier.fillMaxWidth().defaultMinSize(minHeight = TOUCH).clickable { open = !open }.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            PhIcon(if (open) "caret-down" else "caret-right", tint = c.text, size = 14.dp)
-            Text(t("review.reviews"), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-            Text("${summaries.size}", style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text.copy(alpha = 0.5f))
-        }
-        if (open) Column(Modifier.topBorder(c.border)) {
-            summaries.forEachIndexed { index, summary ->
-                Column(
-                    Modifier.fillMaxWidth().then(if (index > 0) Modifier.topBorder(c.border) else Modifier).padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                        GlyphIcon(reviewGlyph(summary.state))
-                        GithubAvatar(summary.author, avatarUrl = summary.avatarUrl, size = 16.dp)
-                        Text(summary.author, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-                        val key = when (summary.state) {
-                            "approved" -> "review.approved"
-                            "changes_requested" -> "review.changesRequested"
-                            "dismissed" -> "review.dismissed"
-                            else -> "review.commented"
-                        }
-                        Text(t(key), style = PullsType.sm, color = c.fade)
-                        summary.submittedAt?.let { Text(prTimeAgo(it), style = PullsType.xs, color = c.fade) }
-                    }
-                    if (summary.body.isNotBlank()) Markdown(summary.body, Modifier.padding(start = 24.dp), style = PullsType.sm.copy(color = c.fade))
-                }
-            }
-        }
-    }
 }

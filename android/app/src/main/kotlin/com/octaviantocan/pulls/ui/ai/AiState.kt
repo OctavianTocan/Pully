@@ -7,13 +7,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.ui.review.ReviewSession
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObjectBuilder
 import java.util.WeakHashMap
 
@@ -33,8 +29,6 @@ internal class AiUi {
     var posting by mutableStateOf(false)
     var postError by mutableStateOf<String?>(null)
     var panelOpen by mutableStateOf(true)
-    /** Bumped by the header button while a review runs: the panel brings itself into view. */
-    var revealCritique by mutableStateOf(0)
     var lenses by mutableStateOf<List<Pair<String, String?>>?>(null)
     var lensesLoading by mutableStateOf(false)
     var lensesError by mutableStateOf<String?>(null)
@@ -48,7 +42,6 @@ internal class AiUi {
     val askPending = mutableStateMapOf<String, Pair<String, Int>>()
 
     // --- Chat ---
-    var chatOpen by mutableStateOf(false)
     var chatInput by mutableStateOf("")
     var chatPending by mutableStateOf<String?>(null)
     var chatError by mutableStateOf<String?>(null)

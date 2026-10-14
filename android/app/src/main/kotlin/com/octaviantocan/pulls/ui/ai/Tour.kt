@@ -11,20 +11,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +26,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,30 +33,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.caverock.androidsvg.SVG
-import com.octaviantocan.pulls.core.FileLinks
-import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.data.TourSource
-import com.octaviantocan.pulls.data.TourStop
 import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.IconButton
+import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.review.Focus
 import com.octaviantocan.pulls.ui.review.ReviewSession
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
 /*
@@ -82,42 +69,11 @@ fun startTour(session: ReviewSession) {
     session.startTask("tour", { put("locale", session.settings.locale) })
 }
 
-/**
- * The tour as LazyColumn items, starting at list index [start] (so the itinerary can jump).
- * Emits the empty state, the running state, or the tour.
- */
-fun LazyListScope.tourItems(session: ReviewSession, listState: LazyListState, start: Int) {
-    val task = session.taskFor("tour")
-    val tour = session.saved?.tour
-    val pad = Modifier.padding(horizontal = 12.dp)
-    if (task?.running == true) {
-        item(key = "tour:running") { TourRunning(session, pad.padding(top = 16.dp)) }
-        if (tour == null) return
-    }
-    if (tour == null) {
-        item(key = "tour:empty") { TourEmpty(session, task?.takeIf { it.status == "failed" }?.error, pad.padding(top = 24.dp)) }
-        return
-    }
-    var index = start + (if (task?.running == true) 1 else 0)
-    val stopIndex = HashMap<Int, Int>()
-    item(key = "tour:head") { TourHead(session, tour, pad.padding(top = 16.dp)) }
-    index++
-    item(key = "tour:itinerary") { Itinerary(tour) { at -> stopIndex[at]?.let { session.scope.launch { listState.animateScrollToItem(it) } } } }
-    index++
-    tour.stops.forEachIndexed { at, stop ->
-        stopIndex[at] = index
-        item(key = "tour:stop:$at") { StopCard(session, at, tour.stops.size, stop, pad.padding(top = 20.dp)) }
-        index++
-    }
-    if (tour.glossary.isNotEmpty()) item(key = "tour:glossary") { Glossary(tour.glossary, pad.padding(top = 24.dp)) }
-    item(key = "tour:end") { Box(Modifier.padding(48.dp)) }
-}
-
 @Composable
-private fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifier) {
+internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifier) {
     val c = LocalPullsColors.current
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(20.dp),
+        modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -135,12 +91,12 @@ private fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifier
 }
 
 @Composable
-private fun TourRunning(session: ReviewSession, modifier: Modifier) {
+internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     val c = LocalPullsColors.current
     val task = session.taskFor("tour") ?: return
     val now = rememberNow(true)
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(16.dp),
+        modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -153,92 +109,10 @@ private fun TourRunning(session: ReviewSession, modifier: Modifier) {
 }
 
 @Composable
-private fun TourHead(session: ReviewSession, tour: Tour, modifier: Modifier) {
-    val c = LocalPullsColors.current
-    val outdated = tour.headSha != null && session.opened?.headSha?.let { it != tour.headSha } == true
-    val running = session.taskFor("tour")?.running == true
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PhIcon("compass-duotone", tint = c.accentTeal, size = 20.dp)
-            Text("Tour", style = PullsType.xs.copy(fontWeight = FontWeight.Medium), color = c.accentTeal)
-            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-            if (!running) IconButton("arrows-clockwise-duotone", "Regenerate the tour", { startTour(session) }, compact = true)
-        }
-        Text(tour.title, style = PullsType.xl.copy(fontWeight = FontWeight.SemiBold), color = c.text)
-        if (outdated) Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(c.warning.copy(alpha = 0.1f)).padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            PhIcon("warning-duotone", tint = c.warning, size = 16.dp)
-            Text("Written for an older commit.", Modifier.weight(1f), style = PullsType.xs, color = c.text)
-            if (!running) ActionButton({ startTour(session) }, small = true) { Text("Update") }
-        }
-        Markdown(tour.overview, style = PullsType.sm.copy(color = c.text))
-        AiUsageLine(tour.usage?.copy(model = tour.usage.model ?: tour.model) ?: com.octaviantocan.pulls.data.Usage(model = tour.model))
-    }
-}
-
-/** The stops as numbered chips; a tap scrolls to the stop. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Itinerary(tour: Tour, onJump: (Int) -> Unit) {
-    val c = LocalPullsColors.current
-    FlowRow(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        tour.stops.forEachIndexed { at, stop ->
-            Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).border(1.dp, c.border, RoundedCornerShape(16.dp)).clickable(role = Role.Button) { onJump(at) }
-                    .padding(start = 4.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                StopNumber(at + 1, small = true, failed = stop.error != null)
-                Text(stop.title, style = PullsType.xs, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun StopNumber(n: Int, small: Boolean = false, failed: Boolean = false) {
-    val c = LocalPullsColors.current
-    val color = if (failed) c.error else c.accentTeal
-    Box(Modifier.size(if (small) 20.dp else 28.dp).clip(CircleShape).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-        Text("$n", style = (if (small) PullsType.mini else PullsType.sm).copy(fontWeight = FontWeight.SemiBold), color = color)
-    }
-}
-
-@Composable
-private fun StopCard(session: ReviewSession, at: Int, total: Int, stop: TourStop, modifier: Modifier) {
-    val c = LocalPullsColors.current
-    Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).border(1.dp, c.border, RoundedCornerShape(10.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StopNumber(at + 1, failed = stop.error != null)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Stop ${at + 1} of $total", style = PullsType.xs, color = c.mute)
-                Text(stop.title, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)
-            }
-        }
-        if (stop.purpose.isNotBlank()) Text(stop.purpose, style = PullsType.sm, color = c.fade)
-        if (stop.error != null) ErrorBox("This stop could not be written", stop.error)
-        stop.blocks.forEach { block -> TourBlockView(session, block) }
-        if (stop.takeaway.isNotBlank()) Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(c.accentTeal.copy(alpha = 0.08f)).padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            PhIcon("lightbulb-duotone", tint = c.accentTeal, size = 18.dp)
-            Text(stop.takeaway, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-        }
-        if (stop.sources.isNotEmpty()) Sources(session, stop.sources)
-    }
-}
-
-@Composable
-private fun TourBlockView(session: ReviewSession, block: TourBlock) {
+internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
     val c = LocalPullsColors.current
     when (block.kind) {
-        "text" -> Markdown(block.text, style = PullsType.sm.copy(color = c.text))
+        "text" -> Markdown(block.text, style = PullsType.read.copy(color = c.text))
         "shape" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(SHAPE_LABELS[block.lang] ?: "Sketch", style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = c.accentTeal)
@@ -246,7 +120,7 @@ private fun TourBlockView(session: ReviewSession, block: TourBlock) {
             }
             val zoom = session.settings.codeZoom
             Box(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(c.code).border(1.dp, c.border, RoundedCornerShape(6.dp))
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.paper)
                     .horizontalScroll(rememberScrollState()).padding(12.dp),
             ) {
                 Text(block.body, style = PullsType.xs.copy(fontFamily = PullsType.mono, fontSize = (12f * zoom).sp, lineHeight = (18f * zoom).sp), color = c.text, softWrap = false)
@@ -341,42 +215,30 @@ private fun SvgView(svg: SVG, modifier: Modifier) {
     }
 }
 
-/** Where to check the stop: a tap jumps to the line in the diff, or opens the file on GitHub when the PR did not touch it. */
-@OptIn(ExperimentalLayoutApi::class)
+/** Where to check the stop, as tappable `file:line` citations with the reason beside each. */
 @Composable
-private fun Sources(session: ReviewSession, sources: List<TourSource>) {
+internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("In the code", style = PullsType.micro.copy(fontWeight = FontWeight.SemiBold), color = c.mute)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text("In the code", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         sources.forEach { source ->
-            val inDiff = session.files.any { it.path == source.path }
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)).clickable(role = Role.Button) {
-                    if (inDiff) {
-                        session.pageTab = "diff"
-                        session.focus = Focus(source.path, source.line)
-                    } else {
-                        val repo = FileLinks.repoOf(session.target)
-                        val sha = session.opened?.headSha
-                        if (repo != null && !sha.isNullOrBlank()) runCatching { uri.openUri(FileLinks.blob(repo.first, repo.second, sha, source.path) + if (source.line > 0) "#L${source.line}" else "") }
-                    }
-                }.padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onOpen(source) }.padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                PhIcon(if (inDiff) "file-code-duotone" else "arrow-square-out", tint = c.fade, size = 14.dp)
                 Text(
                     source.path.substringAfterLast('/') + if (source.line > 0) ":${source.line}" else "",
-                    style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text, maxLines = 1,
+                    style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
+                    color = c.activeText, maxLines = 1,
                 )
-                Text(source.why, Modifier.weight(1f), style = PullsType.xs, color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(source.why, Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
 }
 
 @Composable
-private fun Glossary(entries: List<Pair<String, String>>, modifier: Modifier) {
+internal fun Glossary(entries: List<Pair<String, String>>, modifier: Modifier) {
     val c = LocalPullsColors.current
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

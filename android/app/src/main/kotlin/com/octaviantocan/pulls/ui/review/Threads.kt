@@ -24,14 +24,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,10 +44,13 @@ import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.IconButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import kotlinx.coroutines.launch
 
@@ -58,14 +59,15 @@ import kotlinx.coroutines.launch
  * inline AI content of `AiAnnotations.vue` (`FindingCard inline`, hunk notes, ask threads).
  */
 
-/** `my-1 max-w-200 border border-base rounded-lg bg-base`. */
+/** The card never grows wider than a readable line on a tablet. */
 private val CARD_MAX = 800.dp
 
+/** `.card`: a white 16dp card with a soft shadow, sitting on the diff under its line. */
 @Composable
 private fun CardBox(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(8.dp)
-    Column(modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX).fillMaxWidth().clip(shape).border(1.dp, c.border, shape).background(c.base)) { content() }
+    val shape = RoundedCornerShape(16.dp)
+    Column(modifier.widthIn(max = CARD_MAX).fillMaxWidth().floatShadow(shape, 4.dp).clip(shape).background(c.raised)) { content() }
 }
 
 /** Runs a GitHub write for a thread, then reloads the reviews; errors stay on the card. */
@@ -118,7 +120,7 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
         }
         Column {
             thread.comments.forEachIndexed { index, comment ->
-                if (index > 0) HorizontalDivider(color = c.border)
+                if (index > 0) HorizontalDivider(color = c.borderMute)
                 ReviewCommentCard(
                     comment,
                     isViewer = viewer != null && comment.author == viewer,
@@ -137,9 +139,9 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
         if (canWrite) {
             var replying by rememberSaveable(thread.rootId) { mutableStateOf(false) }
             var reply by rememberSaveable(thread.rootId) { mutableStateOf("") }
-            HorizontalDivider(color = c.border)
-            Column(Modifier.fillMaxWidth().background(c.raised).padding(horizontal = 8.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (replying) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(c.borderMute))
+            if (replying) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextInput(reply, { reply = it }, t("review.replyPlaceholder"), Modifier.fillMaxWidth(), singleLine = false, minLines = 2, enabled = !actions.busy)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                         ActionButton({ replying = false }, variant = ButtonVariant.Text, small = true, enabled = !actions.busy) { Text(t("common.cancel")) }
@@ -153,22 +155,24 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
                             variant = ButtonVariant.Primary, small = true, loading = actions.busy, enabled = reply.isNotBlank(),
                         ) { Text(t("common.reply")) }
                     }
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (!thread.pending) {
-                            val shape = RoundedCornerShape(4.dp)
-                            Box(
-                                Modifier.weight(1f).defaultMinSize(minHeight = 44.dp).clip(shape).border(1.dp, c.border, shape).background(c.base)
-                                    .clickable(role = Role.Button) { replying = true }.padding(horizontal = 8.dp, vertical = 4.dp),
-                                contentAlignment = Alignment.CenterStart,
-                            ) { Text(t("review.replyPlaceholder"), style = PullsType.sm, color = c.fade) }
-                        } else Spacer(Modifier.weight(1f))
-                        if (canResolve) {
-                            ActionButton(
-                                { val pull = session.pull ?: return@ActionButton; actions.run({ session.repo.resolve(pull, thread.threadId) }) },
-                                small = true, enabled = !actions.busy, icon = "check-circle-duotone",
-                            ) { Text(t("review.resolve")) }
+                }
+            } else {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (!thread.pending) {
+                        Row(
+                            Modifier.weight(1f).height(44.dp).clickable(role = Role.Button) { replying = true },
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            LuIcon(Lu.reply, tint = c.activeText, size = 18.dp)
+                            Text(t("common.reply"), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
                         }
+                    } else Spacer(Modifier.weight(1f))
+                    if (canResolve) {
+                        ActionButton(
+                            { val pull = session.pull ?: return@ActionButton; actions.run({ session.repo.resolve(pull, thread.threadId) }) },
+                            Modifier.padding(end = 8.dp), variant = ButtonVariant.Text, small = true, enabled = !actions.busy, icon = "check-circle-duotone",
+                        ) { Text(t("review.resolve")) }
                     }
                 }
             }
@@ -182,9 +186,9 @@ fun ReviewCommentCard(comment: ThreadComment, isViewer: Boolean, busy: Boolean, 
     val c = LocalPullsColors.current
     var editing by rememberSaveable(comment.id) { mutableStateOf(false) }
     var draft by rememberSaveable(comment.id) { mutableStateOf("") }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GithubAvatar(comment.author, avatarUrl = comment.avatarUrl, size = 18.dp)
+            GithubAvatar(comment.author, avatarUrl = comment.avatarUrl, size = 28.dp)
             Text(comment.author, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             parseIsoMillis(comment.createdAt)?.let { Text(timeAgo(it), style = PullsType.xs, color = c.fade, maxLines = 1) }
             if (comment.pending) Badge(t("review.pending"), color = c.amber)
@@ -206,59 +210,12 @@ fun ReviewCommentCard(comment: ThreadComment, isViewer: Boolean, busy: Boolean, 
     }
 }
 
-/**
- * `CommentComposer`: a 3-row textarea, Cancel, "Add single comment" (no pending review)
- * and "Start a review" / "Add review comment". Posting goes through `review-comment` with
- * the head sha; a range sends `startLine`.
- */
-@Composable
-fun CommentComposer(session: ReviewSession, draft: DraftTarget, onDone: () -> Unit) {
-    val c = LocalPullsColors.current
-    val scope = rememberCoroutineScope()
-    var body by rememberSaveable(draft.path, draft.side, draft.line) { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val hasPending = session.reviewData?.pendingReviewId != null
-    fun submit(mode: String) {
-        val pull = session.pull ?: return
-        val head = session.opened?.headSha ?: return
-        if (body.isBlank() || busy) return
-        busy = true
-        error = null
-        scope.launch {
-            runCatching {
-                session.repo.comment(pull, draft.path, draft.side, draft.line, head, body, mode, draft.startLine?.takeIf { it < draft.line })
-            }.onSuccess {
-                body = ""
-                onDone()
-                session.reloadReviews()
-            }.onFailure { error = it.message ?: it.toString() }
-            busy = false
-        }
-    }
-    Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextInput(body, { body = it }, t("review.leaveComment"), Modifier.fillMaxWidth(), singleLine = false, minLines = 3, enabled = !busy)
-        error?.let { Text(it, style = PullsType.xs, color = c.error) }
-        @OptIn(ExperimentalLayoutApi::class)
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton(onDone, variant = ButtonVariant.Text, small = true, enabled = !busy) { Text(t("common.cancel")) }
-            if (!hasPending) ActionButton({ submit("single") }, small = true, enabled = !busy && body.isNotBlank()) { Text(t("review.addSingle")) }
-            ActionButton({ submit("review") }, variant = ButtonVariant.Primary, small = true, loading = busy, enabled = body.isNotBlank()) {
-                Text(t(if (hasPending) "review.addToReview" else "review.startReview"))
-            }
-        }
-    }
-}
-
-/** The draft box under the last selected line: selection actions (AI) and, with write access, the composer. */
+/** The actions under the selected lines (ask AI, copy the location and link). Commenting is the bottom bar's job. */
 @Composable
 fun DraftBox(session: ReviewSession, draft: DraftTarget, binary: Boolean, onDone: () -> Unit) {
-    val canComment = session.canWrite && session.pull != null && !binary
+    if (binary) return
     CardBox {
-        if (!binary) {
-            com.octaviantocan.pulls.ui.ai.SelectionActions(session, draft.path, draft.side, draft.startLine ?: draft.line, draft.line, onDone)
-        }
-        if (canComment) CommentComposer(session, draft, onDone)
+        com.octaviantocan.pulls.ui.ai.SelectionActions(session, draft.path, draft.side, draft.startLine ?: draft.line, draft.line, onDone)
     }
 }
 
@@ -321,14 +278,4 @@ fun AiAnnotationBlock(session: ReviewSession, anchor: AiAnchor, highlightedFindi
     }
     anchor.findings.forEach { InlineFinding(session, it, highlighted = it.id == highlightedFinding) }
     anchor.asks.forEach { AskThreadCard(session, it, Modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX)) }
-}
-
-/** `FileSummary`: the AI note about the whole file, under the header. */
-@Composable
-fun FileSummary(summary: String) {
-    val c = LocalPullsColors.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PhIcon("sparkle-duotone", Modifier.padding(top = 3.dp), tint = c.fade, size = 16.dp, contentDescription = t("critique.fileSummary"))
-        Text(summary, style = PullsType.sm, color = c.fade)
-    }
 }

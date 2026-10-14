@@ -35,7 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Critique
@@ -43,7 +42,6 @@ import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
-import com.octaviantocan.pulls.ui.design.IconButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.PhIcon
@@ -72,47 +70,9 @@ private fun lensOf(session: ReviewSession): String? {
     return if (task?.running == true) task.lens else session.saved?.critique?.lens
 }
 
-/** Port of `CritiqueButton.vue`: Review with AI / Reviewing… {time} / Re-review, plus the lens menu. */
-@Composable
-internal fun CritiqueButtonImpl(session: ReviewSession, modifier: Modifier) {
-    val c = LocalPullsColors.current
-    val context = LocalContext.current
-    val ui = aiUi(session)
-    if (session.key == null || !cliEngine(context)) return
-    val task = session.taskFor("critique")
-    val running = task?.running == true
-    val result = session.saved?.critique
-    val now = rememberNow(running)
-    var pickerOpen by remember { mutableStateOf(false) }
-    val label = when {
-        running -> t("critique.running", "time" to formatClockDuration(now - task.startedAt))
-        result != null -> t("critique.rerun")
-        else -> t("critique.run")
-    }
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        ActionButton(
-            onClick = {
-                if (running) ui.revealCritique++
-                else session.runCritique(context, lensOf(session))
-            },
-            variant = if (result != null || running) ButtonVariant.Text else ButtonVariant.Action,
-            icon = if (running) null else "magnifying-glass-duotone",
-            small = true,
-        ) {
-            if (running) Spinner(c.text)
-            Text(label, style = PullsType.xs, maxLines = 1)
-        }
-        IconButton("caret-down", t("lens.pick"), { pickerOpen = true }, compact = true, enabled = !running)
-    }
-    if (pickerOpen) LensPickerSheet(session, onDismiss = { pickerOpen = false }) { lens ->
-        pickerOpen = false
-        session.runCritique(context, lens)
-    }
-}
-
 /** Port of `LensPicker.vue`: General plus the server's skills, searchable. */
 @Composable
-private fun LensPickerSheet(session: ReviewSession, onDismiss: () -> Unit, onPick: (String?) -> Unit) {
+internal fun LensPickerSheet(session: ReviewSession, onDismiss: () -> Unit, onPick: (String?) -> Unit) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
     var query by remember { mutableStateOf("") }
@@ -200,7 +160,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
     }
 
     val requester = remember { BringIntoViewRequester() }
-    LaunchedEffect(running, ui.revealCritique) { if (running) runCatching { requester.bringIntoView() } }
+    LaunchedEffect(running) { if (running) runCatching { requester.bringIntoView() } }
 
     val lens = if (running) task.lens else result?.lens
     val failed = task?.status == "failed"

@@ -1,168 +1,255 @@
 package com.octaviantocan.pulls.ui.review
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
+import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.ui.Nav
-import com.octaviantocan.pulls.ui.ai.ChatWidget
-import com.octaviantocan.pulls.ui.ai.CritiquePanel
-import com.octaviantocan.pulls.ui.ai.SharedAnalysisBanner
+import com.octaviantocan.pulls.ui.ai.AskSheet
+import com.octaviantocan.pulls.ui.ai.LensPickerSheet
+import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.design.ActionButton
 import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.EmptyState
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.Loading
+import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.t
-import com.octaviantocan.pulls.ui.ai.tourItems
+import com.octaviantocan.pulls.ui.home.TourEntry
+import com.octaviantocan.pulls.ui.home.TourIndex
+import com.octaviantocan.pulls.ui.home.deviceStore
 import kotlinx.coroutines.delay
 
-/** Key of the overview panel's item, so the header chips can scroll to it. */
-private const val OVERVIEW_ITEM = "top:overview"
+/** What the Ask sheet opens with: its title, the starter chips and a question to send at once. */
+private data class AskRequest(val title: String, val suggestions: List<String>, val initial: String?)
+
+private val PR_SUGGESTIONS = listOf("What changed, in a sentence?", "Anything risky?", "What do the tests cover?")
+private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should I check by hand?", "What is the riskiest part?")
 
 /**
- * Port of `DiffsPage.vue` + `diff.vue`: one scrolling page. The header (`DiffsHeader`), the
- * commit range banner and `PrOverviewPanel`, the stale and shared-analysis banners, the
- * review summaries (only without an overview, like the web), `CritiquePanel` and the overall
- * AI summary come first; [diffBodyItems] comes LAST (it ends with the end-of-diff footer).
- * The header scrolls away on phones, as the web header does below `md`.
+ * One review, as three pages stacked like the prototype's screens: the overview, one file's diff and
+ * the tour. This owns the session and the sheets over them; the pages draw. Back pops a page, and
+ * from the first page leaves the review. A citation anywhere (a finding, a tour source, the palette)
+ * asks for a [Focus], and this opens the diff on it.
  */
 @Composable
-fun ReviewScreen(target: OpenTarget, nav: Nav) {
+fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val uri = LocalUriHandler.current
+    val toaster = LocalToaster.current
+    val messages = LocalMessages.current
+    val c = LocalPullsColors.current
     val session = remember(target) { ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also { it.load() } }
     DisposableEffect(session) { onDispose { session.detach() } }
-    val listState = rememberLazyListState()
     val ui = rememberDiffUi(session)
-    val top = remember(session) { ReviewTopUi(context) }
+    val top = remember(session) { ReviewTopUi() }
     val data = remember(session.overview) { parsePrOverviewData(session.overview) }
-    val c = LocalPullsColors.current
+    val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
+    val pages = remember(session) { mutableStateListOf(if (startOnTour) PrView.Tour else PrView.Overview) }
+    val overviewScroll = rememberScrollState()
+    var pane by rememberSaveable { mutableIntStateOf(0) }
+    var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var sheet by remember { mutableStateOf<String?>(null) }
+    var ask by remember { mutableStateOf<AskRequest?>(null) }
+    val opened = session.opened
+    val head = prHead(session, data)
 
-    OverviewEffects(session, top, data, listState)
-    PrCommands(session, ui, listState, onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session) })
+    SideEffect {
+        ui.uncategorizedLabel = messages.t("group.uncategorized")
+        ui.uncategorizedSummary = messages.t("group.uncategorizedSummary")
+    }
+    OverviewEffects(session, top, data)
+    BackHandler(enabled = pages.size > 1) { pages.removeAt(pages.lastIndex) }
 
-    Box(Modifier.fillMaxSize()) {
-        val opened = session.opened
-        when {
-            opened == null && session.loading -> Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 16.dp, vertical = 48.dp), verticalArrangement = Arrangement.spacedBy(32.dp)) {
-                CommitRangeBanner(session, data?.overview)
-                Loading(t("pr.loading"))
-            }
-            opened == null && session.loadError != null -> Column(
-                Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 16.dp, vertical = 48.dp),
-                verticalArrangement = Arrangement.spacedBy(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                CommitRangeBanner(session, data?.overview)
-                EmptyState("warning-duotone", t("pr.loadFailed"), hint = session.loadError) {
-                    ActionButton({ session.refresh() }, variant = ButtonVariant.Primary) { Text(t("common.retry")) }
-                }
-            }
-            opened != null -> {
-                val visibleGroups by remember(listState) {
-                    derivedStateOf {
-                        // A group is visible while any of its items (header, tree, files) is on screen, like the web's rect test.
-                        val owners = ui.groupOfKey
-                        listState.layoutInfo.visibleItemsInfo.mapNotNull { info -> (info.key as? String)?.let { owners[it] } }.toSet()
-                    }
-                }
-                // `md:sticky`: from 768dp the web header stays pinned (with a border and shadow once
-                // scrolled) and file headers stick below it; on phones it scrolls away with the page.
-                val pinned = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 768
-                val scrolled by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 20 } }
-                val header: @Composable () -> Unit = {
-                    ReviewHeader(session, top, data, nav, visibleGroups.ifEmpty { setOfNotNull(session.groups.firstOrNull()?.key) })
-                }
-                Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
-                if (pinned) Box(Modifier.zIndex(1f).let { m -> if (scrolled) m.shadow(2.dp).bottomBorder(c.border) else m }) { header() }
-                LazyColumn(Modifier.fillMaxSize().pinchToZoomCode(session.settings), state = listState) {
-                    if (!pinned) item(key = "top:header") { header() }
-                    item(key = "top:pagetabs") { PageTabs(session, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
-                    if (session.pageTab == "tour") {
-                        tourItems(session, listState, start = (if (pinned) 0 else 1) + 1)
-                        return@LazyColumn
-                    }
-                    if (session.pull != null) {
-                        item(key = "top:range") { CommitRangeBanner(session, data?.overview, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
-                        item(key = OVERVIEW_ITEM) { OverviewPanel(session, top, data, Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) }
-                    }
-                    if (session.loading) item(key = "top:loading") { Loading(t("common.loading"), Modifier.padding(horizontal = 12.dp)) }
-                    if (session.loadError != null) item(key = "top:refreshError") {
-                        Text(session.loadError.orEmpty(), Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp), style = PullsType.sm, color = WebColors.red(c.dark))
-                    }
-                    if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) item(key = "top:stale") {
-                        StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(start = 12.dp, end = 12.dp, top = 16.dp))
-                    }
-                    item(key = "top:shared") { SharedAnalysisBanner(session, Modifier.padding(start = 12.dp, end = 12.dp, top = 16.dp)) }
-                    val summaries = session.reviewData?.summaries.orEmpty()
-                    if (summaries.isNotEmpty() && data == null) item(key = "top:summaries") {
-                        ReviewSummaries(summaries, Modifier.padding(start = 12.dp, end = 12.dp, top = 16.dp))
-                    }
-                    item(key = "top:critique") { CritiquePanel(session, Modifier.padding(top = 16.dp)) }
-                    val overall = session.saved?.analysis?.overallSummary?.takeIf { session.analyzeMode == "ai" && session.hasAiResult }
-                    if (!overall.isNullOrBlank()) item(key = "top:summary") {
-                        Column(Modifier.fillMaxWidth().padding(top = 16.dp).bottomBorder(c.border).padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                            Markdown(overall, style = PullsType.sm.copy(color = c.fade))
-                        }
-                    }
-                    diffBodyItems(session, ui)
-                }
-                }
-            }
-        }
-        DiffFocusEffect(session, ui, listState)
-        ChatWidget(session)
+    fun orderedFiles() = fileSections(session, ui).flatMap { it.files }
+    fun push(page: PrView) { if (pages.last() != page) pages.add(page) }
+    fun back() { if (pages.size > 1) pages.removeAt(pages.lastIndex) else nav.back() }
+    fun openDiff(path: String?) {
+        val files = orderedFiles()
+        diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
+        push(PrView.Diff)
+    }
+    fun openAsk(forTour: Boolean, initial: String? = null) {
+        ask = AskRequest(
+            if (forTour) "Ask about this tour" else "Ask about ${head?.label ?: "this pull request"}",
+            if (forTour) TOUR_SUGGESTIONS else PR_SUGGESTIONS,
+            initial,
+        )
     }
 
-    // Sheets live outside the list so scrolling their opener away does not close them.
-    if (session.opened != null) {
-        ReviewProgressSheet(session, top)
-        ReviewSubmitSheet(session, top)
-        if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)
+    PrCommands(session, orderedFiles(), diffPath, onGo = { path -> diffPath = path; push(PrView.Diff) }, onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session) })
+
+    // A citation or a finding asked for a line: open the diff on its file (the diff screen then scrolls to the line).
+    val focus = session.focus
+    LaunchedEffect(focus) {
+        val wanted = focus ?: return@LaunchedEffect
+        if (session.files.none { it.path == wanted.path }) {
+            toaster.show("${wanted.path.substringAfterLast('/')} is not part of this change")
+            session.focus = null
+            return@LaunchedEffect
+        }
+        diffPath = wanted.path
+        push(PrView.Diff)
+    }
+    // GitHub refused an action (close, ready, draft…) while no sheet was there to say so.
+    LaunchedEffect(top.actionError) {
+        val error = top.actionError ?: return@LaunchedEffect
+        if (!top.mergeOpen) {
+            toaster.show(messages.t("overview.actions.failed", "message" to error))
+            top.actionError = null
+        }
+    }
+    // The Tours tab lists a tour once it exists or is being written.
+    val tour = session.saved?.tour
+    val tourRunning = session.taskFor("tour")?.running == true
+    val pull = session.pull
+    LaunchedEffect(tour?.generatedAt, tourRunning, head?.title) {
+        if (pull == null || head == null || (tour == null && !tourRunning)) return@LaunchedEffect
+        val existing = tours.get("${pull.owner}/${pull.repo}#${pull.number}")
+        val stops = tour?.stops?.size ?: 0
+        tours.upsert(
+            TourEntry(
+                pull.owner, pull.repo, pull.number, head.title, stops,
+                reached = minOf(existing?.reached ?: 0, stops), stopTitle = existing?.stopTitle.orEmpty(),
+                writing = tourRunning, updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    Box(Modifier.fillMaxSize().background(c.base)) {
+        when {
+            opened == null && session.loading -> Placeholder(onBack = nav.back) { Loading(messages.t("pr.loading")) }
+            opened == null && session.loadError != null -> Placeholder(onBack = nav.back) {
+                EmptyState("warning-duotone", messages.t("pr.loadFailed"), hint = session.loadError) {
+                    ActionButton({ session.refresh() }, variant = ButtonVariant.Primary) { Text(messages.t("common.retry")) }
+                }
+            }
+            opened != null && head != null -> {
+                Crossfade(pages.last(), animationSpec = tween(260), label = "review-page") { page ->
+                    when (page) {
+                        PrView.Overview -> PrOverviewScreen(
+                            session, ui, top, data, head, overviewScroll, pane, { pane = it },
+                            onBack = ::back,
+                            onDiff = ::openDiff,
+                            onTour = { push(PrView.Tour) },
+                            onAsk = { openAsk(forTour = false) },
+                            onSheet = { sheet = it },
+                            onCite = { cite -> session.focus = Focus(cite.path, cite.line) },
+                            onOpenRepo = nav.openRepo,
+                        )
+                        PrView.Diff -> PrDiffScreen(session, ui, diffPath, { diffPath = it }, onBack = ::back)
+                        PrView.Tour -> PrTourScreen(
+                            session, ui, head,
+                            resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.reached } ?: 0 },
+                            onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title) },
+                            onBack = ::back,
+                            onOpenSource = { source -> openSource(session, source, uri::openUri) },
+                            onAsk = { question -> openAsk(forTour = true, initial = question) },
+                        )
+                    }
+                }
+                // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
+                when (sheet) {
+                    "more" -> MoreSheet(session, top, data, head, onClose = { sheet = null }, onSheet = { sheet = it })
+                    "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
+                    "commits" -> data?.overview?.let { CommitsSheet(session, it) { sheet = null } }
+                    "findings" -> FindingsSheet(session) { sheet = null }
+                    "model" -> ModelSheet(session, onClose = { sheet = null }, onEffort = { sheet = "effort" })
+                    "effort" -> EffortSheet(session, onBack = { sheet = "model" }, onClose = { sheet = null })
+                    "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->
+                        sheet = null
+                        session.runCritique(context, lens)
+                        toaster.show("Reviewing ${head.label}")
+                    }
+                }
+                ask?.let { request -> AskSheet(session, request.title, request.suggestions, request.initial) { ask = null } }
+                ReviewProgressSheet(session, top)
+                ReviewSubmitSheet(session, top)
+                if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)
+            }
+        }
     }
 }
 
+/** A page with only a back button over [content]: while the pull request loads or when it cannot. */
+@Composable
+private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) { FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp) }
+        Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, content = content)
+    }
+}
+
+/** A tour source: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
+private fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
+    if (session.files.any { it.path == source.path }) {
+        session.focus = Focus(source.path, source.line)
+        return
+    }
+    val repo = FileLinks.repoOf(session.target)
+    val sha = session.opened?.headSha
+    if (repo != null && !sha.isNullOrBlank()) runCatching { openUri(FileLinks.blob(repo.first, repo.second, sha, source.path) + if (source.line > 0) "#L${source.line}" else "") }
+}
+
+/** Remembers how far into the tour the reader has been, never going back. */
+private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead, stop: Int, total: Int, title: String) {
+    if (pull == null) return
+    val key = "${pull.owner}/${pull.repo}#${pull.number}"
+    val existing = tours.get(key)
+    if (existing != null && existing.reached >= stop && existing.stops == total && !existing.writing) return
+    tours.upsert(
+        TourEntry(
+            pull.owner, pull.repo, pull.number, head.title, total,
+            reached = maxOf(existing?.reached ?: 0, stop),
+            stopTitle = if (existing == null || stop > existing.reached) title else existing.stopTitle,
+            writing = false, updatedAt = System.currentTimeMillis(),
+        ),
+    )
+}
+
 /**
- * The overview's side effects: scroll to the panel when a chip asks (`focusRequest`),
- * re-fetch while GitHub is still computing mergeability or checks are pending
- * (`revalidateDelay`, at most 20 polls), and pull new commits in at once when the
- * auto-refresh setting is on and the PR head moved (the web's `checkStaleness`).
+ * The overview's side effects: re-fetch while GitHub is still computing mergeability or checks are
+ * pending (`revalidateDelay`, at most 20 polls), and pull new commits in at once when the auto-refresh
+ * setting is on and the PR head moved (the web's `checkStaleness`).
  */
 @Composable
-private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?, listState: LazyListState) {
-    LaunchedEffect(top.focusRequest) {
-        if (top.focusRequest == 0) return@LaunchedEffect
-        val index = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == OVERVIEW_ITEM }?.index ?: 2
-        listState.animateScrollToItem(index)
-    }
+private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?) {
     val overview = data?.overview
     LaunchedEffect(overview, top.polls) {
         val wait = overview?.let(::overviewRevalidateDelayMs) ?: return@LaunchedEffect
@@ -175,18 +262,4 @@ private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOv
     LaunchedEffect(stale, session.settings.autoRefresh) {
         if (stale && session.settings.autoRefresh && !session.loading && session.selection == null) session.refresh()
     }
-}
-
-/** Phone-only page tabs: the review (diff) and the AI tour. */
-@Composable
-private fun PageTabs(session: ReviewSession, modifier: Modifier = Modifier) {
-    val tour = session.saved?.tour
-    val running = session.taskFor("tour")?.running == true
-    com.octaviantocan.pulls.ui.design.ToggleGroup(
-        listOf("diff" to "Review", "tour" to if (running) "Tour…" else if (tour != null) "Tour · ${tour.stops.size}" else "Tour"),
-        session.pageTab,
-        { session.pageTab = it },
-        modifier,
-        icons = mapOf("diff" to "git-diff-duotone", "tour" to "compass-duotone"),
-    )
 }

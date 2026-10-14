@@ -42,13 +42,9 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
-import com.octaviantocan.pulls.ui.design.tc
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
-
-/** The login GitHub Actions shares analyses as (`ACTIONS_BOT_LOGIN`). */
-private const val ACTIONS_BOT_LOGIN = "github-actions[bot]"
 
 /** The palette's "Analyze with AI": starts one unless an analysis is already running. */
 fun runAnalyzeFromCommand(session: ReviewSession) {
@@ -56,90 +52,15 @@ fun runAnalyzeFromCommand(session: ReviewSession) {
     session.runAnalyze()
 }
 
+/**
+ * Starts the analysis (groups, file notes, summary). The prototype's "Analyzing" covers the tour
+ * too, so once it succeeds and the diff has no tour yet, the tour is started as well.
+ */
 internal fun ReviewSession.runAnalyze() {
     val locale = settings.locale
-    startAiTask("analyze", extra = { put("locale", locale) })
-}
-
-/** Port of `DiffAnalyzeButton.vue`. */
-@Composable
-internal fun AnalyzeButtonImpl(session: ReviewSession, modifier: Modifier) {
-    val c = LocalPullsColors.current
-    if (session.key == null) return
-    val task = rememberLiveTask(session, "analyze")
-    val hasAiResult = session.hasAiResult
-    val analyzing = task?.running == true
-    val failed = task?.status == "failed"
-    // Running or failed: the button opens the status sheet instead of starting a run.
-    val hasStatus = analyzing || failed
-    var statusOpen by remember { mutableStateOf(false) }
-    val now = rememberNow(analyzing)
-    if (hasAiResult && !hasStatus && session.analyzeMode == "rules") {
-        if (statusOpen) AnalyzeStatusSheet(session) { statusOpen = false }
-        return
-    }
-    val label = when {
-        analyzing -> if (task.startedAt > 0) t("analyze.analyzingFor", "duration" to formatClockDuration(now - task.startedAt)) else t("analyze.analyzing")
-        failed -> t("analyze.failed")
-        hasAiResult -> t("analyze.reanalyze")
-        else -> t("analyze.withAi")
-    }
-    ActionButton(
-        onClick = { if (hasStatus) statusOpen = true else session.runAnalyze() },
-        modifier = modifier,
-        variant = if (hasAiResult) ButtonVariant.Text else ButtonVariant.Primary,
-        icon = if (analyzing || failed) null else "sparkle-duotone",
-        small = true,
-    ) {
-        val fg = if (hasAiResult) c.text else androidx.compose.ui.graphics.Color.White
-        if (analyzing) Spinner(fg)
-        // `text-red-500` beside an AI result, `text-red-100` on the green primary button.
-        else if (failed) PhIcon("warning-circle-duotone", tint = if (hasAiResult) c.error else androidx.compose.ui.graphics.Color(0xFFFEE2E2), size = 18.dp)
-        Text(label, style = PullsType.xs, maxLines = 1)
-    }
-    if (statusOpen) AnalyzeStatusSheet(session) { statusOpen = false }
-}
-
-/** Port of `AnalyzeStatusModal.vue`: the live work log, outcome, usage, Stop / Rerun. */
-@Composable
-internal fun AnalyzeStatusSheet(session: ReviewSession, onDismiss: () -> Unit) {
-    val c = LocalPullsColors.current
-    val ui = aiUi(session)
-    val task = session.taskFor("analyze")
-    val analyzing = task?.running == true
-    val outcome = outcomeOf(task)
-    AiSheet(
-        title = t("analyze.statusTitle"),
-        onDismiss = onDismiss,
-        footer = {
-            if (analyzing) ActionButton(onClick = { session.cancelTask(task.id) }, icon = "stop-duotone", small = true) { Text(t("common.stop")) }
-            else ActionButton(onClick = { session.runAnalyze() }, variant = ButtonVariant.Primary, icon = "arrow-clockwise-duotone", small = true) { Text(t("common.rerun")) }
-        },
-    ) {
-        if (analyzing && task.id !in ui.startedHere) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PhIcon("plugs-connected", tint = c.mute, size = 14.dp)
-                Text(t("analyze.resumed"), style = PullsType.xs, color = c.mute)
-            }
-        }
-        AiActivityLogFull(task?.activities.orEmpty(), analyzing, startedAt = task?.startedAt?.takeIf { it > 0 }, endedAt = task?.endedAt, outcome = outcome)
-        if (!analyzing) {
-            val groups = session.saved?.aiGroups?.size
-            when {
-                task?.status == "failed" -> ErrorBox(t("analyze.failed"), task.error)
-                task?.status == "cancelled" -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PhIcon("stop-circle", tint = c.fade, size = 16.dp)
-                    Text(t("ai.stopped"), style = PullsType.sm, color = c.fade)
-                }
-                groups != null && groups > 0 -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PhIcon("check-circle", tint = c.success, size = 16.dp)
-                    Text(tc("analyze.done", groups), style = PullsType.sm, color = c.text)
-                }
-            }
-            val wall = if (task != null && task.startedAt > 0 && task.endedAt != null) task.endedAt - task.startedAt else null
-            AiUsageLine(task?.usage, durationMs = wall)
-        }
-    }
+    startAiTask("analyze", extra = { put("locale", locale) }, onDone = { done ->
+        if (done.status == "done" && saved?.tour == null && taskFor("tour")?.running != true) startTour(this)
+    })
 }
 
 /** A 16dp spinner in the button's color, for `i-ph:spinner-duotone animate-spin`. */

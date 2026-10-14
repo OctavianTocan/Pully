@@ -24,13 +24,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -128,7 +127,8 @@ fun ActionButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(4.dp)
+    // The prototype's buttons are pills (`.cta`, `.bb button`).
+    val shape = RoundedCornerShape(50)
     val interaction = remember { MutableInteractionSource() }
     val (fill, border, base) = when (variant) {
         ButtonVariant.Primary -> Triple(c.primary, Color.Transparent, Color.White)
@@ -151,7 +151,7 @@ fun ActionButton(
             .background(fill, shape)
             .border(1.dp, border, shape)
             .clickable(interaction, null, enabled = enabled && !loading, role = Role.Button, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -188,15 +188,15 @@ fun IconButton(icon: String, label: String, onClick: () -> Unit, modifier: Modif
 fun <T> ToggleGroup(options: List<Pair<T, String>>, value: T, onChange: (T) -> Unit, modifier: Modifier = Modifier, icons: Map<T, String> = emptyMap()) {
     val c = LocalPullsColors.current
     Row(
-        modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).clip(RoundedCornerShape(8.dp)).background(c.sunken).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).clip(RoundedCornerShape(50)).background(c.sunken).padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         options.forEach { (option, label) ->
             val on = option == value
             Row(
                 Modifier
-                    .defaultMinSize(minHeight = 36.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .defaultMinSize(minHeight = 38.dp)
+                    .clip(RoundedCornerShape(50))
                     .background(if (on) c.raised else Color.Transparent)
                     .clickable(role = Role.Tab) { onChange(option) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -330,7 +330,7 @@ fun TextInput(
     enabled: Boolean = true,
 ) {
     val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(4.dp)
+    val shape = RoundedCornerShape(12.dp)
     BasicTextField(
         value = value,
         onValueChange = onChange,
@@ -345,7 +345,7 @@ fun TextInput(
         modifier = modifier.defaultMinSize(minHeight = TOUCH),
         decorationBox = { inner ->
             Row(
-                Modifier.clip(shape).background(c.raised).border(BorderStroke(1.dp, c.border), shape).padding(horizontal = 10.dp, vertical = 10.dp),
+                Modifier.clip(shape).background(c.raised).border(BorderStroke(1.dp, c.border), shape).padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
