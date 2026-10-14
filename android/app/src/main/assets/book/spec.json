@@ -291,22 +291,27 @@
     "8": 32
   },
   "elevation": {
-    "float": 8,
-    "raised": 4,
-    "thumb": 2,
-    "modal": 24
+    "button": 10,
+    "note": 12,
+    "bar": 14,
+    "search": 16,
+    "menu": 20,
+    "thumb": 3,
+    "modal": 40
   },
   "motion": {
     "tick": "150ms",
     "state": "200ms",
-    "slide": "240ms cubic-bezier(0.2, 0.8, 0.2, 1)",
-    "toast": "250ms",
+    "slide": "250ms cubic-bezier(0.22, 1, 0.36, 1)",
+    "toast": "350ms in, 250ms out",
+    "swap": "150ms ease-in-out",
     "progress": "400ms",
     "press": "scale 0.97",
     "breathe": "1200ms reverse loop",
     "orb-turn": "1600ms linear loop",
     "orb-breath": "900ms reverse loop",
-    "shimmer": "1500ms linear loop"
+    "shimmer": "1500ms linear loop",
+    "thinking-shimmer": "1200ms linear loop"
   },
   "components": {
     "float-button": {
@@ -370,6 +375,33 @@
       "rounded": 9999,
       "background": "cta",
       "color": "on-cta",
+      "typography": "row"
+    },
+    "pill-button": {
+      "size": null,
+      "width": null,
+      "height": 44,
+      "rounded": 9999,
+      "background": "paper-2",
+      "color": "text",
+      "typography": "row"
+    },
+    "pill-input": {
+      "size": null,
+      "width": null,
+      "height": 52,
+      "rounded": 9999,
+      "background": "raised",
+      "color": "text",
+      "typography": "base"
+    },
+    "sheet-field": {
+      "size": null,
+      "width": null,
+      "height": null,
+      "rounded": null,
+      "background": null,
+      "color": "text",
       "typography": "row"
     },
     "sheet": {

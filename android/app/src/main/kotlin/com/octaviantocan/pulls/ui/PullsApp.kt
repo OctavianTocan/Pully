@@ -83,9 +83,9 @@ fun PullsApp(initialTarget: String?) {
     UseCommands {
         val group = messages.t("palette.group.general")
         listOf(
-            Command("settings", messages.t("keys.settings"), group, icon = "gear-duotone") { nav.settings() },
-            Command("home", messages.t("keys.home"), group, icon = "house-line-duotone") { nav.home() },
-            Command("theme", messages.t("keys.theme"), group, icon = "moon-stars-duotone") { settings.updateTheme(if (dark) "light" else "dark") },
+            Command("settings", messages.t("keys.settings"), group) { nav.settings() },
+            Command("home", messages.t("keys.home"), group) { nav.home() },
+            Command("theme", messages.t("keys.theme"), group) { settings.updateTheme(if (dark) "light" else "dark") },
         )
     }
     CompositionLocalProvider(LocalToaster provides toaster) {

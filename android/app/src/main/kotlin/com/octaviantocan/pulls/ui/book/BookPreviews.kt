@@ -17,10 +17,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -29,6 +31,8 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.OkDot
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PendingDot
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsCheck
@@ -37,9 +41,11 @@ import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.QuickAction
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.SoftChip
@@ -64,8 +70,11 @@ internal fun bookPreviews(id: String): List<BookVariant> = when (id) {
     "check" -> checkVariants()
     "switch" -> switchVariants()
     "cta-button" -> ctaButtonVariants()
+    "pill-button" -> pillButtonVariants()
+    "pill-input" -> pillInputVariants()
     "sheet" -> sheetVariants()
     "sheet-card" -> sheetCardVariants()
+    "sheet-field" -> sheetFieldVariants()
     "sheet-row" -> sheetRowVariants()
     "quick-action" -> quickActionVariants()
     "toast" -> toastVariants()
@@ -162,6 +171,40 @@ private fun switchVariants() = listOf(
     ),
 )
 
+private fun pillInputVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Empty") { PillInput("", {}, "Ask about this tour…") },
+            BookState("Typed") { PillInput("Why is the cache keyed by SHA?", {}, "Ask about this tour…") },
+        ),
+    ),
+    BookVariant(
+        "with-send",
+        listOf(
+            BookState("Send") {
+                PillInput("", {}, "Comment on line 12…") { SendButton({}, "Send") }
+            },
+        ),
+    ),
+)
+
+private fun pillButtonVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Rest") { PillButton("Retry", {}) },
+            BookState("Disabled") { PillButton("Retry", {}, enabled = false) },
+        ),
+    ),
+    BookVariant(
+        "with-icon",
+        listOf(
+            BookState("Leading icon") { PillButton("Rewrite", {}, leading = { LuIcon(Lu.redo, size = 20.dp) }) },
+        ),
+    ),
+)
+
 private fun ctaButtonVariants() = listOf(
     BookVariant(
         "default",
@@ -225,6 +268,29 @@ private fun sheetVariants() = listOf(
 
 private fun sheetCardVariants() = listOf(
     BookVariant("default", listOf(BookState("Card of rows") { OnPaper { DemoRows() } })),
+)
+
+private fun sheetFieldVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Empty") { OnPaper { SheetCard { SheetField("Title", "", {}, placeholder = "Fix the cache key", first = true) } } },
+            BookState("Filled, two fields") {
+                OnPaper { SheetCard { SheetField("Repository", "OctavianTocan/pulls.review", {}, first = true); SheetField("Branch", "main", {}) } }
+            },
+            BookState("With a word") {
+                OnPaper { SheetCard { SheetField("GitHub token", "ghp_example", {}, first = true, secret = true, trailing = { Text("Show", style = PullsType.row, color = LocalPullsColors.current.muted, modifier = Modifier.padding(horizontal = 8.dp)) }) } }
+            },
+        ),
+    ),
+    BookVariant(
+        "note",
+        listOf(BookState("Note area") { OnPaper { SheetCard { SheetField("Description", "", {}, placeholder = "What changed and why", first = true, minLines = 4) } } }),
+    ),
+    BookVariant(
+        "secret",
+        listOf(BookState("Hidden value") { OnPaper { SheetCard { SheetField("GitHub token", "ghp_example", {}, first = true, secret = true) } } }),
+    ),
 )
 
 private fun sheetRowVariants() = listOf(

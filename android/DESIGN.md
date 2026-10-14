@@ -187,19 +187,24 @@ spacing:
 motion:
   tick: 150ms
   state: 200ms
-  slide: 240ms cubic-bezier(0.2, 0.8, 0.2, 1)
-  toast: 250ms
+  slide: 250ms cubic-bezier(0.22, 1, 0.36, 1)
+  toast: 350ms in, 250ms out
+  swap: 150ms ease-in-out
   progress: 400ms
   press: scale 0.97
   breathe: 1200ms reverse loop
   orb-turn: 1600ms linear loop
   orb-breath: 900ms reverse loop
   shimmer: 1500ms linear loop
+  thinking-shimmer: 1200ms linear loop
 elevation:
-  float: 8px
-  raised: 4px
-  thumb: 2px
-  modal: 24px
+  button: 10px
+  note: 12px
+  bar: 14px
+  search: 16px
+  menu: 20px
+  thumb: 3px
+  modal: 40px
 components:
   float-button:
     backgroundColor: "{colors.raised}"
@@ -240,6 +245,23 @@ components:
     rounded: "{rounded.full}"
     height: 52px
     padding: 0px 24px
+  pill-button:
+    backgroundColor: "{colors.paper-2}"
+    textColor: "{colors.text}"
+    typography: "{typography.row}"
+    rounded: "{rounded.full}"
+    height: 44px
+    padding: 0px 16px
+  pill-input:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.text}"
+    typography: "{typography.base}"
+    rounded: "{rounded.full}"
+    height: 52px
+  sheet-field:
+    textColor: "{colors.text}"
+    typography: "{typography.row}"
+    padding: 10px 16px
   sheet:
     backgroundColor: "{colors.paper}"
     textColor: "{colors.text}"
@@ -329,9 +351,9 @@ Spacing steps are 4, 8, 12, 16, 24 and 32. The code also uses 6, 10, 14 and 18 i
 
 ## Elevation & Depth
 
-Floating things carry one shadow recipe, `floatShadow`: an 8dp soft drop tinted with `shadow`, at 0.22 alpha in light and 0.6 in dark. Cards on sheets and quick actions use the same recipe at 4dp, the switch thumb uses 2dp, and a centered modal uses 24dp. The `elevation` tokens are those heights in dp. A missing or different shadow on a floating element is a defect (rule 45).
+Floating things carry the canvas shadow from Row W, drawn by `floatShadow`: a soft ink drop two pixels down (`0 2px 10px` at 8% for a header circle or capsule), never an even glow all round. Compose's own elevation cannot offset a shadow, which is why it looked faint and flat on the phone, so `floatShadow` draws the drop itself from API 28 and falls back to a plain elevation below that. It comes in seven levels, named for what carries them: `button` (10px blur, 8%), `note` (12px, 10%, cards and quick actions), `bar` (14px, 12%, the bottom and comment bars), `search` (16px, 12%, the search pill and the Ask bar), `menu` (20px, 14%, four pixels down, for popovers), `thumb` (3px, 20%, the switch thumb) and `modal` (40px, 22%, a centered dialog). The `elevation` tokens are those blurs in dp. In dark mode the strength is multiplied by 2.7 so the drop still reads on the dark paper. A missing or different shadow on a floating element is a defect (rule 45).
 
-The canvas shadows are one soft layer pushed down, in the ink colour `rgba(14,51,58)` (the sheet's is black): the round header buttons and the mode capsule `0 2px 10px` at 8%, the search pill `0 2px 16px` at 12%, the bottom toolbar `0 2px 14px` at 12%, a note card `0 2px 12px` at 10%, and the bottom sheet `0 -4px 30px rgba(0,0,0,.18)`. `floatShadow` does not draw that yet: it calls Compose `shadow()` with an elevation and no offset, and on the phone the result is faint and flat (rule 45 and the Decision log).
+The canvas shadows are one soft layer pushed down, in the ink colour `rgba(14,51,58)` (the sheet's is black): the round header buttons and the mode capsule `0 2px 10px` at 8%, the search pill `0 2px 16px` at 12%, the bottom toolbar `0 2px 14px` at 12%, a note card `0 2px 12px` at 10%, and the bottom sheet `0 -4px 30px rgba(0,0,0,.18)`. `floatShadow` draws it: one soft layer pushed down, at a level for each of those elements (rule 45 and the Decision log).
 
 Everything beneath a sheet dims uniformly through `scrim`, the header and the trigger included (rule 5). Depth comes from the shadow and the scrim. A border or a fill alone never lifts a surface.
 
@@ -352,7 +374,9 @@ The kit lives in `ui/design`. Use it before writing anything new. A new shared c
 - `check`: a 22dp box, accent when on.
 - `switch`: a 52 by 32 switch.
 - `cta-button`: the 52dp dark pill that carries the screen's one main action (rule 7: never an irreversible one).
-- `sheet`, `sheet-card`, `sheet-row`, `quick-action`: the bottom sheet and what goes in it.
+- `pill-button`: the quiet 44dp paper pill for the actions beside it (Retry, Stop, Rewrite).
+- `pill-input`: the 52dp raised pill that holds a one-line question or comment, its send circle inside at the right.
+- `sheet`, `sheet-card`, `sheet-row`, `sheet-field`, `quick-action`: the bottom sheet and what goes in it. A field in a sheet is a `sheet-field` in the white card, never a bordered input.
 - `toast`: one dark pill above the bottom bars, with an optional action such as Undo.
 - `orb`, `progress-ring`, `breathing-dot`, `pending-dot`, `ok-dot`: AI and progress marks (rules 18 and 43).
 - `skeleton`: a shimmering bar for content that is still arriving (rule 51).
@@ -376,13 +400,15 @@ The web-port kit (`ActionButton`, `IconButton`, `ToggleGroup`, `TextInput`, `Bad
 
 ## Motion
 
-The `motion` tokens record what the kit uses today. It animates with `tween`. Durations in use: 150ms for a check filling, 200ms for chips, switches and tab ink, 240ms with `cubic-bezier(0.2, 0.8, 0.2, 1)` for the capsule's sliding pill, 250ms for the toast and 400ms for the progress ring. Live marks loop: the breathing dot at 1200ms, the orb's ring at 1600ms linear and its bot at 900ms, the skeleton shimmer at 1500ms.
+The `motion` tokens record what the kit uses today. It animates with `tween`. Durations in use: 150ms for a check filling, 200ms for chips, switches and tab ink, 250ms with the smooth-out curve for the capsule's sliding pill, 350ms in and 250ms out for the toast and 400ms for the progress ring. Live marks loop: the breathing dot at 1200ms, the orb's ring at 1600ms linear and its bot at 900ms, the skeleton shimmer at 1500ms.
 
 Every pressable scales to 0.97 on pointer-down and answers with no delay. AI work in progress is a live, animated mark and never a blank (rules 18 and 43). A swiped row blurs slightly as it is displaced (rules 17, 32 and 46): the canvas row moves about 132 to 136dp with a 1.3px blur and a side shadow, `-8px 0 18px` at 14% one way and `8px 0 18px` at 16% the other. A segmented pill's highlight slides to the tapped segment and the content fades in (rule 67). Anything that exists in both states of a screen keeps its position (rule 69). Move things with transform and opacity.
 
+Rule 73 gives the numbers motion is moving to, taken from transitions.dev: 150ms for closes and text swaps, 250ms for opens and tabs, 400ms for panels, one smooth-out curve `cubic-bezier(0.22, 1, 0.36, 1)`, 2px of blur on small things. Menus (`MenuReveal`), tab and page switches (`BlurSwitch`), the capsule's sliding pill, the toast and the thinking line (`ThinkingSwap`) already use them. The bottom sheets (Material's own slide), the checkbox tick (it appears instead of being drawn), icon swaps and dialogs do not yet. Looping effects hold still when the system setting "Remove animations" is on (`rememberMotionEnabled`); other transitions do not read it yet.
+
 ## Rules
 
-Rule numbers are one running list, so "rule 47" is unambiguous. Rules 1 to 44 come from the design canvas (Row W is the latest row) and are copied word for word from its rule notes, which Tavi wrote from his earlier recordings. Rules 45 to 65 were written from Tavi's phone walkthrough of the built app on 2026-10-14, one rule for each thing said, so each applies to screens that were not mentioned. Rules 66 to 70 come from Tavi's review of the Perplexity mobile app on 2026-10-13, kept as a reference: 66 to 69 are rules, and 70 is a proposal that Tavi has not confirmed.
+Rule numbers are one running list, so "rule 47" is unambiguous. Rules 1 to 44 come from the design canvas (Row W is the latest row) and are copied word for word from its rule notes, which Tavi wrote from his earlier recordings. Rules 45 to 65 were written from Tavi's phone walkthrough of the built app on 2026-10-14, one rule for each thing said, so each applies to screens that were not mentioned. Rules 66 to 70 come from Tavi's review of the Perplexity mobile app on 2026-10-13, kept as a reference: 66 to 70 are rules (70 was confirmed on 2026-10-14). Rules 71 to 73 come from Tavi's answers of 2026-10-14: bars beside a live indicator, the thinking text, and the motion numbers.
 
 Each rule ends with where it is checked. `review` means a person looks, against the checklist below. The other names are scripts in `android/scripts/design` and are explained under Enforcement. The `rules` check fails when a rule has no such line, names a check that does not exist, or a check names a rule that does not list it.
 
@@ -612,7 +638,7 @@ Source: canvas. Checked by: review.
 
 #### 37. One real AI icon.
 
-An icon from a published set (Lucide sparkles), never a hand-drawn glyph. One per screen: it marks the AI actor, not labels that are already words.
+Withdrawn on 2026-10-14: Tavi said the sparkle does not stay, so no icon marks AI. AI actions are marked by their words ("Ask AI", "Analyze") and by the live progress indicator of rule 72. The text it had: an icon from a published set (Lucide sparkles), never a hand-drawn glyph, one per screen.
 
 Source: canvas. Checked by: review.
 
@@ -700,7 +726,7 @@ Source: walkthrough. Checked by: tokens, raw-values, book, review.
 
 The robot head also works as a status indicator, because the ring around it turns while a tour is writing. Not complained about: the three icons in the header capsule on the Overview, the gear, and the icons in the profile sheet.
 
-Open: rule 37 keeps one Lucide sparkles icon per screen as the AI mark. The sparkle called hideous on "Ask AI" is the kind of mark rule 37 asks for, so the open question is whether that mark stays. Keep rule 37 unless Tavi says otherwise.
+Settled on 2026-10-14: the sparkle does not stay either, so rule 37 is withdrawn and no screen has an AI icon.
 
 The `bans` check counts uses of the robot head, the sparkle, the compass and the chat bubble (`ai-glyph`), so new code cannot add one. The count may only fall.
 
@@ -868,11 +894,37 @@ Source: perplexity. Checked by: review.
 
 #### 70. The same control looks the same on a page and in a sheet.
 
-Proposal, awaiting Tavi's confirmation. It comes from the frames of the reference recording, not from anything said. In the reference app the round ✕ in a sheet is the same white circle with a soft shadow as the round buttons on the page behind it. In this app the Settings sheet has a bare ✕ and segmented controls that are the reverse of the Inbox capsule (rule 49), so one kind of control looks different on a page and in a sheet. Which way a segmented control should go is Tavi's call: the canvas capsule is a white track with a grey selected segment, while Settings and the reference app use a grey track with a white selected segment.
+Confirmed by Tavi on 2026-10-14. In the reference app the round ✕ in a sheet is the same white circle with a soft shadow as the round buttons on the page behind it. In this app the Settings sheet had a bare ✕ and segmented controls that were the reverse of the Inbox capsule (rule 49), so one kind of control looked different on a page and in a sheet. Now a sheet's close and back buttons are the round white button with its shadow, and the segmented controls in a sheet are the Inbox capsule. Which way a segmented control goes is still Tavi's call: the canvas capsule is a white track with a grey selected segment, the reference app uses a grey track with a white selected segment, and the app follows the canvas until he says otherwise.
 
 Check: take one kind of control (close button, segmented control, chip, round button). Find it on a page and in a sheet. Same shape, fill and shadow.
 
 Source: perplexity. Checked by: review.
+
+### Rules 71 to 73, from Tavi's answers of 2026-10-14
+
+#### 71. A live indicator may have shimmer bars under it.
+
+Rule 43 says no shimmer bars standing in for content. Tavi confirmed that bars are fine next to a live indicator, as in Perplexity's "Thinking…", where three grey bars sit under the mark and the word, the second and third a little shorter than the first. So the live indicator stays, and grey bars may sit under it as a hint of where the output will arrive. Bars never replace the indicator and never stand alone. Rule 51's skeletons for pages and lists whose shape is known are unchanged. The canvas text of rule 43 is unchanged.
+
+Check: while AI work runs there is a live indicator on screen. Any bars sit under it.
+
+Source: answers. Checked by: review.
+
+#### 72. Thinking text is a shimmering plain sentence with a dot.
+
+Tavi asked for the AI's thinking text to look more like Perplexity's. While work runs there is one line, a present-tense verb and the elapsed seconds ("Working 12s"; "Thinking" before the first step), the verb in the muted colour and the seconds in the faint one, in tabular digits, shimmering together. The shimmer leaves the text at full strength and dims a tilted band to a third of its opacity as it sweeps left to right, 1200ms a pass; with system animations off nothing sweeps. Each step is one plain sentence about the task, never the tool, in regular weight and never italic, after a 6dp dot in the text colour (red when it failed, amber for a warning) whose centre is 10dp in from the margin; the dot replaces every per-row icon. The live orb sits under the newest line on the dot's column at 16dp. When the line is replaced by another, the old one leaves upward through a 2px blur while the new one rises in from below, 150ms ease-in-out, 8dp of travel, a 50ms gap (transitions.dev, Thinking states). When work ends the shimmer stops and the line becomes "Worked for 2m 3s", a button with a chevron, right when folded and down when open, whose steps hang from a 1dp line that fades out. The sizes taken from screenshots are estimates, not measured on a device.
+
+Check: start an analysis and watch it. One header line with the time, a dim band passing through it. Step lines with a dot, no icon, never italic. When the work ends, the shimmer stops and the line goes to the past tense with a chevron. With animations off nothing sweeps.
+
+Source: answers. Checked by: review.
+
+#### 73. Motion uses one set of numbers.
+
+Tavi sent transitions.dev as the reference. Durations: 150ms for closes and text swaps, 250ms for opens, tabs and page slides, 350ms for a panel closing, 400ms for a panel opening. One easing, smooth out, `cubic-bezier(0.22, 1, 0.36, 1)`, for opens, closes and slides; ease-in-out for swaps; linear for shimmer. Blur is 2px for small things and 3px for page-sized changes. Scale is 0.97 for menus and 0.96 for dialogs. Travel is 4 to 8dp for text and pages. The mapping from the library's transitions to this app's surfaces was proposed by the rules file and Tavi can retune any row: menus use the dropdown recipe, dialogs the modal one, sheets panel reveal, the capsule tabs sliding, page changes page side-by-side, the thinking line shimmer text and thinking states. Looping effects follow the system setting "Remove animations".
+
+Check: open and close one menu, one sheet, one dialog and one toast. Each takes the time above and eases out.
+
+Source: answers. Checked by: review.
 
 ### Keep as is
 
@@ -899,13 +951,13 @@ Run before showing any new screen.
 8. Button labels are one line.
 9. Render at 390 by 844. Any scroll, scrollbar or element inside the 16dp margin gets fixed first.
 10. Each meta line: imagine the frame 60dp narrower. Anything that would wrap ellipsises instead.
-11. One AI icon per screen.
+11. (Withdrawn with rule 37: no screen has an AI icon.)
 12. A cite never grows its line.
 13. At least 24dp above the diff.
 14. Every floating element has the canvas shadow, with a visible drop below it. Compare it with Row W.
 15. Blur at every scroll edge (under the header, under the bottom pills, under a sheet's header), on the swiped row, and when the scope chips switch.
 16. Screen and canvas row side by side at the same size, with gaps measured, not eyeballed.
-17. Icons: only the Claude Code and Codex marks (in colour), the chosen model's own icon, and rule 37's single AI mark while it stays. For every other icon, which fact does it carry? None means cut it. Check the robot head, the sparkle and the compass first.
+17. Icons: only the Claude Code and Codex marks (in colour), the chosen model's own icon and the live indicator. For every other icon, which fact does it carry? None means cut it. Check the robot head, the sparkle and the compass first.
 18. Does any screen look like the old app? Settings, the Commands palette, the project screen, the file switcher and the toolbar over a selected line are all in the mobile style.
 19. Open a PR: title and number appear at once, there is no loading screen, and skeletons only stand in for waiting content.
 20. Double-tap Analyze, then cancel it: the first tap responds, the second does not cancel, and a restart is offered.
@@ -916,8 +968,12 @@ Run before showing any new screen.
 25. Tap and type: how soon does anything visibly change?
 26. Flip between two states of a screen: does anything present in both jump?
 27. Find one kind of control (close button, segmented control, chip, round button) on a page and in a sheet. Same shape, fill and shadow?
+28. While AI work runs, a live indicator is on screen, and any bars sit under it (rule 71).
+29. The header line is a verb with elapsed seconds and the step lines are sentences with a dot, no icon and no italics, and a dim band shimmers through the text (rule 72).
+30. Search every screen for an AI icon (a sparkle, a robot, a brain). None. The brand marks of Claude Code and Codex (rule 48) and the live indicator are not AI icons in this sense.
+31. Open and close a menu, a sheet, a dialog and a toast; the times and easing match rule 73.
 
-The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) and the Perplexity checks (23 to 27). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
+The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) and the checks from Tavi's answers (28 to 31). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
 
 ## Enforcement
 
@@ -933,7 +989,7 @@ pnpm run android:design:test      vitest suite of the checks themselves
 2. **raw-values.** A ratchet. It counts raw hex colours, raw font sizes and raw radii in the Kotlin per file, text set below 15 (`xs`, `compact`, `mini`, `micro`), uppercase and tracked text, and raw shadows (`.shadow(`) outside the shadow helper, and compares them with `raw-values.baseline.json`. The count may only go down: a new raw value fails, and a file that drops below its baseline fails until `android:design:update` lowers it, which locks the gain in. A line can opt out with `// raw-value-ok: <reason>`. Rules 14, 45 and 47.
 3. **bans.** Importing a Material widget the kit replaces (buttons, switches, checkboxes, text fields, dialogs, tabs, cards, dividers, progress indicators, FABs), Material icons or Android speech input, and an outgoing share, fail. Material's `ModalBottomSheet` and `DropdownMenu` are only for the kit's wrappers in `ui/design`. The web-port kit (`Components.kt`), its Phosphor icons, the waiting components (`Loading`, spinners) and pull-to-refresh are banned for new code. A call or a Material name spelled out with its full package counts the same as an imported one. The generic AI glyphs of rule 48, the robot head, the sparkle, the compass and the chat bubble (`ai-glyph`), are counted the same way: a new one fails, and the count may only fall. The uses that exist today (three Material sheet or menu imports in `AiParts.kt` and `Chrome.kt` among them) are counted per file in `bans.baseline.json` and may only fall. Bans lift in the config at the top of `bans.mjs` or with `// ban-ok: <reason>` on the line, never silently. Rules 1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51 and 52.
 4. **book.** `book.json` is the one typed list of UI Book pages and components. Every page has a route in `UiBook.kt`, and every route is listed. Every component has exactly one default variant, and every named composable exists. Every public composable in `ui/design` has a page or an exemption with a reason in `book.exempt.json`. Every `components` token here is rendered in a `DesignSpecimen`, or exempt with a reason. `sources.json`, the code and props the Book shows, is read from the Kotlin and fails when stale. Rules 44, 45 and 47.
-5. **rules.** A check on this file's own list. Rules 1 to 70 are contiguous, each has a source and a `Checked by` line naming a check that exists, and each check enforces exactly the rules that name it. The checklist is contiguous too. `rules` is not a `Checked by` name: it checks the rules, not the code.
+5. **rules.** A check on this file's own list. Rules 1 to 73 are contiguous, each has a source and a `Checked by` line naming a check that exists, and each check enforces exactly the rules that name it. The checklist is contiguous too. `rules` is not a `Checked by` name: it checks the rules, not the code.
 6. **Measure on the phone.** The UI Book's Component specs page measures each `DesignSpecimen` and prints `name ok` or `name.size: expected 44px, rendered 52px`. It replaces the browser render check the web UI Book runs, because Compose cannot be measured from Node. It runs when someone opens the page.
 7. **Review against the checklist.** A person or an agent walks the screen against the checklist above and the rules, and reports breaks with `file:line` and the rule number.
 
@@ -951,11 +1007,14 @@ Every difference between this file and the rendered app, and how it was settled.
 
 - **2026-10-14, this file written from the source at version 0.6.1 (build 16).** The tokens are what `Tokens.kt` renders today, not the other way round, so no visible change. Kotlin is compared with this file instead of being generated from it: `Tokens.kt` carries computed properties and the app is being edited in parallel, and a generator would overwrite those edits. The checks still fail closed.
 - **2026-10-14, departures are frozen, not fixed.** The raw-values and bans baselines record how far the code is from these rules today: 288 raw values (40 hex colours, 131 raw radii, 2 raw font sizes, 3 raw shadows, 106 text runs below 15, 6 uppercase or tracked) and 187 banned uses (93 Phosphor icon calls, 75 web-port kit calls, 6 Material components, 3 Material sheets or menus, 1 pull-to-refresh, 9 loading indicators). No screen was restyled to get there. Each fix lowers a number and the check asks for the baseline to be lowered with it.
-- **2026-10-14, raw colours in the kit that are not tokens yet. Open.** `Kit.kt` and `AppModal.kt` hold literals for the sheet grabber (`D9D9D6`), the unchecked box edge (`C9CFCE`), the pending ring (`B9C4C5`), the orb and toast accent (`9AD3D6`) and the profile gradient (`D9B38C`, `8C5A3C`). They need tokens, with dark values. They sit in the raw-values baseline until then.
+- **2026-10-14, raw colours in the kit that are not tokens yet. Open.** `Kit.kt` holds literals for the sheet grabber (`D9D9D6`), the unchecked box edge (`C9CFCE`), the pending ring (`B9C4C5`), the orb and toast accent (`9AD3D6`) and the profile gradient (`D9B38C`, `8C5A3C`). They need tokens, with dark values. They sit in the raw-values baseline until then.
 - **2026-10-14, the PR row has no page. Open.** Rule 15 says one row anatomy everywhere, but the row is private to `HomeScreen.kt` and the Tours list, so the UI Book cannot render it. Pulling it into `ui/design` is a change to the screens and was left to the work that owns them.
 - **2026-10-14, forced states.** The web book forces hover, focus and active with CSS. Compose cannot, so the book forces the states a component takes as parameters (selected, disabled, loading, running, done) and shows the pressed scale on the Motion page with a live pressable. A sheet is a window and cannot be framed inside a page, so its page shows the sheet's body inline and opens the real sheet from a button.
-- **2026-10-14, rule 48 and rule 37. Open.** One Lucide sparkles icon per screen as the AI mark is still in force. The walkthrough does not say whether it stays, and the sparkle called hideous on "Ask AI" is the kind of mark rule 37 asks for. The `ai-glyph` ban counts the sparkle with the robot head, the compass and the chat bubble, so none can be added. Counting is not removing: the existing ones stay until Tavi decides.
-- **2026-10-14, rule 61 and rule 29. Open.** How the Commands menu relates to the ⋯ sheet is not decided.
-- **2026-10-14, rule 45 and `floatShadow`. Open.** The canvas shadow is a soft layer pushed down (`0 2px 10px` at 8% ink on the round buttons), and on the phone the app's shadows read faint and flat. `floatShadow` in `Kit.kt` calls Compose `shadow()` with an elevation and no offset. The fix is one drawn shadow with a downward offset, in that one function, judged side by side on a device. It was not changed here, because it restyles every floating element and belongs to the screen work. An earlier reading, that the app's shadows were stronger than the canvas's, was wrong.
-- **2026-10-14, rules 66 to 70 added from the Perplexity review.** Rules 66 to 69 are rules. Rule 70 is a proposal from the frames, not from anything Tavi said, and stays marked as one until confirmed.
-- **2026-10-14, rule 51 and rule 43. Open.** The Analyzing state puts shimmer bars under each file row, against the wording of rule 43, which keeps the live orb and its outputs and no bars. A reading for Tavi to confirm: bars are fine as a hint for the one text being written, next to a live indicator, and rule 43 forbids bars in place of the live indicator and its outputs. The canvas text of rule 43 is unchanged.
+- **2026-10-14, rule 48 and rule 37. Settled the same day:** Tavi called the robot, the compass and the sparkle hideous, so none is left. The Model row shows the chosen engine's own mark in colour, and the `ai-glyph` ban baseline is zero. Earlier text, kept for the record: One Lucide sparkles icon per screen as the AI mark is still in force. The walkthrough does not say whether it stays, and the sparkle called hideous on "Ask AI" is the kind of mark rule 37 asks for. The `ai-glyph` ban counts the sparkle with the robot head, the compass and the chat bubble, so none can be added. Counting is not removing: the existing ones stay until Tavi decides.
+- **2026-10-14, rule 61 and rule 29. Settled the same day:** Commands is its own sheet, opened by pulling the Inbox down or from the ⋯ sheet, with a search pill and four rows to a group until searched. Earlier text: how the Commands menu relates to the ⋯ sheet is not decided.
+- **2026-10-14, rule 45 and `floatShadow`. Settled the same day:** `floatShadow` now draws one soft layer pushed down, with a level for each kind of element (`PullsShadow`). Earlier text: The canvas shadow is a soft layer pushed down (`0 2px 10px` at 8% ink on the round buttons), and on the phone the app's shadows read faint and flat. `floatShadow` in `Kit.kt` calls Compose `shadow()` with an elevation and no offset. The fix is one drawn shadow with a downward offset, in that one function, judged side by side on a device. It was not changed here, because it restyles every floating element and belongs to the screen work. An earlier reading, that the app's shadows were stronger than the canvas's, was wrong.
+- **2026-10-14, rules 66 to 70 added from the Perplexity review.** Rules 66 to 69 are rules. Rule 70 was a proposal from the frames, not from anything Tavi said. He confirmed it the same day, see the entry on rules 71 to 73.
+- **2026-10-14, rule 51 and rule 43. Settled the same day:** Tavi said bars are fine next to a live indicator, which is rule 71. Earlier text: The Analyzing state puts shimmer bars under each file row, against the wording of rule 43, which keeps the live orb and its outputs and no bars. A reading for Tavi to confirm: bars are fine as a hint for the one text being written, next to a live indicator, and rule 43 forbids bars in place of the live indicator and its outputs. The canvas text of rule 43 is unchanged.
+- **2026-10-14, the phone walkthrough applied.** Every point in Tavi's feedback that is about how the app looks or moves now follows the mobile kit: the drawn shadow, blur at scroll edges and between tabs and pages (`edgeBlur`, `BlurSwitch`), menus that grow out of their trigger (`MenuReveal`, from the `dropdown` recipe on transitions.dev), the header capsule on Overview, Diff and Tour, the pill input with its send circle inside (`PillInput`, `SendButton`), fields inside sheets (`SheetField`), and Settings, Commands, the repository list, Check out, the review dialogs, the share sheet, the AI review panel, thread cards and the banners rebuilt from kit parts. Labels in a sheet row wrap instead of being cut. The loading screens are skeleton rows. The robot, sparkle and compass are gone, along with `AppModal`, the web header and its footer. The baselines fell to 14 Phosphor icon calls, 3 web-port kit calls and 5 Material components, and 32 raw colours, 73 raw radii and 72 text runs below 15. What is left sits in the Overview timeline, the activity log, `Markdown.kt` and the CI and review status glyphs, which carry facts and need Lucide drawings of their own.
+- **2026-10-14, rules 71 to 73 added, rule 37 withdrawn, rule 70 confirmed.** Tavi answered yes to bars beside a live indicator (71), no to keeping the sparkle (37 is withdrawn, so is Row W check 11), yes to rule 70, asked for the thinking text to look more like Perplexity's (72) and sent transitions.dev (73). Rule 70's direction for segmented controls is still open: the app follows the canvas capsule, so Settings, which already uses it, stays as it is, and a sheet's ✕ and back are now the round white button with its shadow.
+- **2026-10-14, the thinking text applied (rule 72). Open edges.** `AiActivityLogFull` shows the shimmering verb and seconds, dot steps and the orb at 16dp, and its settled form has a chevron and a fading line. The orb disappears at once when work stops instead of finishing its turn, the three shimmer bars of rule 71 are not drawn, the activity log still has no favicons or grouped steps, and only the shimmer follows the system "Remove animations" setting. Measured sizes need a phone: the band, the dot column and the 16dp orb come from screenshots of Perplexity.

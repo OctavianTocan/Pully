@@ -78,6 +78,24 @@
       "component": "cta-button"
     },
     {
+      "id": "components/pill-button",
+      "title": "Pill button",
+      "group": "Components",
+      "component": "pill-button"
+    },
+    {
+      "id": "components/pill-input",
+      "title": "Pill input",
+      "group": "Components",
+      "component": "pill-input"
+    },
+    {
+      "id": "components/sheet-field",
+      "title": "Sheet field",
+      "group": "Components",
+      "component": "sheet-field"
+    },
+    {
       "id": "components/sheet",
       "title": "Sheet",
       "group": "Components",
@@ -166,15 +184,16 @@
       "also": [
         "FloatIcon"
       ],
-      "summary": "A 44dp circle that floats on the page with the canvas shadow. Flat drops the fill and the shadow for sheet headers.",
+      "summary": "A 44dp circle that floats on the page with the canvas shadow. Flat drops the fill and the shadow for a small action inside a row.",
       "usage": [
         "Hold one icon, and give it a label for accessibility: FloatIcon does both for a Lu glyph.",
         "Every floating element carries the canvas shadow, so use this rather than a bare Box with a shadow.",
-        "Flat is for sheet headers only, where the sheet already floats."
+        "Flat is for small actions inside a row (copy, edit, delete). A sheet's close and back buttons are not flat: they look as they do on the page (rule 70)."
       ],
       "rules": [
         45,
-        47
+        47,
+        70
       ],
       "variants": [
         {
@@ -194,11 +213,12 @@
       "usage": [
         "Equal segments, one line of text each.",
         "The selected segment slides with the slide curve.",
-        "Flat drops the shadow when the pill sits inside something that already floats."
+        "Flat drops the shadow when the pill sits inside a card or a row. In a sheet it keeps its shadow, as on the page (rule 70)."
       ],
       "rules": [
         45,
-        54
+        54,
+        70
       ],
       "variants": [
         {
@@ -309,6 +329,83 @@
         {
           "id": "with-icon",
           "title": "With icon"
+        }
+      ]
+    },
+    "pill-button": {
+      "composable": "PillButton",
+      "summary": "The quiet 44dp pill for the actions beside a screen's main one: Retry, Stop, Rewrite.",
+      "usage": [
+        "Never the screen's one main action: that is the dark button.",
+        "The label is one line; a leading Lu icon only when it carries a fact.",
+        "Put it where the thing it acts on is, not in a row of its own."
+      ],
+      "rules": [
+        7,
+        24
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "with-icon",
+          "title": "With icon"
+        }
+      ]
+    },
+    "pill-input": {
+      "composable": "PillInput",
+      "summary": "The 52dp raised pill that holds a one-line question or comment, with its send button inside.",
+      "usage": [
+        "Float it over the page at the bottom with 24dp below it, above a fade.",
+        "The send button inside is the primary circle; nothing else sits in the pill.",
+        "The placeholder says what to type, in a few words."
+      ],
+      "rules": [
+        7,
+        24
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "with-send",
+          "title": "With send"
+        }
+      ]
+    },
+    "sheet-field": {
+      "composable": "SheetField",
+      "summary": "A text field that lives inside a sheet's white card: the label small and muted over the value, a hairline above.",
+      "usage": [
+        "Put it in a SheetCard, never on the bare sheet or the page.",
+        "First drops the hairline above it; a trailing word such as Show is text, never an icon.",
+        "Two or more lines makes it a note area for a description or a comment."
+      ],
+      "rules": [
+        5,
+        7,
+        49
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "note",
+          "title": "Note area"
+        },
+        {
+          "id": "secret",
+          "title": "Secret"
         }
       ]
     },

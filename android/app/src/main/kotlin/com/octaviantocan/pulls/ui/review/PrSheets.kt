@@ -27,9 +27,11 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import com.octaviantocan.pulls.R
+import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerConfig
 import com.octaviantocan.pulls.data.ServerStore
@@ -41,18 +43,20 @@ import com.octaviantocan.pulls.ui.ai.runAnalyze
 import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.LocalMessages
+import com.octaviantocan.pulls.ui.design.EngineMark
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Messages
-import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.QuickAction
 import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.DrawableIcon
@@ -154,12 +158,12 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                     session.runAnalyze(context)
                     toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}")
                 }
-            }, Modifier.weight(1f)) { LuIcon(Lu.redo, tint = c.text, size = 22.dp) }
+            }, Modifier.weight(1f)) { LuIcon(Lu.list, tint = c.text, size = 22.dp) }
         }
 
         SheetCard {
-            SheetRow("Model", { onSheet("model") }, first = true, icon = { LuIcon(Lu.bot, tint = c.activeText) }) {
-                Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            SheetRow("Model", { onSheet("model") }, first = true, icon = { EngineMark(config.engine, size = 22.dp) }) {
+                Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
             if (session.key != null && cliEngine(context)) {
@@ -210,7 +214,7 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                 SheetRow(t("overview.actions.updateBranch"), {
                     onClose()
                     top.run(session, "update-branch") { session.repo.prAction(overview.id, "update-branch", expectedHeadOid = overview.headOid) }
-                }, icon = { PhIcon("arrows-merge-duotone", tint = c.text, size = 20.dp) })
+                }, icon = { LuIcon(Lu.merge, tint = c.text) })
             }
         }
 
@@ -244,20 +248,20 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
                         session.runCritique(context, null)
                         toaster.show("Reviewing $number")
                     }
-                }, first = true, icon = { PhIcon("magnifying-glass-duotone", tint = c.text, size = 20.dp) })
-                SheetRow("Review through a lens", { onSheet("lens") }, icon = { PhIcon("lightbulb-duotone", tint = c.text, size = 20.dp) }) {
+                }, first = true, icon = { LuIcon(Lu.check, tint = c.text) })
+                SheetRow("Review through a lens", { onSheet("lens") }, icon = { LuIcon(Lu.diff, tint = c.text) }) {
                     LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
                 }
                 first = false
             }
             if (canShare(session)) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) { ShareButton(session) }
+                ShareButton(session, first = first)
                 first = false
             }
             SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, first = first, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
-            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, icon = { PhIcon("arrows-clockwise-duotone", tint = c.text, size = 20.dp) })
+            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, icon = { LuIcon(Lu.redo, tint = c.text) })
         }
     }
 }
@@ -301,12 +305,11 @@ internal fun FindingsSheet(session: ReviewSession, onClose: () -> Unit) {
 
 /** `#modelsheet`: the engine, the model list with its ids and descriptions, and a row to the effort. */
 @Composable
-internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: () -> Unit) {
+internal fun ModelSheet(settings: AppSettings, onClose: () -> Unit, onEffort: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
     val messages = LocalMessages.current
-    val settings = session.settings
     val repo = remember { Repo(context) }
     val memory = remember { EngineModels(context) }
     var config by remember { mutableStateOf(ServerStore.load(context)) }
@@ -325,6 +328,18 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
         config = next
         ServerStore.save(context, next)
     }
+    var custom by remember { mutableStateOf("") }
+    // A model the list does not name, for a catalog that failed to load or an id the CLI accepts but does not list.
+    fun useCustom() {
+        val id = custom.trim()
+        if (id.isEmpty()) return
+        val kept = AiSettingsLogic.keptEffort(catalog, id, settings.effort)
+        memory.setModel(config.engine, id)
+        save(config.copy(model = id))
+        settings.updateEffort(kept)
+        onClose()
+        toaster.show("Analysis model: ${analysisModelLabel(config.copy(model = id), catalog, kept, messages)}")
+    }
 
     PullsSheet(onClose, "Select model", expandable = true) {
         Box(Modifier.padding(top = 14.dp)) {
@@ -340,7 +355,7 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
                     }
                 },
                 Modifier.fillMaxWidth(),
-                flat = true,
+                leading = { index -> EngineMark(if (index == 1) "codex" else "claude-code", size = 20.dp) },
             )
         }
         SheetCard {
@@ -352,7 +367,7 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
                 catalog == null -> Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Couldn't load the model list", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                     Text(loaded?.exceptionOrNull()?.message.orEmpty(), style = PullsType.sm, color = c.muted)
-                    com.octaviantocan.pulls.ui.design.ActionButton({ attempt++ }, small = true) { Text(t("common.retry")) }
+                    PillButton(t("common.retry"), { attempt++ })
                 }
                 else -> catalog.models.forEachIndexed { index, model ->
                     val selected = model.id == (AiSettingsLogic.current(catalog, config.model)?.id ?: config.model)
@@ -366,6 +381,13 @@ internal fun ModelSheet(session: ReviewSession, onClose: () -> Unit, onEffort: (
                     }
                 }
             }
+        }
+        SheetCard {
+            SheetField(
+                "Custom model ID", custom, { custom = it }, first = true, placeholder = t("settings.models.placeholder"),
+                imeAction = ImeAction.Done, onGo = ::useCustom,
+                trailing = { PillButton(t("common.save"), ::useCustom, enabled = custom.isNotBlank()) },
+            )
         }
         val choice = AiSettingsLogic.current(catalog, config.model)
         if (choice != null && choice.efforts.isNotEmpty()) {
@@ -422,11 +444,10 @@ private fun DefaultBadge() {
 
 /** `#effortsheet`: the efforts the chosen model supports. */
 @Composable
-internal fun EffortSheet(session: ReviewSession, onBack: () -> Unit, onClose: () -> Unit) {
+internal fun EffortSheet(settings: AppSettings, onBack: () -> Unit, onClose: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val messages = LocalMessages.current
-    val settings = session.settings
     val config = remember { ServerStore.load(context) }
     val catalog = ModelCatalogs.get(config.engine)
     val choice = AiSettingsLogic.current(catalog, config.model)

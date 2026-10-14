@@ -1,54 +1,51 @@
 package com.octaviantocan.pulls.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.ui.design.AppModal
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.PillInput
+import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SoftChip
 import com.octaviantocan.pulls.ui.design.t
 
 private const val LIMIT = 200
 
+/** How many commands each group shows until it is asked for more or a search narrows the list. */
+private const val PER_GROUP = 4
+
 /**
- * Port of `CommandPalette.vue`: a search field (with the scope chip), then the matching
- * commands grouped by section (`text-xs color-faint font-medium` headings), each row an icon
- * and a title; the first result is selected and Enter runs it. The keyboard key hints of the
- * web footer are left out, as the web does on touch (`coarse:hidden`).
+ * Commands: a sheet like the rest of the app. A search pill, then the matching commands in white
+ * cards, one for each group, as plain rows with no icons. Until you search, each group shows only
+ * its first few and says how many more there are, so the list stays short; Go on the keyboard runs
+ * the first match.
  */
 @Composable
 fun CommandPalette() {
@@ -62,6 +59,7 @@ fun CommandPalette() {
     val results = ranked.take(LIMIT)
     val sections = remember(results) { results.groupBy { it.group ?: general }.toList() }
     val first = sections.firstOrNull()?.second?.firstOrNull()
+    val expanded = remember { mutableStateListOf<String>() }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
@@ -71,69 +69,40 @@ fun CommandPalette() {
         command.run()
     }
 
-    AppModal(onClose = Commands::close, scrollBody = false, bodyPadding = false) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            PhIcon("magnifying-glass-duotone", tint = c.mute, size = 18.dp)
-            if (scope != null) {
-                Row(
-                    Modifier.clip(RoundedCornerShape(4.dp)).background(c.active).border(1.dp, c.border, RoundedCornerShape(4.dp))
-                        .clickable(onClickLabel = t("palette.clearScope")) { Commands.scope = null }
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Text(scope.label, style = PullsType.xs, color = c.text)
-                    PhIcon("x", tint = c.mute, size = 10.dp)
-                }
-            }
-            BasicTextField(
-                query, { query = it },
-                Modifier.weight(1f).focusRequester(focus).defaultMinSize(minHeight = 36.dp),
-                singleLine = true,
-                textStyle = PullsType.sm.copy(color = c.text),
-                cursorBrush = SolidColor(c.primary),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = { run(first) }),
-                decorationBox = { inner ->
-                    androidx.compose.foundation.layout.Box(contentAlignment = Alignment.CenterStart) {
-                        if (query.isEmpty()) Text(t("palette.placeholder"), style = PullsType.sm, color = c.mute, maxLines = 1)
-                        inner()
-                    }
-                },
-            )
+    PullsSheet(Commands::close, "Commands", full = true) {
+        PillInput(query, { query = it }, t("palette.placeholder"), Modifier.padding(top = 14.dp).focusRequester(focus), imeAction = ImeAction.Go, onSend = { run(first) })
+        if (scope != null) {
+            Row(Modifier.padding(top = 12.dp)) { SoftChip(scope.label, selected = true, onClick = { Commands.scope = null }) }
         }
-        androidx.compose.material3.HorizontalDivider(color = c.border)
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 448.dp).padding(vertical = 4.dp)) {
-            if (results.isEmpty()) item {
-                Text(t("palette.empty"), Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 24.dp), style = PullsType.sm, color = c.fade, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            }
-            sections.forEach { (name, entries) ->
-                item(key = "h:$name") {
-                    Text(name, Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp), style = PullsType.xs.copy(fontWeight = FontWeight.Medium), color = c.faint)
-                }
-                items(entries, key = { "c:${it.id}" }) { command ->
-                    val selected = command === first
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 4.dp).defaultMinSize(minHeight = 44.dp).clip(RoundedCornerShape(4.dp))
-                            .background(if (selected) c.active else androidx.compose.ui.graphics.Color.Transparent)
-                            .clickable(role = Role.Button) { run(command) }
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        val fg = if (selected) c.text else c.fade
-                        PhIcon(command.icon ?: "dot-outline", tint = fg, size = 16.dp)
-                        Text(command.title, Modifier.weight(1f), style = PullsType.sm, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-            if (ranked.size > LIMIT) item {
-                Text(LocalMessages.current.t("palette.more", "n" to ranked.size - LIMIT), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = PullsType.xs, color = c.mute)
+        if (results.isEmpty()) {
+            Text(t("palette.empty"), Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        sections.forEach { (name, entries) ->
+            val all = query.isNotBlank() || name in expanded
+            val shown = if (all) entries else entries.take(PER_GROUP)
+            Text(name, Modifier.padding(start = 16.dp, top = 24.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
+            SheetCard {
+                shown.forEachIndexed { index, command -> CommandRow(command.title, first = index == 0) { run(command) } }
+                if (shown.size < entries.size) CommandRow("${entries.size - shown.size} more", first = false, muted = true) { expanded.add(name) }
             }
         }
+        if (ranked.size > LIMIT) {
+            Text(LocalMessages.current.t("palette.more", "n" to ranked.size - LIMIT), Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.sm, color = c.muted)
+        }
+    }
+}
+
+/** One command: its whole title, wrapping rather than cut. */
+@Composable
+private fun CommandRow(title: String, first: Boolean, muted: Boolean = false, onClick: () -> Unit) {
+    val c = LocalPullsColors.current
+    Box(
+        Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(title, style = PullsType.row, color = if (muted) c.muted else c.text)
     }
 }

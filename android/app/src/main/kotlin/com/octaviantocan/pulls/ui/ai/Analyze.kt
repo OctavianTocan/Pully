@@ -36,13 +36,20 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.data.ServerStore
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
 import com.octaviantocan.pulls.ui.design.GithubAvatar
-import com.octaviantocan.pulls.ui.design.IconButton
+import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.FloatIcon
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.PullsSheet
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.PhIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ModelCatalogs
@@ -73,10 +80,10 @@ internal fun ReviewSession.runAnalyze(context: Context, choice: AnalyzeChoice = 
     if (run.review && taskFor("critique")?.running != true) runCritique(context, null, run.effort)
 }
 
-/** A 16dp spinner in the button's color, for `i-ph:spinner-duotone animate-spin`. */
+/** AI work in progress keeps its Orb (rule 18); the colour argument stays for the call sites that still pass one. */
 @Composable
-internal fun Spinner(color: androidx.compose.ui.graphics.Color, size: androidx.compose.ui.unit.Dp = 16.dp) {
-    com.octaviantocan.pulls.ui.design.SpinIcon(tint = color, size = size)
+internal fun Spinner(@Suppress("UNUSED_PARAMETER") color: androidx.compose.ui.graphics.Color, size: androidx.compose.ui.unit.Dp = 16.dp) {
+    Orb(size = size)
 }
 
 /** Share is for analyses the viewer generated, on a pull request (`canShareResult`). */
@@ -85,32 +92,24 @@ internal fun canShare(session: ReviewSession): Boolean {
     return session.pull != null && session.hasAiResult && analysis.sharedBy == null
 }
 
-/** Port of `DiffShareButton.vue`. */
+/** The More sheet's row that shares the analysis as a comment on the pull request; a sheet confirms first. */
 @Composable
-internal fun ShareButtonImpl(session: ReviewSession, modifier: Modifier) {
+internal fun ShareButtonImpl(session: ReviewSession, modifier: Modifier, first: Boolean) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
     if (!canShare(session)) return
     var confirmOpen by remember { mutableStateOf(false) }
     val own = session.saved?.sharedCommentUrl ?: ui.sharedUrl
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionButton(
-            onClick = { confirmOpen = true },
-            variant = ButtonVariant.Text,
-            icon = if (ui.sharing) null else "share-network-duotone",
-            enabled = !ui.sharing,
-            small = true,
-        ) {
-            if (ui.sharing) Spinner(c.text)
-            Text(t(if (ui.sharing) "share.sharing" else if (own != null) "share.updateButton" else "share.button"), style = PullsType.xs, maxLines = 1)
-        }
-        val error = ui.shareError
-        if (error != null && !confirmOpen) Text(t("share.failed", "message" to error), Modifier.weight(1f, fill = false), style = PullsType.xs, color = c.error, maxLines = 1)
-    }
+    SheetRow(
+        t(if (ui.sharing) "share.sharing" else if (own != null) "share.updateButton" else "share.button"),
+        if (ui.sharing) null else ({ confirmOpen = true }),
+        modifier, first = first,
+        icon = { if (ui.sharing) Orb(size = 20.dp) else LuIcon(Lu.ext, tint = c.text, size = 20.dp) },
+    )
     if (confirmOpen) ShareSheet(session) { confirmOpen = false }
 }
 
-/** Port of `ShareResultModal.vue`, plus the shared comment's link once posted. */
+/** What sharing posts and where, then Share; the link of the posted comment replaces the buttons once it is up. */
 @Composable
 private fun ShareSheet(session: ReviewSession, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
@@ -136,64 +135,59 @@ private fun ShareSheet(session: ReviewSession, onDismiss: () -> Unit) {
         }
     }
 
-    AiSheet(title = t(if (own != null) "share.titleUpdate" else "share.titleShare"), onDismiss = onDismiss) {
+    PullsSheet(onDismiss, t(if (own != null) "share.titleUpdate" else "share.titleShare"), expandable = true) {
         val link = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))
         val sentence = messages.t(if (own != null) "share.willUpdate" else "share.willPost", "comment" to "\u0001", "user" to "\u0002")
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                buildAnnotatedString {
-                    sentence.forEach { ch ->
-                        when (ch) {
-                            '\u0001' -> if (own != null) withLink(LinkAnnotation.Url(own, link)) { append(messages.t("share.commentLink")) } else append(messages.t("share.commentLink"))
-                            '\u0002' -> if (viewer != null) withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(viewer) } else append(messages.t("common.you"))
-                            else -> append(ch)
-                        }
-                    }
-                },
-                style = PullsType.sm, color = c.text,
-            )
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(t("share.contains"), style = PullsType.sm, color = c.fade)
-            Bullet {
-                val parts = messages.t("share.containsLink", "site" to "\u0001").split('\u0001')
+        SheetCard {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     buildAnnotatedString {
-                        append(parts.first())
-                        withStyle(SpanStyle(color = c.primary, fontWeight = FontWeight.Bold)) { append("pulls.review") }
-                        append(parts.getOrElse(1) { "" })
+                        sentence.forEach { ch ->
+                            when (ch) {
+                                '\u0001' -> if (own != null) withLink(LinkAnnotation.Url(own, link)) { append(messages.t("share.commentLink")) } else append(messages.t("share.commentLink"))
+                                '\u0002' -> if (viewer != null) withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(viewer) } else append(messages.t("common.you"))
+                                else -> append(ch)
+                            }
+                        }
                     },
                     style = PullsType.sm, color = c.text,
                 )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(t("share.contains"), style = PullsType.sm, color = c.muted)
+                    Bullet {
+                        val parts = messages.t("share.containsLink", "site" to "\u0001").split('\u0001')
+                        Text(
+                            buildAnnotatedString {
+                                append(parts.first())
+                                withStyle(SpanStyle(color = c.primary, fontWeight = FontWeight.Bold)) { append("pulls.review") }
+                                append(parts.getOrElse(1) { "" })
+                            },
+                            style = PullsType.sm, color = c.text,
+                        )
+                    }
+                    Bullet { Text(t("share.containsJson"), style = PullsType.sm, color = c.text) }
+                    Text(t("share.excludes"), style = PullsType.sm, color = c.muted)
+                }
+                Text(t("share.anyoneCanLoad"), style = PullsType.sm, color = c.muted)
+                if (notEnglish) Text(t("share.englishRecommended"), style = PullsType.sm, color = c.amber)
             }
-            Bullet { Text(t("share.containsJson"), style = PullsType.sm, color = c.text) }
-            Text(t("share.excludes"), style = PullsType.sm, color = c.fade)
         }
-        Text(t("share.anyoneCanLoad"), style = PullsType.sm, color = c.fade)
-        if (notEnglish) {
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.amber.copy(alpha = 0.10f)).border(1.dp, c.amber.copy(alpha = 0.20f), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                PhIcon("globe-duotone", Modifier.padding(top = 2.dp), tint = c.amber, size = 16.dp)
-                Text(t("share.englishRecommended"), style = PullsType.sm, color = c.amber)
-            }
-        }
-        ui.shareError?.let { Text(it, style = PullsType.sm, color = c.error) }
+        ui.shareError?.let { Text(it, Modifier.padding(top = 8.dp), style = PullsType.sm, color = c.error) }
         val url = done
         if (url != null) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PhIcon("check-circle", tint = c.success, size = 16.dp)
-                Text(
-                    buildAnnotatedString { withLink(LinkAnnotation.Url(url, link)) { append(url) } },
-                    Modifier.weight(1f), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.text,
-                )
-                IconButton("arrow-square-out", "Open on GitHub", { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }, compact = true)
+            SheetCard {
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        buildAnnotatedString { withLink(LinkAnnotation.Url(url, link)) { append(url) } },
+                        Modifier.weight(1f).padding(vertical = 12.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text,
+                    )
+                    FloatIcon(Lu.ext, "Open on GitHub", { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }, flat = true, size = 40.dp, tint = c.muted)
+                }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            ActionButton(onClick = onDismiss, variant = ButtonVariant.Text, enabled = !ui.sharing) { Text(t(if (url != null) "common.close" else "common.cancel")) }
-            if (url == null) ActionButton(onClick = ::confirm, variant = ButtonVariant.Primary, icon = "share-network-duotone", loading = ui.sharing) { Text(confirmLabel) }
+        Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            PillButton(t(if (url != null) "common.close" else "common.cancel"), onDismiss, Modifier.weight(1f), enabled = !ui.sharing)
+            if (url == null) CtaButton(confirmLabel, ::confirm, Modifier.weight(1.6f), enabled = !ui.sharing, leading = { if (ui.sharing) Orb(size = 18.dp) })
         }
     }
 }
@@ -238,34 +232,32 @@ internal fun SharedAnalysisBannerImpl(session: ReviewSession, modifier: Modifier
     if (ui.bannerDismissed || (candidates.isEmpty() && notice == null)) return
     val replacesLocal = session.hasAiResult && session.saved?.analysis?.sharedBy == null
     val locale = session.settings.locale
+    val shape = RoundedCornerShape(16.dp)
     FlowRow(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.raised).border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+        modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        PhIcon("sparkle-duotone", tint = c.fade, size = 16.dp)
         if (candidates.isNotEmpty()) {
             Text(t(if (replacesLocal) "share.loadReplaces" else "share.available"), style = PullsType.sm, color = c.text)
             candidates.forEach { candidate ->
-                com.octaviantocan.pulls.ui.design.ActionButton({
-                    scope.launch {
-                        runCatching { session.repo.call("shared-load") { put("key", key); put("login", candidate.login) } }
-                            .onSuccess { candidates = emptyList(); notice = null; session.reloadSaved(); session.analyzeMode = "ai" }
-                            .onFailure { notice = it.message }
-                    }
-                }, Modifier.clip(androidx.compose.foundation.shape.CircleShape), small = true) {
-                    GithubAvatar(candidate.login, size = 16.dp)
-                    Text(if (candidate.own) t("common.you") else candidate.login)
-                    if (candidate.stale) Text(t("share.outdated"), style = PullsType.xs, color = c.fade)
-                    else candidate.locale?.takeIf { it != locale }?.let { other ->
-                        val name = com.octaviantocan.pulls.ui.design.Messages.LOCALES.firstOrNull { it.first == other }?.second ?: other
-                        Text("($name)", style = PullsType.xs, color = c.fade)
-                    }
-                }
+                val note = if (candidate.stale) t("share.outdated")
+                else candidate.locale?.takeIf { it != locale }?.let { other -> "(${com.octaviantocan.pulls.ui.design.Messages.LOCALES.firstOrNull { it.first == other }?.second ?: other})" }
+                PillButton(
+                    listOfNotNull(if (candidate.own) t("common.you") else candidate.login, note).joinToString(" "),
+                    {
+                        scope.launch {
+                            runCatching { session.repo.call("shared-load") { put("key", key); put("login", candidate.login) } }
+                                .onSuccess { candidates = emptyList(); notice = null; session.reloadSaved(); session.analyzeMode = "ai" }
+                                .onFailure { notice = it.message }
+                        }
+                    },
+                    leading = { GithubAvatar(candidate.login, size = 20.dp) },
+                )
             }
         } else notice?.let { Text(it, style = PullsType.sm, color = c.fade) }
         Spacer(Modifier.weight(1f))
-        IconButton("x", t("common.dismiss"), { ui.bannerDismissed = true }, compact = true)
+        FloatIcon(Lu.close, t("common.dismiss"), { ui.bannerDismissed = true }, flat = true, size = 40.dp, tint = c.muted)
     }
 }

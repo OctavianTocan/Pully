@@ -27,10 +27,13 @@ object PullsSpace {
     val x8 = 32.dp
 }
 
-/** Shadow elevations. `float` is the canvas shadow of `floatShadow`. */
+/** The blur of each canvas shadow (Row W), in dp. `PullsShadow` adds the offset and the strength. */
 object PullsElevation {
-    val float = 8.dp
-    val raised = 4.dp
-    val thumb = 2.dp
-    val modal = 24.dp
+    val button = 10.dp
+    val note = 12.dp
+    val bar = 14.dp
+    val search = 16.dp
+    val menu = 20.dp
+    val thumb = 3.dp
+    val modal = 40.dp
 }

@@ -29,12 +29,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.IconButton
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsCheck
+import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.TOUCH
+import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 
 /**
@@ -52,13 +57,14 @@ fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: M
     // Commits GitHub did not return are the oldest ones, so they shift every position.
     val offset = overview?.commitsHidden ?: 0
     val total = commits.size + offset
+    val shape = RoundedCornerShape(PullsRadius.card)
     FlowRow(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.raised).border(1.dp, c.border, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        PhIcon("git-commit-duotone", tint = c.fade, size = 16.dp)
+        LuIcon(Lu.commit, tint = c.muted, size = 20.dp)
         when {
             range != null && range.first == range.last -> Row(Modifier.weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(t("overview.selection.viewing", "index" to range.first + 1 + offset, "total" to total), style = PullsType.sm, color = c.text, maxLines = 1)
@@ -70,10 +76,10 @@ fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: M
         }
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            IconButton("caret-left", t("overview.selection.previous"), { session.selectCommits(previous?.pair) }, compact = true, enabled = previous != null)
-            IconButton("caret-right", t("overview.selection.next"), { session.selectCommits(next?.pair) }, compact = true, enabled = next != null)
+            FloatIcon(Lu.prev, t("overview.selection.previous"), { session.selectCommits(previous?.pair) }, flat = true, size = 40.dp, enabled = previous != null)
+            FloatIcon(Lu.next, t("overview.selection.next"), { session.selectCommits(next?.pair) }, flat = true, size = 40.dp, enabled = next != null)
         }
-        ActionButton({ session.selectCommits(null) }, small = true) { Text(t("overview.selection.showAll")) }
+        PillButton(t("overview.selection.showAll"), { session.selectCommits(null) })
     }
 }
 
@@ -92,12 +98,11 @@ fun isStale(session: ReviewSession, overview: PrOverview?): Boolean {
 @Composable
 fun StaleBanner(session: ReviewSession, onRefresh: () -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
-    val amber = Color(0xFFFBBF24)
     val text = WebColors.amberText(c.dark)
     var autoNextTime by rememberSaveable { mutableStateOf(true) }
+    val shape = RoundedCornerShape(PullsRadius.card)
     FlowRow(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(c.raised).background(amber.copy(alpha = 0.10f))
-            .border(1.dp, amber.copy(alpha = 0.20f), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.Start),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
@@ -106,27 +111,17 @@ fun StaleBanner(session: ReviewSession, onRefresh: () -> Unit, modifier: Modifie
         Spacer(Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
-                Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(4.dp)).clickable(role = Role.Checkbox) { autoNextTime = !autoNextTime },
+                Modifier.defaultMinSize(minHeight = TOUCH).clip(RoundedCornerShape(PullsRadius.md)).clickable(role = Role.Checkbox) { autoNextTime = !autoNextTime },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FormCheckbox(autoNextTime)
-                Text(t("pr.autoRefreshNextTime"), style = PullsType.sm, color = text)
+                PullsCheck(autoNextTime, size = 20.dp)
+                Text(t("pr.autoRefreshNextTime"), style = PullsType.sm, color = c.text)
             }
-            ActionButton({
+            PillButton(t("common.refresh"), {
                 session.settings.updateAutoRefresh(autoNextTime)
                 onRefresh()
-            }, small = true) { Text(t("common.refresh"), color = text) }
+            })
         }
     }
-}
-
-/** `FormCheckbox`'s box: 16px, primary fill and a white check when on. */
-@Composable
-private fun FormCheckbox(checked: Boolean) {
-    val c = LocalPullsColors.current
-    Box(
-        Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(if (checked) c.primary else c.raised).border(1.dp, if (checked) c.primary else c.border, RoundedCornerShape(4.dp)),
-        contentAlignment = Alignment.Center,
-    ) { if (checked) PhIcon("check-bold", tint = Color.White, size = 11.dp) }
 }

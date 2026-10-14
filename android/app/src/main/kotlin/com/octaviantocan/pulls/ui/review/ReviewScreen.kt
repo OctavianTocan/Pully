@@ -1,9 +1,8 @@
 package com.octaviantocan.pulls.ui.review
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -30,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
@@ -41,14 +41,14 @@ import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.LensPickerSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
-import com.octaviantocan.pulls.ui.design.EmptyState
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.TourEntry
 import com.octaviantocan.pulls.ui.home.TourIndex
@@ -108,6 +108,14 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     fun toOverview() {
         if (PrView.Overview !in pages) pages.add(0, PrView.Overview)
         while (pages.last() != PrView.Overview) pages.removeAt(pages.lastIndex)
+    }
+    // The capsule moves between sibling pages (overview, changes, tour) without stacking them, so Back still leaves one page at a time.
+    fun switchTo(page: PrView) {
+        val here = pages.last()
+        if (here == page) return
+        if (page == PrView.Overview) { toOverview(); return }
+        pages.removeAll { it == page }
+        if (here == PrView.Overview) pages.add(page) else pages[pages.lastIndex] = page
     }
     fun openDiff(path: String?) {
         val files = orderedFiles()
@@ -169,32 +177,43 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     Box(Modifier.fillMaxSize().background(c.base)) {
         when {
             opened == null && session.loadError != null -> Placeholder(onBack = nav.back) {
-                EmptyState("warning-duotone", messages.t("pr.loadFailed"), hint = session.loadError) {
-                    ActionButton({ session.refresh() }, variant = ButtonVariant.Primary) { Text(messages.t("common.retry")) }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(messages.t("pr.loadFailed"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                    session.loadError?.let { Text(it, style = PullsType.sm, color = c.muted) }
+                    PillButton(messages.t("common.retry"), { session.refresh() })
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
             opened == null -> PrOpening(target, preview, onBack = nav.back)
             opened != null && head != null -> {
-                Crossfade(pages.last(), animationSpec = tween(260), label = "review-page") { page ->
+                BlurSwitch(pages.last(), order = { it.ordinal }) { page ->
                     when (page) {
                         PrView.Overview -> PrOverviewScreen(
                             session, ui, top, data, head, overviewScroll, pane, { pane = it },
                             onBack = ::back,
-                            onDiff = ::openDiff,
-                            onTour = { push(PrView.Tour) },
+                            onDiff = { path -> if (path == null && diffPath != null) switchTo(PrView.Diff) else openDiff(path) },
+                            onTour = { switchTo(PrView.Tour) },
                             onAsk = { openAsk(forTour = false) },
                             onSheet = { sheet = it },
                             onCite = { cite -> session.focus = Focus(cite.path, cite.line) },
                             onOpenRepo = nav.openRepo,
                         )
-                        PrView.Diff -> PrDiffScreen(session, ui, diffPath, { diffPath = it }, onBack = ::back)
+                        PrView.Diff -> PrDiffScreen(
+                            session, ui, diffPath, { diffPath = it },
+                            onBack = ::back,
+                            tourLive = tourRunning,
+                            onOverview = ::toOverview,
+                            onTour = { switchTo(PrView.Tour) },
+                            onMore = { sheet = "more" },
+                        )
                         PrView.Tour -> PrTourScreen(
                             session, head,
                             resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                             onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                             onBack = ::back,
                             onOverview = ::toOverview,
+                            onChanges = { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) },
+                            onMore = { sheet = "more" },
                             onOpenSource = { source -> openSource(session, source, uri::openUri) },
                             onAsk = { question -> openAsk(forTour = true, initial = question) },
                         )
@@ -208,8 +227,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "findings" -> FindingsSheet(session) { sheet = null }
                     "edit" -> data?.overview?.let { DescriptionEditSheet(session, it) { sheet = null } }
                     "analyze" -> AnalyzeSheet(session, onClose = { sheet = null }, onModel = { sheet = "model" })
-                    "model" -> ModelSheet(session, onClose = { sheet = null }, onEffort = { sheet = "effort" })
-                    "effort" -> EffortSheet(session, onBack = { sheet = "model" }, onClose = { sheet = null })
+                    "model" -> ModelSheet(session.settings, onClose = { sheet = null }, onEffort = { sheet = "effort" })
+                    "effort" -> EffortSheet(session.settings, onBack = { sheet = "model" }, onClose = { sheet = null })
                     "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->
                         sheet = null
                         if (session.taskFor("critique")?.running == true) {

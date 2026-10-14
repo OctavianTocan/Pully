@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -44,7 +43,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -85,6 +83,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.PullWork
@@ -96,9 +96,9 @@ import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.Triage
+import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.EmptyState
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -109,9 +109,11 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
+import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -119,13 +121,18 @@ import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SoftChip
+import com.octaviantocan.pulls.ui.design.edgeBlur
 import com.octaviantocan.pulls.ui.design.floatShadow
+import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.softBlur
 import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import com.octaviantocan.pulls.update.AppUpdater
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 
 /** Keeps the last list per state on this device, like the web's `localStorage` copy. */
 internal fun deviceStore(context: Context, name: String = "pulls-home"): KeyValueStore {
@@ -174,8 +181,12 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
         )
     }
     LaunchedEffect(state) { sync.select(state) }
-    var refreshing by remember { mutableStateOf(false) }
-    val reload: () -> Unit = { scope.launch { refreshing = true; sync.reload(); refreshing = false } }
+    // Refreshing is quiet: no indicator. It runs on open and whenever the app comes back to the front.
+    val reload: () -> Unit = { scope.launch { sync.reload() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val last = sync.fetchedAt
+        if (last != null && System.currentTimeMillis() - last > 30_000) reload()
+    }
 
     val now = rememberNow(60_000)
     val workTasks = rememberWork(repo)
@@ -203,15 +214,15 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
         val pullsGroup = messages.t("palette.group.pulls")
         val reposGroup = messages.t("palette.group.repos")
         val all = sync.pulls.orEmpty()
-        listOf(com.octaviantocan.pulls.ui.Command("home.refresh", messages.t("keys.refresh"), pullsGroup, icon = "arrows-clockwise-duotone") { reload() }) +
+        listOf(com.octaviantocan.pulls.ui.Command("home.refresh", messages.t("keys.refresh"), pullsGroup) { reload() }) +
             all.map { pull ->
                 val ref = "${pull.owner}/${pull.repo}#${pull.number}"
-                com.octaviantocan.pulls.ui.Command("jump.pull:$ref", messages.t("palette.goToPull", "ref" to ref, "title" to pull.title), pullsGroup, icon = "git-pull-request-duotone") {
+                com.octaviantocan.pulls.ui.Command("jump.pull:$ref", messages.t("palette.goToPull", "ref" to ref, "title" to pull.title), pullsGroup) {
                     nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
                 }
             } +
             all.distinctBy { "${it.owner}/${it.repo}" }.map { pull ->
-                com.octaviantocan.pulls.ui.Command("jump.repo:${pull.owner}/${pull.repo}", messages.t("palette.goToRepo", "repo" to "${pull.owner}/${pull.repo}"), reposGroup, icon = "git-branch-duotone") {
+                com.octaviantocan.pulls.ui.Command("jump.repo:${pull.owner}/${pull.repo}", messages.t("palette.goToRepo", "repo" to "${pull.owner}/${pull.repo}"), reposGroup) {
                     nav.openRepo(pull.owner, pull.repo)
                 }
             }
@@ -243,17 +254,19 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     }
 
     Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(Modifier.fillMaxSize()) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
             if (ui.tab == 0) FilterChips(ui.filter, inbox.counts) { ui.filter = it }
             if (ui.tab == 0) ActivityStrip(workTasks, { activityOpen = true })
-            Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) {
-                if (ui.tab == 0) {
+            // A hairline under the chips, as in the design: the Tours list has its own under each heading.
+            if (ui.tab == 0) Box(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp).fillMaxWidth().height(1.dp).background(c.borderMute))
+            BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth().padding(top = if (ui.tab == 0) 0.dp else 10.dp), order = { it }) { tab ->
+                if (tab == 0) {
                     InboxList(
                         groups = groups, labels = labels, now = now, archived = archived, work = work,
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(), updateNotice = updateNotice,
-                        refreshing = refreshing, onRefresh = reload,
+                        onRetry = reload, onCommands = { Commands.open() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                     )
                 } else {
@@ -282,13 +295,13 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             }
         }
         // `.fade` and `.search`: the list dissolves into the page under a floating search pill.
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(140.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.6f to c.base, 1f to c.base)))
         SearchPill(
             ui.search, { ui.search = it },
-            if (ui.tab == 0) "Search, or paste a link or number" else "Search tours",
+            if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
             openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
             onOpen = ::openSearch,
-            modifier = Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         )
         if (activityOpen) {
             ActivitySheet(workTasks, onOpen = { ref -> nav.openTarget(OpenTarget.Pull(ref.owner, ref.repo, ref.number, "github.com")) }, onClose = { activityOpen = false })
@@ -306,9 +319,9 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
 
 /** `.hdr`: settings, the Inbox/Tours capsule, and the profile avatar, floating over the page. */
 @Composable
-private fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit) {
+internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -325,7 +338,7 @@ private fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSetti
 
 /** `.chips`: Waiting on you, Authored and All, each with the size of the list it would show. */
 @Composable
-private fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> Unit) {
+internal fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -338,7 +351,7 @@ private fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (Str
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun InboxList(
+internal fun InboxList(
     groups: List<Triage.RepoGroup>,
     labels: Map<String, String>,
     now: Long,
@@ -349,23 +362,29 @@ private fun InboxList(
     filter: String,
     searching: Boolean,
     updateNotice: String?,
-    refreshing: Boolean,
-    onRefresh: () -> Unit,
+    onRetry: () -> Unit,
+    onCommands: () -> Unit,
     onOpen: (PullRow) -> Unit,
     onArchive: (PullRow) -> Unit,
     onRepo: (Triage.RepoGroup) -> Unit,
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
-    // The list refreshes quietly: pulling down reloads it without a spinner, and the rows change when the answer arrives.
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize(), indicator = {}) {
-        LazyColumn(Modifier.fillMaxSize(), state = rememberLazyListState(), contentPadding = PaddingValues(bottom = bottom)) {
+    val state = rememberLazyListState()
+    val band = with(LocalDensity.current) { 28.dp.toPx() }
+    // Pulling down past the top opens Commands; the list itself refreshes quietly.
+    PullToCommands(onCommands, Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize().edgeBlur(top = 28.dp, bottom = 130.dp, topStrength = { state.topEdgeStrength(band) }),
+            state = state,
+            contentPadding = PaddingValues(bottom = bottom),
+        ) {
             if (updateNotice != null) item(key = "update") { UpdateBanner(updateNotice, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) }
             when {
                 loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
                     EmptyState("warning-duotone", t("local.home.failed"), Modifier.fillMaxWidth(), hint = failed) {
-                        ActionButton(onRefresh, variant = ButtonVariant.Primary) { Text(t("common.retry")) }
+                        PillButton(t("common.retry"), onRetry)
                     }
                 }
                 groups.isEmpty() -> item(key = "empty") {
@@ -420,8 +439,6 @@ private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, mod
             .padding(start = 16.dp, end = 16.dp, top = if (first) 16.dp else 18.dp, bottom = 6.dp),
         style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
         color = c.muted,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
     )
 }
 
@@ -431,7 +448,7 @@ private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, mod
  * both swipes are also offered to screen readers as actions.
  */
 @Composable
-private fun SwipeRow(
+internal fun SwipeRow(
     label: String,
     onOpen: () -> Unit,
     onArchive: () -> Unit,
@@ -449,6 +466,7 @@ private fun SwipeRow(
     val threshold = with(density) { 110.dp.toPx() }
     val ramp = with(density) { 60.dp.toPx() }
     val drag = rememberDraggableState { delta -> dx = (dx + delta).coerceIn(-width, width) }
+    val ink = c.shadow
     Box(
         modifier
             .fillMaxWidth()
@@ -461,8 +479,8 @@ private fun SwipeRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val ink = Color.White // raw-value-ok: ink on the primary fill is white in both themes, like the Chat send button
-                LuIcon(Lu.okc, tint = ink, size = 18.dp)
+                val ink = Color.White // raw-value-ok: ink on the primary fill is white in both themes, like the send button
+                LuIcon(Lu.arrow, tint = ink, size = 20.dp)
                 Text(startLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = ink)
             }
         }
@@ -479,6 +497,14 @@ private fun SwipeRow(
         Box(
             Modifier
                 .offset { IntOffset(dx.roundToInt(), 0) }
+                // The row is displaced over the panel, so it blurs as it goes (rules 17 and 46) and casts a soft edge.
+                .softBlur(SWIPE_BLUR * (abs(dx) / ramp).coerceIn(0f, 1f))
+                .drawBehind {
+                    val edge = 18.dp.toPx()
+                    val strength = (abs(dx) / ramp).coerceIn(0f, 1f)
+                    if (dx > 0f) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, ink.copy(alpha = 0.14f * strength)), startX = -edge, endX = 0f), Offset(-edge, 0f), Size(edge, size.height))
+                    if (dx < 0f) drawRect(Brush.horizontalGradient(listOf(ink.copy(alpha = 0.16f * strength), Color.Transparent), startX = size.width, endX = size.width + edge), Offset(size.width, 0f), Size(edge, size.height))
+                }
                 .background(c.base)
                 .draggable(drag, Orientation.Horizontal, onDragStopped = {
                     val end = dx
@@ -486,15 +512,15 @@ private fun SwipeRow(
                         end > threshold -> {
                             animate(end, with(density) { 72.dp.toPx() }, animationSpec = tween(120)) { value, _ -> dx = value }
                             onOpen()
-                            animate(dx, 0f, animationSpec = tween(250)) { value, _ -> dx = value }
+                            animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                         }
                         end < -threshold -> {
                             animate(end, -width, animationSpec = tween(200)) { value, _ -> dx = value }
                             onArchive()
                             // Under All the row stays (dimmed): bring it back.
-                            animate(dx, 0f, animationSpec = tween(250)) { value, _ -> dx = value }
+                            animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                         }
-                        else -> animate(end, 0f, animationSpec = tween(250)) { value, _ -> dx = value }
+                        else -> animate(end, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                     }
                 })
                 .clickable(role = Role.Button, onClickLabel = label, onClick = onOpen),
@@ -502,22 +528,29 @@ private fun SwipeRow(
     }
 }
 
+/** The most a swiped row blurs: Row W's 1.3px, a little stronger so it reads on a phone. */
+private val SWIPE_BLUR = 2.dp
+
 /** `.pr`: number and title on top; author, checks, diff size and age on a second line. */
 @Composable
-private fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?) {
+internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?) {
     val c = LocalPullsColors.current
     val title = buildAnnotatedString {
         if (pull.isDraft) withStyle(SpanStyle(fontSize = 13.sp, color = c.muted)) { append("[${t("local.home.draft")}] ") }
         append(pull.title)
     }
     val requested = pull.requestedFromMe ?: (pull.role == "review-requested")
+    val inset = with(LocalDensity.current) { 16.dp.toPx() }
     Row(
-        Modifier.fillMaxWidth().alpha(if (dimmed) 0.55f else 1f).padding(horizontal = 16.dp, vertical = 13.dp),
+        Modifier.fillMaxWidth()
+            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
+            .alpha(if (dimmed) 0.55f else 1f)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text("#${pull.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(title, style = PullsType.row, color = c.text, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(title, style = PullsType.row, color = c.text)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
@@ -561,11 +594,11 @@ private fun DiffNumbers(pull: PullRow) {
  * pull request, an Open pill appears in it and the keyboard's action opens it, so no separate field is needed.
  */
 @Composable
-private fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
     Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = if (value.isEmpty()) 20.dp else 8.dp),
+        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = if (value.isEmpty()) 20.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -602,7 +635,7 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: S
  * a finished one from the list.
  */
 @Composable
-private fun ToursList(
+internal fun ToursList(
     entries: List<TourEntry>,
     tasks: List<WorkTask>,
     onOpen: (TourEntry) -> Unit,
@@ -612,16 +645,25 @@ private fun ToursList(
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
     if (entries.isEmpty()) {
-        EmptyState(
-            "compass-duotone", "No tours yet", Modifier.fillMaxWidth().padding(top = 32.dp),
-            hint = "Open a pull request and tap its Tour button. Tours you open or start show up here.",
-        )
+        Column(Modifier.fillMaxWidth().padding(top = 48.dp, start = 32.dp, end = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("No tours yet", style = PullsType.lg.copy(fontWeight = FontWeight.Medium), color = c.text, textAlign = TextAlign.Center)
+            Text(
+                "Open a pull request and tap its Tour button. Tours you open or start show up here.",
+                style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center,
+            )
+        }
         return
     }
     val now = rememberNow(60_000)
     val groups = entries.groupBy { "${it.owner}/${it.repo}" }
     val labels = Triage.groupLabels(groups.map { (name, list) -> Triage.RepoGroup(name, list.first().owner, list.first().repo, emptyList()) })
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottom)) {
+    val state = rememberLazyListState()
+    val band = with(LocalDensity.current) { 28.dp.toPx() }
+    LazyColumn(
+        Modifier.fillMaxSize().edgeBlur(top = 28.dp, bottom = 130.dp, topStrength = { state.topEdgeStrength(band) }),
+        state = state,
+        contentPadding = PaddingValues(bottom = bottom),
+    ) {
         groups.entries.forEachIndexed { index, (name, list) ->
             item(key = "group:$name") {
                 val first = list.first()
@@ -650,8 +692,8 @@ private fun ToursList(
                             if (entry.writingAt(now)) Orb(size = 30.dp) else ProgressRing(entry.reached, entry.stops, size = 30.dp)
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(entry.prTitle, style = PullsType.row, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(tourSubtitle(entry, now), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(entry.prTitle, style = PullsType.row, color = c.text)
+                            Text(tourSubtitle(entry, now), style = PullsType.sm, color = c.muted)
                         }
                     }
                 }
@@ -688,10 +730,10 @@ private fun ProfileSheet(
     PullsSheet(onClose, viewer ?: "Pulls") {
         Text(host, Modifier.fillMaxWidth(), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
         SheetCard {
-            SheetRow("Check out a branch", { onClose(); nav.checkout() }, first = true, icon = { PhIcon("git-branch-duotone", tint = c.text, size = 20.dp) }) {
+            SheetRow("Check out a branch", { onClose(); nav.checkout() }, first = true, icon = { LuIcon(Lu.branch, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
-            SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
+            SheetRow("Commands", { onClose(); Commands.open() }, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
             SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, icon = { LuIcon(Lu.arch, tint = c.text) }) {
@@ -708,12 +750,12 @@ private fun ProfileSheet(
     }
 }
 
-/** `i-ph:circle-notch animate-spin`. */
+/** A small turning arrow beside work the phone is doing quietly (refreshing, loading more). */
 @Composable
 fun Spinner(size: Dp = 16.dp, tint: Color = LocalPullsColors.current.fade) {
     val transition = rememberInfiniteTransition(label = "spin")
     val angle by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart), label = "angle")
-    PhIcon("circle-notch", Modifier.rotate(angle), tint = tint, size = size)
+    LuIcon(Lu.redo, Modifier.rotate(angle), tint = tint, size = size)
 }
 
 /** `rounded bg-hover px-1.5 py-0.5 text-xs`. */
@@ -728,29 +770,6 @@ internal fun Chip(text: String, color: Color) {
     )
 }
 
-/** The CI rollup glyph next to a pull request (`CHECKS_ICON`). */
-@Composable
-internal fun ChecksIcon(checks: String, size: Dp) {
-    val dark = LocalPullsColors.current.dark
-    val label = t("pulls.checks.$checks")
-    when (checks) {
-        "success" -> PhIcon("check-bold", tint = StatusColors.green(dark), size = size, contentDescription = label)
-        "failure" -> PhIcon("x-bold", tint = StatusColors.red(dark), size = size, contentDescription = label)
-        "pending" -> PhIcon("circle-fill", tint = StatusColors.amber500, size = size, contentDescription = label)
-    }
-}
-
-/** The review decision glyph (`REVIEW`); accepts the home (`changes-requested`) and repo list (`changes_requested`) spellings. */
-@Composable
-internal fun ReviewIcon(decision: String?, size: Dp) {
-    val c = LocalPullsColors.current
-    when (decision?.replace('-', '_')) {
-        "approved" -> PhIcon("check-circle-duotone", tint = StatusColors.green(c.dark), size = size, contentDescription = t("pulls.review.approved"))
-        "changes_requested" -> PhIcon("x-circle-duotone", tint = StatusColors.red(c.dark), size = size, contentDescription = t("pulls.review.changes_requested"))
-        "review_required" -> PhIcon("eye-duotone", tint = c.fade, size = size, contentDescription = t("pulls.review.review_required"))
-    }
-}
-
 /** The app-update notice: download, check the digest and hand it to the installer, all in-app. */
 @Composable
 private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
@@ -763,14 +782,14 @@ private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
     Row(
         modifier
             .fillMaxWidth()
-            .floatShadow(shape, 4.dp)
+            .floatShadow(shape, PullsShadow.Note)
             .clip(shape)
             .background(c.raised)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        PhIcon("arrow-circle-up-duotone", tint = c.accentTeal, size = 22.dp)
+        LuIcon(Lu.arrow, Modifier.rotate(-90f), tint = c.accentTeal, size = 22.dp)
         Text(progress ?: notice, Modifier.weight(1f), style = PullsType.sm, color = c.text)
         val result = com.octaviantocan.pulls.update.UpdateBus.last
         LaunchedEffect(result) {
@@ -780,14 +799,14 @@ private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
                 else -> {}
             }
         }
-        ActionButton({
+        PillButton("Update", enabled = !busy, leading = { if (busy) Orb(size = 18.dp) }, onClick = {
             // Android asks once per app for "Install unknown apps"; send the user there first.
             if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
                 progress = "Allow pulls.review to install apps, then tap Update again."
                 runCatching {
                     context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${context.packageName}")))
                 }
-                return@ActionButton
+                return@PillButton
             }
             busy = true
             scope.launch {
@@ -804,7 +823,7 @@ private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
                 }
                 outcome.onFailure { progress = it.message ?: it.toString(); busy = false }.onSuccess { progress = "Installing…" }
             }
-        }, variant = ButtonVariant.Primary, small = true, loading = busy, enabled = !busy) { Text("Update") }
+        })
     }
 }
 

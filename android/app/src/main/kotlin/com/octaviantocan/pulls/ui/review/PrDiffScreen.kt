@@ -3,12 +3,14 @@ package com.octaviantocan.pulls.ui.review
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +29,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -42,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,6 +58,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
@@ -67,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.nextUnreviewed
@@ -79,12 +86,16 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.PullsCheck
-import com.octaviantocan.pulls.ui.design.PullsFonts
+import com.octaviantocan.pulls.ui.design.MenuReveal
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.ReviewState
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.home.Spinner
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
 import kotlinx.coroutines.delay
@@ -94,66 +105,95 @@ import kotlinx.coroutines.launch
 private val SIZES = listOf("Smaller" to 0.88f, "Default" to 1f, "Larger" to 1.16f)
 
 /**
- * The prototype's diff: a header with the file picker and the Aa menu, the AI's note about the file,
- * its counts and Reviewed box, the rows, and a bottom bar with Previous, the comment field (once a
- * line is selected) and Next. [path] is the file shown; [onPath] moves to another.
+ * The prototype's diff: the page capsule over a strip with the file picker and the Aa menu, the AI's
+ * note about the file, its counts and Reviewed box, the rows, and a bottom bar with Previous, the
+ * comment field (once a line is selected) and Next. [path] is the file shown; [onPath] moves to another.
  */
 @Composable
-internal fun PrDiffScreen(session: ReviewSession, ui: DiffUi, path: String?, onPath: (String) -> Unit, onBack: () -> Unit) {
+internal fun PrDiffScreen(
+    session: ReviewSession,
+    ui: DiffUi,
+    path: String?,
+    onPath: (String) -> Unit,
+    onBack: () -> Unit,
+    tourLive: Boolean,
+    onOverview: () -> Unit,
+    onTour: () -> Unit,
+    onMore: () -> Unit,
+) {
     val c = LocalPullsColors.current
     val files = fileSections(session, ui).flatMap { it.files }
     val index = files.indexOfFirst { it.path == path }.let { if (it < 0) 0 else it }
     val file = files.getOrNull(index)
     var menu by remember { mutableStateOf<String?>(null) }
+    var stripBottom by remember { mutableFloatStateOf(0f) }
     BackHandler(enabled = menu != null) { menu = null }
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
 
     Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                FileTitle(file, expanded = menu == "files", modifier = Modifier.weight(1f)) { menu = if (menu == "files") null else "files" }
-                FloatButton({ menu = if (menu == "aa") null else "aa" }, "Text size") {
-                    Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-                }
+                Spacer(Modifier.weight(1f))
+                SectionCapsule(selected = 1, live = tourLive, onOverview = onOverview, onChanges = {}, onTour = onTour, onMore = onMore)
             }
+            FileStrip(
+                file, position = index + 1, count = files.size, expanded = menu == "files",
+                modifier = Modifier.onGloballyPositioned { stripBottom = it.positionInRoot().y + it.size.height },
+                onFiles = { menu = if (menu == "files") null else "files" },
+                onAa = { menu = if (menu == "aa") null else "aa" },
+            )
             if (file == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No files in this change.", style = PullsType.sm, color = c.muted) }
             } else {
                 FileBody(session, ui, file, files, index, onPath, Modifier.weight(1f).fillMaxWidth())
             }
         }
-        if (menu == "files") FilePicker(session, files, file, onPick = { onPath(it); menu = null }, onDismiss = { menu = null })
-        if (menu == "aa") ViewMenu(session, ui, file, onFont = { menu = "font" }, onDismiss = { menu = null })
+        if (menu == "files" || menu == "aa") Box(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
+        MenuReveal(menu == "files", Modifier.offset { IntOffset(0, stripBottom.toInt()) }) {
+            FilePicker(session, files, file, onPick = { onPath(it); menu = null })
+        }
+        MenuReveal(menu == "aa", Modifier.align(Alignment.TopEnd).offset { IntOffset(0, stripBottom.toInt()) }, origin = TransformOrigin(1f, 0f)) {
+            ViewMenu(session, ui, file, onFont = { menu = "font" }, onDismiss = { menu = null })
+        }
         if (menu == "font") CodeFontSheet(session.settings) { menu = null }
     }
 }
 
-/** `.dtitle`: the folder faded, the file name in the mono face, and a caret that flips while the list is open. */
+/**
+ * `.dtitle`: the file you are on, whole (the folder faded, the name in the mono face, wrapping rather
+ * than cut), its place in the change, a caret that flips while the list is open, and the Aa button.
+ */
 @Composable
-private fun FileTitle(file: ReviewFile?, expanded: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun FileStrip(file: ReviewFile?, position: Int, count: Int, expanded: Boolean, modifier: Modifier, onFiles: () -> Unit, onAa: () -> Unit) {
     val c = LocalPullsColors.current
     val dir = file?.path?.substringBeforeLast('/', "")?.let { if (it.isEmpty()) "" else "$it/" }.orEmpty()
     val base = file?.path?.substringAfterLast('/').orEmpty()
     Row(
-        modifier.height(44.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClickLabel = "Choose a file", onClick = onClick),
-        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+        modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = c.faint, fontWeight = FontWeight.Normal)) { append(dir.takeLast(18).let { if (it.length < dir.length) "…$it" else it }) }
-                append(base)
-            },
-            Modifier.weight(1f, fill = false),
-            style = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
-        LuIcon(Lu.chevd, Modifier.rotate(if (expanded) 180f else 0f), tint = c.muted, size = 20.dp)
+        Row(
+            Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClickLabel = "Choose a file", onClick = onFiles),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = c.faint, fontWeight = FontWeight.Normal)) { append(dir) }
+                    append(base)
+                },
+                Modifier.weight(1f, fill = false),
+                style = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium), color = c.text,
+            )
+            if (count > 1) Text("$position/$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1)
+            LuIcon(Lu.chevd, Modifier.rotate(if (expanded) 180f else 0f), tint = c.muted, size = 20.dp)
+        }
+        FloatButton(onAa, "Text size") {
+            Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+        }
     }
 }
 
@@ -245,11 +285,13 @@ private fun NoteCard(note: String) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(16.dp)
     Column(
-        Modifier.fillMaxWidth().floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.size(28.dp).clip(CircleShape).background(c.accentWash), contentAlignment = Alignment.Center) { LuIcon(Lu.bot, tint = c.activeText, size = 16.dp) }
+            Box(Modifier.size(28.dp).clip(CircleShape).background(c.accentWash), contentAlignment = Alignment.Center) {
+                Text("P", style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.accentWashInk)
+            }
             Text("Pulls", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             Spacer(Modifier.weight(1f))
             Text("File note", style = PullsType.sm, color = c.muted)
@@ -304,78 +346,88 @@ private fun CommentBar(session: ReviewSession, ui: DiffUi, file: ReviewFile, ind
     }
 
     Row(
-        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
-        Box(Modifier.weight(1f)) {
-            androidx.compose.animation.AnimatedVisibility(selected != null, enter = fadeIn() + scaleIn(initialScale = 0.96f), exit = fadeOut() + scaleOut(targetScale = 0.96f)) {
+        AnimatedContent(
+            targetState = selected != null,
+            transitionSpec = {
+                fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) togetherWith fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
+            },
+            label = "comment-bar",
+        ) { selecting ->
+            if (!selecting) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
+                    Spacer(Modifier.weight(1f))
+                    FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, primary = true)
+                }
+            } else {
+                // A line is selected: the bar is one pill you type straight into, with everything it needs built in.
                 Row(
-                    Modifier.fillMaxWidth().height(48.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 4.dp),
+                    Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(start = 4.dp, end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    FloatIcon(Lu.close, "Deselect line", { ui.drafts.remove(file.path); ui.selectionStart.remove(file.path) }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
                     if (canComment) {
                         BasicTextField(
                             value = text,
                             onValueChange = { text = it },
                             singleLine = true,
                             enabled = !busy,
-                            textStyle = PullsType.sm.copy(color = c.text),
+                            textStyle = PullsType.base.copy(color = c.text),
                             cursorBrush = SolidColor(c.accentTeal),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = { send() }),
                             modifier = Modifier.weight(1f),
                             decorationBox = { inner ->
                                 Box(contentAlignment = Alignment.CenterStart) {
-                                    if (text.isEmpty()) Text("Comment on ${label ?: "a line"}…", style = PullsType.sm, color = c.muted, maxLines = 1)
+                                    if (text.isEmpty()) Text("Comment on ${label ?: "a line"}", style = PullsType.base, color = c.muted, maxLines = 1)
                                     inner()
                                 }
                             },
                         )
-                        if (busy) Spinner(16.dp, c.muted)
                         if (!hasPending) {
                             Box(
                                 Modifier.defaultMinSize(minHeight = 40.dp).clip(CircleShape)
                                     .clickable(role = Role.Switch, onClickLabel = if (single) "Add comments to a review instead" else "Post comments at once instead") { single = !single }
-                                    .padding(horizontal = 10.dp),
+                                    .padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Text(if (single) "Post now" else "In review", style = PullsType.xs.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
+                                Text(if (single) "Post now" else "In review", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
                             }
                         }
+                        SendButton({ send() }, "Send comment", enabled = text.isNotBlank() && !busy, busy = busy)
                     } else {
-                        Text(label?.replaceFirstChar { it.uppercase() } ?: "", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1)
+                        Text(label?.let { it.take(1).uppercase() + it.drop(1) } ?: "", Modifier.weight(1f), style = PullsType.base, color = c.muted, maxLines = 1)
                     }
-                    FloatIcon(Lu.close, "Deselect line", { ui.drafts.remove(file.path); ui.selectionStart.remove(file.path) }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
                 }
             }
         }
-        FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, container = c.primary, tint = Color.White)
     }
 }
 
-/** `.dd`: the pull request's files, each with its counts; the one on screen is shaded and reviewed ones are ticked. */
+/** `.dd`: the pull request's files, whole names, each with its counts in the diff's own green and red; the one on screen is shaded and reviewed ones are ticked. */
 @Composable
-private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current: ReviewFile?, onPick: (String) -> Unit, onDismiss: () -> Unit) {
+private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current: ReviewFile?, onPick: (String) -> Unit) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(16.dp)
     val screen = LocalConfiguration.current.screenHeightDp
-    Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onDismiss))
     // Lazy, and opened on the file you are reading, so a long list neither costs a row per file nor starts at the top.
     val state = rememberLazyListState(initialFirstVisibleItemIndex = (files.indexOfFirst { it.path == current?.path } - 2).coerceAtLeast(0))
+    val mono = PullsType.sm.copy(fontFamily = PullsType.mono)
     LazyColumn(
-        Modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 56.dp)
-            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised),
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp)
+            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised),
         state = state,
         contentPadding = PaddingValues(vertical = 6.dp),
     ) {
         items(files, key = { it.path }) { file ->
             val dir = file.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
             Row(
-                Modifier.fillMaxWidth().height(48.dp).background(if (file.path == current?.path) c.paper else Color.Transparent)
-                    .clickable(role = Role.Button) { onPick(file.path) }.alpha(if (file.sha in session.reviewed && file.path != current?.path) 0.6f else 1f).padding(horizontal = 16.dp),
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).background(if (file.path == current?.path) c.paper else Color.Transparent)
+                    .clickable(role = Role.Button) { onPick(file.path) }.alpha(if (file.sha in session.reviewed && file.path != current?.path) 0.6f else 1f).padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -387,9 +439,12 @@ private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current:
                         withStyle(SpanStyle(color = c.faint)) { append(dir) }
                         append(file.path.substringAfterLast('/'))
                     },
-                    Modifier.weight(1f), style = PullsType.sm.copy(fontFamily = PullsFonts.display), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    Modifier.weight(1f), style = mono, color = c.text,
                 )
-                Text("+${compactCount(file.additions)} −${compactCount(file.deletions)}", style = PullsType.sm.copy(fontFamily = PullsFonts.display, fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("+${compactCount(file.additions)}", style = mono.copy(fontFeatureSettings = "tnum"), color = StatusColors.green(c.dark), maxLines = 1)
+                    Text("−${compactCount(file.deletions)}", style = mono.copy(fontFeatureSettings = "tnum"), color = StatusColors.red(c.dark), maxLines = 1)
+                }
             }
         }
     }
@@ -397,7 +452,7 @@ private fun FilePicker(session: ReviewSession, files: List<ReviewFile>, current:
 
 /** `.pop`: the code size (Smaller, Default, Larger), line wrapping, and, when a [file] is open, its own actions. */
 @Composable
-internal fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFont: () -> Unit, onDismiss: () -> Unit) {
+private fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFont: () -> Unit, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
@@ -407,9 +462,8 @@ internal fun ViewMenu(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onF
     val repo = FileLinks.repoOf(session.target)
     val sha = if (file?.status == "removed") opened?.baseSha else opened?.headSha
     val blob = if (file != null && repo != null && opened?.refKind.orEmpty().startsWith("github") && !sha.isNullOrBlank()) FileLinks.blob(repo.first, repo.second, sha, file.path) else null
-    Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, onClick = onDismiss))
-    Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 56.dp, end = 16.dp, start = 16.dp), contentAlignment = Alignment.TopEnd) {
-        Column(Modifier.width(300.dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Box(Modifier.padding(top = 6.dp, end = 16.dp, start = 16.dp)) {
+        Column(Modifier.width(300.dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 SIZES.forEach { (name, zoom) ->
                     val on = kotlin.math.abs(settings.codeZoom - zoom) < 0.04f

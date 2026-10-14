@@ -45,6 +45,7 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.Skeleton
@@ -143,12 +144,12 @@ internal fun SpacingPage(book: BookData) {
 @Composable
 internal fun ElevationPage(book: BookData) {
     PageColumn {
-        PageTitle("Elevation", "The heights floatShadow draws. Float is the one every floating element carries (rule 45). The canvas shadow is pushed down and floatShadow is not yet, so on the phone it reads flatter.")
+        PageTitle("Elevation", "The canvas shadows from Row W, drawn by floatShadow: a soft ink drop two pixels down, never an even glow (rule 45). Each name is the blur.")
         book.elevation.forEach { level ->
             Themed(ThemeMode.Both, level.name) {
                 val shape = RoundedCornerShape(PullsRadius.card)
                 Row(horizontalArrangement = Arrangement.spacedBy(PullsSpace.x3), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(72.dp).floatShadow(shape, level.value.dp).clip(shape).background(LocalPullsColors.current.raised))
+                    Box(Modifier.size(72.dp).floatShadow(shape, PullsShadow.entries.first { it.name.equals(level.name, ignoreCase = true) }).clip(shape).background(LocalPullsColors.current.raised))
                     Mono("${level.name} ${dp(level.value)}dp", muted = true)
                 }
             }
@@ -232,9 +233,13 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "shut" to Lu.shut,
     "search" to Lu.search,
     "ask" to Lu.ask,
-    "bot" to Lu.bot,
+    "branch" to Lu.branch,
     "copy" to Lu.copy,
-    "ai" to Lu.ai,
+    "stop" to Lu.stop,
+    "refresh" to Lu.refresh,
+    "edit" to Lu.edit,
+    "trash" to Lu.trash,
+    "commit" to Lu.commit,
 )
 
 @Composable

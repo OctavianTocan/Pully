@@ -17,12 +17,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -62,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourSource
@@ -80,10 +83,15 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
+import com.octaviantocan.pulls.ui.design.MenuReveal
 import com.octaviantocan.pulls.ui.design.ProgressRing
-import com.octaviantocan.pulls.ui.design.PullsFonts
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SendButton
+import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.edgeBlur
 import com.octaviantocan.pulls.ui.design.floatShadow
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import kotlinx.coroutines.launch
 
 /**
@@ -99,6 +107,8 @@ internal fun PrTourScreen(
     onReached: (stop: Int, total: Int, title: String) -> Unit,
     onBack: () -> Unit,
     onOverview: () -> Unit,
+    onChanges: () -> Unit,
+    onMore: () -> Unit,
     onOpenSource: (TourSource) -> Unit,
     onAsk: (String?) -> Unit,
 ) {
@@ -111,6 +121,7 @@ internal fun PrTourScreen(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     var menu by remember { mutableStateOf<String?>(null) }
+    var stripBottom by remember { mutableFloatStateOf(0f) }
     BackHandler(enabled = menu != null) { menu = null }
 
     // The stop you are on: the last whose top has passed 64dp plus a fifth of the screen (at most 120dp), or the last at the end.
@@ -137,31 +148,41 @@ internal fun PrTourScreen(
     }
 
     Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
+                Spacer(Modifier.weight(1f))
+                // The same capsule as the Overview, with the Tour lit. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
+                SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onMore = onMore)
+            }
+            if (n > 0 && current in 1..n) {
+                // The stop you are on, whole; tapping it opens the list of stops.
                 Row(
-                    Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(12.dp))
-                        .clickable(enabled = n > 0, role = Role.Button, onClickLabel = "Choose a stop") { menu = if (menu == "stops") null else "stops" },
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    Modifier.padding(top = 12.dp).fillMaxWidth()
+                        .onGloballyPositioned { stripBottom = it.positionInRoot().y + it.size.height }
+                        .drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
+                        .clickable(role = Role.Button, onClickLabel = "Choose a stop") { menu = if (menu == "stops") null else "stops" }
+                        .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(head.repo ?: "Tour", style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    Text(head.label, style = PullsType.base.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
-                    if (n > 0) LuIcon(Lu.chevd, Modifier.rotate(if (menu == "stops") 180f else 0f), tint = c.muted, size = 20.dp)
+                    Text(
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = c.muted)) { append("$current of $n · ") }
+                            append(stops[current - 1].title)
+                        },
+                        Modifier.weight(1f), style = PullsType.sm, color = c.text,
+                    )
+                    ProgressRing(current, n)
+                    LuIcon(Lu.chevd, Modifier.rotate(if (menu == "stops") 180f else 0f), tint = c.muted, size = 20.dp)
                 }
-                // Balances the back button so the stop picker stays centred. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
-                Spacer(Modifier.width(44.dp))
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 110.dp
+                val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp
                 LazyColumn(
-                    Modifier.fillMaxSize(), state = listState,
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = if (n > 0) 66.dp else 12.dp, bottom = bottom),
+                    Modifier.fillMaxSize().edgeBlur(top = 20.dp, topStrength = { if (listState.canScrollBackward) 1f else 0f }),
+                    state = listState,
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     item(key = "intro") { Intro(session, head, tour, running) }
@@ -174,34 +195,18 @@ internal fun PrTourScreen(
                         }
                     }
                 }
-                if (n > 0 && current in 1..n) {
-                    Row(
-                        Modifier.fillMaxWidth().background(c.base)
-                            .drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
-                            .clickable(role = Role.Button, onClickLabel = "Choose a stop") { menu = if (menu == "stops") null else "stops" }
-                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        Text(
-                            buildAnnotatedString {
-                                withStyle(SpanStyle(color = c.muted)) { append("$current of $n · ") }
-                                append(stops[current - 1].title)
-                            },
-                            Modifier.weight(1f), style = PullsType.sm, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                        ProgressRing(current, n)
-                    }
-                }
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
-        AskPill(Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp), onAsk)
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(140.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
+        AskPill(Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
 
-        if (menu == "stops") StopPicker(stops, current, onPick = { index ->
-            menu = null
-            scope.launch { listState.animateScrollToItem(index + 1) }
-        }, onDismiss = { menu = null })
+        if (menu == "stops") Box(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menu = null })
+        MenuReveal(menu == "stops", Modifier.offset { IntOffset(0, stripBottom.toInt()) }) {
+            StopPicker(stops, current, onPick = { index ->
+                menu = null
+                scope.launch { listState.animateScrollToItem(index + 1) }
+            })
+        }
     }
 }
 
@@ -210,7 +215,7 @@ internal fun PrTourScreen(
 private fun Card(content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(18.dp)
-    Column(Modifier.fillMaxWidth().floatShadow(shape, 4.dp).clip(shape).background(c.raised).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 20.dp)) { content() }
+    Column(Modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 20.dp)) { content() }
 }
 
 /** The tour's own card: its title and overview, a note when it was written for an older commit, and the way to make a new one. */
@@ -230,7 +235,7 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text("Written for an older commit.", Modifier.weight(1f), style = PullsType.sm, color = c.text)
-                        if (!running) com.octaviantocan.pulls.ui.design.ActionButton({ startTour(session) }, small = true) { Text("Update") }
+                        if (!running) PillButton("Update", { startTour(session) })
                     }
                     Markdown(tour.overview, style = PullsType.read.copy(color = c.text))
                     if (running) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -241,7 +246,7 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
                         Box(Modifier.weight(1f)) {
                             AiUsageLine(tour.usage?.copy(model = tour.usage.model ?: tour.model) ?: com.octaviantocan.pulls.data.Usage(model = tour.model))
                         }
-                        if (!running) com.octaviantocan.pulls.ui.design.ActionButton({ startTour(session) }, variant = com.octaviantocan.pulls.ui.design.ButtonVariant.Text, small = true, icon = "arrows-clockwise-duotone") { Text("Rewrite") }
+                        if (!running) PillButton("Rewrite", { startTour(session) }, leading = { LuIcon(Lu.redo, size = 20.dp) })
                     }
                 }
             }
@@ -263,7 +268,6 @@ private fun StopCard(session: ReviewSession, stop: TourStop, onOpenSource: (Tour
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.accentWash).padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                com.octaviantocan.pulls.ui.design.PhIcon("lightbulb-duotone", tint = c.activeText, size = 18.dp)
                 Text(stop.takeaway, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentWashInk)
             }
             if (stop.sources.isNotEmpty()) Sources(stop.sources, onOpenSource)
@@ -273,25 +277,24 @@ private fun StopCard(session: ReviewSession, stop: TourStop, onOpenSource: (Tour
 
 /** `.dd` for the tour: the stops, those already passed ticked and the current one shaded. */
 @Composable
-private fun StopPicker(stops: List<TourStop>, current: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+private fun StopPicker(stops: List<TourStop>, current: Int, onPick: (Int) -> Unit) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(16.dp)
     val screen = LocalConfiguration.current.screenHeightDp
-    Box(Modifier.fillMaxSize().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
     Column(
-        Modifier.statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 56.dp)
-            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, 12.dp).clip(shape).background(c.raised)
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp)
+            .fillMaxWidth().heightIn(max = (screen * 0.6f).dp).floatShadow(shape, PullsShadow.Menu).clip(shape).background(c.raised)
             .verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
     ) {
         stops.forEachIndexed { index, stop ->
             Row(
-                Modifier.fillMaxWidth().height(48.dp).background(if (index + 1 == current) c.paper else Color.Transparent)
-                    .clickable(role = Role.Button) { onPick(index) }.padding(horizontal = 16.dp),
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).background(if (index + 1 == current) c.paper else Color.Transparent)
+                    .clickable(role = Role.Button) { onPick(index) }.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { if (index + 1 < current) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp) }
-                Text(stop.title, Modifier.weight(1f), style = PullsType.sm, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stop.title, Modifier.weight(1f), style = PullsType.sm, color = c.text)
                 Text("${index + 1}", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted)
             }
         }
@@ -311,11 +314,10 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
         onAsk(question.ifEmpty { null })
     }
     Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(start = 18.dp, end = 6.dp),
+        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        LuIcon(Lu.ask, tint = c.muted, size = 20.dp)
         BasicTextField(
             value = text,
             onValueChange = { text = it },
@@ -332,6 +334,6 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
                 }
             },
         )
-        FloatButton({ send() }, "Send", size = 40.dp, container = c.primary) { LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) }
+        SendButton({ send() }, "Send")
     }
 }

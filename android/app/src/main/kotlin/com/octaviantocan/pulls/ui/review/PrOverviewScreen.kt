@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -88,14 +88,17 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.OkDot
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PendingDot
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
 import com.octaviantocan.pulls.ui.design.floatShadow
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactAge
 import com.octaviantocan.pulls.ui.home.compactCount
@@ -127,11 +130,11 @@ internal fun PrOverviewScreen(
     val c = LocalPullsColors.current
     val tourRunning = session.taskFor("tour")?.running == true
     Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
-                SectionCapsule(live = tourRunning, onChanges = { onDiff(null) }, onTour = onTour, onMore = { onSheet("more") })
+                SectionCapsule(selected = 0, live = tourRunning, onOverview = {}, onChanges = { onDiff(null) }, onTour = onTour, onMore = { onSheet("more") })
             }
             val labels = buildList {
                 add("Summary")
@@ -166,7 +169,7 @@ internal fun PrOverviewScreen(
                         val overviewError = session.overviewError
                         if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
                         StatsLine(session, data, onSheet)
-                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp))
+                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true)
                     }
                 }
                 when (shown) {
@@ -198,21 +201,25 @@ private fun OverviewError(message: String, onRetry: () -> Unit) {
             Text("Couldn't load checks and conversation", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             Text(message, style = PullsType.xs, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        com.octaviantocan.pulls.ui.design.ActionButton(onRetry, small = true) { Text("Retry") }
+        PillButton("Retry", onRetry)
     }
 }
 
-/** `.cap` with the page icons: Overview (here), Changes, Tour (a live dot while it is written), and More. */
+/**
+ * `.cap` with the page icons: Overview, Changes, Tour (a live dot while it is written), and More. The
+ * Overview and the Tour wear it alike, so a page of the pull request never loses its way home.
+ * [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour.
+ */
 @Composable
-private fun SectionCapsule(live: Boolean, onChanges: () -> Unit, onTour: () -> Unit, onMore: () -> Unit) {
+internal fun SectionCapsule(selected: Int, live: Boolean, onOverview: () -> Unit, onChanges: () -> Unit, onTour: () -> Unit, onMore: () -> Unit) {
     val c = LocalPullsColors.current
     Row(
         Modifier.width(212.dp).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Segment("Overview", selected = true, onClick = null) { LuIcon(Lu.list, tint = c.text) }
-        Segment("Changes", selected = false, onClick = onChanges) { LuIcon(Lu.diff, tint = c.text) }
-        Segment("Tour", selected = false, onClick = onTour) {
+        Segment("Overview", selected = selected == 0, onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
+        Segment("Changes", selected = selected == 1, onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
+        Segment("Tour", selected = selected == 2, onClick = if (selected == 2) null else onTour) {
             LuIcon(Lu.tour, tint = c.text)
             if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
         }
@@ -406,17 +413,15 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
         val repo = remember { Repo(context) }
         LaunchedEffect(engine) { if (ModelCatalogs.get(engine) == null) fetchCatalog(repo, engine) }
         val choice = session.settings.analyzeChoice
-        Row(
-            Modifier.fillMaxWidth().padding(top = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Orb(done = true)
-            Column(Modifier.weight(1f)) {
-                Text("Not analyzed yet", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                Text("${choice.title}: ${choice.summary().replaceFirstChar { it.lowercase() }}", style = PullsType.sm, color = c.muted)
+        AnalyzeCard(Modifier.padding(top = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Orb(done = true)
+                Column(Modifier.weight(1f)) {
+                    Text("Not analyzed yet", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                    Text("${choice.title}: ${choice.summary().replaceFirstChar { it.lowercase() }}", style = PullsType.sm, color = c.muted)
+                }
+                AnalyzeSplitButton(choice.title, onRun = { session.runAnalyze(context) }, onMenu = { onSheet("analyze") })
             }
-            AnalyzeSplitButton(choice.title, onRun = { session.runAnalyze(context) }, onMenu = { onSheet("analyze") })
         }
         return
     }
@@ -431,7 +436,7 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     )
     val tasks = listOfNotNull(analyzeTask, tourTask, briefTask)
     val live = tasks.firstOrNull { it.running }
-    Column(Modifier.fillMaxWidth().padding(top = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    AnalyzeCard(Modifier.padding(top = 16.dp).animateContentSize(), spacing = 10.dp) {
         Column(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClickLabel = "Show the steps") { logOpen = !logOpen },
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -440,9 +445,9 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
                 Orb(done = !card.working)
                 Column(Modifier.weight(1f)) {
                     Text(card.title, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                    if (live != null) Text(liveLine(live, engine), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (live != null) Text(liveLine(live, engine), style = PullsType.sm, color = c.muted)
                 }
-                if (card.working) StopButton { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } }
+                if (card.working) PillButton("Stop", { tasks.forEach { task -> if (task.running) session.cancelTask(task.id) } })
                 LuIcon(Lu.chev, Modifier.rotate(if (logOpen) 90f else 0f), tint = c.faint, size = 18.dp)
             }
             FlowRow(Modifier.padding(start = 42.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -459,9 +464,9 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
             Row(Modifier.padding(start = 42.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     if (failed) (analyzeTask?.error ?: "The analysis did not finish.") else "You stopped it.",
-                    Modifier.weight(1f, fill = false), style = PullsType.sm, color = if (failed) c.error else c.muted, maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    Modifier.weight(1f, fill = false), style = PullsType.sm, color = if (failed) c.error else c.muted,
                 )
-                com.octaviantocan.pulls.ui.design.ActionButton({ session.runAnalyze(context) }, small = true) { Text(if (failed) "Try again" else "Analyze again") }
+                PillButton(if (failed) "Try again" else "Analyze again", { session.runAnalyze(context) })
             }
         }
         // A tour or brief that failed after a good analysis does not undo it; each can be run again on its own.
@@ -469,8 +474,8 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
             listOf("The tour" to tourTask, "The brief" to briefTask).forEach { (name, found) ->
                 val task = found?.takeIf { it.status == "failed" } ?: return@forEach
                 Row(Modifier.padding(start = 42.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(task.error ?: "$name did not finish.", Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                    com.octaviantocan.pulls.ui.design.ActionButton({ if (task.kind == "tour") startTour(session) else startBrief(session) }, small = true) { Text("Try again") }
+                    Text(task.error ?: "$name did not finish.", Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
+                    PillButton("Try again", { if (task.kind == "tour") startTour(session) else startBrief(session) })
                 }
             }
         }
@@ -480,14 +485,12 @@ private fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
     }
 }
 
-/** A text button that stops the AI work above it; 40dp tall so it is easy to hit. */
+/** `.anz`: the card the AI's progress sits in, raised on the page like the tour's cards. */
 @Composable
-private fun StopButton(onClick: () -> Unit) {
+private fun AnalyzeCard(modifier: Modifier = Modifier, spacing: androidx.compose.ui.unit.Dp = 0.dp, content: @Composable ColumnScope.() -> Unit) {
     val c = LocalPullsColors.current
-    Box(
-        Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 40.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Text("Stop", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText) }
+    val shape = RoundedCornerShape(18.dp)
+    Column(modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(16.dp), verticalArrangement = Arrangement.spacedBy(spacing), content = content)
 }
 
 /** `What needs a human`: what the AI review found, most serious first, each pointing at its line. */
@@ -526,7 +529,7 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
             reviewing -> Row(Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BreathingDot()
                 Text("Looking for problems…", Modifier.weight(1f), style = PullsType.sm, color = c.muted)
-                StopButton { critiqueTask?.let { session.cancelTask(it.id) } }
+                PillButton("Stop", { critiqueTask?.let { session.cancelTask(it.id) } })
             }
             findings.isEmpty() && session.saved?.critique != null -> Text(
                 "The review found nothing that needs you.", Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,
@@ -555,7 +558,10 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
     item(key = "files-head") {
         val c = LocalPullsColors.current
         val reviewed = session.files.count { it.sha in session.reviewed }
-        Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 2.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(
+            Modifier.fillMaxWidth().padding(top = 18.dp).hairlineTop(c.borderMute).padding(top = 14.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             Text("Files", style = PullsType.xl, color = c.text)
             Text(
                 "$reviewed of ${session.files.size} reviewed",
@@ -567,7 +573,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, top: Re
     sections.forEachIndexed { index, section ->
         if (section.label != null) item(key = "section:$index") {
             val c = LocalPullsColors.current
-            Text(section.label, Modifier.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(section.label, Modifier.padding(top = 16.dp, bottom = 4.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         }
         items(section.files, key = { "file:${it.path}" }) { file ->
             val state = session.reviewState(file)
@@ -665,7 +671,7 @@ private fun BottomBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            Modifier.height(52.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(horizontal = 6.dp),
+            Modifier.height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(

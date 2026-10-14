@@ -24,20 +24,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.data.AskThread
-import com.octaviantocan.pulls.ui.design.ActionButton
-import com.octaviantocan.pulls.ui.design.ButtonVariant
-import com.octaviantocan.pulls.ui.design.IconButton
+import com.octaviantocan.pulls.ui.design.FloatButton
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PhIcon
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.TextInput
+import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.delay
@@ -93,24 +97,21 @@ internal fun SelectionActionsImpl(session: ReviewSession, path: String, side: St
     }
 
     Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(label, Modifier.weight(1f), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (available && !composing) ActionButton(onClick = ::askAi, variant = ButtonVariant.Text, icon = "sparkle-duotone", small = true) { Text(t("ask.action"), style = PullsType.xs) }
-            IconButton(if (copied == "label") "check" else "copy", if (copied == "label") t("ask.copied") else t("ask.copyLocation"), { copyText(context, label); copied = "label" }, compact = true)
-            if (link != null) IconButton(if (copied == "link") "check" else "link", if (copied == "link") t("ask.copied") else t("ask.copyLink"), { copyText(context, link); copied = "link" }, compact = true)
-            IconButton("x", t("common.close"), onDone, compact = true)
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, Modifier.weight(1f), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
+            if (available && !composing) PillButton(t("ask.action"), ::askAi)
+            FloatIcon(if (copied == "label") Lu.check else Lu.copy, if (copied == "label") t("ask.copied") else t("ask.copyLocation"), { copyText(context, label); copied = "label" }, flat = true, size = 40.dp, tint = c.muted)
+            if (link != null) FloatIcon(if (copied == "link") Lu.check else Lu.ext, if (copied == "link") t("ask.copied") else t("ask.copyLink"), { copyText(context, link); copied = "link" }, flat = true, size = 40.dp, tint = c.muted)
+            FloatIcon(Lu.close, t("common.close"), onDone, size = 40.dp)
         }
         if (composing) {
-            HorizontalDivider(color = c.border)
-            startError?.let { Text(it, Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = PullsType.xs, color = c.error) }
+            startError?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = PullsType.sm, color = c.error) }
             val sent = sentQuestion
             if (sent != null) {
                 Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     UserBubble(sent)
-                    Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Spinner(c.mute, 12.dp)
-                        Shimmer(t("ai.loading"), PullsType.xs)
-                    }
+                    val askedAt = remember(sent) { System.currentTimeMillis() }
+                    Row(Modifier.padding(horizontal = 4.dp)) { AiActivityLogFull(emptyList(), running = true, startedAt = askedAt, compact = true) }
                 }
             } else AskComposer(placeholder = t("ask.placeholder"), autofocus = true) { question ->
                 sentQuestion = question
@@ -122,20 +123,19 @@ internal fun SelectionActionsImpl(session: ReviewSession, path: String, side: St
     }
 }
 
-/** The thread's input: `FormTextarea` rows=2, the hint and Send. */
+/** The thread's input: a pill with the question and Send inside. */
 @Composable
 private fun AskComposer(placeholder: String, autofocus: Boolean, onSend: (String) -> Unit) {
+    val c = LocalPullsColors.current
     var question by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
     LaunchedEffect(autofocus) { if (autofocus) runCatching { focus.requestFocus() } }
-    Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextInput(question, { question = it }, placeholder, Modifier.fillMaxWidth().focusRequester(focus), singleLine = false, minLines = 2)
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            ActionButton(
-                onClick = { val text = question.trim(); if (text.isNotEmpty()) { question = ""; onSend(text) } },
-                variant = ButtonVariant.Primary, enabled = question.isNotBlank(), small = true,
-            ) { Text(t("common.send")) }
-        }
+    fun send() {
+        val text = question.trim()
+        if (text.isNotEmpty()) { question = ""; onSend(text) }
+    }
+    PillInput(question, { question = it }, placeholder, Modifier.padding(8.dp).focusRequester(focus), onSend = ::send) {
+        SendButton({ send() }, "Send", enabled = question.isNotBlank())
     }
 }
 
@@ -155,13 +155,12 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
         modifier.widthIn(max = 800.dp).fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(8.dp)).background(c.base).border(1.dp, c.border, RoundedCornerShape(8.dp)),
     ) {
         Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PhIcon("sparkle-duotone", tint = c.fade, size = 14.dp)
-            Text(thread.label, Modifier.weight(1f), style = PullsType.xs.copy(fontFamily = PullsType.mono), color = c.fade, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            IconButton("x", t("ask.close"), {
+            Text(thread.label, Modifier.weight(1f), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
+            FloatIcon(Lu.close, t("ask.close"), {
                 val key = session.key
                 if (lastTask?.running == true) session.cancelTask(lastTask.id)
                 if (key != null) session.scope.launch { runCatching { session.repo.closeAsk(key, thread.id) }; session.reloadSaved() }
-            }, compact = true)
+            }, flat = true, size = 40.dp, tint = c.muted)
         }
         HorizontalDivider(color = c.border)
         Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -176,7 +175,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                             val activities = if (running && task != null) task.activities else turn.activities.ifEmpty { task?.activities.orEmpty() }
                             val outcome = turn.outcome ?: if (task != null && !task.running) outcomeOf(task) else "done"
                             AiActivityLogFull(activities, running, Modifier.weight(1f), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true)
-                            if (running && task != null) ActionButton(onClick = { session.cancelTask(task.id) }, variant = ButtonVariant.Text, icon = "stop-duotone", small = true) { Text(t("common.stop")) }
+                            if (running && task != null) PillButton(t("common.stop"), { session.cancelTask(task.id) })
                         }
                     }
                     val answer = turn.answer ?: task?.result?.takeIf { task.status == "done" }
