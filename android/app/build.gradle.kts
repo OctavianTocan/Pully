@@ -15,8 +15,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 17
-        versionName = "0.7.0"
+        versionCode = 18
+        versionName = "0.7.1"
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
