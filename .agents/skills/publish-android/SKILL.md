@@ -32,17 +32,23 @@ Needs JDK (the script uses `mise where java`), the Android SDK (`ANDROID_HOME`, 
 `~/Android/Sdk`) and the server running with access to the output directory.
 
 1. Bump `versionCode` and `versionName` in `android/app/build.gradle.kts`. The app offers an update only
-   when the published `versionCode` is higher than the installed one.
+   when the published `versionCode` is higher than the installed one. Add the version's section at the top of
+   `android/CHANGELOG.md`: one summary sentence, then a bullet per change, in plain words for the person using
+   the app (`pnpm run android:design` fails without it). The app shows it after the update.
 2. Merge to `main`, check it out on the build machine.
 3. Run `android/scripts/publish-apk.sh [public-base-url] [notes]` (default base
    `https://prs.octaviantocan.com`). It runs `./gradlew :app:assembleDebug`, reads the version from the
    APK (falling back to `build.gradle.kts`), then writes `pulls.apk` and `latest.json`
    (`versionCode`, `versionName`, `sha256`, `apkUrl`, `notes`) to
-   `$PULLS_REVIEW_ANDROID_DIR`, default `~/.local/share/pulls-review/android`.
+   `$PULLS_REVIEW_ANDROID_DIR`, default `~/.local/share/pulls-review/android`. `notes` is this version's
+   summary from `android/CHANGELOG.md` (the notes argument replaces it) and `changelog` is the whole file, so
+   the phone can list every version it skipped.
 4. The pulls.review server serves them at `GET /android/pulls.apk` and `GET /android/latest.json`
    (`packages/cli/src/native-api.ts`). It must run with the same `PULLS_REVIEW_ANDROID_DIR`.
-5. On the phone the installed app compares its version code with `latest.json` and offers the update.
-   Accept it; Android asks once for permission to install from the app.
+5. On the phone the installed app compares its version code with `latest.json` and offers the update: a card
+   above the Home search while the app is open, and from 0.17.0 a notification within about 15 minutes when it
+   is not (a WorkManager check, no push service). Accept it; Android asks once for permission to install from
+   the app. After the install, What's new opens once with the changelog.
 
 Debug signing is pinned to `android/app/debug.keystore` (committed), so a build on any machine
 produces the same signature and installed apps keep accepting updates. If it is ever regenerated or

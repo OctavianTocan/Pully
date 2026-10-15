@@ -1,6 +1,12 @@
 package com.octaviantocan.pulls.ui.settings
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +30,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
@@ -56,6 +64,12 @@ import com.octaviantocan.pulls.ui.review.ModelCatalogs
 import com.octaviantocan.pulls.ui.review.SPLIT_MIN_DP
 import com.octaviantocan.pulls.ui.review.ModelPage
 import com.octaviantocan.pulls.ui.review.analysisModelLabel
+import com.octaviantocan.pulls.ui.update.ChangelogEntries
+import com.octaviantocan.pulls.update.AppVersion
+import com.octaviantocan.pulls.update.UpdateChecks
+import com.octaviantocan.pulls.update.UpdateNotice
+import com.octaviantocan.pulls.update.UpdatePrefs
+import com.octaviantocan.pulls.update.WhatsNew
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
@@ -123,6 +137,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Font(Main),
     Model(Main),
     Effort(Model),
+    WhatsNew(Main),
 }
 
 @Composable
@@ -133,6 +148,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Font -> "Code font"
     SettingsPage.Model -> "Select model"
     SettingsPage.Effort -> "Effort"
+    SettingsPage.WhatsNew -> "What's new"
 }
 
 /**
@@ -160,6 +176,10 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
         SettingsPage.Font -> CodeFontPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) }, onEffort = { onPage(SettingsPage.Effort) })
         SettingsPage.Effort -> EffortPage(settings, onBack = { onPage(SettingsPage.Model) })
+        SettingsPage.WhatsNew -> {
+            val context = LocalContext.current
+            ChangelogEntries(remember { WhatsNew.all(context) })
+        }
     }
 }
 
@@ -294,7 +314,52 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
             Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
         )
     }
+    UpdatesGroup(settings, open)
     UiBookRow(nav.uiBook)
+}
+
+/**
+ * The installed version, which opens what each version changed, and the switch for the notification the background
+ * check sends when a new one is out. The switch is on only when Android lets Pulls notify too; turning it on asks, and
+ * when Android will not ask again it opens the app's notification settings instead.
+ */
+@Composable
+private fun UpdatesGroup(settings: AppSettings, open: (SettingsPage) -> Unit) {
+    val c = LocalPullsColors.current
+    val context = LocalContext.current
+    var allowed by remember { mutableStateOf(UpdateNotice.allowed(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { allowed = UpdateNotice.allowed(context) }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        allowed = granted
+        UpdateChecks.sync(context)
+    }
+    fun turn(on: Boolean) {
+        settings.updateUpdateNotifications(on)
+        UpdateChecks.sync(context)
+        if (!on || allowed) return
+        if (Build.VERSION.SDK_INT >= 33 && !UpdatePrefs.askedForNotifications(context)) {
+            UpdatePrefs.markAskedForNotifications(context)
+            ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            runCatching { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }
+        }
+    }
+    val on = settings.updateNotifications && allowed
+    Group("Updates") {
+        SheetCard {
+            SheetRow("What's new", { open(SettingsPage.WhatsNew) }, first = true, iconless = true) {
+                Text(AppVersion.name(context), style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            SheetRow("Update notifications", { turn(!on) }, iconless = true) {
+                PullsSwitch(on, { turn(it) }, "Update notifications")
+            }
+        }
+        Text(
+            "Pulls asks your server for a new version in the background and sends a notification when one is out.",
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
+        )
+    }
 }
 
 /** Turns the button sounds on or off. Turning them on answers with a toggle, so the first sound is the proof they work. */

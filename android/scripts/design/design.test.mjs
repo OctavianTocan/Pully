@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'vitest'
 import * as bans from './bans.mjs'
 import * as book from './book.mjs'
+import { checkChangelog, compareVersions, parseChangelog, versionName } from './changelog.mjs'
 import { run } from './check.mjs'
 import { blank, composables, dpScale, excusedLines, matching, paletteColors, splitTopLevel, typeRoles } from './kotlin.mjs'
 import { compare, countsOf } from './ratchet.mjs'
@@ -435,5 +436,51 @@ describe('the repository', () => {
     const { results } = run()
     for (const result of results)
       assert.deepEqual(result.problems, [], `${result.name} has problems`)
+  })
+})
+
+describe('changelog', () => {
+  const text = [
+    '# What\'s new',
+    '<!--',
+    '## 9.9.9 sits in a comment',
+    '-->',
+    '## 0.10.0',
+    '',
+    'Pull requests slide in,',
+    'and edit in place.',
+    '',
+    '- Edit a title in place.',
+    '- Commits are plain lists',
+    '  with whole titles.',
+    '',
+    '## 0.9.0',
+    '',
+    'Sheets rest at half height.',
+    '',
+    '* Profile hides a repository.',
+  ].join('\n')
+
+  it('reads sections, summaries and bullets the way the app does', () => {
+    const entries = parseChangelog(text)
+    assert.deepEqual(entries.map(e => e.version), ['0.10.0', '0.9.0'])
+    assert.equal(entries[0].summary, 'Pull requests slide in, and edit in place.')
+    assert.deepEqual(entries[0].items, ['Edit a title in place.', 'Commits are plain lists with whole titles.'])
+    assert.equal(compareVersions('0.10.0', '0.9.2'), 1)
+    assert.equal(compareVersions('1.2', '1.2.0'), 0)
+    assert.equal(versionName('versionCode = 31\n        versionName = "0.17.0"'), '0.17.0')
+  })
+
+  it('passes when the app\'s version has a full section, newest first', () => {
+    assert.deepEqual(checkChangelog(text, '0.10.0'), [])
+  })
+
+  it('fails on a version with no section, an empty section, or the wrong order', () => {
+    assert.match(checkChangelog(text, '0.11.0').join('\n'), /no section for 0\.11\.0/)
+    assert.match(checkChangelog(text, '0.9.0').join('\n'), /0\.10\.0, above the app's 0\.9\.0/)
+    assert.match(checkChangelog('## 0.2.0\n\n- A change.\n', '0.2.0').join('\n'), /needs a summary/)
+    assert.match(checkChangelog('## 0.2.0\n\nA summary.\n', '0.2.0').join('\n'), /at least one bullet/)
+    assert.match(checkChangelog(`## 0.2.0\n\n${'A long summary. '.repeat(5)}\n\n- a\n`, '0.2.0').join('\n'), /Keep it to 70/)
+    assert.match(checkChangelog('## 0.1.0\n\nOld.\n\n- a\n\n## 0.2.0\n\nNew.\n\n- b\n', '0.2.0').join('\n'), /Newest first/)
   })
 })

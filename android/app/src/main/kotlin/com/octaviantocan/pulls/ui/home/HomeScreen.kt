@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.ui.home
 
 import android.content.Context
-import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animate
@@ -104,7 +103,6 @@ import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
-import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.Triage
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -120,7 +118,6 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsMotion
@@ -137,12 +134,13 @@ import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.softBlur
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
-import com.octaviantocan.pulls.update.AppUpdater
+import com.octaviantocan.pulls.ui.update.UpdateFloat
+import com.octaviantocan.pulls.ui.update.WhatsNewSheet
+import com.octaviantocan.pulls.ui.update.updateFloatPadding
+import com.octaviantocan.pulls.update.Updates
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /** Keeps the last list per state on this device, like the web's `localStorage` copy. */
 internal fun deviceStore(context: Context, name: String = "pulls-home"): KeyValueStore {
@@ -174,7 +172,7 @@ private val CHIP_LABELS = mapOf("waiting" to "Waiting on you", "authored" to "Au
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
+fun HomeScreen(nav: Nav, ui: HomeUi) {
     val context = LocalContext.current
     val c = LocalPullsColors.current
     val repo = remember { Repo(context) }
@@ -284,6 +282,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     }
 
     var searchFocused by remember { mutableStateOf(false) }
+    var whatsNewOpen by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
@@ -295,7 +294,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
                     InboxList(
                         groups = groups, labels = labels, now = now, archived = archived, work = work,
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
-                        filter = ui.filter, searching = needle.isNotEmpty(), updateNotice = updateNotice,
+                        filter = ui.filter, searching = needle.isNotEmpty(),
                         sort = layout.sort, folded = layout.folded, onFold = { group -> layout.toggle(group.name) },
                         onRetry = reload, onCommands = { Commands.open() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
@@ -339,15 +338,24 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             )
         }
         // `.search`: the list fades into the page under this pill (`edgeFade` on the lists), and nothing else sits behind it.
-        SearchPill(
-            ui.search, { ui.search = it },
-            if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
-            openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
-            onOpen = ::openSearch,
-            onFocus = { searchFocused = it },
-            onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
-            modifier = Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
-        )
+        // A new version of the app floats just above it, and steps aside while the search has the keyboard.
+        Column(
+            Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            UpdateFloat(visible = !searchFocused, onWhatsNew = { whatsNewOpen = true })
+            SearchPill(
+                ui.search, { ui.search = it },
+                if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
+                openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
+                onOpen = ::openSearch,
+                onFocus = { searchFocused = it },
+                onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
+            )
+        }
+        if (whatsNewOpen) {
+            WhatsNewSheet(remember { Updates.changes(context) }, onClose = { whatsNewOpen = false }, offer = true)
+        }
         if (ui.askOpen) {
             InboxAskSheet(inboxAsk, listed, openListed, onClose = { ui.askOpen = false })
         }
@@ -446,7 +454,6 @@ internal fun InboxList(
     failed: String?,
     filter: String,
     searching: Boolean,
-    updateNotice: String?,
     sort: InboxSort,
     folded: Set<String>,
     onFold: (Triage.RepoGroup) -> Unit,
@@ -457,7 +464,7 @@ internal fun InboxList(
     onRepo: (Triage.RepoGroup) -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp + updateFloatPadding()
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     // A search shows every repository it found something in, folded or not (rule 101).
@@ -470,7 +477,7 @@ internal fun InboxList(
         sorted = sort
     }
     fun fold(group: Triage.RepoGroup) {
-        var at = if (updateNotice != null) 1 else 0
+        var at = 0
         for (each in groups) {
             if (each.name == group.name) break
             at += 1 + if (isFolded(each)) 0 else each.pulls.size
@@ -495,7 +502,6 @@ internal fun InboxList(
             state = state,
             contentPadding = PaddingValues(bottom = bottom),
         ) {
-            if (updateNotice != null) item(key = "update") { UpdateBanner(updateNotice, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) }
             when {
                 loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
@@ -766,7 +772,7 @@ internal fun ToursList(
     onDismiss: (TourEntry) -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp + updateFloatPadding()
     if (entries.isEmpty()) {
         Column(Modifier.fillMaxWidth().padding(top = 48.dp, start = 32.dp, end = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("No tours yet", style = PullsType.lg.copy(fontWeight = FontWeight.Medium), color = c.text, textAlign = TextAlign.Center)
@@ -891,67 +897,4 @@ fun Spinner(size: Dp = 16.dp, tint: Color = LocalPullsColors.current.fade) {
     val transition = rememberInfiniteTransition(label = "spin")
     val angle by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Restart), label = "angle")
     LuIcon(Lu.redo, Modifier.rotate(angle), tint = tint, size = size)
-}
-
-/** The app-update notice: download, check the digest and hand it to the installer, all in-app. */
-@Composable
-private fun UpdateBanner(notice: String, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var progress by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(16.dp)
-    Row(
-        modifier
-            .fillMaxWidth()
-            .floatShadow(shape, PullsShadow.Note)
-            .clip(shape)
-            .background(c.raised)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        LuIcon(Lu.arrow, Modifier.rotate(-90f), tint = c.accentTeal, size = 22.dp)
-        Text(progress ?: notice, Modifier.weight(1f), style = PullsType.sm, color = c.text)
-        val result = com.octaviantocan.pulls.update.UpdateBus.last
-        LaunchedEffect(result) {
-            when (result) {
-                is com.octaviantocan.pulls.update.InstallResult.Failed -> { progress = result.message; busy = false }
-                com.octaviantocan.pulls.update.InstallResult.Confirming -> progress = "Confirm the update in the system dialog."
-                else -> {}
-            }
-        }
-        PillButton("Update", enabled = !busy, leading = { if (busy) Orb(size = 18.dp) }, onClick = {
-            // Android asks once per app for "Install unknown apps"; send the user there first.
-            if (Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
-                progress = "Allow pulls.review to install apps, then tap Update again."
-                runCatching {
-                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:${context.packageName}")))
-                }
-                return@PillButton
-            }
-            busy = true
-            scope.launch {
-                val outcome = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val config = ServerStore.load(context)
-                        val updater = AppUpdater(context)
-                        val manifest = updater.check(config.url, config.headers(), installedVersion(context)) ?: error("Already up to date.")
-                        val apk = updater.download(manifest, config.headers()) { read, total ->
-                            if (total > 0) progress = "Downloading ${manifest.versionName}… ${read * 100 / total}%"
-                        }
-                        updater.install(apk)
-                    }
-                }
-                outcome.onFailure { progress = it.message ?: it.toString(); busy = false }.onSuccess { progress = "Installing…" }
-            }
-        })
-    }
-}
-
-@Suppress("DEPRECATION")
-private fun installedVersion(context: Context): Int {
-    val info = context.packageManager.getPackageInfo(context.packageName, 0)
-    return if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else info.versionCode
 }

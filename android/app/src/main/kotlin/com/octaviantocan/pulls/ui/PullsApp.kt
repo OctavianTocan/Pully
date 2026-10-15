@@ -1,7 +1,11 @@
 package com.octaviantocan.pulls.ui
 
-import android.content.Context
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,11 +16,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.OpenTarget
-import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -28,9 +35,12 @@ import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
-import com.octaviantocan.pulls.update.AppUpdater
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.octaviantocan.pulls.ui.update.WhatsNewSheet
+import com.octaviantocan.pulls.update.UpdateChecks
+import com.octaviantocan.pulls.update.UpdatePrefs
+import com.octaviantocan.pulls.update.Updates
+import com.octaviantocan.pulls.update.WhatsNew
+import kotlinx.coroutines.launch
 
 /** The web routes: `/` home, `/:owner/:repo` a repo's PRs, a diff page, and the settings modal as a screen. */
 internal sealed interface Screen {
@@ -59,8 +69,16 @@ fun PullsApp(initialTarget: String?) {
             }
         }
     }
-    var updateNote by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) { updateNote = withContext(Dispatchers.IO) { checkUpdate(context) } }
+    // The server is asked for a newer build on start and whenever the app comes back to the front, and an update
+    // waiting on "Install unknown apps" carries on once that is allowed.
+    val scope = rememberCoroutineScope()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        Updates.resume(context)
+        scope.launch { Updates.check(context) }
+    }
+    // After an update, what changed opens once, over whatever page Pulls opened on.
+    var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
+    AskForUpdateNotifications(waiting = whatsNew.isNotEmpty())
     val nav = remember {
         Nav(
             openTarget = { stack.add(Screen.Review(it)) },
@@ -96,7 +114,7 @@ fun PullsApp(initialTarget: String?) {
             val here = stack.indexOfLast { it != Screen.Settings }.coerceAtLeast(0)
             BlurSwitch(Layer(stack.getOrNull(here) ?: Screen.Home, here), Modifier.fillMaxSize(), order = { it.depth }) { layer ->
                 when (val current = layer.screen) {
-                    Screen.Home -> HomeScreen(nav, updateNote, homeUi)
+                    Screen.Home -> HomeScreen(nav, homeUi)
                     is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
                     is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
                     Screen.UiBook -> UiBook(nav.back)
@@ -104,19 +122,27 @@ fun PullsApp(initialTarget: String?) {
                 }
             }
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
+            if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()
             ToastHost(toaster)
         }
     }
 }
 
-internal fun checkUpdate(context: Context): String? = runCatching {
-    val config = ServerStore.load(context)
-    AppUpdater(context).check(config.url, config.headers(), installedVersionCode(context))?.let { "Update ${it.versionName} is ready. ${it.notes}" }
-}.onFailure { android.util.Log.w("pulls", "update check failed", it) }.getOrNull()
-
-/** The installed app's version code, so the update banner only shows for a newer build. */
-internal fun installedVersionCode(context: Context): Int {
-    val info = context.packageManager.getPackageInfo(context.packageName, 0)
-    return if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode
+/**
+ * Asks once for leave to post notifications (Android 13 and up), so the background check can say when a new version
+ * is out. It waits for the What's new sheet to close, so the system dialog never covers it. Turning the switch on in
+ * Settings asks again.
+ */
+@Composable
+private fun AskForUpdateNotifications(waiting: Boolean) {
+    val context = LocalContext.current
+    val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { UpdateChecks.sync(context) }
+    LaunchedEffect(waiting) {
+        if (waiting || Build.VERSION.SDK_INT < 33 || !settings.updateNotifications || UpdatePrefs.askedForNotifications(context)) return@LaunchedEffect
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return@LaunchedEffect
+        UpdatePrefs.markAskedForNotifications(context)
+        ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
 }

@@ -14,7 +14,6 @@
     "ui/ai/Critique.kt": 1,
     "ui/design/Components.kt": 9,
     "ui/design/Kit.kt": 5,
-    "ui/home/HomeScreen.kt": 1,
     "ui/home/RepoScreen.kt": 1,
     "ui/review/PrDiffScreen.kt": 2,
     "ui/review/PrOverviewScreen.kt": 1,
