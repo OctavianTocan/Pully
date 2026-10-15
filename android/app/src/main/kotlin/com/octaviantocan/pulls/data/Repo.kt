@@ -59,7 +59,7 @@ class Repo(private val context: Context) {
     }
 
     /** The patches [open] left out, by path, for the files of the diff stored under [key]. */
-    suspend fun diffPatches(key: String, paths: List<String>): Map<String, JsonArray> =
+    suspend fun diffPatches(key: String, paths: List<String>): Map<String, FilePatch> =
         call("diff-patches") { put("key", key); put("paths", JsonArray(paths.map { JsonPrimitive(it) })) }.asPatches()
 
     suspend fun savedState(key: String): SavedState = call("review-state") { put("key", key) }.asSavedState()

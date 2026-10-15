@@ -141,9 +141,17 @@ internal fun fileBodyItems(emit: Emitter, session: ReviewSession, ui: DiffUi, fi
         file.isBinary -> emit.item("diff:fm:$path", "file-message", path) { FileMessage(t("file.binaryNotShown"), null) }
         file.truncated && full == null -> emit.item("diff:fm:$path", "file-message", path) { FileMessage(t("file.tooLarge"), file.takeIf { ui.canLoadFull(it) }?.let { f -> { ui.loadFullFile(f) } }) }
         // A large diff came without this file's patch: bars where the code goes while it and the next few arrive.
-        file.patchOmitted && full == null -> emit.item("diff:wait:$path", "file-waiting", path) {
-            LaunchedEffect(path) { session.loadPatches(patchesAround(session.files, path)) }
-            RowsSkeleton(Modifier.padding(top = 8.dp), rows = 6)
+        file.patchOmitted && full == null -> when (val problem = session.patchProblems[path]) {
+            null -> emit.item("diff:wait:$path", "file-waiting", path) {
+                LaunchedEffect(path) { session.loadPatches(patchesAround(session.files, path)) }
+                RowsSkeleton(Modifier.padding(top = 8.dp), rows = 6)
+            }
+            PatchProblem.Moved -> emit.item("diff:fm:$path", "file-message", path) {
+                FileMessage("This file changed after the pull request opened.", { session.load() }, action = "Load the new version")
+            }
+            is PatchProblem.Failed -> emit.item("diff:fm:$path", "file-message", path) {
+                FileMessage("Couldn't load this file's changes: ${problem.message}", { session.retryPatch(path) }, action = "Load again")
+            }
         }
         else -> rowItems(emit, session, ui, file)
     }
@@ -212,11 +220,11 @@ private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: Re
 // --- Body pieces ---
 
 @Composable
-private fun FileMessage(text: String, onLoad: (() -> Unit)?) {
+private fun FileMessage(text: String, onLoad: (() -> Unit)?, action: String = t("file.loadFull")) {
     val c = LocalPullsColors.current
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(text, style = PullsType.sm, color = c.muted)
-        if (onLoad != null) PillButton(t("file.loadFull"), onLoad)
+        if (onLoad != null) PillButton(action, onLoad)
     }
 }
 

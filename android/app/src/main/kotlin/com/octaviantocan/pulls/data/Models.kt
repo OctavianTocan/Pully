@@ -267,9 +267,18 @@ fun JsonElement.asOpened(): OpenedReview {
     )
 }
 
-/** `diff-patches`: each path's hunks, in the diff's own JSON shape. */
-fun JsonElement.asPatches(): Map<String, JsonArray> =
-    (this as? JsonObject)?.get("files")?.jsonObject.orEmpty().mapNotNull { (path, file) -> (file as? JsonObject)?.get("hunks")?.jsonArray?.let { path to it } }.toMap()
+/** One file's patch sent after the diff: its hunks in the diff's own JSON shape, and the blob [sha] they belong to. */
+data class FilePatch(val hunks: JsonArray, val sha: String)
+
+/** `diff-patches`: each path's patch. A path the stored diff no longer has is missing. */
+fun JsonElement.asPatches(): Map<String, FilePatch> =
+    (this as? JsonObject)?.get("files")?.jsonObject.orEmpty().mapNotNull { (path, file) ->
+        val obj = file as? JsonObject ?: return@mapNotNull null
+        obj["hunks"]?.jsonArray?.let { path to FilePatch(it, obj.str("sha")) }
+    }.toMap()
+
+/** Whether [patch] is this file's: the server's stored diff can move to a newer head after the phone opened it. */
+fun ReviewFile.matches(patch: FilePatch): Boolean = sha.isEmpty() || patch.sha.isEmpty() || sha == patch.sha
 
 /** This file with the patch [hunks] the server sent later, parsed as [asFile] parses a whole diff. */
 fun ReviewFile.withHunks(hunks: JsonArray): ReviewFile {

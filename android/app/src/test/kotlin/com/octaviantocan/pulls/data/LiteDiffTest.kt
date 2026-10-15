@@ -32,13 +32,24 @@ class LiteDiffTest {
 
     @Test
     fun aPatchSentLaterParsesAsTheWholeDiffWouldHave() {
-        val patches = json("""{"files":{"b.ts":{"hunks":[$hunk]},"gone.ts":{"hunks":[]}}}""").asPatches()
+        val patches = json("""{"files":{"b.ts":{"hunks":[$hunk],"sha":"b1"},"gone.ts":{"hunks":[]}}}""").asPatches()
         assertEquals(setOf("b.ts", "gone.ts"), patches.keys)
-        val filled = opened.files[1].withHunks(patches.getValue("b.ts"))
+        assertEquals("b1", patches.getValue("b.ts").sha)
+        val filled = opened.files[1].withHunks(patches.getValue("b.ts").hunks)
         assertFalse(filled.patchOmitted)
         assertEquals(opened.files.first().patchLines, filled.patchLines)
         assertEquals(opened.files.first().hunks, filled.hunks)
         assertEquals(900, filled.additions)
+    }
+
+    @Test
+    fun aPatchForAnotherVersionOfTheFileDoesNotFit() {
+        val patch = FilePatch(json("[$hunk]") as kotlinx.serialization.json.JsonArray, "b2")
+        assertFalse(opened.files[1].copy(sha = "b1").matches(patch))
+        assertTrue(opened.files[1].copy(sha = "b2").matches(patch))
+        // An older server sends no sha, and a file without one takes any patch.
+        assertTrue(opened.files[1].copy(sha = "b1").matches(patch.copy(sha = "")))
+        assertTrue(opened.files[1].matches(patch))
     }
 
     @Test

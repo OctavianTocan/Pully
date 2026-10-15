@@ -16,6 +16,7 @@ import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.SavedState
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.data.asTaskState
+import com.octaviantocan.pulls.data.matches
 import com.octaviantocan.pulls.data.withHunks
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
@@ -150,6 +151,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             runCatching { repo.open(target, fresh) }
                 .onSuccess {
                     prOpened = it
+                    patchesAsked.clear()
+                    patchProblems.clear()
                     if (selection == null) { opened = it; shownSelection = null }
                     // The overview can arrive before the diff does, so this page's own copy counts too.
                     rememberedAs?.let { name -> recent[name] = Remembered(it, overview ?: recent[name]?.overview) }
@@ -171,26 +174,45 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     private val patchesAsked = HashSet<String>()
 
     /**
+     * Left-out patches that did not arrive, by path: [PatchProblem.Moved] when the server's copy of the pull request moved
+     * on since this diff opened, [PatchProblem.Failed] when asking failed. The file says so instead of waiting for ever.
+     */
+    val patchProblems = mutableStateMapOf<String, PatchProblem>()
+
+    /**
      * Brings the patches the server left out of a large diff ([ReviewFile.patchOmitted]) for [paths], and puts them
-     * into the diff on screen and the PR's own. A failure lets the next showing of the file ask again.
+     * into the diff on screen and the PR's own. A patch for another version of the file is not put in.
      */
     fun loadPatches(paths: List<String>) {
         val key = opened?.key ?: return
-        val wanted = paths.filter { patchesAsked.add(it) }
+        val wanted = paths.filter { it !in patchProblems && patchesAsked.add(it) }
         if (wanted.isEmpty()) return
         scope.launch {
             runCatching { repo.diffPatches(key, wanted) }
                 .onSuccess { patches ->
+                    val byPath = opened?.takeIf { it.key == key }?.files.orEmpty().associateBy { it.path }
+                    val fitting = patches.filter { (path, patch) -> byPath[path]?.matches(patch) == true }
                     fun fill(review: OpenedReview?): OpenedReview? = review?.takeIf { it.key == key }
-                        ?.let { it.copy(files = it.files.map { file -> patches[file.path]?.let(file::withHunks) ?: file }) } ?: review
+                        ?.let { it.copy(files = it.files.map { file -> fitting[file.path]?.let { patch -> file.withHunks(patch.hunks) } ?: file }) } ?: review
                     val before = prOpened
                     prOpened = fill(prOpened)
                     opened = if (opened === before) prOpened else fill(opened)
                     rememberedAs?.let { name -> recent[name]?.let { kept -> prOpened?.let { recent[name] = kept.copy(opened = it) } } }
-                    patchesAsked.removeAll(wanted.filterNot { it in patches }.toSet())
+                    // The server answered: a file it sent no fitting patch for is in a newer version than this diff.
+                    wanted.filterNot { it in fitting }.forEach { patchProblems[it] = PatchProblem.Moved }
                 }
-                .onFailure { patchesAsked.removeAll(wanted.toSet()) }
+                .onFailure {
+                    // The file on screen says so; the ones ahead ask again when they are shown.
+                    patchesAsked.removeAll(wanted.toSet())
+                    patchProblems[wanted.first()] = PatchProblem.Failed(it.message ?: it.toString())
+                }
         }
+    }
+
+    /** Asks again for a left-out patch that failed to arrive. */
+    fun retryPatch(path: String) {
+        patchProblems.remove(path)
+        loadPatches(patchesAround(files, path))
     }
 
     private suspend fun afterOpen() {
@@ -439,4 +461,12 @@ fun resolveGroups(groups: List<FileGroup>, files: List<ReviewFile>): List<FileGr
     val resolved = groups.map(::resolve)
     val rest = files.map { it.path }.filter { it !in referenced }
     return if (rest.isEmpty()) resolved else resolved + FileGroup(label = "", summary = "", paths = rest, key = "uncategorized", category = "other")
+}
+
+/** Why a file's left-out patch is not on screen. */
+sealed interface PatchProblem {
+    /** The server's copy moved to a newer version of the pull request; loading it again shows the new one. */
+    data object Moved : PatchProblem
+
+    data class Failed(val message: String) : PatchProblem
 }

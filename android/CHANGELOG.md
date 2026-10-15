@@ -12,6 +12,14 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.24.0
+
+Huge pull requests open at once.
+
+- The title, description and conversation show right away, even on pull requests with thousands of changed lines.
+- The server keeps a copy of your open pull requests, so they open from it instead of waiting on GitHub.
+- On a big diff, each file's code loads as you reach it.
+
 ## 0.23.0
 
 Group pull requests by kind and see the riskiest first.
