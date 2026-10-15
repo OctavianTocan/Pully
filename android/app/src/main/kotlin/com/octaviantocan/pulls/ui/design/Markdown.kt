@@ -99,7 +99,7 @@ data class CodePlace(val path: String, val line: Int)
  * names (the whole path, or its end), or null; [open] scrolls to a place. A Markdown link to a path
  * in the repository is always a mention; a bare `file.ext:12` is one only when it names a changed file.
  */
-class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit)
+class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit, val repo: String? = null)
 
 /** Set by AI screens: their Markdown turns mentions into links. Elsewhere Markdown links stay links. */
 val LocalMentions = staticCompositionLocalOf<Mentions?> { null }
@@ -129,23 +129,25 @@ fun codePlaceOf(destination: String): CodePlace? {
 
 /**
  * The place a link to a file on GitHub points at (`https://github.com/o/r/blob/<sha>/src/a.ts#L12`), or null. An
- * analysis shared on the pull request has its mentions written this way, so they still work on GitHub.
+ * analysis shared on the pull request has its mentions written this way, so they still work on GitHub. Given [repo]
+ * (`owner/name`), a link into any other repository is null, so it stays a web link.
  */
-fun githubPlaceOf(destination: String): CodePlace? {
+fun githubPlaceOf(destination: String, repo: String? = null): CodePlace? {
     val match = GITHUB_BLOB.find(destination.trim()) ?: return null
-    val path = runCatching { java.net.URLDecoder.decode(match.groupValues[1].replace("+", "%2B"), "UTF-8") }.getOrNull() ?: return null
-    return CodePlace(path, match.groupValues[2].toIntOrNull() ?: 0)
+    if (repo != null && !"${match.groupValues[1]}/${match.groupValues[2]}".equals(repo, ignoreCase = true)) return null
+    val path = runCatching { java.net.URLDecoder.decode(match.groupValues[3].replace("+", "%2B"), "UTF-8") }.getOrNull() ?: return null
+    return CodePlace(path, match.groupValues[4].toIntOrNull() ?: 0)
 }
 
-private val GITHUB_BLOB = Regex("""^https://github\.com/[^/\s]+/[^/\s]+/blob/[^/\s]+/([^#?\s]+?)(?:#L(\d+)(?:-L?\d+)?)?$""")
+private val GITHUB_BLOB = Regex("""^https://github\.com/([^/\s]+)/([^/\s]+)/blob/[^/\s]+/([^#?\s]+?)(?:#L(\d+)(?:-L?\d+)?)?$""")
 
 /**
  * Where a link in AI text goes in the code: any path in the repository, or a GitHub link to a file this change touches
- * (a GitHub link to any other file stays a web link). Null for a web link.
+ * in this [repo] (a GitHub link to any other file stays a web link). Null for a web link.
  */
-fun linkPlaceOf(destination: String, resolve: (String) -> String?): CodePlace? =
+fun linkPlaceOf(destination: String, resolve: (String) -> String?, repo: String? = null): CodePlace? =
     codePlaceOf(destination)?.let { it.copy(path = resolve(it.path) ?: it.path) }
-        ?: githubPlaceOf(destination)?.let { place -> resolve(place.path)?.let { place.copy(path = it) } }
+        ?: githubPlaceOf(destination, repo)?.let { place -> resolve(place.path)?.let { place.copy(path = it) } }
 
 /**
  * The place backticked code names, so `key.ts`, `src/cache/key.ts:42` and `src/a.ts#L12` are mentions too: a file this
@@ -160,14 +162,14 @@ fun codeSpanPlaceOf(literal: String, resolve: (String) -> String?): CodePlace? {
 
 private val PATH_WITH_EXTENSION = Regex("""[\w./-]+\.[A-Za-z0-9]+""")
 
-/** Every place [markdown] mentions, in order and each once: its repository links, and the backticked paths and named files that [resolve] knows. */
-fun mentionedPlaces(markdown: String, resolve: (String) -> String?): List<CodePlace> {
+/** Every place [markdown] mentions, in order and each once: its links into [repo], and the backticked paths and named files that [resolve] knows. */
+fun mentionedPlaces(markdown: String, resolve: (String) -> String?, repo: String? = null): List<CodePlace> {
     val places = LinkedHashSet<CodePlace>()
     fun walk(node: Node) {
         var child = node.firstChild
         while (child != null) {
             when (child) {
-                is Link -> linkPlaceOf(child.destination, resolve)?.let { places += it }
+                is Link -> linkPlaceOf(child.destination, resolve, repo)?.let { places += it }
                 is MdText -> bareCites(child.literal).forEach { (_, name, line) -> resolve(name)?.let { places += CodePlace(it, line) } }
                 is Code -> codeSpanPlaceOf(child.literal, resolve)?.let { places += it }
                 is FencedCodeBlock, is IndentedCodeBlock -> Unit
@@ -623,7 +625,7 @@ private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors, 
                 append(node.literal.substring(at))
             }
             is Link -> {
-                val place = mentions?.let { linkPlaceOf(node.destination, it.resolve) }
+                val place = mentions?.let { linkPlaceOf(node.destination, it.resolve, it.repo) }
                 if (place != null && mentions != null) withMention(place, c, mentions) { appendInline(node, c) }
                 // A web link's words are its own: no mention nests inside it.
                 else withLink(LinkAnnotation.Url(node.destination, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) { appendInline(node, c) }

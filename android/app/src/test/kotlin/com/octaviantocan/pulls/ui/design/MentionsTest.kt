@@ -71,6 +71,13 @@ class MentionsTest {
     }
 
     @Test
+    fun aGithubLinkIntoAnotherRepositoryStaysAWebLink() {
+        assertEquals(CodePlace("src/parser.ts", 3), linkPlaceOf("https://github.com/O/R/blob/abc/src/parser.ts#L3", resolve, "o/r"))
+        assertNull(linkPlaceOf("https://github.com/bob/lib/blob/abc/src/parser.ts#L3", resolve, "o/r"))
+        assertEquals(listOf<CodePlace>(), mentionedPlaces("[parser](https://github.com/bob/lib/blob/abc/src/parser.ts#L3)", resolve, "o/r"))
+    }
+
+    @Test
     fun aChangedFileNamedInTheTextIsAPlaceWithOrWithoutALine() {
         val markdown = "Moves `key.ts` work into parser.ts, see [key.ts:42] and README.md. Version 1.2 and e.g. are not files; nor is other.ts:4."
         assertEquals(listOf(CodePlace("src/cache/key.ts", 0), CodePlace("src/parser.ts", 0), CodePlace("src/cache/key.ts", 42), CodePlace("README.md", 0)), mentionedPlaces(markdown, resolve))

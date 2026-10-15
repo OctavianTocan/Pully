@@ -268,7 +268,7 @@ internal fun Answer(text: String) {
 @Composable
 private fun AnswerExtras(session: ReviewSession, text: String, onOpen: (CodePlace) -> Unit, read: List<Activity>, onRedo: (() -> Unit)?, next: List<String>, onAsk: (String) -> Unit) {
     val places = remember(text, read, session.files) {
-        val named = mentionedPlaces(text) { name -> resolveMention(session, name) }
+        val named = mentionedPlaces(text, { name -> resolveMention(session, name) }, reviewRepo(session))
         val opened = readFiles(read).map { (path, line) -> CodePlace(resolveMention(session, path) ?: path, line) }
         named + opened.filter { place -> named.none { it.path == place.path } }.distinctBy { it.path }
     }

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caverock.androidsvg.SVG
+import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.data.TourSource
@@ -119,7 +120,15 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
  * Mentions in AI text go to their place: a changed file opens the diff on the line, any other
  * file opens through [open] (rule 96). The resolver takes a whole path or the end of one.
  */
-internal fun mentionsFor(session: ReviewSession, open: (CodePlace) -> Unit): Mentions = Mentions(resolve = { name -> resolveMention(session, name) }, open = open)
+internal fun mentionsFor(session: ReviewSession, open: (CodePlace) -> Unit): Mentions = Mentions(resolve = { name -> resolveMention(session, name) }, open = open, repo = reviewRepo(session))
+
+/** The `owner/name` of the repository under review, or null for a local branch. */
+internal fun reviewRepo(session: ReviewSession): String? = when (val target = session.target) {
+    is OpenTarget.Pull -> "${target.owner}/${target.repo}"
+    is OpenTarget.Compare -> "${target.owner}/${target.repo}"
+    is OpenTarget.Commit -> "${target.owner}/${target.repo}"
+    else -> null
+}
 
 /** The changed file a mention names, by its whole path or the end of it, or null. */
 internal fun resolveMention(session: ReviewSession, name: String): String? =

@@ -368,12 +368,20 @@ fun selectRange(path: String, side: String, a: Int, b: Int): com.octaviantocan.p
 
 /**
  * The code of lines [range] on one [side] of the rows shown, in order, one line each: what an Ask about selected lines
- * carries. A context line belongs to both sides.
+ * carries. A context line belongs to both sides. Lines the diff has not loaded leave a hole, marked with a line of "…"
+ * so the snippet never reads as the whole selection.
  */
-fun selectedCode(entries: List<DiffEntry>, side: String, range: IntRange): String =
-    entries.mapNotNull { (it as? DiffEntry.Line)?.line }
-        .filter { line -> line.anchors().any { it.side == side && it.line in range } }
-        .joinToString("\n") { it.text }
+fun selectedCode(entries: List<DiffEntry>, side: String, range: IntRange): String {
+    val out = mutableListOf<String>()
+    var last: Int? = null
+    for (line in entries.mapNotNull { (it as? DiffEntry.Line)?.line }) {
+        val at = line.anchors().firstOrNull { it.side == side && it.line in range }?.line ?: continue
+        if (last != null && at > last + 1) out += "…"
+        out += line.text
+        last = at
+    }
+    return out.joinToString("\n")
+}
 
 // --- Formatting ---
 

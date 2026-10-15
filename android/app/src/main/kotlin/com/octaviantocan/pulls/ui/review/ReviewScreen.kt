@@ -344,18 +344,28 @@ private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOv
         top.polls++
     }
     var away by remember { mutableStateOf(false) }
+    var returns by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { away = true }
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         if (away) {
             away = false
             top.polls = 0
+            returns++
             session.reloadOverview()
         }
     }
     val stale = isStale(session, overview)
-    LaunchedEffect(stale, session.settings.autoRefresh, session.selection) {
+    // A reload that fails leaves the page stale, so it is tried a few more times, and again when the app comes back.
+    LaunchedEffect(stale, session.settings.autoRefresh, session.selection, returns) {
         if (!stale || !session.settings.autoRefresh || session.selection != null) return@LaunchedEffect
-        snapshotFlow { session.loading }.first { !it }
-        session.refresh()
+        for (wait in STALE_RETRY_MS) {
+            snapshotFlow { session.loading }.first { !it }
+            if (!isStale(session, overview)) return@LaunchedEffect
+            session.refresh()
+            delay(wait)
+        }
     }
 }
+
+/** How long the page waits after each automatic reload of new commits before it tries again, while they have not loaded. */
+private val STALE_RETRY_MS = listOf(2_000L, 8_000L, 30_000L)

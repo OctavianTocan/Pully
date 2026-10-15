@@ -34,6 +34,7 @@ import com.octaviantocan.pulls.sound.cueClickable
 import kotlinx.serialization.json.put
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,6 +78,7 @@ import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** The first page of each repository's list as last seen, so opening it again shows rows at once and refreshes underneath. */
@@ -137,8 +139,15 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
         try { fetchFirstPage() } finally { isLoading = false }
     }
 
+    /** How many quiet refreshes have landed: a search keys on it to fetch the later pages again after one. */
+    var refreshes by mutableIntStateOf(0)
+        private set
+
     /** The first page again, quietly, over the rows on screen. */
-    suspend fun refresh() = fetchFirstPage()
+    suspend fun refresh() {
+        fetchFirstPage()
+        refreshes++
+    }
 
     suspend fun loadMore() {
         val cursor = next ?: return
@@ -160,7 +169,8 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
     }
 
     suspend fun loadAll() {
-        while (next != null && error == null) loadMore()
+        // Waits out a page already on its way rather than spinning on the main thread until it lands.
+        while (next != null && error == null) if (isLoadingMore) delay(50) else loadMore()
     }
 }
 
@@ -187,8 +197,9 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
     }
     // Independent of the network, like the web: viewed PRs decorate rows whenever they arrive.
     LaunchedEffect(store) { store.loadViewed() }
-    // A client-side search is only trustworthy over the full set: typing drains the remaining pages.
-    LaunchedEffect(query) { if (query.isNotBlank()) store.loadAll() }
+    // A client-side search is only trustworthy over the full set: typing drains the remaining pages, and so does a
+    // quiet refresh, which leaves only the first page.
+    LaunchedEffect(query, store.refreshes) { if (query.isNotBlank()) store.loadAll() }
 
     val rows = remember(store.items, query, sort) { PullListQuery.sort(PullListQuery.filter(store.items, query), sort) }
     val isSearching = query.isNotBlank() && store.hasMore

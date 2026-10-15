@@ -225,6 +225,13 @@ class DiffModelTest {
     }
 
     @Test
+    fun linesTheDiffHasNotLoadedAreMarkedInTheSelectedCode() {
+        // Line 5 is not on screen, as if it sat in a folded gap.
+        val holed = diffEntries(tenLines).filterNot { (it as? DiffEntry.Line)?.line?.newLine == 5 }
+        assertEquals("l4\n…\nl6", selectedCode(holed, "additions", 4..6))
+    }
+
+    @Test
     fun timeAgoMatchesTheWebFormat() {
         val now = 1_000_000_000_000L
         assertEquals("just now", timeAgo(now, now))
