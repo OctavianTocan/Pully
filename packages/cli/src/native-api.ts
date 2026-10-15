@@ -11,6 +11,7 @@ import { createRuleBasedAdapter } from '@pulls.review/core/analyze'
 import { createGithubSource } from '@pulls.review/core/github'
 import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
+import { ingestAnalytics, track } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { highlightLines, pierreTheme } from './highlight'
 import { NATIVE_REVIEW, sessionPatches } from './native-review'
@@ -38,6 +39,7 @@ const ALLOWED = new Set<string>([
   LOCAL_RPC.askThreadClose,
   LOCAL_RPC.inboxChat,
   LOCAL_RPC.inboxChatClear,
+  LOCAL_RPC.analyticsSummary,
 ])
 
 export interface NativeRequest {
@@ -115,17 +117,42 @@ function androidRoute(path: string): Promise<Response> | undefined {
   return past ? androidFile(`past/${past[1]}.apk`, APK) : undefined
 }
 
+/**
+ * `POST /api/events`: a client's batch of analytics events, cleaned and appended to the
+ * day files (`analytics.ts`). Answers 204 without waiting for the write.
+ */
+async function analyticsEvents(request: NativeRequest): Promise<Response> {
+  const body = await request.json().catch(() => undefined)
+  ingestAnalytics(body)
+  return new Response(null, { status: 204 })
+}
+
+/** Notes a failed call in analytics as `error.server`, with the message the client got. */
+async function noteFailure(name: string, response: Response): Promise<Response> {
+  if (response.ok)
+    return response
+  const message = await response.clone().json().then(body => (body as { error?: unknown }).error).catch(() => undefined)
+  track('error.server', { route: 'rpc', method: name.slice(0, 64), status: response.status, message: typeof message === 'string' ? message : undefined })
+  return response
+}
+
 export async function handleNativeRequest(request: NativeRequest, cwd: string): Promise<Response | undefined> {
   const path = request.url.pathname
   const android = request.method === 'GET' ? androidRoute(path) : undefined
   if (android)
     return android
+  if (request.method === 'POST' && path === '/api/events')
+    return analyticsEvents(request)
   if (request.method !== 'POST' || path !== '/api/rpc')
     return undefined
 
   const body = await request.json().catch(() => undefined) as { name?: unknown, args?: unknown } | undefined
   const name = typeof body?.name === 'string' ? body.name : ''
-  const native = nativeCall(name, cwd, body?.args)
+  return noteFailure(name, await rpcCall(name, body?.args, cwd))
+}
+
+async function rpcCall(name: string, args: unknown, cwd: string): Promise<Response> {
+  const native = nativeCall(name, cwd, args)
   if (native)
     return native
   if (!ALLOWED.has(name))
@@ -134,7 +161,7 @@ export async function handleNativeRequest(request: NativeRequest, cwd: string): 
   if (!fn)
     return Response.json({ error: 'That method is not available to the app.' }, { status: 404 })
   try {
-    const result = await (fn.handler as (input?: unknown) => Promise<unknown>)(body?.args)
+    const result = await (fn.handler as (input?: unknown) => Promise<unknown>)(args)
     return Response.json({ result })
   }
   catch (error) {

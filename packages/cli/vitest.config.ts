@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     name: 'cli',
     environment: 'node',
+    // Tests never write to the real analytics folder; analytics.test.ts passes its own env.
+    env: { PULLS_REVIEW_ANALYTICS: 'off' },
   },
 })

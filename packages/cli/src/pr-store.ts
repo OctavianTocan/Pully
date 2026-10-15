@@ -7,6 +7,7 @@ import type { Storage } from 'unstorage'
 import process from 'node:process'
 import { assessMergeability, createGithubClient, createGithubSource, defaultMergeCommit, fetchPullRequestOverview } from '@pulls.review/core/github'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
+import { track } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { listMyPulls } from './my-pulls'
 import { serverSession } from './server-session'
@@ -190,6 +191,7 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
   }
 
   async function run() {
+    const started = now()
     const auth = await token().catch(() => undefined)
     if (!auth) {
       once('token', 'no GitHub token, so open pull requests are not stored ahead of time')
@@ -202,6 +204,7 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
     }
     catch (error) {
       once('list', `storing open pull requests skipped: ${messageOf(error)}`)
+      track('store.refresh', { status: 'error', ms: now() - started, message: messageOf(error) })
       return
     }
     const open = pulls
@@ -218,6 +221,7 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
       if (await storeOverviewOf(pull, auth))
         storedOverviews++
     }), PR_STORE_CONCURRENCY)
+    track('store.refresh', { pulls: open.length, diffs: storedDiffs, overviews: storedOverviews, ms: now() - started })
     if (storedDiffs || storedOverviews)
       log(`stored ${storedDiffs} diff${storedDiffs === 1 ? '' : 's'} and ${storedOverviews} overview${storedOverviews === 1 ? '' : 's'} of open pull requests`)
   }
