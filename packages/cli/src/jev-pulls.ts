@@ -55,6 +55,16 @@ export interface PullClassifier {
   apply: (pulls: MyPull[]) => MyPull[]
   /** Classifies the open ones without a current classification. Settles when they are done; the list never waits for it. */
   classify: (pulls: MyPull[]) => Promise<void>
+  /**
+   * @param pull The pull request at the head and title in question.
+   * @returns Its classification there, from memory or the server's storage; `undefined` when there is none. Never asks Jev.
+   */
+  lookup: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => Promise<MyPullJev | undefined>
+  /**
+   * @param pull The pull request at the head and title in question.
+   * @returns Whether Jev is classifying it there right now.
+   */
+  classifying: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => boolean
 }
 
 export interface PullClassifierOptions {
@@ -71,7 +81,7 @@ interface Saved extends MyPullJev {
   model: string
 }
 
-function pullKey(pull: MyPull): string {
+function pullKey(pull: Pick<MyPull, 'owner' | 'repo' | 'number'>): string {
   return `${pull.owner}/${pull.repo}#${pull.number}`
 }
 
@@ -81,12 +91,12 @@ function isSaved(value: unknown): value is Saved {
     && typeof saved.kindConfidence === 'number' && typeof saved.risk === 'number'
 }
 
-function isCurrent(saved: Saved | undefined, pull: MyPull): saved is Saved {
+function isCurrent(saved: Saved | undefined, pull: Pick<MyPull, 'headSha' | 'title'>): saved is Saved {
   return !!saved && saved.headSha === (pull.headSha ?? '') && saved.title === pull.title
 }
 
 /** What a classification belongs to: the pull request at one head and title. */
-function versionKey(pull: MyPull): string {
+function versionKey(pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>): string {
   return `${pullKey(pull)}@${pull.headSha ?? ''}\n${pull.title}`
 }
 
@@ -107,7 +117,8 @@ export function pullState(pull: MyPull, files: string[] | undefined) {
 }
 
 /**
- * Sorts pull requests by kind and risk with Jev. A classification belongs to a head commit
+ * Sorts pull requests by kind and risk with Jev, when asked to: a review of the pull request, or a sort or grouping
+ * on the phone that needs every open one. A classification belongs to a head commit
  * and a title, so a new commit or a renamed title asks again; it is kept in memory and in
  * the server's storage (`jev-pr:<owner>/<repo>#<number>`), so a restart does not pay twice.
  *
@@ -166,8 +177,26 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
     }
   }
 
+  function jevOf(entry: Saved): MyPullJev {
+    return { kind: entry.kind, kindConfidence: entry.kindConfidence, risk: entry.risk }
+  }
+
   return {
     enabled: jev.enabled,
+    async lookup(pull) {
+      if (!jev.enabled())
+        return undefined
+      const key = pullKey(pull)
+      if (!saved.has(key) && !looked.has(key)) {
+        const value = await store()?.storage?.getItem(`${STORAGE_PREFIX}${key}`).catch(() => undefined)
+        looked.add(key)
+        if (isSaved(value) && !saved.has(key))
+          saved.set(key, value)
+      }
+      const entry = saved.get(key)
+      return isCurrent(entry, pull) ? jevOf(entry) : undefined
+    },
+    classifying: pull => running.has(versionKey(pull)),
     async load(pulls) {
       const storage = store()?.storage
       if (!storage || !jev.enabled())
@@ -187,7 +216,7 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
       return pulls.map((pull) => {
         const entry = saved.get(pullKey(pull))
         // Only open ones are classified, so a closed one keeps no kind from when it was open.
-        return pull.state === 'open' && isCurrent(entry, pull) ? { ...pull, jev: { kind: entry.kind, kindConfidence: entry.kindConfidence, risk: entry.risk } } : pull
+        return pull.state === 'open' && isCurrent(entry, pull) ? { ...pull, jev: jevOf(entry) } : pull
       })
     },
     async classify(pulls) {

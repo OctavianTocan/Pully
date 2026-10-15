@@ -1,6 +1,6 @@
 import type { AgentTool } from '@earendil-works/pi-agent-core'
 import type { CliRunHooks, CliRunResult } from '@pulls.review/core/llm'
-import type { AiActivity, AiJobRequest, AiJobSnapshot, AiJobStatus, AiUsage, LlmEngine } from '@pulls.review/core/local-rpc'
+import type { AiActivity, AiJobRequest, AiJobSnapshot, AiJobStatus, AiPrContext, AiUsage, LlmEngine } from '@pulls.review/core/local-rpc'
 import type { PrPayload } from './pr-tools'
 import type { AgentMount, AgentRuntime } from './runtime'
 import type { ActivityPatch, McpServerSpec, RunOutcome, StreamParser } from './types'
@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { triageFor } from '../jev-review'
 import { listCliModels } from './catalog'
 import { claudeArgs, claudeInput, createClaudeParser } from './claude'
 import { codexArgs, createCodexParser } from './codex'
@@ -201,7 +202,14 @@ function serverScript(): string {
 
 function toolHint(payload: PrPayload): string {
   const search = payload.checkout ? ', search_source to search the whole repository' : ''
-  return `\n\nYou can look at this change yourself through the \`pr\` tools: read_file_diff for a file's full diff with line numbers, read_hunks, read_source for any file at the head commit, find_files, search_diff${search}, and read_discussion for the description and review comments. Use them when a diff above is cut short, or when a change only makes sense next to code the diff does not show.`
+  const triage = payload.triage ? ' Start with triage_files: Jev, a fast classifier, has already rated which files need human judgment and how risky the pull request is. Spend most of your reading on its p0 files, and still judge every file yourself.' : ''
+  return `\n\nYou can look at this change yourself through the \`pr\` tools: read_file_diff for a file's full diff with line numbers, read_hunks, read_source for any file at the head commit, find_files, search_diff${search}, and read_discussion for the description and review comments. Use them when a diff above is cut short, or when a change only makes sense next to code the diff does not show.${triage}`
+}
+
+/** What the PR tools serve for `context`: the change, the checkout that holds it, and Jev's read of it. */
+async function payloadOf(context: AiPrContext): Promise<PrPayload> {
+  const [checkout, triage] = await Promise.all([hasCommit(context.headSha), triageFor(context).catch(() => undefined)])
+  return { ...context, checkout: checkout ? process.cwd() : undefined, ...(triage ? { triage } : {}) }
 }
 
 function failure(engine: CliBinEngine, runtime: AgentRuntime, outcome: RunOutcome, stderr: string, code: number | null): string {
@@ -230,7 +238,7 @@ async function prepare(job: Job, dir: string, runtime: AgentRuntime): Promise<La
   let server: McpServerSpec | undefined
   const mounts: AgentMount[] = []
   if (request.context) {
-    const payload: PrPayload = { ...request.context, checkout: await hasCommit(request.context.headSha) ? process.cwd() : undefined }
+    const payload = await payloadOf(request.context)
     const payloadPath = join(dir, 'pr.json')
     await writeFile(payloadPath, JSON.stringify(payload))
     server = { name: 'pr', command: mcpNode(runtime), args: [serverScript(), payloadPath], tools: prTools(payload).map(tool => tool.name) }
@@ -350,7 +358,7 @@ async function executePi(job: Job): Promise<Ending> {
   let system = request.system
   let tools: AgentTool[] = []
   if (request.context) {
-    const payload: PrPayload = { ...request.context, checkout: await hasCommit(request.context.headSha) ? process.cwd() : undefined }
+    const payload = await payloadOf(request.context)
     tools = piTools(prTools(payload), (name, args) => callPrTool(payload, name, args))
     system += toolHint(payload)
   }

@@ -1,5 +1,11 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.data.JEV_FILE_WORDS
+import com.octaviantocan.pulls.data.JEV_RISK_WORDS
+import com.octaviantocan.pulls.data.PullJev
+import com.octaviantocan.pulls.data.kindWords
+import com.octaviantocan.pulls.data.riskLevel
+import com.octaviantocan.pulls.data.riskWords
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.LaunchedEffect
@@ -64,7 +70,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -219,6 +227,7 @@ internal fun PrOverviewScreen(
                 PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
                 if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head.base, head.head)
                 StackMark(session.stack) { onSheet("stack") }
+                JevLine(session.pullJev, session.attention)
                 if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
                     StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))
                 }
@@ -237,6 +246,31 @@ internal fun PrOverviewScreen(
         })
     }
     }
+}
+
+/**
+ * What Jev made of the pull request, under the branch: its kind with how sure it is in words, its risk ("High risk" in
+ * the amber the app gives warnings), and how many files need a look. Plain text at the meta size, with no mark and
+ * nothing to tap (rules 1, 14 and 53). Absent until a review had Jev read the pull request.
+ */
+@Composable
+internal fun JevLine(jev: PullJev?, attention: Map<String, String>) {
+    val c = LocalPullsColors.current
+    val needs = attention.values.count { it == "p0" }
+    if (jev == null && needs == 0) return
+    // Each part with its colour: only a high risk stands out.
+    val parts = listOfNotNull(
+        jev?.kindWords?.let { it to c.muted },
+        jev?.let { it.riskWords to if (it.riskLevel == JEV_RISK_WORDS.lastIndex) c.amber else c.muted },
+        if (needs > 0) (if (needs == 1) "1 file needs a look" else "$needs files need a look") to c.muted else null,
+    )
+    val words = buildAnnotatedString {
+        parts.forEachIndexed { index, (text, color) ->
+            if (index > 0) withStyle(SpanStyle(color = c.faint)) { append(" · ") }
+            withStyle(SpanStyle(color = color)) { append(text) }
+        }
+    }
+    Text(words, Modifier.padding(top = 8.dp), style = PullsType.sm, color = c.muted)
 }
 
 /** Where the Commits tab sits among the tabs, for the Commits cell that opens it. */
@@ -562,7 +596,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
             ) {
                 // The first row of a list has no line above it, unless a heading is over it: then that line is the
                 // heading's underline (rule 75, J18).
-                FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0 || label != null, needsLook = session.attention[file.path] == "p0", onToggle = toggle)
+                FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0 || label != null, mark = session.attention[file.path], onToggle = toggle)
             }
         }
     }
@@ -570,11 +604,11 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
 
 /**
  * `.flr`: the checkbox on the first line, the file name, its folder cut from the front under it (a tap shows the whole
- * path), `+n −n` on the right, and the AI's note in two lines at most. A file Jev says needs a human starts the second
- * line with "Needs a look".
+ * path), `+n −n` on the right, and the AI's note in two lines at most. A file Jev rated starts the second line with its
+ * word on it ([mark]: `p0` "Needs a look", `p1` "Worth a look", `p2` "Skim").
  */
 @Composable
-internal fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit, needsLook: Boolean = false) {
+internal fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit, mark: String? = null) {
     val c = LocalPullsColors.current
     val reviewed = state == ReviewState.Reviewed
     val dir = file.path.substringBeforeLast('/', "")
@@ -590,9 +624,10 @@ internal fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewStat
                 style = PullsType.base.copy(fontWeight = FontWeight.SemiBold),
                 color = if (reviewed) c.muted else c.text,
             )
-            if (dir.isNotEmpty() || needsLook) {
+            val jevMark = mark?.takeIf { it in JEV_FILE_WORDS }
+            if (dir.isNotEmpty() || jevMark != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (needsLook) NeedsLook(trailingDot = dir.isNotEmpty())
+                    if (jevMark != null) JevMark(jevMark, trailingDot = dir.isNotEmpty())
                     if (dir.isNotEmpty()) {
                         val pathStyle = PullsType.sm.copy(fontFamily = PullsType.mono)
                         val pathTap = Modifier.weight(1f, fill = false).clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (whole) "Shorten the path" else "Show the whole path") { whole = !whole }

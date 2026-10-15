@@ -10,6 +10,7 @@ import { defaultLlmSettings, ENGINE_SETTINGS, resolveModel } from '@pulls.review
 import { AI_FOLLOW_UPS } from '@pulls.review/core/local-rpc'
 import { DEFAULT_LOCALE, isLocale } from '@pulls.review/core/locales'
 import { serializeRef } from '@pulls.review/core/types'
+import { prepareJev } from '../jev-review'
 import { listMyPulls } from '../my-pulls'
 import { listAiJobs, runAiJob } from './jobs'
 
@@ -52,7 +53,15 @@ export interface TaskRunners {
   lens: (name: string) => Promise<string | undefined>
   /** What the CLI jobs tagged `tag` consumed together. */
   usage: (tag: string) => AiUsage | undefined
+  /**
+   * Has Jev read the diff before a review of the whole of it (files rated, the pull request sorted), so the review's
+   * model gets `triage_files`. Never throws; left out, nothing is asked.
+   */
+  triage?: (diff: DiffsPayload, storage: Storage, hooks: TaskHooks) => Promise<void>
 }
+
+/** The tasks that read the whole diff, and so start with Jev's read of it. */
+const TRIAGED: ReadonlySet<AiTaskRequest['kind']> = new Set(['analyze', 'critique', 'tour', 'brief'])
 
 interface Task {
   request: AiTaskRequest
@@ -294,6 +303,10 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     task.controller.signal.throwIfAborted()
     const resolved = resolveTaskModel(request.model)
     const { diff } = entry
+    if (TRIAGED.has(request.kind)) {
+      await runners.triage?.(diff, storage, hooks)
+      task.controller.signal.throwIfAborted()
+    }
     switch (request.kind) {
       case 'analyze': {
         return withSession(request.key, async () => {
@@ -698,6 +711,7 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
       return questions
     },
     lens,
+    triage: (diff, storage, hooks) => prepareJev(diff, { storage, onActivity: hooks.onActivity }),
     usage: tag => sumUsage(listAiJobs().filter(job => job.label === tag && job.usage).map(job => job.usage!)),
   }
 }

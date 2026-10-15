@@ -14,7 +14,7 @@ import { cancelAiJob, listAiJobs, runAiJob, startAiJob, waitAiJob } from './ai/j
 import { createTaskManager, defaultTaskRunners } from './ai/tasks'
 import { resolveGithubToken } from './credentials'
 import { getLens, listLenses } from './lenses'
-import { cachedMyPulls, listMyPulls } from './my-pulls'
+import { cachedMyPulls, classifyMyPulls, listMyPulls } from './my-pulls'
 import { warmRepoPulls } from './native-review'
 
 export interface LocalRpcOptions {
@@ -180,10 +180,14 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
     defineRpcFunction({
       name: LOCAL_RPC.myPullsCached,
       type: 'query',
-      args: [v.object({ state: v.picklist(MY_PULL_STATES), revalidate: v.optional(v.boolean()) })],
+      args: [v.object({ state: v.picklist(MY_PULL_STATES), revalidate: v.optional(v.boolean()), classify: v.optional(v.boolean()) })],
       returns: v.unknown(),
-      handler: async ({ state, revalidate }) => {
+      handler: async ({ state, revalidate, classify }) => {
         const snapshot = cachedMyPulls(state, revalidate)
+        // Jev sorts open pull requests only when a client asks: the phone does while its Inbox is sorted by risk or
+        // grouped by kind, which need every one of them.
+        if (classify && state === 'open')
+          classifyMyPulls()
         // The repositories in the Inbox are the ones the phone opens next, so their lists are fetched ahead (H14). A read
         // that must not reach GitHub (`revalidate: false`) does not start that either.
         if (snapshot && state === 'open' && revalidate !== false)

@@ -1,5 +1,5 @@
 import type { Env } from '@pulls.review/core/env'
-import type { MyPull, MyPullChecks, MyPullMergeable, MyPullReviewDecision, MyPullRole, MyPullsSnapshot, MyPullStack, MyPullState } from '@pulls.review/core/local-rpc'
+import type { MyPull, MyPullChecks, MyPullJev, MyPullMergeable, MyPullReviewDecision, MyPullRole, MyPullsSnapshot, MyPullStack, MyPullState } from '@pulls.review/core/local-rpc'
 import type { PullClassifier, PullClassifierStore } from './jev-pulls'
 import process from 'node:process'
 import { MY_PULL_ROLES } from '@pulls.review/core/local-rpc'
@@ -397,13 +397,24 @@ export interface MyPullsService {
    * @returns The last list fetched, however old, or `null` before the first one; refreshes it in the background once aged.
    */
   cached: (state: MyPullState, revalidate?: boolean) => MyPullsSnapshot | null
+  /**
+   * Has Jev sort pull requests: the listed open ones that `match` (all of them by default), and `extra` ones the list
+   * does not hold. Only what has no classification at its current head and title is asked about.
+   *
+   * @returns Settles when Jev has answered; does nothing while Jev is off.
+   */
+  classify: (match?: (pull: MyPull) => boolean, extra?: MyPull[]) => Promise<void>
+  /** A pull request's classification at this head and title, when there is one; never asks Jev. */
+  jevOf: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => Promise<MyPullJev | undefined>
+  /** Whether Jev is classifying a pull request at this head and title right now. */
+  jevPending: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => boolean
 }
 
 export interface MyPullsServiceOptions {
   graphql: GithubGraphql
   /** The clock, replaceable in tests. */
   now?: () => number
-  /** Sorts open pull requests by kind and risk in the background; the list never waits for it. */
+  /** Sorts open pull requests by kind and risk when asked (`classify`); the list only shows what it already sorted. */
   classifier?: PullClassifier
 }
 
@@ -498,12 +509,9 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
       })
     }
     const pulls = merged.map(hit => hit.pull)
-    if (classifier) {
-      // Saved classifications are read from local storage; Jev itself runs after the list is answered.
+    // Saved classifications are read from local storage. Jev itself runs only when something asks for it (`classify`).
+    if (classifier)
       await classifier.load(pulls).catch(() => {})
-      if (state === 'open')
-        void classifier.classify(pulls).catch(() => {})
-    }
     return pulls
   }
 
@@ -524,6 +532,16 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
         ...(classifier?.enabled() ? { classifier: 'jev' as const } : {}),
       }
     },
+    async classify(match = () => true, extra = []) {
+      if (!classifier?.enabled())
+        return
+      const listed = (cache.peek('open')?.value ?? []).filter(pull => match(pull))
+      const known = new Set(listed.map(pull => `${pull.owner}/${pull.repo}#${pull.number}`))
+      const others = extra.filter(pull => !known.has(`${pull.owner}/${pull.repo}#${pull.number}`))
+      await classifier.classify([...listed, ...others]).catch(() => {})
+    },
+    jevOf: async pull => classifier?.lookup(pull),
+    jevPending: pull => classifier?.classifying(pull) ?? false,
   }
 }
 
@@ -577,6 +595,16 @@ export function setMyPullsStore(value: PullClassifierStore): void {
 }
 
 /**
+ * Gives the shared service a storage only when the server session has not given it one yet, for work that can start
+ * before any client connects (pre-analysis with `--no-warm`). The server session's own call still replaces it.
+ *
+ * @param value Storage and a diff cache over the same repository cache.
+ */
+export function offerMyPullsStore(value: PullClassifierStore): void {
+  store ??= value
+}
+
+/**
  * Pull requests across every repository the signed-in user touches: review requests,
  * their own, ones they take part in, and anything opened in repos they or their orgs own.
  *
@@ -595,4 +623,42 @@ export function listMyPulls(state: MyPullState): Promise<MyPull[]> {
  */
 export function cachedMyPulls(state: MyPullState, revalidate?: boolean): MyPullsSnapshot | null {
   return service().cached(state, revalidate)
+}
+
+/**
+ * Has Jev sort every listed open pull request it has not sorted yet, in the background: the phone asks while its
+ * Inbox is sorted by risk or grouped by kind, which need all of them.
+ */
+export function classifyMyPulls(): void {
+  void service().classify()
+}
+
+/**
+ * Has Jev sort one pull request, as a review of it starts.
+ *
+ * @param pull The pull request at the head being reviewed. The listed copy fills in what it lacks (labels, branch,
+ * author) when the list holds it.
+ * @returns Settles when Jev has answered, or at once while Jev is off.
+ */
+export function classifyPull(pull: MyPull): Promise<void> {
+  const own = service()
+  const listed = own.cached('open', false)?.pulls.find(each => each.owner === pull.owner && each.repo === pull.repo && each.number === pull.number)
+  const merged: MyPull = listed ? { ...listed, headSha: pull.headSha ?? listed.headSha, title: pull.title || listed.title } : pull
+  return own.classify(() => false, [merged])
+}
+
+/**
+ * @param pull The pull request at the head and title in question.
+ * @returns Jev's classification of it there, when there is one; never asks Jev.
+ */
+export function jevOfPull(pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>): Promise<MyPullJev | undefined> {
+  return service().jevOf(pull)
+}
+
+/**
+ * @param pull The pull request at the head and title in question.
+ * @returns Whether Jev is classifying it there right now, so the phone keeps asking until the answer lands.
+ */
+export function jevPendingOfPull(pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>): boolean {
+  return service().jevPending(pull)
 }

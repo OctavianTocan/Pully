@@ -176,4 +176,35 @@ describe('createPullClassifier', () => {
     await classifier.classify([pull(1)])
     expect(classifier.apply([pull(1)])[0].jev).toEqual({ kind: 'feature', kindConfidence: 0.4, risk: 3 })
   })
+
+  it('looks up a classification at a head and title, from storage after a restart, without asking Jev', async () => {
+    const first = setup()
+    await first.classifier.classify([pull(1)])
+    expect(await first.classifier.lookup(pull(1))).toEqual({ kind: 'fix', kindConfidence: 0.9, risk: 1.4 })
+    expect(await first.classifier.lookup(pull(1, { headSha: 'sha-new' }))).toBeUndefined()
+
+    const restarted = setup({ store: first.store })
+    expect(await restarted.classifier.lookup(pull(1))).toEqual({ kind: 'fix', kindConfidence: 0.9, risk: 1.4 })
+    expect(restarted.states).toHaveLength(0)
+  })
+
+  it('says whether it is classifying a pull request at a head and title now', async () => {
+    let release = () => {}
+    const held = new Promise<void>(resolve => (release = resolve))
+    const states: unknown[] = []
+    const fetch = (async (_url: string, init: RequestInit) => {
+      states.push(JSON.parse(init.body as string).state)
+      await held
+      return Response.json(answer())
+    }) as typeof globalThis.fetch
+    const jev = createJevClient({ apiKey: 'key', fetch, log: () => {}, sleep: async () => {} })
+    const classifier = createPullClassifier({ jev, store: () => ({ storage: createStorage({ driver: memoryDriver() }) }) })
+    const done = classifier.classify([pull(1)])
+    await vi.waitFor(() => expect(states).toHaveLength(1))
+    expect(classifier.classifying(pull(1))).toBe(true)
+    expect(classifier.classifying(pull(1, { title: 'Renamed' }))).toBe(false)
+    release()
+    await done
+    expect(classifier.classifying(pull(1))).toBe(false)
+  })
 })

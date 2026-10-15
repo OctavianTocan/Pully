@@ -132,8 +132,11 @@ class MyPullsSync(
     private val now: () -> Long = System::currentTimeMillis,
     /** A server copy younger than this is shown without asking GitHub again. */
     private val freshForMs: Long = 30_000,
-    /** The server's copy, without the server refreshing it from GitHub however old it is; for [followJev]. */
-    private val peek: suspend (state: String) -> PullsSnapshot? = cached,
+    /**
+     * The server's copy, without the server refreshing it from GitHub however old it is; for [followJev]. With `classify`
+     * the server has Jev sort the rows it has not sorted yet.
+     */
+    private val peek: suspend (state: String, classify: Boolean) -> PullsSnapshot? = { state, _ -> cached(state) },
 ) {
     /** The newest list known, null until any copy arrives. */
     var pulls by mutableStateOf<List<PullRow>?>(null)
@@ -173,21 +176,29 @@ class MyPullsSync(
     /** A fresh list even when the current one is recent. */
     suspend fun reload() = load(true)
 
-    /** Jev is on and open rows on screen have no kind yet: the server is still sorting them. */
-    val sorting: Boolean get() = jev && state == "open" && pulls.orEmpty().any { it.state == "open" && it.jev == null }
+    /**
+     * The Inbox is sorted by risk or grouped by kind, which need Jev's word on every open row. Jev is asked only then:
+     * otherwise a row shows a kind and a risk once a review of it had Jev read it.
+     */
+    var wantsJev by mutableStateOf(false)
+
+    /** Jev is on, the Inbox needs it ([wantsJev]), and open rows on screen have no kind yet: the server is sorting them. */
+    val sorting: Boolean get() = jev && wantsJev && state == "open" && pulls.orEmpty().any { it.state == "open" && it.jev == null }
 
     /**
-     * Jev answers after the list does, so while [sorting] the server's copy is read again every [everyMs], for [forMs]
-     * at most, without the server asking GitHub. Only the kinds are taken from it, by row at the same head and title:
-     * the list on screen can be newer than that copy, and a load replaces the list.
+     * While [sorting], the server's copy is read at once and then every [everyMs], for [forMs] at most, without the
+     * server asking GitHub; each read asks Jev to sort what it has not. Only the kinds are taken from it, by row at the
+     * same head and title: the list on screen can be newer than that copy, and a load replaces the list.
      */
     suspend fun followJev(everyMs: Long = 3_000, forMs: Long = 120_000) {
         val until = now() + forMs
+        var first = true
         while (sorting && now() + everyMs <= until) {
-            delay(everyMs)
+            if (!first) delay(everyMs)
+            first = false
             val current = generation
             val selected = state
-            val server = try { peek(selected) } catch (e: CancellationException) { throw e } catch (_: Exception) { null } ?: continue
+            val server = try { peek(selected, true) } catch (e: CancellationException) { throw e } catch (_: Exception) { null } ?: continue
             val shown = pulls
             if (current != generation || shown == null) continue
             jev = server.jev

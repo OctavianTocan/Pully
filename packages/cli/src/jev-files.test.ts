@@ -76,13 +76,13 @@ describe('priorityOf', () => {
 describe('createFileAttention', () => {
   const files = [file('src/auth.ts'), file('pnpm-lock.yaml'), file('src/app.ts'), file('logo.png', { isBinary: true, hunks: [] })]
 
-  it('starts in the background, then answers with every file but the binary one', async () => {
+  it('asks Jev nothing until a review rates the diff, then answers with every file but the binary one', async () => {
     const { fetch, paths } = typesafe()
     const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }), storage: createStorage({ driver: memoryDriver() }) })
 
-    expect(await service.files(diff(files))).toEqual({ enabled: true, files: {}, pending: 3 })
-    await vi.waitFor(async () => expect((await service.files(diff(files))).pending).toBe(0))
-    expect(await service.files(diff(files))).toEqual({
+    expect(await service.known(diff(files))).toEqual({ enabled: true, files: {}, pending: 0 })
+    expect(paths).toHaveLength(0)
+    const rated = {
       enabled: true,
       files: {
         'src/auth.ts': { priority: 'p0', confidence: 0.3 },
@@ -90,25 +90,44 @@ describe('createFileAttention', () => {
         'src/app.ts': { priority: 'p1', confidence: 0.8 },
       },
       pending: 0,
-    })
+    }
+    expect(await service.rate(diff(files))).toEqual(rated)
+    expect(await service.known(diff(files))).toEqual(rated)
     expect(paths.sort()).toEqual(['pnpm-lock.yaml', 'src/app.ts', 'src/auth.ts'])
+  })
+
+  it('answers with what is rated once the wait is over, and counts the rest as pending', async () => {
+    let release = () => {}
+    const held = new Promise<void>(resolve => release = resolve)
+    const { fetch: answer } = typesafe()
+    const fetch = (async (url: string, init: RequestInit) => {
+      await held
+      return answer(url, init)
+    }) as typeof globalThis.fetch
+    const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }), sleep: async () => {} })
+
+    expect(await service.rate(diff(files), { waitMs: 10 })).toEqual({ enabled: true, files: {}, pending: 3 })
+    release()
+    await vi.waitFor(async () => expect((await service.known(diff(files))).pending).toBe(0))
+    expect(Object.keys((await service.known(diff(files))).files)).toHaveLength(3)
   })
 
   it('classifies a file version once, across calls and restarts', async () => {
     const { fetch, paths } = typesafe()
     const storage = createStorage({ driver: memoryDriver() })
     const first = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }), storage })
-    await first.files(diff(files))
-    await vi.waitFor(async () => expect((await first.files(diff(files))).pending).toBe(0))
+    await first.rate(diff(files))
+    await first.rate(diff(files))
     expect(paths).toHaveLength(3)
 
     const restarted = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }), storage })
-    expect(Object.keys((await restarted.files(diff(files))).files)).toHaveLength(3)
+    expect(Object.keys((await restarted.known(diff(files))).files)).toHaveLength(3)
+    await restarted.rate(diff(files))
     expect(paths).toHaveLength(3)
 
     // A new blob is a new version.
-    await restarted.files(diff([file('src/app.ts', { sha: 'blob-2' })]))
-    await vi.waitFor(() => expect(paths).toHaveLength(4))
+    await restarted.rate(diff([file('src/app.ts', { sha: 'blob-2' })]))
+    expect(paths).toHaveLength(4)
   })
 
   it('asks again about a file that ends at the same blob by another change', async () => {
@@ -117,39 +136,49 @@ describe('createFileAttention', () => {
     const whole = file('src/app.ts')
     // The same final blob from another base: one commit of the pull request, say, with a smaller patch.
     const part = file('src/app.ts', { additions: 1, deletions: 0, hunks: [{ header: '@@ -3 +3,2 @@', oldStart: 3, oldLines: 1, newStart: 3, newLines: 2, patch: ' b\n+e' }] })
-    await service.files(diff([whole]))
-    await vi.waitFor(async () => expect((await service.files(diff([whole]))).pending).toBe(0))
-    expect((await service.files(diff([part]))).pending).toBe(1)
-    await vi.waitFor(() => expect(paths).toHaveLength(2))
+    await service.rate(diff([whole]))
+    expect((await service.known(diff([part]))).files).toEqual({})
+    await service.rate(diff([part]))
+    expect(paths).toHaveLength(2)
   })
 
   it('looks at no more than 300 files of a diff', async () => {
     const { fetch, paths } = typesafe()
     const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {}, sleep: async () => {} }) })
     const many = Array.from({ length: 320 }, (_, i) => file(`src/${i}.ts`))
-    expect((await service.files(diff(many))).pending).toBe(300)
-    await vi.waitFor(() => expect(paths).toHaveLength(300), { timeout: 5_000 })
+    await service.rate(diff(many))
+    expect(paths).toHaveLength(300)
+  })
+
+  it('remembers the ratings of the diff an AI job reads, by its repository and commits', async () => {
+    const { fetch } = typesafe()
+    const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }) })
+    const opened = { ...diff(files), base: { sha: 'base', ref: 'main' } }
+    expect(service.forDiff({ owner: 'acme', repo: 'app', baseSha: 'base', headSha: 'head' })).toBeUndefined()
+    await service.rate(opened)
+    expect(service.forDiff({ owner: 'acme', repo: 'app', baseSha: 'base', headSha: 'head' })).toMatchObject({ 'src/auth.ts': { priority: 'p0' } })
+    expect(service.forDiff({ owner: 'acme', repo: 'app', baseSha: 'other', headSha: 'head' })).toBeUndefined()
   })
 
   it('is off without a key', async () => {
     const { fetch, paths } = typesafe()
     const service = createFileAttention({ jev: createJevClient({ fetch }) })
-    expect(await service.files(diff(files))).toEqual(JEV_FILES_OFF)
+    expect(await service.rate(diff(files))).toEqual(JEV_FILES_OFF)
+    expect(await service.known(diff(files))).toEqual(JEV_FILES_OFF)
     expect(paths).toHaveLength(0)
   })
 
   it('turns off when TypeSafe refuses the key', async () => {
     const { fetch } = typesafe({ status: 401 })
     const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }) })
-    await service.files(diff(files))
-    await vi.waitFor(async () => expect(await service.files(diff(files))).toEqual(JEV_FILES_OFF))
+    expect(await service.rate(diff(files))).toEqual(JEV_FILES_OFF)
   })
 
-  it('stops counting a file Jev could not classify as pending', async () => {
+  it('stops counting a file Jev could not classify as pending, and waits before asking about it again', async () => {
     const { fetch, paths } = typesafe({ status: 422 })
     const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }) })
-    await service.files(diff(files))
-    await vi.waitFor(async () => expect(await service.files(diff(files))).toEqual({ enabled: true, files: {}, pending: 0 }))
+    expect(await service.rate(diff(files))).toEqual({ enabled: true, files: {}, pending: 0 })
+    await service.rate(diff(files))
     expect(paths).toHaveLength(3)
   })
 })
@@ -179,25 +208,30 @@ describe('the jev-files route', () => {
     expect(await call('/nowhere', {})).toEqual({ result: { enabled: false, files: {}, pending: 0 } })
   })
 
-  it('classifies the files of a diff the phone opened', async () => {
+  it('answers what Jev said about a diff the phone opened, and asks Jev nothing itself', async () => {
     repo = mkdtempSync(join(tmpdir(), 'pulls-review-jev-'))
     execFileSync('git', ['init', '-q'], { cwd: repo })
     vi.resetModules()
     vi.stubEnv('PULLS_REVIEW_TYPESAFE_API_KEY', 'key')
-    const { fetch } = typesafe()
+    const { fetch, paths } = typesafe()
     vi.stubGlobal('fetch', fetch)
     const { serverSession } = await import('./server-session')
+    const { sharedFileAttention } = await import('./jev-files')
+    const session = await serverSession(repo)
     const opened = diff([file('src/app.ts'), file('pnpm-lock.yaml')])
-    await (await serverSession(repo)).cache.diffs.putDiff('github:acme/app#1', opened, 'head')
+    await session.cache.diffs.putDiff('github:acme/app#1', opened, 'head')
 
-    expect(await call(repo, { key: 'github:acme/app#1' })).toEqual({ result: { enabled: true, files: {}, pending: 2 } })
-    await vi.waitFor(async () => expect(await call(repo!, { key: 'github:acme/app#1' })).toEqual({
+    expect(await call(repo, { key: 'github:acme/app#1' })).toEqual({ result: { enabled: true, files: {}, pending: 0 } })
+    expect(paths).toHaveLength(0)
+    // A review rates the files; the route then reports them.
+    await sharedFileAttention(session.storage).rate(opened)
+    expect(await call(repo, { key: 'github:acme/app#1' })).toEqual({
       result: {
         enabled: true,
         files: { 'src/app.ts': { priority: 'p1', confidence: 0.8 }, 'pnpm-lock.yaml': { priority: 'p2', confidence: 0.95 } },
         pending: 0,
       },
-    }))
+    })
     expect(await call(repo, { key: 'github:acme/app#2' })).toEqual({ error: 'Open the diff first.' })
   })
 })

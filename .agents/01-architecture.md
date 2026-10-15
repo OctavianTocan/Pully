@@ -157,19 +157,29 @@ Contract:
 
 - Without a key, or once TypeSafe refuses it (401), Jev is off for the run: nothing is
   asked, nothing fails toward a client, `jev-files` answers `{ enabled: false, files: {}, pending: 0 }`.
-- `my-pulls` MUST NOT wait for Jev. Open pull requests without a classification of their
-  current head sha and title are classified in the background (`kind`, `risk`); every
-  list answer copies what is done into `MyPull.jev` of open pull requests, and
-  `MyPullsSnapshot.classifier` is `'jev'` while Jev is on. The plain `my-pulls` answer
-  stays an array. An answer for an older head or title MUST NOT replace a newer one.
-  While rows lack `jev` the phone reads `my-pulls-cached` with `revalidate: false`, which
-  answers the copy and never asks GitHub, every three seconds for two minutes at most.
-- `jev-files` classifies an opened diff's files (non-binary, at most 300) as `p0`/`p1`/`p2`;
-  an answer under 0.5 confidence counts as `p0`. The first call starts the work, later
-  calls return more until `pending` is 0.
+- Jev is asked only when something needs it, never for every listed pull request or opened
+  diff, because each request is paid for. It is asked when a review of a whole diff starts
+  (`analyze`, `critique`, `tour`, `brief`, and pre-analysis; `prepareJev` in `jev-review.ts`,
+  waiting at most 20 seconds), and when a client asks `my-pulls-cached` with `classify: true`
+  (the phone does while its Inbox is sorted by risk or grouped by kind).
+- `my-pulls` MUST NOT wait for Jev. Every list answer copies what is done into `MyPull.jev`
+  of open pull requests, and `MyPullsSnapshot.classifier` is `'jev'` while Jev is on. The
+  plain `my-pulls` answer stays an array. An answer for an older head or title MUST NOT
+  replace a newer one. While rows lack `jev` and its Inbox needs them, the phone reads
+  `my-pulls-cached` with `revalidate: false` and `classify: true`, which answers the copy and
+  never asks GitHub, every three seconds for two minutes at most.
+- Files (non-binary, at most 300) are rated `p0`/`p1`/`p2`; an answer under 0.5 confidence
+  counts as `p0`. `jev-files` only reads: the ratings so far, how many are being rated
+  (`pending`, plus one while the pull request is still being sorted), and the pull
+  request's `kind` and `risk` (`pull`) for the diff's current head and title. The phone
+  shows exactly that `pull`, so a renamed pull request loses its old read.
+- An AI job over a diff Jev read gets the `triage_files` PR tool, listed first and named in
+  its instructions: Jev's kind and risk and the files by priority with their confidence.
+  The ratings reach the job through the PR payload, so the key never leaves the server.
 - Results live in memory and in the server's storage (`jev-pr:<owner>/<repo>#<number>`,
   `jev-file:<sha256 of the blob sha and what Jev is shown of the change>`), so a restart
-  does not ask again; the same blob reached from another base is another change. One client
+  does not ask again; the same blob reached from another base is another change.
+  Pre-analysis offers its storage to the classifier when no client has connected yet. One client
   per process keeps 8 requests in flight, paces under TypeSafe's rate limits and retries
   429/529 up to three attempts. The phone drops a diff's file marks when its head moves.
 

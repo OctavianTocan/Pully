@@ -1,11 +1,14 @@
 package com.octaviantocan.pulls.home
 
+import com.octaviantocan.pulls.data.JEV_FILE_WORDS
 import com.octaviantocan.pulls.data.JevFiles
 import com.octaviantocan.pulls.data.PullJev
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.asJevFiles
 import com.octaviantocan.pulls.data.asPull
 import com.octaviantocan.pulls.data.asPulls
+import com.octaviantocan.pulls.data.kindWords
+import com.octaviantocan.pulls.data.riskWords
 import com.octaviantocan.pulls.ui.home.InboxGrouping
 import com.octaviantocan.pulls.ui.home.InboxLayout
 import com.octaviantocan.pulls.ui.home.InboxSort
@@ -87,18 +90,35 @@ class JevInboxTest {
 
     @Test fun kindsComeInWhileTheInboxIsOpen() = runBlocking {
         var reads = 0
+        val asked = mutableListOf<Boolean>()
         val sync = MyPullsSync(
             cached = { PullsSnapshot(listOf(pull(1), pull(2)), 0, jev = true) },
             fresh = { error("the server's copy is recent") },
             now = { 1_000 },
-            peek = { reads++; PullsSnapshot(listOf(pull(1, kind = "fix"), pull(2, kind = "docs".takeIf { reads >= 2 })), 0, jev = true) },
+            peek = { _, classify -> reads++; asked += classify; PullsSnapshot(listOf(pull(1, kind = "fix"), pull(2, kind = "docs".takeIf { reads >= 2 })), 0, jev = true) },
         )
         sync.select("open")
+        sync.wantsJev = true
         assertTrue(sync.sorting)
         sync.followJev(everyMs = 1)
         assertEquals(2, reads, "it stops once every row has its kind")
+        assertEquals(listOf(true, true), asked, "each read asks Jev to sort what it has not")
         assertEquals(listOf("fix", "docs"), sync.pulls?.map { it.jev?.kind })
         assertFalse(sync.sorting)
+    }
+
+    @Test fun asksJevNothingUnlessTheInboxIsSortedByRiskOrGroupedByKind() = runBlocking {
+        var reads = 0
+        val sync = MyPullsSync(
+            cached = { PullsSnapshot(listOf(pull(1), pull(2)), 0, jev = true) },
+            fresh = { error("the server's copy is recent") },
+            now = { 1_000 },
+            peek = { _, _ -> reads++; null },
+        )
+        sync.select("open")
+        assertFalse(sync.sorting, "rows without a kind are normal: Jev reads a pull request when it is reviewed")
+        sync.followJev(everyMs = 1)
+        assertEquals(0, reads)
     }
 
     @Test fun stopsWaitingForKindsAfterAWhileAndTakesNoneForAnotherHead() = runBlocking {
@@ -108,9 +128,10 @@ class JevInboxTest {
             cached = { PullsSnapshot(listOf(pull(1).copy(headSha = "new")), 0, jev = true) },
             fresh = { error("the server's copy is recent") },
             now = { clock },
-            peek = { reads++; clock += 1_000; PullsSnapshot(listOf(pull(1, kind = "fix").copy(headSha = "old")), 0, jev = true) },
+            peek = { _, _ -> reads++; clock += 1_000; PullsSnapshot(listOf(pull(1, kind = "fix").copy(headSha = "old")), 0, jev = true) },
         )
         sync.select("open")
+        sync.wantsJev = true
         sync.followJev(everyMs = 1, forMs = 2_500)
         assertEquals(3, reads)
         assertNull(sync.pulls?.single()?.jev)
@@ -179,5 +200,21 @@ class JevInboxTest {
         ).jsonObject.asJevFiles()
         assertEquals(JevFiles(true, mapOf("src/auth.ts" to "p0", "pnpm-lock.yaml" to "p2"), 3), answer)
         assertEquals(JevFiles(false, emptyMap(), 0), Json.parseToJsonElement("""{"enabled":false,"files":{},"pending":0}""").jsonObject.asJevFiles())
+    }
+
+    @Test fun readsWhatJevMadeOfThePullRequest() {
+        val answer = Json.parseToJsonElement(
+            """{"enabled":true,"files":{},"pending":0,"pull":{"kind":"fix","kindConfidence":0.6,"risk":2.7}}""",
+        ).jsonObject.asJevFiles()
+        assertEquals(PullJev("fix", 0.6, 2.7), answer.pull)
+    }
+
+    @Test fun saysTheKindWithHowSureAndTheRiskInWords() {
+        assertEquals("Fix", PullJev("fix", 0.9, 0.0).kindWords)
+        assertEquals("Likely a feature", PullJev("feature", 0.6, 0.0).kindWords)
+        assertEquals("Maybe docs", PullJev("docs", 0.3, 0.0).kindWords)
+        assertNull(PullJev("made-up", 0.9, 0.0).kindWords)
+        assertEquals(listOf("Trivial", "Low risk", "Medium risk", "High risk", "High risk"), listOf(0.2, 1.4, 1.6, 2.5, 3.4).map { PullJev("fix", 1.0, it).riskWords })
+        assertEquals(mapOf("p0" to "Needs a look", "p1" to "Worth a look", "p2" to "Skim"), JEV_FILE_WORDS)
     }
 }

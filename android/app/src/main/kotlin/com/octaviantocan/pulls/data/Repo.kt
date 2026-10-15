@@ -175,9 +175,12 @@ class Repo(private val context: Context) {
 
     // --- Lists ---
 
-    /** `my-pulls-cached` first for an instant list, then `my-pulls` for a fresh one. [revalidate] false never has the server ask GitHub. */
-    suspend fun myPullsCached(state: String, revalidate: Boolean = true): JsonObject? =
-        call("my-pulls-cached") { put("state", state); if (!revalidate) put("revalidate", false) } as? JsonObject
+    /**
+     * `my-pulls-cached` first for an instant list, then `my-pulls` for a fresh one. [revalidate] false never has the server
+     * ask GitHub. [classify] has Jev sort the open ones it has not sorted yet, in the background.
+     */
+    suspend fun myPullsCached(state: String, revalidate: Boolean = true, classify: Boolean = false): JsonObject? =
+        call("my-pulls-cached") { put("state", state); if (!revalidate) put("revalidate", false); if (classify) put("classify", true) } as? JsonObject
     suspend fun myPulls(state: String): List<PullRow> = call("my-pulls") { put("state", state) }.asPulls()
 
     /** One page of a repository's open pull requests; the first comes from the server's copy unless [fresh] asks GitHub. */

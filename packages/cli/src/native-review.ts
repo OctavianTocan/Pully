@@ -1,6 +1,5 @@
 import type { GithubClient, MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
 import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
-import type { FileAttentionService } from './jev-files'
 import type { PatchReader } from './stored-diff'
 import process from 'node:process'
 import {
@@ -21,7 +20,9 @@ import { createLocalSource } from '@pulls.review/core/local'
 import { staticCredentials } from '@pulls.review/core/types'
 import { resolveGithubToken } from './credentials'
 import { sharedJev } from './jev'
-import { createFileAttention, JEV_FILES_OFF } from './jev-files'
+import { JEV_FILES_OFF, sharedFileAttention } from './jev-files'
+import { pullOfDiff } from './jev-review'
+import { jevOfPull, jevPendingOfPull } from './my-pulls'
 import { overviewValue, readStoredOverview, storeOverview } from './pr-store'
 import { createRepoPullsCache } from './repo-pulls'
 import { serverSession } from './server-session'
@@ -32,7 +33,7 @@ import { createPatchReader, MAX_PATCH_PATHS } from './stored-diff'
  * the PR overview and its actions, the stack a PR sits in, pending reviews, posting an AI
  * review, sharing an analysis, a repository's pull requests, and clearing the chat. Each one runs the
  * same core function the web stores call, with the server's GitHub token. `jev-files`
- * is the phone's own: which files need a human, by Jev.
+ * is the phone's own: what Jev said about the diff.
  */
 type Args = Record<string, unknown> | undefined
 type Handler = (cwd: string, args: Args) => Promise<unknown>
@@ -114,8 +115,6 @@ export function sessionPatches(cwd: string): Promise<PatchReader> {
 const MERGE_METHODS: MergeMethod[] = ['merge', 'squash', 'rebase']
 const STATE_CHANGES: PullRequestStateChange[] = ['close', 'reopen', 'ready', 'draft']
 const VERDICTS: ReviewVerdict[] = ['APPROVE', 'REQUEST_CHANGES', 'COMMENT']
-
-let fileAttention: FileAttentionService | undefined
 
 /** The merge method [args] names, or an error saying that [what] needs one. */
 function mergeMethodOf(args: Args, what: string): MergeMethod {
@@ -425,14 +424,13 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /**
-   * Which files of an opened diff need a human, by Jev: `p0` needs judgment, `p1` is worth a
-   * look, `p2` is low attention. The first call starts the work and answers with what is
-   * done; later calls add the rest until `pending` is 0. With Jev off it answers
-   * `{ enabled: false, files: {}, pending: 0 }` and never fails.
+   * What Jev said about an opened diff, without asking it anything: each rated file's priority (`p0` needs judgment,
+   * `p1` is worth a look, `p2` is low attention), how many are being rated now (`pending`), and the pull request's
+   * kind and risk (`pull`). Jev rates and sorts only when a review of the diff starts; the phone asks again while
+   * `pending` is above 0, which counts the pull request too while Jev is still sorting it. With Jev off it answers `{ enabled: false, files: {}, pending: 0 }` and never fails.
    */
   'jev-files': async function (cwd, args) {
-    const jev = sharedJev()
-    if (!jev.enabled())
+    if (!sharedJev().enabled())
       return JEV_FILES_OFF
     const key = text(args?.key)
     if (!key)
@@ -441,8 +439,17 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const entry = await session.cache.diffs.get(key)
     if (!entry)
       throw new Error('Open the diff first.')
-    fileAttention ??= createFileAttention({ jev, storage: session.storage })
-    return fileAttention.files(entry.diff)
+    const { diff } = entry
+    const pull = pullOfDiff(diff)
+    const [files, jev] = await Promise.all([
+      sharedFileAttention(session.storage).known(diff),
+      pull ? jevOfPull(pull).catch(() => undefined) : undefined,
+    ])
+    if (!files.enabled)
+      return files
+    // A pull request still being sorted counts as one more answer to wait for, so the phone keeps asking until it lands.
+    const sorting = !jev && !!pull && jevPendingOfPull(pull)
+    return { ...files, pending: files.pending + (sorting ? 1 : 0), ...(jev ? { pull: jev } : {}) }
   },
 
   /** Diffs this server opened most recently, for the home page's "recently viewed". */

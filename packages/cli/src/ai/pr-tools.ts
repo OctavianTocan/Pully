@@ -1,10 +1,22 @@
 import type { AiPrContext } from '@pulls.review/core/local-rpc'
 import { execFile } from 'node:child_process'
 
+/**
+ * What Jev, TypeSafe's classifier, said about the change before the review started: what kind of pull request it is
+ * and how risky, and how much attention each file needs (`p0` needs judgment, `p1` is worth a look, `p2` is low).
+ */
+export interface PrTriage {
+  pull?: { kind: string, kindConfidence: number, risk: number }
+  /** By path; a file Jev did not rate is missing. */
+  files: Record<string, { priority: 'p0' | 'p1' | 'p2', confidence: number }>
+}
+
 /** Everything the PR tools serve, handed to the tool server as one JSON file. */
 export interface PrPayload extends AiPrContext {
   /** A git repository that holds `headSha`, when the server has one. */
   checkout?: string
+  /** Jev's read of the change, when it gave one. */
+  triage?: PrTriage
 }
 
 /** A tool as MCP's `tools/list` describes it. */
@@ -96,13 +108,58 @@ const SEARCH_SOURCE: ToolSpec = {
   },
 }
 
+const TRIAGE_FILES: ToolSpec = {
+  name: 'triage_files',
+  description: 'A fast classifier\'s first read of the change: what kind of pull request it is, how risky, and which changed files need human judgment (p0), are worth a look (p1) or need little attention (p2). Call it first to decide where to spend your reading. It is a hint, not a verdict: read the code before agreeing with it.',
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+}
+
+function hasTriage(payload: PrPayload): boolean {
+  return !!payload.triage && (!!payload.triage.pull || Object.keys(payload.triage.files).length > 0)
+}
+
 /**
  * The tools a change can be served with.
- * @param payload - The change, and the checkout that holds it, if any.
+ * @param payload - The change, the checkout that holds it, and Jev's read of it, if any.
  * @returns Every tool the model may call, in the order it is shown them.
  */
 export function prTools(payload: PrPayload): ToolSpec[] {
-  return payload.checkout ? [...PR_TOOLS, SEARCH_SOURCE] : PR_TOOLS
+  return [...(hasTriage(payload) ? [TRIAGE_FILES] : []), ...PR_TOOLS, ...(payload.checkout ? [SEARCH_SOURCE] : [])]
+}
+
+const RISK_WORDS = ['trivial', 'low', 'medium', 'high'] as const
+const PRIORITY_HEADINGS = {
+  p0: 'p0, needs human judgment (logic, security, data handling, API contracts, concurrency or money)',
+  p1: 'p1, worth a look (ordinary changes that follow what the code already does)',
+  p2: 'p2, low attention (generated files, lockfiles, formatting, renames, snapshots or trivial docs)',
+} as const
+
+function percent(value: number): string {
+  return `${Math.round(value * 100)}%`
+}
+
+/**
+ * @param payload - The change and Jev's read of it.
+ * @returns Jev's read as the model sees it: the pull request's kind and risk, then the files by priority.
+ */
+export function triageText(payload: PrPayload): string {
+  const triage = payload.triage
+  if (!triage || !hasTriage(payload))
+    return 'No triage is available for this change; read it file by file.'
+  const parts: string[] = []
+  if (triage.pull) {
+    const risk = RISK_WORDS[Math.min(Math.max(Math.round(triage.pull.risk), 0), RISK_WORDS.length - 1)]
+    parts.push(`Pull request: ${triage.pull.kind} (${percent(triage.pull.kindConfidence)} sure), ${risk} risk (${triage.pull.risk.toFixed(1)} on a scale of 0 trivial to 3 high).`)
+  }
+  for (const priority of ['p0', 'p1', 'p2'] as const) {
+    const files = payload.files.filter(file => triage.files[file.path]?.priority === priority)
+    if (files.length)
+      parts.push(`${PRIORITY_HEADINGS[priority]}:\n${files.map(file => `- ${file.path} (${percent(triage.files[file.path]!.confidence)} sure)`).join('\n')}`)
+  }
+  const unrated = payload.files.filter(file => !triage.files[file.path]).length
+  if (unrated)
+    parts.push(`Not rated: ${unrated} ${unrated === 1 ? 'file' : 'files'} (binary, past the first 300, or still being rated). Judge those yourself.`)
+  return parts.join('\n\n')
 }
 
 /** One hunk of a file's patch; `lines` keep their `+`/`-`/space prefix. */
@@ -350,6 +407,8 @@ function cap(text: string): string {
  */
 export async function callPrTool(payload: PrPayload, name: string, args: Record<string, unknown>): Promise<string> {
   switch (name) {
+    case 'triage_files':
+      return cap(triageText(payload))
     case 'read_file_diff':
       return cap(readFileDiff(payload, list(args.paths, 'paths')))
     case 'read_hunks':

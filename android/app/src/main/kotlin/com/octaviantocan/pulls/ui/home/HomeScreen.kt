@@ -114,6 +114,10 @@ import com.octaviantocan.pulls.core.pullWorkByKey
 import com.octaviantocan.pulls.core.runningTaskId
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.data.JEV_RISK_WORDS
+import com.octaviantocan.pulls.data.kindWords
+import com.octaviantocan.pulls.data.riskLevel
+import com.octaviantocan.pulls.data.riskWords
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.SavedState
@@ -214,12 +218,16 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             cached = { selected -> repo.myPullsCached(selected)?.asSnapshot() },
             fresh = { selected -> repo.myPulls(selected) },
             storage = deviceStore(context),
-            peek = { selected -> repo.myPullsCached(selected, revalidate = false)?.asSnapshot() },
+            peek = { selected, classify -> repo.myPullsCached(selected, revalidate = false, classify = classify)?.asSnapshot() },
         )
     }
     LaunchedEffect(state) { sync.select(state) }
-    // Jev sorts the list after the server answered it, so its kinds come in while the Inbox is open.
-    LaunchedEffect(state, sync.fetchedAt, sync.jev) { sync.followJev() }
+    // Jev sorts every open row only while the Inbox is sorted by risk or grouped by kind, so its kinds come in then.
+    val wantsJev = layout.sort.needsJev || layout.groupBy.needsJev
+    LaunchedEffect(state, sync.fetchedAt, sync.jev, wantsJev) {
+        sync.wantsJev = wantsJev
+        sync.followJev()
+    }
     // Refreshing is quiet: no indicator. It runs on open and whenever the app comes back to the front.
     val reload: () -> Unit = { scope.launch { sync.reload() } }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -772,8 +780,27 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
                 Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) { DiffNumbers(pull) }
                 Text(compactAge(pull.updatedAtMs, now), Modifier.width(34.dp), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, textAlign = TextAlign.End, maxLines = 1)
             }
+            // Under a kind's heading the kind is the heading's word, so the row says only the risk.
+            JevWords(pull, kind = repo == null)
         }
     }
+}
+
+/**
+ * What Jev made of the pull request, on a line of its own under the meta line once it has said: its kind, with how
+ * sure it is in words ("Fix", "Likely a fix"), and its risk, "High risk" in the amber the app gives warnings. The meta
+ * line has no room left for them (H15), and a row Jev never read has no such line.
+ */
+@Composable
+private fun JevWords(pull: PullRow, kind: Boolean) {
+    val jev = pull.jev ?: return
+    val c = LocalPullsColors.current
+    val high = jev.riskLevel == JEV_RISK_WORDS.lastIndex
+    val words = buildAnnotatedString {
+        jev.kindWords?.takeIf { kind }?.let { append(it); withStyle(SpanStyle(color = c.faint)) { append(" · ") } }
+        withStyle(SpanStyle(color = if (high) c.amber else c.muted)) { append(jev.riskWords) }
+    }
+    Text(words, style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 /**
