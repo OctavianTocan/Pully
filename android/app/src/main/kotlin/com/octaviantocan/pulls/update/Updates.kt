@@ -52,7 +52,7 @@ object Updates {
     var status by mutableStateOf<UpdateStatus>(UpdateStatus.Idle)
         private set
 
-    /** The card's ✕: hidden until Pulls is next started, or a newer build turns up. */
+    /** The card's ✕: hidden until Pulls is next started (MainActivity clears it), or a newer build turns up. */
     var hidden by mutableStateOf(false)
 
     val busy: Boolean get() = status is UpdateStatus.Downloading || status is UpdateStatus.Confirming || status is UpdateStatus.Installing
@@ -73,16 +73,25 @@ object Updates {
         val now = System.currentTimeMillis()
         if (now - checkedAt < CHECK_GAP_MS) return
         checkedAt = now
-        val manifest = withContext(Dispatchers.IO) {
+        val answer = withContext(Dispatchers.IO) {
             runCatching {
                 val config = ServerStore.load(context)
                 AppUpdater(context).check(config.url, config.headers(), AppVersion.code(context))
-            }.onFailure { Log.w("pulls", "update check failed", it) }.getOrNull()
-        } ?: return
+            }.onFailure { Log.w("pulls", "update check failed", it) }
+        }
+        // A check that failed keeps the offer; a server with nothing newer takes it away, as after switching servers.
+        val manifest = answer.getOrElse { return } ?: return withdraw()
         if (manifest.versionCode != available?.versionCode) hidden = false
         available = manifest
         UpdatePrefs.markNotified(context, manifest.versionCode)
         UpdateNotice.clear(context)
+    }
+
+    /** The server has nothing newer: the card goes, unless a download it started is still running. */
+    private fun withdraw() {
+        if (busy) return
+        available = null
+        status = UpdateStatus.Idle
     }
 
     /** What [available] brings over the installed version, newest first. */
@@ -130,8 +139,10 @@ object Updates {
             outcome
                 .onSuccess { manifest ->
                     // The installer may already have answered (its dialog is up); only a status still downloading moves on.
-                    if (manifest == null) status = UpdateStatus.Failed("Already up to date.")
-                    else if (status is UpdateStatus.Downloading) status = UpdateStatus.Installing
+                    if (manifest == null) {
+                        status = UpdateStatus.Idle
+                        withdraw()
+                    } else if (status is UpdateStatus.Downloading) status = UpdateStatus.Installing
                 }
                 .onFailure {
                     Log.w("pulls", "update failed", it)

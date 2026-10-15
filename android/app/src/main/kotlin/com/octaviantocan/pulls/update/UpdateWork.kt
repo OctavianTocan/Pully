@@ -81,7 +81,14 @@ object UpdateNotice {
     const val OPEN = "open"
     const val UPDATE = "update"
 
-    fun allowed(context: Context): Boolean = context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
+    /**
+     * Android lets Pulls notify and the App updates channel is not turned off, so a version marked as notified was
+     * really shown. A channel not made yet counts as on.
+     */
+    fun allowed(context: Context): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        return manager.areNotificationsEnabled() && manager.getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE
+    }
 
     fun post(context: Context, manifest: UpdateManifest) {
         val manager = context.getSystemService(NotificationManager::class.java)

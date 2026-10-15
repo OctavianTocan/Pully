@@ -329,8 +329,8 @@ private fun UpdatesGroup(settings: AppSettings, open: (SettingsPage) -> Unit) {
     val context = LocalContext.current
     var allowed by remember { mutableStateOf(UpdateNotice.allowed(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { allowed = UpdateNotice.allowed(context) }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        allowed = granted
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        allowed = UpdateNotice.allowed(context)
         UpdateChecks.sync(context)
     }
     fun turn(on: Boolean) {

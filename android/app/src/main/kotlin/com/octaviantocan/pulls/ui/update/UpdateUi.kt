@@ -183,8 +183,14 @@ internal fun WhatsNewSheet(entries: List<ChangelogEntry>, onClose: () -> Unit, o
 private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
     val c = LocalPullsColors.current
     val status = Updates.status
-    if (status == UpdateStatus.Idle || status is UpdateStatus.Failed) {
-        if (status is UpdateStatus.Failed) Text(status.message, Modifier.padding(bottom = 10.dp).align(Alignment.CenterHorizontally), style = PullsType.sm, color = c.error)
+    // Back from the install settings without allowing it, Update is offered again with the reason above it.
+    if (!Updates.busy) {
+        if (status != UpdateStatus.Idle) {
+            Text(
+                statusLine(status, ""), Modifier.padding(bottom = 10.dp).align(Alignment.CenterHorizontally),
+                style = PullsType.sm, color = if (status is UpdateStatus.Failed) c.error else c.muted,
+            )
+        }
         CtaButton(if (status is UpdateStatus.Failed) "Try again" else "Update to $version", onUpdate, Modifier.fillMaxWidth())
     } else {
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)) {
