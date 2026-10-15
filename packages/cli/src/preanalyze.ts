@@ -12,7 +12,7 @@ import { createStorage } from 'unstorage'
 import { runAiJob } from './ai/jobs'
 import { resolveGithubToken } from './credentials'
 import { prepareJev } from './jev-review'
-import { listMyPulls } from './my-pulls'
+import { listMyPulls, offerMyPullsStore } from './my-pulls'
 import { createRepoCacheDriver } from './storage'
 
 export const PREANALYZE_ENGINES = ['claude-code', 'codex', 'pi'] as const
@@ -184,9 +184,12 @@ export async function startPreanalyze(options: PreanalyzeOptions): Promise<() =>
   const resolved = resolveModel(settings)!
 
   const storage = createStorage({ driver: await createRepoCacheDriver(cwd) })
+  const cache = createCacheRepositories(storage, SERVER_CACHE_BUDGET)
+  // With `--no-warm` no client may have connected yet, so Jev's sorting would otherwise be kept in memory only.
+  offerMyPullsStore({ storage, diffs: cache.diffs })
   const preanalyzer = createPreanalyzer({
     listPulls: () => listMyPulls('open'),
-    cache: createCacheRepositories(storage, SERVER_CACHE_BUDGET),
+    cache,
     fetchDiff: async pull => createGithubPullRequestSource(
       { owner: pull.owner, repo: pull.repo, number: String(pull.number) },
       staticCredentials(await resolveGithubToken(env)),

@@ -60,6 +60,11 @@ export interface PullClassifier {
    * @returns Its classification there, from memory or the server's storage; `undefined` when there is none. Never asks Jev.
    */
   lookup: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => Promise<MyPullJev | undefined>
+  /**
+   * @param pull The pull request at the head and title in question.
+   * @returns Whether Jev is classifying it there right now.
+   */
+  classifying: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => boolean
 }
 
 export interface PullClassifierOptions {
@@ -91,7 +96,7 @@ function isCurrent(saved: Saved | undefined, pull: Pick<MyPull, 'headSha' | 'tit
 }
 
 /** What a classification belongs to: the pull request at one head and title. */
-function versionKey(pull: MyPull): string {
+function versionKey(pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>): string {
   return `${pullKey(pull)}@${pull.headSha ?? ''}\n${pull.title}`
 }
 
@@ -191,6 +196,7 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
       const entry = saved.get(key)
       return isCurrent(entry, pull) ? jevOf(entry) : undefined
     },
+    classifying: pull => running.has(versionKey(pull)),
     async load(pulls) {
       const storage = store()?.storage
       if (!storage || !jev.enabled())

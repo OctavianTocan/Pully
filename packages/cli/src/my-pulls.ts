@@ -406,6 +406,8 @@ export interface MyPullsService {
   classify: (match?: (pull: MyPull) => boolean, extra?: MyPull[]) => Promise<void>
   /** A pull request's classification at this head and title, when there is one; never asks Jev. */
   jevOf: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => Promise<MyPullJev | undefined>
+  /** Whether Jev is classifying a pull request at this head and title right now. */
+  jevPending: (pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>) => boolean
 }
 
 export interface MyPullsServiceOptions {
@@ -539,6 +541,7 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
       await classifier.classify([...listed, ...others]).catch(() => {})
     },
     jevOf: async pull => classifier?.lookup(pull),
+    jevPending: pull => classifier?.classifying(pull) ?? false,
   }
 }
 
@@ -592,6 +595,16 @@ export function setMyPullsStore(value: PullClassifierStore): void {
 }
 
 /**
+ * Gives the shared service a storage only when the server session has not given it one yet, for work that can start
+ * before any client connects (pre-analysis with `--no-warm`). The server session's own call still replaces it.
+ *
+ * @param value Storage and a diff cache over the same repository cache.
+ */
+export function offerMyPullsStore(value: PullClassifierStore): void {
+  store ??= value
+}
+
+/**
  * Pull requests across every repository the signed-in user touches: review requests,
  * their own, ones they take part in, and anything opened in repos they or their orgs own.
  *
@@ -640,4 +653,12 @@ export function classifyPull(pull: MyPull): Promise<void> {
  */
 export function jevOfPull(pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>): Promise<MyPullJev | undefined> {
   return service().jevOf(pull)
+}
+
+/**
+ * @param pull The pull request at the head and title in question.
+ * @returns Whether Jev is classifying it there right now, so the phone keeps asking until the answer lands.
+ */
+export function jevPendingOfPull(pull: Pick<MyPull, 'owner' | 'repo' | 'number' | 'headSha' | 'title'>): boolean {
+  return service().jevPending(pull)
 }

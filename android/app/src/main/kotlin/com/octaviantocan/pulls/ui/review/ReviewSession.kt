@@ -275,7 +275,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
                 if (!answer.enabled || attentionFor != version) break
                 attention = answer.files
-                answer.pull?.let { pullJev = it }
+                // The server answers for the head and title the diff has now, so a renamed pull request loses its old read.
+                pullJev = answer.pull
                 if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
                 delay(ATTENTION_EVERY_MS)
             }

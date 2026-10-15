@@ -170,13 +170,16 @@ Contract:
   never asks GitHub, every three seconds for two minutes at most.
 - Files (non-binary, at most 300) are rated `p0`/`p1`/`p2`; an answer under 0.5 confidence
   counts as `p0`. `jev-files` only reads: the ratings so far, how many are being rated
-  (`pending`), and the pull request's `kind` and `risk` (`pull`) when a review sorted it.
+  (`pending`, plus one while the pull request is still being sorted), and the pull
+  request's `kind` and `risk` (`pull`) for the diff's current head and title. The phone
+  shows exactly that `pull`, so a renamed pull request loses its old read.
 - An AI job over a diff Jev read gets the `triage_files` PR tool, listed first and named in
   its instructions: Jev's kind and risk and the files by priority with their confidence.
   The ratings reach the job through the PR payload, so the key never leaves the server.
 - Results live in memory and in the server's storage (`jev-pr:<owner>/<repo>#<number>`,
   `jev-file:<sha256 of the blob sha and what Jev is shown of the change>`), so a restart
-  does not ask again; the same blob reached from another base is another change. One client
+  does not ask again; the same blob reached from another base is another change.
+  Pre-analysis offers its storage to the classifier when no client has connected yet. One client
   per process keeps 8 requests in flight, paces under TypeSafe's rate limits and retries
   429/529 up to three attempts. The phone drops a diff's file marks when its head moves.
 

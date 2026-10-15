@@ -22,7 +22,7 @@ import { resolveGithubToken } from './credentials'
 import { sharedJev } from './jev'
 import { JEV_FILES_OFF, sharedFileAttention } from './jev-files'
 import { pullOfDiff } from './jev-review'
-import { jevOfPull } from './my-pulls'
+import { jevOfPull, jevPendingOfPull } from './my-pulls'
 import { overviewValue, readStoredOverview, storeOverview } from './pr-store'
 import { createRepoPullsCache } from './repo-pulls'
 import { serverSession } from './server-session'
@@ -427,7 +427,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
    * What Jev said about an opened diff, without asking it anything: each rated file's priority (`p0` needs judgment,
    * `p1` is worth a look, `p2` is low attention), how many are being rated now (`pending`), and the pull request's
    * kind and risk (`pull`). Jev rates and sorts only when a review of the diff starts; the phone asks again while
-   * `pending` is above 0. With Jev off it answers `{ enabled: false, files: {}, pending: 0 }` and never fails.
+   * `pending` is above 0, which counts the pull request too while Jev is still sorting it. With Jev off it answers `{ enabled: false, files: {}, pending: 0 }` and never fails.
    */
   'jev-files': async function (cwd, args) {
     if (!sharedJev().enabled())
@@ -445,7 +445,11 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
       sharedFileAttention(session.storage).known(diff),
       pull ? jevOfPull(pull).catch(() => undefined) : undefined,
     ])
-    return files.enabled && jev ? { ...files, pull: jev } : files
+    if (!files.enabled)
+      return files
+    // A pull request still being sorted counts as one more answer to wait for, so the phone keeps asking until it lands.
+    const sorting = !jev && !!pull && jevPendingOfPull(pull)
+    return { ...files, pending: files.pending + (sorting ? 1 : 0), ...(jev ? { pull: jev } : {}) }
   },
 
   /** Diffs this server opened most recently, for the home page's "recently viewed". */
