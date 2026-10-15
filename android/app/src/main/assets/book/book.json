@@ -219,7 +219,8 @@
       "usage": [
         "Equal segments, one line of text each.",
         "The selected segment slides with the slide curve.",
-        "Flat drops the shadow when the pill sits inside a card or a row. In a sheet it keeps its shadow, as on the page (rule 70)."
+        "Flat drops the shadow when the pill sits inside a card or a row. In a sheet it keeps its shadow, as on the page (rule 70).",
+        "A switch between two versions of the same text, such as the Summary tab's summary and description (rule 20), is this capsule over the text, not a second row of tabs."
       ],
       "rules": [
         45,
@@ -260,7 +261,7 @@
       "composable": "UnderlineTabs",
       "summary": "Text tabs on a hairline, the selected one underlined in the accent.",
       "usage": [
-        "Summary and Description are underline tabs, never a boxed control.",
+        "The tabs inside a page (Summary, Commits, Conversation) are underline tabs, never a boxed control.",
         "The hairline is under the tabs only, none above.",
         "Each tab is 42dp tall so it is easy to hit."
       ],

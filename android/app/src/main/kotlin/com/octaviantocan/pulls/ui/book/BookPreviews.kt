@@ -136,7 +136,7 @@ private fun softChipVariants() = listOf(
 @Composable
 private fun DemoUnderline(start: Int) {
     var selected by remember { mutableIntStateOf(start) }
-    UnderlineTabs(listOf("Summary", "Description"), selected, { selected = it })
+    UnderlineTabs(listOf("Summary", "Commits", "Conversation"), selected, { selected = it })
 }
 
 private fun underlineTabsVariants() = listOf(

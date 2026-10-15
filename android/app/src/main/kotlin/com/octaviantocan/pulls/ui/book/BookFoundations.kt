@@ -214,9 +214,9 @@ private fun PageSlideDemo() {
     var tab by remember { mutableIntStateOf(0) }
     val slide = rememberPageSlide(tab, order = { it })
     Column(verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
-        CapsuleTabs(listOf("Summary", "Description", "Conversation"), tab, { tab = it })
+        CapsuleTabs(listOf("Summary", "Commits", "Conversation"), tab, { tab = it })
         Column(Modifier.pageSlide(slide), verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
-            repeat(3) { row -> Text("${listOf("Summary", "Description", "Conversation")[slide.shown]}, row ${row + 1}", style = PullsType.row, color = c.text) }
+            repeat(3) { row -> Text("${listOf("Summary", "Commits", "Conversation")[slide.shown]}, row ${row + 1}", style = PullsType.row, color = c.text) }
         }
     }
 }
@@ -249,6 +249,7 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "draft" to Lu.draft,
     "shut" to Lu.shut,
     "search" to Lu.search,
+    "sort" to Lu.sort,
     "branch" to Lu.branch,
     "copy" to Lu.copy,
     "stop" to Lu.stop,

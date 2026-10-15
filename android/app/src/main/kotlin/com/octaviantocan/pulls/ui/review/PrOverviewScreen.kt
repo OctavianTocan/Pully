@@ -54,6 +54,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.core.showsDescription
+import com.octaviantocan.pulls.core.summaryKey
 import com.octaviantocan.pulls.core.swipedTabOrNext
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
@@ -65,7 +67,10 @@ import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.rememberLiveTask
 import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.ai.shimmer
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.BreathingDot
+import com.octaviantocan.pulls.ui.design.CapsuleTabs
+import com.octaviantocan.pulls.ui.design.CodePlace
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.IconSwap
@@ -80,6 +85,7 @@ import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
@@ -93,9 +99,9 @@ import com.octaviantocan.pulls.ui.design.hairlineTop
 
 /**
  * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
- * who and when, the branches, a four-cell summary line, Summary / Description (/ Commits / Conversation) tabs,
- * the AI's status and summary, the file list with its notes, and a bottom bar with Ask, More and the
- * one action that moves the review forward.
+ * who and when, the branches, a four-cell summary line, Summary / Commits / Conversation tabs, the AI's
+ * status and the summary (the description until the AI writes one), the file list with its notes, and a
+ * bottom bar with Ask, More and the one action that moves the review forward.
  */
 @Composable
 internal fun PrOverviewScreen(
@@ -118,15 +124,10 @@ internal fun PrOverviewScreen(
     // A tap on the empty page leaves a field the person was editing in place, which saves it (rule 83).
     Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
         Column(Modifier.fillMaxSize()) {
-            // The commits have a tab of their own beside the conversation (rule 91); a label never carries a count, so four fit a phone.
-            val labels = buildList {
-                add("Summary")
-                add("Description")
-                if (data != null) {
-                    add("Commits")
-                    add("Conversation")
-                }
-            }
+            // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
+            // own beside the conversation (rule 91). All three are there from the start, so the row never changes shape
+            // when the conversation arrives (rule 53).
+            val labels = listOf("Summary", "Commits", "Conversation")
             val shown = pane.coerceAtMost(labels.lastIndex)
             val commitAnchor = remember { mutableStateOf<Int?>(null) }
             val slide = rememberPageSlide(shown, order = { it })
@@ -177,14 +178,11 @@ internal fun PrOverviewScreen(
                 val rows = Modifier.pageSlide(slide)
                 when (slide.shown.coerceAtMost(labels.lastIndex)) {
                     0 -> {
-                        item(key = "summary") { Box(rows) { SummaryPane(session, onCite, onSheet) } }
+                        item(key = "summary") { Box(rows) { SummaryPane(session, top, data, onCite, onSheet) } }
                         filesItems(session, ui, onDiff, onSheet, rows)
                     }
-                    1 -> item(key = "description") { Box(rows) { DescriptionPane(session, data) } }
-                    2 -> data?.let { commitItems(session, it.overview, commitAnchor, rows) }
-                    else -> item(key = "conversation") {
-                        data?.let { Box(rows.padding(top = 14.dp)) { Conversation(it.overview) } }
-                    }
+                    COMMITS_TAB -> if (data != null) commitItems(session, data.overview, commitAnchor, rows) else waitingItem(session, rows)
+                    else -> if (data != null) item(key = "conversation") { Box(rows.padding(top = 14.dp)) { Conversation(data.overview) } } else waitingItem(session, rows)
                 }
             }
         }
@@ -197,7 +195,15 @@ internal fun PrOverviewScreen(
 }
 
 /** Where the Commits tab sits among the tabs, for the Commits cell that opens it. */
-private const val COMMITS_TAB = 2
+private const val COMMITS_TAB = 1
+
+/**
+ * A tab whose rows come with the conversation, before it has arrived: bars where the rows will be, and no loading
+ * screen (rule 51). When it could not load, the line under the title already says so and offers to try again.
+ */
+private fun LazyListScope.waitingItem(session: ReviewSession, rows: Modifier) {
+    if (session.overviewError == null) item(key = "waiting") { RowsSkeleton(rows.padding(top = 14.dp), rows = 5) }
+}
 
 /** The conversation, checks and merge state did not load: say why, and offer to try again. */
 @Composable
@@ -326,22 +332,42 @@ private fun Cell(label: String, modifier: Modifier, onClick: (() -> Unit)? = nul
 
 // --- Summary ---
 
-/** What the AI made of the pull request: its progress, the summary and what needs a human. The files follow as list rows. */
+/** Wide enough for "Description" in each half, and no wider: the capsule belongs to the text under it. */
+private val SummarySwitchWidth = 240.dp
+
+/**
+ * What the pull request is and what the AI made of it: its progress, the summary, the brief and what needs a human.
+ * The files follow as list rows. The summary is the author's description until the AI writes one, which then takes
+ * its place; a two-way capsule over it switches between the two, and the next summary the AI writes takes the place
+ * again.
+ */
 @Composable
-private fun SummaryPane(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: (String) -> Unit) {
+private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?, onCite: (Cite) -> Unit, onSheet: (String) -> Unit) {
     val c = LocalPullsColors.current
     val analysis = session.saved?.analysis
     val summary = analysis?.overallSummary?.takeIf { session.hasAiResult && it.isNotBlank() }
+    val shown = summaryKey(analysis?.generatedAt, summary)
+    val description = showsDescription(shown, top.descriptionOver)
+    // The summary and the brief name places in the code; each is a link there (rule 96).
+    val cite = { place: CodePlace -> onCite(Cite(place.path, place.line)) }
     Column {
         AnalysisBlock(session, onSheet)
-        // The summary and the brief name places in the code; each is a link there (rule 96).
-        ProvideAiText(session, { place -> onCite(Cite(place.path, place.line)) }) {
-            if (summary != null) {
-                Box(Modifier.padding(top = 12.dp)) {
-                    Markdown(summary, style = PullsType.read.copy(color = c.text))
-                }
+        if (summary != null) {
+            CapsuleTabs(
+                listOf("Summary", "Description"), if (description) 1 else 0,
+                { top.descriptionOver = if (it == 1) shown else null },
+                Modifier.padding(top = 16.dp).width(SummarySwitchWidth),
+            )
+        }
+        // The capsule's pill slides and the other text fades in beside it, like a tab (rule 67); the capsule stays put.
+        BlurSwitch(description, order = { if (it) 1 else 0 }) { showDescription ->
+            if (showDescription) DescriptionText(session, data, Modifier.padding(top = 12.dp))
+            else if (summary != null) ProvideAiText(session, cite) {
+                Box(Modifier.fillMaxWidth().padding(top = 12.dp)) { Markdown(summary, style = PullsType.read.copy(color = c.text)) }
             }
-            session.saved?.brief?.let { brief ->
+        }
+        session.saved?.brief?.let { brief ->
+            ProvideAiText(session, cite) {
                 BriefSection(session, brief, onOpen = { target -> onCite(Cite(target.path, target.line ?: 0)) }, modifier = Modifier.padding(top = 16.dp))
             }
         }
@@ -499,14 +525,13 @@ private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoa
     }
 }
 
-// --- Description ---
-
 /**
- * The description. When the viewer may change this pull request (their own, or one they maintain) a tap turns it into a
- * field holding GitHub's Markdown and leaving it saves (rule 83); the page then shows GitHub's own rendering again.
+ * The description, in the summary's place. When the viewer may change this pull request (their own, or one they
+ * maintain) a tap turns it into a field holding GitHub's Markdown and leaving it saves (rule 83); the page then shows
+ * GitHub's own rendering again.
  */
 @Composable
-private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
+private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modifier: Modifier) {
     val c = LocalPullsColors.current
     val overview = data?.overview
     val html = overview?.bodyHTML.orEmpty()
@@ -514,7 +539,7 @@ private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
     EditableText(
         source, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.read, saved = "Description updated",
         onSave = { body -> session.repo.prAction(overview!!.id, "edit", body = body); session.reloadOverview() },
-        modifier = Modifier.padding(top = 8.dp), multiline = true, allowBlank = true, placeholder = "Describe the change in Markdown",
+        modifier = modifier, multiline = true, allowBlank = true, placeholder = "Describe the change in Markdown",
     ) { text ->
         // GitHub's own rendering while the text is the one it holds; the typed Markdown for the moment after a save.
         val markdown = remember(text, html, overview?.body) { if (html.isNotBlank() && text == overview?.body) htmlToMarkdown(html) else text }

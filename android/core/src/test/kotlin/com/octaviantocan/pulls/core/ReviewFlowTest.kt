@@ -2,7 +2,9 @@ package com.octaviantocan.pulls.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ReviewFlowTest {
     private val order = listOf("a", "b", "c", "d")
@@ -98,5 +100,37 @@ class ReviewFlowTest {
     @Test
     fun beforeTheFirstTabTheOverviewStaysPut() {
         assertEquals(0, swipedTabOrNext(0, 3, 300f, 80f))
+    }
+
+    @Test
+    fun theDescriptionIsTheSummaryUntilTheAiWritesOne() {
+        assertTrue(showsDescription(summary = null, switchedAwayFrom = null))
+    }
+
+    @Test
+    fun aWrittenSummaryTakesTheDescriptionsPlace() {
+        assertFalse(showsDescription(summary = "What changed", switchedAwayFrom = null))
+    }
+
+    @Test
+    fun switchingToTheDescriptionKeepsItOverThatSummary() {
+        assertTrue(showsDescription(summary = "What changed", switchedAwayFrom = "What changed"))
+    }
+
+    @Test
+    fun theNextSummaryTakesThePlaceAgain() {
+        assertFalse(showsDescription(summary = "What changed now", switchedAwayFrom = "What changed"))
+    }
+
+    @Test
+    fun aNewAnalysisInTheSameWordsTakesThePlaceAgain() {
+        val before = summaryKey("2026-10-15T06:00:00Z", "What changed")
+        assertTrue(showsDescription(summaryKey("2026-10-15T06:00:00Z", "What changed"), before))
+        assertFalse(showsDescription(summaryKey("2026-10-15T07:00:00Z", "What changed"), before))
+    }
+
+    @Test
+    fun noSummaryHasNoKey() {
+        assertNull(summaryKey("2026-10-15T06:00:00Z", null))
     }
 }
