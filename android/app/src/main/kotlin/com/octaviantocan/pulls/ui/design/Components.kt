@@ -45,6 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.size.Size as CoilSize
 import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.directionOf
@@ -277,12 +279,25 @@ fun PrStatusIcon(state: String, modifier: Modifier = Modifier, size: Dp = 20.dp)
 @Composable
 fun GithubAvatar(login: String, modifier: Modifier = Modifier, avatarUrl: String? = null, size: Dp = 20.dp) {
     val c = LocalPullsColors.current
-    val src = avatarUrl?.takeIf { it.isNotBlank() } ?: "https://github.com/${login.removeSuffix("[bot]")}.png?size=${(size.value * 2).toInt()}"
+    val context = LocalContext.current
+    // A face (the header's photo, the profile sheet's) is one picture at one size, kept whole in memory, so the profile
+    // sheet shows the photo the header already holds instead of fetching another size for seconds (J8). Rows share
+    // a smaller one the same way.
+    val face = size > AVATAR_ROW_MAX
+    val src = avatarUrl?.takeIf { it.isNotBlank() } ?: "https://github.com/${login.removeSuffix("[bot]")}.png?size=${if (face) AVATAR_FACE_PX else AVATAR_ROW_PX}"
+    val request = remember(src, face) { ImageRequest.Builder(context).data(src).apply { if (face) size(CoilSize.ORIGINAL) }.build() }
     Box(modifier.size(size).clip(CircleShape).background(c.raised), contentAlignment = Alignment.Center) {
         Text(login.firstOrNull()?.uppercase() ?: "?", style = PullsType.xs, color = c.fade)
-        AsyncImage(src, contentDescription = login, modifier = Modifier.size(size), contentScale = ContentScale.Crop)
+        AsyncImage(request, contentDescription = login, modifier = Modifier.size(size), contentScale = ContentScale.Crop)
     }
 }
+
+/** The largest avatar that sits on a row; anything bigger is a face. */
+private val AVATAR_ROW_MAX = 28.dp
+
+/** The pixels GitHub is asked for: enough for a row, and for a face at the sharpest phone density. */
+private const val AVATAR_ROW_PX = 96
+private const val AVATAR_FACE_PX = 256
 
 /** `badge` / `badge-muted`: `px-1.5 py-0.5 rounded-md text-xs font-medium`. */
 @Composable
