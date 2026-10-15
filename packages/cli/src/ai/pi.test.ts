@@ -36,13 +36,36 @@ describe('piConfig', () => {
 })
 
 describe('piModelName', () => {
-  it('reads ids the way the vendors write their names', () => {
-    expect(piModelName('claude-opus-5-5')).toBe('Claude Opus 5.5')
-    expect(piModelName('claude-sonnet-4-5-20250929')).toBe('Claude Sonnet 4.5')
-    expect(piModelName('gpt-5.5-codex')).toBe('GPT-5.5 Codex')
-    expect(piModelName('gpt-6')).toBe('GPT-6')
-    expect(piModelName('gemini-3-pro-preview')).toBe('Gemini 3 Pro Preview')
-    expect(piModelName('openrouter/kimi-k2')).toBe('Kimi K2')
+  // Ids from CLIProxyAPI's own model list, and the names their vendors give them.
+  it.each([
+    ['claude-opus-5-5', 'Claude Opus 5.5'],
+    ['claude-sonnet-4-5-20250929', 'Claude Sonnet 4.5'],
+    ['claude-opus-4-20250514', 'Claude Opus 4'],
+    ['claude-3-7-sonnet-20250219', 'Claude Sonnet 3.7'],
+    ['claude-opus-4-6-thinking', 'Claude Opus 4.6 Thinking'],
+    ['claude-opus-5-5-high', 'Claude Opus 5.5 (High)'],
+    ['gpt-5.5', 'GPT-5.5'],
+    ['gpt-6-luna', 'GPT-6 Luna'],
+    ['gpt-5.5-codex', 'GPT-5.5 Codex'],
+    ['gpt-5.1-codex-max', 'GPT-5.1 Codex Max'],
+    ['gpt-5.5(high)', 'GPT-5.5 (High)'],
+    ['gpt-oss-120b-medium', 'GPT-OSS 120B (Medium)'],
+    ['o4-mini', 'o4-mini'],
+    ['o3-mini-2025-01-31', 'o3-mini'],
+    ['o3-mini-20250131-high', 'o3-mini (High)'],
+    ['gemini-3-pro-preview', 'Gemini 3 Pro Preview'],
+    ['gemini-3.8-flash-high', 'Gemini 3.8 Flash (High)'],
+    ['models/gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite'],
+    ['imagen-4.0-generate-001', 'Imagen 4.0 Generate'],
+    ['grok-4.20-0309-reasoning', 'Grok 4.20 Reasoning'],
+    ['grok-4.20-0309-non-reasoning', 'Grok 4.20 Non-Reasoning'],
+    ['kimi-k3-256k', 'Kimi K3 256K'],
+    ['kimi-k2.7-code-highspeed', 'Kimi K2.7 Code HighSpeed'],
+    ['openrouter/deepseek-v3.1', 'DeepSeek V3.1'],
+    ['glm-4.6', 'GLM 4.6'],
+    ['gpt-4-2024-08-06', 'GPT-4'],
+  ])('reads %s as %s', (id, name) => {
+    expect(piModelName(id)).toBe(name)
   })
 })
 
@@ -53,6 +76,11 @@ describe('piModels', () => {
     expect(listed.map(model => model.id)).toEqual(['gemini-3-pro', 'claude-opus-5-5', 'claude-opus-4-8', 'gpt-6', 'gpt-5.5'])
     expect(listed[0]).toMatchObject({ isDefault: true, efforts: ['low', 'medium', 'high'] })
     expect(listed.filter(model => model.isDefault)).toHaveLength(1)
+  })
+
+  it('sorts by version, not by a size in the name', () => {
+    const body = { data: [{ id: 'kimi-k2' }, { id: 'kimi-k3' }, { id: 'kimi-k2.8' }, { id: 'gpt-5.5' }, { id: 'gpt-oss-120b' }, { id: 'o3-mini-20250131' }, { id: 'o4-mini' }] }
+    expect(piModels(body, 'gpt-5.5').map(model => model.id)).toEqual(['gpt-5.5', 'gpt-oss-120b', 'kimi-k3', 'kimi-k2.8', 'kimi-k2', 'o4-mini', 'o3-mini-20250131'])
   })
 
   it('defaults to the first listed model when the server names none it has', () => {
