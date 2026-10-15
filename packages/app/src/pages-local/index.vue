@@ -3,10 +3,11 @@ import type { MyPull, MyPullRole, MyPullsSnapshot, MyPullState } from '@pulls.re
 import type { TriageQueue } from '../components/home/triage'
 import { createGithubSource } from '@pulls.review/core/github'
 import { LOCAL_RPC, MY_PULL_ROLES, MY_PULL_STATES } from '@pulls.review/core/local-rpc'
-import { useNow } from '@vueuse/core'
-import { computed, inject, ref, shallowReactive } from 'vue'
+import { useNow, watchDebounced } from '@vueuse/core'
+import { computed, inject, ref, shallowReactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { track } from '../analytics'
 import { useAppContext } from '../app-context'
 import AppHeader from '../components/AppHeader.vue'
 import HomePullRow from '../components/home/HomePullRow.vue'
@@ -81,10 +82,18 @@ const filtered = computed(() => filterPulls(pulls.value ?? [], {
   needle: parsed.value ? '' : search.value.trim().toLowerCase(),
 }, now.value.getTime()))
 const groups = computed(() => groupByRepo(filtered.value.pulls))
+// A search once typing settles: how long it was and what it found, never what was typed.
+watchDebounced(search, (value) => {
+  if (value.trim())
+    track('search.run', { where: 'home', chars: value.trim().length, results: filtered.value.pulls.length, link: !!parsed.value })
+}, { debounce: 1500 })
+watch([state, queue, role], ([nextState, nextQueue, nextRole]) => track('inbox.action', { action: 'filter', state: nextState, queue: nextQueue, role: nextRole }))
 const folded = shallowReactive(new Set<string>())
 function fold(name: string) {
-  if (!folded.delete(name))
+  const unfolding = folded.delete(name)
+  if (!unfolding)
     folded.add(name)
+  track('inbox.action', { action: unfolding ? 'unfold' : 'fold' })
 }
 
 const prefetcher = createPrefetcher({

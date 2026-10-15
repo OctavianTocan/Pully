@@ -12,6 +12,18 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.37.0
+
+Usage stats on your own server, and a Stats page in Settings.
+
+### New
+
+- Pulls now counts what you do in it, such as pull requests opened, files reviewed, searches and how long pages take, and sends the counts only to your own server.
+- It never sends what you read or type: no code, file names, searches, questions or comments.
+- Settings has a Usage stats switch, on to begin with. Turning it off deletes anything not yet sent and stops counting.
+- Settings, Stats shows the last 7, 30 or 90 days: sessions, pull requests opened, files reviewed, AI runs and spend, a bar for each day, time on each page, the slowest server calls and what went wrong.
+- Counts made without a network are kept on the phone and sent once it is back, and a crash is noted and sent the next time Pulls opens.
+
 ## 0.36.0
 
 Open any past version of the app from a slider in Settings.

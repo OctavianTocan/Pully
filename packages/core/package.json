@@ -26,7 +26,8 @@
     "./local-rpc": "./dist/local-rpc.js",
     "./diagnostics": "./dist/diagnostics.js",
     "./env": "./dist/env.js",
-    "./locales": "./dist/locales.js"
+    "./locales": "./dist/locales.js",
+    "./analytics": "./dist/analytics.js"
   },
   "files": [
     "dist"

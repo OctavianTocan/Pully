@@ -61,3 +61,22 @@ like mess anything up" (recording 14 Oct 19:19, 01:10 to 01:35).
 Two analyses of different pull requests MUST be able to run at the same time. No analysis
 switches the branch of a checkout another job reads, and the server MUST NOT make a fresh
 clone of the repository for every run (recording 14 Oct 19:19, 00:29 to 01:05).
+
+@cc [owner:OctavianTocan,label:security;product] analytics-stays-on-our-server
+Usage analytics from the phone, the web app and the server go only to our own server,
+which keeps them as one NDJSON file per UTC day in its own folder. No analytics, crash or
+telemetry package or third-party service MAY be added for it (message 15 Oct 20:58, "We
+will track them directly on our server. No need for fancy packages").
+
+@cc [owner:OctavianTocan,label:security] analytics-what-not-how-much
+Analytics records what was done, never what was read or typed: no token or key, no diff,
+file contents, file path, prompt, AI answer, comment, Ask message or search text. Events
+carry counts, timings, enums, on or off values and a pull request's repo and number, and
+`cleanEvent` in `packages/core/src/analytics.ts` enforces it on the server before any
+event is written (plan "Pulls analytics on our own server", Guardrails).
+
+@cc [owner:OctavianTocan,label:product;security] analytics-can-be-turned-off
+Each client has a Usage stats switch in Settings, on by default; turning it off drops
+what is queued and sends nothing more. `PULLS_REVIEW_ANALYTICS=off` on the server stops it
+writing anything, its own events included. Day files older than 365 days are deleted
+(plan "Pulls analytics on our own server", Guardrails).

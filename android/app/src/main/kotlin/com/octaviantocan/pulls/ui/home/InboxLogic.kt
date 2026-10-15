@@ -359,11 +359,13 @@ class InboxLayout(private val storage: KeyValueStore?) {
         private set
 
     fun updateSort(value: InboxSort) {
+        if (value != sort) com.octaviantocan.pulls.data.Analytics.track("inbox.action", "action" to "sort", "value" to value.id)
         sort = value
         runCatching { storage?.set(SORT_KEY, value.id) }
     }
 
     fun updateGroupBy(value: InboxGrouping) {
+        if (value != groupBy) com.octaviantocan.pulls.data.Analytics.track("inbox.action", "action" to "group", "value" to value.id)
         groupBy = value
         runCatching { storage?.set(GROUP_KEY, value.id) }
     }
@@ -377,6 +379,8 @@ class InboxLayout(private val storage: KeyValueStore?) {
     fun isFolded(key: String): Boolean = key in folded
 
     fun toggle(key: String) {
+        // Which kind of heading, never its name: a repository's or a kind's.
+        com.octaviantocan.pulls.data.Analytics.track("inbox.action", "action" to if (key in folded) "unfold" else "fold", "value" to if (key.startsWith("kind:")) "kind" else "repo")
         folded = if (key in folded) folded - key else folded + key
         runCatching { storage?.set(FOLDED_KEY, folded.joinToString("\n")) }
     }

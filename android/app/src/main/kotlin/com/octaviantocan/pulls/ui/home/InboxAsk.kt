@@ -128,6 +128,8 @@ internal class InboxAsk(private val repo: Repo, private val scope: CoroutineScop
     fun ask(question: String, retry: Boolean = false) {
         val text = question.trim()
         if (text.isEmpty() || !accepting) return
+        // How long the question is, never what it says.
+        com.octaviantocan.pulls.data.Analytics.track("ask.send", "where" to "inbox", "chars" to text.length, "retry" to retry)
         error = null
         pending = text
         // The old answer steps aside at once, with the questions offered under it.

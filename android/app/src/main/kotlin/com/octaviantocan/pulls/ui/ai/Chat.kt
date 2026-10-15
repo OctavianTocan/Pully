@@ -190,6 +190,8 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     fun ask(text: String) {
         val question = text.trim()
         if (question.isEmpty() || busy) return
+        // How long the question is, never what it says.
+        com.octaviantocan.pulls.data.Analytics.track("ask.send", "where" to "pr", "chars" to question.length, "about" to (attached != null))
         val about = attached
         following = true
         session.sendChat(if (about == null) question else "About ${about.label}: \"${about.text}\"\n\n$question")

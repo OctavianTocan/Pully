@@ -1,5 +1,6 @@
 import type { Env } from '@pulls.review/core/env'
 import process from 'node:process'
+import { track } from './analytics'
 
 /**
  * Jev, TypeSafe AI's classification model. It never writes text: it answers typed
@@ -260,16 +261,18 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
   }
 
   /** How long to wait before trying a 429 or 529 again; a 429 also slows the client down. */
-  function backOff(res: Response, tries: number): number {
+  function backOff(res: Response, tries: number, stats: { throttled: number }): number {
     const wait = Math.min(retryAfterMs(res.headers.get('retry-after'), now()) ?? BACKOFF_MS * 2 ** (tries - 1), MAX_RETRY_AFTER_MS)
     // 529 is TypeSafe overloaded as a whole, not this key going too fast.
-    if (res.status === 429)
+    if (res.status === 429) {
+      stats.throttled++
       slowDown(wait)
+    }
     return wait
   }
 
-  /** Sends `body`, retrying 429 and 529; `'off'` once the key is refused. */
-  async function send(body: string): Promise<Response | 'off'> {
+  /** Sends `body`, retrying 429 and 529; `'off'` once the key is refused. `stats` counts the 429s. */
+  async function send(body: string, stats: { throttled: number }): Promise<Response | 'off'> {
     for (let tries = 1; ; tries++) {
       const res = await attempt(body)
       if (res === 'off')
@@ -284,7 +287,7 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
         pace = Math.min(pace + MIN_PACE, 1)
       if (res.status !== 429 && res.status !== 529)
         return res
-      const wait = backOff(res, tries)
+      const wait = backOff(res, tries, stats)
       if (tries >= MAX_ATTEMPTS)
         return res
       await res.body?.cancel().catch(() => {})
@@ -292,22 +295,44 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
     }
   }
 
+  /** The answer in a response, or a `JevError` for a refusal or an answer that misses a question. */
+  async function answerOf<Q extends Record<string, JevQuestion>>(res: Response | 'off', questions: Q): Promise<JevResponse<Q> | 'off'> {
+    if (res === 'off')
+      return 'off'
+    const payload: unknown = await res.json().catch(() => undefined)
+    if (!res.ok) {
+      const detail = errorDetail(payload)
+      fail(`request refused (${res.status})${detail ? `: ${detail}` : '.'}`, res.status)
+    }
+    if (!isAnswered(payload, questions))
+      fail(answerProblem(payload, questions)!, res.status)
+    return payload
+  }
+
   return {
     enabled: () => !!apiKey && !refused,
     async ask(state, questions) {
       if (!apiKey || refused)
         return 'off'
-      const res = await send(JSON.stringify({ state, model: JEV_MODEL, questions }))
-      if (res === 'off')
-        return 'off'
-      const payload: unknown = await res.json().catch(() => undefined)
-      if (!res.ok) {
-        const detail = errorDetail(payload)
-        fail(`request refused (${res.status})${detail ? `: ${detail}` : '.'}`, res.status)
+      const started = now()
+      const stats = { throttled: 0 }
+      const note = (status: string | number, usage?: { input_tokens?: number, output_tokens?: number }) => track('jev.call', {
+        questions: Object.keys(questions).length,
+        ms: now() - started,
+        status,
+        throttled: stats.throttled,
+        tokensIn: usage?.input_tokens,
+        tokensOut: usage?.output_tokens,
+      })
+      try {
+        const answer = await answerOf(await send(JSON.stringify({ state, model: JEV_MODEL, questions }), stats), questions)
+        note(answer === 'off' ? 'off' : 200, answer === 'off' ? undefined : answer.usage)
+        return answer
       }
-      if (!isAnswered(payload, questions))
-        fail(answerProblem(payload, questions)!, res.status)
-      return payload
+      catch (error) {
+        note(error instanceof JevError && error.status ? error.status : 'error')
+        throw error
+      }
     },
   }
 }

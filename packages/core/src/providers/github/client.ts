@@ -52,6 +52,49 @@ async function mapLimited<T, R>(inputs: T[], limit: number, fn: (input: T) => Pr
   return results
 }
 
+/** One finished GitHub request as the server's analytics sees it: no owner, repo, token or body. */
+export interface GithubCallInfo {
+  /** The API path with the owner, repo, numbers and SHAs left out, such as `pulls/:n/files` or `graphql`. */
+  route: string
+  method: string
+  /** The HTTP status, or 0 when the request never got an answer. */
+  status: number
+  ms: number
+  /** `x-ratelimit-remaining`, when GitHub sent it. */
+  rateLeft?: number
+}
+
+let observer: ((call: GithubCallInfo) => void) | undefined
+
+/** Has every GitHub request reported to `fn` (the server's analytics); `undefined` stops it. */
+export function observeGithubCalls(fn: ((call: GithubCallInfo) => void) | undefined): void {
+  observer = fn
+}
+
+const GITHUB_ROUTE_WORDS = new Set(['actions', 'blobs', 'branches', 'check-runs', 'check-suites', 'commits', 'comments', 'compare', 'contents', 'events', 'files', 'git', 'graphql', 'issues', 'jobs', 'labels', 'merge', 'pulls', 'rate_limit', 'refs', 'requested_reviewers', 'reviews', 'runs', 'search', 'status', 'statuses', 'timeline', 'trees', 'user', 'users'])
+
+/**
+ * The shape of an API path without what names a repository or a pull request:
+ * `/repos/acme/app/pulls/7/files?page=2` is `pulls/:n/files`.
+ */
+export function githubRoute(path: string): string {
+  const parts = path.split('?')[0]!.split('/').filter(Boolean)
+  const rest = parts[0] === 'repos' ? parts.slice(3) : parts
+  // Only GitHub's own words stay; a branch, a file path, a user or a SHA becomes `:n`.
+  const route = rest.slice(0, 4).map(part => GITHUB_ROUTE_WORDS.has(part) ? part : ':n').join('/')
+  return route || (parts[0] === 'repos' ? 'repo' : 'root')
+}
+
+function report(path: string, method: string, started: number, res: Response | undefined): void {
+  if (!observer)
+    return
+  const left = Number(res?.headers.get('x-ratelimit-remaining') ?? Number.NaN)
+  try {
+    observer({ route: githubRoute(path), method, status: res?.status ?? 0, ms: Date.now() - started, ...(Number.isFinite(left) ? { rateLeft: left } : {}) })
+  }
+  catch {}
+}
+
 /** Without credentials every request is anonymous. The token is read per request, never captured. */
 export function createGithubClient(credentials?: Credentials): GithubClient {
   const token = async () => credentials?.githubToken()
@@ -67,11 +110,21 @@ export function createGithubClient(credentials?: Credentials): GithubClient {
     if (options.body !== undefined)
       headers['Content-Type'] = 'application/json'
     const url = `${GITHUB_API_BASE}${path}`
-    const res = await fetch(url, {
-      method: options.method ?? 'GET',
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    })
+    const method = options.method ?? 'GET'
+    const started = Date.now()
+    let res: Response
+    try {
+      res = await fetch(url, {
+        method,
+        headers,
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      })
+    }
+    catch (error) {
+      report(path, method, started, undefined)
+      throw error
+    }
+    report(path, method, started, res)
     if (!res.ok) {
       // GitHub's own `message` (e.g. "Resource not accessible by personal access token")
       // makes a permission failure actionable instead of a bare status.

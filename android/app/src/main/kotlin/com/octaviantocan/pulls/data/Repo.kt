@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.data
 
 import android.content.Context
 import com.octaviantocan.pulls.core.OpenTarget
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -26,7 +27,19 @@ class Repo(private val context: Context) {
         return PullsApi(config.url, config.headers())
     }
 
-    suspend fun call(name: String, args: JsonObject = JsonObject(emptyMap())): JsonElement = withContext(Dispatchers.IO) { api().call(name, args) }
+    /** Runs the RPC [name] and times it for `rpc.call`: the name, how long, whether it worked and the HTTP status, never [args]. */
+    suspend fun call(name: String, args: JsonObject = JsonObject(emptyMap())): JsonElement = withContext(Dispatchers.IO) {
+        val started = System.nanoTime()
+        fun ms() = (System.nanoTime() - started) / 1_000_000
+        try {
+            api().call(name, args).also { Analytics.rpc(name, ms(), ok = true, status = null) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Analytics.rpc(name, ms(), ok = false, status = (e as? ServerError)?.status)
+            throw e
+        }
+    }
 
     suspend fun call(name: String, build: JsonObjectBuilder.() -> Unit): JsonElement = call(name, buildJsonObject(build))
 
@@ -197,6 +210,9 @@ class Repo(private val context: Context) {
     suspend fun recent(): List<JsonObject> = (call("recent-diffs") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
 
     suspend fun repoInfo(): JsonObject = call("repo-info").jsonObject
+
+    /** `analytics-summary`: what the server counted over the last [days] days (7, 30 or 90), for Settings, Stats. */
+    suspend fun analyticsSummary(days: Int): AnalyticsSummary = call("analytics-summary") { put("days", days) }.asAnalyticsSummary()
 }
 
 internal fun JsonElement.objects(): List<JsonObject> = (this as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }

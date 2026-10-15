@@ -61,6 +61,8 @@ export const LOCAL_RPC = {
   inboxChat: 'inbox-chat',
   /** Starts that conversation afresh, stopping an answer still on its way. */
   inboxChatClear: 'inbox-chat-clear',
+  /** The Stats page's numbers for a range of days, from the server's analytics day files. */
+  analyticsSummary: 'analytics-summary',
 } as const
 
 /** A skill offered as a point of view for an AI review. */

@@ -6,6 +6,7 @@ import AutoRefreshSettingsSection from './AutoRefreshSettingsSection.vue'
 import GithubTokenSettings from './GithubTokenSettings.vue'
 import LayoutSettingsSection from './LayoutSettingsSection.vue'
 import LlmSettingsSection from './LlmSettingsSection.vue'
+import UsageStatsSettingsSection from './UsageStatsSettingsSection.vue'
 
 defineProps<{
   githubTokenSet: boolean
@@ -57,5 +58,11 @@ const isLocal = import.meta.env.PR_LOCAL
       :models-error="modelsError"
       @update:llm-settings="$emit('update:llmSettings', $event)"
     />
+
+    <template v-if="isLocal">
+      <div class="border-t border-base" />
+
+      <UsageStatsSettingsSection />
+    </template>
   </div>
 </template>

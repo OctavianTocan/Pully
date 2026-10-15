@@ -10,6 +10,7 @@ import { DEFAULT_LOCALE } from '@pulls.review/core/locales'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
 import { createStorage } from 'unstorage'
 import { runAiJob } from './ai/jobs'
+import { track } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { prepareJev } from './jev-review'
 import { listMyPulls, offerMyPullsStore } from './my-pulls'
@@ -110,12 +111,16 @@ export function createPreanalyzer(deps: PreanalyzerDeps): Preanalyzer {
     if (!needsPreanalysis(pull, cached && { headSha: cached.headSha, hasLlm: !!cached.analyzedBy.llm }))
       return
     attempted.add(id)
+    const started = Date.now()
     try {
       await analyzeOne(pull, key, cached)
+      track('preanalyze.run', { status: 'done', ms: Date.now() - started })
     }
     catch (error) {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted) {
         log(`pre-analysis of ${key} failed: ${messageOf(error)}`)
+        track('preanalyze.run', { status: 'failed', ms: Date.now() - started, message: messageOf(error) })
+      }
     }
   }
 

@@ -25,7 +25,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.compose.runtime.withFrameNanos
 import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.PageBack
@@ -56,8 +58,8 @@ import kotlinx.coroutines.launch
 internal sealed interface Screen {
     data object Home : Screen
     data class Repo(val owner: String, val repo: String, val tours: Boolean = false) : Screen
-    /** [tour] opens the pull request on its tour instead of its overview. */
-    data class Review(val target: OpenTarget, val tour: Boolean = false) : Screen
+    /** [tour] opens the pull request on its tour instead of its overview; [from] is where it was opened, for `pr.open`. */
+    data class Review(val target: OpenTarget, val tour: Boolean = false, val from: String = "other") : Screen
     data object Settings : Screen
     data object UiBook : Screen
 }
@@ -73,7 +75,7 @@ fun PullsApp(initialTarget: String?) {
         mutableStateListOf<Screen>(Screen.Home).apply {
             // Same parsing as the home URL field: PRs, commits, compares, and repository links.
             when (val link = initialTarget?.let(com.octaviantocan.pulls.ui.home.HomeLinks::parse)) {
-                is com.octaviantocan.pulls.ui.home.HomeLink.Target -> add(Screen.Review(link.target))
+                is com.octaviantocan.pulls.ui.home.HomeLink.Target -> add(Screen.Review(link.target, from = "link"))
                 is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> add(Screen.Repo(link.owner, link.repo))
                 null -> {}
             }
@@ -89,6 +91,7 @@ fun PullsApp(initialTarget: String?) {
     }
     // After an update, what changed opens once, over whatever page Pulls opened on.
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
+    LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
     // Commands' Change theme opens the theme list as a sheet of its own over whatever page is open (K18).
     var themePicker by remember { mutableStateOf(false) }
     AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
@@ -96,6 +99,7 @@ fun PullsApp(initialTarget: String?) {
         Nav(
             openTarget = { stack.add(Screen.Review(it)) },
             openTour = { stack.add(Screen.Review(it, tour = true)) },
+            openFrom = { target, from, tour -> stack.add(Screen.Review(target, tour = tour, from = from)) },
             openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
             openRepoTours = { owner, repo -> stack.add(Screen.Repo(owner, repo, tours = true)) },
             home = { stack.clear(); stack.add(Screen.Home) },
@@ -134,6 +138,14 @@ fun PullsApp(initialTarget: String?) {
             Command("whatsNew", "What's new", group, keywords = "changelog changes version release notes") { whatsNew = WhatsNew.all(context) },
         )
     }
+    // One hook for screen time: the page on top by a fixed name (`screen.view`, `screen.time`). Settings names its own pages.
+    val top = stack.last()
+    LaunchedEffect(top.analyticsName) { Analytics.showScreen(top.analyticsName) }
+    // The first frame of a launch on Home is how long the app took to open (`app.open`).
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        if (stack.size == 1 && stack.first() == Screen.Home) Analytics.firstFrame()
+    }
     CompositionLocalProvider(LocalToaster provides toaster) {
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
@@ -143,7 +155,7 @@ fun PullsApp(initialTarget: String?) {
                 when (val current = layer.screen) {
                     Screen.Home -> HomeScreen(nav, homeUi)
                     is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, startOnTours = current.tours)
-                    is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
+                    is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}
                 }
@@ -158,6 +170,16 @@ fun PullsApp(initialTarget: String?) {
         }
     }
 }
+
+/** The screen's name in usage stats: a fixed word, never a title or a repository. */
+private val Screen.analyticsName: String
+    get() = when (this) {
+        Screen.Home -> "home"
+        is Screen.Repo -> "repo"
+        is Screen.Review -> "review"
+        Screen.Settings -> "settings"
+        Screen.UiBook -> "uibook"
+    }
 
 /**
  * The Update command: asks the server now, however recently it was asked. A newer build starts downloading at once, on

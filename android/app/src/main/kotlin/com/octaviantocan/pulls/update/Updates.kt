@@ -15,6 +15,7 @@ import com.octaviantocan.pulls.core.changesSince
 import com.octaviantocan.pulls.core.parseChangelog
 import com.octaviantocan.pulls.core.parseUpdateManifest
 import com.octaviantocan.pulls.core.since
+import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.ServerStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -101,6 +102,7 @@ object Updates {
         }
         // A check that failed keeps the offer; a server with nothing newer takes it away, as after switching servers.
         val manifest = answer.getOrElse { return UpdateCheck.Failed } ?: return UpdateCheck.UpToDate.also { withdraw(context) }
+        if (available?.versionCode != manifest.versionCode) Analytics.track("update.event", "step" to "offered", "version" to manifest.versionName)
         available = manifest
         UpdatePrefs.saveOffer(context, manifest)
         UpdatePrefs.markNotified(context, manifest.versionCode)
@@ -155,6 +157,7 @@ object Updates {
                             scope.launch { if (status is UpdateStatus.Downloading) status = UpdateStatus.Downloading(percent / 100f) }
                         }
                     }
+                    Analytics.track("update.event", "step" to "downloaded", "version" to manifest.versionName)
                     updater.install(apk)
                     manifest
                 }
@@ -192,7 +195,7 @@ object Updates {
     internal fun installed(result: InstallResult) {
         status = when (result) {
             InstallResult.Confirming -> UpdateStatus.Confirming
-            InstallResult.Installed -> UpdateStatus.Installing
+            InstallResult.Installed -> UpdateStatus.Installing.also { Analytics.track("update.event", "step" to "installed", "version" to available?.versionName.orEmpty()) }
             // Cancelling the system dialog is a choice, not a failure: the update screen offers Update again.
             InstallResult.Cancelled -> UpdateStatus.Idle
             // The installer's own words are for the log; the update screen has one short line.
