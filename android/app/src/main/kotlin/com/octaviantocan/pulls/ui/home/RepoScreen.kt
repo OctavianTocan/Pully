@@ -1,5 +1,15 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.CapsuleTabs
+import com.octaviantocan.pulls.data.PullSizes
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.Json
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import java.io.File
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -81,7 +91,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** The first page of each repository's list as last seen, so opening it again shows rows at once and refreshes underneath. */
+/**
+ * The first page of each repository's list as last seen, so opening it again shows rows at once and refreshes
+ * underneath. It is kept on the phone as well, so a repository opened before the app last closed opens at once too (H14).
+ */
 private object FirstPages {
     class Page(val items: List<RepoPull>, val totalCount: Int?, val next: String?)
 
@@ -90,10 +103,26 @@ private object FirstPages {
     fun get(owner: String, name: String): Page? = pages["$owner/$name".lowercase()]
 
     fun put(owner: String, name: String, page: Page) { pages["$owner/$name".lowercase()] = page }
+
+    private fun file(dir: File, owner: String, name: String) = File(File(dir, "repo-pulls"), "${"$owner/$name".lowercase().replace('/', '~')}.json")
+
+    /** The page the phone kept from an earlier run, or null. */
+    suspend fun read(dir: File, owner: String, name: String): Page? = withContext(Dispatchers.IO) {
+        runCatching { Json.parseToJsonElement(file(dir, owner, name).readText()).jsonObject.asRepoPullsPage() }.getOrNull()
+            ?.let { Page(it.items, it.totalCount, it.next) }
+    }
+
+    /** Keeps the server's answer for the next run; a failed write only costs that. */
+    suspend fun write(dir: File, owner: String, name: String, raw: JsonObject) = withContext(Dispatchers.IO) {
+        runCatching { file(dir, owner, name).apply { parentFile?.mkdirs() }.writeText(raw.toString()) }
+    }
 }
 
+/** A first page older than this, as the server answered it, is asked for again from GitHub straight after. */
+private const val FIRST_PAGE_FRESH_MS = 60_000L
+
 /** `PullRequestListStore`: the first page, then pages appended through the `next` cursor. */
-private class RepoPullsStore(private val repo: Repo, val owner: String, val name: String) {
+private class RepoPullsStore(private val repo: Repo, val owner: String, val name: String, private val dir: File) {
     private val seen = FirstPages.get(owner, name)
     var items by mutableStateOf(seen?.items.orEmpty())
     var totalCount by mutableStateOf(seen?.totalCount)
@@ -104,14 +133,21 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
     private var generation = 0
     val hasMore get() = next != null
 
-    private suspend fun fetchFirstPage() {
+    /** Whether the last first page the server sent was an old copy, so a fresh one should follow. */
+    private var answeredOld = false
+
+    private suspend fun fetchFirstPage(fresh: Boolean = false) {
         val current = ++generation
         error = null
         try {
-            val page = repo.repoPulls(owner, name).asRepoPullsPage()
+            val raw = repo.repoPulls(owner, name, fresh = fresh)
+            val page = raw.asRepoPullsPage()
             if (current != generation) return
             items = page.items; totalCount = page.totalCount; next = page.next
             FirstPages.put(owner, name, FirstPages.Page(page.items, page.totalCount, page.next))
+            FirstPages.write(dir, owner, name, raw)
+            val cachedAt = (raw["cachedAt"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toLongOrNull()
+            answeredOld = cachedAt != null && System.currentTimeMillis() - cachedAt > FIRST_PAGE_FRESH_MS
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -133,10 +169,18 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
         }
     }
 
-    /** The first page: the rows last seen stay on screen while it comes, and only a list with none shows the skeleton. */
+    /**
+     * The first page: the rows last seen (in this run, else kept on the phone) are on screen at once while it comes, and
+     * only a list with none shows the skeleton. The server answers from its own copy; an old one is asked for again.
+     */
     suspend fun load() {
+        if (items.isEmpty()) FirstPages.read(dir, owner, name)?.let { kept -> if (items.isEmpty()) { items = kept.items; totalCount = kept.totalCount; next = kept.next } }
         if (items.isEmpty()) isLoading = true
         try { fetchFirstPage() } finally { isLoading = false }
+        if (answeredOld && error == null) {
+            fetchFirstPage(fresh = true)
+            refreshes++
+        }
     }
 
     /** How many quiet refreshes have landed: a search keys on it to fetch the later pages again after one. */
@@ -174,17 +218,24 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
     }
 }
 
-/** A repository's open pull requests, in the Inbox's own look: a back circle, the name, sort chips, hairline rows and a search pill. */
+/**
+ * A repository's open pull requests, in the Inbox's own look: a back circle, the name, sort chips, hairline rows and a
+ * search pill. Its tours sit beside them, as Tours does beside the Inbox; a heading on the Tours tab opens the page on
+ * them ([startOnTours], H26).
+ */
 @Composable
-fun RepoScreen(owner: String, repo: String, nav: Nav) {
+fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = false) {
     val context = LocalContext.current
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
     val scope = rememberCoroutineScope()
-    val store = remember(owner, repo) { RepoPullsStore(Repo(context), owner, repo) }
+    val store = remember(owner, repo) { RepoPullsStore(Repo(context), owner, repo, context.cacheDir) }
     var query by rememberSaveable { mutableStateOf("") }
     // Matches the order pages arrive in, so an unfinished load never looks mis-sorted.
     var sort by rememberSaveable { mutableStateOf("recently-updated") }
+    var tab by rememberSaveable { mutableIntStateOf(if (startOnTours) 1 else 0) }
+    val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
+    val toaster = LocalToaster.current
     LaunchedEffect(store) { store.load() }
     // Refreshing is the page's own job and quiet: on open, and again when the app comes back to the front.
     var away by remember { mutableStateOf(false) }
@@ -201,6 +252,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
     // quiet refresh, which leaves only the first page.
     LaunchedEffect(query, store.refreshes) { if (query.isNotBlank()) store.loadAll() }
 
+    LaunchedEffect(store.items) { store.items.forEach { PullSizes.put(owner, repo, it.number, it.additions, it.deletions, it.changedFiles) } }
     val rows = remember(store.items, query, sort) { PullListQuery.sort(PullListQuery.filter(store.items, query), sort) }
     val isSearching = query.isNotBlank() && store.hasMore
     val listState = rememberLazyListState()
@@ -229,6 +281,20 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
                 }
                 Text(repo, style = PullsType.xxl, color = c.text)
             }
+            CapsuleTabs(listOf("Pull requests", "Tours"), tab, { tab = it }, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp))
+            SidePages(tab, listOf(0, 1), { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
+            if (page == 1) {
+                val mine = tours.entries.filter {
+                    it.owner.equals(owner, ignoreCase = true) && it.repo.equals(repo, ignoreCase = true) &&
+                        (query.isBlank() || "${it.prTitle} #${it.number}".lowercase().contains(query.trim().lowercase()))
+                }
+                RepoTours(mine, now, onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) }) { entry ->
+                    tours.dismiss(entry.key, emptyList())
+                    toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
+                }
+                return@SidePages
+            }
+            Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PullListQuery.sorts.forEach { option -> SoftChip(t("pulls.sort.$option"), option == sort, { sort = option }) }
             }
@@ -270,11 +336,13 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
                     }
                 }
             }
+            }
+            }
         }
         // `.search`: the list fades into the page under a floating search pill (its own `edgeFade`), as in the Inbox, and
         // nothing else sits behind the pill: it floats on its own shadow (rule 74).
         SearchPill(
-            query, { query = it }, t("pulls.search"), null, {},
+            query, { query = it }, if (tab == 1) "Search tours" else t("pulls.search"), null, {},
             Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         )
     }
@@ -345,3 +413,25 @@ private fun LabelChip(label: GhLabel) {
 
 /** `ViewedPullRequest`: the cached diff's size and grouping for a PR opened before. */
 data class Viewed(val additions: Int, val deletions: Int, val groups: Int, val hasAiResult: Boolean)
+
+/** A repository's tours, as rows of the Tours tab without the headings: tap or swipe right to read, swipe left to remove. */
+@Composable
+private fun RepoTours(entries: List<TourEntry>, now: Long, onOpen: (TourEntry) -> Unit, onRemove: (TourEntry) -> Unit) {
+    val c = LocalPullsColors.current
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
+    if (entries.isEmpty()) {
+        Text(
+            "No tours of this repository yet. Open one of its pull requests and tap Tour.",
+            Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 48.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center,
+        )
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(top = 10.dp).edgeFade(bottom = PullsMotion.EdgeBottom), contentPadding = PaddingValues(bottom = bottom)) {
+        items(entries, key = { it.key }) { entry ->
+            SwipeRow(
+                label = entry.prTitle, onOpen = { onOpen(entry) }, onArchive = { onRemove(entry) }, archived = false,
+                modifier = Modifier.animateItem(), endLabel = "Remove", endIcon = Lu.close,
+            ) { TourRowContent(entry, null, now) }
+        }
+    }
+}

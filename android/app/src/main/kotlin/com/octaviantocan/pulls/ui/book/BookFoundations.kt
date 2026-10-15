@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.book
 
+import androidx.compose.foundation.layout.fillMaxSize
+import com.octaviantocan.pulls.ui.design.SidePages
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -176,6 +178,8 @@ internal fun MotionPage(book: BookData) {
         SectionTitle("Slide")
         var selected by remember { mutableIntStateOf(0) }
         CapsuleTabs(listOf("Inbox", "Tours", "Done"), selected, { selected = it })
+        SectionTitle("Side by side")
+        SidePagesDemo()
         SectionTitle("Slide in a list")
         PageSlideDemo()
         SectionTitle("Label")
@@ -220,11 +224,26 @@ private fun PressDemo() {
 private fun PageSlideDemo() {
     val c = LocalPullsColors.current
     var tab by remember { mutableIntStateOf(0) }
-    val slide = rememberPageSlide(tab, order = { it })
+    val slide = rememberPageSlide(tab, order = { it }, full = true)
     Column(verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
         CapsuleTabs(listOf("Summary", "Commits", "Conversation"), tab, { tab = it })
         Column(Modifier.pageSlide(slide), verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
             repeat(3) { row -> Text("${listOf("Summary", "Commits", "Conversation")[slide.shown]}, row ${row + 1}", style = PullsType.row, color = c.text) }
+        }
+    }
+}
+
+/** Screens side by side, as the Inbox and Tours are: a tab or a swipe moves both, with nothing fading (H20, rule 105). */
+@Composable
+private fun SidePagesDemo() {
+    val c = LocalPullsColors.current
+    var tab by remember { mutableIntStateOf(0) }
+    Column(verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
+        CapsuleTabs(listOf("Inbox", "Tours"), tab, { tab = it })
+        SidePages(tab, listOf(0, 1), { tab = it }, Modifier.fillMaxWidth().height(96.dp)) { page ->
+            Box(Modifier.fillMaxSize().clip(RoundedCornerShape(PullsRadius.card)).background(c.raised), contentAlignment = Alignment.Center) {
+                Text(if (page == 0) "Inbox, swipe left" else "Tours, swipe right", style = PullsType.row, color = c.text)
+            }
         }
     }
 }

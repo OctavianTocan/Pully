@@ -21,12 +21,9 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullRow
-import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.sound.cueClickable
-import com.octaviantocan.pulls.ui.CommandsPage
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -40,18 +37,17 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 
-/** The pages of the profile sheet; Repositories and Commands slide in inside the same sheet (rule 78). */
+/** The pages of the profile sheet; Repositories slides in inside the same sheet (rule 78). */
 internal enum class ProfilePage(val parent: ProfilePage?) {
     Main(null),
     Repos(Main),
-    Commands(Main),
 }
 
 /**
- * The profile sheet: who you are and where to find you (the GitHub profile, the website the server lives
- * at), which repositories the Inbox and Tours show, closed pull requests, and Commands, a page inside the
- * sheet rather than a second sheet. The Inbox refreshes itself, so there is no Refresh here, and the rest
- * of the app has no use for checking out a branch.
+ * The profile sheet: who you are (a tap on your photo or name opens your GitHub profile), which repositories the
+ * Inbox and Tours show, and closed pull requests. Commands is not here: pulling the Inbox down opens it (H22), and
+ * neither is the server's address, which is Settings' business (H24). The Inbox refreshes itself, so there is no
+ * Refresh here.
  */
 @Composable
 internal fun ProfileSheet(
@@ -70,7 +66,6 @@ internal fun ProfileSheet(
 internal fun ProfilePage.title(): String = when (this) {
     ProfilePage.Main -> "Profile"
     ProfilePage.Repos -> "Repositories"
-    ProfilePage.Commands -> "Commands"
 }
 
 /** What one page of the profile sheet holds. */
@@ -86,40 +81,28 @@ internal fun ColumnScope.ProfilePageContent(
 ) {
     val settings = AppSettings.get(LocalContext.current)
     when (page) {
-        ProfilePage.Main -> ProfileMain(viewer, showClosed, onShowClosed, choices = repoChoices(pulls, settings.hiddenRepos), onRepos = { onPage(ProfilePage.Repos) }, onCommands = { onPage(ProfilePage.Commands) })
+        ProfilePage.Main -> ProfileMain(viewer, showClosed, onShowClosed, choices = repoChoices(pulls, settings.hiddenRepos), onRepos = { onPage(ProfilePage.Repos) })
         ProfilePage.Repos -> ReposPage(pulls, settings)
-        // A command can open a page or another sheet, so the profile sheet goes before it runs.
-        ProfilePage.Commands -> CommandsPage(scope = null, onClearScope = {}) { command -> onClose(); command.run() }
     }
 }
 
 @Composable
-private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShowClosed: (Boolean) -> Unit, choices: List<RepoChoice>, onRepos: () -> Unit, onCommands: () -> Unit) {
+private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShowClosed: (Boolean) -> Unit, choices: List<RepoChoice>, onRepos: () -> Unit) {
     val c = LocalPullsColors.current
-    val context = LocalContext.current
     val uri = LocalUriHandler.current
-    val server = remember { ServerStore.load(context).url.trim().trimEnd('/') }
-    val host = server.removePrefix("https://").removePrefix("http://")
-    Row(Modifier.fillMaxWidth().padding(top = 18.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (viewer != null) GithubAvatar(viewer, size = 56.dp) else ProfileDot(size = 56.dp)
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(viewer ?: "Pulls", style = PullsType.xl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
-            if (host.isNotBlank()) {
-                // The website the server lives at: it is teal text and a tap opens it, like any link.
-                Row(
-                    Modifier.clip(RoundedCornerShape(PullsRadius.md)).cueClickable(role = Role.Button, onClickLabel = "Open $host") { uri.openUri(server) },
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    Text(host, style = PullsType.sm, color = c.activeText, maxLines = 1)
-                }
-            }
-        }
+    // You, and a tap on you opens your GitHub profile (H23): no row of its own, no server address under the name (H24).
+    Row(
+        Modifier.padding(top = 10.dp).clip(RoundedCornerShape(PullsRadius.lg))
+            .then(if (viewer != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open your GitHub profile") { uri.openUri("https://github.com/$viewer") } else Modifier)
+            .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        if (viewer != null) GithubAvatar(viewer, size = 52.dp) else ProfileDot(size = 52.dp)
+        Text(viewer ?: "Pulls", style = PullsType.xl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
     }
-    SheetCard {
-        if (viewer != null) {
-            SheetRow("Open GitHub profile", { uri.openUri("https://github.com/$viewer") }, first = true, icon = { DrawableIcon(R.drawable.ic_carbon_logo_github, size = 22.dp) })
-        }
-        SheetRow("Repositories", onRepos, first = viewer == null, iconless = true) {
+    // The card sits close under you (H21).
+    SheetCard(gap = 6.dp) {
+        SheetRow("Repositories", onRepos, first = true, iconless = true) {
             val on = choices.count { it.shown }
             Text(if (choices.isEmpty()) "None yet" else "$on of ${choices.size} shown", style = PullsType.sm, color = c.muted)
             LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
@@ -127,7 +110,6 @@ private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShow
         SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, iconless = true) {
             PullsSwitch(showClosed, onShowClosed, "Show closed pull requests")
         }
-        SheetRow("Commands", onCommands, iconless = true) { LuIcon(Lu.chev, tint = c.faint, size = 18.dp) }
     }
 }
 

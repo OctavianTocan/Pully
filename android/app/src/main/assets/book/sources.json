@@ -562,7 +562,7 @@
       {
         "file": "ui/design/Sheet.kt",
         "line": 107,
-        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls\nunder the header, which stays put. Every sheet rests at two heights and slides between them (rule 77):\nits normal height, which is its content up to half the screen, and its tall height near the top of the\nscreen, which a short sheet reaches too: the room under its content is the sheet's own paper. [full]\nmakes the body fill the sheet (chat, Commands); its normal height is then half the screen, and its\n[footer] stays on screen at either height. [expandable] off keeps a sheet at its normal height. [back]\nswaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the\npanel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in\n350ms, both on the smooth-out curve. It follows a finger: dragged up from its normal height it goes to\nthe tall one, down from the tall height to the normal one, and down from the normal height it closes.\nA field that takes the keyboard lifts it to the tall height, so the field never sits behind the keyboard.\n[fromTop] is for a sheet a finger pulled down (Commands from the Inbox): it comes down from the top, with\nthe pull, and goes back up when closed (rule 105).",
+        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls\nunder the header, which stays put. Every sheet rests at two heights and slides between them (rule 77):\nits normal height, which is its content up to half the screen, and its tall height near the top of the\nscreen, which a short sheet reaches too: the room under its content is the sheet's own paper. [full]\nmakes the body fill the sheet (chat, Commands); its normal height is then half the screen, and its\n[footer] stays on screen at either height. [expandable] off keeps a sheet at its normal height. [back]\nswaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's. It rises from below the screen on a spring with a little bounce\nwhile fading in through a 2px blur, and leaves in 350ms on the smooth-out curve (rule 73, H3). It follows a finger:\ndragged up from its normal height it goes to the tall one, down from the tall height to the normal one, and down\nfrom the normal height it closes, settling on the same spring at the speed it was let go. Only a drag that starts\nwith the content at its top moves the sheet: scrolling the content back up to its top, or a fling that runs into\nit, never takes the sheet down with it (H2). A sheet is always a bottom sheet, wherever it was opened from (H6).\nA field that takes the keyboard lifts it to the tall height, so the field never sits behind the keyboard.",
         "params": [
           {
             "name": "onClose",
@@ -603,20 +603,15 @@
             "default": "null"
           },
           {
-            "name": "fromTop",
-            "type": "Boolean",
-            "default": "false"
-          },
-          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    fromTop: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val scrollState = scroll ?: rememberScrollState()\n    SheetHost(onClose, onBack = back, fromTop = fromTop) { position, dismiss ->\n        SheetPanel(position, dismiss, full, expandable) {\n            SheetHeader(\n                leading = { if (back != null) FloatIcon(Lu.back, \"Back\", back) else FloatIcon(Lu.close, \"Close\", dismiss) },\n                title = title,\n                trailing = trailing,\n            )\n            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)\n        }\n    }\n}"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val scrollState = scroll ?: rememberScrollState()\n    SheetHost(onClose, onBack = back) { position, dismiss ->\n        SheetPanel(position, dismiss, full, expandable) {\n            SheetHeader(\n                leading = { if (back != null) FloatIcon(Lu.back, \"Back\", back) else FloatIcon(Lu.close, \"Close\", dismiss) },\n                title = title,\n                trailing = trailing,\n            )\n            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)\n        }\n    }\n}"
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 133,
+        "line": 132,
         "doc": "",
         "params": [
           {
@@ -658,21 +653,16 @@
             "default": "null"
           },
           {
-            "name": "fromTop",
-            "type": "Boolean",
-            "default": "false"
-          },
-          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    fromTop: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, fromTop, content)\n\n/**\n * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\n * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\n * into ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]\n * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\n * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\n * At its normal height the panel grows or shrinks to the next page's height as the body slides.\n */"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, content)\n\n/**\n * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\n * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\n * into ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\n * enough to see which way it went: forward from the right, ← to the right (H1). [parent]\n * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\n * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\n * At its normal height the panel grows or shrinks to the next page's height as the body slides.\n */"
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 155,
-        "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nAt its normal height the panel grows or shrinks to the next page's height as the body slides.",
+        "line": 154,
+        "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\nenough to see which way it went: forward from the right, ← to the right (H1). [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nAt its normal height the panel grows or shrinks to the next page's height as the body slides.",
         "params": [
           {
             "name": "onClose",
@@ -719,7 +709,7 @@
       {
         "file": "ui/design/Kit.kt",
         "line": 548,
-        "doc": "`.r-card`: a white 16dp card on the sheet's paper.",
+        "doc": "`.r-card`: a white 16dp card on the sheet's paper, [gap] below what comes before it.",
         "params": [
           {
             "name": "modifier",
@@ -727,11 +717,16 @@
             "default": "Modifier"
           },
           {
+            "name": "gap",
+            "type": "Dp",
+            "default": "12.dp"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun SheetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(modifier.fillMaxWidth().padding(top = 12.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised), content = content)\n}"
+        "source": "@Composable\nfun SheetCard(modifier: Modifier = Modifier, gap: Dp = 12.dp, content: @Composable ColumnScope.() -> Unit) {\n    val shape = RoundedCornerShape(16.dp)\n    Column(modifier.fillMaxWidth().padding(top = gap).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised), content = content)\n}"
       }
     ]
   },

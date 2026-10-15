@@ -57,6 +57,10 @@ class AppSettings private constructor(private val context: Context) {
     var sounds by mutableStateOf(prefs.getBoolean("sounds", true))
         private set
 
+    /** Whether taps, swipes and outcomes vibrate (H18); on until Settings turns it off. */
+    var haptics by mutableStateOf(prefs.getBoolean("haptics", true))
+        private set
+
     /** The material the cues are played in, by its `Material.id`: `default` until the reader picks another. */
     var soundMaterial by mutableStateOf(prefs.getString("soundMaterial", null) ?: "default")
         private set
@@ -83,6 +87,7 @@ class AppSettings private constructor(private val context: Context) {
 
     fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
     fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply() }
+    fun updateHaptics(value: Boolean) { haptics = value; prefs.edit().putBoolean("haptics", value).apply() }
     fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply() }
     fun updateUpdateNotifications(value: Boolean) { updateNotifications = value; prefs.edit().putBoolean("updateNotifications", value).apply() }
     /** Switches a repository on or off for the Inbox. */

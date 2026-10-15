@@ -15,6 +15,7 @@ import { createTaskManager, defaultTaskRunners } from './ai/tasks'
 import { resolveGithubToken } from './credentials'
 import { getLens, listLenses } from './lenses'
 import { cachedMyPulls, listMyPulls } from './my-pulls'
+import { warmRepoPulls } from './native-review'
 
 export interface LocalRpcOptions {
   /** Any directory inside the repository under review. */
@@ -181,7 +182,13 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       type: 'query',
       args: [v.object({ state: v.picklist(MY_PULL_STATES), revalidate: v.optional(v.boolean()) })],
       returns: v.unknown(),
-      handler: async ({ state, revalidate }) => cachedMyPulls(state, revalidate),
+      handler: async ({ state, revalidate }) => {
+        const snapshot = cachedMyPulls(state, revalidate)
+        // The repositories in the Inbox are the ones the phone opens next, so their lists are fetched ahead (H14).
+        if (snapshot && state === 'open')
+          warmRepoPulls(snapshot.pulls)
+        return snapshot
+      },
     }),
     defineRpcFunction({ name: LOCAL_RPC.aiTaskStart, type: 'action', args: [aiTaskRequest], returns: v.string(), handler: request => tasks.start(request as AiTaskRequest) }),
     defineRpcFunction({

@@ -34,6 +34,7 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.ToastHost
 import com.octaviantocan.pulls.ui.design.Toaster
+import com.octaviantocan.pulls.ui.design.themeWipe
 import com.octaviantocan.pulls.ui.home.HomeScreen
 import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
@@ -53,7 +54,7 @@ import kotlinx.coroutines.launch
 /** The web routes: `/` home, `/:owner/:repo` a repo's PRs, a diff page, and the settings modal as a screen. */
 internal sealed interface Screen {
     data object Home : Screen
-    data class Repo(val owner: String, val repo: String) : Screen
+    data class Repo(val owner: String, val repo: String, val tours: Boolean = false) : Screen
     /** [tour] opens the pull request on its tour instead of its overview. */
     data class Review(val target: OpenTarget, val tour: Boolean = false) : Screen
     data object Settings : Screen
@@ -93,6 +94,7 @@ fun PullsApp(initialTarget: String?) {
             openTarget = { stack.add(Screen.Review(it)) },
             openTour = { stack.add(Screen.Review(it, tour = true)) },
             openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
+            openRepoTours = { owner, repo -> stack.add(Screen.Repo(owner, repo, tours = true)) },
             home = { stack.clear(); stack.add(Screen.Home) },
             settings = { if (stack.last() != Screen.Settings) stack.add(Screen.Settings) },
             uiBook = { if (stack.last() != Screen.UiBook) stack.add(Screen.UiBook) },
@@ -106,6 +108,7 @@ fun PullsApp(initialTarget: String?) {
     // Every code view reads `PullsType.mono`, which follows this.
     if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont) com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont
     val dark = LocalPullsColors.current.dark
+    val moving = com.octaviantocan.pulls.ui.design.rememberMotionEnabled()
     // The inbox's tab, chip and search live above the screens, so they are still there after a review.
     val homeUi = remember { HomeUi() }
     val toaster = remember { Toaster() }
@@ -115,7 +118,9 @@ fun PullsApp(initialTarget: String?) {
         listOf(
             Command("settings", messages.t("keys.settings"), group) { nav.settings() },
             Command("home", messages.t("keys.home"), group) { nav.home() },
-            Command("theme", messages.t("keys.theme"), group) { settings.updateTheme(if (dark) "light" else "dark") },
+            Command("theme", messages.t("keys.theme"), group) {
+                scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving) { settings.updateTheme(if (dark) "light" else "dark") } }
+            },
             Command("update", "Update Pulls", group, keywords = "upgrade new version install check latest") {
                 scope.launch { updateFromCommand(context, toaster) }
             },
@@ -123,14 +128,14 @@ fun PullsApp(initialTarget: String?) {
         )
     }
     CompositionLocalProvider(LocalToaster provides toaster) {
-        Box(Modifier.fillMaxSize().background(LocalPullsColors.current.base)) {
+        Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
             // the one under it slides away (rule 73), and back slides the other way, ranked by how deep the page is.
             val here = stack.indexOfLast { it != Screen.Settings }.coerceAtLeast(0)
             BlurSwitch(Layer(stack.getOrNull(here) ?: Screen.Home, here), Modifier.fillMaxSize(), order = { it.depth }, motion = pageMotion) { layer ->
                 when (val current = layer.screen) {
                     Screen.Home -> HomeScreen(nav, homeUi)
-                    is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)
+                    is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, startOnTours = current.tours)
                     is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}

@@ -127,8 +127,40 @@ private fun tidyHyphens(name: String): String {
  * The name a row shows: the CLI's display name with its version ("Opus 5.5", from the description when the name is the
  * family alone), without "(recommended)", which the pill says, and without hyphens between words.
  */
-internal fun modelLabel(model: CliModel): String =
-    tidyHyphens((describedName(model) ?: model.name).replace(Regex("""\s*\(recommended\)""", RegexOption.IGNORE_CASE), "").trim())
+internal fun modelLabel(model: CliModel): String {
+    val name = (describedName(model) ?: model.name).replace(Regex("""\s*\(recommended\)""", RegexOption.IGNORE_CASE), "").trim()
+    // A CLI that names a model by its id alone (`gpt-6-luna`) still gets a name on the row (H7); a name of its own
+    // (`o3-mini`) is kept as the CLI wrote it.
+    return if (name == model.id) prettyModelId(name) else tidyHyphens(name)
+}
+
+/**
+ * A model id written as a name, for when no catalog names it: `gpt-6-luna` is `GPT-6 Luna`, `claude-opus-4-1` is
+ * `Claude Opus 4.1`. A word and its number keep their hyphen, two numbers become a version, and words are capitalised.
+ */
+internal fun prettyModelId(id: String): String {
+    val parts = id.trim().split('-', '_').filter { it.isNotEmpty() }
+    if (parts.isEmpty()) return id
+    return buildString {
+        parts.forEachIndexed { index, part ->
+            val previous = parts.getOrNull(index - 1)
+            if (index > 0) append(
+                when {
+                    previous!!.all { it.isDigit() } && part.all { it.isDigit() } -> '.'
+                    index == 1 && previous.all { it.isLetter() } && part.first().isDigit() && previous.length <= 3 -> '-'
+                    else -> ' '
+                },
+            )
+            append(
+                when {
+                    part.equals("gpt", ignoreCase = true) -> "GPT"
+                    part.first().isLetter() -> part.replaceFirstChar { it.titlecase() }
+                    else -> part
+                },
+            )
+        }
+    }
+}
 
 /** The one line a row adds under its name, only for the default, whose name alone does not say which model it is. */
 internal fun modelNote(model: CliModel): String? =

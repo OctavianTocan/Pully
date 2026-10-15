@@ -1,5 +1,10 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.PullSizes
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -125,7 +130,14 @@ internal fun PrOverviewScreen(
 ) {
     val c = LocalPullsColors.current
     val focusManager = LocalFocusManager.current
+    // While the title or the description is edited the rest of the page steps back, so the field is plainly what the
+    // page is about now (H35).
+    val editFocus = remember { EditFocus() }
+    val editing = editFocus.editing
+    val stepBack by animateFloatAsState(if (editing != null) EDIT_DIM else 1f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "edit-dim")
+    fun Modifier.backUnless(field: String) = graphicsLayer { alpha = if (editing == null || editing == field) 1f else stepBack }
     // A tap on the empty page leaves a field the person was editing in place, which saves it (rule 83).
+    CompositionLocalProvider(LocalEditFocus provides editFocus) {
     Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
         // The header with the capsule is the review's, above all three views (rule 93).
         Column(Modifier.fillMaxSize()) {
@@ -135,7 +147,7 @@ internal fun PrOverviewScreen(
             val labels = listOf("Summary", "Commits", "Conversation")
             val shown = pane.coerceAtMost(labels.lastIndex)
             val commitAnchor = remember { mutableStateOf<Int?>(null) }
-            val slide = rememberPageSlide(shown, order = { it })
+            val slide = rememberPageSlide(shown, order = { it }, full = true)
             // A swipe left or right moves between the tabs, and left past the last one goes on to the Diff (rule 93).
             var drag by remember { mutableFloatStateOf(0f) }
             val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
@@ -170,12 +182,17 @@ internal fun PrOverviewScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
             ) {
                 item(key = "head") {
-                    Column {
+                    // Only the page under the tabs swipes between them (H32): a sideways drag on the title, the branch
+                    // or the numbers is held here, so the list's swipe never sees it.
+                    val still = rememberDraggableState { }
+                    Column(Modifier.draggable(still, Orientation.Horizontal)) {
                         val overview = data?.overview
                         EditableText(
                             head.title, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.xxl, saved = "Title updated",
                             onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
+                            modifier = Modifier.backUnless("title"),
                         ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
+                        Column(Modifier.backUnless("")) {
                         PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
                         if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head)
                         StackMark(session.stack) { onSheet("stack") }
@@ -188,10 +205,12 @@ internal fun PrOverviewScreen(
                         StatsLine(session, data, onSheet, onCommits = { onPane(COMMITS_TAB) })
                         // The ink leans toward the next tab with the finger, and slides there when it changes (rule 105).
                         UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true, pull = { slide.pull(range) })
+                        }
                     }
                 }
-                // The tabs follow the finger at once; the rows under them leave and arrive as a page (rule 73).
-                val rows = Modifier.pageSlide(slide)
+                // The tabs follow the finger at once; the rows under them leave and arrive as a page (rule 73). They hold
+                // the description, so they step back only while the title is edited.
+                val rows = Modifier.pageSlide(slide).backUnless("description")
                 when (slide.shown.coerceAtMost(labels.lastIndex)) {
                     0 -> {
                         item(key = "summary") { Box(rows) { SummaryPane(session, top, data, onCite, onSheet) } }
@@ -203,10 +222,11 @@ internal fun PrOverviewScreen(
             }
         }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
-        BottomBar(session, head, Modifier.align(Alignment.BottomCenter), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
+        BottomBar(session, head, Modifier.align(Alignment.BottomCenter).backUnless(""), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
             top.reviewVerdict = "APPROVE"
             top.reviewOpen = true
         })
+    }
     }
 }
 
@@ -314,15 +334,18 @@ private fun RowScope.Segment(label: String, onClick: (() -> Unit)?, content: @Co
 private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (String) -> Unit, onCommits: () -> Unit) {
     val c = LocalPullsColors.current
     val overview = data?.overview
-    val adds = session.files.sumOf { it.additions }
-    val dels = session.files.sumOf { it.deletions }
+    // Until the diff lands its size is the one the list showed, so Changes comes with the rest of the line (H29).
+    val known = (session.target as? OpenTarget.Pull)?.let { PullSizes.get(it.owner, it.repo, it.number) }
+    val diffed = session.opened != null
+    val adds = if (diffed) session.files.sumOf { it.additions } else known?.additions ?: 0
+    val dels = if (diffed) session.files.sumOf { it.deletions } else known?.deletions ?: 0
     val commits = overview?.let { it.commits.size + it.commitsHidden } ?: (session.prOpened ?: session.opened)?.commits?.size ?: 0
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp).drawBehind { drawRect(c.borderMute, Offset.Zero, Size(size.width, 1.dp.toPx())) }.padding(vertical = 9.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Before the diff arrives the sizes are bars; the rest of the line is the overview's (rule 51).
-        val sized = session.opened != null
+        val sized = diffed || known != null
         Cell("Changes", Modifier.width(104.dp)) {
             if (!sized) { Skeleton(Modifier.padding(vertical = 4.dp).width(72.dp)); return@Cell }
             Text("+${compactCount(adds)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.green(c.dark), maxLines = 1)
@@ -332,8 +355,9 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
             Text("$commits", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
         Cell("Files", Modifier.width(52.dp), onClick = if (session.files.isNotEmpty()) ({ onSheet("files") }) else null) {
-            if (!sized) { Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp)); return@Cell }
-            Text("${session.files.size}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            val files = if (diffed) session.files.size else known?.files
+            if (files == null) { Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp)); return@Cell }
+            Text("$files", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
         val checks = overview?.checksSummary
         Cell("Checks", Modifier.weight(1f), onClick = if (checks != null && checks.total > 0) ({ onSheet("checks") }) else null) {

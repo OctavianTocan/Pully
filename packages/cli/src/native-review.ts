@@ -23,6 +23,7 @@ import { resolveGithubToken } from './credentials'
 import { sharedJev } from './jev'
 import { createFileAttention, JEV_FILES_OFF } from './jev-files'
 import { overviewValue, readStoredOverview, storeOverview } from './pr-store'
+import { createRepoPullsCache } from './repo-pulls'
 import { serverSession } from './server-session'
 import { createPatchReader, MAX_PATCH_PATHS } from './stored-diff'
 
@@ -69,6 +70,18 @@ async function token(): Promise<string> {
 
 async function client() {
   return createGithubClient(staticCredentials(await token()))
+}
+
+/** Each repository's first page of open pull requests, answered from the server and fetched ahead for the Inbox. */
+const repoPulls = createRepoPullsCache(async (owner, repo) => fetchOpenPullRequests(await client(), owner, repo))
+
+/**
+ * Fetches ahead the first page of the repositories these pull requests are in, so the repository page opens at once.
+ *
+ * @param pulls The Inbox the phone was just sent.
+ */
+export function warmRepoPulls(pulls: { owner: string, repo: string }[]): void {
+  repoPulls.warm(pulls)
 }
 
 async function prReviews(args: Args) {
@@ -392,7 +405,11 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const repo = text(args?.repo)
     if (!owner || !repo)
       throw new Error('That needs an owner and a repo.')
-    return fetchOpenPullRequests(await client(), owner, repo, text(args?.next) || undefined)
+    const next = text(args?.next)
+    // Later pages go to GitHub; the first is the one the page opens on, so the server keeps it (H14).
+    if (next)
+      return fetchOpenPullRequests(await client(), owner, repo, next)
+    return repoPulls.first(owner, repo, args?.fresh === true)
   },
 
   /** Drops the chat after the analysis, keeping the analysis turn, as `useLlmChat.clear` does. */

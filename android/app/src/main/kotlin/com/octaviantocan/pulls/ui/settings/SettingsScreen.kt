@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -57,11 +58,13 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.ThemeWipe
+import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.CodeFontPage
 import com.octaviantocan.pulls.ui.review.EffortPage
 import com.octaviantocan.pulls.ui.review.ModelCatalogs
-import com.octaviantocan.pulls.ui.review.SPLIT_MIN_DP
+import com.octaviantocan.pulls.ui.review.fetchCatalog
 import com.octaviantocan.pulls.ui.review.ModelPage
 import com.octaviantocan.pulls.ui.review.analysisModelLabel
 import com.octaviantocan.pulls.ui.update.ChangelogEntries
@@ -133,7 +136,8 @@ internal class EngineModels(context: Context) {
 internal enum class SettingsPage(val parent: SettingsPage?) {
     Main(null),
     Language(Main),
-    Server(Main),
+    Advanced(Main),
+    Server(Advanced),
     Font(Main),
     Model(Main),
     Effort(Model),
@@ -144,6 +148,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
 internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Main -> t("common.settings")
     SettingsPage.Language -> t("settings.language")
+    SettingsPage.Advanced -> "Advanced"
     SettingsPage.Server -> "Server"
     SettingsPage.Font -> "Code font"
     SettingsPage.Model -> "Select model"
@@ -153,7 +158,8 @@ internal fun SettingsPage.title(): String = when (this) {
 
 /**
  * Settings, as a sheet like the rest of the app: grouped white cards on paper, one row for each choice.
- * Language, the code font, the model, its effort and the server are pages inside this one sheet (rule 78).
+ * Language, the code font, the model, its effort and Advanced (the server and the UI Book) are pages inside this one
+ * sheet (rule 78). Rows carry no explanations under them: a row says what it is, and its page says the rest (H8).
  * A setting that changes how something looks shows the result (rule 81): the diff layout as two small diffs,
  * the code size and font as a sample line.
  */
@@ -172,6 +178,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
     when (page) {
         SettingsPage.Main -> MainPage(nav, settings, open = onPage)
         SettingsPage.Language -> LanguagePage(settings, onDone = { onPage(SettingsPage.Main) })
+        SettingsPage.Advanced -> AdvancedPage(nav, open = onPage)
         SettingsPage.Server -> ServerPage()
         SettingsPage.Font -> CodeFontPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) }, onEffort = { onPage(SettingsPage.Effort) })
@@ -184,19 +191,14 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
 }
 
 /**
- * The two diff layouts as small diffs you tap, here and in the diff's own Text and tools sheet. Split needs a screen
- * [SPLIT_MIN_DP] wide, so on a phone held upright it is dimmed and says so, and Unified is the one shown as chosen.
+ * The two diff layouts as small diffs you tap, here and in the diff's own Text and tools sheet. Both can be chosen on any
+ * screen: a phone held upright shows the split too, two narrow columns (H10).
  */
 @Composable
 internal fun LayoutChoices(settings: AppSettings, modifier: Modifier = Modifier) {
-    val split = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= SPLIT_MIN_DP
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        LayoutChoice(split = false, selected = !split || settings.layout != "split", label = t("settings.unified"), onClick = { settings.updateLayout("unified") }, modifier = Modifier.weight(1f))
-        LayoutChoice(
-            split = true, selected = split && settings.layout == "split",
-            label = if (split) t("settings.split") else "${t("settings.split")} · wider screens",
-            onClick = { settings.updateLayout("split") }, modifier = Modifier.weight(1f), enabled = split,
-        )
+        LayoutChoice(split = false, selected = settings.layout != "split", label = t("settings.unified"), onClick = { settings.updateLayout("unified") }, modifier = Modifier.weight(1f))
+        LayoutChoice(split = true, selected = settings.layout == "split", label = t("settings.split"), onClick = { settings.updateLayout("split") }, modifier = Modifier.weight(1f))
     }
 }
 
@@ -216,7 +218,14 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     val context = LocalContext.current
     val messages = LocalMessages.current
     val config = remember { ServerStore.load(context) }
+    val repo = remember { Repo(context) }
+    // The catalog gives the model its name; until it comes, the id is written as a name (H7).
+    val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine) {
+        if (value == null) value = fetchCatalog(repo, config.engine).getOrNull()
+    }
     val language = Messages.LOCALES.firstOrNull { it.first == settings.locale }?.second ?: settings.locale
+    val scope = rememberCoroutineScope()
+    val moving = rememberMotionEnabled()
     val zoomIndex = ZOOMS.indexOfFirst { kotlin.math.abs(settings.codeZoom - it.second) < 0.04f }.coerceAtLeast(0)
 
     Group("Appearance") {
@@ -225,7 +234,10 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
             CapsuleTabs(
                 listOf("System", "Light", "Dark"),
                 themes.indexOf(settings.theme).coerceAtLeast(0),
-                { settings.updateTheme(themes[it]) },
+                { picked ->
+                    // The new look wipes in from the top corner on the side of the choice: Dark from the right (H5).
+                    scope.launch { ThemeWipe.run(fromRight = picked == 2, motion = moving) { settings.updateTheme(themes[picked]) } }
+                },
                 Modifier.fillMaxWidth(),
             )
         }
@@ -260,6 +272,10 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
             SheetRow("Button sounds", { toggleSounds(settings, !settings.sounds) }, first = true, iconless = true) {
                 PullsSwitch(settings.sounds, { toggleSounds(settings, it) }, "Button sounds")
             }
+            // Taps, swipes and outcomes are felt as well (H18); turning it on answers with a click.
+            SheetRow("Vibration", { toggleHaptics(settings, !settings.haptics) }, iconless = true) {
+                PullsSwitch(settings.haptics, { toggleHaptics(settings, it) }, "Vibration")
+            }
         }
         if (settings.sounds) {
             val materials = Material.entries
@@ -293,28 +309,34 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     Group(t("settings.llm.title")) {
         SheetCard {
             SheetRow("Model", { open(SettingsPage.Model) }, first = true, icon = { EngineMark(config.engine, size = 22.dp) }) {
-                Text(analysisModelLabel(config, ModelCatalogs.get(config.engine), settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+                Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
         }
-        Text(
-            t("settings.llm.localDescription"),
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
-    }
-    Group("Server") {
-        SheetCard {
-            SheetRow("Server", { open(SettingsPage.Server) }, first = true, iconless = true) {
-                Text(config.url.removePrefix("https://").removePrefix("http://").ifBlank { "Not set" }, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
-        }
-        Text(
-            "The server uses its own GitHub sign-in for every request. Reviews and comments are posted as that account.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
     }
     UpdatesGroup(settings, open)
+    // The server and the UI Book are for setting the app up, not for using it: one row at the bottom (H9).
+    Box(Modifier.padding(top = 24.dp)) {
+        SheetCard {
+            SheetRow("Advanced", { open(SettingsPage.Advanced) }, first = true, iconless = true) {
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+    }
+}
+
+/** Advanced: which server the phone reads from, and the UI Book. */
+@Composable
+private fun ColumnScope.AdvancedPage(nav: Nav, open: (SettingsPage) -> Unit) {
+    val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val config = remember { ServerStore.load(context) }
+    SheetCard {
+        SheetRow("Server", { open(SettingsPage.Server) }, first = true, iconless = true) {
+            Text(config.url.removePrefix("https://").removePrefix("http://").ifBlank { "Not set" }, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+        }
+    }
     UiBookRow(nav.uiBook)
 }
 
@@ -355,11 +377,13 @@ private fun UpdatesGroup(settings: AppSettings, open: (SettingsPage) -> Unit) {
                 PullsSwitch(on, { turn(it) }, "Update notifications")
             }
         }
-        Text(
-            "Pulls asks your server for a new version in the background and sends a notification when one is out.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
     }
+}
+
+/** Turns vibration on or off; turning it on is felt at once. */
+private fun toggleHaptics(settings: AppSettings, on: Boolean) {
+    settings.updateHaptics(on)
+    if (on) com.octaviantocan.pulls.sound.Haptics.cue(Cue.Toggle)
 }
 
 /** Turns the button sounds on or off. Turning them on answers with a toggle, so the first sound is the proof they work. */

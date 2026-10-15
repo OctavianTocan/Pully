@@ -967,7 +967,7 @@
       "motion",
       "review"
     ],
-    "text": "Tavi: \"Most transition animations don't seem to naturally follow the movement you're doing. For instance, when I swipe in the PR home to move between the tabs, the direction of the transition does not go into the tab we're going to.\" Everything moves the way the person moved it. A thing dragged by a finger follows the finger, and when the finger lets go it either settles back where it was or carries on the way the finger went; it never springs back toward the finger's start before going on. The next tab, file, view or page comes in from the right and the one left behind leaves to the left; the previous one comes from the left. Pages sit where the controls show them: tabs in their order, the review's views in the capsule's order (Overview, Changes, Tour), the stack of pages by depth. Back always goes backward, whichever view or page it lands on. A back swipe moves the page with the finger and then carries it on that way, so a swipe from the right edge sends it left. The tab underline and the capsule's pill slide to the new place, and the underline leans toward the next tab while the finger drags. A label that names where you are (the file between ‹ and ›, the Tour's stop) changes the same way: the next file from the right, the next stop rising from below. Commands, pulled down from the top, comes from the top and goes back up; a sheet thrown down carries on down. Nothing that belongs to a page pops while the page slides: it slides with it. A quick throw of 500dp/s counts as a swipe however short it is, and a throw back against the drag cancels it.\n\nCheck: on the Overview drag between tabs slowly and let go short, then far, then throw: the rows and the underline go toward the tab you went to, or back where they were, never the other way first. Swipe between files and past the last one, use ‹ ›, the capsule and Back, back-swipe from each edge, pull Commands down and close it."
+    "text": "Tavi: \"Most transition animations don't seem to naturally follow the movement you're doing. For instance, when I swipe in the PR home to move between the tabs, the direction of the transition does not go into the tab we're going to.\" Everything moves the way the person moved it. A thing dragged by a finger follows the finger, and when the finger lets go it either settles back where it was or carries on the way the finger went; it never springs back toward the finger's start before going on. The next tab, file, view or page comes in from the right and the one left behind leaves to the left; the previous one comes from the left. Pages sit where the controls show them: tabs in their order, the review's views in the capsule's order (Overview, Changes, Tour), the stack of pages by depth. Back always goes backward, whichever view or page it lands on. A back swipe moves the page with the finger and then carries it on that way, so a swipe from the right edge sends it left. The tab underline and the capsule's pill slide to the new place, and the underline leans toward the next tab while the finger drags. A label that names where you are (the file between ‹ and ›, the Tour's stop) changes the same way: the next file from the right, the next stop rising from below. Commands, pulled down from the Inbox, is a sheet like any other and rises from the bottom (H6); a sheet thrown down carries on down. Nothing that belongs to a page pops while the page slides: it slides with it. A quick throw of 500dp/s counts as a swipe however short it is, and a throw back against the drag cancels it.\n\nCheck: on the Overview drag between tabs slowly and let go short, then far, then throw: the rows and the underline go toward the tab you went to, or back where they were, never the other way first. Swipe between files and past the last one, use ‹ ›, the capsule and Back, back-swipe from each edge, pull Commands down and close it."
   },
   {
     "n": 106,
@@ -978,5 +978,59 @@
       "review"
     ],
     "text": "Tavi: \"Let's also have an agent that updates the web page, and makes it like the mobile app looks-wise. The more code we can deduplicate, especially styling-wise, the better.\" The web app is the same product as the phone app and wears the same look: warm paper, deep teal ink, one teal accent, Geist, the prototype's icons, and the same pills, cards, chips, tabs, sheets and shadows. Neither side has a look of its own. The web takes its tokens from this file's front matter, its icons from `Lu` and its fonts from `PullsFonts` (written into `packages/app/src/design` as generated files), and the phone takes its strings from the web's locale files. A colour, size, radius, shadow, icon or string is added once, at its source, and `pnpm run android:design:update` carries it to the other side. The web may lay a screen out wider, with a side list next to the content from 768px up, but every piece it is made of is the phone's piece.\n\nCheck: open the same pull request on the phone and on the web at 390 by 844, in light and dark. Same colours, type, icons, corners and shadows."
+  },
+  {
+    "n": 107,
+    "title": "Pages that sit side by side slide whole.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tavi, on Inbox and Tours: \"It should move like screens side by side\", as Grok's Ask, Imagine and Build do, and on Summary and Commits: \"pages next to each other just slide, no fade.\" Screens that sit beside each other (the Inbox and Tours, a repository's pull requests and its tours, the Overview's tabs, the Diff's files) move the whole width of the screen with a gap between them, and nothing fades or blurs. The Inbox and Tours follow a drag anywhere a row does not take it, and settle on the nearer screen or go on the way a throw went (`SidePages`). The Overview's rows and the Diff's file leave the whole width gathering speed and the next arrives from the other edge (`rememberPageSlide(..., full = true)`). A sheet's own pages (Settings to What's new, Code font, Language) travel a third of the sheet's width in 350ms and blur, so the way they go is plain (H1, H4). Only the content under the Overview's tabs swipes between them: a sideways drag on the title, the branch or the numbers does nothing (H32).\n\nCheck: tap Tours and drag back to the Inbox from the chips; swipe Summary to Commits and back; open Settings, go to What's new and back. The screens move whole, nothing fades, and Back goes right."
+  },
+  {
+    "n": 108,
+    "title": "Sheets rise from the bottom, bounce a little, and close only when pulled.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Every sheet, Commands included, comes up from the bottom and settles on a spring that goes a little past its place and comes back (H3, H6). Scrolling a sheet's content down and back up never moves the sheet: only a drag that starts with the content at its top, or on the grabber and header, pulls it down (H2).\n\nCheck: open Settings, scroll the content down and back up fast: the sheet stays. Pull it down from the header: it follows and closes. Pull the Inbox down for Commands: it rises from the bottom."
+  },
+  {
+    "n": 109,
+    "title": "Taps, swipes and outcomes are felt.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tavi: \"use Android vibrations much more.\" Every control that plays a cue also vibrates, with the phone's own short effects: a tick for a quiet button or a choice, a click for a main button or a switch, two for a success and a heavy one for a failure. A swipe ticks when letting go would act and again if the finger takes it back, as do Pull for commands and a page that changes under the finger; holding a row is a heavy click. Vibration follows the phone's touch feedback setting and has its own switch under Settings, Sounds.\n\nCheck: with Vibration on, tap a tab, swipe a row past its point and back, pull for commands, hold a row, switch the theme. Each is felt; with the switch off none is."
+  },
+  {
+    "n": 110,
+    "title": "Editing looks like editing.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tapping the title puts the caret where the finger landed, not before the first letter (H34). While the title is edited it is underlined in the accent and the rest of the page fades to a quarter, so it is plain that the page is now about the field (H35); the description's field fades the page around it the same way. Leaving the field brings the page back.\n\nCheck: tap in the middle of a pull request's title: the caret is there, the page behind fades, and tapping the empty page saves and brings it back."
+  },
+  {
+    "n": 111,
+    "title": "Names stay on one line.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "An author's name, a branch and a tour's author never wrap and never stack a letter to a line (H15, H28). In a row the name takes one line and gives way only at its end. The branch row is always one line: a long branch runs past the edge and the row scrolls sideways to read it all, and \"…\" is the last resort (H31). A pull request in a stack shows where it sits, \"2/10\" with the layers mark, under its number, not beside the name (H16). A finished tour's ring is a filled tick and nothing says \"Read\" (H27).\n\nCheck: open the Inbox with a stacked pull request by a long login, and an Overview with a long branch: names are one line, the branch scrolls, and the stack place is under the number."
+  },
+  {
+    "n": 112,
+    "title": "Light and dark wipe in from a corner.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes.\n\nCheck: in Settings tap Dark, then Light: the new look grows from the top right, then from the top left."
   }
 ]

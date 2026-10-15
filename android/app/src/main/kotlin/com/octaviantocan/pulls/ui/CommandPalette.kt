@@ -57,7 +57,7 @@ private const val PER_GROUP = 4
 fun CommandPalette() {
     if (!Commands.paletteOpen) return
     // Pulled down from the Inbox, it comes down from the top with the finger; opened any other way it rises like every sheet.
-    PullsSheet(Commands::close, "Commands", full = true, fromTop = Commands.fromTop) {
+    PullsSheet(Commands::close, "Commands", full = true) {
         CommandsPage(Commands.scope, onClearScope = { Commands.scope = null }) { command ->
             Commands.close()
             command.run()

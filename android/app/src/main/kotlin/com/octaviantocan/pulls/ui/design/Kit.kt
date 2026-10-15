@@ -544,11 +544,11 @@ fun ProfileDot(modifier: Modifier = Modifier, size: Dp = 40.dp) {
 
 // --- Bottom sheet (PullsSheet lives in Sheet.kt) ---
 
-/** `.r-card`: a white 16dp card on the sheet's paper. */
+/** `.r-card`: a white 16dp card on the sheet's paper, [gap] below what comes before it. */
 @Composable
-fun SheetCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun SheetCard(modifier: Modifier = Modifier, gap: Dp = 12.dp, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(16.dp)
-    Column(modifier.fillMaxWidth().padding(top = 12.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised), content = content)
+    Column(modifier.fillMaxWidth().padding(top = gap).floatShadow(shape, PullsShadow.Note).clip(shape).background(LocalPullsColors.current.raised), content = content)
 }
 
 /**

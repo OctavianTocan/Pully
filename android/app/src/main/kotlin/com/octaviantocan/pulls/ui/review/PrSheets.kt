@@ -68,7 +68,7 @@ internal suspend fun fetchCatalog(repo: Repo, engine: String, refresh: Boolean =
 /** `Opus 5.5 · High`: the model the analysis will use and its effort. */
 internal fun analysisModelLabel(config: ServerConfig, catalog: CliCatalog?, effort: String, messages: Messages): String {
     val model = AiSettingsLogic.current(catalog, config.model)
-    val name = model?.let(::modelLabel) ?: config.model.ifBlank { "Default" }
+    val name = model?.let(::modelLabel) ?: config.model.ifBlank { null }?.let(::prettyModelId) ?: "Default"
     val shown = effort.ifBlank { model?.defaultEffort.orEmpty() }
     return listOf(name, shown.takeIf { it.isNotBlank() }?.let { AiSettingsLogic.effortLabel(it) { key -> messages.t(key) } }).filterNotNull().joinToString(" · ")
 }

@@ -180,7 +180,9 @@ class Repo(private val context: Context) {
         call("my-pulls-cached") { put("state", state); if (!revalidate) put("revalidate", false) } as? JsonObject
     suspend fun myPulls(state: String): List<PullRow> = call("my-pulls") { put("state", state) }.asPulls()
 
-    suspend fun repoPulls(owner: String, repo: String, next: String? = null): JsonObject = call("repo-pulls") { put("owner", owner); put("repo", repo); next?.let { put("next", it) } }.jsonObject
+    /** One page of a repository's open pull requests; the first comes from the server's copy unless [fresh] asks GitHub. */
+    suspend fun repoPulls(owner: String, repo: String, next: String? = null, fresh: Boolean = false): JsonObject =
+        call("repo-pulls") { put("owner", owner); put("repo", repo); next?.let { put("next", it) }; if (fresh) put("fresh", true) }.jsonObject
 
     suspend fun recent(): List<JsonObject> = (call("recent-diffs") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
 

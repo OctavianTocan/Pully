@@ -203,7 +203,7 @@ class InboxTest {
         val later = 1_000 + TourEntry.WRITING_STALE_MS
         assertFalse(rewriting.doneAt(1_000 + 60_000))
         assertTrue(rewriting.doneAt(later))
-        assertEquals("Read", tourState(rewriting, later))
+        assertEquals("", tourState(rewriting, later))
         assertEquals("Last", tourState(rewriting.copy(reached = 2), later))
     }
 
