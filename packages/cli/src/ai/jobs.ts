@@ -384,7 +384,7 @@ async function executePi(job: Job): Promise<Ending> {
     if (stopped)
       return { status: 'failed', error: stopped, usage: outcome.usage }
     if (outcome.text && !outcome.error)
-      return { status: 'done', result: request.schema !== undefined ? JSON.stringify(dropNulls(JSON.parse(outcome.text))) : outcome.text, usage: outcome.usage }
+      return { status: 'done', result: outcome.text, usage: outcome.usage }
     return { status: 'failed', error: outcome.error ?? 'Pi returned an empty answer.', usage: outcome.usage }
   }
   finally {

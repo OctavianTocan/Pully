@@ -143,7 +143,8 @@ export function piModel(id: string, config: PiConfig): Model<'openai-completions
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 200_000,
-    maxTokens: 32_000,
+    // The endpoint does not say each model's output limit, so no cap is sent and every model answers within its own.
+    maxTokens: 0,
     // A proxy in front of several vendors: the plain `system` role and no `store` field are what every one of them takes.
     compat: { supportsDeveloperRole: false, supportsStore: false },
   }

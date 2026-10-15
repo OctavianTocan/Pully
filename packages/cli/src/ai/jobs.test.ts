@@ -255,13 +255,16 @@ describe('ai jobs', () => {
       const [request] = requests
       expect(request!.auth).toBe('Bearer secret')
       expect(request!.body).toMatchObject({ model: 'gpt-6', stream: true, reasoning_effort: 'high', messages: [{ role: 'system', content: 'S' }, { role: 'user' }] })
+      // Each model's own output limit applies; Pi does not know it, so it sends none.
+      expect(request!.body).not.toHaveProperty('max_tokens')
+      expect(request!.body).not.toHaveProperty('max_completion_tokens')
     })
 
-    it('answers a schema through submit_answer, without the nulls', async () => {
+    it('answers a schema through submit_answer, keeping a null the schema allows', async () => {
       process.env.PULLS_REVIEW_PI_BASE_URL = baseUrl
-      const schema = { type: 'object', properties: { questions: { type: 'array', items: { type: 'string' } }, note: { type: ['string', 'null'] } }, required: ['questions'] }
+      const schema = { type: 'object', properties: { questions: { type: 'array', items: { type: 'string' } }, note: { type: ['string', 'null'] } }, required: ['questions', 'note'] }
       const result = await runAiJob(ask('ok', { engine: 'pi', model: 'gpt-6', schema }))
-      expect(JSON.parse(result.text)).toEqual({ questions: ['Why?'] })
+      expect(JSON.parse(result.text)).toEqual({ questions: ['Why?'], note: null })
       // An endpoint that takes no key gets a placeholder it ignores.
       expect(requests[0]!.auth).toBe('Bearer none')
     })
