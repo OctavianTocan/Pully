@@ -49,33 +49,74 @@ export const PI_EFFORTS = ['low', 'medium', 'high'] as const
 
 const MODELS_TIMEOUT_MS = 15_000
 
-/**
- * A readable name for a model id: `claude-opus-5-5` reads "Claude Opus 5.5", `gpt-5.5-codex` "GPT-5.5 Codex",
- * `gemini-3-pro-preview` "Gemini 3 Pro Preview". A dated snapshot suffix and a provider prefix are dropped.
- * @param id - The id the endpoint lists.
- * @returns The name to show.
- */
-export function piModelName(id: string): string {
-  const base = id.slice(id.lastIndexOf('/') + 1).replace(/-\d{8}$|-\d{4}-\d{2}-\d{2}$/, '')
-  const words = base.split(/[-_\s]+/).filter(Boolean)
+/** Words vendors write in their own case. */
+const WORD_CASE: Record<string, string> = { gpt: 'GPT', oss: 'OSS', glm: 'GLM', deepseek: 'DeepSeek', minimax: 'MiniMax', highspeed: 'HighSpeed', vl: 'VL' }
+/** A reasoning effort a proxy folds into the id, as `-high` or `(high)`; shown in brackets. `max` is left out: Codex Max is a model. */
+const EFFORT_WORD = /^(?:minimal|low|medium|high|xhigh)$/
+/** Claude's older ids put the version first: `claude-3-7-sonnet` is Claude Sonnet 3.7. */
+const CLAUDE_TIER = /^(?:opus|sonnet|haiku)$/
+
+/** A snapshot tag inside an id, which says nothing a reader needs: a date (`20250929`, `0309`) or a revision (`001`). */
+function isSnapshot(word: string): boolean {
+  return /^\d{8}$/.test(word) || /^0\d{2}$/.test(word) || /^(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])$/.test(word)
+}
+
+function pretty(word: string): string {
+  const lower = word.toLowerCase()
+  if (WORD_CASE[lower])
+    return WORD_CASE[lower]
+  // A size reads in capitals: 120b is 120B, 256k is 256K.
+  if (/^\d+(?:\.\d+)?[bkm]$/.test(lower))
+    return lower.toUpperCase()
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
+/** Joins Claude's two-word versions: `opus-5-5` is Opus 5.5. */
+function joinVersions(words: string[]): string[] {
   const out: string[] = []
   for (let index = 0; index < words.length; index++) {
     const word = words[index]!
     const next = words[index + 1]
-    // Claude writes its version as two words: `opus-5-5` is Opus 5.5.
-    if (/^\d{1,2}$/.test(word) && next && /^\d{1,2}$/.test(next)) {
+    if (/^\d{1,2}$/.test(word) && next !== undefined && /^\d{1,2}$/.test(next)) {
       out.push(`${word}.${next}`)
       index += 1
-      continue
     }
-    out.push(word.toLowerCase() === 'gpt' ? 'GPT' : word.charAt(0).toUpperCase() + word.slice(1))
+    else {
+      out.push(word)
+    }
   }
-  // "GPT" keeps the hyphen it is written with before its number.
-  return out.join(' ').replace(/^GPT (?=\d)/, 'GPT-')
+  return out
 }
 
+/**
+ * A readable name for a model id, the way its vendor writes it: `claude-opus-5-5` reads "Claude Opus 5.5",
+ * `claude-3-7-sonnet-20250219` "Claude Sonnet 3.7", `gpt-5.5-codex` "GPT-5.5 Codex", `gpt-oss-120b-medium`
+ * "GPT-OSS 120B (Medium)", `gemini-3.8-flash-high` "Gemini 3.8 Flash (High)". A provider prefix, dates and revision
+ * tags are dropped.
+ * @param id - The id the endpoint lists.
+ * @returns The name to show.
+ */
+export function piModelName(id: string): string {
+  let base = id.slice(id.lastIndexOf('/') + 1).trim()
+  // CLIProxyAPI takes a thinking level after the id: `gpt-5.5(high)`.
+  const bracket = /\(([^)]*)\)$/.exec(base)
+  base = base.slice(0, bracket?.index).replace(/-\d{4}-\d{2}-\d{2}(?=$|-)/, '')
+  // OpenAI writes its o-series in lower case: o4-mini.
+  if (/^o\d/i.test(base))
+    return base.toLowerCase()
+  const words = joinVersions(base.split(/[-_\s]+/).filter(word => word && !isSnapshot(word)))
+  let effort = bracket?.[1]?.trim() || undefined
+  if (!effort && words.length > 2 && EFFORT_WORD.test(words.at(-1)!.toLowerCase()))
+    effort = words.pop()
+  if (words[0]?.toLowerCase() === 'claude' && /^\d/.test(words[1] ?? '') && CLAUDE_TIER.test(words[2]?.toLowerCase() ?? ''))
+    words.splice(1, 2, words[2]!, words[1]!)
+  const name = words.map(pretty).join(' ').replace(/^GPT (?=\d|OSS\b)/, 'GPT-').replace(/\bNon /g, 'Non-')
+  return effort ? `${name} (${pretty(effort)})` : name
+}
+
+/** The name's version as a number to sort by: "Kimi K2.8" is 2.8; a size such as 120B is not a version. */
 function version(name: string): number {
-  const found = /\b(\d+)(?:\.(\d+))?\b/.exec(name)
+  const found = [...name.matchAll(/(\d+)(?:\.(\d+))?([BKM])?\b/g)].find(match => !match[3])
   return found ? Number(found[1]) * 1000 + Number(found[2] ?? 0) : -1
 }
 
