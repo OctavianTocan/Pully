@@ -249,6 +249,7 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "draft" to Lu.draft,
     "shut" to Lu.shut,
     "search" to Lu.search,
+    "sort" to Lu.sort,
     "branch" to Lu.branch,
     "copy" to Lu.copy,
     "stop" to Lu.stop,
