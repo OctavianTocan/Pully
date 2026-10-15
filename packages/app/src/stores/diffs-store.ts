@@ -3,6 +3,7 @@ import type { DiffSource, DiffsPayload, FileChange, GroupedResult, GroupSource, 
 import type { SnapshotEntry, SnapshotStore } from '../state/snapshots'
 import type { DiffsStore, DiffsStoreAsk, DiffsStoreCritique, DiffsStoreLlm } from './types'
 import { computed, getCurrentScope, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
+import { diffFacts, track } from '../analytics'
 import { resolveAdapter, ruleBasedAdapter } from '../analyze'
 import { resolveGroups } from '../components/diff/group-utils'
 import { i18n, t } from '../i18n'
@@ -127,6 +128,7 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
 
   async function setReviewed(shas: string[], isReviewed: boolean) {
     await cache.reviewMarks.set(shas, isReviewed)
+    track(isReviewed ? 'file.reviewed' : 'file.unreviewed', { files: shas.length, total: diff.value?.files.length })
     const next = new Set(reviewed.value)
     for (const sha of shas)
       isReviewed ? next.add(sha) : next.delete(sha)
@@ -266,6 +268,16 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
     isStale.value = false
     isOffline.value = false
     let shown: SnapshotEntry | undefined
+    const started = performance.now()
+    let opened = false
+    /** `pr.open` and `pr.load` once a diff is on screen, with where it came from. */
+    const noteOpen = (from: 'snapshot' | 'cache' | 'network') => {
+      if (opened || !diff.value)
+        return
+      opened = true
+      track('pr.open', diffFacts(diff.value))
+      track('pr.load', { ms: Math.round(performance.now() - started), from })
+    }
     try {
       const key = await source.key()
       const snapshot = await opts.snapshots?.get(key)
@@ -276,6 +288,7 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
         await install(key, snapshot.entry, snapshot.reviewed)
         shown = snapshot.entry
         isLoading.value = false
+        noteOpen('snapshot')
       }
       const cached = await cache.diffs.get(key)
       if (cached) {
@@ -287,10 +300,12 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
         else
           await install(key, cached)
         saveSnapshot(key, cached)
+        noteOpen('cache')
         void checkStaleness(cached.headSha)
       }
       else {
         await fetchFresh()
+        noteOpen('network')
       }
       // Threads and shared analyses load after (and independently of) the diff -
       // a failure there never blocks the diff view itself.

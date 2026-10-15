@@ -8,6 +8,7 @@ import { installAppContext, settingsCredentials } from '../app-context'
 import { i18n } from '../i18n'
 import { createJobRunner } from './ai-jobs'
 import { setAiRpc } from './ai-rpc'
+import { installAnalytics } from './analytics'
 import { connectLocal } from './connection'
 import { createRpcLenses, setLensSource } from './lenses'
 import { localRpcKey } from './local-rpc-key'
@@ -79,4 +80,6 @@ export async function installLocal(app: App, router: Router): Promise<void> {
   router.removeRoute('home')
   router.addRoute({ path: '/', component: () => import('../pages-local/index.vue') })
   router.addRoute({ path: '/checkout', component: () => import('../pages-local/checkout.vue') })
+  router.addRoute({ path: '/stats', component: () => import('../pages-local/stats.vue') })
+  installAnalytics(app, router)
 }
