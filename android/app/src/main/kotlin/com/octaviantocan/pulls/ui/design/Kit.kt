@@ -21,6 +21,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.platform.LocalDensity
@@ -101,6 +103,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import kotlin.math.abs
+import kotlin.math.floor
 
 /*
  * The Android prototype's building blocks: white floating surfaces on warm paper, pill
@@ -142,6 +145,17 @@ private const val EDGE_RADIUS = 1f
 private const val EDGE_SHARE = 0.5f
 
 /** The kit's divider: a 1dp rule along the top edge, in [color], drawn instead of Material's (rule 49). */
+/**
+ * Lets an element run [by] past both sides of its parent, out over a list's side padding, so a full-width row such as a
+ * fold heading lines up with the same row in a list that has no padding (J18).
+ */
+fun Modifier.bleed(by: Dp): Modifier = layout { measurable, constraints ->
+    val extra = by.roundToPx() * 2
+    val wide = if (constraints.hasBoundedWidth) constraints.copy(minWidth = constraints.maxWidth + extra, maxWidth = constraints.maxWidth + extra) else constraints
+    val placeable = measurable.measure(wide)
+    layout(constraints.constrainWidth(placeable.width - extra), placeable.height) { placeable.place(-extra / 2, 0) }
+}
+
 fun Modifier.hairlineTop(color: Color): Modifier = drawBehind { drawRect(color, Offset.Zero, Size(size.width, 1.dp.toPx())) }
 
 /**
@@ -232,6 +246,11 @@ fun CapsuleTabs(
     leading: (@Composable (index: Int) -> Unit)? = null,
     /** False for a picker that sounds its own choice, so a tab does not also make the generic one. */
     sound: Boolean = true,
+    /**
+     * Where the pages under the tabs are, in tabs ([SidePagesState.at]): the pill then sits exactly there, so it moves
+     * with the pages under a finger and as they glide, instead of running its own animation beside them (J15).
+     */
+    position: (() -> Float)? = null,
 ) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(50)
@@ -240,7 +259,13 @@ fun CapsuleTabs(
     ) {
         val segment = maxWidth / labels.size.coerceAtLeast(1)
         val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "capsule")
-        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(shape).background(c.paper2))
+        val pill = if (position != null) {
+            val last = labels.lastIndex.coerceAtLeast(0).toFloat()
+            Modifier.graphicsLayer { translationX = segment.toPx() * position().coerceIn(0f, last) }
+        } else {
+            Modifier.offset(x = x)
+        }
+        Box(pill.width(segment).fillMaxHeight().clip(shape).background(c.paper2))
         Row(Modifier.fillMaxSize()) {
             labels.forEachIndexed { index, label ->
                 Box(
@@ -289,11 +314,22 @@ fun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Mo
  * it moves the way the page does (rule 105).
  */
 @Composable
-fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false, pull: () -> Float = { 0f }) {
+fun UnderlineTabs(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    spread: Boolean = false,
+    pull: () -> Float = { 0f },
+    /** Where the pages under the tabs are, in tabs ([SidePagesState.at]): the stroke then sits exactly there (J15). */
+    position: (() -> Float)? = null,
+) {
     val c = LocalPullsColors.current
     val hairline = Modifier.drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
     val ink = rememberTabInk(selected)
-    val inked = Modifier.onPlaced { ink.host = it }.drawBehind { ink.draw(this, pull(), c.accentTeal) }
+    val inked = Modifier.onPlaced { ink.host = it }.drawBehind {
+        if (position != null) ink.drawAt(this, position(), c.accentTeal) else ink.draw(this, pull(), c.accentTeal)
+    }
     if (!spread) {
         Row(modifier.fillMaxWidth().then(hairline).then(inked)) {
             labels.forEachIndexed { index, label ->
@@ -400,6 +436,20 @@ private class TabInk(var selected: Int) {
                 width = toWidth + (nextWidth - toWidth) * k
             }
         }
+        drawnLeft = left
+        drawnWidth = width
+        val stroke = 2.dp.toPx()
+        drawRect(color, Offset(left, size.height - stroke), Size(width, stroke))
+    }
+
+    /** The stroke at [at] tabs, between two labels while the pages under them are between two pages. */
+    fun drawAt(scope: DrawScope, at: Float, color: Color) = with(scope) {
+        val low = floor(at).toInt().coerceAtLeast(0)
+        val (fromLeft, fromWidth) = span(low) ?: return@with
+        val (toLeft, toWidth) = span(low + 1) ?: (fromLeft to fromWidth)
+        val k = (at - low).coerceIn(0f, 1f)
+        val left = fromLeft + (toLeft - fromLeft) * k
+        val width = fromWidth + (toWidth - fromWidth) * k
         drawnLeft = left
         drawnWidth = width
         val stroke = 2.dp.toPx()

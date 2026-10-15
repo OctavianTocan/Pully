@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.ui.home
 
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.data.PullSizes
 import kotlinx.serialization.json.jsonObject
@@ -290,8 +291,9 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                 }
                 Text(repo, style = PullsType.xxl, color = c.text)
             }
-            CapsuleTabs(listOf("Pull requests", "Tours"), tab, { tab = it }, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp))
-            SidePages(tab, listOf(0, 1), { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
+            val sides = rememberSidePages(tab, 2, { tab = it })
+            CapsuleTabs(listOf("Pull requests", "Tours"), tab, { tab = it }, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), position = { sides.at })
+            SidePages(sides, listOf(0, 1), Modifier.weight(1f).fillMaxWidth()) { page ->
             if (page == 1) {
                 val mine = tours.entries.filter {
                     it.owner.equals(owner, ignoreCase = true) && it.repo.equals(repo, ignoreCase = true) &&

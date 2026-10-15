@@ -149,15 +149,17 @@ object PullsMotion {
 
     /**
      * How a sheet comes up and settles (H3): a spring that goes a little past its stop and comes back, instead of a
-     * straight glide. Damping 0.72 overshoots by about 3% of the way, and stiffness 320 settles in about 450ms.
+     * straight glide. Damping 0.74 overshoots by about 3% of the way, a fifth less than the 0.72 that was "a bit much"
+     * (J1), and stiffness 320 settles in about 450ms.
      */
-    val SheetSpring = spring<Float>(dampingRatio = 0.72f, stiffness = 320f)
+    val SheetSpring = spring<Float>(dampingRatio = 0.74f, stiffness = 320f)
 
     /**
      * How pages that sit side by side settle after a tab or a swipe (H20): no overshoot, so the edge of the next page
-     * never shows, and stiff enough to land in about 350ms, carrying the speed the finger let go at.
+     * never shows, landing in about 400ms and carrying the speed the finger let go at. It is measured in pages, so it
+     * runs on to half a pixel: with the default threshold of a hundredth it stopped 10px short and snapped the rest (J7).
      */
-    val PageSpring = spring<Float>(dampingRatio = 1f, stiffness = 380f)
+    val PageSpring = spring(dampingRatio = 1f, stiffness = 300f, visibilityThreshold = 0.0005f)
 }
 
 /**
@@ -689,6 +691,62 @@ private fun DrawScope.fadeBand(source: GraphicsLayer, layers: List<GraphicsLayer
         at to color.copy(alpha = FADE_CURVE[n])
     }.sortedBy { it.first }.toTypedArray()
     drawRect(Brush.verticalGradient(*stops, startY = y, endY = y + height), topLeft = Offset(0f, y), size = Size(size.width, height), alpha = amount)
+}
+
+/**
+ * [edgeFade] for content that scrolls sideways, such as the branch row (J14): what runs past the [start] and [end] edges
+ * dissolves into the page [color] through the same blur, instead of being cut. [startStrength] and [endStrength] (0 to 1,
+ * read while drawing) let an edge with nothing past it stay sharp.
+ */
+@Composable
+fun Modifier.sideFade(
+    start: Dp = 0.dp,
+    end: Dp = 0.dp,
+    color: Color = LocalPullsColors.current.base,
+    blur: Dp = PullsMotion.BlurMedium,
+    startStrength: () -> Float = { 1f },
+    endStrength: () -> Float = { 1f },
+): Modifier {
+    if (start <= 0.dp && end <= 0.dp) return this
+    val source = rememberGraphicsLayer()
+    val startLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
+    val endLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
+    return this.drawWithContent {
+        source.record { this@drawWithContent.drawContent() }
+        drawLayer(source)
+        if (start > 0.dp) sideBand(source, startLayers, color, 0f, start.toPx(), true, blur.toPx(), startStrength())
+        if (end > 0.dp) sideBand(source, endLayers, color, size.width - end.toPx(), end.toPx(), false, blur.toPx(), endStrength())
+    }
+}
+
+/** [fadeBand] turned on its side: a band [width] px wide from [x], dissolving toward the start edge when [atStart]. */
+private fun DrawScope.sideBand(source: GraphicsLayer, layers: List<GraphicsLayer>, color: Color, x: Float, width: Float, atStart: Boolean, blur: Float, strength: Float) {
+    if (strength <= 0f || width < 1f || size.height < 1f) return
+    val amount = strength.coerceIn(0f, 1f)
+    if (BlurSupported && blur > 0f) {
+        layers.forEachIndexed { i, layer ->
+            val radius = blur * (i + 1) / layers.size
+            val reach = width * (layers.size - i) / layers.size
+            val pad = ceil(radius * 3f)
+            val edge = if (atStart) pad else pad + width
+            layer.renderEffect = BlurEffect(radius, radius, TileMode.Decal)
+            layer.compositingStrategy = CompositingStrategy.Offscreen
+            layer.alpha = amount
+            layer.record(size = IntSize((width + 2f * pad).toInt(), size.height.toInt())) {
+                translate(left = pad - x) { drawLayer(source) }
+                // raw-value-ok: an alpha mask, never drawn as a colour
+                val keep = Brush.horizontalGradient(0f to Color.Black, 1f to Color.Transparent, startX = edge, endX = if (atStart) edge + reach else edge - reach)
+                drawRect(keep, blendMode = BlendMode.DstIn)
+            }
+            clipRect(x, 0f, x + width, size.height) { translate(left = x - pad) { drawLayer(layer) } }
+        }
+    }
+    val stops = Array(FADE_CURVE.size) { n ->
+        val outward = n / (FADE_CURVE.size - 1f)
+        val at = if (atStart) 1f - outward else outward
+        at to color.copy(alpha = FADE_CURVE[n])
+    }.sortedBy { it.first }.toTypedArray()
+    drawRect(Brush.horizontalGradient(*stops, startX = x, endX = x + width), topLeft = Offset(x, 0f), size = Size(width, size.height), alpha = amount)
 }
 
 /** How far a list has scrolled under its top edge: 0 at rest, 1 once it is [band] px past. */

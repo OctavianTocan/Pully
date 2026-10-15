@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -104,11 +105,13 @@ internal fun PinnedHeadings(
 }
 
 /**
- * `.grp`: the repository name over its rows, and how many there are. A tap on the heading folds the rows away or opens
+ * `.grp`: the one heading that folds a run of rows, wherever there is one: the Inbox and Tours repositories, the
+ * Overview's file sections and the Files sheet's (J18). It is the repository name over its rows, and how many there are. A tap on the heading folds the rows away or opens
  * them again; a tap on the name itself opens the repository (Tavi, 14 Oct). It looks like the Files headings that fold
  * (rule 70). The one line under a heading is its first row's own (rule 75), so a folded heading and the pinned one,
  * which have no row of their own under them, draw it. While a search runs nothing folds (rule 101): [onFold] is null.
- * A kind's heading has nothing of its own to open: with [onOpen] null the name is part of the heading's target.
+ * A kind's heading has nothing of its own to open: with [onOpen] null the name is part of the heading's target. On a
+ * sheet, whose rows sit in cards, it has no line and no [background] of its own.
  */
 @Composable
 internal fun GroupHeading(
@@ -120,6 +123,7 @@ internal fun GroupHeading(
     onOpen: (() -> Unit)?,
     modifier: Modifier = Modifier,
     line: Boolean = folded,
+    background: Color = LocalPullsColors.current.base,
 ) {
     val c = LocalPullsColors.current
     val turn by animateFloatAsState(if (folded) -90f else 0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "fold")
@@ -127,7 +131,7 @@ internal fun GroupHeading(
     Row(
         modifier
             .fillMaxWidth()
-            .background(c.base)
+            .background(background)
             .drawBehind { if (line) drawRect(c.borderMute, Offset(inset, size.height - 1.dp.toPx()), Size(size.width - 2 * inset, 1.dp.toPx())) }
             .then(if (onFold != null) Modifier.cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (folded) "Show $label" else "Hide $label", onClick = onFold) else Modifier)
             .padding(start = 8.dp, end = 16.dp, top = if (first) 6.dp else 8.dp),

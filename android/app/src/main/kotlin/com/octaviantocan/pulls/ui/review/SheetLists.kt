@@ -1,5 +1,11 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import com.octaviantocan.pulls.ui.home.GroupHeading
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -67,9 +73,9 @@ import com.octaviantocan.pulls.ui.design.LocalToaster
 import androidx.compose.ui.platform.LocalContext
 
 /*
- * Files and Checks are plain lists on the sheet's own paper (rule 79): no panel inside the panel, rows at
- * least 64dp tall with their whole title wrapping, a hairline between rows, and no instruction that names a key a phone
- * does not have. Both are built from the one row below.
+ * Files and Checks are lists in the raised cards every other sheet uses, one card under each heading (rule 79, J24): rows
+ * at least 64dp tall with their whole title wrapping, a hairline between rows, and no instruction that names a key a
+ * phone does not have. Both are built from the one row below.
  */
 
 private val ROW_HEIGHT = 64.dp
@@ -95,13 +101,15 @@ internal fun ListRow(
     under: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
-    val inset: Dp = if (leading != null) MARK_WIDTH + 12.dp + 4.dp else 4.dp
+    // The rows sit in a card, so the text starts 16dp in and the line between rows starts where the text does, as a
+    // SheetRow's does (J24).
+    val inset: Dp = if (leading != null) 16.dp + MARK_WIDTH + 12.dp else 16.dp
     Row(
-        modifier.fillMaxWidth().defaultMinSize(minHeight = ROW_HEIGHT).clip(RoundedCornerShape(PullsRadius.lg))
+        modifier.fillMaxWidth().defaultMinSize(minHeight = ROW_HEIGHT)
             .background(if (selected) c.active else Color.Transparent)
             .then(if (onClick != null) Modifier.combinedClickable(role = Role.Button, onClick = cued(onClick = onClick), onLongClick = onLongClick) else Modifier)
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }
-            .padding(horizontal = 4.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -132,7 +140,7 @@ internal fun ListRow(
 @Composable
 private fun ListHeading(text: String, count: Int, first: Boolean) {
     val c = LocalPullsColors.current
-    Row(Modifier.fillMaxWidth().padding(top = if (first) 4.dp else 18.dp, bottom = 2.dp, start = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(Modifier.fillMaxWidth().padding(top = if (first) 4.dp else 18.dp, start = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(text, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint)
     }
@@ -158,6 +166,7 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
         val group = checks.filter { it.bucket == bucket }
         if (group.isEmpty()) return@forEach
         ListHeading(label, group.size, first)
+        SheetCard(gap = 6.dp) {
         group.forEachIndexed { index, check ->
             ListRow(
                 buildAnnotatedString {
@@ -173,9 +182,10 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
                 },
             )
         }
+        }
         first = false
     }
-    if (hidden > 0) ListRow("$hidden more on GitHub", Modifier.padding(top = 8.dp), onClick = { uri.openUri("$url/checks") })
+    if (hidden > 0) SheetCard { ListRow("$hidden more on GitHub", first = true, onClick = { uri.openUri("$url/checks") }) }
 }
 
 /** The state of one check as a mark: a red cross, an amber dot that breathes, a green tick, a grey dash. */
@@ -266,8 +276,15 @@ internal fun ColumnScope.FilesList(
             FoldHeading(section.label, section.files.size, first, closed, onClick = if (searching) null else ({ onFold(section, !closed) }))
         }
         first = false
-        if (closed || budget <= 0) return@forEach
-        section.files.take(budget).forEachIndexed { index, file ->
+        // The files sit in a card under their heading, which folds it away and opens it again as the Inbox's do (J18, J24).
+        val files = if (budget > 0) section.files.take(budget) else emptyList()
+        AnimatedVisibility(
+            visible = !closed && files.isNotEmpty(),
+            enter = expandVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeIn(tween(PullsMotion.FAST)),
+            exit = shrinkVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeOut(tween(PullsMotion.FAST)),
+        ) {
+        SheetCard(gap = 6.dp) {
+        files.forEachIndexed { index, file ->
             val review = state(file)
             val reviewed = review == ReviewState.Reviewed
             val dir = file.path.substringBeforeLast('/', "")
@@ -297,10 +314,12 @@ internal fun ColumnScope.FilesList(
                 },
             )
         }
-        budget -= section.files.size
+        }
+        }
+        if (!closed) budget -= section.files.size
     }
     if (budget < 0) {
-        ListRow("Show all ${sections.sumOf { it.files.size }} files", onClick = { all = true }, trailing = { LuIcon(Lu.chevd, tint = c.faint, size = 18.dp) })
+        SheetCard { ListRow("Show all ${sections.sumOf { it.files.size }} files", first = true, onClick = { all = true }, trailing = { LuIcon(Lu.chevd, tint = c.faint, size = 18.dp) }) }
     }
 }
 
@@ -316,25 +335,18 @@ internal fun NeedsLook(trailingDot: Boolean) {
 }
 
 /**
- * A section's heading that folds it: its name, how many files, and a chevron that points down while it is open. It
- * is quiet like every heading (rule 75); the whole line is the target.
+ * A section's heading that folds it: the one fold heading the Inbox uses (J18), with its name, how many files, and a
+ * chevron that turns as it folds. On a sheet the rows sit in a card under it, so it draws no [line] and no background.
  */
 @Composable
-internal fun FoldHeading(label: String, count: Int, first: Boolean, folded: Boolean, modifier: Modifier = Modifier, onClick: (() -> Unit)?) {
-    val c = LocalPullsColors.current
-    val turn by animateFloatAsState(if (folded) -90f else 0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "fold")
-    Row(
-        modifier.fillMaxWidth().padding(top = if (first) 4.dp else 12.dp).clip(RoundedCornerShape(PullsRadius.md))
-            .then(if (onClick != null) Modifier.cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (folded) "Show $label" else "Hide $label", onClick = onClick) else Modifier)
-            .heightIn(min = TOUCH).padding(start = 4.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(label, Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
-            Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint)
-        }
-        if (onClick != null) LuIcon(Lu.chevd, Modifier.rotate(turn), tint = c.faint, size = 18.dp)
-    }
-}
+internal fun FoldHeading(
+    label: String,
+    count: Int,
+    first: Boolean,
+    folded: Boolean,
+    modifier: Modifier = Modifier,
+    line: Boolean = false,
+    background: Color = Color.Transparent,
+    onClick: (() -> Unit)?,
+) = GroupHeading(label, count, first, folded, onFold = onClick, onOpen = null, modifier = modifier, line = line, background = background)
 

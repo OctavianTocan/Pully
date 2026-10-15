@@ -124,6 +124,7 @@ import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.GithubAvatar
@@ -331,10 +332,11 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
-            InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
             // The Inbox and Tours sit side by side: a tab or a swipe moves both, and the chips and the activity strip belong
-            // to the Inbox, so they go with it (H20, rule 105).
-            SidePages(ui.tab, listOf(0, 1), { ui.tab = it }, Modifier.weight(1f).fillMaxWidth()) { tab ->
+            // to the Inbox, so they go with it (H20, rule 105). The capsule's pill sits where the pages are (J15).
+            val sides = rememberSidePages(ui.tab, 2, { ui.tab = it })
+            InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true }, position = { sides.at })
+            SidePages(sides, listOf(0, 1), Modifier.weight(1f).fillMaxWidth()) { tab ->
                 if (tab == 0) Column(Modifier.fillMaxSize()) {
                     FilterChips(ui.filter, inbox.counts) { ui.filter = it }
                     ActivityStrip(workTasks, { activityOpen = true })
@@ -432,14 +434,14 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
 
 /** `.hdr`: settings, the Inbox/Tours capsule, and the profile avatar, floating over the page. */
 @Composable
-internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit) {
+internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit, position: (() -> Float)? = null) {
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FloatIcon(Lu.cog, "Settings", onSettings)
-        CapsuleTabs(listOf("Inbox", "Tours"), tab, onTab, Modifier.weight(1f))
+        CapsuleTabs(listOf("Inbox", "Tours"), tab, onTab, Modifier.weight(1f), position = position)
         Box(
             Modifier.size(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Profile", onClick = onProfile),
             contentAlignment = Alignment.Center,
