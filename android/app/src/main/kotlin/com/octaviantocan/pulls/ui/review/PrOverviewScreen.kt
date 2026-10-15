@@ -94,6 +94,10 @@ import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.design.hairlineTop
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.offset
+import com.octaviantocan.pulls.core.pageWay
 
 /**
  * The prototype's PR overview: a floating back button and section capsule over the page, the title,
@@ -111,25 +115,18 @@ internal fun PrOverviewScreen(
     scroll: LazyListState,
     pane: Int,
     onPane: (Int) -> Unit,
-    onBack: () -> Unit,
     onDiff: (path: String?) -> Unit,
-    onTour: () -> Unit,
     onAsk: () -> Unit,
     onSheet: (String) -> Unit,
     onCite: (Cite) -> Unit,
     onOpenRepo: (owner: String, repo: String) -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val tourRunning = session.taskFor("tour")?.running == true
     val focusManager = LocalFocusManager.current
     // A tap on the empty page leaves a field the person was editing in place, which saves it (rule 83).
     Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
+        // The header with the capsule is the review's, above all three views (rule 93).
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                Spacer(Modifier.weight(1f))
-                SectionCapsule(selected = 0, live = tourRunning, onOverview = {}, onChanges = { onDiff(null) }, onTour = onTour, onCorner = { onSheet("more") })
-            }
             // Narrowed to a commit: the way back stays on screen while the page scrolls (rule 80).
             CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
@@ -142,6 +139,7 @@ internal fun PrOverviewScreen(
             // A swipe left or right moves between the tabs; the files of the diff are never switched this way.
             var drag by remember { mutableFloatStateOf(0f) }
             val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
+            val fling = with(LocalDensity.current) { PullsMotion.Fling.toPx() }
             val range = with(LocalDensity.current) { PullsMotion.FingerRange.toPx() }
             // The rows follow the finger toward a tab that exists, and stay put against the ends.
             val swipe = rememberDraggableState { delta ->
@@ -153,7 +151,13 @@ internal fun PrOverviewScreen(
                 Modifier.weight(1f).fillMaxWidth().draggable(
                     swipe, Orientation.Horizontal,
                     onDragStarted = { drag = 0f },
-                    onDragStopped = { onPane(swipedTab(shown, labels.size, drag, swipeFrom)); drag = 0f; slide.release() },
+                    onDragStopped = { velocity ->
+                        // A throw counts as well as a long drag, and the rows go on the way the finger went (rule 105).
+                        val to = swipedTab(shown, labels.size, drag, swipeFrom, velocity, fling)
+                        drag = 0f
+                        onPane(to)
+                        slide.release(if (to == shown) 0 else pageWay(shown, to), velocity)
+                    },
                 ),
                 state = scroll,
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
@@ -175,7 +179,8 @@ internal fun PrOverviewScreen(
                         val overviewError = session.overviewError
                         if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
                         StatsLine(session, data, onSheet, onCommits = { onPane(COMMITS_TAB) })
-                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true)
+                        // The ink leans toward the next tab with the finger, and slides there when it changes (rule 105).
+                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true, pull = { slide.pull(range) })
                     }
                 }
                 // The tabs follow the finger at once; the rows under them leave and arrive as a page (rule 73).
@@ -242,31 +247,41 @@ internal fun SectionCapsule(
     corner: CapsuleCorner = CapsuleCorner.More,
 ) {
     val c = LocalPullsColors.current
-    Row(
-        Modifier.width(212.dp).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Segment("Overview", selected = selected == 0, onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
-        Segment("Changes", selected = selected == 1, onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
-        Segment("Tour", selected = selected == 2, onClick = if (selected == 2) null else onTour) {
-            LuIcon(Lu.tour, tint = c.text)
-            if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
-        }
-        Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).width(1.dp).fillMaxHeight().background(c.border))
-        Segment(corner.label, selected = false, onClick = onCorner) {
-            when (corner) {
-                CapsuleCorner.More -> LuIcon(Lu.more, tint = c.text)
-                CapsuleCorner.TextTools -> Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+    // One pill slides to the view you go to, the way the page goes (rules 67 and 105), instead of each segment lighting up.
+    val x by animateDpAsState(CAPSULE_SEGMENT * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "section-pill")
+    Box(Modifier.width(CAPSULE_WIDTH).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(CAPSULE_INSET)) {
+        Box(Modifier.offset(x = x).width(CAPSULE_SEGMENT).fillMaxHeight().clip(CircleShape).background(c.paper2))
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Segment("Overview", onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
+            Segment("Changes", onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
+            Segment("Tour", onClick = if (selected == 2) null else onTour) {
+                LuIcon(Lu.tour, tint = c.text)
+                if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
+            }
+            Box(Modifier.padding(horizontal = CAPSULE_RULE_GAP, vertical = 8.dp).width(CAPSULE_RULE).fillMaxHeight().background(c.border))
+            Segment(corner.label, onClick = onCorner) {
+                IconSwap(corner) { glyph ->
+                    when (glyph) {
+                        CapsuleCorner.More -> LuIcon(Lu.more, tint = c.text)
+                        CapsuleCorner.TextTools -> Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+                    }
+                }
             }
         }
     }
 }
 
+/** The capsule: 212dp wide with 2dp inside its edge, four equal segments and a 1dp rule with 2dp either side before the corner. */
+private val CAPSULE_WIDTH = 212.dp
+private val CAPSULE_INSET = 2.dp
+private val CAPSULE_RULE = 1.dp
+private val CAPSULE_RULE_GAP = 2.dp
+private val CAPSULE_SEGMENT = (CAPSULE_WIDTH - CAPSULE_INSET * 2 - CAPSULE_RULE - CAPSULE_RULE_GAP * 2) / 4
+
 @Composable
-private fun RowScope.Segment(label: String, selected: Boolean, onClick: (() -> Unit)?, content: @Composable BoxScope.() -> Unit) {
-    val c = LocalPullsColors.current
+private fun RowScope.Segment(label: String, onClick: (() -> Unit)?, content: @Composable BoxScope.() -> Unit) {
     Box(
-        Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(if (selected) c.paper2 else Color.Transparent)
+        Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
             .then(if (onClick != null) Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
         content = content,

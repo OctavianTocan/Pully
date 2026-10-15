@@ -93,15 +93,18 @@ import com.octaviantocan.pulls.ui.home.compactCount
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import com.octaviantocan.pulls.core.pageWay
+import com.octaviantocan.pulls.ui.design.LabelSwitch
 
 /** What the code keeps clear under its last line: the bar's 52dp pill and the space around it (rule 92). */
 private val BAR_ROOM = 84.dp
 
 /**
- * The prototype's diff: the page capsule (with Aa in its corner, rule 93), then one scrolling file: the AI's note about
- * it, its counts and Reviewed box, and its rows. Pinned under it is the bar: ‹, the file you are on and ›, which turns
- * into the comment field while lines are selected (rule 94). [path] is the file shown; [onPath] moves to another, and a
- * swipe on the file does the same, past the ends into [onOverview] and [onTour].
+ * The prototype's diff, under the review's header (whose capsule has Aa in its corner, rule 93): one scrolling file, the
+ * AI's note about it, its counts and Reviewed box, and its rows. Pinned under it is the bar: ‹, the file you are on and ›,
+ * which turns into the comment field while lines are selected (rule 94). [path] is the file shown; [onPath] moves to
+ * another, and a swipe on the file does the same, past the ends into [onOverview] and [onTour]. [tools] is the Aa sheet.
  */
 @Composable
 internal fun PrDiffScreen(
@@ -110,10 +113,10 @@ internal fun PrDiffScreen(
     path: String?,
     overview: PrOverview?,
     onPath: (String) -> Unit,
-    onBack: () -> Unit,
-    tourLive: Boolean,
     onOverview: () -> Unit,
     onTour: () -> Unit,
+    tools: Boolean,
+    onTools: (Boolean) -> Unit,
     onMore: () -> Unit,
     onFiles: () -> Unit,
     onAsk: (AskReference) -> Unit,
@@ -122,7 +125,6 @@ internal fun PrDiffScreen(
     val files = fileSections(session, ui).flatMap { it.files }
     val index = files.indexOfFirst { it.path == path }.let { if (it < 0) 0 else it }
     val file = files.getOrNull(index)
-    var tools by remember { mutableStateOf(false) }
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
     // Another file arrives as a page (rule 88): for a beat the rows still hold the one that is leaving.
@@ -131,14 +133,6 @@ internal fun PrDiffScreen(
 
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                Spacer(Modifier.weight(1f))
-                SectionCapsule(
-                    selected = 1, live = tourLive, onOverview = onOverview, onChanges = {}, onTour = onTour,
-                    onCorner = { tools = true }, corner = CapsuleCorner.TextTools,
-                )
-            }
             // The diff is narrowed to a commit: say so, with the way back, where the page cannot scroll it away (rule 80).
             CommitRangeBanner(session, overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             if (file == null || shown == null) {
@@ -150,7 +144,7 @@ internal fun PrDiffScreen(
                 )
             }
         }
-        if (tools) TextAndToolsSheet(session, ui, file, onClose = { tools = false }, onActions = onMore)
+        if (tools) TextAndToolsSheet(session, ui, file, onClose = { onTools(false) }, onActions = onMore)
     }
 }
 
@@ -196,6 +190,7 @@ private fun FileBody(
     // the finger like the Overview's tabs do; a swipe that falls short puts them back.
     val density = LocalDensity.current
     val swipeFrom = with(density) { 64.dp.toPx() }
+    val fling = with(density) { PullsMotion.Fling.toPx() }
     val range = with(density) { PullsMotion.FingerRange.toPx() }
     var drag by remember { mutableFloatStateOf(0f) }
     val count = files.size
@@ -210,15 +205,18 @@ private fun FileBody(
                 onCode = { y -> onCodeRow(listState, y) },
                 codeHasRoom = { dx, across -> !session.settings.codeWrap && codeHasRoom(ui, file, dx, across) },
                 onDrag = { delta -> drag += delta; slide.follow(delta, range) },
-                onEnd = {
-                    val to = swipedFile(index, count, drag, swipeFrom)
+                onEnd = { velocity ->
+                    // A throw counts as well as a long drag, and the rows never come back toward the finger: they go on its
+                    // way into the next file, or with the whole view when the swipe left the files (rule 105).
+                    val to = swipedFile(index, count, drag, swipeFrom, velocity, fling)
+                    val way = if (to == index) 0 else pageWay(index, to)
                     drag = 0f
                     when {
                         to < 0 -> onOverview()
                         to >= count -> onTour()
                         to != index -> onPath(files[to].path)
                     }
-                    scope.launch { slide.release() }
+                    scope.launch { if (to < 0 || to >= count) slide.leave(way, velocity) else slide.release(way, velocity) }
                 },
             ),
         ) {
@@ -275,7 +273,7 @@ private fun Modifier.fileSwipe(
     onCode: (Float) -> Boolean,
     codeHasRoom: (dx: Float, across: Float) -> Boolean,
     onDrag: (Float) -> Unit,
-    onEnd: () -> Unit,
+    onEnd: (velocity: Float) -> Unit,
 ): Modifier {
     val isOn = rememberUpdatedState(enabled)
     val codeAt = rememberUpdatedState(onCode)
@@ -290,9 +288,11 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
     onCode: (Float) -> Boolean,
     codeHasRoom: (dx: Float, across: Float) -> Boolean,
     onDrag: (Float) -> Unit,
-    onEnd: () -> Unit,
+    onEnd: (velocity: Float) -> Unit,
 ) {
     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    // How fast the finger was going when it let go, so a throw changes the file however short it was.
+    val tracker = VelocityTracker().apply { addPosition(down.uptimeMillis, down.position) }
     if (!enabled()) return
     val code = onCode(down.position.y)
     val slop = viewConfiguration.touchSlop
@@ -306,6 +306,7 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
         val change = event.changes.firstOrNull { it.id == down.id } ?: break
         if (!change.pressed) break
         val delta = change.positionChange()
+        tracker.addPosition(change.uptimeMillis, change.position)
         if (taken) {
             change.consume()
             onDrag(delta.x)
@@ -325,7 +326,7 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
             }
         }
     }
-    if (taken) onEnd()
+    if (taken) onEnd(tracker.calculateVelocity().x)
 }
 
 /** The file's counts and threads, and the Reviewed box; reviewing a file moves on to the next one still to review. */
@@ -520,8 +521,6 @@ private fun DiffBar(
 @Composable
 private fun FilePill(file: ReviewFile, index: Int, count: Int, onClick: () -> Unit, modifier: Modifier) {
     val c = LocalPullsColors.current
-    val name = file.path.substringAfterLast('/')
-    val dir = file.path.substringBeforeLast('/', "").takeIf { name.length <= SHORT_NAME }.orEmpty()
     val mono = PullsType.sm.copy(fontFamily = PullsType.mono)
     Column(
         modifier.defaultMinSize(minHeight = 52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised)
@@ -530,13 +529,20 @@ private fun FilePill(file: ReviewFile, index: Int, count: Int, onClick: () -> Un
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // The name in the face it has on the file rows, which fits a long one on a line where the code font would break it.
-        // A long name wraps between its words, in lines of even length.
-        Text(softBreaks(name), style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, lineBreak = LineBreak.Heading), color = c.text, maxLines = 3)
-        if (dir.isNotEmpty() || count > 1) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (dir.isNotEmpty()) PathTail(dir, mono, c.muted, Modifier.weight(1f, fill = false))
-                if (count > 1) Text("${if (dir.isNotEmpty()) " · " else ""}${index + 1}/$count", style = mono.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
+        // The next file's name comes in from the right and the previous one's from the left, as the code does (rule 105).
+        LabelSwitch(index to file.path, order = { it.first }) { (at, path) ->
+            val name = path.substringAfterLast('/')
+            val dir = path.substringBeforeLast('/', "").takeIf { name.length <= SHORT_NAME }.orEmpty()
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // The name in the face it has on the file rows, which fits a long one on a line where the code font would break it.
+                // A long name wraps between its words, in lines of even length.
+                Text(softBreaks(name), style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, lineBreak = LineBreak.Heading), color = c.text, maxLines = 3)
+                if (dir.isNotEmpty() || count > 1) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (dir.isNotEmpty()) PathTail(dir, mono, c.muted, Modifier.weight(1f, fill = false))
+                        if (count > 1) Text("${if (dir.isNotEmpty()) " · " else ""}${at + 1}/$count", style = mono.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
+                    }
+                }
             }
         }
     }

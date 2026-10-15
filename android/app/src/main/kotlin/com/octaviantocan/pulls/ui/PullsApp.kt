@@ -3,7 +3,6 @@ package com.octaviantocan.pulls.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -26,6 +25,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
+import com.octaviantocan.pulls.ui.design.PageBack
+import com.octaviantocan.pulls.ui.design.PageMotion
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.ToastHost
@@ -90,7 +91,9 @@ fun PullsApp(initialTarget: String?) {
             back = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
         )
     }
-    BackHandler(enabled = stack.size > 1) { nav.back() }
+    // Back slides the page backward, and a back swipe moves the page with the finger before it goes (rule 105).
+    val pageMotion = remember { PageMotion() }
+    PageBack(pageMotion, enabled = stack.size > 1) { nav.back() }
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     // Every code view reads `PullsType.mono`, which follows this.
     if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont) com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont
@@ -112,7 +115,7 @@ fun PullsApp(initialTarget: String?) {
             // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
             // the one under it slides away (rule 73), and back slides the other way, ranked by how deep the page is.
             val here = stack.indexOfLast { it != Screen.Settings }.coerceAtLeast(0)
-            BlurSwitch(Layer(stack.getOrNull(here) ?: Screen.Home, here), Modifier.fillMaxSize(), order = { it.depth }) { layer ->
+            BlurSwitch(Layer(stack.getOrNull(here) ?: Screen.Home, here), Modifier.fillMaxSize(), order = { it.depth }, motion = pageMotion) { layer ->
                 when (val current = layer.screen) {
                     Screen.Home -> HomeScreen(nav, homeUi)
                     is Screen.Repo -> RepoScreen(current.owner, current.repo, nav)

@@ -72,7 +72,8 @@ fun CommandPalette() {
         command.run()
     }
 
-    PullsSheet(Commands::close, "Commands", full = true) {
+    // Pulled down from the Inbox, it comes down from the top with the finger; opened any other way it rises like every sheet.
+    PullsSheet(Commands::close, "Commands", full = true, fromTop = Commands.fromTop) {
         PillInput(query, { query = it }, t("palette.placeholder"), Modifier.padding(top = 14.dp).focusRequester(focus), imeAction = ImeAction.Go, onSend = { run(first) })
         if (scope != null) {
             Row(Modifier.padding(top = 12.dp)) { SoftChip(scope.label, selected = true, onClick = { Commands.scope = null }) }

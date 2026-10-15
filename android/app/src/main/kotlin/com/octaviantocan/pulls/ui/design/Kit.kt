@@ -96,6 +96,11 @@ import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.directionOf
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import kotlin.math.abs
 
 /*
  * The Android prototype's building blocks: white floating surfaces on warm paper, pill
@@ -278,15 +283,21 @@ fun SoftChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Mo
  * [spread] lays the labels across the whole width, the first at the start and the last at the end with even gaps
  * between. When they do not fit with 16dp between them the labels step down to body size (15sp), and only when they
  * still do not fit does the row keep a 24dp gap and scroll sideways; a label is never cut.
+ *
+ * The underline is one stroke that slides from tab to tab when the selection changes (250ms smooth-out), and leans
+ * toward a neighbour by [pull] (-1 to 1, toward the next tab when positive) while a finger drags the page under it, so
+ * it moves the way the page does (rule 105).
  */
 @Composable
-fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false) {
+fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false, pull: () -> Float = { 0f }) {
     val c = LocalPullsColors.current
     val hairline = Modifier.drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
+    val ink = rememberTabInk(selected)
+    val inked = Modifier.onPlaced { ink.host = it }.drawBehind { ink.draw(this, pull(), c.accentTeal) }
     if (!spread) {
-        Row(modifier.fillMaxWidth().then(hairline)) {
+        Row(modifier.fillMaxWidth().then(hairline).then(inked)) {
             labels.forEachIndexed { index, label ->
-                UnderlineTab(label, index, selected, onSelect, Modifier.padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp), Alignment.Center)
+                UnderlineTab(label, index, selected, onSelect, ink, Modifier.padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp), Alignment.Center)
             }
         }
         return
@@ -309,10 +320,11 @@ fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, 
                         last -> Alignment.CenterEnd
                         else -> Alignment.Center
                     }
-                    UnderlineTab(label, index, selected, onSelect, Modifier, align, style)
+                    UnderlineTab(label, index, selected, onSelect, ink, Modifier, align, style)
                 }
             },
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            // The ink is drawn in the scrolled content, so it moves with the labels when they scroll.
+            modifier = Modifier.horizontalScroll(rememberScrollState()).then(inked),
         ) { measurables, constraints ->
             val height = 48.dp.roundToPx()
             val natural = measurables.map { it.maxIntrinsicWidth(height) }
@@ -333,7 +345,7 @@ fun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, 
 }
 
 @Composable
-private fun UnderlineTab(label: String, index: Int, selected: Int, onSelect: (Int) -> Unit, padding: Modifier, align: Alignment, style: TextStyle = PullsType.base.copy(fontWeight = FontWeight.Medium)) {
+private fun UnderlineTab(label: String, index: Int, selected: Int, onSelect: (Int) -> Unit, ink: TabInk, padding: Modifier, align: Alignment, style: TextStyle = PullsType.base.copy(fontWeight = FontWeight.Medium)) {
     val c = LocalPullsColors.current
     val on = index == selected
     val color by animateColorAsState(if (on) c.text else c.muted, tween(200), label = "tab-ink")
@@ -341,13 +353,74 @@ private fun UnderlineTab(label: String, index: Int, selected: Int, onSelect: (In
         Modifier.height(48.dp).cueClickable(direction = directionOf(selected, index), role = Role.Tab, onClickLabel = label) { onSelect(index) }.then(padding),
         contentAlignment = align,
     ) {
-        Box(
-            Modifier.fillMaxHeight().drawBehind {
-                if (on) drawRect(c.accentTeal, Offset(0f, size.height - 2.dp.toPx()), Size(size.width, 2.dp.toPx()))
-            },
-            contentAlignment = Alignment.Center,
-        ) { Text(label, style = style, color = color, maxLines = 1, softWrap = false) }
+        Box(Modifier.fillMaxHeight().onPlaced { ink.labels[index] = it }, contentAlignment = Alignment.Center) {
+            Text(label, style = style, color = color, maxLines = 1, softWrap = false)
+        }
     }
+}
+
+/**
+ * The underline of [UnderlineTabs]: where each label sits, read from the layout as it is drawn, and where the stroke was
+ * last drawn, so a change of tab slides it on from there, including from part of the way a finger had pulled it.
+ */
+private class TabInk(var selected: Int) {
+    var host: LayoutCoordinates? = null
+    val labels = HashMap<Int, LayoutCoordinates>()
+    var move: Animatable<Float, AnimationVector1D> = Animatable(1f)
+    private var fromLeft = Float.NaN
+    private var fromWidth = Float.NaN
+    private var drawnLeft = Float.NaN
+    private var drawnWidth = Float.NaN
+
+    /** The selection changed to [to]: the stroke slides there from where it was last drawn. */
+    fun moveTo(to: Int) {
+        fromLeft = drawnLeft
+        fromWidth = drawnWidth
+        selected = to
+    }
+
+    private fun span(index: Int): Pair<Float, Float>? {
+        val within = host?.takeIf { it.isAttached } ?: return null
+        val label = labels[index]?.takeIf { it.isAttached } ?: return null
+        val box = within.localBoundingBoxOf(label, clipBounds = false)
+        return box.left to box.width
+    }
+
+    fun draw(scope: DrawScope, pull: Float, color: Color) = with(scope) {
+        val (toLeft, toWidth) = span(selected) ?: return@with
+        val m = move.value
+        var left = if (fromLeft.isNaN()) toLeft else fromLeft + (toLeft - fromLeft) * m
+        var width = if (fromWidth.isNaN()) toWidth else fromWidth + (toWidth - fromWidth) * m
+        // At rest, a finger dragging the page leans the stroke toward the tab it is pulling in.
+        val lean = pull.coerceIn(-1f, 1f)
+        if (m >= 1f && lean != 0f) {
+            span(selected + if (lean > 0f) 1 else -1)?.let { (nextLeft, nextWidth) ->
+                val k = abs(lean)
+                left = toLeft + (nextLeft - toLeft) * k
+                width = toWidth + (nextWidth - toWidth) * k
+            }
+        }
+        drawnLeft = left
+        drawnWidth = width
+        val stroke = 2.dp.toPx()
+        drawRect(color, Offset(left, size.height - stroke), Size(width, stroke))
+    }
+}
+
+@Composable
+private fun rememberTabInk(selected: Int): TabInk {
+    val ink = remember { TabInk(selected) }
+    val motion = rememberMotionEnabled()
+    // A new selection gets a new run from 0; the first one starts where it belongs.
+    val move = remember(selected) { Animatable(if (selected == ink.selected) 1f else 0f) }
+    if (selected != ink.selected) ink.moveTo(selected)
+    ink.move = move
+    LaunchedEffect(move) {
+        if (move.value < 1f) {
+            if (motion) move.animateTo(1f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) else move.snapTo(1f)
+        }
+    }
+    return ink
 }
 
 /** `.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on. */

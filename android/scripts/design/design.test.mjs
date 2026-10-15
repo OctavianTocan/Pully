@@ -7,6 +7,7 @@ import * as book from './book.mjs'
 import { checkChangelog, compareVersions, parseChangelog, versionName } from './changelog.mjs'
 import { run } from './check.mjs'
 import { blank, composables, dpScale, excusedLines, matching, paletteColors, splitTopLevel, typeRoles } from './kotlin.mjs'
+import * as motion from './motion.mjs'
 import { compare, countsOf } from './ratchet.mjs'
 import * as rawValues from './raw-values.mjs'
 import { checkChecklist, checkRules } from './rules.mjs'
@@ -237,6 +238,71 @@ describe('bans', () => {
 
   it('declares the rules DESIGN.md lists for it', () => {
     assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73, 100])
+  })
+})
+
+describe('motion', () => {
+  const scan = (source, file = 'ui/x/Screen.kt') => motion.scan({ [file]: source })
+
+  it('keeps Compose\'s own slides and pagers out of the screens, not out of the kit', () => {
+    const source = [
+      'import androidx.compose.animation.slideInHorizontally',
+      'val enter = slideInHorizontally { it }',
+      'val exit = slideOutOfContainer(SlideDirection.Left)',
+      'HorizontalPager(state) { page -> Page(page) }',
+      '// slideInHorizontally in a comment is fine',
+    ].join('\n')
+    const found = scan(source)
+    assert.equal(found.length, 4)
+    assert.ok(found[0].startsWith('ui/x/Screen.kt:2: slideInHorizontally'))
+    assert.ok(found.every(p => p.endsWith('(rule 105)')))
+    assert.deepEqual(scan('val enter = slideInHorizontally(tween(250)) { way * it }', 'ui/design/Motion.kt'), [])
+  })
+
+  it('makes the kit\'s slides take their offset from the way', () => {
+    const found = scan('val a = slideInHorizontally(spec) { way * travel }\nval b = slideOutHorizontally(spec) { -travel }\nval c = slideInVertically(initialOffsetY = { -way * it })', 'ui/design/Motion.kt')
+    assert.deepEqual(found.map(p => p.split(':').slice(0, 2).join(':')), ['ui/design/Motion.kt:2'])
+  })
+
+  it('asks every page change for its order by name', () => {
+    const found = scan([
+      'BlurSwitch(tab, Modifier.weight(1f), order = { it }) { Page(it) }',
+      'BlurSwitch(tab) { Page(it) }',
+      'LabelSwitch(index, order = { it }) { Text(names[it]) }',
+      'val slide = rememberPageSlide(shown)',
+      'val other = rememberPageSlide(shown, order = { it })',
+      'Foo.BlurSwitch(tab) {}',
+    ].join('\n'))
+    assert.deepEqual(found.map(p => p.split(':')[1]), ['2', '4'])
+  })
+
+  it('wants order required on the kit\'s page changes', () => {
+    const kit = [
+      '@Composable',
+      'fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int = { 0 }, content: @Composable (S) -> Unit) {}',
+      '',
+      '@Composable',
+      'fun <S> LabelSwitch(target: S, content: @Composable (S) -> Unit) {}',
+      '',
+      '@Composable',
+      'fun <T> rememberPageSlide(target: T, order: (T) -> Int): PageSlide<T> = TODO()',
+    ].join('\n')
+    const { problems, found } = motion.declarationProblems({ 'ui/design/Motion.kt': kit })
+    assert.deepEqual([...found].sort(), ['BlurSwitch', 'LabelSwitch', 'rememberPageSlide'])
+    assert.equal(problems.length, 2)
+    assert.ok(problems[0].includes('BlurSwitch\'s `order` has a default'))
+    assert.ok(problems[1].includes('LabelSwitch takes no `order`'))
+  })
+
+  it('sends Back through PageBack, unless a line says why not', () => {
+    assert.equal(scan('BackHandler { close() }\nPredictiveBackHandler { events -> }').length, 2)
+    assert.deepEqual(scan('// motion-ok: puts the old text back; nothing moves\nBackHandler { editing = false }'), [])
+    assert.equal(scan('// motion-ok:\nBackHandler { editing = false }').length, 1)
+    assert.deepEqual(scan('PredictiveBackHandler(enabled) { events -> }', 'ui/design/Motion.kt'), [])
+  })
+
+  it('declares the rule DESIGN.md lists for it', () => {
+    assert.deepEqual(motion.RULES, [105])
   })
 })
 

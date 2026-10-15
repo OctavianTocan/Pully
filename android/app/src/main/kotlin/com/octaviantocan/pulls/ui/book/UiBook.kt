@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.book
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -40,6 +40,8 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.design.PageBack
+import com.octaviantocan.pulls.ui.design.PageMotion
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsSwitch
@@ -62,7 +64,9 @@ internal fun UiBook(onClose: () -> Unit) {
     var current by rememberSaveable { mutableStateOf<String?>(null) }
     val page = book.pages.firstOrNull { it.id == current }
     val back: () -> Unit = { if (current != null) current = null else onClose() }
-    BackHandler(onBack = back)
+    // A back swipe on a page moves it with the finger toward the index; on the index it closes the book like any page.
+    val bookMotion = remember { PageMotion() }
+    PageBack(bookMotion, enabled = current != null) { current = null }
     Column(Modifier.fillMaxSize().background(c.base).statusBarsPadding()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = PullsSpace.x4, vertical = PullsSpace.x2),
@@ -72,11 +76,16 @@ internal fun UiBook(onClose: () -> Unit) {
             FloatIcon(Lu.back, "Back", back)
             Text(page?.title ?: "UI Book", style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
         }
-        if (page == null) {
-            BookIndex(book) { current = it }
-        }
-        else {
-            key(page.id) { PageHost(book, page) { current = it } }
+        // A page opens from the index and the pager moves through the book as pages, the way they go (rule 105): the
+        // index sits before the first page, and each page where the book lists it.
+        BlurSwitch(current, Modifier.weight(1f), order = { id -> book.pages.indexOfFirst { it.id == id } }, motion = bookMotion) { id ->
+            val shown = book.pages.firstOrNull { it.id == id }
+            if (shown == null) {
+                BookIndex(book) { current = it }
+            }
+            else {
+                key(shown.id) { PageHost(book, shown) { current = it } }
+            }
         }
     }
 }

@@ -22,6 +22,8 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -35,6 +37,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
@@ -58,6 +61,7 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -65,6 +69,21 @@ import androidx.compose.ui.window.DialogProperties
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
+import androidx.activity.BackEventCompat
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import com.octaviantocan.pulls.core.BACKWARD
+import com.octaviantocan.pulls.core.FORWARD
+import com.octaviantocan.pulls.core.backWay
+import com.octaviantocan.pulls.core.pageWay
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /*
  * Motion, from transitions.dev: one smooth-out curve, a short list of durations, and a little
@@ -115,6 +134,9 @@ object PullsMotion {
 
     /** How far a finger can drag the rows of a page, and where they have faded most (rule 88). */
     val FingerRange = 96.dp
+
+    /** A throw faster than this, per second, changes the page however short the drag was (rule 105). */
+    val Fling = 500.dp
 }
 
 /**
@@ -137,32 +159,187 @@ fun Modifier.softBlur(radius: Dp): Modifier =
 /**
  * Swaps between screens of one page, such as the Inbox and Tours tabs: the leaving content fades
  * out blurring and slides 8dp away, the arriving content fades in sharpening from 8dp the other
- * side (`--p8-*`, 250ms smooth-out). [order] ranks the screens left to right, so going back
- * slides the other way; without it every change moves forward.
+ * side (`--p8-*`, 250ms smooth-out). [order] ranks the screens left to right, so a screen further
+ * right comes in from the right and one further left from the left: the pages move the way the
+ * person went (rule 105). A change [order] cannot know the way of, Back and a back swipe, comes
+ * through [motion], which also holds a page under a back swipe (see [PageBack]). A centred title passes
+ * [contentAlignment] `Center`, so the one leaving does not ride the edge of a container that shrinks around it.
  */
 @Composable
-fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int = { 0 }, content: @Composable AnimatedContentScope.(S) -> Unit) {
+fun <S> BlurSwitch(
+    target: S,
+    modifier: Modifier = Modifier,
+    order: (S) -> Int,
+    motion: PageMotion? = null,
+    contentAlignment: Alignment = Alignment.TopStart,
+    content: @Composable AnimatedContentScope.(S) -> Unit,
+) {
     val travel = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
-    val motion = rememberMotionEnabled()
-    AnimatedContent(
-        targetState = target,
+    val moving = rememberMotionEnabled()
+    val change = remember { WayOfChange(target) }
+    change.update(target, order, motion)
+    val pages = updateTransition(target, label = "blur-switch")
+    if (motion != null) {
+        SideEffect { motion.onScreen = target }
+        // The page a back swipe held keeps where the finger left it until it has gone; then the hold lets go.
+        val settled = pages.currentState
+        LaunchedEffect(settled) { if (settled == pages.targetState) motion.letGo(settled) }
+    }
+    pages.AnimatedContent(
         modifier = modifier,
+        contentAlignment = contentAlignment,
         transitionSpec = {
-            val way = if (order(targetState) >= order(initialState)) 1 else -1
-            if (!motion) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
+            if (!moving) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
+            val way = change.way
             ((fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { way * travel }) togetherWith
                 (fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { -way * travel }))
                 // A screen of another height resizes the container on the same curve, so a sheet grows or shrinks with its page.
                 .using(SizeTransform(clip = true) { _, _ -> tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) })
         },
-        label = "blur-switch",
     ) { state ->
         val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) }, label = "blur") {
             if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurMedium
         }
+        Box(Modifier.then(if (motion != null) Modifier.heldBy(motion, state) else Modifier).softBlur(blur)) { content(state) }
+    }
+}
+
+/** The way of the change in flight, fixed once when the target changes, so the leaving and arriving pages agree. */
+private class WayOfChange<S>(private var from: S) {
+    var way = FORWARD
+        private set
+
+    fun update(to: S, order: (S) -> Int, motion: PageMotion?) {
+        if (to == from) return
+        way = motion?.take() ?: pageWay(order(from), order(to))
+        from = to
+    }
+}
+
+/**
+ * What moved a [BlurSwitch] last, when its order cannot tell (rule 105). Back always goes backward, and a back swipe
+ * moves the page with the finger while it is held and then carries on the way the finger went, so a swipe from the
+ * right edge sends the pages left. One [PageMotion] drives one [BlurSwitch].
+ */
+@Stable
+class PageMotion {
+    private var next: Int? = null
+
+    /** The next change goes [way] ([FORWARD] or [BACKWARD]) whatever the order says. Call it just before the change. */
+    fun next(way: Int) {
+        next = way
+    }
+
+    internal fun take(): Int? = next.also { next = null }
+
+    /** The page the switch shows, which is the one a back swipe takes hold of. */
+    internal var onScreen: Any? = null
+
+    /** The page under a back swipe: it keeps the swipe's offset while it leaves, and nothing else does. */
+    internal var held: Any? by mutableStateOf(null)
+
+    /** How far the back swipe has gone, 0 to 1, and which way it moves the page, with the finger. */
+    internal var hold by mutableFloatStateOf(0f)
+    internal var holdWay by mutableIntStateOf(BACKWARD)
+
+    /** The page that held the swipe has gone (or the switch settled elsewhere): drop the hold. */
+    internal fun letGo(settled: Any?) {
+        if (held != null && held != settled) {
+            held = null
+            hold = 0f
+        }
+    }
+}
+
+/** A page under a back swipe follows the finger up to 96dp and fades to 40% on the way, like the rows of a tab swipe (rule 88). */
+private fun Modifier.heldBy(motion: PageMotion, state: Any?): Modifier = graphicsLayer {
+    // Read in the draw layer, all of them every time, so the layer redraws when any changes.
+    val p = motion.hold
+    if (state != motion.held) return@graphicsLayer
+    translationX = -motion.holdWay * p * PullsMotion.FingerRange.toPx()
+    alpha = 1f - 0.6f * p
+}
+
+/**
+ * Back for pages drawn by a [BlurSwitch] with [motion] (rule 105). The Back button goes backward. A back swipe moves
+ * the page with the finger while it is held, and when it lets go the pages carry on that way: right after a swipe from
+ * the left edge, left after one from the right. A swipe given up puts the page back.
+ */
+@Composable
+fun PageBack(motion: PageMotion, enabled: Boolean, onBack: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val latest by rememberUpdatedState(onBack)
+    val moving = rememberMotionEnabled()
+    PredictiveBackHandler(enabled) { events ->
+        motion.held = motion.onScreen
+        var way = BACKWARD
+        try {
+            events.collect { event ->
+                way = backWay(fromRightEdge = event.swipeEdge == BackEventCompat.EDGE_RIGHT)
+                motion.holdWay = way
+                if (moving) motion.hold = event.progress
+            }
+        } catch (e: CancellationException) {
+            val held = motion.held
+            scope.launch {
+                animate(motion.hold, 0f, animationSpec = tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { v, _ -> motion.hold = v }
+                if (motion.held == held) motion.held = null
+            }
+            throw e
+        }
+        motion.next(way)
+        latest()
+    }
+}
+
+/**
+ * A label replaced by its neighbour, such as the file name between ‹ and › or the stop named on the Tour's strip: the
+ * old one leaves through a 2px blur the way the change goes and the new one comes from the other side, 150ms
+ * ease-in-out, 8dp of travel, the arrival held back 50ms, as the thinking line swaps (rule 73). [order] ranks the
+ * labels, so the next file comes from the right and the previous one from the left (rule 105); [vertical] is for a list
+ * read top to bottom, where the next stop rises from below and scrolling back brings the last one down from above.
+ * Both labels sit in the middle of the space while it resizes ([contentAlignment]), so the leaving one moves only
+ * the way it goes, not with an edge of the space as it shrinks around the next.
+ */
+@Composable
+fun <S> LabelSwitch(
+    target: S,
+    modifier: Modifier = Modifier,
+    order: (S) -> Int,
+    vertical: Boolean = false,
+    contentAlignment: Alignment = Alignment.Center,
+    content: @Composable (S) -> Unit,
+) {
+    val travel = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
+    val moving = rememberMotionEnabled()
+    val change = remember { WayOfChange(target) }
+    change.update(target, order, null)
+    AnimatedContent(
+        targetState = target,
+        modifier = modifier,
+        contentAlignment = contentAlignment,
+        transitionSpec = {
+            if (!moving) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
+            val way = change.way
+            val arrive = tween<IntOffset>(PullsMotion.QUICK, delayMillis = LABEL_GAP_MS, easing = PullsMotion.InOut)
+            val go = tween<IntOffset>(PullsMotion.QUICK, easing = PullsMotion.InOut)
+            val enter = fadeIn(tween(PullsMotion.QUICK, delayMillis = LABEL_GAP_MS, easing = PullsMotion.InOut)) +
+                if (vertical) slideInVertically(arrive) { way * travel } else slideInHorizontally(arrive) { way * travel }
+            val exit = fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.InOut)) +
+                if (vertical) slideOutVertically(go) { -way * travel } else slideOutHorizontally(go) { -way * travel }
+            (enter togetherWith exit) using SizeTransform(clip = false) { _, _ -> tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) }
+        },
+        label = "label-switch",
+    ) { state ->
+        val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.QUICK, easing = PullsMotion.InOut) }, label = "label-blur") {
+            if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurSmall
+        }
         Box(Modifier.softBlur(blur)) { content(state) }
     }
 }
+
+/** The pause before a label's replacement arrives, so the two do not cross (Thinking states on transitions.dev). */
+private const val LABEL_GAP_MS = 50
 
 /**
  * A page change inside a scrolling list (Summary, Commits and Conversation under their tabs). The rows of a lazy list
@@ -170,6 +347,10 @@ fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int =
  * blurring and slide 8dp away (150ms), the next page's rows take their place and fade in sharpening from 8dp the
  * other side (250ms), both on the smooth-out curve like [BlurSwitch]. [shown] is the page the list holds right now, and
  * every row of it wears [pageSlide] with this state.
+ *
+ * A finger can hold the rows ([follow]). When it lets go ([release]) on a change, the rows never come back toward it:
+ * they carry on the way it went, from where it left them and at the speed it let go at, while the next page comes in
+ * from the other side (rule 105).
  */
 @Stable
 class PageSlide<T> internal constructor(initial: T) {
@@ -181,39 +362,121 @@ class PageSlide<T> internal constructor(initial: T) {
 
     /** How far a finger has dragged the rows, in pixels: they follow it, and fade a little as they go (rule 88). */
     var finger by mutableFloatStateOf(0f)
-        private set
+        internal set
+
+    /** How far the leaving rows go past the finger, in px: a page's 8dp, or more when a swipe threw them. */
+    internal var span by mutableFloatStateOf(0f)
+
+    /** The way a swipe that let go threw the rows, until the change it made has taken them; 0 while they are the finger's. */
+    internal var thrown by mutableIntStateOf(0)
+
+    /** A page change is moving the rows. */
+    internal var changing = false
+
+    /** A page's 8dp and the finger's 96dp, in px, for this screen. */
+    internal var step = 0f
+    internal var reach = 0f
 
     /** The rows follow a drag of [delta] pixels, up to [limit] either way. */
     fun follow(delta: Float, limit: Float) {
         finger = (finger + delta).coerceIn(-limit, limit)
     }
 
-    /** The finger is up: the rows return to where they belong while the page changes under them, or not. */
-    suspend fun release() {
-        animate(finger, 0f, animationSpec = tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { value, _ -> finger = value }
+    /**
+     * The finger's share of the way toward the next page, -1 to 1, while it holds the rows or they spring back under it;
+     * 0 once a swipe has thrown them on. Tab ink leans with it.
+     */
+    fun pull(range: Float): Float = if (thrown != 0 || range <= 0f) 0f else (-finger / range).coerceIn(-1f, 1f)
+
+    /**
+     * The finger is up. [way] is where the swipe went (rule 105): 0 when it changed nothing, and the rows return under
+     * it; [FORWARD] or [BACKWARD] when it changed this slide's page, and the page change takes the rows on from where
+     * the finger left them, as fast as it let go ([velocity], px/s).
+     */
+    suspend fun release(way: Int, velocity: Float = 0f) {
+        if (way == 0) {
+            animate(finger, 0f, animationSpec = tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { value, _ -> finger = value }
+            return
+        }
+        thrown = way
+        span = throwSpan(velocity)
+        // The change starts on the next frame. If none came (the page could not change after all), let the rows go back.
+        delay(PullsMotion.QUICK.toLong())
+        if (thrown == way && !changing) {
+            thrown = 0
+            span = 0f
+            animate(finger, 0f, animationSpec = tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { value, _ -> finger = value }
+        }
     }
+
+    /**
+     * The swipe took the whole view away (past the last file to the Tour, before the first to the Overview), which leaves
+     * as a page: the rows carry on with the finger, [way] and as fast as it let go, fading, and are put back once they
+     * are out of sight.
+     */
+    suspend fun leave(way: Int, velocity: Float = 0f) {
+        thrown = way
+        span = throwSpan(velocity)
+        try {
+            travel.animateTo(-way.toFloat(), tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
+        } finally {
+            if (!changing) {
+                travel.snapTo(0f)
+                finger = 0f
+                span = 0f
+                thrown = 0
+            }
+        }
+    }
+
+    /** How far rows let go at [velocity] travel in a 150ms leave on the smooth-out curve, which starts at 4.5 times its mean speed, so they leave as fast as the finger moved them. */
+    private fun throwSpan(velocity: Float): Float =
+        (abs(velocity) * PullsMotion.QUICK / 1000f / SMOOTH_OUT_START).coerceIn(step, maxOf(step, reach))
 }
 
+/** The smooth-out curve's speed at its start, as a multiple of its mean: `cubic-bezier(0.22, 1, ...)` leaves at 1 / 0.22. */
+private const val SMOOTH_OUT_START = 4.55f
+
 @Composable
-fun <T> rememberPageSlide(target: T, order: (T) -> Int = { 0 }): PageSlide<T> {
+fun <T> rememberPageSlide(target: T, order: (T) -> Int): PageSlide<T> {
     val slide = remember { PageSlide(target) }
     val motion = rememberMotionEnabled()
+    val density = LocalDensity.current
+    slide.step = with(density) { PullsMotion.SlideDistance.toPx() }
+    slide.reach = with(density) { PullsMotion.FingerRange.toPx() }
     LaunchedEffect(target) {
         // Back to the page still on screen before it finished leaving: the rows come back from wherever they got to.
         if (target == slide.shown) {
-            if (slide.travel.value != 0f) slide.travel.animateTo(0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))
+            slide.thrown = 0
+            slide.span = 0f
+            coroutineScope {
+                launch { if (slide.travel.value != 0f) slide.travel.animateTo(0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) }
+                launch { animate(slide.finger, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> slide.finger = value } }
+            }
             return@LaunchedEffect
         }
         if (!motion) {
             slide.travel.snapTo(0f)
+            slide.finger = 0f
+            slide.thrown = 0
             slide.shown = target
             return@LaunchedEffect
         }
-        val way = if (order(target) >= order(slide.shown)) 1f else -1f
-        slide.travel.animateTo(-way, tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
-        slide.shown = target
-        slide.travel.snapTo(way)
-        slide.travel.animateTo(0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))
+        slide.changing = true
+        try {
+            // The way the pages sit, which is the way a swipe that made this change went (rule 105).
+            val way = pageWay(order(slide.shown), order(target)).toFloat()
+            if (slide.span <= 0f) slide.span = slide.step
+            slide.travel.animateTo(-way, tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
+            slide.shown = target
+            slide.finger = 0f
+            slide.span = 0f
+            slide.thrown = 0
+            slide.travel.snapTo(way)
+            slide.travel.animateTo(0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))
+        } finally {
+            slide.changing = false
+        }
     }
     return slide
 }
@@ -222,7 +485,8 @@ fun <T> rememberPageSlide(target: T, order: (T) -> Int = { 0 }): PageSlide<T> {
 fun Modifier.pageSlide(slide: PageSlide<*>): Modifier = graphicsLayer {
     val t = slide.travel.value
     val pull = (abs(slide.finger) / PullsMotion.FingerRange.toPx()).coerceIn(0f, 1f)
-    translationX = t * PullsMotion.SlideDistance.toPx() + slide.finger
+    val span = if (slide.span > 0f) slide.span else PullsMotion.SlideDistance.toPx()
+    translationX = t * span + slide.finger
     alpha = (1f - abs(t)) * (1f - 0.6f * pull)
     val blur = abs(t) * PullsMotion.BlurMedium.toPx()
     renderEffect = if (BlurSupported && blur > 0.5f) BlurEffect(blur, blur, TileMode.Decal) else null

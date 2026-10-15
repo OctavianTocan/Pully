@@ -12,6 +12,19 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.22.0
+
+Swipes and pages now move the way your finger goes.
+
+- Swipe between a pull request's tabs and the rows follow your finger, then carry on to the tab you went to instead of springing back first. A quick flick is enough.
+- The line under the tabs leans toward the next tab as you drag and slides across when it changes.
+- Next, previous and Back move the way they say: the next tab, file or view comes in from the right, and Back always slides backward.
+- A back swipe moves the page with your finger, then carries it off the way you swiped.
+- The back button and the Overview, Changes and Tour switch stay still when you change view, and the switch's highlight slides.
+- The file name at the bottom of the diff and the stop on the Tour slide the way you went.
+- The filters and the activity strip move with the Inbox when you switch to Tours.
+- Commands, pulled down from the top, drops from the top and goes back up.
+
 ## 0.21.0
 
 Review with AI now offers only the review skills chosen for it.
