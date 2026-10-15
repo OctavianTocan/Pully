@@ -12,6 +12,15 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.34.0
+
+A new app icon: a beam of light across a grid of days.
+
+### Changed
+
+- The app icon is now Torch: a contribution grid of days with a beam of light from one corner lighting a wedge of them.
+- Themed icons and the update notification show the beam on its own.
+
 ## 0.33.0
 
 Colour themes, Commits and Checks as sheets, and a steadier diff.
