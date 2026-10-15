@@ -55,6 +55,21 @@ produces the same signature and installed apps keep accepting updates. If it is 
 replaced, every installed app must be reinstalled — never let Gradle fall back to an auto-generated
 `~/.android/debug.keystore`.
 
+## Past versions
+
+Settings, Advanced, Past versions (0.36.0) has a dev-only slider over every version the app has had. Each past
+version is the app rebuilt from the last commit that carried its `versionName`, as its own package
+(`com.octaviantocan.pulls.v0_20_0`, label "Pulls 0.20.0", versionCode offset by 1000000, no launcher icon or link
+handling). The phone downloads one when it is picked, installs it beside the app and opens it with its own server
+and Access token.
+
+- `python3 android/scripts/build-past-ui.py` builds every version not built yet into
+  `$PULLS_REVIEW_ANDROID_DIR/past/` (`<version>.apk` and `index.json`), which the server serves at
+  `/android/past/`. The first run builds about forty versions, one Gradle build each; `--list` shows what it
+  would build from which commit, and naming versions rebuilds just those.
+- Once `past/` exists, `publish-apk.sh` runs it after each publish, so the version just replaced is added.
+- A version that does not build is reported and skipped; the others still go out.
+
 ## Test without publishing
 
 - Phone on USB or wireless debugging: `cd android && ./gradlew :app:installDebug`.

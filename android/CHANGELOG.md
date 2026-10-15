@@ -12,6 +12,17 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.36.0
+
+Open any past version of the app from a slider in Settings.
+
+### New
+
+- Settings, Advanced, Past versions has a slider across every version of the app, from 0.4.0 to the one you're running.
+- Slide to an older version and tap Get: it downloads, installs beside this app and opens as it was then, on your server.
+- Once a version is on the phone, Open brings it up at once, and Remove takes it off again.
+- Past versions have no icon of their own and never ask to update; this app stays on the newest version.
+
 ## 0.35.0
 
 Chat history in Ask, tour previews, and smoother swipes and zoom.

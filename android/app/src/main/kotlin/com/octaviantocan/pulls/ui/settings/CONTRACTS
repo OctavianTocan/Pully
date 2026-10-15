@@ -16,8 +16,8 @@ on or off (rule 126; J4).
 Settings, Sounds has a Vibration switch, and with it off nothing vibrates (rule 109; H18).
 
 @cc [owner:OctavianTocan,label:product] settings-server-is-advanced
-The server address, the Access token and the UI Book sit under an Advanced row at the
-bottom of Settings, not on its main page (H9).
+The server address, the Access token, Past versions and the UI Book sit under an
+Advanced row at the bottom of Settings, not on its main page (H9).
 
 @cc [owner:OctavianTocan,label:product] settings-model-row-names-the-model
 The Model row shows the chosen model's name and the engine's own mark in colour, never a
@@ -31,3 +31,10 @@ new version..."): "These are just unnecessary straight up" (H8).
 @cc [owner:OctavianTocan,label:product] settings-is-the-liked-sheet
 Settings is a sheet in the mobile style, with its pages inside it. Tavi called it "much,
 much better than before"; it MUST NOT regress to the old style (rules 49 and 78; F11).
+
+@cc [owner:OctavianTocan,label:product] settings-past-versions-slider
+Settings, Advanced, Past versions has a dev-only slider over every version of the app,
+oldest on the left. It rests on the running version, so the app MUST always run the
+newest UI unless an older one is opened from there. An older version opens as that
+version's own build from git, beside this app, never as a mode of this one (Tavi,
+15 Oct: "a dev-only slider ... by default the app just has latest changes").

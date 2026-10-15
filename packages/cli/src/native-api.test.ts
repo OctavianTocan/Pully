@@ -1,6 +1,6 @@
 import type { DiffsPayload, FileChange } from '@pulls.review/core/types'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -135,5 +135,34 @@ describe('chat history', () => {
     const { status, body } = await call('chat-restore', { key: KEY, id: 'missing' })
     expect(status).toBe(400)
     expect(body.error).toContain('not in this pull request\'s history')
+  })
+})
+
+describe('past versions', () => {
+  async function get(path: string): Promise<Response | undefined> {
+    return handleNativeRequest({ url: new URL(`http://localhost${path}`), method: 'GET', json: async () => undefined }, repo)
+  }
+
+  it('serves the index and the APKs build-past-ui.py wrote, and nothing else from the folder', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pulls-review-android-'))
+    mkdirSync(join(dir, 'past'))
+    writeFileSync(join(dir, 'past', 'index.json'), '{"versions":[]}')
+    writeFileSync(join(dir, 'past', '0.20.0.apk'), 'apk')
+    writeFileSync(join(dir, 'past', '0.20.0.json'), '{}')
+    vi.stubEnv('PULLS_REVIEW_ANDROID_DIR', dir)
+    try {
+      const index = await get('/android/past/index.json')
+      expect(index?.status).toBe(200)
+      expect(await index?.json()).toEqual({ versions: [] })
+      const apk = await get('/android/past/0.20.0.apk')
+      expect(apk?.headers.get('Content-Type')).toBe('application/vnd.android.package-archive')
+      expect(await apk?.text()).toBe('apk')
+      expect((await get('/android/past/0.9.0.apk'))?.status).toBe(404)
+      expect(await get('/android/past/0.20.0.json')).toBeUndefined()
+      expect(await get('/android/past/..%2Flatest.json.apk')).toBeUndefined()
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

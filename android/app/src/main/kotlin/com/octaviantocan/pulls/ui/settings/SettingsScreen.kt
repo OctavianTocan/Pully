@@ -155,6 +155,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Language(Main),
     Advanced(Main),
     Server(Advanced),
+    PastVersions(Advanced),
     Font(Main),
     Sound(Main),
     Model(Main),
@@ -169,6 +170,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Language -> t("settings.language")
     SettingsPage.Advanced -> "Advanced"
     SettingsPage.Server -> "Server"
+    SettingsPage.PastVersions -> "Past versions"
     SettingsPage.Font -> "Code font"
     SettingsPage.Sound -> "Sound"
     SettingsPage.Model -> "Select model"
@@ -178,7 +180,7 @@ internal fun SettingsPage.title(): String = when (this) {
 
 /**
  * Settings, as a sheet like the rest of the app: grouped white cards on paper, one row for each choice.
- * The colour theme, language, the code font, the sound, the model, its effort and Advanced (the server and the UI Book) are pages inside this one
+ * The colour theme, language, the code font, the sound, the model, its effort and Advanced (the server, past versions and the UI Book) are pages inside this one
  * sheet (rule 78). Rows carry no explanations under them: a row says what it is, and its page says the rest (H8).
  * A setting that changes how something looks shows the result (rule 81): the diff layout as two small diffs,
  * the code size and font as a sample line.
@@ -201,6 +203,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
         SettingsPage.Language -> LanguagePage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Advanced -> AdvancedPage(nav, open = onPage)
         SettingsPage.Server -> ServerPage()
+        SettingsPage.PastVersions -> PastVersionsPage()
         SettingsPage.Font -> CodeFontPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Sound -> SoundPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) }, onEffort = { onPage(SettingsPage.Effort) })
@@ -344,7 +347,7 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     }
 }
 
-/** Advanced: which server the phone reads from, and the UI Book. */
+/** Advanced: which server the phone reads from, the past versions of the app, and the UI Book. */
 @Composable
 private fun ColumnScope.AdvancedPage(nav: Nav, open: (SettingsPage) -> Unit) {
     val c = LocalPullsColors.current
@@ -353,6 +356,9 @@ private fun ColumnScope.AdvancedPage(nav: Nav, open: (SettingsPage) -> Unit) {
     SheetCard {
         SheetRow("Server", { open(SettingsPage.Server) }, first = true, iconless = true) {
             Text(config.url.removePrefix("https://").removePrefix("http://").ifBlank { "Not set" }, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+        }
+        SheetRow("Past versions", { open(SettingsPage.PastVersions) }, iconless = true) {
             LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
         }
     }
