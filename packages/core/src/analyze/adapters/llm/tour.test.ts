@@ -2,7 +2,7 @@ import type { DiffsPayload } from '../../../types/diff'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setCliRunner } from './cli-stream'
 import { MENTION_RULE } from './prompt'
-import { buildTourPlanPrompt, buildTourStopPrompt, MAX_STOPS, resolveTourPlan, resolveTourStop, runTour } from './tour'
+import { buildTourPlanPrompt, buildTourStopPrompt, MAX_STOPS, resolveTourPlan, resolveTourStop, runTour, TOUR_FORMS, TOUR_PLAN_SCHEMA, TOUR_STOP_SCHEMA } from './tour'
 
 const diff: DiffsPayload = {
   ref: { kind: 'github-pr', owner: 'o', repo: 'r', number: '7' },
@@ -45,6 +45,32 @@ describe('tour prompts', () => {
     expect(buildTourStopPrompt(diff, plan, 0, 'en')).toContain('`From -> To: what moves`')
   })
 
+  // K17: every stop came out as paragraph, flow, pseudocode and callout. The planner now picks a form per stop.
+  it('asks the planner for a form per stop, from the forms the phone draws, varied across the tour', () => {
+    const prompt = buildTourPlanPrompt(diff, 'en')
+    for (const form of Object.keys(TOUR_FORMS))
+      expect(prompt).toContain(`- ${form}: `)
+    expect(prompt).toContain('no two stops in a row take the same one')
+    const stop = TOUR_PLAN_SCHEMA.properties.stops.items
+    expect(stop.required).toContain('form')
+    expect(stop.properties.form.enum).toEqual(Object.keys(TOUR_FORMS))
+  })
+
+  it('has the writer lead with the planned form, with no fixed set of visuals and an optional callout', () => {
+    const prompt = buildTourStopPrompt(diff, { ...plan, stops: [{ ...plan.stops[0]!, form: 'table' }, plan.stops[1]!] }, 0, 'en')
+    expect(prompt).toContain(`The planner chose this stop's form: table, ${TOUR_FORMS.table}.`)
+    expect(prompt).toContain('a Markdown table')
+    expect(prompt).not.toContain('two to four visuals')
+    expect(prompt).toContain('otherwise leave it empty')
+    expect(TOUR_STOP_SCHEMA.properties.takeaway.description).toContain('empty string')
+  })
+
+  it('falls back to prose, then a list, when the plan names no form', () => {
+    expect(buildTourStopPrompt(diff, plan, 0, 'en')).toContain('this stop\'s form: prose,')
+    const prose = { ...plan, stops: [{ ...plan.stops[0]!, form: 'prose' }, plan.stops[1]!] }
+    expect(buildTourStopPrompt(diff, prose, 1, 'en')).toContain('this stop\'s form: list,')
+  })
+
   it('gives one stop the outline and only its own files', () => {
     const prompt = buildTourStopPrompt(diff, plan, 1, 'en')
     expect(prompt).toContain('2. The cache: How entries live.   <- this stop')
@@ -59,6 +85,14 @@ describe('resolving answers', () => {
     const resolved = resolveTourPlan({ title: 'T', overview: 'O', stops, glossary: [] })
     expect(resolved.stops).toHaveLength(MAX_STOPS)
     expect(resolved.stops[0]!.title).toBe('Stop 1')
+  })
+
+  it('keeps a form the planner picked and drops one it made up', () => {
+    const resolved = resolveTourPlan({ title: 'T', overview: 'O', glossary: [], stops: [
+      { title: 'A', purpose: 'p', files: [], notes: '', form: 'Table' },
+      { title: 'B', purpose: 'p', files: [], notes: '', form: 'carousel' },
+    ] })
+    expect(resolved.stops.map(stop => stop.form)).toEqual(['table', undefined])
   })
 
   it('rejects a plan without stops', () => {

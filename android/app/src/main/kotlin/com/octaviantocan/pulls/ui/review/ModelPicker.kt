@@ -96,7 +96,7 @@ private fun family(model: CliModel): String = Regex("[a-z]+").find(model.name.lo
  * (for Claude Code the 5.5 models and Fable), the default, and the aliases come first; every other version goes
  * under "Older models". The CLI's own order is kept inside each group. A list with nothing older is all recent.
  */
-internal fun groupModels(models: List<CliModel>, byFamily: Boolean = false): ModelGroups {
+internal fun groupModels(models: List<CliModel>): ModelGroups {
     val versions = models.associateWith { modelVersion(it) }
     val newestMajor = versions.values.filterNotNull().maxOfOrNull { it.first } ?: return ModelGroups(models, emptyList())
     val newestOfFamily = models.filter { versions[it] != null }
@@ -105,10 +105,22 @@ internal fun groupModels(models: List<CliModel>, byFamily: Boolean = false): Mod
     val (recent, older) = models.partition { model ->
         val version = versions[model]
         version == null || model.isDefault ||
-            ((byFamily || version.first == newestMajor) && version.first * 1000 + version.second == newestOfFamily[family(model)])
+            (version.first == newestMajor && version.first * 1000 + version.second == newestOfFamily[family(model)])
     }
     return ModelGroups(recent, older)
 }
+
+/** One provider's models on a list that mixes providers: [heading] is the provider ("AGY", "Claude"), null when the server names none. */
+internal data class ModelSection(val heading: String?, val models: List<CliModel>)
+
+/**
+ * Pi's list in sections, one per provider the server groups it by (K2), in the server's order: the default's group
+ * first, the rest by name, each newest first. Pi has no "Older models" (K3): every model the endpoint serves is a
+ * current choice. A server that sends no groups gives one section with no heading.
+ */
+internal fun modelSections(models: List<CliModel>): List<ModelSection> =
+    if (models.none { it.group != null }) listOf(ModelSection(null, models))
+    else models.groupBy { it.group?.trim()?.ifEmpty { null } ?: "Other" }.map { (heading, members) -> ModelSection(heading, members) }
 
 /** The hyphen between two words reads as a line in a name: `GPT-5.1-Codex-Max` is shown `GPT-5.1 Codex Max`. */
 private fun tidyHyphens(name: String): String {
@@ -139,7 +151,9 @@ internal fun modelLabel(model: CliModel): String {
  * `Claude Opus 4.1`. A word and its number keep their hyphen, two numbers become a version, and words are capitalised.
  */
 internal fun prettyModelId(id: String): String {
-    val parts = id.trim().split('-', '_').filter { it.isNotEmpty() }
+    // A route prefix that repeats the family ("claude-claude-opus-5", from a proxy's credential prefix) says it once (K3).
+    val parts = id.trim().substringAfterLast('/').split('-', '_', ':').filter { it.isNotEmpty() }
+        .let { words -> words.filterIndexed { index, word -> index == 0 || !word.equals(words[index - 1], ignoreCase = true) } }
     if (parts.isEmpty()) return id
     return buildString {
         parts.forEachIndexed { index, part ->
@@ -154,6 +168,7 @@ internal fun prettyModelId(id: String): String {
             append(
                 when {
                     part.equals("gpt", ignoreCase = true) -> "GPT"
+                    part.equals("agy", ignoreCase = true) -> "AGY"
                     part.first().isLetter() -> part.replaceFirstChar { it.titlecase() }
                     else -> part
                 },
@@ -161,6 +176,10 @@ internal fun prettyModelId(id: String): String {
         }
     }
 }
+
+/** The row a saved id the list no longer carries reads as: the one whose name its id makes, if any. */
+internal fun sameNamed(models: List<CliModel>, id: String): CliModel? =
+    if (id.isBlank()) null else prettyModelId(id).let { name -> models.firstOrNull { modelLabel(it).equals(name, ignoreCase = true) } }
 
 /** The one line a row adds under its name, only for the default, whose name alone does not say which model it is. */
 internal fun modelNote(model: CliModel): String? =
@@ -171,8 +190,9 @@ internal fun modelNote(model: CliModel): String? =
 /**
  * The engine tabs, the newest models, a row to the effort and below it the older models under a small heading, as
  * Claude's picker has them (rule 89). A row is a name, with no id line and no description, a "Recommended" pill on the
- * CLI's own pick and a plain ✓ on the one in use. Switching engine swaps the lists where they stand. [onDone] runs
- * once a model is chosen.
+ * CLI's own pick and a plain ✓ on the one in use. Pi, which lists many providers' models, shows them instead in a
+ * card per provider under its name, with no "Older models" (K2, K3). Switching engine swaps the lists where they stand.
+ * [onDone] runs once a model is chosen.
  */
 @Composable
 internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, onEffort: () -> Unit) {
@@ -198,8 +218,11 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
         config = next
         ServerStore.save(context, next)
     }
-    val inUse = catalog?.let { AiSettingsLogic.current(it, config.model)?.id ?: config.model }
-    val groups = catalog?.let { groupModels(it.models, byFamily = engine == "pi") }
+    // An id the server now lists under another one (Pi lists `claude-claude-opus-5` once, as `claude-opus-5`) ticks the row of the same name.
+    val inUse = catalog?.let { AiSettingsLogic.current(it, config.model)?.id ?: sameNamed(it.models, config.model)?.id ?: config.model }
+    // Pi mixes providers, so its list is in a section per provider with nothing folded under "Older models" (K2, K3).
+    val sections = if (engine == "pi") catalog?.let { modelSections(it.models) } else null
+    val groups = if (sections == null) catalog?.let { groupModels(it.models) } else null
     fun choose(model: CliModel) {
         val chosen = catalog ?: return
         val kept = AiSettingsLogic.keptEffort(chosen, model.id, settings.effort)
@@ -226,7 +249,14 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
             leading = { index -> EngineMark(ENGINES[index], size = 20.dp) },
         )
     }
-    SheetCard(Modifier.animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {
+    if (sections != null) {
+        sections.forEachIndexed { index, section ->
+            if (section.heading != null) ModelHeading(section.heading, first = index == 0)
+            SheetCard(gap = if (section.heading != null) 8.dp else 12.dp) {
+                section.models.forEachIndexed { row, model -> ModelRow(model, model.id == inUse, first = row == 0) { choose(model) } }
+            }
+        }
+    } else SheetCard(Modifier.animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {
         when {
             loaded == null -> ModelSkeleton()
             catalog == null || groups == null -> Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -250,11 +280,17 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
     }
     // The rest sit below the Effort row under a small heading, as in Claude's picker, and are always there to scroll to.
     if (groups != null && groups.older.isNotEmpty()) {
-        Text("Older models", Modifier.padding(start = 16.dp, top = 20.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
+        ModelHeading("Older models")
         SheetCard {
             groups.older.forEachIndexed { index, model -> ModelRow(model, model.id == inUse, first = index == 0) { choose(model) } }
         }
     }
+}
+
+/** The small heading over a card of models: "Older models" on the CLIs' lists, a provider on Pi's. */
+@Composable
+private fun ModelHeading(text: String, first: Boolean = false) {
+    Text(text, Modifier.padding(start = 16.dp, top = if (first) 14.dp else 20.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = LocalPullsColors.current.muted)
 }
 
 /** Where the model rows will be while the list is on its way: bars the length of names, not a spinner. */

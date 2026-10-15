@@ -50,11 +50,84 @@ export const PI_EFFORTS = ['low', 'medium', 'high'] as const
 const MODELS_TIMEOUT_MS = 15_000
 
 /** Words vendors write in their own case. */
-const WORD_CASE: Record<string, string> = { gpt: 'GPT', oss: 'OSS', glm: 'GLM', deepseek: 'DeepSeek', minimax: 'MiniMax', highspeed: 'HighSpeed', vl: 'VL' }
+const WORD_CASE: Record<string, string> = {
+  gpt: 'GPT',
+  oss: 'OSS',
+  glm: 'GLM',
+  deepseek: 'DeepSeek',
+  minimax: 'MiniMax',
+  highspeed: 'HighSpeed',
+  vl: 'VL',
+  mimo: 'MiMo',
+  longcat: 'LongCat',
+  agy: 'AGY',
+  xai: 'xAI',
+}
 /** A reasoning effort a proxy folds into the id, as `-high` or `(high)`; shown in brackets. `max` is left out: Codex Max is a model. */
 const EFFORT_WORD = /^(?:minimal|low|medium|high|xhigh)$/
 /** Claude's older ids put the version first: `claude-3-7-sonnet` is Claude Sonnet 3.7. */
 const CLAUDE_TIER = /^(?:opus|sonnet|haiku)$/
+
+/**
+ * Who makes each model family, by the family's word: the group a model goes under when its id names no route. A family
+ * whose maker has a route of its own on CLIProxyAPI takes that route's name, so `claude-opus-5-5` and
+ * `claude-claude-opus-5-5` are one model under "Claude", and GPT sits under "Codex" with the models its route serves.
+ */
+const FAMILY_GROUP: Record<string, string> = {
+  claude: 'Claude',
+  gpt: 'Codex',
+  chatgpt: 'Codex',
+  codex: 'Codex',
+  o: 'Codex',
+  gemini: 'Gemini',
+  qwen: 'Qwen',
+  qwq: 'Qwen',
+  grok: 'xAI',
+  deepseek: 'DeepSeek',
+  kimi: 'Kimi',
+  glm: 'GLM',
+  minimax: 'MiniMax',
+  mimo: 'Xiaomi MiMo',
+  longcat: 'Meituan LongCat',
+  hy: 'Tencent HY',
+  hunyuan: 'Tencent HY',
+  llama: 'Meta',
+  muse: 'Meta',
+  mistral: 'Mistral',
+  codestral: 'Mistral',
+  devstral: 'Mistral',
+  magistral: 'Mistral',
+}
+
+/**
+ * Route words a proxy puts before an id to say which account serves it (CLIProxyAPI's credential prefixes), and the
+ * name each provider writes itself by. `claude`, `codex`, `gemini` and `qwen` are model families too, so they count as a
+ * route only before another family's word (`claude-claude-opus-5`, `codex-gpt-6-sol`); the rest count before anything.
+ */
+const ROUTE_GROUP: Record<string, string> = {
+  agy: 'AGY',
+  antigravity: 'AGY',
+  claude: 'Claude',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  qwen: 'Qwen',
+  iflow: 'iFlow',
+  kiro: 'Kiro',
+  copilot: 'Copilot',
+  openrouter: 'OpenRouter',
+  vertex: 'Vertex',
+  aistudio: 'AI Studio',
+}
+const FAMILY_ROUTES = new Set(['claude', 'codex', 'gemini', 'qwen'])
+/** Makers some ids open with before their own family's word (`xai-grok-4.7`); dropped, and the family names the group. */
+const VENDOR_WORDS = new Set(['xai', 'openai', 'anthropic', 'google', 'moonshot', 'moonshotai', 'alibaba', 'zai', 'zhipu', 'meta', 'xiaomi', 'meituan', 'tencent', 'deepseek', 'minimax', 'mistralai'])
+
+/**
+ * Words that mark a model which does not answer in text, or is not a chat model: image, video, speech and embedding
+ * models. Pulls only reads and writes text, so they are left off the list. A chat model that reads images (`vision`)
+ * stays.
+ */
+const NOT_CHAT = new Set(['image', 'images', 'imagine', 'imagen', 'dall', 'dalle', 'banana', 'sora', 'veo', 'video', 'embed', 'embedding', 'embeddings', 'tts', 'speech', 'audio', 'realtime', 'whisper', 'transcribe', 'moderation', 'rerank', 'reranker'])
 
 /** A snapshot tag inside an id, which says nothing a reader needs: a date (`20250929`, `0309`) or a revision (`001`). */
 function isSnapshot(word: string): boolean {
@@ -88,20 +161,71 @@ function joinVersions(words: string[]): string[] {
   return out
 }
 
+/** The family a word of an id opens: `qwen3.8` is qwen, `o4` is o, `hy3` is hy. */
+function familyWord(word: string | undefined): string {
+  const lower = word?.toLowerCase() ?? ''
+  return /^o\d/.test(lower) ? 'o' : /^[a-z]+/.exec(lower)?.[0] ?? ''
+}
+
+/** An id split into the route it names, when it names one, and the model's own id. */
+interface RoutedId {
+  /** The provider the route words name, as it writes itself. */
+  route?: string
+  /** The id without its route and vendor words. */
+  model: string
+}
+
+/**
+ * Takes the route and vendor words off the front of an id: `agy-gemini-3.8-flash` is AGY's `gemini-3.8-flash`,
+ * `claude:claude-opus-5` Claude's `claude-opus-5`, `xai-grok-4.7` just `grok-4.7`. A path keeps only its last part
+ * (`openrouter/deepseek-v3.1`), naming its route when the first part is one.
+ * @param id - The id the endpoint lists.
+ * @returns The route and the rest.
+ */
+function splitRoute(id: string): RoutedId {
+  let route: string | undefined
+  const slash = id.trim().split('/')
+  if (slash.length > 1)
+    route = ROUTE_GROUP[slash[0]!.toLowerCase()]
+  let rest = slash.at(-1)!
+  for (let round = 0; round < 3; round++) {
+    const match = /^([a-z]+)[-_:.]([^-_:.].*)$/i.exec(rest)
+    if (!match)
+      break
+    const head = match[1]!.toLowerCase()
+    const next = familyWord(/^[^-_:.\s(]+/.exec(match[2]!)?.[0])
+    const beforeFamily = next !== '' && FAMILY_GROUP[next] !== undefined
+    if (ROUTE_GROUP[head] && (beforeFamily || !FAMILY_ROUTES.has(head))) {
+      route ??= ROUTE_GROUP[head]
+      rest = match[2]!
+    }
+    else if (VENDOR_WORDS.has(head) && beforeFamily) {
+      rest = match[2]!
+    }
+    else {
+      break
+    }
+  }
+  return { route, model: rest }
+}
+
 /**
  * A readable name for a model id, the way its vendor writes it: `claude-opus-5-5` reads "Claude Opus 5.5",
  * `claude-3-7-sonnet-20250219` "Claude Sonnet 3.7", `gpt-5.5-codex` "GPT-5.5 Codex", `gpt-oss-120b-medium`
- * "GPT-OSS 120B (Medium)", `gemini-3.8-flash-high` "Gemini 3.8 Flash (High)". A provider prefix, dates and revision
- * tags are dropped.
+ * "GPT-OSS 120B (Medium)", `gemini-3.8-flash-high` "Gemini 3.8 Flash (High)". A provider or route prefix
+ * (`agy-`, `codex-`, `openrouter/`, `xai-`), dates and revision tags are dropped.
  * @param id - The id the endpoint lists.
  * @returns The name to show.
  */
 export function piModelName(id: string): string {
-  let base = id.slice(id.lastIndexOf('/') + 1).trim()
+  let base = splitRoute(id).model.trim()
   // CLIProxyAPI takes a thinking level after the id: `gpt-5.5(high)`.
   const bracket = /\(([^)]*)\)$/.exec(base)
   base = base.slice(0, bracket?.index).replace(/-\d{4}-\d{2}-\d{2}(?=$|-)/, '')
-  const words = joinVersions(base.split(/[-_\s]+/).filter(word => word && !isSnapshot(word)))
+  const words = joinVersions(base.split(/[-_:\s]+/).filter(word => word && !isSnapshot(word)))
+  // A prefix that repeats the family's word ("claude claude opus") says it once.
+  while (words.length > 1 && words[0]!.toLowerCase() === words[1]!.toLowerCase())
+    words.shift()
   let effort = bracket?.[1]?.trim() || undefined
   if (!effort && words.length > 2 && EFFORT_WORD.test(words.at(-1)!.toLowerCase()))
     effort = words.pop()
@@ -114,6 +238,29 @@ export function piModelName(id: string): string {
   return effort ? `${name} (${pretty(effort)})` : name
 }
 
+/**
+ * Who serves a model: the route its id names, else a route the endpoint reports as the model's owner (CLIProxyAPI's
+ * `owned_by`, when it is one), else the maker of its family, else the family's own word.
+ * @param id - The id the endpoint lists.
+ * @param ownedBy - The `owned_by` of its `/models` entry, if any.
+ * @returns The group's name, as the provider writes it.
+ */
+export function piModelGroup(id: string, ownedBy?: string): string {
+  const { route, model } = splitRoute(id)
+  if (route)
+    return route
+  const owner = ownedBy?.trim().toLowerCase()
+  if (owner && ROUTE_GROUP[owner] && !FAMILY_ROUTES.has(owner))
+    return ROUTE_GROUP[owner]
+  const family = familyWord(model)
+  return FAMILY_GROUP[family] ?? (family ? pretty(family) : 'Other')
+}
+
+/** True for a model that makes images, video or speech, or embeds, rather than answering in text. */
+export function piIsChatModel(id: string): boolean {
+  return !id.toLowerCase().split(/[-_/:.\s()]+/).some(word => NOT_CHAT.has(word))
+}
+
 /** The name's version as a number to sort by: "Kimi K2.8" is 2.8; a size such as 120B is not a version. */
 function version(name: string): number {
   const found = [...name.matchAll(/(\d+)(?:\.(\d+))?([BKM])?\b/g)].find(match => !match[3])
@@ -121,25 +268,44 @@ function version(name: string): number {
 }
 
 /**
- * The models of an OpenAI-compatible `/models` answer: grouped by family (the name's first word), the newest version of
- * each first, the default on top.
+ * The chat models of an OpenAI-compatible `/models` answer, one row per model a reader can tell apart: grouped by who
+ * serves them (`group`), each group's families newest version first. The default comes first and its group leads;
+ * the other groups follow by name. Two ids that read the same in one group are one row: the default's id, else the
+ * one without a route, else the shorter.
  * @param body - The parsed answer.
  * @param preferred - The model the server runs by default, when it names one.
  * @returns The catalog's models.
  */
 export function piModels(body: unknown, preferred?: string): CliModel[] {
   const data = (body as { data?: unknown })?.data
-  const ids = [...new Set((Array.isArray(data) ? data : [])
-    .map(entry => (entry as { id?: unknown })?.id)
-    .filter((id): id is string => typeof id === 'string' && id.trim() !== ''))]
-  const fallback = preferred && ids.includes(preferred) ? preferred : ids[0]
-  const named = ids.map(id => ({ id, name: piModelName(id) }))
+  const entries = new Map<string, string | undefined>()
+  for (const entry of Array.isArray(data) ? data : []) {
+    const { id, owned_by: ownedBy } = (entry ?? {}) as { id?: unknown, owned_by?: unknown }
+    if (typeof id === 'string' && id.trim() !== '' && !entries.has(id) && piIsChatModel(id))
+      entries.set(id, typeof ownedBy === 'string' ? ownedBy : undefined)
+  }
+  const ids = [...entries.keys()]
+  const fallback = preferred && entries.has(preferred) ? preferred : ids[0]
+  const rows = new Map<string, { id: string, name: string, group: string, routed: boolean }>()
+  // The default's id wins, then an id with no route in it, then the shorter one; ties keep the endpoint's order.
+  const rank = (row: { id: string, routed: boolean }) => (row.id === fallback ? 0 : 1) * 1e6 + Number(row.routed) * 1e3 + row.id.length
+  for (const id of ids) {
+    const row = { id, name: piModelName(id), group: piModelGroup(id, entries.get(id)), routed: splitRoute(id).model !== id }
+    const key = `${row.group}\n${row.name.toLowerCase()}`
+    const kept = rows.get(key)
+    if (!kept || rank(row) < rank(kept))
+      rows.set(key, row)
+  }
+  const named = [...rows.values()]
+  const lead = named.find(row => row.id === fallback)?.group
   const family = (name: string) => /^[a-z]+/i.exec(name)?.[0].toLowerCase() ?? ''
   named.sort((a, b) => Number(b.id === fallback) - Number(a.id === fallback)
+    || Number(b.group === lead) - Number(a.group === lead)
+    || a.group.localeCompare(b.group, 'en', { sensitivity: 'base' })
     || family(a.name).localeCompare(family(b.name))
     || version(b.name) - version(a.name)
     || a.name.localeCompare(b.name))
-  return named.map(({ id, name }) => ({ id, name, efforts: [...PI_EFFORTS], isDefault: id === fallback || undefined }))
+  return named.map(({ id, name, group }) => ({ id, name, group, efforts: [...PI_EFFORTS], isDefault: id === fallback || undefined }))
 }
 
 /**

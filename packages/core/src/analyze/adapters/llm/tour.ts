@@ -18,16 +18,39 @@ export const MIN_STOPS = 3
 export const MAX_STOPS = 8
 const DESCRIPTION_CHAR_LIMIT = 4_000
 
+/**
+ * The forms a stop can take, each one the phone already draws: Markdown it renders natively (tables, lists) or a fence
+ * it draws as a sketch. The planner picks one per stop so the tour does not repeat one template (K17); the writer leads
+ * with it.
+ */
+export const TOUR_FORMS = {
+  'table': 'a Markdown table, for a mapping or a comparison: input to result, case to behaviour, option to effect, old name to new',
+  'list': 'a short bullet or numbered list, for a few parallel facts or plain steps that need no arrows',
+  'flow': 'a ```flow, only for a real sequence: data or control moving from part to part, in order',
+  'calls': 'a ```calls tree, for who calls whom at runtime',
+  'tree': 'a ```tree, for where the pieces live in the file tree',
+  'pseudo': 'a ```pseudo block, for logic with branches or a loop that prose would blur',
+  'code': 'a short excerpt in the source language, when the exact code is the point: a signature, a type, a config entry',
+  'before-after': 'two short fences under the lines **Before** and **After**, when the old shape is what explains the new one',
+  'diagram': 'a ```mermaid sequenceDiagram or flowchart, for several actors talking or a state machine',
+  'prose': 'no visual: two or three short paragraphs, when the idea is simple enough to say',
+} as const
+export type TourForm = keyof typeof TOUR_FORMS
+const FORM_NAMES = Object.keys(TOUR_FORMS) as TourForm[]
+const FORM_LIST = FORM_NAMES.map(name => `  - ${name}: ${TOUR_FORMS[name]}`).join('\n')
+
 export const TOUR_PLAN_SYSTEM_PROMPT = `You are a staff engineer giving a teammate a guided tour of a pull request before they review it.
 You are planning the tour, not writing it. The plan decides everything: which systems the change touches, what matters, what can be skipped, and in what order a newcomer should meet it.
 Read the code. The diff shows what changed; read the files around it and the callers it does not touch, so the stops follow how the code actually works, not how the files happen to be listed.
 A good tour is short. Cover what the reader must understand to review or own this change, not every file.
+A good tour is also varied: each stop takes the form that fits its idea, so the reader never meets the same template twice in a row.
 
 ${WRITING_RULES}`
 
 export const TOUR_STOP_SYSTEM_PROMPT = `You are a staff engineer writing one stop of a guided tour of a pull request.
 The reader will not see the diff. Explain the code as it stands after the change: what it does, how the pieces connect, and why it was built this way. Mention what it replaced only when that explains the new shape.
-Show, then tell. Pick the smallest visual that makes the point and put one or two sentences beside it. Never paste a whole file.
+Show, then tell. Pick the one form that makes this stop's point fastest, and put a sentence or two beside it. Never paste a whole file.
+Make it easy to read on a phone: short paragraphs, a table where things map to things, a list where facts sit side by side, a sketch only where it shows more than words. Do not fill a template: a stop needs no flow, no pseudocode and no callout unless its idea calls for one.
 Every claim must come from code you read. If you are inferring, say so.
 
 ${WRITING_RULES}`
@@ -48,8 +71,9 @@ export const TOUR_PLAN_SCHEMA = {
           purpose: { type: 'string', description: 'One or two sentences: what the reader will understand after this stop and why it matters for the change.' },
           files: { type: 'array', items: { type: 'string' }, description: 'Paths this stop is about, changed or not. At most 8.' },
           notes: { type: 'string', description: 'What you found while reading that the writer of this stop must know: names of functions, the flow, the gotcha. Plain text.' },
+          form: { type: 'string', enum: FORM_NAMES, description: 'The form that fits this stop\'s idea best. Vary it across the tour.' },
         },
-        required: ['title', 'purpose', 'files', 'notes'],
+        required: ['title', 'purpose', 'files', 'notes', 'form'],
         additionalProperties: false,
       },
     },
@@ -75,8 +99,8 @@ export const TOUR_PLAN_SCHEMA = {
 export const TOUR_STOP_SCHEMA = {
   type: 'object',
   properties: {
-    takeaway: { type: 'string', description: 'One sentence the reader should remember from this stop.' },
-    body: { type: 'string', description: 'The stop in Markdown: short paragraphs alternating with fenced visuals. No headings.' },
+    takeaway: { type: 'string', description: 'The one thing the reader must not miss (a gotcha, an invariant, a risk), in one sentence; the app shows it as a callout. An empty string when the stop has no such thing.' },
+    body: { type: 'string', description: 'The stop in Markdown: short paragraphs and the form that fits, no headings.' },
     sources: {
       type: 'array',
       description: 'Where in the code the reader can check this stop: up to 6 places you read.',
@@ -204,10 +228,24 @@ Plan a guided tour of this pull request for a teammate who has never seen this c
 - Use your tools to read the files around the change and the callers it affects before you decide the stops.
 - ${MIN_STOPS} to ${MAX_STOPS} stops. Fewer is better when the change is small. Each stop is one idea a reviewer must hold in their head.
 - Order the stops so each builds on the last.
+- Give each stop the form that fits its idea:
+${FORM_LIST}
+  Vary the forms: no two stops in a row take the same one, and a flow or pseudocode appears at most twice in the whole tour. A mapping is a table, not a flow; a few facts are a list, not a diagram.
 - Skip generated files, lockfiles, snapshots and pure renames unless they are the point.
 - In the overview and the glossary meanings (not the terms): ${MENTION_RULE}
 - Write in ${languageOf(locale)}.`)
   return sections.join('\n\n')
+}
+
+/**
+ * A form for a stop the planner gave none (an older plan, or a model that skipped it): prose, unless the stop before
+ * was prose too, then a list, so the tour still varies.
+ * @param plan - The plan.
+ * @param index - The stop.
+ * @returns The form to lead with.
+ */
+function defaultForm(plan: TourPlan, index: number): TourForm {
+  return plan.stops[index - 1]?.form === 'prose' ? 'list' : 'prose'
 }
 
 /**
@@ -220,7 +258,9 @@ Plan a guided tour of this pull request for a teammate who has never seen this c
  */
 export function buildTourStopPrompt(diff: DiffsPayload, plan: TourPlan, index: number, locale: string): string {
   const stop = plan.stops[index]!
-  const outline = plan.stops.map((entry, at) => `${at + 1}. ${entry.title}: ${entry.purpose}${at === index ? '   <- this stop' : ''}`).join('\n')
+  const outline = plan.stops.map((entry, at) => `${at + 1}. ${entry.title}: ${entry.purpose}${entry.form ? ` (${entry.form})` : ''}${at === index ? '   <- this stop' : ''}`).join('\n')
+  const form = FORM_NAMES.find(name => name === stop.form) ?? defaultForm(plan, index)
+  const formLine = `${form}, ${TOUR_FORMS[form]}`
   const wanted = new Set(stop.files)
   const files = diff.files.filter(file => wanted.has(file.path) || (file.previousPath && wanted.has(file.previousPath)))
   const sections = [
@@ -235,15 +275,19 @@ export function buildTourStopPrompt(diff: DiffsPayload, plan: TourPlan, index: n
 Write stop ${index + 1} of ${plan.stops.length}.
 - Read the files with your tools first: the new version, and the callers when the stop is about a flow.
 - Explain the code as it is after this pull request. Do not show diffs, do not use +/- lines, do not narrate the change line by line.
-- Write the body as Markdown: one to four sentences, then a visual, then the next point. No headings.
-- Visuals are fenced blocks, each under 25 lines of 60 characters:
+- The planner chose this stop's form: ${formLine}. Lead with it. Take another form only when the code shows it fits worse.
+- Add a second visual only for a second point that needs one; most stops need one, some need none. Never add a flow, pseudocode or a callout out of habit.
+- Write the body as Markdown, no headings. Paragraphs are at most three short sentences: split a longer one, or turn it into a list. Bold a key term once where it first appears.
+- The app draws these natively:
+  - a Markdown table (at most 4 columns and 8 rows, a few words per cell), and bullet or numbered lists,
   - \`\`\`calls for a call tree of the runtime flow (indent two spaces per level),
   - \`\`\`tree for a file tree with a short comment per entry,
   - \`\`\`pseudo for the logic as pseudocode,
   - \`\`\`flow for data moving between parts: one hop per line, \`From -> To: what moves\` (the label after the colon is optional), naming a part the same way each time it comes back; the app draws it,
   - \`\`\`mermaid for a small flowchart TD or sequenceDiagram (at most 10 nodes, labels under 25 characters),
   - a fence in the source language (\`\`\`ts, \`\`\`rust...) for a short excerpt of the new code, only when the exact code is the point.
-- Use two to four visuals. Pick the one that makes each point fastest.
+  Each fence stays under 25 lines of 60 characters.
+- The takeaway is a callout: give one only when there is a single thing the reader must not miss (a gotcha, an invariant, a risk); otherwise leave it empty.
 - Do not repeat what earlier stops cover; refer to them by name when needed.
 - ${MENTION_RULE}
 - Write in ${languageOf(locale)}. Code, paths and identifiers stay as they are.`)
@@ -267,6 +311,7 @@ export function resolveTourPlan(raw: Record<string, unknown>): TourPlan {
       purpose: str(item.purpose),
       files: (Array.isArray(item.files) ? item.files : []).map(str).filter(Boolean).slice(0, 8),
       notes: str(item.notes),
+      form: FORM_NAMES.find(name => name === str(item.form).toLowerCase()),
     }]
   }).slice(0, MAX_STOPS)
   if (!stops.length)
