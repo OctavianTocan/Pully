@@ -15,6 +15,9 @@ import com.octaviantocan.pulls.data.ReviewData
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.SavedState
 import com.octaviantocan.pulls.data.TaskState
+import com.octaviantocan.pulls.data.Tour
+import com.octaviantocan.pulls.data.TourSource
+import com.octaviantocan.pulls.data.TourStore
 import com.octaviantocan.pulls.data.asTaskState
 import com.octaviantocan.pulls.data.matches
 import com.octaviantocan.pulls.data.withHunks
@@ -23,9 +26,11 @@ import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -43,7 +48,7 @@ data class Focus(val path: String, val line: Int = 0, val side: String = "additi
  * `ReviewDialogs.kt`), diff body (`DiffBody.kt`, `FileDiff.kt`, `Threads.kt`), AI
  * (`ui/ai/`). Add state here only when two sections need it.
  */
-class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: CoroutineScope, val settings: AppSettings) {
+class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: CoroutineScope, val settings: AppSettings, private val tourStore: TourStore? = null) {
     /** The diff on screen: the PR itself, or the commits picked in the commit picker. */
     var opened by mutableStateOf<OpenedReview?>(null)
         private set
@@ -102,6 +107,9 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     var selection by mutableStateOf<Pair<String, String>?>(null)
         private set
 
+    /** A tour source tapped before the diff arrived (a kept tour opens first); it opens once the diff is in. */
+    var waitingSource by mutableStateOf<TourSource?>(null)
+
     /** Scroll requests for the diff body; the body consumes and keeps the last one. */
     var focus by mutableStateOf<Focus?>(null)
     var focusGroupKey by mutableStateOf<String?>(null)
@@ -125,6 +133,15 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     }
     val key: String? get() = opened?.key
     val files: List<ReviewFile> get() = opened?.files.orEmpty()
+
+    /** The tour this phone kept from an earlier visit ([TourStore]), read as the page opens. */
+    private var storedTour by mutableStateOf(rememberedAs?.let { name -> tourStore?.get(name) })
+
+    /**
+     * The tour to show: the server's once it has answered with one, else the copy the phone kept, so a tour opened before
+     * shows at once, before the diff and the server do. A commit range has tours of its own, so it shows only the server's.
+     */
+    val tour: Tour? get() = saved?.tour ?: storedTour.takeIf { selection == null }
 
     /** Groups to render: the AI analysis when shown and present, else the rule-based ones, then "Uncategorized". */
     val groups: List<FileGroup>
@@ -260,7 +277,17 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     private suspend fun reloadSavedNow() {
         val key = opened?.key ?: return
-        runCatching { repo.savedState(key) }.onSuccess { saved = it }
+        val own = selection == null
+        runCatching { repo.savedState(key) }.onSuccess { state ->
+            saved = state
+            // The pull request's own tour is kept on the phone for next time; a commit range's is not.
+            val json = state.tourJson
+            val name = rememberedAs
+            if (own && json != null && name != null && tourStore != null) {
+                withContext(Dispatchers.IO) { tourStore.put(name, json) }
+                state.tour?.let { storedTour = it }
+            }
+        }
     }
 
     fun reloadOverview() {

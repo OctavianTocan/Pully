@@ -103,7 +103,7 @@ internal fun PrTourScreen(
 ) {
     val c = LocalPullsColors.current
     val scope = rememberCoroutineScope()
-    val tour = session.saved?.tour
+    val tour = session.tour
     val running = session.taskFor("tour")?.running == true
     val stops = tour?.stops.orEmpty()
     val n = stops.size
