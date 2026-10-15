@@ -13,24 +13,30 @@ import android.os.Build
  */
 class UpdateInstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        val report: (InstallResult) -> Unit = if (intent.getBooleanExtra(EXTRA_PAST, false)) PastVersions::installed else Updates::installed
         when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val confirm = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
                 else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
                 if (confirm == null) {
-                    Updates.installed(InstallResult.Failed("The installer did not ask for confirmation."))
+                    report(InstallResult.Failed("The installer did not ask for confirmation."))
                     return
                 }
-                Updates.installed(InstallResult.Confirming)
+                report(InstallResult.Confirming)
                 context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            PackageInstaller.STATUS_SUCCESS -> Updates.installed(InstallResult.Installed)
-            PackageInstaller.STATUS_FAILURE_ABORTED -> Updates.installed(InstallResult.Cancelled)
+            PackageInstaller.STATUS_SUCCESS -> report(InstallResult.Installed)
+            PackageInstaller.STATUS_FAILURE_ABORTED -> report(InstallResult.Cancelled)
             else -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-                Updates.installed(InstallResult.Failed(message ?: "Install failed (status $status)"))
+                report(InstallResult.Failed(message ?: "Install failed (status $status)"))
             }
         }
+    }
+
+    companion object {
+        /** Set on installs of a past version, whose result goes to [PastVersions]. */
+        const val EXTRA_PAST = "com.octaviantocan.pulls.update.PAST"
     }
 }
 

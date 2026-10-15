@@ -97,12 +97,29 @@ function nativeCall(name: string, cwd: string, args: unknown): Promise<Response>
     .catch(error => Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 }))
 }
 
+const APK = 'application/vnd.android.package-archive'
+
+/**
+ * The updater's files, and the past versions of the app that android/scripts/build-past-ui.py rebuilt from git for the
+ * dev-only version slider. Only these names are served from the Android folder.
+ * @param path - The request path.
+ */
+function androidRoute(path: string): Promise<Response> | undefined {
+  if (path === '/android/latest.json')
+    return androidFile('latest.json', 'application/json')
+  if (path === '/android/pulls.apk')
+    return androidFile('pulls.apk', APK)
+  if (path === '/android/past/index.json')
+    return androidFile('past/index.json', 'application/json')
+  const past = /^\/android\/past\/(\d+\.\d+\.\d+)\.apk$/.exec(path)
+  return past ? androidFile(`past/${past[1]}.apk`, APK) : undefined
+}
+
 export async function handleNativeRequest(request: NativeRequest, cwd: string): Promise<Response | undefined> {
   const path = request.url.pathname
-  if (request.method === 'GET' && path === '/android/latest.json')
-    return androidFile('latest.json', 'application/json')
-  if (request.method === 'GET' && path === '/android/pulls.apk')
-    return androidFile('pulls.apk', 'application/vnd.android.package-archive')
+  const android = request.method === 'GET' ? androidRoute(path) : undefined
+  if (android)
+    return android
   if (request.method !== 'POST' || path !== '/api/rpc')
     return undefined
 

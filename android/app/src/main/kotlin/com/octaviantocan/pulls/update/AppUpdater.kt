@@ -25,10 +25,13 @@ class AppUpdater(private val context: Context) {
         return manifest.takeIf { it.isNewerThan(installedVersionCode) }
     }
 
-    fun download(manifest: UpdateManifest, headers: Map<String, String>, onProgress: (Long, Long) -> Unit): File {
-        val connection = open(manifest.apkUrl, headers)
+    fun download(manifest: UpdateManifest, headers: Map<String, String>, onProgress: (Long, Long) -> Unit): File =
+        download(manifest.apkUrl, manifest.sha256, headers, File(context.cacheDir, "pulls-update.apk"), onProgress)
+
+    /** Downloads [url] to [file] and checks it against [sha256]; a mismatch deletes the file and throws [DigestMismatch]. */
+    fun download(url: String, sha256: String, headers: Map<String, String>, file: File, onProgress: (Long, Long) -> Unit): File {
+        val connection = open(url, headers)
         val total = connection.contentLengthLong
-        val file = File(context.cacheDir, "pulls-update.apk")
         connection.inputStream.use { input ->
             file.outputStream().use { output ->
                 val buffer = ByteArray(64 * 1024)
@@ -43,23 +46,28 @@ class AppUpdater(private val context: Context) {
             }
         }
         val actual = sha256Hex(file.readBytes())
-        if (!actual.equals(manifest.sha256, ignoreCase = true)) {
+        if (!actual.equals(sha256, ignoreCase = true)) {
             file.delete()
-            throw DigestMismatch("Downloaded APK digest $actual does not match ${manifest.sha256}")
+            throw DigestMismatch("Downloaded APK digest $actual does not match $sha256")
         }
         return file
     }
 
-    fun install(apk: File) {
+    /**
+     * Hands [apk] to the system installer. With [packageName] the installer refuses an APK of any other package, which
+     * is how a past version can never replace Pulls itself; its result goes to [PastVersions] instead of [Updates].
+     */
+    fun install(apk: File, packageName: String? = null) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        if (packageName != null) params.setAppPackageName(packageName)
         val sessionId = installer.createSession(params)
         installer.openSession(sessionId).use { session ->
             session.openWrite("base.apk", 0, apk.length()).use { out ->
                 apk.inputStream().use { it.copyTo(out) }
                 session.fsync(out)
             }
-            val intent = Intent(context, UpdateInstallReceiver::class.java)
+            val intent = Intent(context, UpdateInstallReceiver::class.java).putExtra(UpdateInstallReceiver.EXTRA_PAST, packageName != null)
             val pending = PendingIntent.getBroadcast(
                 context,
                 sessionId,
@@ -70,7 +78,7 @@ class AppUpdater(private val context: Context) {
         }
     }
 
-    private fun get(url: String, headers: Map<String, String>): String {
+    fun get(url: String, headers: Map<String, String>): String {
         val connection = open(url, headers)
         return connection.inputStream.bufferedReader().readText()
     }
