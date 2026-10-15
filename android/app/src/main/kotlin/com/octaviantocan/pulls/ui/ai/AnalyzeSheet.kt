@@ -149,9 +149,9 @@ private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoic
     }
 }
 
-/** A choice with a line of what it does, and a tick on the one the button runs. */
+/** A choice with a line of what it does, and a tick on the one the button runs. The Review sheet's lenses use it too (rule 70). */
 @Composable
-private fun ChoiceRow(title: String, blurb: String, selected: Boolean, first: Boolean, onClick: () -> Unit) {
+internal fun ChoiceRow(title: String, blurb: String?, selected: Boolean, first: Boolean, onClick: () -> Unit) {
     val c = LocalPullsColors.current
     Row(
         Modifier.fillMaxWidth()
@@ -161,8 +161,9 @@ private fun ChoiceRow(title: String, blurb: String, selected: Boolean, first: Bo
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(title, style = PullsType.row, color = c.text, maxLines = 1)
-            Text(blurb, style = PullsType.sm, color = c.muted)
+            // A title wraps rather than being cut (rule 2).
+            Text(title, style = PullsType.row, color = c.text)
+            if (!blurb.isNullOrBlank()) Text(blurb, style = PullsType.sm, color = c.muted)
         }
         Box(Modifier.padding(start = 4.dp)) { if (selected) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp) }
     }

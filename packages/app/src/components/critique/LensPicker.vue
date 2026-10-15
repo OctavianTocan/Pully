@@ -55,7 +55,7 @@ const matches = computed(() => {
   const all = lenses.value ?? []
   if (!needle)
     return all
-  return all.filter(lens => lens.name.toLowerCase().includes(needle) || lens.description?.toLowerCase().includes(needle))
+  return all.filter(lens => lens.title.toLowerCase().includes(needle) || lens.name.toLowerCase().includes(needle) || lens.description?.toLowerCase().includes(needle))
 })
 const showGeneral = computed(() => !query.value.trim())
 
@@ -106,7 +106,7 @@ function pickFirst() {
           >
             <span class="i-ph:lightbulb-duotone mt-0.5 shrink-0 op-fade" aria-hidden="true" />
             <span class="min-w-0 flex flex-col">
-              <span class="text-sm font-medium font-mono">{{ lens.name }}</span>
+              <span class="text-sm font-medium">{{ lens.title }}</span>
               <span v-if="lens.description" class="line-clamp-2 text-xs op-fade">{{ lens.description }}</span>
             </span>
           </button>

@@ -12,6 +12,14 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.21.0
+
+Review with AI now offers only the review skills chosen for it.
+
+- The More sheet has one Review with AI row. It opens a short list: General, then each review skill by its name and what it looks for.
+- The list shows only the skills chosen for reviews, not every skill on the server computer.
+- A tap starts the review, and a tick marks the one this pull request was last reviewed with.
+
 ## 0.20.0
 
 See which pull requests are stacked on others.

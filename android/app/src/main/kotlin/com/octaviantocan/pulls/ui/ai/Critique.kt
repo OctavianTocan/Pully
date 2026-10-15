@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Critique
 import com.octaviantocan.pulls.data.CritiqueFinding
+import com.octaviantocan.pulls.data.ReviewLens
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
@@ -63,6 +64,7 @@ import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.tc
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import com.octaviantocan.pulls.ui.review.guardedStop
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
@@ -82,71 +84,78 @@ private fun lensOf(session: ReviewSession): String? {
     return if (task?.running == true) task.lens else session.saved?.critique?.lens
 }
 
-/** Port of `LensPicker.vue`: General plus the server's skills, searchable. */
-@Composable
-internal fun LensPickerSheet(session: ReviewSession, onDismiss: () -> Unit, onPick: (String?) -> Unit) {
-    val c = LocalPullsColors.current
-    val ui = aiUi(session)
-    var query by remember { mutableStateOf("") }
-    fun load() {
-        ui.lensesLoading = true
-        ui.lensesError = null
-        session.scope.launch {
-            runCatching { session.repo.lenses() }.onSuccess { ui.lenses = it }.onFailure { ui.lensesError = it.message ?: it.toString() }
-            ui.lensesLoading = false
-        }
-    }
-    LaunchedEffect(Unit) { if (ui.lenses == null && !ui.lensesLoading) load() }
-    val current = lensOf(session)
-    val needle = query.trim().lowercase()
-    val all = ui.lenses.orEmpty()
-    val matches = if (needle.isEmpty()) all else all.filter { (name, description) -> needle in name.lowercase() || description?.lowercase()?.contains(needle) == true }
-    val showGeneral = needle.isEmpty()
+/**
+ * The server's review skills, kept for the whole run: the list is short and changes only when the server's
+ * curated folder does, so the Review sheet shows it at once and refreshes it quietly (rules 50 and 52).
+ */
+internal object ReviewLenses {
+    var list by mutableStateOf<List<ReviewLens>?>(null)
+    var loading by mutableStateOf(false)
+    var error by mutableStateOf<String?>(null)
 
-    PullsSheet(onDismiss, t("lens.title"), expandable = true) {
-        Text(t("lens.description"), Modifier.padding(top = 4.dp), style = PullsType.sm, color = c.muted)
-        SheetCard {
-            SheetField(
-                null, query, { query = it }, placeholder = t("lens.search"), first = true,
-                imeAction = androidx.compose.ui.text.input.ImeAction.Go,
-                onGo = { if (showGeneral) onPick(null) else matches.firstOrNull()?.let { onPick(it.first) } },
-            )
-        }
-        val error = ui.lensesError
-        SheetCard {
-            if (showGeneral) LensOption(t("lens.general"), t("lens.generalDescription"), mono = false, selected = current == null, first = true) { onPick(null) }
-            matches.forEachIndexed { index, (name, description) ->
-                LensOption(name, description, mono = true, selected = current == name, first = !showGeneral && index == 0) { onPick(name) }
+    /** The title to show for a lens a review ran with, when the server still offers it. */
+    fun titleOf(name: String): String? = list?.firstOrNull { it.name == name }?.title
+
+    fun load(session: ReviewSession) {
+        if (loading) return
+        loading = true
+        session.scope.launch {
+            try {
+                list = session.repo.lenses()
+                error = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e.message ?: e.toString()
+            } finally {
+                loading = false
             }
-            // No loading screen: the shape of the rows, replaced in place when they arrive.
-            if (ui.lensesLoading) repeat(3) { Column(Modifier.padding(horizontal = 16.dp, vertical = 17.dp)) { Skeleton(Modifier.fillMaxWidth(if (it % 2 == 0) 0.5f else 0.7f)) } }
-        }
-        when {
-            error != null -> Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(t("lens.loadFailed", "error" to error), Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                FloatIcon(Lu.redo, "Load the lenses again", ::load, flat = true, iconSize = 22.dp, tint = c.muted)
-            }
-            ui.lenses?.isEmpty() == true -> Text(t("lens.none"), Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
-            ui.lenses != null && matches.isEmpty() -> Text(t("lens.noMatch"), Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
         }
     }
 }
 
+/**
+ * "Review with AI" from the ⋯ sheet: General, then the server's curated lenses by title, a tick on the one
+ * this pull request was last reviewed with. A tap starts the review. The list is short, so it has no search (rule 89).
+ */
 @Composable
-private fun LensOption(name: String, description: String?, mono: Boolean, selected: Boolean, first: Boolean, onClick: () -> Unit) {
+internal fun ReviewSheet(session: ReviewSession, onClose: () -> Unit, onPick: (String?) -> Unit) {
     val c = LocalPullsColors.current
-    Row(
-        Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp).cueClickable(role = Role.Button, onClick = onClick)
-            .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(name, style = PullsType.row.copy(fontFamily = if (mono) PullsType.mono else null), color = c.text)
-            if (!description.isNullOrBlank()) Text(description, style = PullsType.sm, color = c.muted)
+    LaunchedEffect(Unit) { ReviewLenses.load(session) }
+    val lenses = ReviewLenses.list
+    val error = ReviewLenses.error
+    val current = lensOf(session)
+
+    PullsSheet(onClose, "Review") {
+        SheetCard {
+            ChoiceRow("General", "Bugs, risks and nits across the whole diff.", selected = current == null, first = true) { onPick(null) }
+            lenses?.forEach { lens -> ChoiceRow(lens.title, lens.description, selected = current == lens.name, first = false) { onPick(lens.name) } }
+            // No loading screen: the shape of the rows, replaced in place when they arrive (rule 51).
+            if (lenses == null && error == null) repeat(3) { ChoiceSkeleton() }
         }
-        if (selected) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
+        when {
+            // A refresh that fails keeps the list it had; only a list that never arrived says why.
+            lenses == null && error != null -> Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Could not load the review skills: $error", Modifier.weight(1f), style = PullsType.sm, color = c.error)
+                FloatIcon(Lu.redo, "Load the review skills again", { ReviewLenses.load(session) }, flat = true, iconSize = 22.dp, tint = c.muted)
+            }
+            lenses?.isEmpty() == true -> Text("The server offers no review skills.", Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
+        }
+    }
+}
+
+/** A [ChoiceRow]'s shape while the lenses are on their way: its title and its line. */
+@Composable
+private fun ChoiceSkeleton() {
+    val c = LocalPullsColors.current
+    Column(
+        Modifier.fillMaxWidth()
+            .drawBehind { drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Skeleton(Modifier.fillMaxWidth(0.35f))
+        Skeleton(Modifier.fillMaxWidth(0.8f))
     }
 }
 
@@ -202,7 +211,10 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                 LuIcon(if (ui.panelOpen) Lu.chevd else Lu.chev, tint = c.muted, size = 18.dp)
             }
             // The lens and the count are plain muted words at body size, not a tag (rules 14 and 49).
-            if (lens != null) Text(lens, style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
+            if (lens != null) {
+                val title = ReviewLenses.titleOf(lens)
+                Text(title ?: lens, style = if (title != null) PullsType.sm else PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
+            }
             if (result != null) Text(tc("critique.findingCount", result.findings.size), style = PullsType.sm, color = c.muted)
             // No engine, model or token line: they live in the pickers, not on what the AI wrote (rule 98).
         }

@@ -11,19 +11,19 @@ export interface LensSource {
   get: (name: string) => Promise<string | undefined>
 }
 
-const ReviewLensesSchema = v.array(v.object({ name: v.string(), description: v.optional(v.nullable(v.string())) }))
+const ReviewLensesSchema = v.array(v.object({ name: v.string(), title: v.optional(v.nullable(v.string())), description: v.optional(v.nullable(v.string())) }))
 
 let current: LensSource | undefined
 
 /**
- * Lenses read by the `pulls.review` server, from the agt gateway or the local skills folder.
+ * Lenses read by the `pulls.review` server, from the skills curated in the repository.
  * @param rpc - The local server connection.
  * @returns The lens source.
  */
 export function createRpcLenses(rpc: LocalRpc): LensSource {
   return {
     list: async () => v.parse(ReviewLensesSchema, await rpc.call(LOCAL_RPC.lensList))
-      .map(lens => ({ name: lens.name, description: lens.description ?? undefined })),
+      .map(lens => ({ name: lens.name, title: lens.title || lens.name, description: lens.description ?? undefined })),
     get: async name => v.parse(v.optional(v.string()), await rpc.call(LOCAL_RPC.lensGet, { name }) ?? undefined),
   }
 }

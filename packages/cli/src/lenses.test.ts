@@ -1,19 +1,15 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getLens, listLenses, parseSkill } from './lenses'
 
 let skillsDir: string
-const gatewayUrl = 'http://gateway.test/mcp'
 
 function skill(name: string, text: string) {
   mkdirSync(join(skillsDir, name), { recursive: true })
   writeFileSync(join(skillsDir, name, 'SKILL.md'), text)
-}
-
-function rpcResponse(body: unknown) {
-  return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, ...body as object }), { status: 200 })
 }
 
 beforeEach(() => {
@@ -21,7 +17,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
   rmSync(skillsDir, { recursive: true, force: true })
 })
 
@@ -34,43 +30,52 @@ describe('parseSkill', () => {
   })
 })
 
-describe('lenses from the gateway', () => {
-  it('lists prompts across pages, sorted, and drops names that could not name a folder', async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(rpcResponse({ result: { prompts: [{ name: 'security', description: 'Sec' }, { name: '../etc' }], nextCursor: 'c1' } }))
-      .mockResolvedValueOnce(rpcResponse({ result: { prompts: [{ name: 'perf' }] } }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    expect(await listLenses({ gatewayUrl, skillsDir })).toEqual([{ name: 'perf', description: undefined }, { name: 'security', description: 'Sec' }])
-    expect(JSON.parse(fetchMock.mock.calls[1]![1].body)).toMatchObject({ method: 'prompts/list', params: { cursor: 'c1' } })
-  })
-
-  it('returns a prompt\'s text without its frontmatter', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(rpcResponse({ result: { messages: [{ role: 'user', content: { type: 'text', text: '---\nname: security\n---\n\nCheck auth.' } }] } })))
-    expect(await getLens('security', { gatewayUrl, skillsDir })).toBe('Check auth.')
-  })
-})
-
-describe('lenses from the skills folder', () => {
+describe('lenses from a skills folder', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')))
-    skill('security', '---\nname: security\ndescription: Finds holes.\n---\nCheck auth.')
+    skill('security', '---\nname: security\ntitle: Security\ndescription: Finds holes.\n---\nCheck auth.')
+    skill('perf', '---\nname: perf\ntitle: Performance\n---\nCount the loops.')
     skill('empty', 'no frontmatter')
     mkdirSync(join(skillsDir, 'not-a-skill'))
   })
 
-  it('lists skill folders that hold a SKILL.md', async () => {
-    expect(await listLenses({ gatewayUrl, skillsDir })).toEqual([{ name: 'empty', description: undefined }, { name: 'security', description: 'Finds holes.' }])
+  it('lists skill folders that hold a SKILL.md, by title, falling back to the name', async () => {
+    expect(await listLenses({ skillsDir })).toEqual([
+      { name: 'empty', title: 'empty', description: undefined },
+      { name: 'perf', title: 'Performance', description: undefined },
+      { name: 'security', title: 'Security', description: 'Finds holes.' },
+    ])
   })
 
   it('reads one skill by name and refuses names outside the folder', async () => {
-    expect(await getLens('security', { gatewayUrl, skillsDir })).toBe('Check auth.')
-    expect(await getLens('missing', { gatewayUrl, skillsDir })).toBeUndefined()
-    expect(await getLens('../security', { gatewayUrl, skillsDir })).toBeUndefined()
+    expect(await getLens('security', { skillsDir })).toBe('Check auth.')
+    expect(await getLens('missing', { skillsDir })).toBeUndefined()
+    expect(await getLens('../security', { skillsDir })).toBeUndefined()
   })
 
-  it('falls back when the gateway does not know the name', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(rpcResponse({ error: { code: -32602, message: 'no skill called security' } })))
-    expect(await getLens('security', { gatewayUrl, skillsDir })).toBe('Check auth.')
+  it('reads PULLS_REVIEW_SKILLS_DIR when no folder is passed', async () => {
+    vi.stubEnv('PULLS_REVIEW_SKILLS_DIR', skillsDir)
+    expect((await listLenses()).map(lens => lens.name)).toEqual(['empty', 'perf', 'security'])
+    expect(await getLens('perf')).toBe('Count the loops.')
+  })
+
+  it('offers nothing when the folder is missing', async () => {
+    expect(await listLenses({ skillsDir: join(skillsDir, 'nowhere') })).toEqual([])
+  })
+})
+
+describe('the curated skills', () => {
+  beforeEach(() => {
+    vi.stubEnv('PULLS_REVIEW_SKILLS_DIR', '')
+  })
+
+  it('are the default, each with a title, a one-sentence description and instructions', async () => {
+    const lenses = await listLenses()
+    expect(lenses.map(lens => lens.name).sort()).toEqual(['android-compose', 'api-and-contracts', 'correctness', 'performance', 'security', 'tests'])
+    for (const lens of lenses) {
+      expect(lens.name).toMatch(REVIEW_LENS_NAME)
+      expect(lens.title).not.toBe(lens.name)
+      expect(lens.description).toMatch(/^[A-Z][^\n]*\.$/)
+      expect(await getLens(lens.name)).toMatch(/^# /)
+    }
   })
 })
