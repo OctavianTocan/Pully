@@ -82,6 +82,18 @@ describe('inbox tools', () => {
     await expect(callInboxTool(payload, 'read_pull_request_diff', { pull: 'octa/web#5', paths: 'c.ts' }, exec)).rejects.toThrow('paths must be an array')
   })
 
+  it('finds a file with spaces, quotes or a new name in its header', () => {
+    const spaced = 'diff --git a/docs/my file.md b/docs/my file.md\n@@ -1 +1 @@\n-a\n+b\n'
+    const quotedName = 'diff --git "a/say \\"hi\\".md" "b/say \\"hi\\".md"\n@@ -1 +1 @@\n-a\n+b\n'
+    const renamed = 'diff --git a/old.ts b/src/new.ts\nsimilarity index 90%\n'
+    const all = DIFF + spaced + quotedName + renamed
+    expect(pickFiles(all, ['docs/my file.md'])).toBe(spaced)
+    expect(pickFiles(all, ['say "hi".md'])).toBe(quotedName)
+    expect(pickFiles(all, ['src/new.ts'])).toBe(renamed)
+    expect(pickFiles(all, ['old.ts'])).toBe(renamed)
+    expect(pickFiles(all, ['my file.md'])).toBe('')
+  })
+
   it('keeps the whole diff when no paths are given', () => {
     expect(pickFiles(DIFF, [])).toBe(DIFF)
   })

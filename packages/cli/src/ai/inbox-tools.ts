@@ -133,6 +133,18 @@ export function describePull(ref: string, pr: Json): string {
   return text.length <= VIEW_CHAR_BUDGET ? text : `${text.slice(0, VIEW_CHAR_BUDGET)}\n… truncated.`
 }
 
+/** A path as Git writes it in a header when it has quotes, backslashes or control characters: `"a/say \"hi\".md"`. */
+function quoted(path: string): string {
+  return `"${path.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\t/g, '\\t').replace(/\n/g, '\\n')}"`
+}
+
+/** Whether a `diff --git` header is about `path`, before or after a rename, with spaces in it or quoted. */
+function headerTouches(header: string, path: string): boolean {
+  const [before, after] = [`a/${path}`, `b/${path}`]
+  return header.startsWith(`diff --git ${before} `) || header.endsWith(` ${after}`)
+    || header.startsWith(`diff --git ${quoted(before)} `) || header.endsWith(` ${quoted(after)}`)
+}
+
 /**
  * The files of a unified diff whose path is one of `paths`; the whole diff when `paths` is empty.
  * @param diff - `gh pr diff` output.
@@ -142,10 +154,9 @@ export function describePull(ref: string, pr: Json): string {
 export function pickFiles(diff: string, paths: string[]): string {
   if (!paths.length)
     return diff
-  const wanted = new Set(paths)
   return diff.split(/(?=^diff --git )/m).filter((part) => {
-    const header = /^diff --git a\/(\S+) b\/(\S+)/.exec(part)
-    return header && (wanted.has(header[1]!) || wanted.has(header[2]!))
+    const header = part.split('\n', 1)[0]!
+    return header.startsWith('diff --git ') && paths.some(path => headerTouches(header, path))
   }).join('')
 }
 

@@ -92,7 +92,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.ListedPull
-import com.octaviantocan.pulls.core.knownPull
 import com.octaviantocan.pulls.core.looksLikeQuestion
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.PullWork
@@ -257,7 +256,6 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     // A question typed in the search opens Ask over the whole inbox; Claude Code or Codex on the server answers it.
     val canAsk = remember { cliEngine(context) }
     val inboxAsk = remember { InboxAsk(repo, scope, settings) }
-    val knownPulls = remember(listed) { { owner: String, name: String, number: Int -> knownPull(owner, name, number, listed) } }
     val openListed = remember(nav) { { pull: ListedPull -> nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) } }
     fun askSearch() {
         val question = ui.search.trim()
@@ -265,7 +263,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
         ui.search = ""
         ui.askOpen = true
         // A question still being answered keeps the new one in the field, to send once it is done.
-        if (inboxAsk.busy) inboxAsk.input = question else inboxAsk.ask(question)
+        if (inboxAsk.accepting) inboxAsk.ask(question) else inboxAsk.input = question
     }
     fun archivePull(pull: PullRow) {
         val key = Triage.key(pull)
@@ -342,7 +340,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             modifier = Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         )
         if (ui.askOpen) {
-            InboxAskSheet(inboxAsk, knownPulls, openListed, onClose = { ui.askOpen = false })
+            InboxAskSheet(inboxAsk, listed, openListed, onClose = { ui.askOpen = false })
         }
         if (activityOpen) {
             ActivitySheet(workTasks, onOpen = { ref -> nav.openTarget(OpenTarget.Pull(ref.owner, ref.repo, ref.number, "github.com")) }, onClose = { activityOpen = false })

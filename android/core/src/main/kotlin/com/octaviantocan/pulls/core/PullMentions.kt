@@ -26,23 +26,11 @@ fun pullRefOfUrl(url: String): PullRef? {
 fun listedPullOfUrl(url: String, listed: List<ListedPull>): ListedPull? =
     pullRefOfUrl(url)?.let { listedPull(it.owner, it.repo, it.number, listed) }
 
-/**
- * The pull request an inbox answer names, when the inbox knows it: one [listed] holds, or another number in a repository
- * it holds, spelled as the list spells it. The answer also reads pull requests closed lately, which the phone's list may
- * not hold; a repository the inbox does not have stays unknown.
- */
-fun knownPull(owner: String, repo: String, number: Int, listed: List<ListedPull>): ListedPull? =
-    listedPull(owner, repo, number, listed)
-        ?: listed.firstOrNull { it.owner.equals(owner, ignoreCase = true) && it.repo.equals(repo, ignoreCase = true) }?.let { ListedPull(it.owner, it.repo, number) }
-
-/** The pull requests [text] names that [resolve] knows, as links or as `owner/repo#12`, in the order it first names them. */
-fun mentionedPulls(text: String, resolve: (owner: String, repo: String, number: Int) -> ListedPull?): List<ListedPull> {
+/** The listed pull requests [text] names, as links or as `owner/repo#12`, in the order it first names them. */
+fun mentionedPulls(text: String, listed: List<ListedPull>): List<ListedPull> {
     val found = LinkedHashSet<ListedPull>()
-    val links = Regex("""\]\(([^)\s]+)\)""").findAll(text).map { it.range.first to pullRefOfUrl(it.groupValues[1])?.let { ref -> resolve(ref.owner, ref.repo, ref.number) } }
-    val names = PULL_MENTION.findAll(text).map { m -> m.range.first to m.groupValues[3].toIntOrNull()?.let { resolve(m.groupValues[1], m.groupValues[2], it) } }
+    val links = Regex("""\]\(([^)\s]+)\)""").findAll(text).map { it.range.first to listedPullOfUrl(it.groupValues[1], listed) }
+    val names = PULL_MENTION.findAll(text).map { m -> m.range.first to m.groupValues[3].toIntOrNull()?.let { listedPull(m.groupValues[1], m.groupValues[2], it, listed) } }
     (links + names).sortedBy { it.first }.forEach { (_, pull) -> if (pull != null) found += pull }
     return found.toList()
 }
-
-/** The listed pull requests [text] names, in the order it first names them. */
-fun mentionedPulls(text: String, listed: List<ListedPull>): List<ListedPull> = mentionedPulls(text) { owner, repo, number -> listedPull(owner, repo, number, listed) }

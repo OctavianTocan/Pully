@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.ListedPull
+import com.octaviantocan.pulls.core.listedPull
 import com.octaviantocan.pulls.core.mentionedPulls
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.AskTurn
@@ -84,15 +85,26 @@ internal class InboxAsk(private val repo: Repo, private val scope: CoroutineScop
 
     private var follower: Job? = null
 
+    /** New chat is clearing the conversation on the server; a question sent now would be cleared with it. */
+    private var clearing by mutableStateOf(false)
+
     /** A question is on its way: sent, or answered as we speak. */
     val busy: Boolean get() = pending != null || task?.running == true
+
+    /** A question can be sent: none is on its way and the conversation is not being cleared. */
+    val accepting: Boolean get() = !busy && !clearing
 
     /** Loads the conversation and follows an answer already on its way (asked before the app left Home, or elsewhere). */
     fun load() {
         scope.launch {
             refresh()
             if (busy) return@launch
-            val live = runCatching { repo.allTasks() }.getOrNull()?.firstOrNull { it.kind == "inbox" && it.running } ?: return@launch
+            val live = runCatching { repo.allTasks() }.getOrNull()?.firstOrNull { it.kind == "inbox" && it.running }
+            if (live == null) {
+                // An answer that settled between the two requests is saved by now; read it rather than show a turn waiting.
+                if (chat?.turns?.lastOrNull()?.let { it.outcome == null && it.answer == null } == true) refresh()
+                return@launch
+            }
             task = live
             follow(live.id)
         }
@@ -112,7 +124,7 @@ internal class InboxAsk(private val repo: Repo, private val scope: CoroutineScop
     /** Asks [question]; with [retry] it answers the last question again in place of its old answer. */
     fun ask(question: String, retry: Boolean = false) {
         val text = question.trim()
-        if (text.isEmpty() || busy) return
+        if (text.isEmpty() || !accepting) return
         error = null
         pending = text
         // The old answer steps aside at once, with the questions offered under it.
@@ -183,6 +195,8 @@ internal class InboxAsk(private val repo: Repo, private val scope: CoroutineScop
         pending = null
         error = null
         chat = InboxChat(emptyList(), emptyList())
+        // Until the server has cleared, nothing is sent: the clear would take the new question with it.
+        clearing = true
         scope.launch {
             try {
                 repo.clearInboxChat()
@@ -190,6 +204,8 @@ internal class InboxAsk(private val repo: Repo, private val scope: CoroutineScop
                 throw e
             } catch (e: Exception) {
                 error = e.message ?: "Could not start a new chat"
+            } finally {
+                clearing = false
             }
             refresh()
         }
@@ -200,14 +216,16 @@ internal class InboxAsk(private val repo: Repo, private val scope: CoroutineScop
  * The Ask sheet of Home: the same conversation as Ask on a pull request (rule 99), about the whole inbox. Your questions
  * in the accent bubble, the answers as plain text, the work log while one is written, and under an answer the pull
  * requests it names as chips, copy, redo and the questions to ask next. A pull request an answer names is a link that
- * opens it, when [resolve] knows it.
+ * opens it when [listed] has it or the server saw it in the list the answer was written from; any other name, one the
+ * model made up included, stays plain text.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun InboxAskSheet(ask: InboxAsk, resolve: (owner: String, repo: String, number: Int) -> ListedPull?, onOpen: (ListedPull) -> Unit, onClose: () -> Unit) {
+internal fun InboxAskSheet(ask: InboxAsk, listed: List<ListedPull>, onOpen: (ListedPull) -> Unit, onClose: () -> Unit) {
     val c = LocalPullsColors.current
     LaunchedEffect(ask) { ask.load() }
     val turns = ask.chat?.turns.orEmpty()
+    val known = remember(listed, turns) { (listed + turns.flatMap { it.pulls }).distinct() }
     val task = ask.task
     val streaming = task?.running == true
     val busy = ask.busy
@@ -219,8 +237,8 @@ internal fun InboxAskSheet(ask: InboxAsk, resolve: (owner: String, repo: String,
     val lastIndex = if (pending != null) -1 else turns.lastIndex
     val scroll = rememberScrollState()
     LaunchedEffect(turns.size, pending, task?.activities?.size, streaming) { scroll.animateScrollTo(scroll.maxValue) }
-    val mentions = remember(resolve, onOpen) {
-        PullMentions(resolve = { owner, repo, number -> resolve(owner, repo, number) != null }) { owner, repo, number -> resolve(owner, repo, number)?.let(onOpen) }
+    val mentions = remember(known, onOpen) {
+        PullMentions(resolve = { owner, repo, number -> listedPull(owner, repo, number, known) != null }) { owner, repo, number -> listedPull(owner, repo, number, known)?.let(onOpen) }
     }
 
     @Composable
@@ -231,7 +249,7 @@ internal fun InboxAskSheet(ask: InboxAsk, resolve: (owner: String, repo: String,
         when {
             answer != null -> {
                 Answer(answer)
-                val named = remember(answer, resolve) { mentionedPulls(answer, resolve) }
+                val named = remember(answer, known) { mentionedPulls(answer, known) }
                 AnswerExtras(
                     answer,
                     named.map { pull -> AnswerSource("${pull.repo}#${pull.number}", "Open ${pull.owner}/${pull.repo}#${pull.number}") { onOpen(pull) } },
@@ -266,8 +284,8 @@ internal fun InboxAskSheet(ask: InboxAsk, resolve: (owner: String, repo: String,
                 AskField(
                     ask.input, { ask.input = it },
                     placeholder = if (turns.isEmpty()) "Ask about your pull requests…" else "Ask a follow-up…",
-                    onSend = { val text = ask.input; if (text.isNotBlank() && !busy) { ask.input = ""; ask.ask(text) } },
-                    sendEnabled = !busy && ask.input.isNotBlank(),
+                    onSend = { val text = ask.input; if (text.isNotBlank() && ask.accepting) { ask.input = ""; ask.ask(text) } },
+                    sendEnabled = ask.accepting && ask.input.isNotBlank(),
                     onStop = if (streaming) ({ ask.stop() }) else null,
                 )
             },

@@ -1,4 +1,4 @@
-import type { AiActivity, MyPull } from '../../../local-rpc'
+import type { AiActivity, AiPullRef, MyPull } from '../../../local-rpc'
 import type { Locale } from '../../../locales'
 import type { CliRunResult } from './cli-stream'
 import type { ResolvedModel } from './model'
@@ -103,8 +103,13 @@ function sizeOf(pull: MyPull): string | undefined {
   return `+${pull.additions} −${pull.deletions}${pull.changedFiles === undefined ? '' : ` in ${plural(pull.changedFiles, 'file')}`}`
 }
 
+/** When a pull request last moved: closed ones by when they closed, which a later comment does not change. */
+function lastMoved(pull: MyPull): string {
+  return pull.state === 'closed' ? pull.closedAt ?? pull.updatedAt : pull.updatedAt
+}
+
 function whenOf(pull: MyPull, now: number): string | undefined {
-  const age = ageOf(pull.updatedAt, now)
+  const age = ageOf(lastMoved(pull), now)
   if (pull.state === 'closed')
     return `${pull.merged ? 'merged' : 'closed'}${age ? ` ${age}` : ''}`
   return age ? `updated ${age}` : undefined
@@ -134,7 +139,7 @@ export function inboxLine(pull: MyPull, now: number): string {
 }
 
 function newestFirst(pulls: MyPull[]): MyPull[] {
-  return [...pulls].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  return [...pulls].sort((a, b) => lastMoved(b).localeCompare(lastMoved(a)))
 }
 
 /**
@@ -178,6 +183,29 @@ export function buildInboxPrompt(pulls: InboxPulls, request: InboxRequest, now: 
   return parts.join('\n\n')
 }
 
+/** `owner/repo#12` in running text, and a link to a pull request's page on GitHub. */
+const PULL_NAME = /(?<![\w/.-])([a-z0-9][\w.-]*)\/([\w.-]+)#(\d+)\b/gi
+const PULL_LINK = /https?:\/\/(?:www\.)?github\.com\/([^/\s)]+)\/([^/\s)]+)\/pull\/(\d+)/gi
+
+/**
+ * The pull requests an answer names that the list has, as names or as links, in the order it first names them.
+ * @param text - The answer.
+ * @param listed - What the list held.
+ * @returns Each named pull request once, spelled as the list spells it.
+ */
+export function citedPulls(text: string, listed: AiPullRef[]): AiPullRef[] {
+  const byName = new Map(listed.map(pull => [`${pull.owner}/${pull.repo}#${pull.number}`.toLowerCase(), pull]))
+  const found = [...text.matchAll(PULL_NAME), ...text.matchAll(PULL_LINK)]
+    .sort((a, b) => a.index - b.index)
+    .map(([, owner, repo, number]) => byName.get(`${owner}/${repo}#${Number(number)}`.toLowerCase()))
+  return [...new Set(found.filter(pull => pull !== undefined))].map(({ owner, repo, number }) => ({ owner, repo, number }))
+}
+
+/** An answer about the inbox, with the listed pull requests it names. */
+export interface InboxAnswer extends CliRunResult {
+  pulls: AiPullRef[]
+}
+
 export interface InboxRunOptions {
   signal?: AbortSignal
   /** Live work-log entries; entries repeat as they update, merge by `id`. */
@@ -193,10 +221,10 @@ export interface InboxRunOptions {
  * @param locale - The reader's language.
  * @param request - The question and the conversation so far.
  * @param options - Abort signal, live activity listener and the clock.
- * @returns The answer as Markdown prose, and the usage the CLI reported.
+ * @returns The answer as Markdown prose, the listed pull requests it names, and the usage the CLI reported.
  * @throws When the provider is not a CLI engine or the build has no CLI runner.
  */
-export async function askAboutInbox(pulls: InboxPulls, resolved: ResolvedModel, locale: Locale, request: InboxRequest, options: InboxRunOptions = {}): Promise<CliRunResult> {
+export async function askAboutInbox(pulls: InboxPulls, resolved: ResolvedModel, locale: Locale, request: InboxRequest, options: InboxRunOptions = {}): Promise<InboxAnswer> {
   const engine = resolved.model.provider
   if (!isCliEngine(engine))
     throw new Error('Asking about your pull requests needs Claude Code or Codex as the AI provider.')
@@ -212,5 +240,6 @@ export async function askAboutInbox(pulls: InboxPulls, resolved: ResolvedModel, 
   }, { signal: options.signal, onActivity: options.onActivity })
   if (options.signal?.aborted)
     throw new DOMException('Aborted', 'AbortError')
-  return { text: result.text.trim(), usage: result.usage }
+  const text = result.text.trim()
+  return { text, usage: result.usage, pulls: citedPulls(text, listed) }
 }

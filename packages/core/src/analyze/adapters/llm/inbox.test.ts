@@ -2,7 +2,7 @@ import type { MyPull } from '../../../local-rpc'
 import type { CliRunRequest } from './cli-stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setCliRunner } from './cli-stream'
-import { ageOf, askAboutInbox, buildInboxPrompt, inboxLine, renderInbox } from './inbox'
+import { ageOf, askAboutInbox, buildInboxPrompt, citedPulls, inboxLine, renderInbox } from './inbox'
 import { resolveModel } from './model'
 import { defaultLlmSettings } from './settings'
 import { buildInboxSuggestionsPrompt } from './suggest'
@@ -47,6 +47,10 @@ describe('inboxLine', () => {
     expect(inboxLine(pull({ state: 'closed', merged: true, role: 'authored' }), NOW)).toBe('- o/r#1 "A change" · by ana · merged 3h ago · you wrote it')
     expect(inboxLine(pull({ state: 'closed', isDraft: true }), NOW)).toBe('- o/r#1 "A change" · by ana · closed 3h ago · you are involved · draft')
   })
+
+  it('dates a merge by when it merged, not by a later comment', () => {
+    expect(inboxLine(pull({ state: 'closed', merged: true, closedAt: '2026-10-05T12:00:00Z' }), NOW)).toContain('merged 10d ago')
+  })
 })
 
 describe('renderInbox', () => {
@@ -76,6 +80,15 @@ describe('renderInbox', () => {
   })
 })
 
+describe('citedPulls', () => {
+  it('keeps the listed pull requests an answer names or links, once each, in order, as the list spells them', () => {
+    const listed = [{ owner: 'octa', repo: 'web', number: 5 }, { owner: 'octa', repo: 'api', number: 9 }]
+    const text = 'See [this](https://github.com/Octa/API/pull/9/files), then octa/web#5 and octa/web#5 again. made/up#1 and octa/web#9999 are not listed; src/octa/web#5 is a path.'
+    expect(citedPulls(text, listed)).toEqual([{ owner: 'octa', repo: 'api', number: 9 }, { owner: 'octa', repo: 'web', number: 5 }])
+    expect(citedPulls('Nothing named.', listed)).toEqual([])
+  })
+})
+
 describe('buildInboxPrompt', () => {
   it('dates the list, keeps the last turns and ends with the question and its language', () => {
     const history = Array.from({ length: 6 }, (_, index) => ({ question: `Q${index}`, answer: `A${index}` }))
@@ -95,6 +108,7 @@ describe('askAboutInbox', () => {
     const resolved = resolveModel({ ...defaultLlmSettings, provider: 'claude-code', claudeCodeModel: 'sonnet' })!
     const result = await askAboutInbox({ open: [pull({ number: 5 })], closed: [pull({ number: 4, state: 'closed' })] }, resolved, 'en', { question: 'What is failing?', history: [] }, { now: NOW })
     expect(result.text).toBe('o/r#5 is failing.')
+    expect(result.pulls).toEqual([{ owner: 'o', repo: 'r', number: 5 }])
     expect(runner).toHaveBeenCalledWith(expect.objectContaining({
       engine: 'claude-code',
       label: 'Ask about your pull requests',

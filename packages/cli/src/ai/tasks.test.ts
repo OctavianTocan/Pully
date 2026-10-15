@@ -41,7 +41,7 @@ async function setup(runners: Partial<TaskRunners> = {}) {
     brief: vi.fn<TaskRunners['brief']>(async () => ({ lang: 'root = Stack([])', headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-14T00:00:00Z' })),
     suggest: vi.fn<TaskRunners['suggest']>(async () => []),
     inboxPulls: vi.fn<TaskRunners['inboxPulls']>(async () => ({ open: [pull('o', 'web', 5), pull('o', 'hidden', 6)], closed: [pull('o', 'web', 4)] })),
-    inbox: vi.fn<TaskRunners['inbox']>(async () => ({ text: 'o/web#5 waits on you.', usage: { costUsd: 0.02 } })),
+    inbox: vi.fn<TaskRunners['inbox']>(async () => ({ text: 'o/web#5 waits on you.', usage: { costUsd: 0.02 }, pulls: [] })),
     suggestInbox: vi.fn<TaskRunners['suggestInbox']>(async () => ['Why is it failing?']),
     lens: vi.fn<TaskRunners['lens']>(async () => undefined),
     usage: vi.fn<TaskRunners['usage']>(() => ({ costUsd: 0.5 })),
@@ -163,6 +163,21 @@ describe('ai tasks', () => {
 
     await tasks.clearInboxChat()
     expect(await tasks.inboxChat()).toEqual({ turns: [] })
+  })
+
+  it('lets two inbox questions sent at once share one task, and saves the pull requests the answer names', async () => {
+    const named = [{ owner: 'o', repo: 'web', number: 5 }]
+    const { tasks, runners } = await setup({ inbox: vi.fn<TaskRunners['inbox']>(async () => ({ text: 'o/web#5.', pulls: named })) })
+    const [first, second] = await Promise.all([
+      tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'What waits on me?' }),
+      tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'And why?' }),
+    ])
+    expect(second).toBe(first)
+    await settled(tasks.wait, first)
+    expect(runners.inbox).toHaveBeenCalledTimes(1)
+    const { turns } = await tasks.inboxChat()
+    expect(turns).toHaveLength(1)
+    expect(turns[0]).toMatchObject({ question: 'What waits on me?', answer: 'o/web#5.', pulls: named })
   })
 
   it('marks a stopped and a failed inbox question, and one cut off by a restart', async () => {

@@ -1,6 +1,6 @@
 import type { ResolvedModel } from '@pulls.review/core/analyze'
 import type { CacheRepositories, LlmSession } from '@pulls.review/core/cache'
-import type { CliRunHooks, CliRunResult, InboxPulls } from '@pulls.review/core/llm'
+import type { CliRunHooks, CliRunResult, InboxAnswer, InboxPulls } from '@pulls.review/core/llm'
 import type { AiActivity, AiAskThread, AiAskTurn, AiInboxChat, AiJobStatus, AiTaskModel, AiTaskRequest, AiTaskSelection, AiTaskSnapshot, AiUsage } from '@pulls.review/core/local-rpc'
 import type { Locale } from '@pulls.review/core/locales'
 import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResult } from '@pulls.review/core/types'
@@ -45,7 +45,7 @@ export interface TaskRunners {
   /** What an inbox question reads: the signed-in user's open pull requests, and the ones closed lately. */
   inboxPulls: () => Promise<InboxPulls>
   /** A question about the inbox, with the conversation so far. */
-  inbox: (pulls: InboxPulls, resolved: ResolvedModel, locale: Locale, request: { question: string, history: { question: string, answer: string }[] }, hooks: TaskHooks) => Promise<CliRunResult>
+  inbox: (pulls: InboxPulls, resolved: ResolvedModel, locale: Locale, request: { question: string, history: { question: string, answer: string }[] }, hooks: TaskHooks) => Promise<InboxAnswer>
   /** Up to three questions to offer under an inbox answer. Never throws. */
   suggestInbox: (resolved: ResolvedModel, locale: Locale, question: string, answer: string, hooks: TaskHooks) => Promise<string[]>
   /** A review lens's instructions, or `undefined` when there is no such skill. */
@@ -258,9 +258,11 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     const all = await runners.inboxPulls()
     const shown = (pulls: InboxPulls['open']) => pulls.filter(pull => !skip.has(`${pull.owner}/${pull.repo}`))
     task.controller.signal.throwIfAborted()
-    const answer = await runners.inbox({ open: shown(all.open), closed: shown(all.closed) }, resolved, locale, { question: request.question, history: task.history ?? [] }, hooks)
+    const pulls = { open: shown(all.open), closed: shown(all.closed) }
+    const answer = await runners.inbox(pulls, resolved, locale, { question: request.question, history: task.history ?? [] }, hooks)
     task.controller.signal.throwIfAborted()
-    await patchInboxTurn(task.info.id, { answer: answer.text, usage: answer.usage, outcome: 'done', activities: [...task.entries.values()] })
+    // The pull requests it names that the list had go with it, so the app links those and no number the model made up.
+    await patchInboxTurn(task.info.id, { answer: answer.text, usage: answer.usage, outcome: 'done', activities: [...task.entries.values()], pulls: answer.pulls?.length ? answer.pulls : undefined })
     // The answer is saved first, so stopping while the follow-ups are written drops only them.
     const suggestions = await runners.suggestInbox(resolved, locale, request.question, answer.text, hooks)
     if (suggestions.length && !task.controller.signal.aborted) {
@@ -414,14 +416,12 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     if (running)
       return running.info.id
     const id = randomUUID()
-    const title = request.kind === 'inbox' ? undefined : (await cache.diffs.get(request.key).catch(() => undefined))?.diff.title
     const task: Task = {
       request,
       info: {
         id,
         kind: request.kind,
         key: request.key,
-        title,
         label: labelOf(request),
         engine: request.model.engine,
         model: request.model.model,
@@ -439,6 +439,24 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
       waiters: new Set(),
       controller: new AbortController(),
     }
+    // Registered before anything is awaited, so a second start of the same work finds this one instead of racing it.
+    tasks.set(id, task)
+    try {
+      await prepare(task, request)
+    }
+    catch (error) {
+      tasks.delete(id)
+      throw error
+    }
+    void execute(task)
+    return id
+  }
+
+  /** Fills in what a new task needs from storage: its pull request's title, and the turn it answers. */
+  async function prepare(task: Task, request: AiTaskRequest): Promise<void> {
+    const id = task.info.id
+    if (request.kind !== 'inbox')
+      task.info.title = (await cache.diffs.get(request.key).catch(() => undefined))?.diff.title
     if (request.kind === 'ask') {
       task.history = await withThreads(request.key, (threads) => {
         let thread = threads.find(candidate => candidate.id === request.threadId)
@@ -462,9 +480,6 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
         return history
       })
     }
-    tasks.set(id, task)
-    void execute(task)
-    return id
   }
 
   async function wait(id: string, after: number): Promise<AiTaskSnapshot> {
@@ -665,7 +680,8 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
     async inboxPulls() {
       const since = Date.now() - CLOSED_WINDOW_MS
       const [open, closed] = await Promise.all([listMyPulls('open'), listMyPulls('closed').catch(() => [])])
-      return { open, closed: closed.filter(pull => Date.parse(pull.updatedAt) >= since) }
+      // A comment on an old merge moves `updatedAt`, not when it closed.
+      return { open, closed: closed.filter(pull => Date.parse(pull.closedAt ?? pull.updatedAt) >= since) }
     },
     async inbox(pulls, resolved, locale, request, hooks) {
       return (await llm()).askAboutInbox(pulls, resolved, locale, request, { signal: hooks.signal, onActivity: hooks.onActivity })

@@ -212,6 +212,8 @@ export interface MyPull {
   url?: string
   /** Closed by merging rather than abandoned. */
   merged?: boolean
+  /** A closed one: when it was merged or closed, which a later comment does not move as it does `updatedAt`. */
+  closedAt?: string
   headSha?: string
   /** The signed-in user is asked to review it, directly or through a team. */
   requestedFromMe?: boolean
@@ -338,6 +340,15 @@ export interface AiAskTurn {
   outcome?: 'done' | 'failed' | 'stopped'
   /** The server task answering it. */
   taskId?: string
+  /** An inbox answer: the listed pull requests it names, in the order it names them. */
+  pulls?: AiPullRef[]
+}
+
+/** A pull request by name. */
+export interface AiPullRef {
+  owner: string
+  repo: string
+  number: number
 }
 
 /** The conversation about the inbox: its turns, oldest first, and the questions offered under the last answer. */
