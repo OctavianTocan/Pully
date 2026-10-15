@@ -94,6 +94,8 @@ internal object Lu {
     val shut = LuGlyph(1.8f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m15 9-6 6M9 9l6 6"))
     val branch = LuGlyph(1.8f, LuPath("M6 3v12"), LuPath("M15,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M18 9a9 9 0 0 1-9 9"))
     val search = LuGlyph(2f, LuPath("M4,11a7,7 0 1,0 14,0a7,7 0 1,0 -14,0"), LuPath("m20 20-3.5-3.5"))
+    /** Lucide `arrow-up-down`: the Inbox sort. */
+    val sort = LuGlyph(2f, LuPath("m21 16-4 4-4-4"), LuPath("M17 20V4"), LuPath("m3 8 4-4 4 4"), LuPath("M7 4v16"))
     val copy = LuGlyph(2f, LuPath("M11,9h7a2,2 0 0 1 2,2v7a2,2 0 0 1 -2,2h-7a2,2 0 0 1 -2,-2v-7a2,2 0 0 1 2,-2z"), LuPath("M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"))
     val edit = LuGlyph(1.8f, LuPath("M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"), LuPath("m15 5 4 4"))
     val trash = LuGlyph(1.8f, LuPath("M3 6h18"), LuPath("M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"), LuPath("M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"), LuPath("M10 11v6M14 11v6"))
