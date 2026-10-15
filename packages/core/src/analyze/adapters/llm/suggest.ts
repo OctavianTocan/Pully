@@ -91,14 +91,52 @@ export function resolveSuggestions(raw: unknown, asked: string): string[] {
  * @returns Up to three questions.
  */
 export async function suggestQuestions(diff: DiffsPayload, engine: CliEngine, question: string, answer: string, locale: Locale, signal?: AbortSignal): Promise<string[]> {
+  return askForSuggestions(engine, SUGGESTIONS_SYSTEM_PROMPT, buildSuggestionsPrompt(diff, question, answer, locale), question, answer, signal)
+}
+
+export const INBOX_SUGGESTIONS_SYSTEM_PROMPT = `You suggest what an engineer might ask next about the pull requests on their plate, after reading the last question and its answer.
+- Two or three questions, each under 80 characters, each answerable from their list of pull requests or by reading one of them.
+- Follow what the answer opened up: a pull request it named, a person, a failing check, what to look at first. Never ask again what was just asked.
+- Plain questions in the reader's own words, no Markdown, each ending with a question mark.`
+
+/**
+ * The prompt for the suggestions under an answer about the inbox: the question and the answer.
+ * @param question - What the reader asked.
+ * @param answer - The reply, as Markdown.
+ * @param locale - The reader's language.
+ * @returns The prompt text.
+ */
+export function buildInboxSuggestionsPrompt(question: string, answer: string, locale: Locale): string {
+  return [
+    '# A question about the reader\'s pull requests',
+    `## The question\n\n${question.trim()}`,
+    `## The answer\n\n${answer.trim().slice(0, ANSWER_CHAR_LIMIT)}`,
+    `Write the questions in the language of the question above (in ${promptLanguageName(locale)} when you cannot tell), as the answer does.`,
+  ].join('\n\n')
+}
+
+/**
+ * The questions to offer after an answer about the inbox. Never throws.
+ * @param engine - The engine that answered; its small model writes the questions.
+ * @param question - What the reader asked.
+ * @param answer - The reply.
+ * @param locale - The reader's language.
+ * @param signal - Stops the request with the task.
+ * @returns Up to three questions.
+ */
+export async function suggestInboxQuestions(engine: CliEngine, question: string, answer: string, locale: Locale, signal?: AbortSignal): Promise<string[]> {
+  return askForSuggestions(engine, INBOX_SUGGESTIONS_SYSTEM_PROMPT, buildInboxSuggestionsPrompt(question, answer, locale), question, answer, signal)
+}
+
+async function askForSuggestions(engine: CliEngine, system: string, prompt: string, question: string, answer: string, signal?: AbortSignal): Promise<string[]> {
   if (!question.trim() || !answer.trim())
     return []
   try {
     const result = await runCli({
       engine,
       ...SUGGESTION_MODELS[engine],
-      system: SUGGESTIONS_SYSTEM_PROMPT,
-      prompt: buildSuggestionsPrompt(diff, question, answer, locale),
+      system,
+      prompt,
       schema: SUGGESTIONS_SCHEMA,
       label: 'Suggest follow-up questions',
     }, { signal })

@@ -24,7 +24,7 @@ const UNSETTLED_ENRICHMENT_TTL_MS = 60_000
 export type GithubGraphql = <T>(query: string, variables: Record<string, unknown>) => Promise<T>
 
 const LIGHT_FIELDS = `
-  id number title url state isDraft updatedAt mergedAt headRefOid
+  id number title url state isDraft updatedAt mergedAt closedAt headRefOid
   repository { nameWithOwner }
   author { login }
   comments { totalCount }
@@ -53,6 +53,7 @@ export interface SearchNode {
   isDraft: boolean
   updatedAt: string
   mergedAt: string | null
+  closedAt?: string | null
   headRefOid: string
   repository: { nameWithOwner: string }
   author: { login: string } | null
@@ -129,6 +130,7 @@ export function toFoundPull(node: SearchNode, role: MyPullRole, state: MyPullSta
       role,
       url: node.url,
       merged: node.mergedAt !== null,
+      closedAt: state === 'closed' ? node.mergedAt ?? node.closedAt ?? undefined : undefined,
       headSha: node.headRefOid,
       requestedFromMe: role === 'review-requested',
     },

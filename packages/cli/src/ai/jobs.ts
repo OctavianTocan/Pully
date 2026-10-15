@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { listCliModels } from './catalog'
 import { claudeArgs, claudeInput, createClaudeParser } from './claude'
 import { codexArgs, createCodexParser } from './codex'
+import { INBOX_TOOL_HINT, inboxTools } from './inbox-tools'
 import { prTools } from './pr-tools'
 import { startCli } from './process'
 import { dropNulls, strictSchema } from './schema'
@@ -205,6 +206,12 @@ async function prepare(job: Job, dir: string): Promise<Launch> {
     await writeFile(payloadPath, JSON.stringify(payload))
     server = { name: 'pr', command: process.execPath, args: [serverScript(), payloadPath], tools: prTools(payload).map(tool => tool.name) }
     system += toolHint(payload)
+  }
+  else if (request.inbox?.pulls.length) {
+    const payloadPath = join(dir, 'inbox.json')
+    await writeFile(payloadPath, JSON.stringify(request.inbox))
+    server = { name: 'inbox', command: process.execPath, args: [serverScript(), payloadPath], tools: inboxTools().map(tool => tool.name) }
+    system += INBOX_TOOL_HINT
   }
   const sink = { put: (patch: ActivityPatch) => put(job, patch) }
   const answerPath = join(dir, 'answer.txt')

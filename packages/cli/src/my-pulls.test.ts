@@ -82,6 +82,7 @@ describe('normalization', () => {
         role: 'owned',
         url: 'https://github.com/acme/app/pull/n7',
         merged: true,
+        closedAt: '2026-10-02T00:00:00Z',
         headSha: 'sha-n7',
         requestedFromMe: false,
       },
@@ -138,10 +139,16 @@ describe('createMyPullsService', () => {
     expect(pulls[0]).toMatchObject({ reviewDecision: 'approved', mergeable: 'mergeable', additions: 10, reviewRequests: ['me', 'acme/core'] })
   })
 
+  it('dates a pull request closed without merging by when it closed', () => {
+    const { pull } = toFoundPull(node('n8', { state: 'CLOSED', closedAt: '2026-10-03T00:00:00Z', updatedAt: '2026-10-09T00:00:00Z' }), 'authored', 'closed')
+    expect(pull).toMatchObject({ merged: false, closedAt: '2026-10-03T00:00:00Z', updatedAt: '2026-10-09T00:00:00Z' })
+    expect(toFoundPull(node('n9', { closedAt: '2026-10-03T00:00:00Z' }), 'authored', 'open').pull.closedAt).toBeUndefined()
+  })
+
   it('skips enrichment for closed pull requests', async () => {
     const { graphql, calls } = fakeGraphql({ 'author:@me': [node('n1', { state: 'MERGED', mergedAt: '2026-10-02T00:00:00Z' })] })
     const [pull] = await createMyPullsService({ graphql }).list('closed')
-    expect(pull).toMatchObject({ state: 'closed', merged: true })
+    expect(pull).toMatchObject({ state: 'closed', merged: true, closedAt: '2026-10-02T00:00:00Z' })
     expect(pull.checks).toBeUndefined()
     expect(calls.some(call => call.query.includes('nodes(ids'))).toBe(false)
   })

@@ -1,10 +1,10 @@
 import type { Env } from '@pulls.review/core/env'
-import type { AiAskThread, AiJobSnapshot, AiTaskRequest, AiTaskSnapshot, CliModelCatalog, MyPull } from '@pulls.review/core/local-rpc'
+import type { AiAskThread, AiInboxChat, AiJobSnapshot, AiTaskRequest, AiTaskSnapshot, CliModelCatalog, MyPull } from '@pulls.review/core/local-rpc'
 import type { Driver } from 'unstorage'
 import type { TaskManager } from './ai/tasks'
 import { createCacheRepositories } from '@pulls.review/core/cache'
 import { createLocalSource, readRepoInfo } from '@pulls.review/core/local'
-import { AI_FOLLOW_UPS, LLM_ENGINES, LOCAL_RPC, MY_PULL_STATES, REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
+import { AI_FOLLOW_UPS, INBOX_KEY, LLM_ENGINES, LOCAL_RPC, MY_PULL_STATES, REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
 import { DiffsPayloadSchema } from '@pulls.review/core/types'
 import { defineRpcFunction } from 'devframe'
 import { createStorage } from 'unstorage'
@@ -68,6 +68,15 @@ const aiTaskRequest = v.variant('kind', [
   v.object({ kind: v.literal('chat'), ...taskBase, locale: v.string(), text: v.optional(v.string()), retry: v.optional(v.boolean()) }),
   v.object({ kind: v.literal('tour'), ...taskBase, locale: v.string() }),
   v.object({ kind: v.literal('brief'), ...taskBase, locale: v.string() }),
+  v.object({
+    kind: v.literal('inbox'),
+    key: v.literal(INBOX_KEY),
+    model: taskModel,
+    locale: v.string(),
+    question: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(4000)),
+    retry: v.optional(v.boolean()),
+    skip: v.optional(v.array(v.string())),
+  }),
 ])
 const diffKey = v.object({ key: v.string() })
 
@@ -186,6 +195,8 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
     defineRpcFunction({ name: LOCAL_RPC.aiTaskList, type: 'query', args: [diffKey], returns: trusted<AiTaskSnapshot[]>(), handler: ({ key }) => tasks.list(key) }),
     defineRpcFunction({ name: LOCAL_RPC.aiTaskListAll, type: 'query', args: [v.object({})], returns: trusted<AiTaskSnapshot[]>(), handler: () => tasks.listAll() }),
     defineRpcFunction({ name: LOCAL_RPC.askThreads, type: 'query', args: [diffKey], returns: trusted<AiAskThread[]>(), handler: ({ key }) => tasks.threads(key) }),
+    defineRpcFunction({ name: LOCAL_RPC.inboxChat, type: 'query', args: [v.object({})], returns: trusted<AiInboxChat>(), handler: () => tasks.inboxChat() }),
+    defineRpcFunction({ name: LOCAL_RPC.inboxChatClear, type: 'action', args: [v.object({})], returns: v.void(), handler: () => tasks.clearInboxChat() }),
     defineRpcFunction({
       name: LOCAL_RPC.askThreadClose,
       type: 'action',

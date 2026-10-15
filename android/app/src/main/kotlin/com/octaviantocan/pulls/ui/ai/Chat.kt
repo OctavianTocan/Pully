@@ -172,33 +172,13 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
             }) else null,
             footer = {
                 attached?.let { about -> AttachedReference(about) { attached = null } }
-                Row(
-                    Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    BasicTextField(
-                        value = ui.chatInput,
-                        onValueChange = { ui.chatInput = it },
-                        singleLine = true,
-                        textStyle = PullsType.base.copy(color = c.text),
-                        cursorBrush = SolidColor(c.accentTeal),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) }),
-                        modifier = Modifier.weight(1f),
-                        decorationBox = { inner ->
-                            Box(contentAlignment = Alignment.CenterStart) {
-                                if (ui.chatInput.isEmpty()) Text(if (rows.isEmpty()) "Ask Pulls…" else "Ask a follow-up…", style = PullsType.base, color = c.muted, maxLines = 1)
-                                inner()
-                            }
-                        },
-                    )
-                    if (streaming && task != null) {
-                        FloatIcon(Lu.stop, t("common.stop"), { session.cancelTask(task.id) }, size = 40.dp, iconSize = 18.dp, primary = true)
-                    } else {
-                        SendButton({ val text = ui.chatInput; ui.chatInput = ""; ask(text) }, t("common.send"), enabled = !busy && ui.chatInput.isNotBlank())
-                    }
-                }
+                AskField(
+                    ui.chatInput, { ui.chatInput = it },
+                    placeholder = if (rows.isEmpty()) "Ask Pulls…" else "Ask a follow-up…",
+                    onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) },
+                    sendEnabled = !busy && ui.chatInput.isNotBlank(),
+                    onStop = if (streaming && task != null) ({ session.cancelTask(task.id) }) else null,
+                )
             },
         ) {
             Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -260,25 +240,37 @@ private fun AttachedReference(about: AskReference, onRemove: () -> Unit) {
 
 /** An answer: plain text in the reading size, with no box, fill or shadow (rule 99). */
 @Composable
-private fun Answer(text: String) {
+internal fun Answer(text: String) {
     val c = LocalPullsColors.current
     Markdown(text, Modifier.fillMaxWidth(), style = PullsType.read.copy(color = c.text))
 }
 
+/** Under a PR answer: the places in the diff it mentions, then what every answer has under it. */
+@Composable
+private fun AnswerExtras(session: ReviewSession, text: String, onOpen: (CodePlace) -> Unit, onRedo: (() -> Unit)?, next: List<String>, onAsk: (String) -> Unit) {
+    val places = remember(text, session.files) { mentionedPlaces(text) { name -> resolveMention(session, name) } }
+    val sources = places.map { place ->
+        AnswerSource(place.path.substringAfterLast('/') + if (place.line > 0) ":${place.line}" else "", "Open ${place.path}") { onOpen(place) }
+    }
+    AnswerExtras(text, sources, onRedo, next, onAsk)
+}
+
+/** Something an answer mentions, as a chip under it: its [label], what a tap does for a screen reader, and [open]. */
+internal class AnswerSource(val label: String, val clickLabel: String, val open: () -> Unit)
+
 /**
- * Under an answer (rule 99): the places it mentions as chips that open them, copy and, on the last
+ * Under an answer (rule 99): what it mentions as chips that open them, copy and, on the last
  * answer, redo, then the questions to ask next as rows that send with a tap.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AnswerExtras(session: ReviewSession, text: String, onOpen: (CodePlace) -> Unit, onRedo: (() -> Unit)?, next: List<String>, onAsk: (String) -> Unit) {
+internal fun AnswerExtras(text: String, sources: List<AnswerSource>, onRedo: (() -> Unit)?, next: List<String>, onAsk: (String) -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
-    val places = remember(text, session.files) { mentionedPlaces(text) { name -> resolveMention(session, name) } }
     var copied by remember(text) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (places.isNotEmpty()) FlowRow(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            places.forEach { place -> SourceChip(place) { onOpen(place) } }
+        if (sources.isNotEmpty()) FlowRow(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            sources.forEach { source -> SourceChip(source) }
         }
         Row(Modifier.offset(x = (-10).dp), verticalAlignment = Alignment.CenterVertically) {
             FloatIcon(if (copied) Lu.check else Lu.copy, if (copied) "Copied" else "Copy the answer", { copyText(context, plainAnswer(text)); copied = true }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
@@ -300,17 +292,53 @@ private fun AnswerExtras(session: ReviewSession, text: String, onOpen: (CodePlac
     }
 }
 
-/** A place an answer mentions: the file's name and the line, on the kit's outlined 36dp chip (rule 70). */
+/** Something an answer mentions, on the kit's outlined 36dp chip (rule 70): a file and its line, or a pull request. */
 @Composable
-private fun SourceChip(place: CodePlace, onClick: () -> Unit) {
+private fun SourceChip(source: AnswerSource) {
     val c = LocalPullsColors.current
     val shape = CircleShape
     Box(
         Modifier.height(36.dp).clip(shape).border(1.dp, c.border, shape)
-            .cueClickable(role = Role.Button, onClickLabel = "Open ${place.path}", onClick = onClick).padding(horizontal = 14.dp),
+            .cueClickable(role = Role.Button, onClickLabel = source.clickLabel, onClick = source.open).padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(place.path.substringAfterLast('/') + if (place.line > 0) ":${place.line}" else "", style = PullsType.sm, color = c.text, maxLines = 1)
+        Text(source.label, style = PullsType.sm, color = c.text, maxLines = 1)
+    }
+}
+
+/**
+ * Ask's field, at the foot of its sheet: a 52dp pill with the question and Send, or Stop while an answer is on its way.
+ * The keyboard's action sends too.
+ */
+@Composable
+internal fun AskField(value: String, onValueChange: (String) -> Unit, placeholder: String, onSend: () -> Unit, sendEnabled: Boolean, onStop: (() -> Unit)?) {
+    val c = LocalPullsColors.current
+    Row(
+        Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = PullsType.base.copy(color = c.text),
+            cursorBrush = SolidColor(c.accentTeal),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { onSend() }),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) Text(placeholder, style = PullsType.base, color = c.muted, maxLines = 1)
+                    inner()
+                }
+            },
+        )
+        if (onStop != null) {
+            FloatIcon(Lu.stop, t("common.stop"), onStop, size = 40.dp, iconSize = 18.dp, primary = true)
+        } else {
+            SendButton(onSend, t("common.send"), enabled = sendEnabled)
+        }
     }
 }
 

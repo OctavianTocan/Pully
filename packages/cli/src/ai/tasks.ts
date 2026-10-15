@@ -1,7 +1,7 @@
 import type { ResolvedModel } from '@pulls.review/core/analyze'
 import type { CacheRepositories, LlmSession } from '@pulls.review/core/cache'
-import type { CliRunHooks, CliRunResult } from '@pulls.review/core/llm'
-import type { AiActivity, AiAskThread, AiAskTurn, AiJobStatus, AiTaskModel, AiTaskRequest, AiTaskSelection, AiTaskSnapshot, AiUsage } from '@pulls.review/core/local-rpc'
+import type { CliRunHooks, CliRunResult, InboxAnswer, InboxPulls } from '@pulls.review/core/llm'
+import type { AiActivity, AiAskThread, AiAskTurn, AiInboxChat, AiJobStatus, AiTaskModel, AiTaskRequest, AiTaskSelection, AiTaskSnapshot, AiUsage } from '@pulls.review/core/local-rpc'
 import type { Locale } from '@pulls.review/core/locales'
 import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResult } from '@pulls.review/core/types'
 import type { Storage } from 'unstorage'
@@ -10,6 +10,7 @@ import { defaultLlmSettings, resolveModel } from '@pulls.review/core/analyze'
 import { AI_FOLLOW_UPS } from '@pulls.review/core/local-rpc'
 import { DEFAULT_LOCALE, isLocale } from '@pulls.review/core/locales'
 import { serializeRef } from '@pulls.review/core/types'
+import { listMyPulls } from '../my-pulls'
 import { listAiJobs, runAiJob } from './jobs'
 
 const WAIT_MS = 25_000
@@ -17,6 +18,9 @@ const KEEP_MS = 30 * 60_000
 /** Past this an answer goes out without follow-up questions. */
 const SUGGESTIONS_TIMEOUT_MS = 20_000
 const THREADS_PREFIX = 'ask-threads:'
+const INBOX_CHAT = 'inbox-chat'
+/** An inbox question reads pull requests closed this recently, besides the open ones. */
+const CLOSED_WINDOW_MS = 30 * 24 * 60 * 60_000
 
 /** What a runner gets besides its inputs: the task's abort signal, its work-log sink and a tag naming its CLI jobs. */
 export interface TaskHooks extends CliRunHooks {
@@ -38,6 +42,12 @@ export interface TaskRunners {
   tour: (diff: DiffsPayload, resolved: ResolvedModel, locale: string, hooks: TaskHooks) => Promise<TourResult>
   /** The page an agent designs for the diff, building on its analysis when there is one. */
   brief: (diff: DiffsPayload, resolved: ResolvedModel, locale: string, analysis: GroupedResult | undefined, hooks: TaskHooks) => Promise<BriefResult>
+  /** What an inbox question reads: the signed-in user's open pull requests, and the ones closed lately. */
+  inboxPulls: () => Promise<InboxPulls>
+  /** A question about the inbox, with the conversation so far. */
+  inbox: (pulls: InboxPulls, resolved: ResolvedModel, locale: Locale, request: { question: string, history: { question: string, answer: string }[] }, hooks: TaskHooks) => Promise<InboxAnswer>
+  /** Up to three questions to offer under an inbox answer. Never throws. */
+  suggestInbox: (resolved: ResolvedModel, locale: Locale, question: string, answer: string, hooks: TaskHooks) => Promise<string[]>
   /** A review lens's instructions, or `undefined` when there is no such skill. */
   lens: (name: string) => Promise<string | undefined>
   /** What the CLI jobs tagged `tag` consumed together. */
@@ -56,7 +66,7 @@ interface Task {
   usage?: AiUsage
   result?: string
   endedAt?: number
-  /** `ask`: the answered turns before this question. */
+  /** `ask` and `inbox`: the answered turns before this question. */
   history?: { question: string, answer: string }[]
 }
 
@@ -75,6 +85,10 @@ export interface TaskManager {
   threads: (key: string) => Promise<AiAskThread[]>
   /** Drops a thread and stops the answer it waits for. */
   closeThread: (key: string, threadId: string) => Promise<void>
+  /** The saved conversation about the inbox. */
+  inboxChat: () => Promise<AiInboxChat>
+  /** Starts the inbox conversation afresh and stops an answer still coming. */
+  clearInboxChat: () => Promise<void>
 }
 
 function messageOf(error: unknown): string {
@@ -109,6 +123,7 @@ function labelOf(request: AiTaskRequest): string {
     case 'chat': return `Chat about ${request.key}`
     case 'tour': return `Tour ${request.key}`
     case 'brief': return `Brief ${request.key}`
+    case 'inbox': return 'Ask about your pull requests'
   }
 }
 
@@ -137,6 +152,7 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
   const tasks = new Map<string, Task>()
   const threadLocks = new Map<string, Promise<unknown>>()
   const sessionLocks = new Map<string, Promise<void>>()
+  let inboxLock: Promise<unknown> = Promise.resolve()
 
   function wake(task: Task) {
     for (const waiter of [...task.waiters])
@@ -212,6 +228,52 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     return run
   }
 
+  // Writes to the inbox conversation run one at a time, like a diff's threads.
+  function withInbox<T>(change: (chat: AiInboxChat) => T): Promise<T> {
+    const run = inboxLock.then(async () => {
+      const stored = await storage.getItem<AiInboxChat>(INBOX_CHAT)
+      const chat: AiInboxChat = { turns: Array.isArray(stored?.turns) ? stored.turns : [], suggestions: stored?.suggestions }
+      const result = change(chat)
+      await storage.setItem(INBOX_CHAT, chat)
+      return result
+    })
+    inboxLock = run.catch(() => {})
+    return run
+  }
+
+  function patchInboxTurn(taskId: string, patch: Partial<AiAskTurn>): Promise<void> {
+    return withInbox((chat) => {
+      const turn = chat.turns.find(candidate => candidate.taskId === taskId)
+      if (turn)
+        Object.assign(turn, patch)
+    })
+  }
+
+  /** Answers a question about the inbox and saves it, then the questions to offer under it. */
+  async function performInbox(task: Task, request: Extract<AiTaskRequest, { kind: 'inbox' }>, hooks: TaskHooks): Promise<{ usage?: AiUsage, result?: string }> {
+    const resolved = resolveTaskModel(request.model)
+    const locale = localeOf(request.locale)
+    // The phone hides repositories switched off in its Profile; the question leaves them out too.
+    const skip = new Set(request.skip ?? [])
+    const all = await runners.inboxPulls()
+    const shown = (pulls: InboxPulls['open']) => pulls.filter(pull => !skip.has(`${pull.owner}/${pull.repo}`))
+    task.controller.signal.throwIfAborted()
+    const pulls = { open: shown(all.open), closed: shown(all.closed) }
+    const answer = await runners.inbox(pulls, resolved, locale, { question: request.question, history: task.history ?? [] }, hooks)
+    task.controller.signal.throwIfAborted()
+    // The pull requests it names that the list had go with it, so the app links those and no number the model made up.
+    await patchInboxTurn(task.info.id, { answer: answer.text, usage: answer.usage, outcome: 'done', activities: [...task.entries.values()], pulls: answer.pulls?.length ? answer.pulls : undefined })
+    // The answer is saved first, so stopping while the follow-ups are written drops only them.
+    const suggestions = await runners.suggestInbox(resolved, locale, request.question, answer.text, hooks)
+    if (suggestions.length && !task.controller.signal.aborted) {
+      await withInbox((chat) => {
+        if (chat.turns.at(-1)?.taskId === task.info.id)
+          chat.suggestions = suggestions
+      })
+    }
+    return { usage: answer.usage, result: answer.text }
+  }
+
   function patchTurn(key: string, threadId: string, taskId: string, patch: Partial<AiAskTurn>): Promise<void> {
     return withThreads(key, (threads) => {
       const turn = threads.find(thread => thread.id === threadId)?.turns.find(candidate => candidate.taskId === taskId)
@@ -223,6 +285,9 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
   /** Does the task's model work and saves its result; returns what the task settles with. */
   async function perform(task: Task, hooks: TaskHooks): Promise<{ usage?: AiUsage, result?: string }> {
     const { request } = task
+    // The inbox belongs to no diff.
+    if (request.kind === 'inbox')
+      return performInbox(task, request, hooks)
     const entry = await cache.diffs.get(request.key)
     if (!entry)
       throw new Error('This diff is no longer cached on the server; open it again.')
@@ -336,6 +401,8 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
       const stopped = task.controller.signal.aborted
       if (request.kind === 'ask' && !stopped)
         await patchTurn(request.key, request.threadId, task.info.id, { error: messageOf(error), outcome: 'failed', activities: [...task.entries.values()] }).catch(() => {})
+      if (request.kind === 'inbox' && !stopped)
+        await patchInboxTurn(task.info.id, { error: messageOf(error), outcome: 'failed', activities: [...task.entries.values()] }).catch(() => {})
       if (stopped)
         settle(task, 'cancelled', { error: 'Cancelled.' })
       else
@@ -349,14 +416,12 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     if (running)
       return running.info.id
     const id = randomUUID()
-    const title = (await cache.diffs.get(request.key).catch(() => undefined))?.diff.title
     const task: Task = {
       request,
       info: {
         id,
         kind: request.kind,
         key: request.key,
-        title,
         label: labelOf(request),
         engine: request.model.engine,
         model: request.model.model,
@@ -365,7 +430,7 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
         variant: request.kind === 'critique' ? request.variant : undefined,
         lens: request.kind === 'critique' ? request.lens : undefined,
         threadId: request.kind === 'ask' ? request.threadId : undefined,
-        text: request.kind === 'ask' ? request.question : request.kind === 'chat' ? request.text : undefined,
+        text: request.kind === 'ask' || request.kind === 'inbox' ? request.question : request.kind === 'chat' ? request.text : undefined,
         then: request.kind === 'analyze' ? request.then : undefined,
       },
       status: 'running',
@@ -374,6 +439,24 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
       waiters: new Set(),
       controller: new AbortController(),
     }
+    // Registered before anything is awaited, so a second start of the same work finds this one instead of racing it.
+    tasks.set(id, task)
+    try {
+      await prepare(task, request)
+    }
+    catch (error) {
+      tasks.delete(id)
+      throw error
+    }
+    void execute(task)
+    return id
+  }
+
+  /** Fills in what a new task needs from storage: its pull request's title, and the turn it answers. */
+  async function prepare(task: Task, request: AiTaskRequest): Promise<void> {
+    const id = task.info.id
+    if (request.kind !== 'inbox')
+      task.info.title = (await cache.diffs.get(request.key).catch(() => undefined))?.diff.title
     if (request.kind === 'ask') {
       task.history = await withThreads(request.key, (threads) => {
         let thread = threads.find(candidate => candidate.id === request.threadId)
@@ -386,9 +469,17 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
         return history
       })
     }
-    tasks.set(id, task)
-    void execute(task)
-    return id
+    if (request.kind === 'inbox') {
+      task.history = await withInbox((chat) => {
+        // Answering again replaces the last turn; the follow-ups under the old answer go either way.
+        if (request.retry && chat.turns.at(-1)?.question === request.question)
+          chat.turns.pop()
+        chat.suggestions = undefined
+        const history = chat.turns.flatMap(turn => turn.answer !== undefined ? [{ question: turn.question, answer: turn.answer }] : [])
+        chat.turns.push({ question: request.question, startedAt: task.info.startedAt, taskId: id })
+        return history
+      })
+    }
   }
 
   async function wait(id: string, after: number): Promise<AiTaskSnapshot> {
@@ -419,6 +510,8 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     const { request } = task
     if (request.kind === 'ask')
       void patchTurn(request.key, request.threadId, id, { error: 'Stopped.', outcome: 'stopped', activities: [...task.entries.values()] }).catch(() => {})
+    if (request.kind === 'inbox')
+      void patchInboxTurn(id, { error: 'Stopped.', outcome: 'stopped', activities: [...task.entries.values()] }).catch(() => {})
     return true
   }
 
@@ -465,7 +558,31 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     })
   }
 
-  return { start, wait, cancel, list, listAll, threads, closeThread }
+  async function inboxChat(): Promise<AiInboxChat> {
+    // A turn whose task this process never ran was cut off by a restart: say so instead of waiting forever.
+    return withInbox((chat) => {
+      for (const turn of chat.turns) {
+        if (turn.outcome === undefined && !(turn.taskId && tasks.get(turn.taskId))) {
+          turn.outcome = 'failed'
+          turn.error = 'The server restarted before answering.'
+        }
+      }
+      return structuredClone(chat)
+    })
+  }
+
+  async function clearInboxChat(): Promise<void> {
+    for (const task of tasks.values()) {
+      if (task.status === 'running' && task.info.kind === 'inbox')
+        cancel(task.info.id)
+    }
+    await withInbox((chat) => {
+      chat.turns = []
+      chat.suggestions = undefined
+    })
+  }
+
+  return { start, wait, cancel, list, listAll, threads, closeThread, inboxChat, clearInboxChat }
 }
 
 const USAGE_COUNTS = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'costUsd', 'durationMs'] as const
@@ -557,6 +674,26 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
       const step = { id: 'suggest-questions', kind: 'status' as const, title: 'Suggesting follow-up questions', status: 'running' as const, startedAt: Date.now(), rev: 0 }
       hooks.onActivity?.([step])
       const questions = await core.suggestQuestions(diff, engine, plainText(question.content), plainText(answer.content), locale, AbortSignal.any([hooks.signal, AbortSignal.timeout(SUGGESTIONS_TIMEOUT_MS)]))
+      hooks.onActivity?.([{ ...step, status: 'done', endedAt: Date.now() }])
+      return questions
+    },
+    async inboxPulls() {
+      const since = Date.now() - CLOSED_WINDOW_MS
+      const [open, closed] = await Promise.all([listMyPulls('open'), listMyPulls('closed').catch(() => [])])
+      // A comment on an old merge moves `updatedAt`, not when it closed.
+      return { open, closed: closed.filter(pull => Date.parse(pull.closedAt ?? pull.updatedAt) >= since) }
+    },
+    async inbox(pulls, resolved, locale, request, hooks) {
+      return (await llm()).askAboutInbox(pulls, resolved, locale, request, { signal: hooks.signal, onActivity: hooks.onActivity })
+    },
+    async suggestInbox(resolved, locale, question, answer, hooks) {
+      const core = await llm()
+      const engine = resolved.model.provider
+      if (!core.isCliEngine(engine))
+        return []
+      const step = { id: 'suggest-questions', kind: 'status' as const, title: 'Suggesting follow-up questions', status: 'running' as const, startedAt: Date.now(), rev: 0 }
+      hooks.onActivity?.([step])
+      const questions = await core.suggestInboxQuestions(engine, question, answer, locale, AbortSignal.any([hooks.signal, AbortSignal.timeout(SUGGESTIONS_TIMEOUT_MS)]))
       hooks.onActivity?.([{ ...step, status: 'done', endedAt: Date.now() }])
       return questions
     },

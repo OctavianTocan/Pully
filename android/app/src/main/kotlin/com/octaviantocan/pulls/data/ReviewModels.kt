@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.data
 
 import com.octaviantocan.pulls.core.BriefPage
+import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.parseBriefPage
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -153,18 +154,32 @@ fun JsonObject.asCritique(): Critique = Critique(
     usage = obj("usage").asUsage(),
 )
 
-/** `AiAskTurn` and `AiAskThread`. */
-data class AskTurn(val question: String, val answer: String?, val error: String?, val usage: Usage?, val activities: List<Activity>, val startedAt: Long?, val outcome: String?, val taskId: String?)
+/** `AiAskTurn` and `AiAskThread`. [pulls] are the listed pull requests an inbox answer names, which the app links. */
+data class AskTurn(
+    val question: String, val answer: String?, val error: String?, val usage: Usage?, val activities: List<Activity>, val startedAt: Long?, val outcome: String?, val taskId: String?,
+    val pulls: List<ListedPull> = emptyList(),
+)
 
 data class AskThread(val id: String, val path: String, val side: String, val startLine: Int, val endLine: Int, val label: String, val turns: List<AskTurn>)
+
+private fun JsonObject.asAskTurn(): AskTurn =
+    AskTurn(
+        s("question"), sOrNull("answer"), sOrNull("error"), obj("usage").asUsage(), arr("activities").map { a -> a.asActivity() }, l("startedAt"), sOrNull("outcome"), sOrNull("taskId"),
+        arr("pulls").mapNotNull { p -> p.i("number")?.let { n -> ListedPull(p.s("owner"), p.s("repo"), n) } },
+    )
 
 fun JsonObject.asAskThread(): AskThread {
     val selection = obj("selection") ?: JsonObject(emptyMap())
     return AskThread(
         id = s("id"), path = selection.s("path"), side = selection.s("side"), startLine = selection.i("startLine") ?: 0, endLine = selection.i("endLine") ?: 0, label = s("label"),
-        turns = arr("turns").map { AskTurn(it.s("question"), it.sOrNull("answer"), it.sOrNull("error"), it.obj("usage").asUsage(), it.arr("activities").map { a -> a.asActivity() }, it.l("startedAt"), it.sOrNull("outcome"), it.sOrNull("taskId")) },
+        turns = arr("turns").map { it.asAskTurn() },
     )
 }
+
+/** The conversation about the inbox (Ask from Home): its turns, oldest first, and the questions offered under the last answer. */
+data class InboxChat(val turns: List<AskTurn>, val suggestions: List<String>)
+
+fun JsonObject.asInboxChat(): InboxChat = InboxChat(arr("turns").map { it.asAskTurn() }, strings("suggestions"))
 
 /** One chat message after the analysis turn. */
 data class ChatMessage(val role: String, val text: String)
