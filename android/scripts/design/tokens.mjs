@@ -4,11 +4,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lint } from '@google/design.md/linter'
-import { ANDROID, ASSETS, dpScale, paletteColors, readAndroid, typeRoles } from './kotlin.mjs'
+import { ANDROID, ASSETS, dpScale, paletteColors, readAndroid, shadowLayer, shadowLevels, typeRoles } from './kotlin.mjs'
 import { buildRules, buildSpec, DESIGN_PATH, px, readDesign, stable } from './spec.mjs'
 
 export const NAME = 'tokens'
-export const RULES = [12, 47, 76]
+export const RULES = [12, 45, 47, 76]
 export const SPEC_JSON = join(ASSETS, 'book', 'spec.json')
 export const RULES_JSON = join(ASSETS, 'book', 'rules.json')
 const KOTLIN = 'app/src/main/kotlin/com/octaviantocan/pulls/ui/design'
@@ -123,6 +123,56 @@ export function compareScale(group, doc, kotlin, objectName, keyOf = name => nam
   return problems
 }
 
+/**
+ * Front matter `shadow` (each level's drop and strength; its blur is `elevation`) and `shadow-layer`
+ * (the tight edge and the dark-mode strength) against `PullsShadow` and `floatShadow` in Kit.kt.
+ */
+/** One `shadow` level against its `PullsShadow` entry. */
+function shadowLevelProblems(name, spec, level) {
+  const problems = []
+  if (px(level.y) !== px(spec.y)) {
+    problems.push(`shadow.${name}.y: DESIGN.md ${spec.y}, PullsShadow ${level.y}`)
+  }
+  if (Number(level.alpha) !== Number(spec.alpha)) {
+    problems.push(`shadow.${name}.alpha: DESIGN.md ${spec.alpha}, PullsShadow ${level.alpha}`)
+  }
+  if (level.blur !== name) {
+    problems.push(`PullsShadow.${name} blurs by PullsElevation.${level.blur}; its blur is elevation.${name}`)
+  }
+  return problems
+}
+
+/** `shadow-layer` against the values `floatShadow` draws with. */
+function shadowLayerProblems(wanted, layer) {
+  return Object.entries(wanted ?? {}).flatMap(([key, value]) => {
+    const have = layer[key]
+    const same = typeof value === 'number' ? Number(have) === value : px(have) === px(value)
+    return same ? [] : [`shadow-layer.${key}: DESIGN.md ${value}, Kit.kt ${have}`]
+  })
+}
+
+/**
+ * Front matter `shadow` (each level's drop and strength; its blur is `elevation`) and `shadow-layer`
+ * (the tight edge and the dark-mode strength) against `PullsShadow` and `floatShadow` in Kit.kt.
+ */
+export function compareShadows(front, levels, layer) {
+  if (!levels) {
+    return ['Kit.kt has no enum class PullsShadow, for DESIGN.md shadow']
+  }
+  const wanted = front.shadow ?? {}
+  const problems = []
+  for (const [name, spec] of Object.entries(wanted)) {
+    problems.push(...(levels[name] ? shadowLevelProblems(name, spec, levels[name]) : [`DESIGN.md shadow.${name} is not a PullsShadow level`]))
+  }
+  for (const name of Object.keys(levels)) {
+    if (!(name in wanted)) {
+      problems.push(`PullsShadow level ${name} is not in DESIGN.md shadow`)
+    }
+  }
+  problems.push(...shadowLayerProblems(front['shadow-layer'], layer))
+  return problems
+}
+
 /** `design.md lint`, from `@google/design.md`: every error finding is a problem, warnings are not. */
 export function lintDesign(path = DESIGN_PATH) {
   const report = lint(readFileSync(path, 'utf8'))
@@ -137,6 +187,7 @@ export function check({ update = false } = {}) {
   const { front, rules } = readDesign()
   const tokens = readAndroid(`${KOTLIN}/Tokens.kt`)
   const scale = existsSync(join(ANDROID, KOTLIN, 'Scale.kt')) ? readAndroid(`${KOTLIN}/Scale.kt`) : ''
+  const kit = readAndroid(`${KOTLIN}/Kit.kt`)
   const problems = [
     ...lintDesign(),
     ...compareColors(front, paletteColors(tokens, 'LightPullsColors'), paletteColors(tokens, 'DarkPullsColors')),
@@ -145,6 +196,7 @@ export function check({ update = false } = {}) {
     ...compareScale('rounded', front.rounded, dpScale(scale, 'PullsRadius'), 'PullsRadius'),
     ...compareScale('spacing', front.spacing, dpScale(scale, 'PullsSpace'), 'PullsSpace', name => name.replace(/^x/, '')),
     ...compareScale('elevation', front.elevation, dpScale(scale, 'PullsElevation'), 'PullsElevation'),
+    ...compareShadows(front, shadowLevels(kit), shadowLayer(kit)),
   ]
   const generated = [
     [SPEC_JSON, stable(buildSpec(front))],

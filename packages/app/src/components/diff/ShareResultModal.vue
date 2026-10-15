@@ -84,7 +84,7 @@ async function confirm() {
       </p>
 
       <div v-if="notEnglish" class="flex items-start gap-2 border border-amber:20 rounded-lg bg-amber:10 px-3 py-2 text-amber-700 dark:text-amber-400">
-        <span class="i-ph:globe-duotone mt-0.5 shrink-0" aria-hidden="true" />
+        <span class="i-ph:globe mt-0.5 shrink-0" aria-hidden="true" />
         <span>{{ $t('share.englishRecommended') }}</span>
       </div>
 
@@ -96,7 +96,7 @@ async function confirm() {
         <ActionButton variant="text" :disabled="shared.isSharing" @click="emit('update:open', false)">
           {{ $t('common.cancel') }}
         </ActionButton>
-        <ActionButton variant="primary" icon="i-ph:share-network-duotone" :loading="shared.isSharing" @click="confirm">
+        <ActionButton variant="primary" icon="i-ph:share-network" :loading="shared.isSharing" @click="confirm">
           {{ confirmLabel }}
         </ActionButton>
       </div>

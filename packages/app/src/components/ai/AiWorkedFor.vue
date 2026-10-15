@@ -29,7 +29,7 @@ const open = defineModel<boolean>('open', { default: false })
       <span class="i-ph:clock shrink-0" aria-hidden="true" />
       <span class="shrink-0 tabular-nums">{{ label }}</span>
       <span v-if="summary" class="min-w-0 truncate op-mute">· {{ summary }}</span>
-      <span v-if="expandable" :class="open ? 'i-ph:caret-up' : 'i-ph:caret-down'" class="shrink-0 text-xs" aria-hidden="true" />
+      <span v-if="expandable" :class="open ? 'i-ph:caret-up' : 'i-lu-chevd'" class="shrink-0 text-xs" aria-hidden="true" />
     </component>
     <slot v-if="expandable && open" />
   </div>

@@ -33,7 +33,7 @@ onMounted(() => store.load())
         <FeedbackLoading :text="$t('local.loading')" />
       </template>
       <template #error="{ error: err, retry }">
-        <FeedbackEmptyState icon="i-ph:warning-duotone" :title="$t('local.loadFailed')">
+        <FeedbackEmptyState icon="i-ph:warning" :title="$t('local.loadFailed')">
           <template #hint>
             {{ err.message }}
           </template>

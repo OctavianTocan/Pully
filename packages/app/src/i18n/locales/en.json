@@ -357,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "on #{n}",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -572,6 +573,7 @@
   },
   "ai": {
     "loading": "Loading…",
+    "working": "Working",
     "workingFor": "Working for {duration}",
     "workedFor": "Worked for {duration}",
     "stoppedAfter": "Stopped after {duration}",
@@ -620,6 +622,9 @@
     "cached": "Cached pull requests",
     "autoRefresh": "Auto refresh when new commits are found",
     "language": "Language",
+    "theme": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
     "token": {
       "label": "GitHub Personal Access Token",
       "optional": "Optional for public repos; required for private repos, or leaving reviews.",
@@ -715,7 +720,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",
@@ -727,6 +732,7 @@
       "failed": "Couldn't load your pull requests",
       "refresh": "Refresh",
       "empty": "No open pull requests here",
+      "noMatches": "Nothing matches",
       "all": "All",
       "draft": "draft",
       "role": {

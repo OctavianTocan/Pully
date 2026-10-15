@@ -41,12 +41,12 @@ function askAi() {
 <template>
   <div class="flex flex-wrap items-center gap-1 py-1 pl-3 pr-1 text-xs" :class="standalone ? '' : 'border-b border-base'">
     <span class="mr-auto min-w-0 truncate font-mono op-fade">{{ label }}</span>
-    <ActionButton v-if="store.ask?.available" size="sm" variant="text" icon="i-ph:sparkle-duotone" @click="askAi">
+    <ActionButton v-if="store.ask?.available" size="sm" variant="text" @click="askAi">
       {{ $t('ask.action') }}
     </ActionButton>
     <ActionIconButton
       compact
-      :icon="copied && lastCopied === 'label' ? 'i-ph:check' : 'i-ph:copy'"
+      :icon="copied && lastCopied === 'label' ? 'i-lu-check' : 'i-lu-copy'"
       :label="$t('ask.copyLocation')"
       :tooltip="copied && lastCopied === 'label' ? $t('ask.copied') : $t('ask.copyLocation')"
       @click="copyText('label', label)"
@@ -54,11 +54,11 @@ function askAi() {
     <ActionIconButton
       v-if="link"
       compact
-      :icon="copied && lastCopied === 'link' ? 'i-ph:check' : 'i-ph:link'"
+      :icon="copied && lastCopied === 'link' ? 'i-lu-check' : 'i-ph:link'"
       :label="$t('ask.copyLink')"
       :tooltip="copied && lastCopied === 'link' ? $t('ask.copied') : $t('ask.copyLink')"
       @click="copyText('link', link)"
     />
-    <ActionIconButton v-if="standalone" compact icon="i-ph:x" :label="$t('common.close')" @click="emit('done')" />
+    <ActionIconButton v-if="standalone" compact icon="i-lu-close" :label="$t('common.close')" @click="emit('done')" />
   </div>
 </template>

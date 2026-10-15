@@ -183,7 +183,6 @@ useIntersectionObserver(root, ([entry]) => {
             <span class="whitespace-nowrap op-fade">{{ $t('common.files', { n: DEMO_PR.files }, DEMO_PR.files) }}</span>
           </span>
           <span data-summary class="col-start-1 row-start-1 flex items-start gap-1.5" :class="{ 'op-0': !settled }">
-            <span class="i-ph-sparkle-duotone mt-0.5 shrink-0 color-accent-magenta" />
             <span class="op-fade">{{ $t('landing.demoSummary') }}</span>
           </span>
         </div>
@@ -209,7 +208,7 @@ useIntersectionObserver(root, ([entry]) => {
       <div data-grouped class="col-start-1 row-start-1 flex flex-col gap-2" :class="{ 'op-0': !settled }">
         <div v-for="(group, i) in groups" :key="group.key" class="flex flex-col">
           <div data-card class="ml--5 flex items-center gap-2 py-1" :class="{ 'op-0': !settled }">
-            <span class="shrink-0 op-fade" :class="group.expanded ? 'i-ph-caret-down-bold' : 'i-ph-caret-right-bold'" />
+            <span class="shrink-0 op-fade" :class="group.expanded ? 'i-lu-chevd' : 'i-lu-next'" />
             <GroupCategoryIcon :category="group.category" class="text-sm" />
             <span data-label class="min-w-0 truncate text-sm font-medium">{{ $t(`landing.demoGroups.${group.key}`) }}</span>
             <span class="flex-1" />
@@ -219,7 +218,7 @@ useIntersectionObserver(root, ([entry]) => {
               <span data-donut class="col-start-1 row-start-1 flex" :class="{ 'op-0': settled }">
                 <DisplayDonut :value="settled ? 1 : progress[i]!.value" :size="14" :thickness="2.5" color="currentColor" />
               </span>
-              <span data-check class="i-ph-check-circle-duotone col-start-1 row-start-1 m--0.5 text-base" :class="{ 'op-0': !settled }" />
+              <span data-check class="i-lu-okc col-start-1 row-start-1 m--0.5 text-base" :class="{ 'op-0': !settled }" />
             </span>
           </div>
           <ul v-if="group.shown.length" class="flex flex-col pl-5">

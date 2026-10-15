@@ -98,7 +98,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
 
     <div
       v-if="isDragging"
-      class="pointer-events-none fixed inset-4 z-toast flex items-center justify-center border-4 border-accent-teal-400 rounded-2xl border-dashed bg-accent-teal-400/10 text-lg color-accent-teal font-medium backdrop-blur-sm"
+      class="border-accent-teal-400 bg-accent-teal-400/10 pointer-events-none fixed inset-4 z-toast flex items-center justify-center border-4 rounded-2xl border-dashed text-lg color-accent-teal font-medium backdrop-blur-sm"
     >
       {{ $t('landing.dropHint') }}
     </div>
@@ -112,7 +112,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
           </p>
           <div class="max-w-md flex flex-col gap-2">
             <form class="flex items-stretch gap-2" @submit.prevent="go">
-              <FormTextInput v-model="url" v-field="FIELD.identifier" icon="i-ph:link-simple-duotone" placeholder="https://github.com/owner/repo/pull/123" class="flex-1" />
+              <FormTextInput v-model="url" v-field="FIELD.identifier" icon="i-ph:link-simple" placeholder="https://github.com/owner/repo/pull/123" class="flex-1" />
               <ActionButton
                 type="submit"
                 variant="primary"
@@ -193,7 +193,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
       <section class="grid gap-4 sm:grid-cols-2">
         <div class="flex flex-col gap-4 border border-base rounded-lg p-5">
           <div class="flex items-start gap-3">
-            <span class="i-ph:upload-simple-duotone mt-0.5 shrink-0 text-xl color-accent-teal" aria-hidden="true" />
+            <span class="i-ph:upload-simple mt-0.5 shrink-0 text-xl color-accent-teal" aria-hidden="true" />
             <div class="flex-1">
               <h2 class="font-semibold">
                 {{ $t('landing.uploadTitle') }}
@@ -209,7 +209,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
             </div>
           </div>
           <div class="mt-auto flex">
-            <ActionButton icon="i-ph:upload-simple-duotone" @click="loadDiffOpen = true">
+            <ActionButton icon="i-ph:upload-simple" @click="loadDiffOpen = true">
               {{ $t('landing.uploadButton') }}
             </ActionButton>
           </div>
@@ -217,7 +217,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
 
         <div class="flex flex-col gap-4 border border-base rounded-lg p-5">
           <div class="flex items-start gap-3">
-            <span class="i-ph:puzzle-piece-duotone mt-0.5 shrink-0 text-xl color-accent-magenta" aria-hidden="true" />
+            <span class="i-ph:puzzle-piece mt-0.5 shrink-0 text-xl color-accent-magenta" aria-hidden="true" />
             <div class="flex-1">
               <h2 class="font-semibold">
                 {{ $t('landing.embedTitle') }}
@@ -237,10 +237,10 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
             </div>
           </div>
           <div class="mt-auto flex gap-2">
-            <ActionButton href="https://pulls.review/pulls-review-github.user.js" icon="i-ph:download-duotone">
+            <ActionButton href="https://pulls.review/pulls-review-github.user.js" icon="i-ph:download">
               {{ $t('landing.installUserscript') }}
             </ActionButton>
-            <ActionButton icon="i-ph:book-open-duotone" @click="guide = 'userscript'">
+            <ActionButton icon="i-ph:book-open" @click="guide = 'userscript'">
               {{ $t('landing.viewGuide') }}
             </ActionButton>
           </div>
@@ -248,7 +248,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
 
         <div class="flex flex-col gap-4 border border-base rounded-lg p-5">
           <div class="flex items-start gap-3">
-            <span class="i-ph:bookmark-simple-duotone mt-0.5 shrink-0 text-xl color-accent-magenta" aria-hidden="true" />
+            <span class="i-ph:bookmark-simple mt-0.5 shrink-0 text-xl color-accent-magenta" aria-hidden="true" />
             <div class="flex-1">
               <h2 class="font-semibold">
                 {{ $t('landing.bookmarkletTitle') }}
@@ -260,7 +260,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
           </div>
           <div class="mt-auto flex gap-2">
             <BookmarkletButton />
-            <ActionButton icon="i-ph:book-open-duotone" @click="guide = 'bookmarklet'">
+            <ActionButton icon="i-ph:book-open" @click="guide = 'bookmarklet'">
               {{ $t('landing.viewGuide') }}
             </ActionButton>
           </div>
@@ -268,7 +268,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
 
         <div class="flex flex-col gap-4 border border-base rounded-lg p-5">
           <div class="flex items-start gap-3">
-            <span class="i-ph:lightning-duotone mt-0.5 shrink-0 text-xl color-accent-orange" aria-hidden="true" />
+            <span class="i-ph:lightning mt-0.5 shrink-0 text-xl color-accent-orange" aria-hidden="true" />
             <div class="flex-1">
               <h2 class="font-semibold">
                 {{ $t('landing.actionsTitle') }}
@@ -279,7 +279,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
             </div>
           </div>
           <div class="mt-auto flex">
-            <ActionButton icon="i-ph:book-open-duotone" @click="guide = 'actions'">
+            <ActionButton icon="i-ph:book-open" @click="guide = 'actions'">
               {{ $t('landing.viewGuide') }}
             </ActionButton>
           </div>
@@ -287,7 +287,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
 
         <div class="flex flex-col gap-4 border border-base rounded-lg p-5">
           <div class="flex items-start gap-3">
-            <span class="i-ph:terminal-window-duotone mt-0.5 shrink-0 text-xl color-accent-teal" aria-hidden="true" />
+            <span class="i-ph:terminal-window mt-0.5 shrink-0 text-xl color-accent-teal" aria-hidden="true" />
             <div class="flex-1">
               <h2 class="font-semibold">
                 {{ $t('landing.cliTitle') }}
@@ -298,7 +298,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
             </div>
           </div>
           <div class="mt-auto flex">
-            <ActionButton icon="i-ph:book-open-duotone" @click="guide = 'cli'">
+            <ActionButton icon="i-ph:book-open" @click="guide = 'cli'">
               {{ $t('landing.viewGuide') }}
             </ActionButton>
           </div>

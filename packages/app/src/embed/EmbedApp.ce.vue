@@ -178,14 +178,14 @@ onBeforeUnmount(() => {
         <div class="flex-auto">
           pulls.review
         </div>
-        <ActionButton v-if="updateAvailable" :href="USERSCRIPT_URL" target="_blank" rel="noopener noreferrer" size="sm" icon="i-ph-arrow-circle-up-duotone">
+        <ActionButton v-if="updateAvailable" :href="USERSCRIPT_URL" target="_blank" rel="noopener noreferrer" size="sm" icon="i-ph-arrow-circle-up">
           {{ $t('embed.updateUserscript') }}
         </ActionButton>
         <a v-if="pr" target="_blank" :href="`${SITE_ORIGIN}/gh/${pr.owner}/${pr.repo}/${pr.number}`" rel="noopener noreferrer" :aria-label="$t('pr.openInSite')" class="op-fade hover:op-100">
-          <div class="i-ph-arrow-square-out-duotone" />
+          <div class="i-lu-arrow" />
         </a>
         <button type="button" :aria-label="$t('common.close')" class="op-fade hover:op-100" @click="toggleOpen">
-          <div class="i-ph-x" />
+          <div class="i-lu-close" />
         </button>
       </header>
       <EmbedPrView

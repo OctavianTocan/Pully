@@ -31,7 +31,7 @@ const sortOptions = computed(() => PULL_REQUEST_SORTS.map(value => ({ value, lab
     <div class="mxa max-w-6xl w-full flex flex-col gap-2">
       <div class="flex flex-wrap items-center gap-2">
         <RouterLink to="/" class="flex">
-          <span class="i-ph-house-line-duotone text-lg color-accent-teal" aria-hidden="true" />
+          <span class="i-ph-house-line text-lg color-accent-teal" aria-hidden="true" />
         </RouterLink>
         <h1 class="flex flex-auto items-center gap-1.5 text-lg font-semibold">
           <a :href="`https://github.com/${store.owner}`" target="_blank" rel="noopener" class="flex items-center gap-1.5 op-fade hover:underline">
@@ -42,7 +42,7 @@ const sortOptions = computed(() => PULL_REQUEST_SORTS.map(value => ({ value, lab
           <a :href="`https://github.com/${store.owner}/${store.repo}/pulls`" target="_blank" rel="noopener" class="hover:underline">{{ store.repo }}</a>
           <span v-if="store.totalCount !== undefined" class="ml-1 text-sm font-normal op-fade">{{ $t('pulls.open', { n: store.totalCount }) }}</span>
           <ActionIconButton
-            icon="i-ph:arrows-clockwise-duotone"
+            icon="i-lu-refresh"
             :label="$t('common.refresh')" :tooltip="$t('common.refresh')"
             class="shrink-0 text-sm" :class="{ 'animate-spin': store.isRefreshing }" @click="store.refresh()"
           />

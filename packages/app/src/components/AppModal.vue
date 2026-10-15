@@ -54,7 +54,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
       class="fixed inset-0 flex items-end justify-center pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[max(1rem,env(safe-area-inset-top))] sm:(items-center pb-4 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))])"
       :class="teleportTarget === 'body' ? 'z-modal' : 'z-[2147483002]'"
     >
-      <div class="fixed inset-0 z-modal-backdrop bg-[#ddd]/40 backdrop-blur-sm dark:bg-black/40" @click="close" />
+      <div class="fixed inset-0 z-modal-backdrop bg-scrim" @click="close" />
       <div
         role="dialog"
         aria-modal="true"
@@ -76,7 +76,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
             <slot name="header" />
           </div>
           <button type="button" class="btn-icon h-7 w-7 shrink-0 coarse:-my-1 coarse:-mr-1.5" :aria-label="$t('common.close')" @click="close">
-            <span class="i-ph:x" aria-hidden="true" />
+            <span class="i-lu-close" aria-hidden="true" />
           </button>
         </header>
         <div

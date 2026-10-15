@@ -357,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "基于 #{n}",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -572,6 +573,7 @@
   },
   "ai": {
     "loading": "Loading…",
+    "working": "Working",
     "workingFor": "Working for {duration}",
     "workedFor": "Worked for {duration}",
     "stoppedAfter": "Stopped after {duration}",
@@ -632,6 +634,9 @@
     "cached": "已缓存的 pull request",
     "autoRefresh": "发现新提交时自动刷新",
     "language": "语言",
+    "theme": "外观",
+    "light": "浅色",
+    "dark": "深色",
     "token": {
       "label": "GitHub Personal Access Token",
       "optional": "公开仓库可选；私有仓库或提交审查时必需。",
@@ -769,7 +774,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",
@@ -781,6 +786,7 @@
       "failed": "Couldn't load your pull requests",
       "refresh": "Refresh",
       "empty": "No open pull requests here",
+      "noMatches": "Nothing matches",
       "all": "All",
       "draft": "draft",
       "role": {

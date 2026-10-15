@@ -235,7 +235,8 @@
       "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
     },
     "commitList": {
-      "view": "View only this commit's changes"
+      "view": "View only this commit's changes",
+      "hint": "Click a commit to view only its changes. Shift-click to select a range."
     },
     "selection": {
       "all": "All commits",
@@ -356,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "sobre #{n}",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -544,6 +546,18 @@
     "copyLink": "Copy GitHub link",
     "copied": "Copied"
   },
+  "lens": {
+    "pick": "Review with a skill",
+    "title": "Review with",
+    "description": "Run the AI review through one of your skills.",
+    "search": "Search skills…",
+    "general": "General",
+    "generalDescription": "Bugs, risks and nits across the whole diff",
+    "loading": "Loading skills…",
+    "loadFailed": "Could not load skills: {error}",
+    "none": "No skills found.",
+    "noMatch": "No skills match."
+  },
   "chat": {
     "title": "Perguntar sobre este PR",
     "collapse": "Recolher",
@@ -620,6 +634,9 @@
     "cached": "Pull requests em cache",
     "autoRefresh": "Atualizar automaticamente quando novos commits forem encontrados",
     "language": "Idioma",
+    "theme": "Aparência",
+    "light": "Claro",
+    "dark": "Escuro",
     "token": {
       "label": "Token de acesso pessoal do GitHub",
       "optional": "Opcional para repositórios públicos; obrigatório para repositórios privados ou para deixar revisões.",
@@ -757,7 +774,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",
@@ -769,6 +786,7 @@
       "failed": "Couldn't load your pull requests",
       "refresh": "Refresh",
       "empty": "No open pull requests here",
+      "noMatches": "Nothing matches",
       "all": "All",
       "draft": "draft",
       "role": {

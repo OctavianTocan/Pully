@@ -20,7 +20,7 @@ const confirmOpen = ref(false)
     variant="text"
     :disabled="shared.isSharing || !shared.canShare"
     :title="$t(shared.canShare ? 'share.tooltip' : 'share.needsToken')"
-    :icon="shared.isSharing ? 'i-ph:spinner-duotone animate-spin' : 'i-ph:share-network-duotone'"
+    :icon="shared.isSharing ? 'i-lu-redo animate-spin' : 'i-ph:share-network'"
     @click="confirmOpen = true"
   >
     {{ $t(shared.isSharing ? 'share.sharing' : shared.ownComment ? 'share.updateButton' : 'share.button') }}

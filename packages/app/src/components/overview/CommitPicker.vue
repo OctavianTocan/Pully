@@ -42,7 +42,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
       :aria-expanded="open"
       @click="open = !open"
     >
-      <span class="i-ph:git-commit-duotone" aria-hidden="true" />
+      <span class="i-lu-commit" aria-hidden="true" />
       <template v-if="!selection">
         {{ $t('overview.selection.all') }}
       </template>
@@ -53,7 +53,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
         {{ $t('overview.selection.range', { n: count }, count) }}
       </template>
       <span v-else class="font-mono">{{ selection.from.slice(0, 7) }}..{{ selection.to.slice(0, 7) }}</span>
-      <span class="i-ph:caret-down text-xs" aria-hidden="true" />
+      <span class="i-lu-chevd text-xs" aria-hidden="true" />
     </button>
     <div
       v-if="open"
@@ -67,7 +67,7 @@ function pick(selection: CommitSelection | undefined, extend = false) {
       >
         <span class="min-w-0 flex-1">{{ $t('overview.selection.all') }}</span>
         <span class="text-xs font-mono op-mute">{{ overview.commits.length + overview.commitsHidden }}</span>
-        <span v-if="!selection" class="i-ph:check shrink-0 text-xs" aria-hidden="true" />
+        <span v-if="!selection" class="i-lu-check shrink-0 text-xs" aria-hidden="true" />
       </button>
       <div class="my-1 border-t border-base" />
       <PrCommitList

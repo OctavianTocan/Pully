@@ -32,7 +32,7 @@ const location = computed(() => lineRangeLabel({
   >
     <span
       v-if="isPosted"
-      class="i-ph:check-circle-duotone mt-0.5 shrink-0 text-green-600 dark:text-green-400"
+      class="i-lu-okc mt-0.5 shrink-0 text-green-600 dark:text-green-400"
       :title="$t('critique.postedFinding')"
       :aria-label="$t('critique.postedFinding')"
     />

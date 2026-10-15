@@ -94,7 +94,7 @@ function priceTitle(model: ModelOption): string | undefined {
       @click="open = !open"
     >
       <span v-if="loading" class="flex items-center gap-2 op-fade">
-        <span class="i-ph:circle-notch animate-spin" aria-hidden="true" />
+        <span class="i-lu-redo animate-spin" aria-hidden="true" />
         {{ $t('settings.models.loading') }}
       </span>
       <span v-else class="min-w-0 flex items-center gap-2 color-base">
@@ -103,7 +103,7 @@ function priceTitle(model: ModelOption): string | undefined {
           {{ priceLabel(current) }}
         </span>
       </span>
-      <span :class="open ? 'i-ph:caret-up' : 'i-ph:caret-down'" class="shrink-0 op-fade" aria-hidden="true" />
+      <span :class="open ? 'i-ph:caret-up' : 'i-lu-chevd'" class="shrink-0 op-fade" aria-hidden="true" />
     </button>
 
     <div v-if="open" ref="listEl" class="flex flex-col border-t border-base">
@@ -112,7 +112,7 @@ function priceTitle(model: ModelOption): string | undefined {
           v-model="query"
           v-field="FIELD.search"
           size="sm"
-          icon="i-ph:magnifying-glass"
+          icon="i-lu-search"
           :placeholder="$t('settings.models.search')"
           clearable
           class="w-full"
@@ -142,7 +142,7 @@ function priceTitle(model: ModelOption): string | undefined {
             :class="model.pricing?.input === 0 && model.pricing.output === 0 ? 'color-active' : 'op-mute'"
             :title="priceTitle(model)"
           >{{ priceLabel(model) }}</span>
-          <span v-if="model.id === modelId" class="i-ph:check shrink-0 text-xs" aria-hidden="true" />
+          <span v-if="model.id === modelId" class="i-lu-check shrink-0 text-xs" aria-hidden="true" />
         </button>
         <button
           v-if="customCandidate"

@@ -12,9 +12,9 @@ defineProps<{
 const open = ref(false)
 
 const STATE_DISPLAY = {
-  approved: { label: 'review.approved', icon: 'i-ph:check-circle-duotone text-green-600 dark:text-green-400' },
-  changes_requested: { label: 'review.changesRequested', icon: 'i-ph:x-circle-duotone text-red-600 dark:text-red-400' },
-  commented: { label: 'review.commented', icon: 'i-ph:chat-circle-dots-duotone op-fade' },
+  approved: { label: 'review.approved', icon: 'i-lu-okc text-green-600 dark:text-green-400' },
+  changes_requested: { label: 'review.changesRequested', icon: 'i-lu-xc text-red-600 dark:text-red-400' },
+  commented: { label: 'review.commented', icon: 'i-ph:chat-circle-dots op-fade' },
   dismissed: { label: 'review.dismissed', icon: 'i-ph:prohibit op-mute' },
 } as const
 </script>
@@ -27,11 +27,11 @@ const STATE_DISPLAY = {
       :aria-expanded="open"
       @click="open = !open"
     >
-      <span :class="open ? 'i-ph:caret-down' : 'i-ph:caret-right'" aria-hidden="true" />
+      <span :class="open ? 'i-lu-chevd' : 'i-lu-next'" aria-hidden="true" />
       <span class="font-medium">{{ $t('review.reviews') }}</span>
       <span class="font-mono op-mute">{{ summaries.length }}</span>
     </button>
-    <ul v-if="open" class="border-t border-base divide-y divide-#9992">
+    <ul v-if="open" class="border-t border-base divide-y divide-border-mute">
       <li v-for="summary in summaries" :key="summary.id" class="flex flex-col gap-1 px-3 py-2 text-sm">
         <div class="flex items-center gap-2">
           <span :class="STATE_DISPLAY[summary.state].icon" aria-hidden="true" />

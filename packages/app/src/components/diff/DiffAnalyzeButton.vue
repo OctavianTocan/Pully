@@ -28,10 +28,10 @@ const elapsed = computed(() => llm.value.startedAt === undefined ? undefined : f
 
 const icon = computed(() => {
   if (llm.value.isAnalyzing)
-    return 'i-ph:spinner-duotone animate-spin'
+    return 'i-lu-redo animate-spin'
   if (llm.value.error)
-    return `i-ph:warning-circle-duotone ${hasAiResult.value ? 'text-red-500' : 'text-red-100'}`
-  return 'i-ph:sparkle-duotone'
+    return `i-ph:warning-circle ${hasAiResult.value ? 'text-red-500' : 'text-red-100'}`
+  return undefined
 })
 
 const label = computed(() => {
@@ -63,7 +63,6 @@ function onClick() {
     v-if="!llm.isSetup"
     class="shrink-0 text-xs shadow"
     size="sm"
-    icon="i-ph:sparkle-duotone"
     variant="primary"
     :title="$t('analyze.setupTitle')"
     @click="settingsModalOpen = true"

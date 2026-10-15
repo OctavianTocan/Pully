@@ -112,7 +112,7 @@ function cliLine(state: CliModelsState): string {
       <span class="inline-flex items-center gap-1.5">
         <span v-if="cliLine(analysisModels)">{{ cliLine(analysisModels) }}</span>
         <ActionIconButton
-          icon="i-ph:arrow-clockwise"
+          icon="i-lu-redo"
           :label="$t('settings.llm.refreshModels')"
           :tooltip="$t('settings.llm.refreshModels')"
           :disabled="analysisModels.loading"
@@ -135,7 +135,7 @@ function cliLine(state: CliModelsState): string {
   <div class="flex flex-col gap-4 border-t border-base pt-4">
     <div>
       <div class="mb1 flex items-center gap-1 text-sm color-base font-medium">
-        <div class="i-ph:chat-circle-dots-duotone text-lg" />
+        <div class="i-ph:chat-circle-dots text-lg" />
         {{ $t('settings.llm.askTitle') }}
       </div>
       <p class="text-sm color-faint">
@@ -163,7 +163,7 @@ function cliLine(state: CliModelsState): string {
           <span class="inline-flex items-center gap-1.5">
             <span v-if="cliLine(askModels)">{{ cliLine(askModels) }}</span>
             <ActionIconButton
-              icon="i-ph:arrow-clockwise"
+              icon="i-lu-redo"
               :label="$t('settings.llm.refreshModels')"
               :tooltip="$t('settings.llm.refreshModels')"
               :disabled="askModels.loading"

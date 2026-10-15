@@ -5,8 +5,8 @@ import type { ChecksStatus, ReviewDecision } from '@pulls.review/core/types'
 
 /** GitHub's own glyphs and colors for a CI rollup. */
 export const CHECKS_ICON: Record<ChecksStatus, string> = {
-  success: 'i-ph:check-bold text-green-600 dark:text-green-400',
-  failure: 'i-ph:x-bold text-red-600 dark:text-red-400',
+  success: 'i-lu-check text-green-600 dark:text-green-400',
+  failure: 'i-lu-close text-red-600 dark:text-red-400',
   pending: 'i-ph:circle-fill text-amber-500',
 }
 
@@ -18,7 +18,7 @@ export const CHECK_BUCKET_ICON: Record<CheckBucket, string> = {
 }
 
 export const REVIEW_DECISION_ICON: Record<ReviewDecision, string> = {
-  approved: 'i-ph:check-circle-duotone text-green-600 dark:text-green-400',
-  changes_requested: 'i-ph:x-circle-duotone text-red-600 dark:text-red-400',
-  review_required: 'i-ph:eye-duotone op-fade',
+  approved: 'i-lu-okc text-green-600 dark:text-green-400',
+  changes_requested: 'i-lu-xc text-red-600 dark:text-red-400',
+  review_required: 'i-ph:eye op-fade',
 }

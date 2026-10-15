@@ -19,27 +19,27 @@ const showHidden = ref(false)
 const showInline = ref(false)
 
 const REVIEW_DISPLAY: Record<PrReviewState, { icon: string, key: string }> = {
-  approved: { icon: 'i-ph:check-circle-duotone text-green-600 dark:text-green-400', key: 'overview.timeline.approved' },
-  changes_requested: { icon: 'i-ph:x-circle-duotone text-red-600 dark:text-red-400', key: 'overview.timeline.changesRequested' },
-  commented: { icon: 'i-ph:chat-circle-dots-duotone op-fade', key: 'overview.timeline.reviewed' },
+  approved: { icon: 'i-lu-okc text-green-600 dark:text-green-400', key: 'overview.timeline.approved' },
+  changes_requested: { icon: 'i-lu-xc text-red-600 dark:text-red-400', key: 'overview.timeline.changesRequested' },
+  commented: { icon: 'i-ph:chat-circle-dots op-fade', key: 'overview.timeline.reviewed' },
   dismissed: { icon: 'i-ph:prohibit op-mute', key: 'overview.timeline.reviewed' },
-  pending: { icon: 'i-ph:hourglass-duotone op-mute', key: 'overview.timeline.reviewed' },
+  pending: { icon: 'i-ph:hourglass op-mute', key: 'overview.timeline.reviewed' },
 }
 
 const EVENT_ICON: Record<PrEventKind, string> = {
-  labeled: 'i-ph:tag-duotone',
-  unlabeled: 'i-ph:tag-duotone',
-  assigned: 'i-ph:user-duotone',
-  unassigned: 'i-ph:user-duotone',
-  ready_for_review: 'i-ph:eye-duotone',
-  convert_to_draft: 'i-ph:pencil-simple-duotone',
-  closed: 'i-ph:x-circle-duotone text-red-600 dark:text-red-400',
-  reopened: 'i-ph:arrow-counter-clockwise-duotone text-green-600 dark:text-green-400',
-  merged: 'i-ph:git-merge-duotone color-purple-500',
-  force_pushed: 'i-ph:git-commit-duotone',
-  review_requested: 'i-ph:eye-duotone',
+  labeled: 'i-ph:tag',
+  unlabeled: 'i-ph:tag',
+  assigned: 'i-ph:user',
+  unassigned: 'i-ph:user',
+  ready_for_review: 'i-ph:eye',
+  convert_to_draft: 'i-lu-edit',
+  closed: 'i-lu-xc text-red-600 dark:text-red-400',
+  reopened: 'i-ph:arrow-counter-clockwise text-green-600 dark:text-green-400',
+  merged: 'i-lu-merge color-purple-500',
+  force_pushed: 'i-lu-commit',
+  review_requested: 'i-ph:eye',
   review_dismissed: 'i-ph:prohibit',
-  renamed: 'i-ph:pencil-simple-line-duotone',
+  renamed: 'i-ph:pencil-simple-line',
 }
 
 function labelChipStyle(color: string) {
@@ -79,7 +79,7 @@ function labelChipStyle(color: string) {
 
   <li v-else-if="item.kind === 'commits'" class="flex flex-col gap-1 px-1 text-sm">
     <div class="flex items-center gap-1.5">
-      <span class="i-ph:git-commit-duotone shrink-0 op-fade" aria-hidden="true" />
+      <span class="i-lu-commit shrink-0 op-fade" aria-hidden="true" />
       <GithubAvatar v-if="item.actor" :login="item.actor.login" :avatar-url="item.actor.avatarUrl" :size="16" />
       <span class="font-medium">{{ item.actor?.login ?? 'ghost' }}</span>
       <span class="op-fade">{{ $t('overview.timeline.pushed', { n: item.commits.length }, item.commits.length) }}</span>
@@ -126,7 +126,7 @@ function labelChipStyle(color: string) {
 
     <div v-if="item.kind === 'review' && item.commentCount" class="border-t border-base px-3 py-1.5 text-sm">
       <button type="button" class="flex items-center gap-1 op-fade coarse:min-h-11 hover:op-100" :aria-expanded="showInline" @click="showInline = !showInline">
-        <span :class="showInline ? 'i-ph:caret-down' : 'i-ph:caret-right'" aria-hidden="true" />
+        <span :class="showInline ? 'i-lu-chevd' : 'i-lu-next'" aria-hidden="true" />
         {{ $t('overview.timeline.inlineComments', { n: item.commentCount }, item.commentCount) }}
       </button>
       <ul v-if="showInline" class="mt-1.5 flex flex-col gap-2">

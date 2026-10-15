@@ -105,13 +105,13 @@ export function useHomeNavigation(options: {
         id: COMMAND.search,
         title: t('keys.search'),
         group,
-        icon: 'i-ph:magnifying-glass-duotone',
+        icon: 'i-lu-search',
         run: () => document.querySelector<HTMLElement>('[data-nav-search] input, input[data-nav-search]')?.focus(),
       },
     ]
     if (options.refresh) {
       const refresh = options.refresh
-      list.push({ id: COMMAND.refresh, title: t('keys.refresh'), group, icon: 'i-ph:arrows-clockwise-duotone', run: refresh })
+      list.push({ id: COMMAND.refresh, title: t('keys.refresh'), group, icon: 'i-lu-refresh', run: refresh })
     }
     return list
   })
@@ -127,7 +127,7 @@ export function useHomeNavigation(options: {
         id: `jump.pull:${key(pull)}`,
         title: t('palette.goToPull', { ref: key(pull), title: pull.title }),
         group: pullsGroup,
-        icon: 'i-ph:git-pull-request-duotone',
+        icon: 'i-ph:git-pull-request',
         run: () => router.push(routeOf(pull)),
       }
     })
@@ -136,7 +136,7 @@ export function useHomeNavigation(options: {
         id: `jump.repo:${name}`,
         title: t('palette.goToRepo', { repo: name }),
         group: reposGroup,
-        icon: 'i-ph:git-branch-duotone',
+        icon: 'i-lu-branch',
         run: () => router.push(repoRoute(pull.owner, pull.repo)),
       })
     }

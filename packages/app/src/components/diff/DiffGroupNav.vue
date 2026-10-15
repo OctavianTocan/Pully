@@ -33,7 +33,8 @@ function onSelectSubgroup(key: string) {
 
 <template>
   <div class="min-w-0 flex flex-1 flex-col gap-1.5">
-    <div class="flex flex-wrap items-center gap-1.5">
+    <!-- One row that scrolls sideways on a phone, as the phone's chips do; it wraps where there is room. -->
+    <div class="flex items-center gap-2 max-md:([scrollbar-width:none] overflow-x-auto px-4 -mx-4) md:flex-wrap">
       <DiffGroupNavItem
         v-for="group in groups"
         :key="group.key"
@@ -47,13 +48,12 @@ function onSelectSubgroup(key: string) {
     </div>
     <template v-if="subgroups.length">
       <div class="flex items-center gap-1">
-        <div class="i-ph-folder-notch-open-duotone op-fade" />
         <div class="text-sm">
           <span class="op-fade">{{ $t('group.subgroupsOf') }} </span><span>{{ props.groups.find(g => g.key === expandedKey)?.label }}</span>
         </div>
         <div class="flex-auto border-t border-base" />
       </div>
-      <div class="flex flex-wrap items-center gap-1.5">
+      <div class="flex flex-wrap items-center gap-2">
         <DiffGroupNavItem
           v-for="sub in subgroups"
           :key="sub.key"

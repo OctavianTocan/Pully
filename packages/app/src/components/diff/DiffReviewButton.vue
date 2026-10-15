@@ -13,7 +13,7 @@ defineEmits<{
 
 <template>
   <div class="relative shrink-0">
-    <ActionButton size="sm" variant="action" icon="i-ph:chat-centered-text-duotone" @click="$emit('review')">
+    <ActionButton size="sm" variant="action" icon="i-ph:chat-centered-text" @click="$emit('review')">
       {{ $t('review.addReview') }}
     </ActionButton>
     <DisplayNumberBadge v-if="pendingCommentCount > 0" :value="pendingCommentCount" class="absolute right--2 top--2" />

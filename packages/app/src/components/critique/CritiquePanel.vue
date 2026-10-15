@@ -57,8 +57,8 @@ watch(() => props.critique.isRunning, (running) => {
   <section ref="root" data-critique-panel class="flex flex-col gap-3 border border-base rounded-lg bg-raised px-3 py-2">
     <header class="flex flex-wrap items-center gap-x-3 gap-y-1">
       <button type="button" class="flex items-center gap-1.5 text-sm font-medium coarse:min-h-11" :aria-expanded="isOpen" @click="isOpen = !isOpen">
-        <span :class="isOpen ? 'i-ph:caret-down' : 'i-ph:caret-right'" aria-hidden="true" />
-        <span class="i-ph:magnifying-glass-duotone op-fade" aria-hidden="true" />
+        <span :class="isOpen ? 'i-lu-chevd' : 'i-lu-next'" aria-hidden="true" />
+        <span class="i-lu-search op-fade" aria-hidden="true" />
         {{ $t('critique.title') }}
       </button>
       <span v-if="critique.lens" class="rounded bg-active px-1.5 py-0.5 text-xs font-mono" :title="$t('critique.withLens', { lens: critique.lens })">
@@ -79,12 +79,12 @@ watch(() => props.critique.isRunning, (running) => {
         :started-at="critique.startedAt"
         :outcome="critique.outcome"
       />
-      <ActionButton v-if="critique.isRunning" size="sm" icon="i-ph:stop-duotone" @click="critique.abort()">
+      <ActionButton v-if="critique.isRunning" size="sm" icon="i-lu-stop" @click="critique.abort()">
         {{ $t('common.stop') }}
       </ActionButton>
     </div>
     <div v-if="critique.error" class="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-      <span class="i-ph:warning-circle-duotone shrink-0" aria-hidden="true" />
+      <span class="i-ph:warning-circle shrink-0" aria-hidden="true" />
       <span class="min-w-0 flex-1 break-words">{{ critique.error.message }}</span>
       <ActionButton size="sm" @click="critique.run({ lens: critique.lens, force: true })">
         {{ $t('common.retry') }}
@@ -141,13 +141,13 @@ watch(() => props.critique.isRunning, (running) => {
           <!-- On phones the floating chat button sits over the right edge; keep the post button clear of it. -->
           <div class="flex flex-wrap items-center justify-end gap-2 pr-16 md:pr-0">
             <span v-if="critique.posted.size" class="mr-auto flex items-center gap-1 text-xs op-fade">
-              <span class="i-ph:check-circle-duotone text-green-600 dark:text-green-400" aria-hidden="true" />
+              <span class="i-lu-okc text-green-600 dark:text-green-400" aria-hidden="true" />
               {{ $t('critique.postedCount', { n: critique.posted.size }, critique.posted.size) }}
             </span>
             <ActionButton
               size="sm"
               variant="primary"
-              icon="i-ph:paper-plane-tilt-duotone"
+              icon="i-ph:paper-plane-tilt"
               :loading="critique.isPosting"
               :disabled="!critique.canPost"
               @click="critique.post(body)"

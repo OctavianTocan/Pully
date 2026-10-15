@@ -88,7 +88,7 @@ function pickFirst() {
             :class="!critique.lens ? 'bg-active' : ''"
             @click="pick(undefined)"
           >
-            <span class="i-ph:magnifying-glass-duotone mt-0.5 shrink-0 op-fade" aria-hidden="true" />
+            <span class="i-lu-search mt-0.5 shrink-0 op-fade" aria-hidden="true" />
             <span class="min-w-0 flex flex-col">
               <span class="text-sm font-medium">{{ $t('lens.general') }}</span>
               <span class="text-xs op-fade">{{ $t('lens.generalDescription') }}</span>
@@ -104,7 +104,7 @@ function pickFirst() {
             :class="critique.lens === lens.name ? 'bg-active' : ''"
             @click="pick(lens.name)"
           >
-            <span class="i-ph:lightbulb-duotone mt-0.5 shrink-0 op-fade" aria-hidden="true" />
+            <span class="i-ph:lightbulb mt-0.5 shrink-0 op-fade" aria-hidden="true" />
             <span class="min-w-0 flex flex-col">
               <span class="text-sm font-medium">{{ lens.title }}</span>
               <span v-if="lens.description" class="line-clamp-2 text-xs op-fade">{{ lens.description }}</span>

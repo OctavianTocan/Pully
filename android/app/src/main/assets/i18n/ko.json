@@ -235,7 +235,8 @@
       "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
     },
     "commitList": {
-      "view": "View only this commit's changes"
+      "view": "View only this commit's changes",
+      "hint": "Click a commit to view only its changes. Shift-click to select a range."
     },
     "selection": {
       "all": "All commits",
@@ -356,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "#{n} 위",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -544,6 +546,18 @@
     "copyLink": "Copy GitHub link",
     "copied": "Copied"
   },
+  "lens": {
+    "pick": "Review with a skill",
+    "title": "Review with",
+    "description": "Run the AI review through one of your skills.",
+    "search": "Search skills…",
+    "general": "General",
+    "generalDescription": "Bugs, risks and nits across the whole diff",
+    "loading": "Loading skills…",
+    "loadFailed": "Could not load skills: {error}",
+    "none": "No skills found.",
+    "noMatch": "No skills match."
+  },
   "chat": {
     "title": "이 PR에 대해 질문",
     "collapse": "접기",
@@ -620,6 +634,9 @@
     "cached": "캐시된 pull request",
     "autoRefresh": "새 커밋이 발견되면 자동 새로 고침",
     "language": "언어",
+    "theme": "화면 모드",
+    "light": "라이트",
+    "dark": "다크",
     "token": {
       "label": "GitHub 개인 액세스 토큰",
       "optional": "공개 저장소에는 선택 사항이며, 비공개 저장소나 리뷰 작성에는 필수입니다.",
@@ -757,7 +774,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",
@@ -769,6 +786,7 @@
       "failed": "Couldn't load your pull requests",
       "refresh": "Refresh",
       "empty": "No open pull requests here",
+      "noMatches": "Nothing matches",
       "all": "All",
       "draft": "draft",
       "role": {

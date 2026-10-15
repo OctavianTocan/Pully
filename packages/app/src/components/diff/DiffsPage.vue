@@ -191,7 +191,7 @@ function refreshFromBanner() {
         <div class="mxa max-w-500 w-full flex flex-col gap-8 px-4 py-12">
           <CommitRangeBanner />
           <slot name="error" :error="error" :retry="() => store?.load()">
-            <FeedbackEmptyState icon="i-ph:warning-duotone" :title="$t('pr.somethingWrong')">
+            <FeedbackEmptyState icon="i-ph:warning" :title="$t('pr.somethingWrong')">
               <template #hint>
                 {{ error.message }}
               </template>

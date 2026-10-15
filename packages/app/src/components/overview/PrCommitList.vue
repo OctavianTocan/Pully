@@ -63,7 +63,7 @@ function isSelected(index: number) {
           @click="pick(index, $event)"
         >
           <span
-            :class="commit.checks ? CHECKS_ICON[commit.checks] : 'i-ph:git-commit op-mute'"
+            :class="commit.checks ? CHECKS_ICON[commit.checks] : 'i-lu-commit op-mute'"
             class="shrink-0 text-xs"
             :aria-label="commit.checks ? $t(`pulls.checks.${commit.checks}`) : undefined"
           />

@@ -62,7 +62,7 @@ npx pulls.review --worktree  # uncommitted changes, new files included`
           <li>
             {{ $t('guide.userscript.install') }}
             <div class="mt-2 flex">
-              <ActionButton href="https://pulls.review/pulls-review-github.user.js" icon="i-ph:download-duotone">
+              <ActionButton href="https://pulls.review/pulls-review-github.user.js" icon="i-ph:download">
                 {{ $t('landing.installUserscript') }}
               </ActionButton>
             </div>

@@ -152,7 +152,7 @@ watch(paletteOpen, async (isOpen) => {
   <AppModal v-model:open="paletteOpen" :document="document">
     <div class="flex flex-col -m-3">
       <div class="flex items-center gap-2 border-b border-base px-3 py-2">
-        <span class="i-ph:magnifying-glass-duotone shrink-0 op-mute" aria-hidden="true" />
+        <span class="i-lu-search shrink-0 op-mute" aria-hidden="true" />
         <button
           v-if="paletteScope"
           type="button"
@@ -161,7 +161,7 @@ watch(paletteOpen, async (isOpen) => {
           @click="paletteScope = undefined; input?.focus()"
         >
           {{ paletteScope.label }}
-          <span class="i-ph:x ml-0.5 align-middle text-[0.7em] op-mute" aria-hidden="true" />
+          <span class="i-lu-close ml-0.5 align-middle text-[0.7em] op-mute" aria-hidden="true" />
         </button>
         <input
           ref="input"

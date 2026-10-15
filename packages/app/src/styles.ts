@@ -7,5 +7,7 @@ import '@antfu/design/styles/animations.css'
 import '@antfu/design/styles/reka-ui.css'
 import '@antfu/design/styles/vue-afloat.css'
 import 'vue-afloat/style.css'
+// Geist, Geist Mono and Mona Sans: the very files the APK ships (`PullsFonts`).
+import './design/fonts.generated.css'
 import './main.css'
 import 'virtual:uno.css'

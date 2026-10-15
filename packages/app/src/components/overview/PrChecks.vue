@@ -42,7 +42,7 @@ function toggle(bucket: CheckBucket) {
         :aria-expanded="!collapsed.has(group.bucket)"
         @click="toggle(group.bucket)"
       >
-        <span :class="collapsed.has(group.bucket) ? 'i-ph:caret-right' : 'i-ph:caret-down'" class="op-fade" aria-hidden="true" />
+        <span :class="collapsed.has(group.bucket) ? 'i-lu-next' : 'i-lu-chevd'" class="op-fade" aria-hidden="true" />
         <span :class="CHECK_BUCKET_ICON[group.bucket]" class="text-xs" aria-hidden="true" />
         {{ $t(`overview.checks.${group.bucket}`, { n: group.checks.length }) }}
       </button>

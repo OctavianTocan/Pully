@@ -51,10 +51,10 @@ useCommand(() => {
   const group = t('palette.group.general')
   const list: Command[] = [
     { id: COMMAND.palette, title: t('keys.palette'), group, hidden: true, run: togglePalette },
-    { id: COMMAND.help, title: t('keys.help'), group, icon: 'i-ph:keyboard-duotone', run: () => {
+    { id: COMMAND.help, title: t('keys.help'), group, icon: 'i-ph:keyboard', run: () => {
       helpOpen.value = !helpOpen.value
     } },
-    { id: COMMAND.settings, title: t('keys.settings'), group, icon: 'i-ph:gear-duotone', run: () => {
+    { id: COMMAND.settings, title: t('keys.settings'), group, icon: 'i-lu-cog', run: () => {
       settingsModalOpen.value = true
     } },
     {
@@ -78,14 +78,14 @@ useCommand(() => {
       id: COMMAND.home,
       title: t('keys.home'),
       group,
-      icon: 'i-ph:house-duotone',
+      icon: 'i-ph:house',
       when: () => router.currentRoute.value.path !== '/',
       run: () => router.push('/'),
     })
   }
   if (!import.meta.env.PR_EMBED) {
     list.push(
-      { id: COMMAND.theme, title: t('keys.theme'), group, icon: 'i-ph:moon-stars-duotone', run: () => {
+      { id: COMMAND.theme, title: t('keys.theme'), group, icon: 'i-ph:moon-stars', run: () => {
         isDark.value = !isDark.value
       } },
       { id: COMMAND.top, title: t('keys.top'), group, hidden: true, run: () => scrollWindow(0) },

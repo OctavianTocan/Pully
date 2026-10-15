@@ -16,7 +16,7 @@ defineProps<{
   <RouterLink
     :to="to"
     :title="title"
-    class="max-w-full flex items-center gap-2 border border-base rounded-full px-3 py-1.5 text-sm transition hover:border-accent-teal-400/50 hover:bg-hover"
+    class="hover:border-accent-teal-400/50 max-w-full flex items-center gap-2 border border-base rounded-full px-3 py-1.5 text-sm transition hover:bg-hover"
   >
     <PrStatusIcon v-if="state" :state="state" class="text-sm" />
     <span class="whitespace-nowrap font-medium">{{ parent }}<span v-if="label" class="op-fade">{{ parent ? ' ' : '' }}{{ label }}</span></span>

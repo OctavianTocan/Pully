@@ -10,6 +10,8 @@ export default antfu(
     ignores: [
       'packages/app/src/components/diff/pierre-diffs-core.css',
       'packages/app/test/fixtures/real/**',
+      // Written from android/DESIGN.md and the Android kit by `pnpm run android:design:update`.
+      'packages/app/src/design/*.generated.*',
       '**/__snapshots__/**',
       // Android: XML resources and the manifest are not JS-parseable, the JSON fixtures are captured
       // data that the Kotlin tests read as it is, and `build/` and `.kotlin/` are Gradle output.

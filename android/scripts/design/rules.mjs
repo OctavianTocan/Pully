@@ -6,6 +6,7 @@ import * as motion from './motion.mjs'
 import * as rawValues from './raw-values.mjs'
 import { CHECKS, readDesign } from './spec.mjs'
 import * as tokens from './tokens.mjs'
+import * as web from './web.mjs'
 
 export const NAME = 'rules'
 
@@ -18,6 +19,7 @@ export const DECLARED = {
   'bans': bans.RULES,
   'book': book.RULES,
   'motion': motion.RULES,
+  'web': web.RULES,
 }
 
 /** Rule numbers run 1, 2, 3 in order, and each has a source and checks that exist. */

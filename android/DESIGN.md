@@ -207,6 +207,20 @@ elevation:
   menu: 20px
   thumb: 3px
   modal: 40px
+shadow:
+  button: { y: 2px, alpha: 0.08 }
+  note: { y: 2px, alpha: 0.10 }
+  bar: { y: 2px, alpha: 0.12 }
+  search: { y: 2px, alpha: 0.12 }
+  menu: { y: 4px, alpha: 0.14 }
+  thumb: { y: 1px, alpha: 0.20 }
+  modal: { y: 8px, alpha: 0.22 }
+shadow-layer:
+  edge-y: 1px
+  edge-radius: 1px
+  edge-share: 0.5
+  dark-strength: 2.7
+  dark-max: 0.9
 components:
   float-button:
     backgroundColor: "{colors.raised}"
@@ -698,7 +712,7 @@ On the phone today the shadows are there but faint and flat: a pale halo spread 
 
 Check: put each floating element beside Row W. Same shadow, with a visible drop below it, or fix it.
 
-Source: walkthrough. Checked by: raw-values, book, review.
+Source: walkthrough. Checked by: tokens, raw-values, book, review.
 
 #### 46. Blur is part of how things move, in three places.
 
@@ -1208,6 +1222,16 @@ Check: on the Overview drag between tabs slowly and let go short, then far, then
 
 Source: answers. Checked by: motion, review.
 
+### Rule 106, from Tavi's message of 2026-10-15
+
+#### 106. The web looks like the phone.
+
+Tavi: "Let's also have an agent that updates the web page, and makes it like the mobile app looks-wise. The more code we can deduplicate, especially styling-wise, the better." The web app is the same product as the phone app and wears the same look: warm paper, deep teal ink, one teal accent, Geist, the prototype's icons, and the same pills, cards, chips, tabs, sheets and shadows. Neither side has a look of its own. The web takes its tokens from this file's front matter, its icons from `Lu` and its fonts from `PullsFonts` (written into `packages/app/src/design` as generated files), and the phone takes its strings from the web's locale files. A colour, size, radius, shadow, icon or string is added once, at its source, and `pnpm run android:design:update` carries it to the other side. The web may lay a screen out wider, with a side list next to the content from 768px up, but every piece it is made of is the phone's piece.
+
+Check: open the same pull request on the phone and on the web at 390 by 844, in light and dark. Same colours, type, icons, corners and shadows.
+
+Source: answers. Checked by: web, review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -1312,7 +1336,8 @@ pnpm run android:design:test      vitest suite of the checks themselves
 6. **rules.** A check on this file's own list. The rules are one contiguous list from 1, each has a source and a `Checked by` line naming a check that exists, and each check enforces exactly the rules that name it. The checklist is contiguous too. `rules` is not a `Checked by` name: it checks the rules, not the code.
 7. **Measure on the phone.** The UI Book's Component specs page measures each `DesignSpecimen` and prints `name ok` or `name.size: expected 44px, rendered 52px`. It replaces the browser render check the web UI Book runs, because Compose cannot be measured from Node. It runs when someone opens the page.
 8. **Review against the checklist.** A person or an agent walks the screen against the checklist above and the rules, and reports breaks with `file:line` and the rule number.
-9. **changelog.** Not a design rule, but it runs with the others: `android/CHANGELOG.md` has a section for the `versionName` in `app/build.gradle.kts`, with a summary sentence and at least one bullet, newest first. A pull request that bumps the version writes what changed for the reader there; the app shows it after the update and the publish step puts it in `latest.json`.
+9. **web.** The web app is drawn from the same sources (rule 106). `packages/app/src/design/tokens.generated.json` is written from the front matter, `icons.generated.json` from `Lu` in `Icons.kt`, and `fonts.generated.css` from `PullsFonts` in `Tokens.kt`, pointing at the same TTF files the APK ships; each fails when stale. `app/src/main/assets/i18n` must equal `packages/app/src/i18n/locales` byte for byte: strings are written on the web side and copied by `android:design:update`. The web's `uno.config.ts` builds its theme, CSS variables, the `@antfu/design` overrides and the kit's classes from those files, so it has no colour, size or shadow of its own.
+10. **changelog.** Not a design rule, but it runs with the others: `android/CHANGELOG.md` has a section for the `versionName` in `app/build.gradle.kts`, with a summary sentence and at least one bullet, newest first. A pull request that bumps the version writes what changed for the reader there; the app shows it after the update and the publish step puts it in `latest.json`.
 
 ## UI Book
 

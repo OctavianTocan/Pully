@@ -49,7 +49,7 @@ const isSearching = computed(() => query.value.trim() !== '' && props.store.hasM
 
       <template v-else-if="store.error && !hasItems">
         <div class="flex flex-col gap-8 px-4 py-12">
-          <FeedbackEmptyState icon="i-ph:warning-duotone" :title="$t('pulls.loadFailed')">
+          <FeedbackEmptyState icon="i-ph:warning" :title="$t('pulls.loadFailed')">
             <template #hint>
               {{ store.error.message }}
             </template>
@@ -68,11 +68,11 @@ const isSearching = computed(() => query.value.trim() !== '' && props.store.hasM
           <!-- The last row's bottom border hides under the container's own. -->
           <PullRequestList :store="store" :query="query" :sort="sort" class="-mb-px" />
           <div v-if="matchCount === 0 && !isSearching" class="px-4 py-12">
-            <FeedbackEmptyState icon="i-ph:magnifying-glass-duotone" :title="$t('pulls.noMatches')" />
+            <FeedbackEmptyState icon="i-lu-search" :title="$t('pulls.noMatches')" />
           </div>
         </div>
         <div v-else class="px-4 py-12">
-          <FeedbackEmptyState icon="i-ph:git-pull-request-duotone" :title="$t('pulls.empty')" />
+          <FeedbackEmptyState icon="i-ph:git-pull-request" :title="$t('pulls.empty')" />
         </div>
 
         <div class="flex flex-col items-center gap-2 px-4 py-4 text-sm op-fade">

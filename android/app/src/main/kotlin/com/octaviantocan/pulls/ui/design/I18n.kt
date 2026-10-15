@@ -10,7 +10,7 @@ import kotlinx.serialization.json.contentOrNull
 
 /**
  * The web app's vue-i18n messages (the JSON files in `packages/app/src/i18n/locales`, copied into
- * assets by `scripts/gen-i18n.mjs`). Same keys, same `{name}` interpolation, same
+ * assets by the `web` design check, `pnpm run android:design:update`). Same keys, same `{name}` interpolation, same
  * `one | many` plural form, English fallback.
  */
 class Messages(private val locale: String, private val primary: JsonObject, private val fallback: JsonObject) {

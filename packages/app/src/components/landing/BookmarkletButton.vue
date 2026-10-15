@@ -10,7 +10,7 @@ import { BOOKMARKLET } from './bookmarklet'
   -->
   <ActionButton
     :href="BOOKMARKLET"
-    icon="i-ph:bookmark-simple-duotone"
+    icon="i-ph:bookmark-simple"
     class="cursor-grab active:cursor-grabbing"
     :title="$t('landing.bookmarkletDrag')"
     @click.prevent
