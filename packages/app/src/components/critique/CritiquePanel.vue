@@ -25,7 +25,7 @@ const body = ref('')
 const result = computed(() => props.critique.result)
 const reviews = computed(() => props.store.reviews)
 
-const ENGINE_NAMES: Record<string, string> = { 'claude-code': 'Claude Code', 'codex': 'Codex' }
+const ENGINE_NAMES: Record<string, string> = { 'claude-code': 'Claude Code', 'codex': 'Codex', 'pi': 'Pi' }
 // The usage line names the model the CLI reported, so it is only repeated here when the CLI named none.
 const engine = computed(() => {
   const r = result.value

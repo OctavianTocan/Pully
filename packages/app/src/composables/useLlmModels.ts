@@ -11,6 +11,7 @@ export function llmToken(llm: LlmSettings): string {
   switch (llm.provider) {
     case 'claude-code':
     case 'codex':
+    case 'pi':
       return ''
     case 'gateway':
       return llm.gatewayToken

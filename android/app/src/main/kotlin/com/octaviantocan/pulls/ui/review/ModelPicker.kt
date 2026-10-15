@@ -33,9 +33,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.data.ENGINES
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerConfig
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.data.engineName
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.EngineMark
@@ -94,7 +96,7 @@ private fun family(model: CliModel): String = Regex("[a-z]+").find(model.name.lo
  * (for Claude Code the 5.5 models and Fable), the default, and the aliases come first; every other version goes
  * under "Older models". The CLI's own order is kept inside each group. A list with nothing older is all recent.
  */
-internal fun groupModels(models: List<CliModel>): ModelGroups {
+internal fun groupModels(models: List<CliModel>, byFamily: Boolean = false): ModelGroups {
     val versions = models.associateWith { modelVersion(it) }
     val newestMajor = versions.values.filterNotNull().maxOfOrNull { it.first } ?: return ModelGroups(models, emptyList())
     val newestOfFamily = models.filter { versions[it] != null }
@@ -102,7 +104,8 @@ internal fun groupModels(models: List<CliModel>): ModelGroups {
         .mapValues { (_, members) -> members.maxOf { versions.getValue(it)!!.let { (major, minor) -> major * 1000 + minor } } }
     val (recent, older) = models.partition { model ->
         val version = versions[model]
-        version == null || model.isDefault || (version.first == newestMajor && version.first * 1000 + version.second == newestOfFamily[family(model)])
+        version == null || model.isDefault ||
+            ((byFamily || version.first == newestMajor) && version.first * 1000 + version.second == newestOfFamily[family(model)])
     }
     return ModelGroups(recent, older)
 }
@@ -164,7 +167,7 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
         ServerStore.save(context, next)
     }
     val inUse = catalog?.let { AiSettingsLogic.current(it, config.model)?.id ?: config.model }
-    val groups = catalog?.let { groupModels(it.models) }
+    val groups = catalog?.let { groupModels(it.models, byFamily = engine == "pi") }
     fun choose(model: CliModel) {
         val chosen = catalog ?: return
         val kept = AiSettingsLogic.keptEffort(chosen, model.id, settings.effort)
@@ -177,10 +180,10 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
 
     Box(Modifier.padding(top = 14.dp)) {
         CapsuleTabs(
-            listOf("Claude Code", "Codex"),
-            if (config.engine == "codex") 1 else 0,
+            ENGINES.map(::engineName),
+            ENGINES.indexOf(config.engine).coerceAtLeast(0),
             { index ->
-                val next = if (index == 1) "codex" else "claude-code"
+                val next = ENGINES[index]
                 if (next != config.engine) {
                     memory.setModel(config.engine, config.model)
                     save(config.copy(engine = next, model = memory.model(next).orEmpty()))
@@ -188,7 +191,7 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
                 }
             },
             Modifier.fillMaxWidth(),
-            leading = { index -> EngineMark(if (index == 1) "codex" else "claude-code", size = 20.dp) },
+            leading = { index -> EngineMark(ENGINES[index], size = 20.dp) },
         )
     }
     SheetCard(Modifier.animateContentSize(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))) {

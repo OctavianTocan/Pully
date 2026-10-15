@@ -33,6 +33,7 @@ import com.octaviantocan.pulls.core.analyzeCard
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TaskState
+import com.octaviantocan.pulls.data.engineName
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.AiActivityLog
 import com.octaviantocan.pulls.ui.ai.AnalyzeSplitButton
@@ -133,7 +134,7 @@ internal fun guardedStop(session: ReviewSession, kinds: List<String>, running: B
 
 /** What the card says under its title while something runs: the latest step of the work log, or that the engine is starting. */
 internal fun liveLine(task: TaskState, engine: String): String =
-    task.activities.lastOrNull()?.title ?: "Starting ${if (engine == "codex") "Codex" else "Claude Code"}…"
+    task.activities.lastOrNull()?.title ?: "Starting ${engineName(engine)}…"
 
 /**
  * The AI's status on the Summary tab. Before any analysis it offers to start one: the button runs the last choice and

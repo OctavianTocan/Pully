@@ -1,5 +1,10 @@
-/** `claude-code` and `codex` run the server's signed-in CLIs; the rest call an API with a key from the browser. */
-export const LLM_PROVIDERS = ['claude-code', 'codex', 'gateway', 'anthropic', 'openai-compatible'] as const
+import type { LlmEngine } from '../../../local-rpc'
+
+/**
+ * `claude-code` and `codex` run the server's signed-in CLIs, and `pi` the server's own agent loop against the endpoint
+ * it is set up with; the rest call an API with a key from the browser.
+ */
+export const LLM_PROVIDERS = ['claude-code', 'codex', 'pi', 'gateway', 'anthropic', 'openai-compatible'] as const
 export type LlmProvider = typeof LLM_PROVIDERS[number]
 
 export function isLlmProvider(value: string): value is LlmProvider {
@@ -18,8 +23,11 @@ export interface LlmSettings {
   claudeCodeEffort: string
   codexModel: string
   codexEffort: string
-  /** The CLI that answers questions about the PR; `''` reuses the analysis model and effort. */
-  askProvider: '' | 'claude-code' | 'codex'
+  /** A model the server's endpoint lists; `''` runs the one the server picks. */
+  piModel: string
+  piEffort: string
+  /** The engine that answers questions about the PR; `''` reuses the analysis model and effort. */
+  askProvider: '' | 'claude-code' | 'codex' | 'pi'
   askModel: string
   askEffort: string
   gatewayToken: string
@@ -37,6 +45,8 @@ export const defaultLlmSettings: LlmSettings = {
   claudeCodeEffort: '',
   codexModel: 'gpt-5.6-sol',
   codexEffort: '',
+  piModel: '',
+  piEffort: '',
   askProvider: '',
   askModel: '',
   askEffort: '',
@@ -58,4 +68,16 @@ export function deriveProvider(llm: Partial<LlmSettings>): LlmProvider {
   if (llm.openaiApiKey)
     return 'openai-compatible'
   return 'gateway'
+}
+
+/** The settings that hold each server engine's model and effort. */
+export const ENGINE_SETTINGS = {
+  'claude-code': { model: 'claudeCodeModel', effort: 'claudeCodeEffort' },
+  'codex': { model: 'codexModel', effort: 'codexEffort' },
+  'pi': { model: 'piModel', effort: 'piEffort' },
+} as const satisfies Record<Exclude<LlmSettings['askProvider'], ''>, { model: keyof LlmSettings, effort: keyof LlmSettings }>
+
+/** The server engine a provider stands for: itself when it is one, else Claude Code (the local build has no keys). */
+export function serverEngine(provider: LlmProvider): LlmEngine {
+  return provider === 'codex' || provider === 'pi' ? provider : 'claude-code'
 }

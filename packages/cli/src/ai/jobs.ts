@@ -1,3 +1,4 @@
+import type { AgentTool } from '@earendil-works/pi-agent-core'
 import type { CliRunHooks, CliRunResult } from '@pulls.review/core/llm'
 import type { AiActivity, AiJobRequest, AiJobSnapshot, AiJobStatus, AiUsage, LlmEngine } from '@pulls.review/core/local-rpc'
 import type { PrPayload } from './pr-tools'
@@ -14,8 +15,9 @@ import { fileURLToPath } from 'node:url'
 import { listCliModels } from './catalog'
 import { claudeArgs, claudeInput, createClaudeParser } from './claude'
 import { codexArgs, createCodexParser } from './codex'
-import { INBOX_TOOL_HINT, inboxTools } from './inbox-tools'
-import { prTools } from './pr-tools'
+import { callInboxTool, INBOX_TOOL_HINT, inboxTools } from './inbox-tools'
+import { defaultPiModel, piConfig, piNotSetUp, piTools, runPi } from './pi'
+import { callPrTool, prTools } from './pr-tools'
 import { AGENT_HOME, agentRuntime, mcpNode, startAgent } from './runtime'
 import { dropNulls, strictSchema } from './schema'
 
@@ -26,14 +28,19 @@ const KEEP_MS = 30 * 60_000
 const KEEP_COUNT = 50
 const KILL_GRACE_MS = 3_000
 const TOTAL_LIMIT_MS = 30 * 60_000
-/** Codex reports reasoning only once a summary is complete, so it can go quiet for much longer. */
-const IDLE_LIMIT_MS: Record<LlmEngine, number> = { 'claude-code': 5 * 60_000, 'codex': 15 * 60_000 }
-const LOGIN_HINT: Record<LlmEngine, string> = { 'claude-code': 'Run `claude` once on the server to sign in.', 'codex': 'Run `codex login` on the server to sign in.' }
-const DOCKER_LOGIN_HINT: Record<LlmEngine, string> = { 'claude-code': 'Run `docker/agents/setup.sh login-claude` on the server to sign in.', 'codex': 'Run `docker/agents/setup.sh login-codex` on the server to sign in.' }
+/**
+ * Codex reports reasoning only once a summary is complete, so it can go quiet for much longer; so can a model behind
+ * the `pi` endpoint, which may be one of OpenAI's.
+ */
+const IDLE_LIMIT_MS: Record<LlmEngine, number> = { 'claude-code': 5 * 60_000, 'codex': 15 * 60_000, 'pi': 15 * 60_000 }
+/** The engines that are a CLI the server starts; `pi` runs in this process. */
+type CliBinEngine = Exclude<LlmEngine, 'pi'>
+const LOGIN_HINT: Record<CliBinEngine, string> = { 'claude-code': 'Run `claude` once on the server to sign in.', 'codex': 'Run `codex login` on the server to sign in.' }
+const DOCKER_LOGIN_HINT: Record<CliBinEngine, string> = { 'claude-code': 'Run `docker/agents/setup.sh login-claude` on the server to sign in.', 'codex': 'Run `docker/agents/setup.sh login-codex` on the server to sign in.' }
 /** Codex's own state folder inside the agents image, kept in the home volume. */
 const CONTAINER_CODEX_STATE = `${AGENT_HOME}/.cache/pulls-review/codex`
-const ENGINE_NAME: Record<LlmEngine, string> = { 'claude-code': 'Claude', 'codex': 'Codex' }
-const ENGINE_BIN: Record<LlmEngine, string> = { 'claude-code': 'claude', 'codex': 'codex' }
+const ENGINE_NAME: Record<LlmEngine, string> = { 'claude-code': 'Claude', 'codex': 'Codex', 'pi': 'Pi' }
+const ENGINE_BIN: Record<CliBinEngine, string> = { 'claude-code': 'claude', 'codex': 'codex' }
 
 interface Job {
   id: string
@@ -197,7 +204,7 @@ function toolHint(payload: PrPayload): string {
   return `\n\nYou can look at this change yourself through the \`pr\` tools: read_file_diff for a file's full diff with line numbers, read_hunks, read_source for any file at the head commit, find_files, search_diff${search}, and read_discussion for the description and review comments. Use them when a diff above is cut short, or when a change only makes sense next to code the diff does not show.`
 }
 
-function failure(engine: AiJobRequest['engine'], runtime: AgentRuntime, outcome: RunOutcome, stderr: string, code: number | null): string {
+function failure(engine: CliBinEngine, runtime: AgentRuntime, outcome: RunOutcome, stderr: string, code: number | null): string {
   const lastLine = (text: string) => text.trim().split('\n').filter(line => line.trim()).at(-1)?.trim() ?? ''
   const apiMessage = /"message":\s*"((?:[^"\\]|\\.)*)"/.exec(stderr)?.[1]
   const detail = outcome.error ?? apiMessage ?? (lastLine(stderr) || (code === 0 ? `${ENGINE_NAME[engine]} returned an empty answer.` : `${ENGINE_BIN[engine]} exited ${code}.`))
@@ -280,56 +287,127 @@ function overdue(job: Job, lastLine: number): string | undefined {
     return `${ENGINE_NAME[engine]} did not finish within ${TOTAL_LIMIT_MS / 60_000}m.`
 }
 
+/** How a run ended, for `settle`; `undefined` when the job was cancelled meanwhile. */
+type Ending = { status: 'done' | 'failed', result?: string, error?: string, usage?: AiUsage } | undefined
+
+/** Stops a run that goes quiet for too long or runs past the total limit; returns the timer to clear. */
+function watch(job: Job, lastActivity: () => number, stop: (reason: string) => void): ReturnType<typeof setInterval> {
+  let stopped = false
+  return setInterval(() => {
+    const reason = stopped ? undefined : overdue(job, lastActivity())
+    if (!reason)
+      return
+    stopped = true
+    stop(reason)
+  }, 10_000)
+}
+
+async function executeCli(job: Job, engine: CliBinEngine, dir: string): Promise<Ending> {
+  const runtime = agentRuntime()
+  const launch = await prepare(job, dir, runtime)
+  if (job.status !== 'running')
+    return
+
+  let lastLine = Date.now()
+  let stopped: string | undefined
+  const proc = startAgent({ bin: ENGINE_BIN[engine], args: launch.args, cwd: dir, mounts: launch.mounts }, {
+    runtime,
+    onLine(line) {
+      lastLine = Date.now()
+      launch.parser.feed(line)
+    },
+  })
+  job.stop = signal => proc.kill(signal)
+  proc.child.stdin.end(launch.input)
+  const watchdog = watch(job, () => lastLine, (reason) => {
+    stopped = reason
+    proc.kill('SIGTERM')
+    setTimeout(() => proc.kill('SIGKILL'), KILL_GRACE_MS).unref()
+  })
+  try {
+    const code = await proc.exited
+    if (job.status !== 'running')
+      return
+    const outcome = launch.parser.outcome()
+    if (stopped)
+      return { status: 'failed', error: stopped, usage: outcome.usage }
+    const text = await answerOf(job, launch)
+    if (text && !outcome.error)
+      return { status: 'done', result: text, usage: outcome.usage }
+    return { status: 'failed', error: failure(engine, runtime, outcome, proc.stderr(), code), usage: outcome.usage }
+  }
+  finally {
+    clearInterval(watchdog)
+  }
+}
+
+/** A `pi` run: the agent loop in this process, with the same tools the CLIs reach over MCP. */
+async function executePi(job: Job): Promise<Ending> {
+  const config = piConfig()
+  if (!config)
+    throw piNotSetUp()
+  const { request } = job
+  let system = request.system
+  let tools: AgentTool[] = []
+  if (request.context) {
+    const payload: PrPayload = { ...request.context, checkout: await hasCommit(request.context.headSha) ? process.cwd() : undefined }
+    tools = piTools(prTools(payload), (name, args) => callPrTool(payload, name, args))
+    system += toolHint(payload)
+  }
+  else if (request.inbox?.pulls.length) {
+    const inbox = request.inbox
+    tools = piTools(inboxTools(), (name, args) => callInboxTool(inbox, name, args))
+    system += INBOX_TOOL_HINT
+  }
+  const model = request.model || await defaultPiModel(config, () => listCliModels('pi'))
+  if (job.status !== 'running')
+    return
+
+  const controller = new AbortController()
+  let lastEvent = Date.now()
+  let stopped: string | undefined
+  job.stop = () => controller.abort()
+  const watchdog = watch(job, () => lastEvent, (reason) => {
+    stopped = reason
+    controller.abort()
+  })
+  try {
+    const outcome = await runPi({ ...request, system, model }, {
+      tools,
+      sink: { put: patch => put(job, patch) },
+      signal: controller.signal,
+      config,
+      onEvent: () => lastEvent = Date.now(),
+    })
+    if (job.status !== 'running')
+      return
+    if (stopped)
+      return { status: 'failed', error: stopped, usage: outcome.usage }
+    if (outcome.text && !outcome.error)
+      return { status: 'done', result: outcome.text, usage: outcome.usage }
+    return { status: 'failed', error: outcome.error ?? 'Pi returned an empty answer.', usage: outcome.usage }
+  }
+  finally {
+    clearInterval(watchdog)
+  }
+}
+
 async function execute(job: Job): Promise<void> {
   const { engine } = job.request
   const release = await acquire()
   if (job.status !== 'running')
     return release()
   const dir = await mkdtemp(join(tmpdir(), 'pulls-review-ai-'))
-  let watchdog: ReturnType<typeof setInterval> | undefined
   try {
     put(job, { id: 'start', title: `Starting ${ENGINE_NAME[engine]}…` })
-    const runtime = agentRuntime()
-    const launch = await prepare(job, dir, runtime)
-    if (job.status !== 'running')
-      return
-
-    let lastLine = Date.now()
-    let stopped: string | undefined
-    const proc = startAgent({ bin: ENGINE_BIN[engine], args: launch.args, cwd: dir, mounts: launch.mounts }, {
-      runtime,
-      onLine(line) {
-        lastLine = Date.now()
-        launch.parser.feed(line)
-      },
-    })
-    job.stop = signal => proc.kill(signal)
-    proc.child.stdin.end(launch.input)
-    watchdog = setInterval(() => {
-      stopped ??= overdue(job, lastLine)
-      if (!stopped)
-        return
-      proc.kill('SIGTERM')
-      setTimeout(() => proc.kill('SIGKILL'), KILL_GRACE_MS).unref()
-    }, 10_000)
-
-    const code = await proc.exited
-    if (job.status !== 'running')
-      return
-    const outcome = launch.parser.outcome()
-    if (stopped)
-      return settle(job, 'failed', { error: stopped, usage: outcome.usage })
-    const text = await answerOf(job, launch)
-    if (text && !outcome.error)
-      settle(job, 'done', { result: text, usage: outcome.usage })
-    else
-      settle(job, 'failed', { error: failure(engine, runtime, outcome, proc.stderr(), code), usage: outcome.usage })
+    const ending = engine === 'pi' ? await executePi(job) : await executeCli(job, engine, dir)
+    if (ending)
+      settle(job, ending.status, ending)
   }
   catch (error) {
     settle(job, 'failed', { error: error instanceof Error ? error.message : String(error) })
   }
   finally {
-    clearInterval(watchdog)
     job.stop = undefined
     release()
     await rm(dir, { recursive: true, force: true }).catch(() => {})
@@ -356,7 +434,7 @@ function snapshot(job: Job, after: number): AiJobSnapshot {
 }
 
 /**
- * Starts a Claude Code or Codex run on the server, or joins the running one with the same `key`.
+ * Starts a Claude Code, Codex or Pi run on the server, or joins the running one with the same `key`.
  * @param request - Engine, model, prompts, and the PR the model may inspect.
  * @returns The job's id, for `waitAiJob` and `cancelAiJob`.
  */
@@ -415,7 +493,7 @@ export async function waitAiJob(id: string, after: number): Promise<AiJobSnapsho
 }
 
 /**
- * Stops a running job and the CLI behind it.
+ * Stops a running job and the CLI (or Pi's loop) behind it.
  * @param id - The job.
  * @returns Whether a running job was stopped.
  */

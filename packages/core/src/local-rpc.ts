@@ -76,11 +76,14 @@ export interface ReviewLens {
 /** What a lens name may look like; it also names a folder on the server. */
 export const REVIEW_LENS_NAME = /^[\w-][\w.-]*$/
 
-/** The CLIs the server can run a model prompt through. */
-export const LLM_ENGINES = ['claude-code', 'codex'] as const
+/**
+ * What the server can run a model prompt through: the Claude Code and Codex CLIs, or `pi`, the server's own agent
+ * loop (pi-agent-core) calling any model behind an OpenAI-compatible endpoint, such as CLIProxyAPI.
+ */
+export const LLM_ENGINES = ['claude-code', 'codex', 'pi'] as const
 export type LlmEngine = typeof LLM_ENGINES[number]
 
-/** A model as its CLI describes it, never a hard-coded list. */
+/** A model as its CLI (or, for `pi`, the endpoint's model list) describes it, never a hard-coded list. */
 export interface CliModel {
   /** What `--model` takes. */
   id: string
