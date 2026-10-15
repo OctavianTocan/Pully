@@ -154,7 +154,10 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (current == generation) error = e.message ?: e.toString()
+            if (current == generation) {
+                error = e.message ?: e.toString()
+                com.octaviantocan.pulls.data.Analytics.error("repo.load", e.message)
+            }
         }
     }
 
@@ -303,7 +306,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                     it.owner.equals(owner, ignoreCase = true) && it.repo.equals(repo, ignoreCase = true) &&
                         (query.isBlank() || "${it.prTitle} #${it.number}".lowercase().contains(query.trim().lowercase()))
                 }
-                RepoTours(mine, now, onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) }) { entry ->
+                RepoTours(mine, now, onOpen = { entry -> nav.openFrom(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"), "repo", true) }) { entry ->
                     dismissTour(entry, workTasks, tours, server, scope, toaster)
                 }
                 return@SidePages
@@ -333,7 +336,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                     else -> {
                         if (store.items.isNotEmpty()) {
                             items(rows, key = { it.number }) { pr ->
-                                RepoPullRow(pr, now, Modifier.animateItem()) { nav.openTarget(OpenTarget.Pull(owner, repo, pr.number, "github.com")) }
+                                RepoPullRow(pr, now, Modifier.animateItem()) { nav.openFrom(OpenTarget.Pull(owner, repo, pr.number, "github.com"), "repo", false) }
                             }
                             if (rows.isEmpty() && !isSearching) item {
                                 Text(t("pulls.noMatches"), Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)

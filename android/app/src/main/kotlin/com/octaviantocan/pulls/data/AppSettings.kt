@@ -73,35 +73,54 @@ class AppSettings private constructor(private val context: Context) {
     var updateNotifications by mutableStateOf(prefs.getBoolean("updateNotifications", true))
         private set
 
+    /**
+     * Whether the app counts what is done in it and sends the counts to our own server (Settings, Usage stats); on until
+     * Settings turns it off. Off drops what is queued and sends nothing more (root `CONTRACTS`, analytics-can-be-turned-off).
+     */
+    var usageStats by mutableStateOf(prefs.getBoolean("usageStats", true))
+        private set
+
     /** Repositories kept out of the Inbox and its counts, as `owner/repo`; none until Profile switches one off. */
     var hiddenRepos by mutableStateOf(prefs.getStringSet("hiddenRepos", null)?.toSet() ?: emptySet())
         private set
 
-    fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply() }
-    fun updateColorTheme(value: String) { colorTheme = value; prefs.edit().putString("colorTheme", value).apply() }
-    fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply() }
-    fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply() }
-    fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply() }
-    fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply() }
+    fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply(); changed("theme", value) }
+    fun updateColorTheme(value: String) { colorTheme = value; prefs.edit().putString("colorTheme", value).apply(); changed("colorTheme", value) }
+    fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply(); changed("locale", value) }
+    fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply(); changed("layout", value) }
+    fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply(); changed("autoRefresh", value) }
+    fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply(); changed("showThreads", value) }
     fun updateAnalyzeChoice(value: AnalyzeChoice) { analyzeChoice = value; prefs.edit().putString("analyzeChoice", value.encode()).apply() }
-    fun updateEffort(value: String) { effort = value; prefs.edit().putString("effort", value).apply() }
+    fun updateEffort(value: String) { effort = value; prefs.edit().putString("effort", value).apply(); changed("effort", value.ifBlank { "default" }) }
     fun updateCodeZoom(value: Float) {
         codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM)
         prefs.edit().putFloat("codeZoom", codeZoom).apply()
     }
 
-    fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
-    fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply() }
-    fun updateHaptics(value: Boolean) { haptics = value; prefs.edit().putBoolean("haptics", value).apply() }
-    fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply() }
-    fun updateUpdateNotifications(value: Boolean) { updateNotifications = value; prefs.edit().putBoolean("updateNotifications", value).apply() }
+    fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply(); changed("codeWrap", value) }
+    fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply(); changed("sounds", value) }
+    fun updateHaptics(value: Boolean) { haptics = value; prefs.edit().putBoolean("haptics", value).apply(); changed("haptics", value) }
+    fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply(); changed("soundMaterial", value) }
+    fun updateUpdateNotifications(value: Boolean) { updateNotifications = value; prefs.edit().putBoolean("updateNotifications", value).apply(); changed("updateNotifications", value) }
+
+    /** Turns usage stats on or off. Off drops the queue at once and is not itself sent; on is the first event sent again. */
+    fun updateUsageStats(value: Boolean) {
+        usageStats = value
+        prefs.edit().putBoolean("usageStats", value).apply()
+        Analytics.setEnabled(value)
+        if (value) changed("usageStats", true)
+    }
     /** Switches a repository on or off for the Inbox. */
     fun setRepoShown(repo: String, shown: Boolean) {
         hiddenRepos = if (shown) hiddenRepos - repo else hiddenRepos + repo
         prefs.edit().putStringSet("hiddenRepos", hiddenRepos).apply()
     }
 
-    fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply() }
+    fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply(); changed("codeFont", value) }
+
+    /** `settings.change`: which setting and its new value, only ever a fixed choice or on and off. */
+    private fun changed(key: String, value: Any) =
+        Analytics.track("settings.change", "key" to key, "value" to (if (value is Boolean) (if (value) "on" else "off") else value))
 
     companion object {
         const val MIN_ZOOM = 0.6f

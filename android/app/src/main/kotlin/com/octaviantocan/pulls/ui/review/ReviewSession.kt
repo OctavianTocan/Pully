@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.Analytics
+import com.octaviantocan.pulls.data.AnalyticsRules
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.FileGroup
@@ -48,7 +50,15 @@ data class Focus(val path: String, val line: Int = 0, val side: String = "additi
  * `ReviewDialogs.kt`), diff body (`DiffBody.kt`, `FileDiff.kt`, `Threads.kt`), AI
  * (`ui/ai/`). Add state here only when two sections need it.
  */
-class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: CoroutineScope, val settings: AppSettings, private val tourStore: TourStore? = null) {
+class ReviewSession(
+    val target: OpenTarget,
+    val repo: Repo,
+    val scope: CoroutineScope,
+    val settings: AppSettings,
+    private val tourStore: TourStore? = null,
+    /** Where the page was opened from, for `pr.open`: inbox, search, link, repo, stack or other. */
+    private val openedFrom: String = "other",
+) {
     /** The diff on screen: the PR itself, or the commits picked in the commit picker. */
     var opened by mutableStateOf<OpenedReview?>(null)
         private set
@@ -178,12 +188,23 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     val visibleFindings: List<CritiqueFinding>
         get() = saved?.critique?.findings.orEmpty().filter { finding -> findingSeverities?.contains(finding.severity) ?: true }
 
+    /** `pr.open` goes once a page, when its diff first arrives and its size is known. */
+    private var openTracked = false
+
+    /** When each file's diff was first shown on this page (monotonic ms), for `file.reviewed`'s seconds. */
+    private val shownAt = HashMap<String, Long>()
+
     fun load(fresh: Boolean = false) {
         scope.launch {
             loading = true
             loadError = null
+            val started = android.os.SystemClock.elapsedRealtime()
+            // What the page could already show from an earlier visit, before the server answered.
+            val hadCopy = opened != null
             runCatching { repo.open(target, fresh) }
                 .onSuccess {
+                    Analytics.track("pr.load", "ms" to android.os.SystemClock.elapsedRealtime() - started, "cached" to hadCopy, "stale" to it.stale)
+                    trackOpen(it)
                     prOpened = it
                     patchesAsked.clear()
                     patchProblems.clear()
@@ -192,10 +213,30 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                     rememberedAs?.let { name -> recent[name] = Remembered(it, overview ?: recent[name]?.overview) }
                     afterOpen()
                 }
-                .onFailure { loadError = it.message ?: it.toString() }
+                .onFailure {
+                    loadError = it.message ?: it.toString()
+                    Analytics.error("pr.load", it.message)
+                }
             loading = false
         }
         pull?.let { reloadOverview(); reloadReviews(); loadStack() }
+    }
+
+    private fun trackOpen(review: OpenedReview) {
+        val pull = pull ?: return
+        if (openTracked) return
+        openTracked = true
+        Analytics.track(
+            "pr.open",
+            "repo" to "${pull.owner}/${pull.repo}", "number" to pull.number, "files" to review.files.size,
+            "additions" to review.files.sumOf { it.additions }, "deletions" to review.files.sumOf { it.deletions }, "from" to openedFrom,
+        )
+    }
+
+    /** A file's diff is on screen (`file.view`): its extension only, how many lines its patch has, and the layout. */
+    fun fileShown(file: ReviewFile) {
+        shownAt.getOrPut(file.path) { android.os.SystemClock.elapsedRealtime() }
+        Analytics.track("file.view", "kind" to AnalyticsRules.fileKind(file.path), "lines" to file.patchLines.size, "layout" to settings.layout)
     }
 
     /** Refetches the diff, the overview and the reviews; AI results stay. A commit selection is dropped. */
@@ -364,6 +405,15 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** Marks or unmarks files by blob sha; either way clears their "changed since reviewed" flag (web `setReviewed`). */
     fun setReviewed(shas: Collection<String>, value: Boolean) {
         val key = key ?: return
+        if (value) {
+            // `file.reviewed`: the file's place in the list and how long since its diff first showed, never its name.
+            val now = android.os.SystemClock.elapsedRealtime()
+            files.forEachIndexed { index, file ->
+                if (file.sha in shas && file.sha !in reviewed) {
+                    Analytics.track("file.reviewed", "index" to index, "seconds" to shownAt[file.path]?.let { (now - it) / 1000 })
+                }
+            }
+        }
         reviewed = if (value) reviewed + shas else reviewed - shas.toSet()
         val paths = files.filter { it.sha in shas }.map { it.path }.toSet()
         changedSinceReviewed = changedSinceReviewed - paths

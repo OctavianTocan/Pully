@@ -227,6 +227,7 @@ private fun CheckMark(bucket: String) {
 internal fun FilesSheet(session: ReviewSession, ui: DiffUi, current: String?, onOpen: (String) -> Unit, onClose: () -> Unit) {
     var query by remember { mutableStateOf("") }
     val total = session.files.size
+    com.octaviantocan.pulls.ui.TrackSearch("files", query, if (query.isBlank()) 0 else session.files.count { matchesSearch(it.path, query) })
     PullsSheet(onClose, "Files", expandable = true) {
         if (total > 1) SheetSearch(query, { query = it }, "Find a file", Modifier.padding(top = 8.dp, bottom = 6.dp))
         FilesList(

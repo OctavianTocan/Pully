@@ -36,6 +36,7 @@ import kotlinx.serialization.json.put
 internal fun ReviewSession.ask(threadId: String, selection: AskSelection, question: String, turnsBefore: Int, afterStart: () -> Unit = {}, onStartError: (String) -> Unit = {}) {
     val text = question.trim()
     if (text.isEmpty()) return
+    com.octaviantocan.pulls.data.Analytics.track("ask.send", "where" to "pr", "chars" to text.length, "about" to true)
     val ui = aiUi(this)
     ui.askPending[threadId] = text to turnsBefore
     startAiTask(

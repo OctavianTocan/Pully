@@ -236,7 +236,10 @@ class MyPullsSync(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (isCurrent()) error = e.message ?: e.toString()
+            if (isCurrent()) {
+                error = e.message ?: e.toString()
+                com.octaviantocan.pulls.data.Analytics.error("inbox.load", e.message)
+            }
         } finally {
             if (isCurrent()) updating = false
         }

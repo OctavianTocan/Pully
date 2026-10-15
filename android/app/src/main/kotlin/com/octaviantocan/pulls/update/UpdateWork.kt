@@ -19,6 +19,7 @@ import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.core.UpdateManifest
 import com.octaviantocan.pulls.core.changesSince
 import com.octaviantocan.pulls.core.plainChangelogText
+import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.ServerStore
 import java.util.concurrent.TimeUnit
@@ -117,6 +118,7 @@ object UpdateNotice {
             .setOnlyAlertOnce(true)
             .build()
         manager.notify(ID, notification)
+        Analytics.track("notification.event", "kind" to "update", "action" to "shown")
     }
 
     fun clear(context: Context) = context.getSystemService(NotificationManager::class.java).cancel(ID)
@@ -127,6 +129,7 @@ object UpdateNotice {
      */
     fun handle(context: Context, intent: Intent?): Boolean {
         val what = intent?.getStringExtra(EXTRA) ?: return false
+        Analytics.track("notification.event", "kind" to "update", "action" to "tapped", "value" to what)
         // Handled once: the same intent comes back if the activity is recreated.
         intent.removeExtra(EXTRA)
         clear(context)

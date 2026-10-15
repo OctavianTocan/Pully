@@ -7,6 +7,11 @@ class Nav(
     val openTarget: (OpenTarget) -> Unit,
     /** Opens a pull request straight on its tour (the Tours tab). */
     val openTour: (OpenTarget) -> Unit,
+    /**
+     * Opens a pull request, on its tour when the last argument is true, and says where it was opened from for usage
+     * stats (`pr.open`): `inbox`, `search`, `link`, `repo`, `stack` or `other`.
+     */
+    val openFrom: (target: OpenTarget, from: String, tour: Boolean) -> Unit = { target, _, tour -> if (tour) openTour(target) else openTarget(target) },
     val openRepo: (owner: String, repo: String) -> Unit,
     /** Opens a repository's page on its tours (a heading on the Tours tab, H26). */
     val openRepoTours: (owner: String, repo: String) -> Unit = openRepo,

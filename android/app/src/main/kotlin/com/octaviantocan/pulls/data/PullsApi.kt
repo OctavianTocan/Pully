@@ -31,12 +31,35 @@ class PullsApi(
         return read(connection)
     }
 
+    /**
+     * Sends a batch of usage events (`{"events":[...]}`, already encoded) to `POST /api/events`, on the same server and
+     * with the same Access headers as [call]. Returns the HTTP status; the server answers 204 when it took them.
+     */
+    fun postEvents(body: String): Int {
+        val connection = open("${server.trimEnd('/')}/api/events", "POST")
+        try {
+            connection.doOutput = true
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.outputStream.use { it.write(body.toByteArray()) }
+            val status = connection.responseCode
+            runCatching { (if (status in 200..299) connection.inputStream else connection.errorStream)?.use { it.readBytes() } }
+            return status
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private fun read(connection: HttpURLConnection): JsonElement {
-        val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
+        val status = connection.responseCode
+        val stream = if (status in 200..299) connection.inputStream else connection.errorStream
         val text = stream?.bufferedReader()?.readText().orEmpty()
-        if (text.isBlank()) error("The server returned nothing (HTTP ${connection.responseCode}).")
-        val parsed = json.parseToJsonElement(text).jsonObject
-        parsed["error"]?.let { error(it.jsonPrimitive.content) }
+        if (text.isBlank()) throw ServerError(status, "The server returned nothing (HTTP $status).")
+        val parsed = try {
+            json.parseToJsonElement(text).jsonObject
+        } catch (e: Exception) {
+            throw ServerError(status, e.message ?: e.toString(), e)
+        }
+        parsed["error"]?.let { throw ServerError(status, it.jsonPrimitive.content) }
         return parsed["result"] ?: JsonNull
     }
 
@@ -50,6 +73,9 @@ class PullsApi(
         }
     }
 }
+
+/** A call the server answered with an error, or with something that is not an answer; [status] is its HTTP status. */
+class ServerError(val status: Int, message: String, cause: Throwable? = null) : IllegalStateException(message, cause)
 
 /** Confirms a published APK matches the digest in latest.json. Used by the updater before install. */
 fun digestMatches(bytes: ByteArray, expected: String): Boolean = sha256Hex(bytes).equals(expected, ignoreCase = true)
