@@ -165,7 +165,7 @@ fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int =
 }
 
 /**
- * A page change inside a scrolling list (Summary, Description and Conversation under their tabs). The rows of a lazy list
+ * A page change inside a scrolling list (Summary, Commits and Conversation under their tabs). The rows of a lazy list
  * cannot sit inside an [AnimatedContent], so the page is changed in two beats instead: the rows on screen fade out
  * blurring and slide 8dp away (150ms), the next page's rows take their place and fade in sharpening from 8dp the
  * other side (250ms), both on the smooth-out curve like [BlurSwitch]. [shown] is the page the list holds right now, and

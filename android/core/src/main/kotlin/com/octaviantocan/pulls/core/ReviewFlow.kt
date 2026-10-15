@@ -11,6 +11,13 @@ fun nextUnreviewed(order: List<String>, current: String, isReviewed: (String) ->
 }
 
 /**
+ * Whether the Summary tab shows the author's description: always while the AI has written no [summary], and over one
+ * only when the person switched to the description while that same summary was on screen ([switchedAwayFrom]). A
+ * summary written after that takes the description's place again.
+ */
+fun showsDescription(summary: String?, switchedAwayFrom: String?): Boolean = summary == null || summary == switchedAwayFrom
+
+/**
  * The tab a horizontal drag lands on. A drag of [dx] pixels to the left past [threshold] shows the next tab, one to the
  * right shows the previous one, and the first and last tabs stay put. A shorter drag changes nothing.
  */

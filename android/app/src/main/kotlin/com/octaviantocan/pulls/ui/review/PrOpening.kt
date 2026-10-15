@@ -63,7 +63,7 @@ internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> 
                     Skeleton(Modifier.width(52.dp))
                 }
             }
-            UnderlineTabs(listOf("Summary", "Description", "Commits", "Conversation"), 0, {}, Modifier.padding(top = 8.dp), spread = true)
+            UnderlineTabs(listOf("Summary", "Commits", "Conversation"), 0, {}, Modifier.padding(top = 8.dp), spread = true)
         }
         RowsSkeleton(Modifier.padding(top = 14.dp), rows = 5)
     }

@@ -2,7 +2,9 @@ package com.octaviantocan.pulls.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ReviewFlowTest {
     private val order = listOf("a", "b", "c", "d")
@@ -81,5 +83,25 @@ class ReviewFlowTest {
         assertEquals(2, swipedFile(2, 5, 79f, 80f))
         assertEquals(2, swipedFile(2, 5, -79f, 80f))
         assertEquals(0, swipedFile(0, 5, 79f, 80f))
+    }
+
+    @Test
+    fun theDescriptionIsTheSummaryUntilTheAiWritesOne() {
+        assertTrue(showsDescription(summary = null, switchedAwayFrom = null))
+    }
+
+    @Test
+    fun aWrittenSummaryTakesTheDescriptionsPlace() {
+        assertFalse(showsDescription(summary = "What changed", switchedAwayFrom = null))
+    }
+
+    @Test
+    fun switchingToTheDescriptionKeepsItOverThatSummary() {
+        assertTrue(showsDescription(summary = "What changed", switchedAwayFrom = "What changed"))
+    }
+
+    @Test
+    fun theNextSummaryTakesThePlaceAgain() {
+        assertFalse(showsDescription(summary = "What changed now", switchedAwayFrom = "What changed"))
     }
 }
