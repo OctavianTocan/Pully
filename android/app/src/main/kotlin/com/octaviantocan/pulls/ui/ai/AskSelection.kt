@@ -17,6 +17,14 @@ fun askSelectionOf(path: String, side: String, line: Int, startLine: Int?): AskS
 private fun lineAnchor(selection: AskSelection): String =
     if (selection.startLine == selection.endLine) "L${selection.endLine}" else "L${selection.startLine}-L${selection.endLine}"
 
+/** The lines as words, whichever end comes first: `line 12` or `lines 10–12` in a sentence, `Line 12` or `Lines 10–12` as a [label]. */
+fun linesPhrase(startLine: Int, endLine: Int, label: Boolean = false): String {
+    val first = minOf(startLine, endLine)
+    val last = maxOf(startLine, endLine)
+    val word = if (label) "Line" else "line"
+    return if (first == last) "$word $last" else "${word}s $first–$last"
+}
+
 /** `path:L10` or `path:L10-L20`. */
 fun lineRangeLabel(selection: AskSelection): String = "${selection.path}:${lineAnchor(selection)}"
 

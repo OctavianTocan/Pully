@@ -2,12 +2,14 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,14 +77,16 @@ import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.pageSlide
+import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import kotlinx.coroutines.launch
 
 /**
- * The tour: the capsule header, a calm strip under it (the ring, the stop you are on, a chevron) that opens the
- * sections as a sheet, one white card per stop, and an Ask pill at the bottom (rule 97). [onReached] reports the
- * furthest stop the reader has scrolled to, which the Tours tab shows as progress.
+ * The tour, under the review's header: a calm strip (the ring, the stop you are on, a chevron) that opens the sections
+ * as a sheet, one white card per stop, and an Ask pill at the bottom (rule 97). A swipe to the right goes back to the
+ * Diff ([onChanges]), the page before it. [onReached] reports the furthest stop the reader has scrolled to, which the
+ * Tours tab shows as progress.
  */
 @Composable
 internal fun PrTourScreen(
@@ -89,10 +94,7 @@ internal fun PrTourScreen(
     head: PrHead,
     resumeAt: Int,
     onReached: (stop: Int, total: Int, title: String) -> Unit,
-    onBack: () -> Unit,
-    onOverview: () -> Unit,
     onChanges: () -> Unit,
-    onMore: () -> Unit,
     onOpenSource: (TourSource) -> Unit,
     onAsk: (String?) -> Unit,
 ) {
@@ -146,16 +148,21 @@ internal fun PrTourScreen(
         if (n > 1 && resumeAt in 2..n) listState.scrollToItem(resumeAt)
     }
 
+    // A swipe to the right takes the cards back to the Diff, following the finger as the Diff's files do. The Tour is
+    // the last page, so a swipe to the left goes nowhere and the cards stay put. A swipe on code in a card scrolls the code.
+    val slide = rememberPageSlide(Unit)
+    var drag by remember { mutableFloatStateOf(0f) }
+    val swipeFrom = with(density) { 64.dp.toPx() }
+    val range = with(density) { PullsMotion.FingerRange.toPx() }
+    val swipe = rememberDraggableState { delta ->
+        drag += delta
+        slide.follow(maxOf(delta, -slide.finger), range)
+    }
+
     // Every mention in the tour opens its place, and its code is the diff's code view (rules 95 and 96).
     ProvideAiText(session, { place -> onOpenSource(TourSource(place.path, place.line, "")) }) {
         Box(Modifier.fillMaxSize().background(c.base)) {
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                    FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                    Spacer(Modifier.weight(1f))
-                    // The same capsule as the Overview, with the Tour lit. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
-                    SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onCorner = onMore)
-                }
                 if (n > 0 && current in 1..n) {
                     // The ring, the stop you are on and the chevron, each in its own column so the title never runs under
                     // the ring; no "2 of 4" (rule 97). Tapping it opens the sections.
@@ -176,7 +183,18 @@ internal fun PrTourScreen(
                     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp
                     LazyColumn(
                         // The cards dissolve under the strip once they move (a tour at rest is sharp) and into the page under the Ask pill (rule 74).
-                        Modifier.fillMaxSize().edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { listState.topEdgeStrength(with(density) { PullsMotion.EdgeTop.toPx() }) }),
+                        Modifier.fillMaxSize()
+                            .draggable(
+                                swipe, Orientation.Horizontal,
+                                onDragStarted = { drag = 0f },
+                                onDragStopped = {
+                                    if (drag >= swipeFrom) onChanges()
+                                    drag = 0f
+                                    slide.release()
+                                },
+                            )
+                            .pageSlide(slide)
+                            .edgeFade(top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeBottom, topStrength = { listState.topEdgeStrength(with(density) { PullsMotion.EdgeTop.toPx() }) }),
                         state = listState,
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                         verticalArrangement = Arrangement.spacedBy(14.dp),

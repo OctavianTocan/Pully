@@ -21,6 +21,13 @@ fun swipedTab(current: Int, count: Int, dx: Float, threshold: Float): Int = when
 }
 
 /**
+ * Where a horizontal drag of [dx] pixels takes the Overview from tab [current] of [count]: a tab, as [swipedTab] says,
+ * or past the last one the next view, the Diff, which is [count] (rule 93). Before the first tab it stays put.
+ */
+fun swipedTabOrNext(current: Int, count: Int, dx: Float, threshold: Float): Int =
+    if (current >= count - 1 && dx <= -threshold) count else swipedTab(current, count, dx, threshold)
+
+/**
  * Where a horizontal drag of [dx] pixels takes the diff from file [current] of [count] (rule 93): to the left past
  * [threshold] is the next file and to the right the one before. Left of the last file it returns [count] and right of
  * the first it returns -1, which are the views either side of the files (the Tour and the Overview). A shorter drag

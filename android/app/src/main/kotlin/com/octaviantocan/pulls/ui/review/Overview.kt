@@ -748,7 +748,7 @@ fun PrHtml(html: String, modifier: Modifier = Modifier) {
 @Composable
 private fun CardHeader(collapsed: Boolean, onToggle: () -> Unit, trailing: @Composable () -> Unit, content: @Composable RowScope.() -> Unit) {
     val c = LocalPullsColors.current
-    // Who and what on the left, cut short when long; when and the chevron always in the same place on the right.
+    // Who and what on the left, wrapping when long; when and the chevron always in the same place on the right.
     Row(
         Modifier.fillMaxWidth()
             .cueClickable(role = Role.Button, onClickLabel = if (collapsed) "Show the comment" else "Hide the comment", onClick = onToggle)
@@ -806,7 +806,8 @@ fun Conversation(overview: PrOverview) {
                 trailing = { Text(prTimeAgo(overview.createdAt), style = PullsType.sm, color = c.muted, maxLines = 1) },
             ) {
                 overview.author?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
-                Text(overview.author?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // A long name wraps whole in its column; the age stays at the right edge (rules 2 and 91).
+                Text(overview.author?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             }
             if (descriptionOpen) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) {
                 if (overview.bodyHTML.isNotBlank()) PrHtml(overview.bodyHTML)
@@ -881,7 +882,8 @@ private fun CommentCard(item: PrTimelineItem) {
             },
         ) {
             item.actor?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
-            Text(item.actor?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // A long name wraps whole in its column; the age stays at the right edge (rules 2 and 91).
+            Text(item.actor?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             // A comment can only be a comment, so it carries no verb; a review says what it decided, in the colour of
             // the decision instead of an icon before the name (rule 48).
             val verb = when (review?.state) {

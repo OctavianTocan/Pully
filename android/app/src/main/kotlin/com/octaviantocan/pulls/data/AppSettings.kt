@@ -76,8 +76,6 @@ class AppSettings private constructor(private val context: Context) {
         prefs.edit().putFloat("codeZoom", codeZoom).apply()
     }
 
-    /** Moves the code size on screen without writing it down: a pinch calls this every frame and [updateCodeZoom] once at the end. */
-    fun previewCodeZoom(value: Float) { codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM) }
     fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
     fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply() }
     fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply() }

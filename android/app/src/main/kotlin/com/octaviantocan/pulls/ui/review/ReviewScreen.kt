@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -50,6 +51,7 @@ import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.TourEntry
@@ -189,44 +191,58 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
             opened == null -> PrOpening(target, preview, onBack = nav.back)
             opened != null && head != null -> {
-                BlurSwitch(pages.last(), order = { it.ordinal }) { page ->
-                    when (page) {
-                        PrView.Overview -> PrOverviewScreen(
-                            session, ui, top, data, head, overviewScroll, pane, { pane = it },
-                            onBack = ::back,
-                            onDiff = { path -> if (path == null && diffPath != null) switchTo(PrView.Diff) else openDiff(path) },
-                            onTour = { switchTo(PrView.Tour) },
-                            onAsk = { openAsk(forTour = false) },
-                            onSheet = { sheet = it },
-                            onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, ""), uri::openUri) },
-                            onOpenRepo = nav.openRepo,
-                        )
-                        PrView.Diff -> PrDiffScreen(
-                            session, ui, diffPath, data?.overview, { diffPath = it },
-                            onBack = ::back,
-                            tourLive = tourRunning,
-                            onOverview = ::toOverview,
-                            onTour = { switchTo(PrView.Tour) },
-                            onMore = { sheet = "more" },
-                            onFiles = { sheet = "files" },
-                            onAsk = { reference -> openAsk(forTour = false, reference = reference) },
-                        )
-                        PrView.Tour -> PrTourScreen(
-                            session, head,
-                            resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
-                            onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
-                            onBack = ::back,
+                val here = pages.last()
+                Column(Modifier.fillMaxSize()) {
+                    // One header for the three pages, drawn once over them: it stays put while only what is under it
+                    // slides between them (rule 93). The capsule lights the page you are on, and its corner is Aa on the
+                    // diff and ⋯ on the other two.
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
+                        FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
+                        Spacer(Modifier.weight(1f))
+                        SectionCapsule(
+                            selected = here.ordinal, live = tourRunning,
                             onOverview = ::toOverview,
                             onChanges = { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) },
-                            onMore = { sheet = "more" },
-                            onOpenSource = { source -> openSource(session, source, uri::openUri) },
-                            onAsk = { question -> openAsk(forTour = true, initial = question) },
+                            onTour = { switchTo(PrView.Tour) },
+                            onCorner = { sheet = if (here == PrView.Diff) "tools" else "more" },
+                            corner = if (here == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
                         )
+                    }
+                    // The diff is narrowed to a commit: say so, with the way back, where no page can scroll it away (rule 80).
+                    CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+                    BlurSwitch(here, Modifier.weight(1f), order = { it.ordinal }) { page ->
+                        when (page) {
+                            PrView.Overview -> PrOverviewScreen(
+                                session, ui, top, data, head, overviewScroll, pane, { pane = it },
+                                onDiff = { path -> if (path == null && diffPath != null) switchTo(PrView.Diff) else openDiff(path) },
+                                onAsk = { openAsk(forTour = false) },
+                                onSheet = { sheet = it },
+                                onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, ""), uri::openUri) },
+                                onOpenRepo = nav.openRepo,
+                            )
+                            PrView.Diff -> PrDiffScreen(
+                                session, ui, diffPath, { diffPath = it },
+                                onOverview = ::toOverview,
+                                onTour = { switchTo(PrView.Tour) },
+                                onFiles = { sheet = "files" },
+                                onAsk = { reference -> openAsk(forTour = false, reference = reference) },
+                            )
+                            PrView.Tour -> PrTourScreen(
+                                session, head,
+                                resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
+                                onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
+                                onChanges = { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) },
+                                onOpenSource = { source -> openSource(session, source, uri::openUri) },
+                                onAsk = { question -> openAsk(forTour = true, initial = question) },
+                            )
+                        }
                     }
                 }
                 // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
                 when (sheet) {
                     "more" -> MoreSheet(session, top, data, head, onClose = { sheet = null }, onSheet = { sheet = it })
+                    // Aa on the diff: the code's look, then the file's own actions and one row to the pull request's ⋯.
+                    "tools" -> TextAndToolsSheet(session, ui, orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() }, onClose = { sheet = null }, onActions = { sheet = "more" })
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
                     "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }

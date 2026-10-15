@@ -29,6 +29,15 @@ class AskSelectionTest {
         assertEquals("a.ts:L10-L20", lineRangeLabel(AskSelection("a.ts", "additions", 10, 20)))
     }
 
+    @Test
+    fun namesTheLinesInWords() {
+        assertEquals("line 7", linesPhrase(7, 7))
+        assertEquals("lines 356–358", linesPhrase(356, 358))
+        assertEquals("lines 356–358", linesPhrase(358, 356))
+        assertEquals("Line 7", linesPhrase(7, 7, label = true))
+        assertEquals("Lines 356–358", linesPhrase(356, 358, label = true))
+    }
+
     private val path = "src/new name.ts"
     private val previous = "src/old.ts"
 

@@ -472,8 +472,8 @@ private fun GroupHeading(label: String, first: Boolean, onClick: () -> Unit, mod
 /**
  * `.sw`: a row that follows the finger. Past 110dp to the right it opens the pull request; to the left
  * it archives it (on the Tours tab: stops or removes the tour). Short of that it springs back. Tapping opens, and
- * both swipes are also offered to screen readers as actions. A file row (rule 56) swipes right to mark it reviewed
- * and left to open it, so it passes its own [onClick], [startIcon] and [onLongClick] for its actions.
+ * both swipes are also offered to screen readers as actions. A file row (rule 56) swipes right to open it, as this row
+ * does, and left to mark it reviewed, so it passes its own labels, icons and [onLongClick] for its actions.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

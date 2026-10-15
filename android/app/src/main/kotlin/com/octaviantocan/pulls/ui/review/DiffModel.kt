@@ -366,6 +366,15 @@ fun selectRange(path: String, side: String, a: Int, b: Int): com.octaviantocan.p
     return DraftTarget(path, side, hi, lo.takeIf { it < hi })
 }
 
+/**
+ * The code of lines [range] on one [side] of the rows shown, in order, one line each: what an Ask about selected lines
+ * carries. A context line belongs to both sides.
+ */
+fun selectedCode(entries: List<DiffEntry>, side: String, range: IntRange): String =
+    entries.mapNotNull { (it as? DiffEntry.Line)?.line }
+        .filter { line -> line.anchors().any { it.side == side && it.line in range } }
+        .joinToString("\n") { it.text }
+
 // --- Formatting ---
 
 /** `formatTimeAgo` from `@antfu/design`: "just now", "3 d ago", "in 2 h". */
