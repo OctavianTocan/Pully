@@ -85,6 +85,37 @@ class JevInboxTest {
         assertFalse(sync.jev, "a snapshot without the classifier turns it off")
     }
 
+    @Test fun kindsComeInWhileTheInboxIsOpen() = runBlocking {
+        var reads = 0
+        val sync = MyPullsSync(
+            cached = { PullsSnapshot(listOf(pull(1), pull(2)), 0, jev = true) },
+            fresh = { error("the server's copy is recent") },
+            now = { 1_000 },
+            peek = { reads++; PullsSnapshot(listOf(pull(1, kind = "fix"), pull(2, kind = "docs".takeIf { reads >= 2 })), 0, jev = true) },
+        )
+        sync.select("open")
+        assertTrue(sync.sorting)
+        sync.followJev(everyMs = 1)
+        assertEquals(2, reads, "it stops once every row has its kind")
+        assertEquals(listOf("fix", "docs"), sync.pulls?.map { it.jev?.kind })
+        assertFalse(sync.sorting)
+    }
+
+    @Test fun stopsWaitingForKindsAfterAWhileAndTakesNoneForAnotherHead() = runBlocking {
+        var clock = 0L
+        var reads = 0
+        val sync = MyPullsSync(
+            cached = { PullsSnapshot(listOf(pull(1).copy(headSha = "new")), 0, jev = true) },
+            fresh = { error("the server's copy is recent") },
+            now = { clock },
+            peek = { reads++; clock += 1_000; PullsSnapshot(listOf(pull(1, kind = "fix").copy(headSha = "old")), 0, jev = true) },
+        )
+        sync.select("open")
+        sync.followJev(everyMs = 1, forMs = 2_500)
+        assertEquals(3, reads)
+        assertNull(sync.pulls?.single()?.jev)
+    }
+
     @Test fun groupsByKindInAFixedOrderWithTheUnsortedLast() {
         val sorted = InboxSort.Number.apply(
             listOf(

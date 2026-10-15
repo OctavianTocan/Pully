@@ -6,7 +6,7 @@ import { createCacheRepositories } from '@pulls.review/core/cache'
 import { createStorage } from 'unstorage'
 import memoryDriver from 'unstorage/drivers/memory'
 import { describe, expect, it, vi } from 'vitest'
-import { createPrStore, overviewKey, PR_STORE_MAX_PULLS, readStoredOverview, storeOverview } from './pr-store'
+import { createPrStore, OVERVIEW_MAX_AGE_MS, overviewKey, PR_STORE_MAX_PULLS, readStoredOverview, storeOverview } from './pr-store'
 
 function pull(number: number, overrides: Partial<MyPull> = {}): MyPull {
   return { owner: 'acme', repo: 'app', number, title: `PR ${number}`, author: 'octo', isDraft: false, updatedAt: `2026-10-01T00:00:${String(number % 60).padStart(2, '0')}Z`, commentsCount: 0, labels: [], state: 'open', role: 'authored', headSha: `h${number}`, ...overrides }
@@ -94,6 +94,40 @@ describe('createPrStore', () => {
     await store.round()
     expect(fetchDiff).not.toHaveBeenCalled()
     expect(fetchOverview).not.toHaveBeenCalled()
+  })
+
+  it('never replaces a head stored while its own fetch was on the way', async () => {
+    let cache!: ReturnType<typeof setup>['cache']
+    const fetchDiff = vi.fn(async (p: MyPull) => {
+      // The phone opens the pull request after a newer push while the round fetches the older head.
+      await cache.diffs.putDiff('github:acme/app#1', diffOf(pull(1, { headSha: 'h1-newer' })), 'h1-newer')
+      return diffOf(p)
+    })
+    const ctx = setup([pull(1)], { fetchDiff })
+    cache = ctx.cache
+    await ctx.store.round()
+
+    expect((await cache.diffs.getMeta('github:acme/app#1'))!.headSha).toBe('h1-newer')
+  })
+
+  it('fetches an overview again once it is old, and brings an edited title into the stored diff', async () => {
+    let time = 1000
+    const { store, fetchOverview, cache } = setup([pull(1)], { now: () => time })
+    await store.round()
+    fetchOverview.mockClear()
+
+    time += OVERVIEW_MAX_AGE_MS - 1
+    await store.round()
+    expect(fetchOverview).not.toHaveBeenCalled()
+
+    // Renamed without a push: the head stays, the list's updatedAt has not been seen yet, and the overview is old.
+    time += 2
+    fetchOverview.mockImplementation(async (p: MyPull) => ({ ...overviewOf(p), title: 'Ready', body: 'Now with a description', state: 'merged' }))
+    await store.round()
+    expect(fetchOverview).toHaveBeenCalledTimes(1)
+    const stored = await cache.diffs.get('github:acme/app#1')
+    expect(stored!.diff).toMatchObject({ title: 'Ready', description: 'Now with a description', pullRequest: { state: 'merged' } })
+    expect(stored!.lastViewedAt).toBe(0)
   })
 
   it('keeps when a stored diff was last viewed', async () => {

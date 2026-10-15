@@ -269,7 +269,7 @@ const pullKey = (pull: { owner: string, repo: string, number: number }) => `${pu
  * branches stack: within one repository, A sits on B when A's base branch is B's head branch. Two or more
  * pull requests joined that way, as a chain or a tree, are one stack.
  *
- * @param pulls Open pull requests GitHub has no stack for.
+ * @param pulls The listed open pull requests.
  * @returns Each stacked pull request's place keyed `owner/repo#number`; one in no stack is left out.
  */
 export function inferStacks(pulls: StackCandidate[]): Map<string, MyPullStack> {
@@ -316,15 +316,15 @@ export function inferStacks(pulls: StackCandidate[]): Map<string, MyPullStack> {
 
 /**
  * Gives each listed open pull request its stack: GitHub's own first, then one inferred from branch names
- * among those GitHub has none for.
+ * for those GitHub has none for.
  *
  * @param found The listed open pull requests; their `pull.stack` is set in place.
- * @param nativeOf GitHub's own stack of one, by node id; `undefined` when unknown.
+ * @param nativeOf GitHub's own stack of one, by node id and as listed; `undefined` when unknown.
  */
-export function applyStacks(found: FoundPull[], nativeOf: (id: string) => NativeStack | undefined): void {
+export function applyStacks(found: FoundPull[], nativeOf: (id: string, pull: MyPull) => NativeStack | undefined): void {
   const rest: FoundPull[] = []
   for (const hit of found) {
-    const native = nativeOf(hit.id)
+    const native = nativeOf(hit.id, hit.pull)
     if (native)
       hit.pull.stack = { id: `native:${hit.pull.owner}/${hit.pull.repo}:${native.number}`, position: native.position, size: native.size, native: true }
     else
@@ -340,7 +340,8 @@ export function applyStacks(found: FoundPull[], nativeOf: (id: string) => Native
     if (below)
       stack.below = below.pull.number
   }
-  const inferred = inferStacks(rest.map(({ pull, crossRepository, defaultBranch }) => ({ ...pull, crossRepository, defaultBranch })))
+  // Native layers take part too, so a pull request based on one's branch still shows what it sits on; only the rest take the answer.
+  const inferred = inferStacks(found.map(({ pull, crossRepository, defaultBranch }) => ({ ...pull, crossRepository, defaultBranch })))
   for (const hit of rest) {
     const stack = inferred.get(pullKey(hit.pull))
     if (stack)
@@ -392,9 +393,10 @@ export interface MyPullsService {
   list: (state: MyPullState) => Promise<MyPull[]>
   /**
    * @param state Open, or closed including merged.
+   * @param revalidate `false` only reads the copy, as a client waiting for classifications does, and never asks GitHub.
    * @returns The last list fetched, however old, or `null` before the first one; refreshes it in the background once aged.
    */
-  cached: (state: MyPullState) => MyPullsSnapshot | null
+  cached: (state: MyPullState, revalidate?: boolean) => MyPullsSnapshot | null
 }
 
 export interface MyPullsServiceOptions {
@@ -489,7 +491,11 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
     // Closed pull requests have no review, check or stack state worth triaging.
     if (state === 'open') {
       await Promise.all([enrich(merged), readNativeStacks(merged)])
-      applyStacks(merged, id => nativeStacks.get(id)?.data)
+      // A failed request leaves an older answer behind for the next try; one that no longer describes the pull request is unknown.
+      applyStacks(merged, (id, pull) => {
+        const entry = nativeStacks.get(id)
+        return isStackReusable(entry, pull, now()) ? entry.data : undefined
+      })
     }
     const pulls = merged.map(hit => hit.pull)
     if (classifier) {
@@ -507,8 +513,8 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
 
   return {
     list: async state => classified((await cache.get(state, FRESH_MS)).value),
-    cached(state) {
-      const entry = cache.peekAndRevalidate(state, REVALIDATE_AFTER_MS)
+    cached(state, revalidate = true) {
+      const entry = revalidate ? cache.peekAndRevalidate(state, REVALIDATE_AFTER_MS) : cache.peek(state)
       if (!entry)
         return null
       return {
@@ -584,8 +590,9 @@ export function listMyPulls(state: MyPullState): Promise<MyPull[]> {
 
 /**
  * @param state Whether to look at open or closed (including merged) pull requests.
+ * @param revalidate `false` never starts a refresh from GitHub, however old the list is.
  * @returns The last list the server fetched without waiting, or `null` before the first.
  */
-export function cachedMyPulls(state: MyPullState): MyPullsSnapshot | null {
-  return service().cached(state)
+export function cachedMyPulls(state: MyPullState, revalidate?: boolean): MyPullsSnapshot | null {
+  return service().cached(state, revalidate)
 }

@@ -18,12 +18,12 @@ const ANSWER = {
 
 /** A TypeSafe stand-in answering each request with the next of `responses` (the last one repeats). */
 function fakeTypesafe(responses: (() => Response)[], options: Partial<JevClientOptions> = {}) {
-  const requests: { url: string, init: RequestInit }[] = []
+  const requests: { url: string, init: RequestInit, at: number }[] = []
   const sleeps: number[] = []
   const logs: string[] = []
   let clock = 0
   const fetch = (async (url: string, init: RequestInit) => {
-    requests.push({ url, init })
+    requests.push({ url, init, at: clock })
     return responses[Math.min(requests.length - 1, responses.length - 1)]()
   }) as typeof globalThis.fetch
   const client = createJevClient({
@@ -85,6 +85,32 @@ describe('createJevClient', () => {
     await expect(client.ask('state', QUESTIONS)).rejects.toMatchObject({ name: 'JevError', status: 529 })
     expect(requests).toHaveLength(3)
     expect(sleeps).toEqual([1000, 2000])
+  })
+
+  it('slows every later request down after a 429, and speeds up again as answers come', async () => {
+    const { client, requests } = fakeTypesafe([status(429, { 'retry-after': '0' }), ok])
+    const gap = () => requests.at(-1)!.at - requests.at(-2)!.at
+    await client.ask('state', QUESTIONS)
+    await client.ask('state', QUESTIONS)
+    expect(gap()).toBeCloseTo(2 * 1000 / 75)
+
+    for (let i = 0; i < 40; i++)
+      await client.ask('state', QUESTIONS)
+    expect(gap()).toBeCloseTo(1000 / 75)
+  })
+
+  it('slows down once for 429s that arrive together, and not at all for 529', async () => {
+    const together = fakeTypesafe([status(429, { 'retry-after': '0' }), status(429, { 'retry-after': '0' }), status(429, { 'retry-after': '0' }), status(429, { 'retry-after': '0' }), ok])
+    await Promise.all(Array.from({ length: 4 }, () => together.client.ask('state', QUESTIONS)))
+    await together.client.ask('state', QUESTIONS)
+    const slowed = together.requests.at(-1)!.at - together.requests.at(-2)!.at
+    expect(slowed).toBeGreaterThan(1.5 * 1000 / 75)
+    expect(slowed).toBeLessThan(2 * 1000 / 75)
+
+    const overloaded = fakeTypesafe([status(529, { 'retry-after': '0' }), ok])
+    await overloaded.client.ask('state', QUESTIONS)
+    await overloaded.client.ask('state', QUESTIONS)
+    expect(overloaded.requests.at(-1)!.at - overloaded.requests.at(-2)!.at).toBeCloseTo(1000 / 75)
   })
 
   it('turns off for the rest of the run when the key is refused, without logging it', async () => {

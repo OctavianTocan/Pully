@@ -28,6 +28,12 @@ export interface PutDiffOptions {
   viewed?: boolean
 }
 
+/** What `updateDiff` stores. */
+export interface DiffUpdate {
+  diff: DiffsPayload
+  headSha: string
+}
+
 export interface DiffCache {
   get: (key: string) => Promise<PrCacheEntry | undefined>
   /** One entry's metadata (`headSha`, counts, `lastViewedAt`) without reading its diff. */
@@ -40,6 +46,12 @@ export interface DiffCache {
    * were paid for and stay useful against a newer diff via `resolveGroups`.
    */
   putDiff: (key: string, diff: DiffsPayload, headSha: string, options?: PutDiffOptions) => Promise<PrCacheEntry>
+  /**
+   * `putDiff` with what to store decided by `next` from the entry as stored when this write's turn comes, so a diff
+   * stored in between is never replaced by one decided against an older entry. `next` returning `undefined` writes nothing.
+   * @returns The entry written, or `undefined` when nothing was.
+   */
+  updateDiff: (key: string, next: (existing: PrCacheEntry | undefined) => DiffUpdate | undefined, options?: PutDiffOptions) => Promise<PrCacheEntry | undefined>
   touch: (key: string) => Promise<void>
   setChangedSinceReviewed: (key: string, paths: string[]) => Promise<void>
   setAnalyzedResult: (key: string, source: PersistedGroupSource, result: GroupedResult) => Promise<void>
@@ -193,6 +205,23 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
       .map(file => file.path)
   }
 
+  /** Writes `diff` over `existing`, keeping what `putDiff` keeps. Runs inside the key's `exclusive`. */
+  async function writeDiff(key: string, existing: PrCacheEntry | undefined, { diff, headSha }: DiffUpdate, viewed: boolean): Promise<PrCacheEntry> {
+    const analyzedBy = existing?.analyzedBy ?? {}
+    const next: PrCacheEntry = {
+      ...existing,
+      key,
+      diff,
+      headSha,
+      analyzedBy,
+      lastViewedAt: viewed ? Date.now() : existing?.lastViewedAt ?? 0,
+      sizeBytes: computeEntrySizeBytes(diff, analyzedBy, existing?.llmSession),
+      changedSinceReviewed: existing ? await changedSinceReviewed(existing, diff) : [],
+    }
+    await write(next)
+    return next
+  }
+
   return {
     get,
     getMeta,
@@ -201,23 +230,18 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
       await enforceBudget()
     },
     async putDiff(key, diff, headSha, { viewed = true } = {}) {
+      const entry = await exclusive(key, async () => writeDiff(key, await get(key), { diff, headSha }, viewed))
+      await enforceBudget()
+      return entry
+    },
+    async updateDiff(key, next, { viewed = true } = {}) {
       const entry = await exclusive(key, async () => {
         const existing = await get(key)
-        const analyzedBy = existing?.analyzedBy ?? {}
-        const next: PrCacheEntry = {
-          ...existing,
-          key,
-          diff,
-          headSha,
-          analyzedBy,
-          lastViewedAt: viewed ? Date.now() : existing?.lastViewedAt ?? 0,
-          sizeBytes: computeEntrySizeBytes(diff, analyzedBy, existing?.llmSession),
-          changedSinceReviewed: existing ? await changedSinceReviewed(existing, diff) : [],
-        }
-        await write(next)
-        return next
+        const update = next(existing)
+        return update && writeDiff(key, existing, update, viewed)
       })
-      await enforceBudget()
+      if (entry)
+        await enforceBudget()
       return entry
     },
     touch: key => updateMeta(key, meta => ({ ...meta, lastViewedAt: Date.now() })),

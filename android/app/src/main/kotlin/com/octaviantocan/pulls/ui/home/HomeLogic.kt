@@ -11,6 +11,7 @@ import com.octaviantocan.pulls.core.searchNumber
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.asPulls
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -131,6 +132,8 @@ class MyPullsSync(
     private val now: () -> Long = System::currentTimeMillis,
     /** A server copy younger than this is shown without asking GitHub again. */
     private val freshForMs: Long = 30_000,
+    /** The server's copy, without the server refreshing it from GitHub however old it is; for [followJev]. */
+    private val peek: suspend (state: String) -> PullsSnapshot? = cached,
 ) {
     /** The newest list known, null until any copy arrives. */
     var pulls by mutableStateOf<List<PullRow>?>(null)
@@ -169,6 +172,35 @@ class MyPullsSync(
 
     /** A fresh list even when the current one is recent. */
     suspend fun reload() = load(true)
+
+    /** Jev is on and open rows on screen have no kind yet: the server is still sorting them. */
+    val sorting: Boolean get() = jev && state == "open" && pulls.orEmpty().any { it.state == "open" && it.jev == null }
+
+    /**
+     * Jev answers after the list does, so while [sorting] the server's copy is read again every [everyMs], for [forMs]
+     * at most, without the server asking GitHub. Only the kinds are taken from it, by row at the same head and title:
+     * the list on screen can be newer than that copy, and a load replaces the list.
+     */
+    suspend fun followJev(everyMs: Long = 3_000, forMs: Long = 120_000) {
+        val until = now() + forMs
+        while (sorting && now() + everyMs <= until) {
+            delay(everyMs)
+            val current = generation
+            val selected = state
+            val server = try { peek(selected) } catch (e: CancellationException) { throw e } catch (_: Exception) { null } ?: continue
+            val shown = pulls
+            if (current != generation || shown == null) continue
+            jev = server.jev
+            val sorted = server.pulls.filter { it.jev != null }.associateBy { Triple(it.owner, it.repo, it.number) }
+            val filled = shown.map { row ->
+                val match = sorted[Triple(row.owner, row.repo, row.number)]?.takeIf { row.jev == null && it.headSha == row.headSha && it.title == row.title }
+                match?.let { row.copy(jev = it.jev) } ?: row
+            }
+            if (filled == shown) continue
+            pulls = filled
+            writeStored(selected, PullsSnapshot(filled, fetchedAt ?: server.fetchedAt, jev = jev))
+        }
+    }
 
     private suspend fun load(force: Boolean) {
         val current = ++generation

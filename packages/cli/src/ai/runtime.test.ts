@@ -1,6 +1,9 @@
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import process from 'node:process'
-import { describe, expect, it } from 'vitest'
-import { agentRuntime, dockerRunArgs, mcpNode } from './runtime'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { agentRuntime, dockerRunArgs, mcpNode, REMOVE_AGAIN_MS, startAgent } from './runtime'
 
 describe('agentRuntime', () => {
   it('runs on the host unless Docker is asked for', () => {
@@ -81,5 +84,55 @@ describe('mcpNode', () => {
   it('starts the tool server with the image\'s node in a container, and this node on the host', () => {
     expect(mcpNode({ kind: 'docker', image: 'img' })).toBe('node')
     expect(mcpNode({ kind: 'host' })).toBe(process.execPath)
+  })
+})
+
+describe('startAgent in a container', () => {
+  const path = process.env.PATH
+  let bin: string
+  let log: string
+  const calls = (): string[][] => existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : []
+  // Polls on setInterval, which the fake timers below leave alone.
+  const until = (check: () => boolean) => new Promise<void>((resolve, reject) => {
+    const end = Date.now() + 5000
+    const timer = setInterval(() => {
+      if (check() || Date.now() > end) {
+        clearInterval(timer)
+        return check() ? resolve() : reject(new Error('timed out'))
+      }
+    }, 20)
+  })
+
+  beforeAll(() => {
+    bin = mkdtempSync(join(tmpdir(), 'pulls-review-docker-'))
+    log = join(bin, 'docker.log')
+    // Logs each call. `run` only waits to be killed: a client stopped before the daemon has made its container.
+    writeFileSync(join(bin, 'fake-docker.cjs'), `require('node:fs').appendFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)) + '\\n')\nif (process.argv[2] === 'run') setInterval(() => {}, 1000)\n`)
+    writeFileSync(join(bin, 'docker'), `#!/bin/sh\nexec "${process.execPath}" "$(dirname "$0")/fake-docker.cjs" "$@"\n`)
+    chmodSync(join(bin, 'docker'), 0o755)
+    process.env.PATH = `${bin}:${path}`
+  })
+  afterEach(() => vi.useRealTimers())
+  afterAll(() => {
+    process.env.PATH = path
+    rmSync(bin, { recursive: true, force: true })
+  })
+
+  it('removes the container by name once the stopped client exits, and once more later', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] })
+    const agent = startAgent({ bin: 'claude', args: ['-p'] }, { runtime: { kind: 'docker', image: 'img' } })
+    await until(() => calls().some(call => call[0] === 'run'))
+    const run = calls().find(call => call[0] === 'run')!
+    const name = run[run.indexOf('--name') + 1]!
+
+    agent.kill('SIGTERM')
+    expect(await agent.exited).toBeNull()
+    await until(() => calls().some(call => call[0] === 'rm') && calls().some(call => call[0] === 'kill'))
+    expect(calls().filter(call => call[0] !== 'run').sort()).toEqual([['kill', '--signal', 'SIGTERM', name], ['rm', '--force', name]])
+
+    // A kill after the client exited still reaches Docker, and the timer removes whatever the daemon made late.
+    agent.kill('SIGKILL')
+    vi.advanceTimersByTime(REMOVE_AGAIN_MS)
+    await until(() => calls().filter(call => call[0] === 'rm').length === 2 && calls().some(call => call[2] === 'SIGKILL'))
   })
 })

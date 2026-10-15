@@ -19,6 +19,8 @@ export const PR_STORE_FIRST_DELAY_MS = 5_000
 export const PR_STORE_MAX_PULLS = 150
 /** Pull requests fetched at the same time. */
 export const PR_STORE_CONCURRENCY = 2
+/** A stored overview this old is fetched again although `updatedAt` has not moved: checks and mergeability change without it. */
+export const OVERVIEW_MAX_AGE_MS = 30 * 60_000
 
 const MERGE_METHODS: MergeMethod[] = ['merge', 'squash', 'rebase']
 
@@ -78,7 +80,7 @@ export interface PrStoreDeps {
   /** The GitHub token, or `undefined` when the server has none. */
   token: () => Promise<string | undefined>
   /** The cache the phone and the page read diffs from. */
-  diffs: Pick<DiffCache, 'getMeta' | 'putDiff'>
+  diffs: Pick<DiffCache, 'getMeta' | 'updateDiff'>
   /** Where overviews are stored. */
   storage: Storage
   fetchDiff: (pull: MyPull, token: string) => Promise<DiffsPayload>
@@ -107,7 +109,8 @@ async function runLimited(tasks: (() => Promise<void>)[], limit: number): Promis
 /**
  * Keeps the open pull requests' diffs and overviews stored, so opening one reads the store
  * instead of waiting on GitHub. A diff is fetched again only when the pull request's head
- * moved, an overview only when its `updatedAt` did. The writes do not count as views, so they
+ * moved, an overview when its `updatedAt` did or it is `OVERVIEW_MAX_AGE_MS` old, and a new
+ * overview brings an edited title, description or state into the stored diff. The writes do not count as views, so they
  * neither show as recently viewed nor push opened diffs out of the cache. A failure is logged
  * once and tried again next round.
  *
@@ -127,16 +130,23 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
     logged.add(id)
   }
 
+  function diffKey(pull: MyPull): string {
+    return serializeRef({ kind: 'github-pr', owner: pull.owner, repo: pull.repo, number: String(pull.number) })
+  }
+
   async function storeDiff(pull: MyPull, auth: string): Promise<boolean> {
-    const key = serializeRef({ kind: 'github-pr', owner: pull.owner, repo: pull.repo, number: String(pull.number) })
-    if ((await diffs.getMeta(key))?.headSha === pull.headSha)
+    const key = diffKey(pull)
+    const before = (await diffs.getMeta(key))?.headSha
+    if (before === pull.headSha)
       return false
     const id = `diff ${key}@${pull.headSha}`
     try {
       const diff = await fetchDiff(pull, auth)
-      await diffs.putDiff(key, diff, diff.head?.sha ?? pull.headSha ?? '', { viewed: false })
+      // A phone may have stored a newer head while this one was on its way; an older fetch never replaces it. With no
+      // readable entry there is nothing to lose (an unreadable body after an upgrade gets repaired).
+      const stored = await diffs.updateDiff(key, existing => !existing || existing.headSha === before ? { diff, headSha: diff.head?.sha ?? pull.headSha ?? '' } : undefined, { viewed: false })
       logged.delete(id)
-      return true
+      return !!stored
     }
     catch (error) {
       once(id, `storing the diff of ${key} failed: ${messageOf(error)}`)
@@ -144,14 +154,33 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
     }
   }
 
+  /**
+   * A new title, description or state leaves the head where it was, so the stored diff would keep the old ones:
+   * the overview just fetched brings them in without fetching the files again.
+   */
+  async function freshenDiff(pull: MyPull, overview: PrOverview): Promise<void> {
+    const state = overview.state
+    await diffs.updateDiff(diffKey(pull), (entry) => {
+      // Decided on the entry as stored when the write's turn comes: a head the phone stored meanwhile stays.
+      if (!entry || entry.headSha !== overview.head?.oid)
+        return undefined
+      const { diff } = entry
+      if (diff.title === overview.title && diff.description === overview.body && diff.pullRequest?.state === state)
+        return undefined
+      return { diff: { ...diff, title: overview.title, description: overview.body, pullRequest: { ...diff.pullRequest, state }, updatedAt: overview.updatedAt ?? diff.updatedAt }, headSha: entry.headSha }
+    }, { viewed: false })
+  }
+
   async function storeOverviewOf(pull: MyPull, auth: string): Promise<boolean> {
     const stored = await readStoredOverview(storage, pull)
-    if (stored && stored.updatedAt === pull.updatedAt)
+    if (stored && stored.updatedAt === pull.updatedAt && now() - stored.at < OVERVIEW_MAX_AGE_MS)
       return false
     const id = `overview ${overviewKey(pull)}@${pull.updatedAt}`
     try {
-      await storeOverview(storage, pull, await fetchOverview(pull, auth), now())
+      const overview = await fetchOverview(pull, auth)
+      await storeOverview(storage, pull, overview, now())
       logged.delete(id)
+      await freshenDiff(pull, overview).catch(() => {})
       return true
     }
     catch (error) {

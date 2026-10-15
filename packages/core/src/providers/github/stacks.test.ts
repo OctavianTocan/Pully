@@ -120,6 +120,28 @@ describe('inferPullRequestStack', () => {
     expect(layers(await inferPullRequestStack(client, 'o', 'r', pulls[0]!, 'main'))).toEqual([[1, 1, true], [2, 2, false], [3, 2, false], [4, 3, false]])
   })
 
+  it('shows the layers on every side of a fork from any layer of it', async () => {
+    const pulls = [pull(1, 'a', 'main'), pull(2, 'b', 'a'), pull(3, 'c', 'a'), pull(4, 'd', 'c')]
+    const { client } = fakeClient({ pulls, defaultBranch: 'main' })
+    expect(layers(await inferPullRequestStack(client, 'o', 'r', pulls[1]!, 'main'))).toEqual([[1, 1, false], [2, 2, true], [3, 2, false], [4, 3, false]])
+    expect(layers(await inferPullRequestStack(client, 'o', 'r', pulls[3]!, 'main'))).toEqual([[1, 1, false], [2, 2, false], [3, 2, false], [4, 3, true]])
+  })
+
+  it('makes no stack of branches that loop', async () => {
+    const pulls = [pull(1, 'a', 'b'), pull(2, 'b', 'a')]
+    const { client } = fakeClient({ pulls, defaultBranch: 'main' })
+    expect(await inferPullRequestStack(client, 'o', 'r', pulls[0]!, 'main')).toBeNull()
+    expect(await inferPullRequestStack(client, 'o', 'r', pulls[1]!, 'main')).toBeNull()
+  })
+
+  it('puts nothing on a pull request from the default branch', async () => {
+    // A release pull request from `main` would otherwise carry every pull request into `main`.
+    const pulls = [pull(9, 'main', 'release'), pull(1, 'a', 'main'), pull(2, 'b', 'a')]
+    const { client, calls } = fakeClient({ pulls, defaultBranch: 'main' })
+    expect(await inferPullRequestStack(client, 'o', 'r', pulls[0]!, 'main')).toBeNull()
+    expect(calls.map(call => call.name)).toEqual(['StackBelow'])
+  })
+
   it('does not ask what sits under a pull request based on the default branch', async () => {
     const pulls = [pull(1, 'a', 'main'), pull(9, 'main', 'release')]
     const { client, calls } = fakeClient({ pulls, defaultBranch: 'main' })
@@ -133,12 +155,13 @@ describe('inferPullRequestStack', () => {
     expect(await inferPullRequestStack(client, 'o', 'r', pulls[1]!)).toBeNull()
   })
 
-  it('stops after ten requests each way', async () => {
+  it('stops ten layers below and ten above', async () => {
     const pulls = Array.from({ length: 30 }, (_, index) => pull(index + 1, `b${index + 1}`, index === 0 ? 'main' : `b${index}`))
     const { client, calls } = fakeClient({ pulls, defaultBranch: 'main' })
     const stack = await inferPullRequestStack(client, 'o', 'r', pulls[14]!, 'main')
     expect(calls.filter(call => call.name === 'StackBelow')).toHaveLength(10)
-    expect(calls.filter(call => call.name === 'StackAbove')).toHaveLength(10)
+    // Up from the bottom: the ten layers below for what else sits on them, then ten above.
+    expect(calls.filter(call => call.name === 'StackAbove')).toHaveLength(20)
     expect(stack?.entries.map(entry => entry.number)).toEqual(Array.from({ length: 21 }, (_, index) => index + 5))
     expect(stack?.entries.find(entry => entry.current)?.position).toBe(11)
     expect(stack?.base).toBe('b4')
@@ -159,7 +182,7 @@ describe('fetchPullRequestStack', () => {
   it('infers from the same answer when GitHub has no stack for it', async () => {
     const { client, calls } = fakeClient({ pulls: chain, native: null, defaultBranch: 'main' })
     expect(layers(await fetchPullRequestStack(client, 'o', 'r', '2'))).toEqual([[1, 1, false], [2, 2, true]])
-    expect(calls.map(call => call.name)).toEqual(['PullRequestStack', 'StackBelow', 'StackAbove'])
+    expect(calls.map(call => call.name)).toEqual(['PullRequestStack', 'StackBelow', 'StackAbove', 'StackAbove'])
   })
 
   it('infers when the host has no stack fields at all', async () => {
