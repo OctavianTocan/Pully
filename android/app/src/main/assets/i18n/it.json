@@ -235,7 +235,8 @@
       "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
     },
     "commitList": {
-      "view": "View only this commit's changes"
+      "view": "View only this commit's changes",
+      "hint": "Click a commit to view only its changes. Shift-click to select a range."
     },
     "selection": {
       "all": "All commits",
@@ -543,6 +544,18 @@
     "copyLocation": "Copy file and lines",
     "copyLink": "Copy GitHub link",
     "copied": "Copied"
+  },
+  "lens": {
+    "pick": "Review with a skill",
+    "title": "Review with",
+    "description": "Run the AI review through one of your skills.",
+    "search": "Search skills…",
+    "general": "General",
+    "generalDescription": "Bugs, risks and nits across the whole diff",
+    "loading": "Loading skills…",
+    "loadFailed": "Could not load skills: {error}",
+    "none": "No skills found.",
+    "noMatch": "No skills match."
   },
   "chat": {
     "title": "Chiedi su questa PR",

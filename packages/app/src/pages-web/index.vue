@@ -98,7 +98,7 @@ useDocumentTitle(() => t('landing.documentTitle'), ' - ')
 
     <div
       v-if="isDragging"
-      class="pointer-events-none fixed inset-4 z-toast flex items-center justify-center border-4 border-accent-teal-400 rounded-2xl border-dashed bg-accent-teal-400/10 text-lg color-accent-teal font-medium backdrop-blur-sm"
+      class="border-accent-teal-400 bg-accent-teal-400/10 pointer-events-none fixed inset-4 z-toast flex items-center justify-center border-4 rounded-2xl border-dashed text-lg color-accent-teal font-medium backdrop-blur-sm"
     >
       {{ $t('landing.dropHint') }}
     </div>

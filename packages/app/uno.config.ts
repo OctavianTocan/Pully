@@ -1,4 +1,4 @@
-import { presetAnthonyDesign } from '@antfu/design/unocss'
+import { generateColorRamp, presetAnthonyDesign } from '@antfu/design/unocss'
 import {
   defineConfig,
   presetAttributify,
@@ -8,6 +8,7 @@ import {
   transformerDirectives,
   transformerVariantGroup,
 } from 'unocss'
+import { antfuOverrides, antfuTheme, color, designTheme, kitShortcuts, luCollection, preflightCss, tokens } from './src/design/theme'
 
 /** Applies `utilities` to every `selector` descendant (`_` stands for a space). */
 function descendant(selector: string, utilities: string) {
@@ -59,42 +60,23 @@ export function createUnoConfig() {
         ? { matcher: matcher.slice('coarse:'.length), parent: '@media (pointer: coarse)' }
         : matcher,
     ],
+    // The phone's tokens (android/DESIGN.md, rule 106) over Wind's: colours, type roles, radii,
+    // shadows and motion. See `src/design/theme.ts`.
     theme: {
+      ...designTheme(),
       // Wind's own `transition` list plus `scale`, so the `:active` press scale in
       // `main.css` eases on every control that already uses `transition`.
       transitionProperty: {
         DEFAULT: 'color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,scale',
       },
-      // The two small steps read their size from variables so phones can raise them in
-      // one place (`main.css`); the fallbacks are Wind's own sizes, so desktop is unchanged.
-      fontSize: {
-        xs: ['var(--pr-text-xs, 0.75rem)', 'var(--pr-leading-xs, 1rem)'],
-        sm: ['var(--pr-text-sm, 0.875rem)', 'var(--pr-leading-sm, 1.25rem)'],
-      },
-      colors: {
-        // Landing-page accent trio. Two stops each: the brighter one reads on
-        // the dark surface, the deeper one keeps contrast on white.
-        accent: {
-          orange: { 400: '#f57a4f', 600: '#d9552a' },
-          teal: { 400: '#5fc2a4', 600: '#1f8f72' },
-          magenta: { 400: '#c65fbf', 600: '#9c3a95' },
-        },
-      },
     },
+    preflights: [{ getCSS: () => preflightCss() }],
     shortcuts: [
-      ['btn', 'px-4 py-1 rounded inline-block bg-teal-600 text-white cursor-pointer hover:bg-teal-700 disabled:cursor-default disabled:bg-gray-600 disabled:opacity-50'],
-      ['icon-btn', 'inline-block cursor-pointer select-none opacity-75 transition duration-200 ease-in-out hover:opacity-100 hover:text-teal-600'],
-      {
-        'color-accent-orange': 'color-accent-orange-600 dark:color-accent-orange-400',
-        'color-accent-teal': 'color-accent-teal-600 dark:color-accent-teal-400',
-        'color-accent-magenta': 'color-accent-magenta-600 dark:color-accent-magenta-400',
-      },
+      ['btn', 'btn-primary'],
+      ['icon-btn', 'btn-icon'],
+      // `kit-cta-button`, `kit-soft-chip` and the rest: DESIGN.md's component tokens, the sizes the phone measures.
+      kitShortcuts(),
       { 'chat-markdown': chatMarkdown },
-      // Overrides
-      {
-        'bg-active': 'bg-[#8881]',
-        'op-mute': 'op50',
-      },
       // Named z-index layers used by @antfu/design's overlay components (OverlayModal, etc.)
       // The preset ships no z-index scale and blocks plain `z-<number>` on purpose.
       {
@@ -113,11 +95,19 @@ export function createUnoConfig() {
       },
     ],
     presets: [
-      presetAnthonyDesign(),
+      presetAnthonyDesign({
+        // The phone's teal, with the ramp's middle and dark steps set to its two tokens.
+        primary: { ...generateColorRamp(tokens.colors.primary.light), 500: color('primary'), 600: color('primary-600'), DEFAULT: color('primary') },
+        darkBackground: tokens.colors.base.dark,
+        theme: antfuTheme(),
+        overrides: antfuOverrides(),
+      }),
       presetWind3(),
       presetAttributify(),
       presetIcons({
         scale: 1.2,
+        // The prototype's line icons, the same paths the phone draws (`Lu` in Icons.kt): `i-lu-back`.
+        collections: { lu: luCollection() },
       }),
       presetTypography(),
     ],

@@ -50,33 +50,23 @@ a[class*='btn-'] {
   -webkit-touch-callout: none;
 }
 
-/* Press feedback. With the tap highlight off and `:hover` limited to real pointers
-   (`uno.config.ts`), `:active` is what tells a finger the tap landed. Wind's `transition`
-   eases `scale` (see the theme in `uno.config.ts`); controls without it get the
-   zero-specificity default here. */
+/* Press feedback, as on the phone: the pressed control tints flat and nothing moves, scales or
+   ripples (DESIGN.md rule 82). With the tap highlight off and `:hover` limited to real pointers
+   (`uno.config.ts`), `:active` is what tells a finger the tap landed. The tint is a layer over
+   the control's own fill, so a teal pill and a bare row darken the same way. */
 :where(button, [role='button'], [role='tab'], [role='option'], summary, a) {
   transition:
-    scale 120ms ease-out,
-    background-color 120ms ease-out,
-    opacity 120ms ease-out;
+    background-color 150ms ease-out,
+    opacity 150ms ease-out;
 }
 
 /* Only the control under the finger reacts, not a row or header that contains it
    (`:active` also matches every ancestor of the pressed element). */
-@media (prefers-reduced-motion: no-preference) {
-  :is(button, [role='tab'], summary, a[class*='btn-']):not(
-      :disabled,
-      .press-tint,
-      [role='option'],
-      :has(button:active, a:active)
-    ):active {
-    scale: 0.97;
-  }
-}
-
-/* Wide rows (list rows, the file header, options) tint instead: a scaled full-width row reads as a jump. */
-:is(.press-tint, [role='option']):not(:has(button:active, a:active, [role='checkbox']:active)):active {
-  background-color: rgb(136 136 136 / 0.16);
+:is(button, [role='tab'], [role='option'], summary, a[class*='btn-'], .press-tint):not(
+    :disabled,
+    :has(button:active, a:active, [role='checkbox']:active)
+  ):active {
+  background-image: linear-gradient(rgb(var(--c-active) / var(--a-active)), rgb(var(--c-active) / var(--a-active)));
 }
 
 a[href]:not([class*='btn-'], .press-tint):active {
@@ -94,7 +84,7 @@ body {
    gate; on a touch screen that hover sticks after a drag, so undo it there. */
 @media not ((hover: hover) and (pointer: fine)) {
   *::-webkit-scrollbar-thumb:hover {
-    background: rgb(136 136 136 / 0.3);
+    background: rgb(var(--c-faint) / 0.4);
   }
 }
 
@@ -105,16 +95,11 @@ body {
   right: calc(1rem + env(safe-area-inset-right, 0px));
 }
 
-/* Phones: `text-sm` (body copy, labels) reads at 16px and `text-xs` (meta) at 13px.
-   Both utilities read these variables (see `uno.config.ts`), so desktop keeps its
-   14px/12px. */
+/* Phones and wide screens get the phone's two type steps (`text-sm` 15 then 14, `text-xs` 13 then
+   12 from 768px, as `PullsType`), from the variables `src/design/theme.ts` writes. Inline code in
+   rendered Markdown is sized in `em`, so it gets a floor of its own. */
 @media (max-width: 767.9px) {
   :root {
-    --pr-text-sm: 1rem;
-    --pr-leading-sm: 1.5rem;
-    --pr-text-xs: 0.8125rem;
-    --pr-leading-xs: 1.125rem;
-    /* Floor for inline code in rendered Markdown, which is sized in `em`. */
     --pr-code-min: 13px;
   }
 }
@@ -178,8 +163,7 @@ body {
 
 html.dark,
 .dark {
-  color-scheme: dark;
-  background: #121212;
+  background: rgb(var(--c-base));
 }
 
 /* Review-comment Markdown presentation. Kept here rather than in a scoped SFC
@@ -206,8 +190,8 @@ html.dark,
 }
 
 .ai-shimmer {
-  --ai-shimmer-base: rgb(0 0 0 / 0.5);
-  --ai-shimmer-peak: rgb(0 0 0 / 0.95);
+  --ai-shimmer-base: rgb(var(--c-text) / 0.45);
+  --ai-shimmer-peak: rgb(var(--c-text));
   color: transparent;
   background-image: linear-gradient(
     90deg,
@@ -219,11 +203,6 @@ html.dark,
   -webkit-background-clip: text;
   background-clip: text;
   animation: ai-shimmer 2s linear infinite;
-}
-
-.dark .ai-shimmer {
-  --ai-shimmer-base: rgb(255 255 255 / 0.5);
-  --ai-shimmer-peak: rgb(255 255 255 / 0.95);
 }
 
 @media (prefers-reduced-motion: reduce) {

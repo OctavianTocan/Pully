@@ -11,7 +11,7 @@ defineProps<{
 <template>
   <RouterLink
     :to="repoRoute(owner, repo)"
-    class="max-w-full flex items-center gap-2 border border-base rounded-full px-3 py-1.5 text-sm transition hover:border-accent-teal-400/50 hover:bg-hover"
+    class="hover:border-accent-teal-400/50 max-w-full flex items-center gap-2 border border-base rounded-full px-3 py-1.5 text-sm transition hover:bg-hover"
   >
     <GithubAvatar :login="owner" :size="16" />
     <span class="whitespace-nowrap font-medium"><span class="op-fade">{{ owner }}/</span>{{ repo }}</span>

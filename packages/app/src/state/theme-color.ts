@@ -1,12 +1,13 @@
 import type { Ref } from 'vue'
 import { watchEffect } from 'vue'
+import tokens from '../design/tokens.generated.json'
 
 /**
- * The browser-chrome colour on phones, matched to the sticky headers' `bg-base`
- * (white, and `@antfu/design`'s `#111` in dark). `index.html` carries the same pair as
+ * The browser-chrome colour on phones, matched to the page's `bg-base`: the phone's paper and
+ * its dark grey (`colors.base` in android/DESIGN.md). `index.html` carries the same pair as
  * per-scheme metas for the first paint.
  */
-export const THEME_COLOR = { light: '#ffffff', dark: '#111111' } as const
+export const THEME_COLOR = { light: tokens.colors.base.light, dark: tokens.colors.base.dark } as const
 
 /**
  * Keeps every `theme-color` meta on the app's actual mode. Dark is a class the user can

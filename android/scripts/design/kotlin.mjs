@@ -461,3 +461,81 @@ export function dpScale(source, objectName) {
   }
   return scale
 }
+
+/** `enum class PullsShadow(dy, blur, alpha)` entries, as `{ button: { y: '2px', blur: 'button', alpha: 0.08 } }`; `blur` names the `PullsElevation` value. */
+export function shadowLevels(source) {
+  const code = blank(source)
+  const at = code.indexOf('enum class PullsShadow')
+  if (at === -1) {
+    return null
+  }
+  const open = code.indexOf('{', at)
+  const body = code.slice(open + 1, matching(code, open))
+  const levels = {}
+  for (const m of body.matchAll(/\b([A-Z]\w*)\(\s*([\d.]+)\.dp\s*,\s*PullsElevation\.(\w+)\s*,\s*([\d.]+)f\s*\)/g)) {
+    levels[kebab(m[1])] = { y: `${Number.parseFloat(m[2])}px`, blur: m[3], alpha: Number.parseFloat(m[4]) }
+  }
+  return levels
+}
+
+/** The two-layer recipe around `floatShadow`: the tight edge layer and the dark-mode strength. */
+export function shadowLayer(source) {
+  const code = blank(source)
+  const number = pattern => Number.parseFloat(pattern.exec(code)?.[1] ?? 'NaN')
+  return {
+    'edge-y': `${number(/EDGE_DROP\s*=\s*([\d.]+)\.dp/)}px`,
+    'edge-radius': `${number(/EDGE_RADIUS\s*=\s*([\d.]+)f/)}px`,
+    'edge-share': number(/EDGE_SHARE\s*=\s*([\d.]+)f/),
+    'dark-strength': number(/level\.alpha\s*\*\s*([\d.]+)f/),
+    'dark-max': number(/level\.alpha\s*\*\s*[\d.]+f\)\.coerceAtMost\(([\d.]+)f\)/),
+  }
+}
+
+/**
+ * The prototype icons of `internal object Lu`: `{ name: { stroke, paths: [{ d, fill }] } }`, names in
+ * kebab-case (`newChat` is `new-chat`). The web draws the same paths (`i-lu-<name>`).
+ */
+export function luGlyphs(source) {
+  const strings = blank(source, { keepStrings: true })
+  const code = blank(source)
+  const at = code.indexOf('object Lu ')
+  if (at === -1) {
+    return null
+  }
+  const open = code.indexOf('{', at)
+  const close = matching(code, open)
+  const glyphs = {}
+  for (const m of code.slice(open, close).matchAll(/\bval\s+(\w+)\s*=\s*LuGlyph\(/g)) {
+    const start = open + m.index + m[0].length - 1
+    const args = strings.slice(start + 1, matching(code, start))
+    const [stroke, ...paths] = splitTopLevel(args)
+    glyphs[kebab(m[1])] = {
+      stroke: Number.parseFloat(stroke),
+      paths: paths.map((path) => {
+        const parts = /^LuPath\(\s*"([^"]*)"(?:\s*,\s*fill\s*=\s*(true|false))?\s*\)$/.exec(path)
+        if (!parts) {
+          throw new Error(`Icons.kt: Lu.${m[1]} has a path that is not LuPath("…"): ${path}`)
+        }
+        return { d: parts[1], fill: parts[2] === 'true' }
+      }),
+    }
+  }
+  return glyphs
+}
+
+/** `object PullsFonts`: each family's `Font(R.font.<file>, FontWeight.<weight>)` entries, as `{ sans: [{ file, weight }] }`. */
+export function fontFamilies(source) {
+  const body = objectBody(blank(source), 'PullsFonts')
+  if (body === null) {
+    return null
+  }
+  const families = {}
+  for (const m of body.matchAll(/\bval\s+(\w+)\s*=\s*FontFamily\(([^)]*(?:\)[^)]*)*?)\)\s*\n/g)) {
+    families[m[1]] = [...m[2].matchAll(/Font\(\s*R\.font\.(\w+)\s*,\s*FontWeight\.(\w+)\s*\)/g)]
+      .map(f => ({ file: f[1], weight: WEIGHTS[f[2]] ?? f[2] }))
+  }
+  return families
+}
+
+/** The CSS family name of each `PullsFonts` property. */
+export const FONT_FAMILY_NAMES = FAMILIES

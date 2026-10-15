@@ -1,0 +1,65 @@
+/* Generated from android/DESIGN.md and the Android kit by android/scripts/design/web.mjs (pnpm run android:design:update). Do not edit. */
+
+@font-face {
+  font-family: 'Geist';
+  src: url('../../../../android/app/src/main/res/font/geist_regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('../../../../android/app/src/main/res/font/geist_medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist';
+  src: url('../../../../android/app/src/main/res/font/geist_semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('../../../../android/app/src/main/res/font/geist_mono_regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('../../../../android/app/src/main/res/font/geist_mono_medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mona Sans';
+  src: url('../../../../android/app/src/main/res/font/mona_sans_regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mona Sans';
+  src: url('../../../../android/app/src/main/res/font/mona_sans_medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mona Sans';
+  src: url('../../../../android/app/src/main/res/font/mona_sans_semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}

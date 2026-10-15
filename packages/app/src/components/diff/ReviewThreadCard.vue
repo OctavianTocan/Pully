@@ -49,7 +49,7 @@ async function sendReply() {
 
 <template>
   <div class="my-1 max-w-200 overflow-hidden border border-base rounded-lg bg-base text-left font-sans">
-    <div class="divide-y divide-#9992">
+    <div class="divide-y divide-border-mute">
       <ReviewCommentCard
         v-for="comment in thread.comments"
         :key="comment.id"

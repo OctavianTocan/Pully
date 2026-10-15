@@ -31,7 +31,7 @@ const STATE_DISPLAY = {
       <span class="font-medium">{{ $t('review.reviews') }}</span>
       <span class="font-mono op-mute">{{ summaries.length }}</span>
     </button>
-    <ul v-if="open" class="border-t border-base divide-y divide-#9992">
+    <ul v-if="open" class="border-t border-base divide-y divide-border-mute">
       <li v-for="summary in summaries" :key="summary.id" class="flex flex-col gap-1 px-3 py-2 text-sm">
         <div class="flex items-center gap-2">
           <span :class="STATE_DISPLAY[summary.state].icon" aria-hidden="true" />
