@@ -17,6 +17,7 @@ file, and android/scripts/publish-apk.sh puts it in latest.json.
 Fixes for stacks, Jev groupings, AI reviews and huge pull requests.
 
 - Jev's kinds and risk show up on Home as soon as they are ready, without leaving and coming back.
+- On a TypeSafe plan with lower limits, Jev slows down instead of leaving pull requests unsorted.
 - A pull request's stack shows again after it reloads, and unusual branch setups no longer show a stack that isn't there.
 - Review with AI lists the review skills of the server you are connected to.
 - "Needs a look" marks are cleared when a pull request gets new commits.

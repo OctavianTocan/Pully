@@ -17,9 +17,17 @@ const TIMEOUT_MS = 30_000
 const BACKOFF_MS = 1_000
 /** A `retry-after` beyond this is cut short: the list or the file page is waiting on fresher answers. */
 const MAX_RETRY_AFTER_MS = 20_000
-/** Kept a little under TypeSafe's limits of 80 requests and 100k input tokens a second. */
+/**
+ * The fastest the client goes. TypeSafe sets rate limits per organization (requests and input tokens a second,
+ * https://docs.typesafe.ai/models#rate-limits), so a key on a smaller plan answers 429 well before this; the
+ * client then slows down for every request (see `slowDown`).
+ */
 const REQUESTS_PER_SECOND = 75
 const INPUT_TOKENS_PER_SECOND = 90_000
+/** The slowest a run of 429s takes the client: one request a second. */
+const MIN_PACE = 1 / REQUESTS_PER_SECOND
+/** Concurrent requests often hit the same 429; one slowdown a second counts them once. */
+const SLOW_DOWN_EVERY_MS = 1_000
 
 export type JevState = string | Record<string, unknown> | unknown[]
 
@@ -154,8 +162,9 @@ function errorDetail(payload: unknown): string | undefined {
 
 /**
  * A Jev client with its own limits: at most `concurrency` requests in flight, paced under
- * TypeSafe's rate limits, 429 and 529 retried with backoff (three attempts in all), each
- * attempt cut off after `timeoutMs`. A refused key turns it off for the rest of the run.
+ * TypeSafe's rate limits and slower after a 429, 429 and 529 retried with backoff (three
+ * attempts in all), each attempt cut off after `timeoutMs`. A refused key turns it off for
+ * the rest of the run.
  *
  * @param options The key and the parts tests replace.
  * @returns The client.
@@ -174,6 +183,9 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
   let active = 0
   const waiting: (() => void)[] = []
   let nextStart = 0
+  /** The share of the top speed the client goes at: halved by a 429, raised a little by each answer. */
+  let pace = 1
+  let slowedAt = Number.NEGATIVE_INFINITY
   const reported = new Set<number | undefined>()
 
   async function acquire(): Promise<void> {
@@ -194,14 +206,26 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
   }
 
   /** Spaces request starts so neither the request rate nor the input-token rate passes its limit. */
-  async function pace(body: string): Promise<void> {
+  async function waitTurn(body: string): Promise<void> {
     const tokens = Math.ceil(body.length / 4)
-    const cost = Math.max(1000 / REQUESTS_PER_SECOND, tokens / INPUT_TOKENS_PER_SECOND * 1000)
+    const cost = Math.max(1000 / REQUESTS_PER_SECOND, tokens / INPUT_TOKENS_PER_SECOND * 1000) / pace
     const start = Math.max(now(), nextStart)
     nextStart = start + cost
     const wait = start - now()
     if (wait > 0)
       await sleep(wait)
+  }
+
+  /**
+   * A 429 halves the pace of every later request and holds them all back for `wait`, so the client settles under
+   * the key's own limit instead of spending each request's retries; answers bring the speed back one step at a time.
+   */
+  function slowDown(wait: number): void {
+    nextStart = Math.max(nextStart, now() + wait)
+    if (now() - slowedAt < SLOW_DOWN_EVERY_MS)
+      return
+    slowedAt = now()
+    pace = Math.max(pace / 2, MIN_PACE)
   }
 
   function fail(message: string, status?: number): never {
@@ -218,7 +242,7 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
     try {
       if (refused)
         return 'off'
-      await pace(body)
+      await waitTurn(body)
       return await fetch(JEV_ENDPOINT, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -235,6 +259,15 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
     }
   }
 
+  /** How long to wait before trying a 429 or 529 again; a 429 also slows the client down. */
+  function backOff(res: Response, tries: number): number {
+    const wait = Math.min(retryAfterMs(res.headers.get('retry-after'), now()) ?? BACKOFF_MS * 2 ** (tries - 1), MAX_RETRY_AFTER_MS)
+    // 529 is TypeSafe overloaded as a whole, not this key going too fast.
+    if (res.status === 429)
+      slowDown(wait)
+    return wait
+  }
+
   /** Sends `body`, retrying 429 and 529; `'off'` once the key is refused. */
   async function send(body: string): Promise<Response | 'off'> {
     for (let tries = 1; ; tries++) {
@@ -247,10 +280,15 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
         refused = true
         return 'off'
       }
-      if ((res.status !== 429 && res.status !== 529) || tries >= MAX_ATTEMPTS)
+      if (res.ok)
+        pace = Math.min(pace + MIN_PACE, 1)
+      if (res.status !== 429 && res.status !== 529)
+        return res
+      const wait = backOff(res, tries)
+      if (tries >= MAX_ATTEMPTS)
         return res
       await res.body?.cancel().catch(() => {})
-      await sleep(Math.min(retryAfterMs(res.headers.get('retry-after'), now()) ?? BACKOFF_MS * 2 ** (tries - 1), MAX_RETRY_AFTER_MS))
+      await sleep(wait)
     }
   }
 
