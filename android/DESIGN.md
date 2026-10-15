@@ -50,6 +50,7 @@ colors:
   diff-del-mark: "#EDB5AA"
   shadow: "#0E333A"
   scrim: "#0E333A61"
+  grabber: "#D9D9D6"
   dark-base: "#161616"
   dark-text: "#E3E3E3"
   dark-muted: "#9D9D9D"
@@ -91,6 +92,7 @@ colors:
   dark-diff-del-mark: "#6A3A32"
   dark-shadow: "#000000"
   dark-scrim: "#00000099"
+  dark-grabber: "#3A3A3A"
 typography:
   xs:
     fontFamily: Geist
@@ -764,7 +766,7 @@ Source: walkthrough. Checked by: bans, review.
 
 #### 52. Refresh is silent.
 
-Pull down must not show a refresh indicator. The app refreshes by itself and does not show it. Today the pull-to-refresh spinner is drawn on top of the first row's title, with no space reserved for it.
+Pull down must not show a refresh indicator. The app refreshes by itself and does not show it. There is no Refresh button or command anywhere ("we should be refreshing ourselves so there should be no need for the user to refresh"): a pull request takes new commits by itself, and a page reloads quietly when the app comes back to the front. Today the pull-to-refresh spinner is drawn on top of the first row's title, with no space reserved for it.
 
 Source: walkthrough. Checked by: bans, review.
 
@@ -958,7 +960,7 @@ Source: overhaul. Checked by: tokens, review.
 
 #### 77. Sheets rest at two heights.
 
-A sheet with more content than fits rests at half height (or at its content height when that is less) or at full height, and slides between them. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text. A sheet that opens a keyboard (Commands, the chat) opens at full height, because a half-height sheet would sit behind the keyboard, and it takes the keyboard only after it has finished sliding up.
+Every sheet rests at its normal height (its content, at most half the screen) or at the tall height near the top, and slides between them. A sheet whose content is short, the profile sheet included, can still be lifted to the tall height: the room under its content is the sheet's paper. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text. A sheet with a field (Commands, the chat) opens at its normal height too, with no keyboard ("it goes into this text mode immediately" was jarring). Tapping the field, or lifting the sheet, brings the keyboard up and the sheet to the tall height; lowering it puts the keyboard away.
 It replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.
 
 Check: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it.
@@ -1076,8 +1078,8 @@ Source: overhaul. Checked by: review.
 
 #### 91. Long threads fold.
 
-Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. "commented" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name, and a long name is cut with an ellipsis rather than push them ("align these always").
-Pushed commits are not in the Conversation. They have a tab of their own, Commits, between Description and Conversation ("Commits should be somewhere else. Maybe a tab"). It lists them oldest first and says so at the top, numbers each one, gives every row room (14dp above and below, a hairline between), and keeps "All commits" as the first row. A tap shows only that commit, a long-press stretches the range from the last one tapped, and the banner of rule 80 says what is shown. The Commits cell on the page opens this tab. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs carry no counts, so four fit a phone: they spread from the first label at the start to the last at the end with even gaps, and when they cannot fit they scroll sideways instead of cutting a label.
+Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. "commented" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name, and a long name wraps onto a second line rather than push them or be cut ("align these always").
+Pushed commits are not in the Conversation. They have a tab of their own, Commits, between Summary and Conversation ("Commits should be somewhere else. Maybe a tab"). It lists them oldest first and says so at the top, numbers each one, gives every row room (14dp above and below, a hairline between), and keeps "All commits" as the first row. A tap shows only that commit, a long-press stretches the range from the last one tapped, and the banner of rule 80 says what is shown. The Commits cell on the page opens this tab. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs carry no counts, so they fit a phone: they spread from the first label at the start to the last at the end with even gaps, and when they cannot fit they scroll sideways instead of cutting a label.
 
 Check: open a Conversation with ten comments. Every one folds and unfolds, none says "commented", the ages are in one column, and no commit is in it. Open Commits: the order is written, every commit has its number.
 
@@ -1093,7 +1095,7 @@ Source: overhaul. Checked by: review.
 
 #### 93. Swiping the diff goes to the next file. The header never shifts.
 
-A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the "never switched by horizontal swipe" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the last file, a swipe left continues to the Tour; from the first, a swipe right goes back to the Overview. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header.
+A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the "never switched by horizontal swipe" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the last file, a swipe left continues to the Tour; from the first, a swipe right goes back to the Overview. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button, the capsule and the bar of rule 80 are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff, and from the Overview's last tab a swipe left goes on to the Diff. A pinch scales the code under the fingers and pans with them; when they lift, the new size is kept and the line that was under them stays there.
 Aa opens "Text and tools" as a bottom sheet, and every choice in it shows what it does instead of describing it ("why am I not seeing what these do"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with "wider screens"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.
 
 Check: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you.
@@ -1102,7 +1104,7 @@ Source: overhaul. Checked by: review.
 
 #### 94. One way to start a comment, one sheet to write it in.
 
-The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. Selecting lines turns the bar at the bottom into the comment bar: what is selected with a ✕ to let it go, the field, a small toggle for "In review" or "Post now" and the send button; letting the lines go turns it back into ‹ name ›. The thread under the line stays a card in the code (rule 9). Nothing repeats what is already on screen. Tapping a file note opens Ask with that note attached as a card above the field, which a ✕ leaves out.
+The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. Selecting lines turns the bar at the bottom into the comment bar: a ✕ to let the lines go, the field (its placeholder is the one place the range is written, "Comment on lines 356–358"), a small toggle for "In review" or "Post now", a ⋯ and the send button; letting the lines go turns it back into ‹ name ›. The ⋯ opens a small sheet: Ask about these lines (the Ask sheet, with the lines attached as a card), Copy file and lines, Copy GitHub link. Someone who cannot comment gets the ✕, the range and the ⋯. A comment thread under the line stays a card in the code (rule 9); an Ask about lines shows under them as the chat shows it, the question in its bubble and the answer as plain text with no box (rule 99). Nothing repeats what is already on screen. Tapping a file note opens Ask with that note attached as a card above the field, which a ✕ leaves out.
 This replaces rule 64's "a bar you type into" and the toolbar of rule 49. He chose option B of the target designs, the bar ("I'll live with this option for now"), over the sheet of option A ("I hate this so much").
 
 Check: comment on three lines. One bar, one field, and nothing on the screen says the same thing twice. Let the lines go: the file name is back.
@@ -1111,7 +1113,7 @@ Source: overhaul. Checked by: review.
 
 #### 95. Code, flows and tables in AI text work like the diff.
 
-A code block in a tour or an answer is the diff's code view: syntax colours, sideways scroll, pinch zoom. A flow is drawn by the app from structured data, never printed as text. A table keeps a readable width for each column (the description never below about 230dp) and scrolls sideways with a fade at its edge. Inline code shows as code and never with its backticks.
+A code block in a tour or an answer is the diff's code view: syntax colours, sideways scroll, pinch zoom. A flow is drawn by the app from structured data, never printed as text. A table keeps a readable width for each column (the description never below about 230dp) and scrolls sideways with a fade at its edge. Inline code shows as code and never with its backticks. Pseudocode is coloured like code, from the same palette. A call tree and a file tree are drawn as trees with guide lines, and a file in a tree that the pull request changes opens it. A flow line that does not parse stays as words in its place while the rest of the flow is drawn. In a tour's "In the code" list the place sits on its own line and its reason under it at the full width, so a long file name never squeezes the reason into a narrow column (24:30 in the second walkthrough).
 
 Check: open a tour with a code block, a flow and a table. The code scrolls and zooms, the flow is drawn, no column is squeezed to four characters.
 
@@ -1144,7 +1146,7 @@ Source: overhaul. Checked by: review.
 
 #### 99. Ask replies are plain text.
 
-The AI's reply has no box, fill or shadow. Only your own message is a bubble, in the accent colour. There is never a bubble with dots in it. "Clear" is not a word on the screen: a new-chat button sits at the top right. Under each answer, sources are chips that scroll to the place, and two or three follow-up questions that tap to send, written each turn by a small fast model. The thinking streams as it happens (rule 72). The ⋯ menu of Perplexity is not copied.
+The AI's reply has no box, fill or shadow. Only your own message is a bubble, in the accent colour. There is never a bubble with dots in it. "Clear" is not a word on the screen: a new-chat button sits at the top right. Under each answer, sources are chips that scroll to the place, and two or three follow-up questions that tap to send, written each turn by a small fast model. The thinking streams as it happens (rule 72): while a step thinks, its newest two or three lines show under it in the muted colour and fold away when it ends, and the answer appears in its place as it is written, with no jump when the saved reply takes over. The source chips cover the files it read as well as the places it names. The ⋯ menu of Perplexity is not copied.
 
 Check: ask a question. A plain reply, source chips, follow-ups, no dots bubble and no "Clear".
 
@@ -1172,7 +1174,7 @@ Source: overhaul. Checked by: review.
 
 #### 102. A file row swipes like a pull request row.
 
-A file row on the Overview takes the gestures of the Inbox rows (rule 56): a swipe right marks it reviewed (or not reviewed), a swipe left opens it, a tap opens it and a long-press opens its actions (open, mark reviewed, copy the path, ask about the file). The checkbox sits on the first line of text. The file name comes first, its folder under it cut from the front (rule 90), the counts at the right, and the AI's note in two lines at most.
+A file row on the Overview takes the gestures of the Inbox rows (rule 56): a swipe right opens it, as it opens a pull request row, a swipe left marks it reviewed (or not reviewed), a tap opens it and a long-press opens its actions (open, mark reviewed, copy the path, ask about the file). The checkbox sits on the first line of text. The file name comes first, its folder under it cut from the front (rule 90), the counts at the right, and the AI's note in two lines at most.
 
 Check: swipe a file both ways, tap it and hold it. The swipe blurs the row like the Inbox's, and the box lines up with the name.
 
@@ -1205,13 +1207,14 @@ These were liked in the walkthrough and must not regress:
 - The list rearranging when the scope chips switch (Waiting on you, Authored, All).
 - The Files list on the Overview. A separator under the "Files" heading may be tried: in the not-analyzed state nothing divides it from the Analyze card above.
 - The description on the Overview.
-- The Diff screen, and its pinch zoom.
+- The Diff screen.
 - Pull down for Commands, and its search.
 - The Settings sheet.
 - Tapping Quick, Standard or Deep on the Analyze sheet starts the analysis.
 - The Analyze button, the Analyzing card's look and the "Look for problems" row.
 - Mark reviewed, then the next file.
-- The Tour's sections and the Glossary, and the commit groups in Conversation.
+- The Tour's sections and the Glossary.
+- The commits, which have a tab of their own since his comment on the target designs (rule 91).
 
 ## Checklist
 
@@ -1303,7 +1306,7 @@ Every difference between this file and the rendered app, and how it was settled.
 
 - **2026-10-14, this file written from the source at version 0.6.1 (build 16).** The tokens are what `Tokens.kt` renders today, not the other way round, so no visible change. Kotlin is compared with this file instead of being generated from it: `Tokens.kt` carries computed properties and the app is being edited in parallel, and a generator would overwrite those edits. The checks still fail closed.
 - **2026-10-14, departures are frozen, not fixed.** The raw-values and bans baselines record how far the code is from these rules today: 288 raw values (40 hex colours, 131 raw radii, 2 raw font sizes, 3 raw shadows, 106 text runs below 15, 6 uppercase or tracked) and 187 banned uses (93 Phosphor icon calls, 75 web-port kit calls, 6 Material components, 3 Material sheets or menus, 1 pull-to-refresh, 9 loading indicators). No screen was restyled to get there. Each fix lowers a number and the check asks for the baseline to be lowered with it.
-- **2026-10-14, raw colours in the kit that are not tokens yet. Open.** `Kit.kt` and `Sheet.kt` hold literals for the sheet grabber (`D9D9D6`, in `Sheet.kt`), the unchecked box edge (`C9CFCE`), the pending ring (`B9C4C5`), the orb and toast accent (`9AD3D6`) and the profile gradient (`D9B38C`, `8C5A3C`). They need tokens, with dark values. They sit in the raw-values baseline until then.
+- **2026-10-14, raw colours in the kit that are not tokens yet. Open.** `Kit.kt` holds literals for the unchecked box edge (`C9CFCE`), the pending ring (`B9C4C5`), the orb and toast accent (`9AD3D6`) and the profile gradient (`D9B38C`, `8C5A3C`). They need tokens, with dark values. They sit in the raw-values baseline until then. (The sheet grabber was one of them; it became the `grabber` token, with a dark value, in 0.20.0.)
 - **2026-10-14, the PR row has no page. Open.** Rule 15 says one row anatomy everywhere, but the row is private to `HomeScreen.kt` and the Tours list, so the UI Book cannot render it. Pulling it into `ui/design` is a change to the screens and was left to the work that owns them.
 - **2026-10-14, forced states.** The web book forces hover, focus and active with CSS. Compose cannot, so the book forces the states a component takes as parameters (selected, disabled, loading, running, done) and shows the pressed scale on the Motion page with a live pressable. A sheet is a window and cannot be framed inside a page, so its page shows the sheet's body inline and opens the real sheet from a button.
 - **2026-10-14, rule 48 and rule 37. Settled the same day:** Tavi called the robot, the compass and the sparkle hideous, so none is left. The Model row shows the chosen engine's own mark in colour, and the `ai-glyph` ban baseline is zero. Earlier text, kept for the record: One Lucide sparkles icon per screen as the AI mark is still in force. The walkthrough does not say whether it stays, and the sparkle called hideous on "Ask AI" is the kind of mark rule 37 asks for. The `ai-glyph` ban counts the sparkle with the robot head, the compass and the chat bubble, so none can be added. Counting is not removing: the existing ones stay until Tavi decides.
