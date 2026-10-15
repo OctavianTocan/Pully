@@ -1,6 +1,6 @@
 import type { GithubPullRequestFileJson, GithubPullRequestJson } from './api'
 import { describe, expect, it, vi } from 'vitest'
-import { normalizePullRequest } from './normalize'
+import { MAX_SELF_DIFF_CHARS, MAX_SELF_DIFF_COST, normalizePullRequest } from './normalize'
 
 const noFallbacks = { loadDiffText: async () => '', loadFileContent: async () => undefined }
 
@@ -147,6 +147,56 @@ describe('normalizePullRequest', () => {
 
       expect(diff.files[0]).toMatchObject({ isBinary: true, hunks: [] })
       expect(loadFileContent).not.toHaveBeenCalled()
+    })
+
+    it('marks a file with too many changed lines as too large without fetching content', async () => {
+      // The generated 10 MB file that froze the server: ~92k changed lines.
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'gen.dylib.yml', status: 'modified', additions: 49_000, deletions: 42_000, sha: 'g1' },
+      ]
+      const loadFileContent = vi.fn(async () => 'x\n')
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(diff.files[0]).toEqual(expect.objectContaining({ isBinary: false, additions: 49_000, deletions: 42_000, hunks: [], truncated: true }))
+      expect(loadFileContent).not.toHaveBeenCalled()
+    })
+
+    it('marks a file as too large when either version is past the size limit', async () => {
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'big.json', status: 'modified', additions: 1, deletions: 1, sha: 'b1' },
+      ]
+      const loadFileContent = vi.fn(async (_path: string, ref: string) => ref === 'base123' ? 'a\n' : 'b'.repeat(MAX_SELF_DIFF_CHARS + 1))
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(diff.files[0]).toMatchObject({ hunks: [], truncated: true })
+    })
+
+    it('marks a file as too large when its lines times its changed lines would take too long to diff', async () => {
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'long.txt', status: 'modified', additions: 1_000, deletions: 1_000, sha: 'l1' },
+      ]
+      const lines = MAX_SELF_DIFF_COST / 2_000 / 2 + 1
+      const loadFileContent = vi.fn(async () => 'x\n'.repeat(lines))
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(diff.files[0]).toMatchObject({ hunks: [], truncated: true })
+    })
+
+    it('diffs a large file without blocking the event loop', async () => {
+      const lines = Array.from({ length: 5_000 }, (_, i) => `line ${i}`)
+      const changed = lines.map((line, i) => i % 50 === 0 ? `changed ${i}` : line)
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'big.txt', status: 'modified', additions: 100, deletions: 100, sha: 'k1' },
+      ]
+      const loadFileContent = async (_path: string, ref: string) => (ref === 'base123' ? lines : changed).join('\n')
+      let ticks = 0
+      const timer = setInterval(() => ticks++, 0)
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+      clearInterval(timer)
+
+      expect(diff.files[0]!.truncated).toBeUndefined()
+      expect(diff.files[0]!.hunks.reduce((n, h) => n + h.patch.split('\n').filter(l => l.startsWith('+')).length, 0)).toBe(100)
+      expect(ticks).toBeGreaterThan(0)
     })
   })
 

@@ -27,14 +27,51 @@ export interface ComparedShas {
   head: string
 }
 
-/** Last resort for diffs too large for GitHub to render: diff the two file versions ourselves. */
-async function diffFileContents(file: GithubPullRequestFileJson, shas: ComparedShas, loadFileContent: PatchFallbacks['loadFileContent']): Promise<DiffHunk[]> {
+/**
+ * Past these we don't diff a file ourselves. A line diff costs about lines × changed lines:
+ * a generated 10 MB file with 90k changed lines held the server for over ten minutes, and even
+ * 40k lines with 2k changes takes seconds. Such a file shows as too large, with its full file a tap away.
+ */
+export const MAX_SELF_DIFF_CHANGES = 5_000
+export const MAX_SELF_DIFF_CHARS = 2 * 1024 * 1024
+export const MAX_SELF_DIFF_COST = 100_000_000
+/** Gives up on a diff still running after this long, should the counts GitHub gave undersell it. */
+const SELF_DIFF_TIMEOUT_MS = 10_000
+
+function lineCount(text: string): number {
+  let count = 1
+  for (let at = text.indexOf('\n'); at !== -1; at = text.indexOf('\n', at + 1))
+    count++
+  return count
+}
+
+/** Line-diffs two texts a step per timer tick, so other requests keep being served; `undefined` when it gives up. */
+function diffTexts(oldPath: string, newPath: string, oldContent: string, newContent: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    createTwoFilesPatch(oldPath, newPath, oldContent, newContent, undefined, undefined, {
+      maxEditLength: MAX_SELF_DIFF_CHANGES,
+      timeout: SELF_DIFF_TIMEOUT_MS,
+      callback: resolve,
+    })
+  })
+}
+
+/** Last resort for diffs too large for GitHub to render: diff the two file versions ourselves; `undefined` when too large for that too. */
+async function diffFileContents(file: GithubPullRequestFileJson, shas: ComparedShas, loadFileContent: PatchFallbacks['loadFileContent']): Promise<DiffHunk[] | undefined> {
+  const changes = file.additions + file.deletions
+  if (changes > MAX_SELF_DIFF_CHANGES)
+    return undefined
   const oldPath = file.previous_filename ?? file.filename
-  const [oldContent, newContent] = await Promise.all([
+  const [oldContent = '', newContent = ''] = await Promise.all([
     file.status === 'added' || !shas.base ? undefined : loadFileContent(oldPath, shas.base),
     file.status === 'removed' ? undefined : loadFileContent(file.filename, shas.head),
   ])
-  return parseHunks(createTwoFilesPatch(oldPath, file.filename, oldContent ?? '', newContent ?? '').split('\n'))
+  if (oldContent.length > MAX_SELF_DIFF_CHARS || newContent.length > MAX_SELF_DIFF_CHARS)
+    return undefined
+  if ((lineCount(oldContent) + lineCount(newContent)) * changes > MAX_SELF_DIFF_COST)
+    return undefined
+  const patch = await diffTexts(oldPath, file.filename, oldContent, newContent)
+  return patch === undefined ? undefined : parseHunks(patch.split('\n'))
 }
 
 async function normalizeFile(file: GithubPullRequestFileJson, shas: ComparedShas, fallbackDiffText: () => Promise<string | undefined>, loadFileContent: PatchFallbacks['loadFileContent']): Promise<FileChange> {
@@ -75,6 +112,7 @@ async function normalizeFile(file: GithubPullRequestFileJson, shas: ComparedShas
 
   // Binary files report no changed lines; a text file with changes but no patch is just too large.
   if (fullText === undefined && file.additions + file.deletions > 0) {
+    const hunks = await diffFileContents(file, shas, loadFileContent)
     return {
       path: file.filename,
       previousPath: file.previous_filename,
@@ -83,7 +121,7 @@ async function normalizeFile(file: GithubPullRequestFileJson, shas: ComparedShas
       deletions: file.deletions,
       isBinary: false,
       sha: file.sha,
-      hunks: await diffFileContents(file, shas, loadFileContent),
+      ...(hunks ? { hunks } : { hunks: [], truncated: true as const }),
     }
   }
 
