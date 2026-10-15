@@ -27,7 +27,8 @@ class AppSettings private constructor(private val context: Context) {
     var layout by mutableStateOf(prefs.getString("layout", null)?.lowercase() ?: "split")
         private set
 
-    var autoRefresh by mutableStateOf(prefs.getBoolean("autoRefresh", false))
+    /** A pull request page takes new commits by itself, quietly; switched off, it says they are there and waits for a tap. */
+    var autoRefresh by mutableStateOf(prefs.getBoolean("autoRefresh", true))
         private set
 
     var showThreads by mutableStateOf(prefs.getBoolean("showThreads", true))

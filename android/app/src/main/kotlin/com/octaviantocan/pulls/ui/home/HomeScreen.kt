@@ -220,19 +220,18 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
     val viewer = remember(everything) { Triage.viewerLogin(everything.orEmpty()) }
     var profileOpen by remember { mutableStateOf(false) }
 
-    // `useHomeNavigation.ts`: refresh, and a "Go to" entry per pull request and repository.
+    // `useHomeNavigation.ts`: a "Go to" entry per pull request and repository. There is no Refresh: the Inbox refreshes itself.
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
     com.octaviantocan.pulls.ui.UseCommands {
         val pullsGroup = messages.t("palette.group.pulls")
         val reposGroup = messages.t("palette.group.repos")
         val all = pulls.orEmpty()
-        listOf(com.octaviantocan.pulls.ui.Command("home.refresh", messages.t("keys.refresh"), pullsGroup) { reload() }) +
-            all.map { pull ->
-                val ref = "${pull.owner}/${pull.repo}#${pull.number}"
-                com.octaviantocan.pulls.ui.Command("jump.pull:$ref", messages.t("palette.goToPull", "ref" to ref, "title" to pull.title), pullsGroup) {
-                    nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
-                }
-            } +
+        all.map { pull ->
+            val ref = "${pull.owner}/${pull.repo}#${pull.number}"
+            com.octaviantocan.pulls.ui.Command("jump.pull:$ref", messages.t("palette.goToPull", "ref" to ref, "title" to pull.title), pullsGroup) {
+                nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
+            }
+        } +
             all.distinctBy { "${it.owner}/${it.repo}" }.map { pull ->
                 com.octaviantocan.pulls.ui.Command("jump.repo:${pull.owner}/${pull.repo}", messages.t("palette.goToRepo", "repo" to "${pull.owner}/${pull.repo}"), reposGroup) {
                     nav.openRepo(pull.owner, pull.repo)
@@ -295,7 +294,7 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
                     )
                 } else {
                     ToursList(
-                        entries = tours.entries.filter { needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle) },
+                        entries = tours.entries.filter { "${it.owner}/${it.repo}" !in hidden && (needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle)) },
                         pulls = everything.orEmpty(),
                         tasks = workTasks,
                         onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) },
