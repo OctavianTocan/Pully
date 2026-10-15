@@ -12,6 +12,16 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.26.0
+
+Fixes for stacks, Jev groupings, AI reviews and huge pull requests.
+
+- Jev's kinds and risk show up on Home as soon as they are ready, without leaving and coming back.
+- A pull request's stack shows again after it reloads, and unusual branch setups no longer show a stack that isn't there.
+- Review with AI lists the review skills of the server you are connected to.
+- "Needs a look" marks are cleared when a pull request gets new commits.
+- A huge pull request that gets new commits while you read it never mixes in code from before.
+
 ## 0.25.0
 
 Everything still missing from your walkthrough video is now in.

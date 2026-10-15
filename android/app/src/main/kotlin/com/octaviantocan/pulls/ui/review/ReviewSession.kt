@@ -186,10 +186,17 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      */
     fun loadPatches(paths: List<String>) {
         val key = opened?.key ?: return
+        // A pull request keeps its key across pushes, so the head tells an answer for this diff from one for the last.
+        val head = opened?.headSha
         val wanted = paths.filter { it !in patchProblems && patchesAsked.add(it) }
         if (wanted.isEmpty()) return
         scope.launch {
-            runCatching { repo.diffPatches(key, wanted) }
+            val answer = runCatching { repo.diffPatches(key, wanted) }
+            if (opened?.key != key || opened?.headSha != head) {
+                patchesAsked.removeAll(wanted.toSet())
+                return@launch
+            }
+            answer
                 .onSuccess { patches ->
                     val byPath = opened?.takeIf { it.key == key }?.files.orEmpty().associateBy { it.path }
                     val fitting = patches.filter { (path, patch) -> byPath[path]?.matches(patch) == true }
