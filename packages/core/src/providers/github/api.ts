@@ -102,6 +102,44 @@ export async function fetchDiffText(client: GithubClient, path: string): Promise
   }
 }
 
+/** A response body as text, or `null` once it passes `maxBytes`: reading stops there, so a huge file never sits in memory. */
+async function readTextWithin(response: Response, maxBytes: number): Promise<string | null> {
+  if (Number(response.headers.get('content-length')) > maxBytes) {
+    await response.body?.cancel()
+    return null
+  }
+  if (!response.body) {
+    const text = await response.text()
+    return new TextEncoder().encode(text).byteLength > maxBytes ? null : text
+  }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let size = 0
+  let text = ''
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    size += chunk.value.byteLength
+    if (size > maxBytes) {
+      await reader.cancel()
+      return null
+    }
+    text += decoder.decode(chunk.value, { stream: true })
+  }
+  return text + decoder.decode()
+}
+
+/** Like `fetchFileContentAtRef`, but `null` for a file over `maxBytes`, read only that far. */
+export async function fetchFileContentWithin(client: GithubClient, owner: string, repo: string, path: string, ref: string, maxBytes: number): Promise<string | null | undefined> {
+  const encodedPath = path.split('/').map(encodeURIComponent).join('/')
+  try {
+    return await readTextWithin(await client.request(`/repos/${owner}/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`, { accept: 'application/vnd.github.raw' }), maxBytes)
+  }
+  catch (err) {
+    if (err instanceof GithubApiError && err.status === 404)
+      return undefined
+    throw err
+  }
+}
+
 /**
  * A file's full raw content at a specific ref (commit sha, branch, tag, ...), via the
  * Contents API's `raw` media type (returns the file body directly, no base64 decoding).

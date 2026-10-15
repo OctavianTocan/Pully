@@ -1,7 +1,7 @@
 import type { Credentials, DiffSource, SourceRef } from '../../types/source'
 import type { GithubTokenMeta } from './token-meta'
 import { serializeRef } from '../../types/source'
-import { fetchDiffText, fetchFileContentAtRef, fetchPullRequest, fetchPullRequestCommits, fetchPullRequestFiles } from './api'
+import { fetchDiffText, fetchFileContentAtRef, fetchFileContentWithin, fetchPullRequest, fetchPullRequestCommits, fetchPullRequestFiles } from './api'
 import { createGithubClient } from './client'
 import { normalizePullRequest } from './normalize'
 import { createGithubCommitSource, createGithubCompareSource } from './refs'
@@ -35,7 +35,7 @@ export function createGithubPullRequestSource({ owner, repo, number }: { owner: 
       ])
       return normalizePullRequest(owner, repo, number, pr, files, commits, {
         loadDiffText: () => fetchDiffText(client, `/repos/${owner}/${repo}/pulls/${number}`),
-        loadFileContent: (path, ref) => fetchFileContentAtRef(client, owner, repo, path, ref),
+        loadFileContent: (path, ref, maxBytes) => fetchFileContentWithin(client, owner, repo, path, ref, maxBytes),
       })
     },
     fingerprint: async () => (await fetchPullRequest(client, owner, repo, number)).head.sha,

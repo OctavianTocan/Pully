@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { staticCredentials } from '../../types/source'
-import { fetchDiffText, fetchFileContentAtRef } from './api'
+import { fetchDiffText, fetchFileContentAtRef, fetchFileContentWithin } from './api'
 import { createGithubClient } from './client'
 
 describe('fetchFileContentAtRef', () => {
@@ -41,6 +41,47 @@ describe('fetchFileContentAtRef', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 500 })))
 
     await expect(fetchFileContentAtRef(createGithubClient(), 'owner', 'repo', 'src/foo.ts', 'abc123')).rejects.toThrow(/GitHub API request failed \(500\)/)
+  })
+})
+
+describe('fetchFileContentWithin', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('returns a file within the limit', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('héllo', { status: 200 })))
+
+    await expect(fetchFileContentWithin(createGithubClient(), 'owner', 'repo', 'a.ts', 'sha', 6)).resolves.toBe('héllo')
+  })
+
+  it('returns null for a file whose stated length is over the limit, without reading it', async () => {
+    const body = new ReadableStream({ pull: vi.fn() })
+    const cancel = vi.spyOn(body, 'cancel')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 200, headers: { 'content-length': '100' } })))
+
+    await expect(fetchFileContentWithin(createGithubClient(), 'owner', 'repo', 'a.ts', 'sha', 10)).resolves.toBeNull()
+    expect(cancel).toHaveBeenCalled()
+  })
+
+  it('stops reading once a streamed file passes the limit', async () => {
+    let pulled = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++
+        controller.enqueue(new Uint8Array(4))
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 200 })))
+
+    await expect(fetchFileContentWithin(createGithubClient(), 'owner', 'repo', 'a.ts', 'sha', 10)).resolves.toBeNull()
+    expect(pulled).toBeLessThan(10)
+  })
+
+  it('returns undefined for a 404', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not found', { status: 404 })))
+
+    await expect(fetchFileContentWithin(createGithubClient(), 'owner', 'repo', 'a.ts', 'sha', 10)).resolves.toBeUndefined()
   })
 })
 

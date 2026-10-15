@@ -1,6 +1,6 @@
 import type { GithubPullRequestFileJson, GithubPullRequestJson } from './api'
 import { describe, expect, it, vi } from 'vitest'
-import { normalizePullRequest } from './normalize'
+import { MAX_SELF_DIFF_BYTES, MAX_SELF_DIFF_COST, normalizePullRequest } from './normalize'
 
 const noFallbacks = { loadDiffText: async () => '', loadFileContent: async () => undefined }
 
@@ -133,8 +133,8 @@ describe('normalizePullRequest', () => {
       const loadFileContent = vi.fn(async (path: string) => path === 'old.ts' ? 'x\n' : path === 'new.ts' ? 'y\n' : 'l1\nl2\n')
       const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
 
-      expect(loadFileContent).toHaveBeenCalledWith('old.ts', 'base123')
-      expect(loadFileContent).not.toHaveBeenCalledWith('added.ts', 'base123')
+      expect(loadFileContent).toHaveBeenCalledWith('old.ts', 'base123', MAX_SELF_DIFF_BYTES)
+      expect(loadFileContent).not.toHaveBeenCalledWith('added.ts', 'base123', MAX_SELF_DIFF_BYTES)
       expect(diff.files[1]!.hunks[0]).toMatchObject({ oldStart: 0, oldLines: 0, newStart: 1, newLines: 2 })
     })
 
@@ -147,6 +147,74 @@ describe('normalizePullRequest', () => {
 
       expect(diff.files[0]).toMatchObject({ isBinary: true, hunks: [] })
       expect(loadFileContent).not.toHaveBeenCalled()
+    })
+
+    it('marks a file with too many changed lines as too large without fetching content', async () => {
+      // The generated 10 MB file that froze the server: ~92k changed lines.
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'gen.dylib.yml', status: 'modified', additions: 49_000, deletions: 42_000, sha: 'g1' },
+      ]
+      const loadFileContent = vi.fn(async () => 'x\n')
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(diff.files[0]).toEqual(expect.objectContaining({ isBinary: false, additions: 49_000, deletions: 42_000, hunks: [], truncated: true }))
+      expect(loadFileContent).not.toHaveBeenCalled()
+    })
+
+    it('marks a file as too large when either version is past the size limit, asking for no more than it', async () => {
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'big.json', status: 'modified', additions: 1, deletions: 1, sha: 'b1' },
+      ]
+      const loadFileContent = vi.fn(async (_path: string, ref: string) => ref === 'base123' ? 'a\n' : null)
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(loadFileContent).toHaveBeenCalledWith('big.json', 'head456', MAX_SELF_DIFF_BYTES)
+      expect(diff.files[0]).toMatchObject({ hunks: [], truncated: true })
+    })
+
+    it('diffs only a few files at a time', async () => {
+      const files: GithubPullRequestFileJson[] = Array.from({ length: 12 }, (_, i) => ({ filename: `f${i}.ts`, status: 'modified', additions: 1, deletions: 1, sha: `s${i}` }))
+      let inFlight = 0
+      let most = 0
+      const loadFileContent = async (_path: string, ref: string) => {
+        most = Math.max(most, ++inFlight)
+        await new Promise(resolve => setTimeout(resolve, 5))
+        inFlight--
+        return ref === 'base123' ? 'old\n' : 'new\n'
+      }
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(diff.files.every(f => f.hunks.length === 1)).toBe(true)
+      // Two loads (base and head) per file in flight.
+      expect(most).toBeLessThanOrEqual(8)
+    })
+
+    it('marks a file as too large when its lines times its changed lines would take too long to diff', async () => {
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'long.txt', status: 'modified', additions: 1_000, deletions: 1_000, sha: 'l1' },
+      ]
+      const lines = MAX_SELF_DIFF_COST / 2_000 / 2 + 1
+      const loadFileContent = vi.fn(async () => 'x\n'.repeat(lines))
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(diff.files[0]).toMatchObject({ hunks: [], truncated: true })
+    })
+
+    it('diffs a large file without blocking the event loop', async () => {
+      const lines = Array.from({ length: 5_000 }, (_, i) => `line ${i}`)
+      const changed = lines.map((line, i) => i % 50 === 0 ? `changed ${i}` : line)
+      const files: GithubPullRequestFileJson[] = [
+        { filename: 'big.txt', status: 'modified', additions: 100, deletions: 100, sha: 'k1' },
+      ]
+      const loadFileContent = async (_path: string, ref: string) => (ref === 'base123' ? lines : changed).join('\n')
+      let ticks = 0
+      const timer = setInterval(() => ticks++, 0)
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+      clearInterval(timer)
+
+      expect(diff.files[0]!.truncated).toBeUndefined()
+      expect(diff.files[0]!.hunks.reduce((n, h) => n + h.patch.split('\n').filter(l => l.startsWith('+')).length, 0)).toBe(100)
+      expect(ticks).toBeGreaterThan(0)
     })
   })
 

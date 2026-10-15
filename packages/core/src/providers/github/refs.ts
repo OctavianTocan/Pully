@@ -3,7 +3,7 @@ import type { Credentials, DiffSource } from '../../types/source'
 import type { GithubDiffEntryJson } from './api'
 import type { GithubClient } from './client'
 import { serializeRef } from '../../types/source'
-import { fetchCommit, fetchCompare, fetchDiffText, fetchFileContentAtRef, fetchRefSha } from './api'
+import { fetchCommit, fetchCompare, fetchDiffText, fetchFileContentAtRef, fetchFileContentWithin, fetchRefSha } from './api'
 import { createGithubClient } from './client'
 import { normalizeFiles } from './normalize'
 
@@ -15,7 +15,7 @@ function withSha(files: GithubDiffEntryJson[] | undefined, headSha: string) {
 function fallbacks(client: GithubClient, owner: string, repo: string, diffPath: string) {
   return {
     loadDiffText: () => fetchDiffText(client, diffPath),
-    loadFileContent: (path: string, sha: string) => fetchFileContentAtRef(client, owner, repo, path, sha),
+    loadFileContent: (path: string, sha: string, maxBytes: number) => fetchFileContentWithin(client, owner, repo, path, sha, maxBytes),
   }
 }
 
