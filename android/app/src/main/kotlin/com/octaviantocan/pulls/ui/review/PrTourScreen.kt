@@ -149,7 +149,7 @@ internal fun PrTourScreen(
     }
 
     // A swipe to the right takes the cards back to the Diff, following the finger as the Diff's files do. The Tour is
-    // the last page, so a swipe to the left goes nowhere and the cards stay put. Code in a card scrolls sideways first.
+    // the last page, so a swipe to the left goes nowhere and the cards stay put. A swipe on code in a card scrolls the code.
     val slide = rememberPageSlide(Unit)
     var drag by remember { mutableFloatStateOf(0f) }
     val swipeFrom = with(density) { 64.dp.toPx() }

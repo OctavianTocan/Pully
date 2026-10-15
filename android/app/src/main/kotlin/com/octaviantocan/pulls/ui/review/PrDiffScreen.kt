@@ -475,9 +475,9 @@ private fun DiffBar(
     val selected = ui.drafts[file.path]
     // Tapping another line keeps what was typed (the comment follows the selection); deselecting or posting clears it.
     var text by remember(file.path) { mutableStateOf("") }
-    LaunchedEffect(selected == null) { if (selected == null) text = "" }
-    var busy by remember { mutableStateOf(false) }
     var actions by remember { mutableStateOf(false) }
+    LaunchedEffect(selected == null) { if (selected == null) { text = ""; actions = false } }
+    var busy by remember { mutableStateOf(false) }
     // With no review pending a comment can be posted at once instead of starting one; the choice sticks for the screen.
     val hasPending = session.reviewData?.pendingReviewId != null
     var single by rememberSaveable { mutableStateOf(false) }

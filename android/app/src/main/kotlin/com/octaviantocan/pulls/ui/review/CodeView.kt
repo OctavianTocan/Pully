@@ -2,8 +2,6 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateCentroid
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,6 +11,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import com.octaviantocan.pulls.core.PinchFrame
@@ -39,6 +38,21 @@ class PinchEnd(val from: Float, val to: Float, val screen: Offset, val content: 
 }
 
 /**
+ * One event of a pinch, read from the fingers that were down before it and still are, so a finger landing or lifting
+ * never jerks the code: their centre before and after, and how much further apart they are (1 for no change).
+ */
+private fun pinchStep(event: PointerEvent): Triple<Offset, Offset, Float>? {
+    val fingers = event.changes.filter { it.pressed && it.previousPressed }
+    if (fingers.size < 2) return null
+    val from = fingers.fold(Offset.Zero) { sum, it -> sum + it.previousPosition } / fingers.size.toFloat()
+    val to = fingers.fold(Offset.Zero) { sum, it -> sum + it.position } / fingers.size.toFloat()
+    val spreadBefore = fingers.sumOf { (it.previousPosition - from).getDistance().toDouble() }
+    val spreadAfter = fingers.sumOf { (it.position - to).getDistance().toDouble() }
+    val zoom = if (spreadBefore > 0.0) (spreadAfter / spreadBefore).toFloat() else 1f
+    return Triple(from, to, zoom)
+}
+
+/**
  * Two fingers pinch the code: while they are down the code is drawn bigger or smaller around the point between them
  * and moves with them, so nothing is laid out again and they can pan too; when they lift, the new code size is written
  * once and [onEnd] scrolls the view so the line under them stays where it was. One finger is left alone, so the list
@@ -60,10 +74,10 @@ fun Modifier.pinchToZoomCode(settings: AppSettings, onEnd: ((PinchEnd) -> Unit)?
                     val event = awaitPointerEvent(PointerEventPass.Initial)
                     val pressed = event.changes.count { it.pressed }
                     if (pressed >= 2) {
-                        val from = event.calculateCentroid(useCurrent = false)
-                        val to = event.calculateCentroid(useCurrent = true)
-                        if (from != Offset.Unspecified && to != Offset.Unspecified) {
-                            frame.value = frame.value.next(event.calculateZoom(), from.x, from.y, to.x, to.y, AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
+                        val step = pinchStep(event)
+                        if (step != null) {
+                            val (from, to, zoom) = step
+                            frame.value = frame.value.next(zoom, from.x, from.y, to.x, to.y, AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
                             last = to
                             moved = true
                         }
