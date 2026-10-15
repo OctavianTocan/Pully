@@ -68,7 +68,7 @@ private val KEYS = mapOf(
     Key.Enter to Shape(pitch = 0.8, level = 1.12, length = 1.25),
 )
 
-/** `tap`: the glass answers to what touched it. */
+/** `tap`: the tap answers to what touched it. */
 private val INPUTS = mapOf(
     Input.Mouse to Shape(),
     Input.Touch to Shape(pitch = 0.97, level = 0.92, bright = 0.45),

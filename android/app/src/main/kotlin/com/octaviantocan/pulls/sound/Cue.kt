@@ -3,7 +3,7 @@ package com.octaviantocan.pulls.sound
 /*
  * Pulls' sounds are Cuelume's (https://cuelume.dev, MIT, Daniel Belyi), ported to Kotlin from
  * version 0.2.8 and synthesised live, with no audio files: fourteen cues, one per interface job,
- * in four materials. This is the vocabulary a caller speaks. Pick a cue by its job, never by how
+ * in four materials. The Default tap is Pulls' own: a dry click where Cuelume rings glass. This is the vocabulary a caller speaks. Pick a cue by its job, never by how
  * it sounds, exactly as octa-ui does.
  */
 
@@ -58,11 +58,18 @@ enum class Cue {
 }
 
 /** The four finished materials; every one carries all fourteen cues. */
-enum class Material(val label: String, val blurb: String) {
-    Default("Default", "Warm: glass, wood and soft mallets."),
-    Mech("Mech", "Dry and precise: a shutter click, a latch, struck metal."),
-    Bubble("Bubble", "Playful: a knock, a drip, a cork, a kalimba."),
-    Press("Press", "A premium trackpad: clicks over a deep note that rings.");
+enum class Material(val label: String) {
+    /** Warm: clicks and wood for controls, soft mallets and glass for outcomes. */
+    Default("Default"),
+
+    /** Dry and precise: a shutter click, a latch, struck metal. */
+    Mech("Mech"),
+
+    /** Playful: a knock, a drip, a cork, a kalimba. */
+    Bubble("Bubble"),
+
+    /** A premium trackpad: clicks over a deep note that rings. */
+    Press("Press");
 
     val id: String get() = name.lowercase()
 
@@ -77,7 +84,7 @@ enum class Emphasis { Subtle, Normal, Strong }
 /** Which way something moved: a later tab or an on switch is forward. */
 enum class Direction(val sign: Int) { Forward(1), Back(-1) }
 
-/** What activated a tap, so the glass can answer to it: touch is softer and rounder than a mouse. */
+/** What activated a tap, so the tap can answer to it: touch is softer and rounder than a mouse. */
 enum class Input { Mouse, Touch, Pen, Keyboard }
 
 /** Which key a [Cue.Type] stroke is. */
