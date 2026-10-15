@@ -12,7 +12,7 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
-## 0.34.0
+## 0.35.0
 
 Chat history in Ask, tour previews, and smoother swipes and zoom.
 
@@ -45,6 +45,15 @@ Chat history in Ask, tour previews, and smoother swipes and zoom.
 - New chat opens at once, and an empty chat offers its first questions the way answers offer the next ones.
 - Pseudocode in tours reads as plain steps, code blocks lose their "Code text" label, and "In the code" notes say what each place does.
 - Check groups have a line under them, and comment cards give Resolve some room.
+
+## 0.34.0
+
+A new app icon: a beam of light across a grid of days.
+
+### Changed
+
+- The app icon is now Torch: a contribution grid of days with a beam of light from one corner lighting a wedge of them.
+- Themed icons and the update notification show the beam on its own.
 
 ## 0.33.0
 

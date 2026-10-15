@@ -1,13 +1,15 @@
 // Writes the launcher icon: the adaptive icon's three layers as vector drawables, the two
-// mipmap entries that stitch them together, and a flat SVG of the whole icon. The icon is a
-// lowercase p: a branch line (the stem) and a commit ring (the bowl) with one orange commit
-// inside it, on the app's teal. It is flat on purpose: solid fills only, no gradients, shadows
-// or highlights, in the layers too. Edit the shapes here, never the XML. Run from the repo root:
+// mipmap entries that stitch them together, the status bar icon and a flat SVG of the whole icon.
+// The icon is "Torch": a contribution grid of days, nine by nine, with a beam of light from the
+// bottom left corner lighting a wedge of them, brightest near the source. It is flat on purpose:
+// solid fills only, no gradients, shadows or highlights, in the layers too. Edit the shapes here,
+// never the XML. Run from the repo root:
 //   node android/scripts/gen-icon.mjs
 //
 // Everything is drawn on the 108 unit canvas Android gives an adaptive icon. A launcher masks
-// the canvas to a circle, a squircle or a rounded square and shows only the middle 72 units, so
-// the glyph stays inside the 66 unit circle that is safe on every mask (SAFE_RADIUS below).
+// the canvas to a circle, a squircle or a rounded square and shows only the middle 72 units. The
+// grid fills that whole window like a texture, so a round mask trims its corners; the lit wedge
+// crosses the 66 unit circle that is safe on every mask (SAFE_RADIUS below), so it always reads.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -16,31 +18,68 @@ import { fileURLToPath } from 'node:url'
 export const CANVAS = 108
 export const SAFE_RADIUS = 33
 
-// The app's own colours: `primary` and `dark-accent-orange` in android/DESIGN.md, and paper.
-const TEAL = '#1B7580'
-const PAPER = '#FDFCF9'
-const ORANGE = '#F57A4F'
+// GitHub's dark contribution greens, from no activity to the most, on its dark canvas.
+const GROUND = '#0D1117'
+const LEVELS = ['#161B22', '#0E4429', '#006D32', '#26A641', '#39D353']
 
-// The glyph. The stem is a capsule 10 wide; the ring is 10 wide around a centre line of radius
-// 14.25, tangent to the stem's centre line. Outer shapes wind clockwise and the hole
-// counter-clockwise, so one path can be their union with the hole cut out.
-const stem = 'M34.75,31.75A5,5 0 0 1 44.75,31.75V77.75A5,5 0 0 1 34.75,77.75Z'
-const ringOuter = 'M34.75,45.5A19.25,19.25 0 1 1 73.25,45.5A19.25,19.25 0 1 1 34.75,45.5Z'
-const ringHole = 'M44.75,45.5A9.25,9.25 0 1 0 63.25,45.5A9.25,9.25 0 1 0 44.75,45.5Z'
-const commit = 'M49,45.5A5,5 0 1 1 59,45.5A5,5 0 1 1 49,45.5Z'
+// The grid: 9 x 9 rounded squares 6.4 across, 7.8 apart, centred on the canvas.
+const N = 9
+const PITCH = 7.8
+const CELL = 6.4
+const RADIUS = 1.3
+
+const n = v => +v.toFixed(2)
+function square(cx, cy) {
+  const x = n(cx - CELL / 2)
+  const y = n(cy - CELL / 2)
+  const r = RADIUS
+  const w = n(CELL - 2 * r)
+  return `M${n(x + r)},${y}h${w}a${r},${r} 0 0 1 ${r},${r}v${w}a${r},${r} 0 0 1 ${-r},${r}h${-w}a${r},${r} 0 0 1 ${-r},${-r}v${-w}a${r},${r} 0 0 1 ${r},${-r}Z`
+}
+
+/**
+ * How lit each day is, 0 to 4. The beam leaves the bottom left day at 45 degrees: days within 17
+ * degrees of its centre line are lit, fading with distance, and a thin fringe out to 25 degrees
+ * catches a little light. A few of the dark days have a commit, so it still reads as a grid.
+ */
+export function level(row, col) {
+  const dx = col
+  const dy = N - 1 - row
+  const d = Math.hypot(dx, dy)
+  const off = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI - 45)
+  if (off < 17 || d < 1.5)
+    return d < 4 ? 4 : d < 7 ? 3 : 2
+  if (off < 25)
+    return 2
+  return (row * 7 + col * 3) % 5 === 0 ? 1 : 0
+}
+
+// One path per level, so each layer stays a handful of paths.
+function cells(test) {
+  const byLevel = LEVELS.map(() => '')
+  const start = (CANVAS - (N - 1) * PITCH) / 2
+  for (let row = 0; row < N; row++) {
+    for (let col = 0; col < N; col++) {
+      const v = level(row, col)
+      if (test(v))
+        byLevel[v] += square(start + col * PITCH, start + row * PITCH)
+    }
+  }
+  return byLevel.map((d, v) => ({ d, fill: LEVELS[v] })).filter(shape => shape.d)
+}
+
+const BEAM = 2
 
 export const layers = {
+  // The dark days sit in the background layer and the lit ones in the foreground, so a launcher
+  // that moves the layers apart slides the beam over the grid.
   background: [
-    { d: 'M0,0H108V108H0Z', fill: TEAL },
+    { d: 'M0,0H108V108H0Z', fill: GROUND },
+    ...cells(v => v < BEAM),
   ],
-  foreground: [
-    { d: `${stem}${ringOuter}${ringHole}`, fill: PAPER },
-    { d: commit, fill: ORANGE },
-  ],
-  // The themed icon (Android 13+) paints this shape in the wallpaper's colour. Any opaque fill works.
-  monochrome: [
-    { d: `${stem}${ringOuter}${ringHole}${commit}`, fill: '#000000' },
-  ],
+  foreground: cells(v => v >= BEAM),
+  // The themed icon (Android 13+) paints this shape in the wallpaper's colour: the beam alone.
+  monochrome: cells(v => v >= BEAM).map(shape => ({ ...shape, fill: '#000000' })),
 }
 
 /** One layer as SVG paths on the 108 canvas. */
@@ -68,13 +107,13 @@ ${paths}
 `
 }
 
-// The status bar shows a notification's small icon as a white silhouette, so it is the monochrome glyph alone,
-// cut to a square around it: 66 units across puts the 56.5 unit tall p in the middle 20.5 of 24dp.
-const STATUS_BOX = 66
+// The status bar shows a notification's small icon as a white silhouette, so it is the monochrome
+// beam alone, cut to the 72 unit window it sits in.
+const STATUS_BOX = 72
 
 export function statusIconXml() {
   const x = (CANVAS - STATUS_BOX) / 2
-  const y = 54.5 - STATUS_BOX / 2
+  const y = (CANVAS - STATUS_BOX) / 2
   const paths = layers.monochrome.map(shape => `        <path
             android:pathData="${shape.d}"
             android:fillColor="#FFFFFFFF" />`).join('\n')
