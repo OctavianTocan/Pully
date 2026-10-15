@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val LIGHT_BASE = 0xFFFDFCF9.toInt()
-        const val DARK_BASE = 0xFF0C1B1F.toInt()
+        const val DARK_BASE = 0xFF161616.toInt()
     }
 
     private fun readTarget(intent: Intent?): String? {

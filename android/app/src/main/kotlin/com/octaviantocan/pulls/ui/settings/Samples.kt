@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,9 +41,10 @@ import com.octaviantocan.pulls.ui.design.PullsType
  */
 
 /**
- * One diff layout drawn small, with its name under it: unified is one column of lines, split is two
- * side by side. Tap it to choose it; the chosen one has a teal outline. A layout the screen cannot show
- * ([enabled] off) is dimmed and its [label] says what it needs.
+ * One diff layout drawn small, with its name under it: a real little diff in the code font, a line removed and a
+ * line added between two kept ones, in the diff's own washes and marks. Unified is one column, the removed line over
+ * the added one; split is the old side and the new side next to each other. Tap it to choose it; the chosen one has
+ * a teal outline. A layout the screen cannot show ([enabled] off) is dimmed and its [label] says what it needs.
  */
 @Composable
 internal fun LayoutChoice(split: Boolean, selected: Boolean, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
@@ -55,22 +56,23 @@ internal fun LayoutChoice(split: Boolean, selected: Boolean, label: String, onCl
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
-            Modifier.fillMaxWidth().height(84.dp).clip(shape).background(c.raised)
+            Modifier.fillMaxWidth().heightIn(min = 84.dp).clip(shape).background(c.raised)
                 .border(if (selected) 2.dp else 1.dp, if (selected) c.accentTeal else c.border, shape)
-                .padding(10.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            contentAlignment = Alignment.CenterStart,
         ) {
             if (split) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        MiniLine(' ', 0.7f); MiniLine('-', 0.5f); MiniLine(null, 0f); MiniLine(' ', 0.6f)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        MiniLine(' ', SAMPLE_KEPT); MiniLine('-', SAMPLE_OLD); MiniLine(' ', SAMPLE_END)
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        MiniLine(' ', 0.7f); MiniLine('+', 0.8f); MiniLine('+', 0.4f); MiniLine(' ', 0.6f)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        MiniLine(' ', SAMPLE_KEPT); MiniLine('+', SAMPLE_NEW); MiniLine(' ', SAMPLE_END)
                     }
                 }
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    MiniLine(' ', 0.7f); MiniLine('-', 0.5f); MiniLine('+', 0.8f); MiniLine('+', 0.4f); MiniLine(' ', 0.6f)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    MiniLine(' ', SAMPLE_KEPT); MiniLine('-', SAMPLE_OLD); MiniLine('+', SAMPLE_NEW); MiniLine(' ', SAMPLE_END)
                 }
             }
         }
@@ -78,17 +80,25 @@ internal fun LayoutChoice(split: Boolean, selected: Boolean, label: String, onCl
     }
 }
 
-/** One line of a small diff: a wash for a removed or added line (null is a gap), and a short bar for its text. */
+/** The little diff's code: short enough for one side of the split sample on a narrow phone. */
+private const val SAMPLE_KEPT = "let n = 1"
+private const val SAMPLE_OLD = "n = n + 1"
+private const val SAMPLE_NEW = "n += 1"
+private const val SAMPLE_END = "return n"
+
+/** How small the sample draws the diff: its code is the diff's 12.5sp at this scale, a picture of the diff rather than text to read. */
+private const val SAMPLE_SCALE = 0.62f
+
+/** One line of the little diff: the removed or added wash, the − or + in the diff's ink, then the code. */
 @Composable
-private fun MiniLine(kind: Char?, fraction: Float) {
+private fun MiniLine(kind: Char, code: String) {
     val c = LocalPullsColors.current
-    val wash = when (kind) { '+' -> c.diffAdd; '-' -> c.diffDel; else -> androidx.compose.ui.graphics.Color.Transparent }
+    val wash = when (kind) { '+' -> c.diffAdd; '-' -> c.diffDel; else -> Color.Transparent }
     val ink = when (kind) { '+' -> c.diffAddInk; '-' -> c.diffDelInk; else -> c.faint }
-    Row(Modifier.fillMaxWidth().height(9.dp).clip(RoundedCornerShape(PullsRadius.xs)).background(wash), verticalAlignment = Alignment.CenterVertically) {
-        if (kind != null) {
-            Box(Modifier.padding(start = 3.dp).width(3.dp).height(3.dp).clip(RoundedCornerShape(PullsRadius.xs)).background(ink))
-            Box(Modifier.padding(start = 4.dp).fillMaxWidth(fraction).height(3.dp).clip(RoundedCornerShape(PullsRadius.xs)).background(ink.copy(alpha = 0.55f)))
-        }
+    val style = PullsType.sm.copy(fontFamily = PullsType.mono, fontSize = (12.5f * SAMPLE_SCALE).sp, lineHeight = (20f * SAMPLE_SCALE).sp)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xs)).background(wash).padding(horizontal = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(when (kind) { '+' -> "+"; '-' -> "−"; else -> "" }, Modifier.width(7.dp), style = style, color = ink, maxLines = 1)
+        Text(code, style = style, color = if (kind == ' ') c.muted else c.text, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
     }
 }
 
