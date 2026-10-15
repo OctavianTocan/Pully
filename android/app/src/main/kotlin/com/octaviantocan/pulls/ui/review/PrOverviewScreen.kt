@@ -144,7 +144,7 @@ internal fun PrOverviewScreen(
             // The rows follow the finger toward a tab that exists, and stay put against the ends.
             val swipe = rememberDraggableState { delta ->
                 drag += delta
-                if ((delta < 0 && shown < labels.lastIndex) || (delta > 0 && shown > 0)) slide.follow(delta, range)
+                slide.follow(delta, range, back = shown > 0, forward = shown < labels.lastIndex)
             }
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(

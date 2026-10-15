@@ -81,6 +81,7 @@ import com.octaviantocan.pulls.core.FORWARD
 import com.octaviantocan.pulls.core.backWay
 import com.octaviantocan.pulls.core.pageWay
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -238,6 +239,9 @@ class PageMotion {
     /** The page under a back swipe: it keeps the swipe's offset while it leaves, and nothing else does. */
     internal var held: Any? by mutableStateOf(null)
 
+    /** A given-up swipe putting its page back, which the next swipe stops so the two do not fight over the hold. */
+    internal var putBack: Job? = null
+
     /** How far the back swipe has gone, 0 to 1, and which way it moves the page, with the finger. */
     internal var hold by mutableFloatStateOf(0f)
     internal var holdWay by mutableIntStateOf(BACKWARD)
@@ -271,6 +275,7 @@ fun PageBack(motion: PageMotion, enabled: Boolean, onBack: () -> Unit) {
     val latest by rememberUpdatedState(onBack)
     val moving = rememberMotionEnabled()
     PredictiveBackHandler(enabled) { events ->
+        motion.putBack?.cancel()
         motion.held = motion.onScreen
         var way = BACKWARD
         try {
@@ -281,7 +286,7 @@ fun PageBack(motion: PageMotion, enabled: Boolean, onBack: () -> Unit) {
             }
         } catch (e: CancellationException) {
             val held = motion.held
-            scope.launch {
+            motion.putBack = scope.launch {
                 animate(motion.hold, 0f, animationSpec = tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { v, _ -> motion.hold = v }
                 if (motion.held == held) motion.held = null
             }
@@ -377,9 +382,12 @@ class PageSlide<T> internal constructor(initial: T) {
     internal var step = 0f
     internal var reach = 0f
 
-    /** The rows follow a drag of [delta] pixels, up to [limit] either way. */
-    fun follow(delta: Float, limit: Float) {
-        finger = (finger + delta).coerceIn(-limit, limit)
+    /**
+     * The rows follow a drag of [delta] pixels, up to [limit] either way. With no page before ([back] false) or after
+     * ([forward] false) they do not leave their place that way, but always come back under a finger that returns.
+     */
+    fun follow(delta: Float, limit: Float, back: Boolean = true, forward: Boolean = true) {
+        finger = (finger + delta).coerceIn(if (forward) -limit else 0f, if (back) limit else 0f)
     }
 
     /**
