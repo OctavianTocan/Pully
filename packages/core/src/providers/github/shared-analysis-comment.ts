@@ -4,6 +4,7 @@ import { compressToBase64, decompressFromBase64 } from 'lz-string-es'
 import * as v from 'valibot'
 import { diagnostics } from '../../diagnostics'
 import { SharedAnalysisSchema } from '../../types/shared-analysis'
+import { githubCitesInResult } from './cites'
 
 /** Never `location.origin`: the comment is public, a preview host must not leak into it. */
 const SITE_ORIGIN = 'https://pulls.review'
@@ -39,7 +40,13 @@ function renderPayload(analysis: SharedAnalysis, compress: boolean): string {
     : ['```json', JSON.stringify(analysis, null, 2), '```'].join('\n')
 }
 
-export function renderSharedAnalysisComment(pr: PullRequestRef, login: string, analysis: SharedAnalysis): string {
+/**
+ * The shared-analysis comment for `analysis`. Its summaries and notes are read on GitHub too (the github.com embed),
+ * where a repository-relative link resolves against the pull request's page, so their links point at the file at
+ * `headSha` on GitHub instead (rule 96).
+ */
+export function renderSharedAnalysisComment(pr: PullRequestRef, login: string, sharing: SharedAnalysis): string {
+  const analysis = sharing.headSha ? { ...sharing, result: githubCitesInResult(sharing.result, { owner: pr.owner, repo: pr.repo, sha: sharing.headSha }) } : sharing
   const { result } = analysis
   const link = `${SITE_ORIGIN}/gh/${pr.owner}/${pr.repo}/${pr.number}?from=${login}`
   const render = (compress: boolean) => [

@@ -6,6 +6,7 @@ import FormTextarea from '@antfu/design/components/Form/FormTextarea.vue'
 import { Markdown } from '@comark/vue'
 import { onMounted, ref, useTemplateRef } from 'vue'
 import { FIELD, vField } from '../../directives/field'
+import { keepRepoLinks } from '../ai/ai-format'
 import AiActivityLog from '../ai/AiActivityLog.vue'
 import AiUsageLine from '../ai/AiUsageLine.vue'
 
@@ -64,7 +65,7 @@ onMounted(() => {
           </ActionButton>
         </div>
         <Suspense v-if="turn.answer !== undefined">
-          <Markdown :value="turn.answer" class="chat-markdown min-w-0 px-1 text-sm" />
+          <Markdown :value="turn.answer" class="chat-markdown min-w-0 px-1 text-sm" @click="keepRepoLinks" />
         </Suspense>
         <p v-else-if="turn.error" class="px-1 text-xs text-red-600 dark:text-red-400">
           {{ turn.error }}

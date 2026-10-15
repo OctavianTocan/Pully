@@ -99,29 +99,8 @@ internal fun copyText(context: Context, text: String) {
     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("pulls.review", text))
 }
 
-/** A `path:line` reference pulled out of text, for the clickable cites of the summary and the tour. */
+/** A place in the code a cite points at (a finding's line, a mention in the summary or the brief); line 0 is the whole file. */
 internal data class Cite(val path: String, val line: Int)
-
-/**
- * [text] with each `[file.ext:12]` or `file.ext:12` reference turned into a tappable span. A reference
- * resolves to the first changed file whose path ends with the name given; one that matches no file is
- * left as plain text so nothing taps into a dead end.
- */
-internal fun withCites(text: String, files: List<ReviewFile>, link: Color, onCite: (Cite) -> Unit): AnnotatedString {
-    val pattern = Regex("""\[?([\w./-]+\.[A-Za-z0-9]+):(\d+)]?""")
-    return buildAnnotatedString {
-        var at = 0
-        for (match in pattern.findAll(text)) {
-            val name = match.groupValues[1]
-            val file = files.firstOrNull { it.path == name } ?: files.firstOrNull { it.path.endsWith("/$name") } ?: continue
-            append(text.substring(at, match.range.first))
-            val cite = Cite(file.path, match.groupValues[2].toInt())
-            appendCite("${name.substringAfterLast('/')}:${cite.line}", link) { onCite(cite) }
-            at = match.range.last + 1
-        }
-        append(text.substring(at))
-    }
-}
 
 /** A tappable `file:line` reference: Mona Sans medium in the link color, with no underline (rule 96). */
 internal fun AnnotatedString.Builder.appendCite(label: String, link: Color, onClick: () -> Unit) {

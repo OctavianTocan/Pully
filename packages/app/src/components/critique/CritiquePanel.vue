@@ -8,6 +8,7 @@ import FormTextarea from '@antfu/design/components/Form/FormTextarea.vue'
 import { Markdown } from '@comark/vue'
 import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { keepRepoLinks } from '../ai/ai-format'
 import AiActivityLog from '../ai/AiActivityLog.vue'
 import AiUsageLine from '../ai/AiUsageLine.vue'
 import FindingCard from './FindingCard.vue'
@@ -95,7 +96,7 @@ watch(() => props.critique.isRunning, (running) => {
         {{ $t('critique.outdated') }}
       </p>
       <Suspense v-if="result.summary">
-        <Markdown :value="result.summary" class="chat-markdown min-w-0 text-sm" />
+        <Markdown :value="result.summary" class="chat-markdown min-w-0 text-sm" @click="keepRepoLinks" />
       </Suspense>
 
       <p v-if="!result.findings.length" class="text-sm op-fade">

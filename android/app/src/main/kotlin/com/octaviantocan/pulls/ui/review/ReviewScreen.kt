@@ -144,6 +144,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             session.focus = null
             return@LaunchedEffect
         }
+        // A sheet that asked for the place (a finding, a mention in the review findings) gets out of its way.
+        sheet = null
         diffPath = wanted.path
         push(PrView.Diff)
     }
@@ -275,8 +277,8 @@ private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() 
     }
 }
 
-/** A tour source: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
-private fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
+/** A tour source or a mention: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
+internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
     if (session.files.any { it.path == source.path }) {
         session.focus = Focus(source.path, source.line)
         return

@@ -312,10 +312,10 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
                 StepIcon(stepGlyph(activity, warning), ink, style)
                 Row(Modifier.weight(1f)) {
                     // Phones: two lines (`max-md:line-clamp-2`).
-                    if (running) Shimmer(activity.title, style, tone, maxLines = 2)
+                    if (running) Shimmer(stepTitle(activity), style, tone, maxLines = 2)
                     else Text(
                         androidx.compose.ui.text.buildAnnotatedString {
-                            append(activity.title)
+                            append(stepTitle(activity))
                             if (preview.isNotEmpty()) {
                                 pushStyle(androidx.compose.ui.text.SpanStyle(color = c.mute))
                                 append(" $preview")

@@ -93,6 +93,13 @@ fun summarizeTools(activities: List<Activity>): List<Pair<ToolCategory, Int>> {
     return ToolCategory.entries.filter { it in counts }.map { it to counts.getValue(it) }
 }
 
+/**
+ * The title a step shows. A log saved before the server stopped naming the model opens with "Started Claude (<model id>)";
+ * it reads "Started" like a new one, since the reader does not want the model there (F58).
+ */
+fun stepTitle(activity: Activity): String =
+    if (activity.id == "start" && activity.kind == "status" && activity.title.startsWith("Started ")) "Started" else activity.title
+
 /** The server opens every job with a `start` status; a later settled status row is a notice (rate limit, retry). */
 fun isWarning(activity: Activity, index: Int): Boolean =
     activity.kind == "status" && activity.status == "done" && activity.id != "start" && index > 0

@@ -55,10 +55,25 @@ You organize a GitHub pull request's changed files into review groups, so a revi
 
 /**
  * How an answer names a place in the code, so the phone can turn every mention into a link that
- * scrolls there. Tours, chat answers and the brief carry it; a test keeps it in each of their prompts.
- * The analysis does not: its summary and notes are also posted on GitHub, where a path is no link.
+ * scrolls there (rule 96). Tours, chat answers, the brief, Ask answers and review findings carry it,
+ * and so does an analysis run for the app (`mentions`); a test keeps it in each of their prompts.
+ * Text posted on GitHub has its links rewritten to the file at the head commit first (`githubCites`).
  */
 export const MENTION_RULE = `Every mention of a file, function, type, field, setting or line in the code is a Markdown link to where it is, with the path from the repository root: [\`cacheKey\`](src/cache/key.ts#L42) for a line in the new version, [key.ts](src/cache/key.ts) for a whole file. Write the link text as the reader would say it; never print a bare path:line. Inside code blocks and sketches, names stay plain.`
+
+/** What an analysis run for the app adds to `AGENT_SYSTEM_PROMPT`: its summaries and notes link what they mention. */
+export const AGENT_MENTIONS_SECTION = `<mentions>
+In "summary", "overallSummary", the file summaries and the hunk notes: ${MENTION_RULE}
+</mentions>`
+
+/**
+ * The analysis system prompt.
+ * @param mentions - Whether the summaries and notes link every place in the code they mention.
+ * @returns `AGENT_SYSTEM_PROMPT`, followed by `AGENT_MENTIONS_SECTION` when `mentions` is set.
+ */
+export function agentSystemPrompt(mentions = false): string {
+  return mentions ? `${AGENT_SYSTEM_PROMPT}\n\n${AGENT_MENTIONS_SECTION}` : AGENT_SYSTEM_PROMPT
+}
 
 export const CHAT_SYSTEM_SECTION = `<chat>
 The reviewer is now asking follow-up questions about this pull request.

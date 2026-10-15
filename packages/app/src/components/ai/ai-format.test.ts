@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { effortLabel, formatClockDuration, formatCost, formatTokens, lastLine, verbKey } from './ai-format'
+import { effortLabel, formatClockDuration, formatCost, formatTokens, keepRepoLinks, lastLine, verbKey } from './ai-format'
 
 describe('formatClockDuration', () => {
   it.each([
@@ -87,5 +87,33 @@ describe('verbKey', () => {
     expect(verbKey('thinking', 'running')).toBe('ai.verb.thinking.now')
     expect(verbKey('thinking', 'done')).toBe('ai.verb.thinking.past')
     expect(verbKey('thinking', 'failed')).toBe('ai.verb.thinking.past')
+  })
+})
+
+describe('keepRepoLinks', () => {
+  function click(href: string | null) {
+    const host = document.createElement('div')
+    const words = document.createElement('span')
+    if (href === null) {
+      host.append(words)
+    }
+    else {
+      const link = document.createElement('a')
+      link.setAttribute('href', href)
+      link.append(words)
+      host.append(link)
+    }
+    words.addEventListener('click', keepRepoLinks)
+    const event = new MouseEvent('click', { cancelable: true })
+    words.dispatchEvent(event)
+    return event.defaultPrevented
+  }
+
+  it('stops a link to a path in the repository and lets the rest go', () => {
+    expect(click('src/cache/key.ts#L42')).toBe(true)
+    expect(click('key.ts:7')).toBe(true)
+    expect(click('https://github.com/o/r/blob/abc/src/a.ts#L1')).toBe(false)
+    expect(click('#overview')).toBe(false)
+    expect(click(null)).toBe(false)
   })
 })

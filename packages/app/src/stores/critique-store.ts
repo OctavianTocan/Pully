@@ -7,7 +7,7 @@ import type { TrackedActivity } from '../components/ai/ai-activity'
 import type { LensSource } from '../local/lenses'
 import type { AiRunOutcome, CritiqueFocus, DiffsStoreCritique, DiffsStoreReviews } from './types'
 import { resolveModel } from '@pulls.review/core/analyze'
-import { critiqueReviewBody, findingCommentBody, isCliEngine, runCritique } from '@pulls.review/core/llm'
+import { citesOnGithub, critiqueReviewBody, findingCommentBody, isCliEngine, runCritique } from '@pulls.review/core/llm'
 import { serializeRef } from '@pulls.review/core/types'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { upsertActivities } from '../components/ai/ai-activity'
@@ -273,8 +273,10 @@ export function createCritiqueStore(opts: CritiqueStoreOptions): DiffsStoreCriti
       return
     isPosting.value = true
     postError.value = undefined
+    // The findings link what they mention; on GitHub those links go to the file at the head.
+    const onGithub = diff.value ? citesOnGithub(diff.value) : (markdown: string) => markdown
     try {
-      await reviews.postReview(body, findings.map(finding => ({ target: targetOf(finding), body: findingCommentBody(finding) })))
+      await reviews.postReview(onGithub(body), findings.map(finding => ({ target: targetOf(finding), body: onGithub(findingCommentBody(finding)) })))
       const ids = findings.map(finding => finding.id)
       posted.value = new Set([...posted.value, ...ids])
       const remaining = new Set(selected.value)

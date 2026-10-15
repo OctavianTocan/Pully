@@ -189,7 +189,7 @@ export async function startPreanalyze(options: PreanalyzeOptions): Promise<() =>
       { owner: pull.owner, repo: pull.repo, number: String(pull.number) },
       staticCredentials(await resolveGithubToken(env)),
     ).fetch(),
-    analyze: (diff, pull, signal) => runLlmAnalysis(diff, resolved, DEFAULT_LOCALE, { signal, context: prContext(pull, diff) }),
+    analyze: (diff, pull, signal) => runLlmAnalysis(diff, resolved, DEFAULT_LOCALE, { signal, context: prContext(pull, diff), mentions: true }),
     log,
   })
 

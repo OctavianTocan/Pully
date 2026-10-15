@@ -32,7 +32,7 @@ describe('codex stream parser', () => {
     RUN.forEach(parser.feed)
 
     expect([...log.keys()]).toEqual(['start', 'thinking:item_0', 'tool:item_1', 'tool:item_2', 'text:item_3'])
-    expect(log.get('start')).toMatchObject({ title: 'Started Codex (gpt-6.1-sol)', status: 'done' })
+    expect(log.get('start')).toMatchObject({ title: 'Started', status: 'done' })
     expect(log.get('thinking:item_0')).toMatchObject({ kind: 'thinking', title: 'Thought', text: 'Planning tool discovery', status: 'done' })
     expect(log.get('tool:item_1')).toMatchObject({ kind: 'tool', tool: 'read_source', title: 'Read src/a.ts', text: 'export const answer = 42', status: 'done' })
     expect(log.get('tool:item_2')).toMatchObject({ tool: 'rg', title: 'Searched for `answer` in src', status: 'failed', text: 'rg: src: No such file' })

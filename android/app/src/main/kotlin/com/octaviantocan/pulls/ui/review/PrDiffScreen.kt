@@ -225,7 +225,7 @@ private fun FileBody(
             LazyColumn(Modifier.fillMaxSize().pageSlide(slide).pinchToZoomCode(session.settings), state = listState) {
                 if (note != null) {
                     item(key = "note:${file.path}", contentType = "note") {
-                        NoteCard(note, Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp)) {
+                        NoteCard(session, note, Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp)) {
                             onAsk(AskReference("the note on ${file.path.substringAfterLast('/')}", note))
                         }
                     }
@@ -371,9 +371,9 @@ private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<Revi
     }
 }
 
-/** `.note`: the AI's note about this file, from "Pulls". A tap asks about it, with the note attached (rule 94). */
+/** `.note`: the AI's note about this file, from "Pulls", its mentions links to their place (rule 96). A tap asks about it, with the note attached (rule 94). */
 @Composable
-private fun NoteCard(note: String, modifier: Modifier, onAsk: () -> Unit) {
+private fun NoteCard(session: ReviewSession, note: String, modifier: Modifier, onAsk: () -> Unit) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(16.dp)
     Column(
@@ -388,7 +388,7 @@ private fun NoteCard(note: String, modifier: Modifier, onAsk: () -> Unit) {
             Spacer(Modifier.weight(1f))
             Text("Ask about it", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
         }
-        Text(note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.text)
+        com.octaviantocan.pulls.ui.ai.AiMarkdown(session, note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f, color = c.text))
     }
 }
 

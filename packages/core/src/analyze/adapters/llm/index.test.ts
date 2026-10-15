@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MAX_TURNS, STEER_TURN } from './agent'
 import { runLlmAnalysis } from './index'
 import { resolveModel } from './model'
-import { AGENT_SYSTEM_PROMPT, buildAnalysisPrompt } from './prompt'
+import { AGENT_MENTIONS_SECTION, AGENT_SYSTEM_PROMPT, buildAnalysisPrompt, MENTION_RULE } from './prompt'
 import { defaultLlmSettings } from './settings'
 
 const runtime = vi.hoisted(() => ({ streamFn: undefined as StreamFn | undefined }))
@@ -95,6 +95,14 @@ describe('runLlmAnalysis', () => {
     expect(transcript[0]).toMatchObject({ role: 'system', content: AGENT_SYSTEM_PROMPT })
     expect(transcript.find(message => message.role !== 'system')).toMatchObject({ role: 'user', content: buildAnalysisPrompt(diff, 'en') })
     expect(transcript.filter(message => message.role === 'toolResult')).toHaveLength(2)
+  })
+
+  it('asks for linked mentions only when the run is for the app (rule 96)', async () => {
+    faux.setResponses([submit(oneGroup('a.ts'))])
+    const { transcript } = await analyze(diffWithFiles(file('a.ts')), { mentions: true })
+    expect(transcript[0]).toMatchObject({ role: 'system', content: `${AGENT_SYSTEM_PROMPT}\n\n${AGENT_MENTIONS_SECTION}` })
+    expect(AGENT_MENTIONS_SECTION).toContain(MENTION_RULE)
+    expect(AGENT_SYSTEM_PROMPT).not.toContain(MENTION_RULE)
   })
 
   it('lets the model resubmit after a coverage error', async () => {

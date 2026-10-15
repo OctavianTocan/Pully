@@ -21,6 +21,14 @@ class AiActivityTest {
     }
 
     @Test
+    fun theFirstStepNeverNamesTheModelEvenInAnOldLog() {
+        assertEquals("Started", stepTitle(activity("start", kind = "status", title = "Started Claude (some-model)", status = "done")))
+        assertEquals("Started", stepTitle(activity("start", kind = "status", title = "Started", status = "done")))
+        assertEquals("Starting Claude Code…", stepTitle(activity("start", kind = "status", title = "Starting Claude Code…")))
+        assertEquals("Started Codex here", stepTitle(activity("tool:1", title = "Started Codex here")))
+    }
+
+    @Test
     fun upsertIgnoresReplaysOfRevisionsItAlreadyHas() {
         val log = upsertActivities(emptyList(), listOf(activity("a", title = "new") to 5), 10)
         val again = upsertActivities(log, listOf(activity("a", title = "old") to 2), 20)[0]

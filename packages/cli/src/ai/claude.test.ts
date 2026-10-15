@@ -61,7 +61,7 @@ describe('claude stream parser', () => {
     RUN.forEach(parser.feed)
 
     expect([...log.keys()]).toEqual(['start', 'thinking:1:0', 'tool:toolu_1', 'tool:toolu_2'])
-    expect(log.get('start')).toMatchObject({ title: 'Started Claude (claude-opus-5-5)', status: 'done' })
+    expect(log.get('start')).toMatchObject({ title: 'Started', status: 'done' })
     expect(log.get('thinking:1:0')).toMatchObject({ kind: 'thinking', status: 'done', text: 'The queue change needs its caller.', doneTitle: 'Thought' })
     expect(log.get('tool:toolu_1')).toMatchObject({ kind: 'tool', tool: 'read_source', status: 'done', title: 'Read src/a.ts (lines 10–20)', text: '10  export const answer = 42' })
     expect(log.get('tool:toolu_2')).toMatchObject({ title: 'Wrote the answer', status: 'done' })
@@ -71,6 +71,15 @@ describe('claude stream parser', () => {
       text: '{"value":42}',
       usage: { inputTokens: 35, outputTokens: 55, cacheReadTokens: 1000, cacheWriteTokens: 200, reasoningTokens: 20, costUsd: 0.0123, durationMs: 4200, model: 'claude-opus-5-5' },
     })
+  })
+
+  it('keeps the model out of the log and in the usage, even when the result names none', () => {
+    const { sink, log } = collect()
+    const parser = createClaudeParser(sink)
+    parser.feed(RUN[1]!)
+    parser.feed(JSON.stringify({ type: 'result', subtype: 'success', result: 'ok', usage: { input_tokens: 1, output_tokens: 2 } }))
+    expect(log.get('start')?.title).toBe('Started')
+    expect(parser.outcome().usage).toMatchObject({ model: 'claude-opus-5-5', inputTokens: 1, outputTokens: 2 })
   })
 
   it('names a tool by what it will do while its input is still streaming', () => {

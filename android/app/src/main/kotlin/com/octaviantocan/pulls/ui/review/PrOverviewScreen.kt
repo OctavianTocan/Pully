@@ -448,7 +448,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
                 onClick = { onDiff(file.path) }, onLongClick = { onSheet(FILE_SHEET + file.path) },
             ) {
                 // The first row of a list has no line above it, so the heading over it has none under it (rule 75).
-                FileRow(file, state, note, analyzing && note == null, ruled = index > 0, onToggle = toggle)
+                FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0, onToggle = toggle)
             }
         }
     }
@@ -459,7 +459,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
  * path), `+n −n` on the right, and the AI's note in two lines at most.
  */
 @Composable
-private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit) {
+private fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit) {
     val c = LocalPullsColors.current
     val reviewed = state == ReviewState.Reviewed
     val dir = file.path.substringBeforeLast('/', "")
@@ -483,7 +483,8 @@ private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoa
             }
             when {
                 state == ReviewState.Changed -> Text("Changed since you reviewed it", style = PullsType.sm, color = c.orange)
-                note != null -> Text(note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.4f), color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // Its mentions are links to their place (rule 96), as in the note over the file's diff.
+                note != null -> com.octaviantocan.pulls.ui.ai.AiMarkdown(session, note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.4f, color = c.muted), maxLines = 2)
                 noteLoading -> Skeleton(Modifier.fillMaxWidth(0.78f).padding(vertical = 4.dp))
             }
         }

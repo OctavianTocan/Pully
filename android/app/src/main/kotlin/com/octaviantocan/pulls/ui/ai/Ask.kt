@@ -188,7 +188,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                     val answer = turn.answer ?: task?.result?.takeIf { task.status == "done" }
                     val error = turn.error ?: task?.takeIf { it.status == "failed" || it.status == "cancelled" }?.let { if (it.status == "cancelled") t("ask.stopped") else it.error }
                     when {
-                        answer != null -> Markdown(answer, Modifier.fillMaxWidth().padding(horizontal = 4.dp))
+                        answer != null -> AiMarkdown(session, answer, Modifier.fillMaxWidth().padding(horizontal = 4.dp))
                         error != null -> Text(error, Modifier.padding(horizontal = 4.dp), style = PullsType.sm, color = c.error)
                     }
                 }

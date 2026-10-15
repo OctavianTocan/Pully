@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caverock.androidsvg.SVG
@@ -49,6 +51,7 @@ import com.octaviantocan.pulls.ui.design.CodePlace
 import com.octaviantocan.pulls.ui.design.LocalCodeBlock
 import com.octaviantocan.pulls.ui.design.LocalMentions
 import com.octaviantocan.pulls.ui.design.Markdown
+import com.octaviantocan.pulls.ui.design.MarkdownPreview
 import com.octaviantocan.pulls.ui.design.Mentions
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -56,6 +59,7 @@ import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import com.octaviantocan.pulls.ui.review.guardedStop
+import com.octaviantocan.pulls.ui.review.openSource
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.serialization.json.put
 
@@ -127,6 +131,20 @@ internal fun ProvideAiText(session: ReviewSession, open: (CodePlace) -> Unit, co
     val mentions = remember(session) { mentionsFor(session) { place -> latest(place) } }
     val code = remember(session) { @Composable { body: String, lang: String -> AiCodeView(session, body, lang) } }
     CompositionLocalProvider(LocalMentions provides mentions, LocalCodeBlock provides code, content = content)
+}
+
+/**
+ * Markdown the AI wrote, on a page that also shows people's words (the Diff's notes, findings and answers, the
+ * Overview's file notes, the findings sheet): its mentions are links that open their place (rule 96) and its code is
+ * the diff's code view (rule 95), while a reviewer's comment beside it stays as they wrote it. Inside [ProvideAiText]
+ * it is plain [Markdown]. A [maxLines] makes it a preview of that many lines.
+ */
+@Composable
+internal fun AiMarkdown(session: ReviewSession, source: String, modifier: Modifier = Modifier, style: TextStyle = PullsType.sm, maxLines: Int = Int.MAX_VALUE) {
+    val uri = LocalUriHandler.current
+    val text = @Composable { if (maxLines == Int.MAX_VALUE) Markdown(source, modifier, style) else MarkdownPreview(source, modifier, style, maxLines) }
+    if (LocalMentions.current != null) text()
+    else ProvideAiText(session, { place -> openSource(session, TourSource(place.path, place.line, ""), uri::openUri) }, text)
 }
 
 @Composable

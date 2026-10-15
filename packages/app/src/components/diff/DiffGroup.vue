@@ -8,6 +8,7 @@ import { Markdown } from '@comark/vue'
 import { computed, nextTick, ref } from 'vue'
 import { useFitText } from '../../composables/useFitText'
 import { showGroupSidebar } from '../../state/group-nav'
+import { keepRepoLinks } from '../ai/ai-format'
 import DiffGroup from './DiffGroup.vue'
 import DiffGroupNav from './DiffGroupNav.vue'
 import DiffStats from './DiffStats.vue'
@@ -130,7 +131,7 @@ function navigateToFile(sha: string) {
       </div>
       <template v-if="!collapsed">
         <Suspense v-if="group.summary">
-          <Markdown :value="group.summary" class="max-w-200 px-2 text-sm op-fade" />
+          <Markdown :value="group.summary" class="max-w-200 px-2 text-sm op-fade" @click="keepRepoLinks" />
         </Suspense>
         <!-- The sidebar already lists this subtree, so the inline sub-nav would only repeat it. -->
         <DiffGroupNav
@@ -198,7 +199,7 @@ function navigateToFile(sha: string) {
         </header>
         <template v-if="!collapsed">
           <Suspense v-if="group.summary && !isChapter">
-            <Markdown :value="group.summary" class="border-b border-base pb-2 pl2 text-sm op-fade" />
+            <Markdown :value="group.summary" class="border-b border-base pb-2 pl2 text-sm op-fade" @click="keepRepoLinks" />
           </Suspense>
           <FileTree
             class="min-h-0 flex-1"

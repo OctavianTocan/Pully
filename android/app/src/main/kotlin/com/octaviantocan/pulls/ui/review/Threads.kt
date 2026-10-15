@@ -240,7 +240,7 @@ fun InlineFinding(session: ReviewSession, finding: CritiqueFinding, highlighted:
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         com.octaviantocan.pulls.ui.ai.FindingHeading(finding.severity, finding.title)
-        if (finding.body.isNotBlank()) Markdown(finding.body, style = PullsType.sm.copy(color = c.text))
+        if (finding.body.isNotBlank()) com.octaviantocan.pulls.ui.ai.AiMarkdown(session, finding.body, style = PullsType.sm.copy(color = c.text))
         finding.suggestion?.let { suggestion -> com.octaviantocan.pulls.ui.ai.FindingSuggestion(session, finding.path, suggestion) }
     }
 }
@@ -250,7 +250,7 @@ fun InlineFinding(session: ReviewSession, finding: CritiqueFinding, highlighted:
 fun AiAnnotationBlock(session: ReviewSession, anchor: AiAnchor, highlightedFinding: String?) {
     val c = LocalPullsColors.current
     anchor.notes.forEach { note ->
-        Text(note, Modifier.padding(horizontal = 16.dp, vertical = 6.dp).widthIn(max = CARD_MAX), style = PullsType.sm, color = c.muted)
+        com.octaviantocan.pulls.ui.ai.AiMarkdown(session, note, Modifier.padding(horizontal = 16.dp, vertical = 6.dp).widthIn(max = CARD_MAX), style = PullsType.sm.copy(color = c.muted))
     }
     anchor.findings.forEach { InlineFinding(session, it, highlighted = it.id == highlightedFinding) }
     anchor.asks.forEach { AskThreadCard(session, it, Modifier.padding(vertical = 4.dp).widthIn(max = CARD_MAX)) }

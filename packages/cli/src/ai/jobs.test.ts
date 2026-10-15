@@ -87,7 +87,7 @@ describe('ai jobs', () => {
   it('streams the work log to a long-poller and ends with the answer and usage', async () => {
     const { last, log } = await follow(startAiJob(ask('ok', { label: 'Group files' })))
     expect(last).toMatchObject({ status: 'done', result: 'Hello', label: 'Group files', usage: { costUsd: 0.5, inputTokens: 1, outputTokens: 2, durationMs: 10 } })
-    expect(log.get('start')).toMatchObject({ title: 'Started Claude (fake-model)', status: 'done' })
+    expect(log.get('start')).toMatchObject({ title: 'Started', status: 'done' })
     expect(log.get('text:1:0')).toMatchObject({ kind: 'text', title: 'Wrote', text: 'Hello', status: 'done' })
     expect((await waitAiJob(last.id, last.rev)).activities).toEqual([])
     expect(listAiJobs().find(job => job.id === last.id)).toMatchObject({ status: 'done', activities: [] })
