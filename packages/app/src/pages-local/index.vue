@@ -102,89 +102,110 @@ useDocumentTitle(() => t('local.home.title'))
 const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.pulls), pulls: () => pulls.value, refresh: reload })
 </script>
 
+<!--
+  A phone shows one column: the tabs in the header, chips over the list, the search pill floating at the
+  bottom. A desktop (lg and up) lays the same pieces out as an app: a sidebar with the tabs, the filters as
+  lists and the sync line; the search at the top of the list; each row on one line.
+-->
 <template>
   <div class="relative flex flex-col min-h-dvh">
     <AppHeader>
-      <KitCapsuleTabs v-model="state" :options="stateOptions" class="max-w-60 w-full" />
+      <KitCapsuleTabs v-model="state" :options="stateOptions" class="max-w-60 w-full lg:hidden" />
     </AppHeader>
 
-    <main class="mxa max-w-3xl w-full flex flex-1 flex-col pb-32">
-      <h1 class="sr-only">
-        {{ $t('local.home.title') }}
-      </h1>
-
-      <HomeQueueNav
-        v-model:queue="queue"
-        v-model:role="role"
-        class="pb-2 pt-3"
-        :queue-counts="filtered.queueCounts"
-        :role-counts="filtered.roleCounts"
-        :show-queues="state === 'open'"
-      >
-        <HomeSyncStatus :updating="updating" :fetched-at="fetchedAt" :error="pulls ? error : undefined" class="shrink-0 pl-2" @refresh="reload" />
-      </HomeQueueNav>
-
-      <!-- The shape of the list while the first one loads, never a loading screen. -->
-      <div v-if="!pulls && !error" class="flex flex-col" aria-busy="true" :aria-label="$t('local.home.loading')">
-        <div v-for="n in 6" :key="n" class="flex gap-1.5 px-4 py-3.25">
-          <span class="kit-skeleton w-11 shrink-0" />
-          <span class="flex flex-1 flex-col gap-2">
-            <span class="kit-skeleton" :style="{ width: `${90 - n * 7}%` }" />
-            <span class="kit-skeleton w-1/3" />
-          </span>
-        </div>
-      </div>
-
-      <div v-else-if="!pulls" class="flex flex-col items-center gap-1.5 px-8 py-12 text-center">
-        <p class="text-row font-medium">
-          {{ $t('local.home.failed') }}
-        </p>
-        <p class="text-sm color-muted">
-          {{ error }}
-        </p>
-        <button type="button" class="btn-action mt-1" :disabled="updating" @click="reload">
-          <span class="i-lu-redo" aria-hidden="true" />
-          {{ $t('common.retry') }}
-        </button>
-      </div>
-
-      <p v-else-if="!groups.length" class="px-8 py-12 text-center text-row font-medium">
-        {{ search.trim() && !parsed ? $t('local.home.noMatches') : queue === 'all' ? $t('local.home.empty') : $t('triage.empty') }}
-      </p>
-
-      <section v-for="group in groups" v-else :key="group.name" class="flex flex-col px-4">
-        <KitGroupHeading
-          :label="group.repo"
-          :title="group.name"
-          :count="group.pulls.length"
-          :folded="folded.has(group.name) && !search"
-          :to="repoRoute(group.owner, group.repo)"
-          @fold="fold(group.name)"
+    <div class="mxa max-w-7xl w-full flex flex-1 lg:gap-10 lg:px-6">
+      <aside class="sticky top-[calc(4.25rem+env(safe-area-inset-top))] hidden w-64 shrink-0 flex-col self-start gap-6 pt-3 lg:flex">
+        <KitCapsuleTabs v-model="state" :options="stateOptions" class="w-full" />
+        <HomeQueueNav
+          v-model:queue="queue"
+          v-model:role="role"
+          vertical
+          :queue-counts="filtered.queueCounts"
+          :role-counts="filtered.roleCounts"
+          :show-queues="state === 'open'"
         />
-        <ul v-if="!folded.has(group.name) || search" class="flex flex-col -mx-4">
-          <li v-for="pull in group.pulls" :key="pull.number">
-            <HomePullRow
-              :pull="pull"
-              :data-nav-row="nav.rowKey(pull)"
-              :class="{ 'bg-hover': nav.isActive(pull) }"
-              @intent="prefetcher.hover"
-              @leave="prefetcher.leave"
-            />
-          </li>
-        </ul>
-      </section>
-    </main>
+        <HomeSyncStatus :updating="updating" :fetched-at="fetchedAt" :error="pulls ? error : undefined" class="pl-4" @refresh="reload" />
+      </aside>
 
-    <div class="pointer-events-none fixed inset-x-0 bottom-0 z-nav px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-      <KitSearchPill
-        v-model="search"
-        v-field="FIELD.search"
-        class="pointer-events-auto mxa max-w-3xl"
-        :placeholder="$t('local.home.search')"
-        :open-label="parsed ? $t('local.home.open') : undefined"
-        data-nav-search
-        @open="open"
-      />
+      <main class="min-w-0 flex flex-1 flex-col pb-32 lg:pb-12">
+        <h1 class="sr-only">
+          {{ $t('local.home.title') }}
+        </h1>
+
+        <!-- One field for both layouts: it floats at the bottom on a phone and heads the list on a desktop. -->
+        <div class="pointer-events-none fixed inset-x-0 bottom-0 z-nav px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:(pointer-events-auto static px-0 pb-2 pt-3)">
+          <KitSearchPill
+            v-model="search"
+            v-field="FIELD.search"
+            class="pointer-events-auto mxa max-w-3xl lg:(h-12 max-w-none shadow-button)"
+            :placeholder="$t('local.home.search')"
+            :open-label="parsed ? $t('local.home.open') : undefined"
+            data-nav-search
+            @open="open"
+          />
+        </div>
+
+        <HomeQueueNav
+          v-model:queue="queue"
+          v-model:role="role"
+          class="pb-2 pt-3 lg:hidden"
+          :queue-counts="filtered.queueCounts"
+          :role-counts="filtered.roleCounts"
+          :show-queues="state === 'open'"
+        >
+          <HomeSyncStatus :updating="updating" :fetched-at="fetchedAt" :error="pulls ? error : undefined" class="shrink-0 pl-2" @refresh="reload" />
+        </HomeQueueNav>
+
+        <!-- The shape of the list while the first one loads, never a loading screen. -->
+        <div v-if="!pulls && !error" class="flex flex-col" aria-busy="true" :aria-label="$t('local.home.loading')">
+          <div v-for="n in 6" :key="n" class="flex gap-1.5 px-4 py-3.25">
+            <span class="kit-skeleton w-11 shrink-0" />
+            <span class="flex flex-1 flex-col gap-2">
+              <span class="kit-skeleton" :style="{ width: `${90 - n * 7}%` }" />
+              <span class="kit-skeleton w-1/3" />
+            </span>
+          </div>
+        </div>
+
+        <div v-else-if="!pulls" class="flex flex-col items-center gap-1.5 px-8 py-12 text-center">
+          <p class="text-row font-medium">
+            {{ $t('local.home.failed') }}
+          </p>
+          <p class="text-sm color-muted">
+            {{ error }}
+          </p>
+          <button type="button" class="btn-action mt-1" :disabled="updating" @click="reload">
+            <span class="i-lu-redo" aria-hidden="true" />
+            {{ $t('common.retry') }}
+          </button>
+        </div>
+
+        <p v-else-if="!groups.length" class="px-8 py-12 text-center text-row font-medium">
+          {{ search.trim() && !parsed ? $t('local.home.noMatches') : queue === 'all' ? $t('local.home.empty') : $t('triage.empty') }}
+        </p>
+
+        <section v-for="group in groups" v-else :key="group.name" class="flex flex-col px-4 lg:px-0">
+          <KitGroupHeading
+            :label="group.repo"
+            :title="group.name"
+            :count="group.pulls.length"
+            :folded="folded.has(group.name) && !search"
+            :to="repoRoute(group.owner, group.repo)"
+            @fold="fold(group.name)"
+          />
+          <ul v-if="!folded.has(group.name) || search" class="flex flex-col -mx-4 lg:mx-0">
+            <li v-for="pull in group.pulls" :key="pull.number">
+              <HomePullRow
+                :pull="pull"
+                :data-nav-row="nav.rowKey(pull)"
+                :class="{ 'bg-hover': nav.isActive(pull) }"
+                @intent="prefetcher.hover"
+                @leave="prefetcher.leave"
+              />
+            </li>
+          </ul>
+        </section>
+      </main>
     </div>
   </div>
 </template>
