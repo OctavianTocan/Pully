@@ -217,7 +217,7 @@ internal fun PrOverviewScreen(
             ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
             Column(Modifier.backUnless("").holdUnless("")) {
                 PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
-                if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head)
+                if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head.base, head.head)
                 StackMark(session.stack) { onSheet("stack") }
                 if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
                     StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))

@@ -80,7 +80,7 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
  * on showing the branch, because a control that copies keeps its face (rule 83).
  */
 @Composable
-internal fun BranchRow(head: PrHead) {
+internal fun BranchRow(base: String, head: String) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
@@ -106,9 +106,9 @@ internal fun BranchRow(head: PrHead) {
             .horizontalScroll(scroll),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (head.head.isNotBlank()) Chip(head.head, Modifier)
-        if (head.head.isNotBlank() && head.base.isNotBlank()) LuIcon(Lu.to, tint = c.muted, size = 14.dp)
-        if (head.base.isNotBlank()) Chip(head.base, Modifier)
+        if (head.isNotBlank()) Chip(head, Modifier)
+        if (head.isNotBlank() && base.isNotBlank()) LuIcon(Lu.to, tint = c.muted, size = 14.dp)
+        if (base.isNotBlank()) Chip(base, Modifier)
     }
 }
 

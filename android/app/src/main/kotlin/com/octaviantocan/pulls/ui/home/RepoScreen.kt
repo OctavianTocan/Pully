@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.SidePages
 import com.octaviantocan.pulls.ui.design.rememberSidePages
@@ -293,7 +294,9 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
             }
             val sides = rememberSidePages(tab, 2, { tab = it })
             CapsuleTabs(listOf("Pull requests", "Tours"), tab, { tab = it }, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), position = { sides.at })
-            SidePages(sides, listOf(0, 1), Modifier.weight(1f).fillMaxWidth()) { page ->
+            // Pulling down past the top opens Commands here as on every page (J30).
+            PullToCommands({ Commands.open() }, Modifier.weight(1f).fillMaxWidth()) {
+            SidePages(sides, listOf(0, 1), Modifier.fillMaxSize()) { page ->
             if (page == 1) {
                 val mine = tours.entries.filter {
                     it.owner.equals(owner, ignoreCase = true) && it.repo.equals(repo, ignoreCase = true) &&
@@ -345,6 +348,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                         }
                     }
                 }
+            }
             }
             }
             }

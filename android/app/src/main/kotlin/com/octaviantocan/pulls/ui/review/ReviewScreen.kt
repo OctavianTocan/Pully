@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.Commands
+import com.octaviantocan.pulls.ui.home.PullToCommands
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -130,7 +132,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val viewMotion = remember(session) { PageMotion() }
     val opened = session.opened
     // A tour the phone kept opens before the overview or the diff has arrived, named from what the phone knows.
-    val head = prHead(session, data) ?: storedTourHead(target, preview, session.tour).takeIf { pages.last() == PrView.Tour }
+    val head = (prHead(session, data) ?: storedTourHead(target, preview, session.tour).takeIf { pages.last() == PrView.Tour })
+        // The branches come with the Inbox row, so they show with the title rather than when GitHub answers (J13).
+        ?.let { if (it.base.isBlank() && it.head.isBlank() && preview != null) it.copy(base = preview.base, head = preview.head) else it }
 
     SideEffect {
         ui.uncategorizedLabel = messages.t("group.uncategorized")
@@ -288,7 +292,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     // The diff is narrowed to a commit: say so, with the way back, where no view can scroll it away (rule 80).
                     CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
                     // The views sit left to right as the capsule shows them, so going to one moves the page that way (rule 105).
-                    BlurSwitch(view, Modifier.weight(1f).fillMaxWidth(), order = { it.ordinal }, motion = viewMotion) { page ->
+                    // Pulling down past the top of any view opens Commands, as on the Inbox (J30).
+                    PullToCommands({ Commands.open() }, Modifier.weight(1f).fillMaxWidth()) {
+                    BlurSwitch(view, Modifier.fillMaxSize(), order = { it.ordinal }, motion = viewMotion) { page ->
                         when (page) {
                             PrView.Overview -> PrOverviewScreen(
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
@@ -317,8 +323,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             }
                         }
                     }
+                    }
                 }
-                // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
                 // An AI review with the lens picked, from the Review sheet or from its page in the pull request's sheet.
                 fun review(lens: String?) {
                     if (session.taskFor("critique")?.running == true) {
@@ -328,6 +334,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         toaster.show("Reviewing ${head.label}")
                     }
                 }
+                // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
                 when (sheet) {
                     "more" -> PrSheet(session, top, data, head, PrPage.Actions, onClose = { sheet = null }, onReview = ::review)
                     // Aa on the diff: the code's look, then the file's own actions and one row on to the pull request's ⋯,

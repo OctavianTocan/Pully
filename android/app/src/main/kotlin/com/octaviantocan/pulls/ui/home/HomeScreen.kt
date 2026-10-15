@@ -349,7 +349,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it },
                     )
-                } else Box(Modifier.fillMaxSize().padding(top = 10.dp)) {
+                } else PullToCommands({ Commands.open() }, Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
                         entries = tours.entries.filter { "${it.owner}/${it.repo}" !in hidden && (needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle)) },
                         pulls = everything.orEmpty(),
