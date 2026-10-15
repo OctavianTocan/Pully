@@ -12,6 +12,14 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.30.0
+
+Tours start from the tour icon, and sort sits next to search.
+
+- A pull request opens on its description, with no Analyze card above it.
+- Tap the tour icon on a pull request without a tour: pick the model and generate one. The tour page shows the work as it is written.
+- Sort is the round button next to the search at the bottom of the Inbox, always in reach.
+
 ## 0.29.0
 
 Screens slide side by side, sheets bounce, and taps are felt.

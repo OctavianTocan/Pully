@@ -3,6 +3,13 @@ package com.octaviantocan.pulls.ui.home
 import kotlinx.coroutines.CoroutineScope
 import com.octaviantocan.pulls.data.PullSizes
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animate
@@ -131,6 +138,7 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -328,7 +336,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             // to the Inbox, so they go with it (H20, rule 105).
             SidePages(ui.tab, listOf(0, 1), { ui.tab = it }, Modifier.weight(1f).fillMaxWidth()) { tab ->
                 if (tab == 0) Column(Modifier.fillMaxSize()) {
-                    FilterChips(ui.filter, inbox.counts, sort, onSort = { sortOpen = true }) { ui.filter = it }
+                    FilterChips(ui.filter, inbox.counts) { ui.filter = it }
                     ActivityStrip(workTasks, { activityOpen = true })
                     InboxList(
                         sections = sections, rowRepos = rowRepos, now = now, archived = archived, work = work,
@@ -379,14 +387,20 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SearchPill(
-                ui.search, { ui.search = it },
-                if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
-                openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
-                onOpen = ::openSearch,
-                onFocus = { searchFocused = it },
-                onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
-            )
+            // Sort sits beside the search under the thumb, so it never hides past the chips' edge (rule 114). Tours has no
+            // order to choose, so the button leaves with the Inbox and the pill takes the row.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SearchPill(
+                    ui.search, { ui.search = it },
+                    if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
+                    openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
+                    onOpen = ::openSearch,
+                    modifier = Modifier.weight(1f),
+                    onFocus = { searchFocused = it },
+                    onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
+                )
+                SortButton(ui.tab == 0, sort, onClick = { sortOpen = true })
+            }
         }
         if (ui.askOpen) {
             InboxAskSheet(inboxAsk, listed, openListed, onClose = { ui.askOpen = false })
@@ -435,9 +449,9 @@ internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSett
     }
 }
 
-/** `.chips`: Waiting on you, Authored and All, each with the size of the list it would show, then the sort. */
+/** `.chips`: Waiting on you, Authored and All, each with the size of the list it would show. */
 @Composable
-internal fun FilterChips(filter: String, counts: Map<String, Int>, sort: InboxSort, onSort: () -> Unit, onSelect: (String) -> Unit) {
+internal fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -445,26 +459,22 @@ internal fun FilterChips(filter: String, counts: Map<String, Int>, sort: InboxSo
         Triage.inboxFilters.forEach { chip ->
             SoftChip(CHIP_LABELS.getValue(chip), chip == filter, { onSelect(chip) }, count = "${counts[chip] ?: 0}")
         }
-        SortChip(sort, onSort, Modifier.padding(start = 4.dp))
     }
 }
 
 /**
- * The sort, after the scope chips: a chip of the same size and edge with the arrows in front, so it reads as an order
- * and not one more filter. It says what the Inbox is sorted by (rule 81), and a tap offers the others.
+ * The Inbox's sort: a round button as tall as the search pill, beside it (rule 114). Its label names the order the
+ * Inbox is in, and a tap offers the others. It is there while [shown], the Inbox, and makes room as it goes.
  */
 @Composable
-internal fun SortChip(sort: InboxSort, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
-    Row(
-        modifier.height(36.dp).clip(CircleShape).border(1.dp, c.border, CircleShape)
-            .cueClickable(role = Role.Button, onClickLabel = "Change the sort", onClick = onClick)
-            .padding(start = 12.dp, end = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+internal fun SortButton(shown: Boolean, sort: InboxSort, onClick: () -> Unit) {
+    val motion = rememberMotionEnabled()
+    AnimatedVisibility(
+        shown,
+        enter = if (!motion) EnterTransition.None else fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + expandHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)),
+        exit = if (!motion) ExitTransition.None else fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)),
     ) {
-        LuIcon(Lu.sort, tint = c.muted, size = 16.dp)
-        Text(sort.label, style = PullsType.sm, color = c.text, maxLines = 1)
+        FloatIcon(Lu.sort, "Sort, now ${sort.label}", onClick, Modifier.padding(start = 10.dp), size = 54.dp, iconSize = 22.dp)
     }
 }
 

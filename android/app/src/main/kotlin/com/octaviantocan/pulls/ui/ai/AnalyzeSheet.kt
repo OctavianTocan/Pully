@@ -61,6 +61,7 @@ import com.octaviantocan.pulls.ui.settings.CliCatalog
 /** The pages of the Analyze sheet. Each but the first slides in inside the same sheet and goes back to its [parent] (rule 78). */
 internal enum class AnalyzePage(val parent: AnalyzePage?) {
     Main(null),
+    Tour(null),
     Custom(Main),
     Model(Main),
     Effort(Model),
@@ -68,6 +69,7 @@ internal enum class AnalyzePage(val parent: AnalyzePage?) {
 
 private fun AnalyzePage.title(): String = when (this) {
     AnalyzePage.Main -> "Analyze"
+    AnalyzePage.Tour -> "No tour yet"
     AnalyzePage.Custom -> "Custom analysis"
     AnalyzePage.Model -> "Select model"
     AnalyzePage.Effort -> "Effort"
@@ -81,7 +83,7 @@ private fun AnalyzePage.title(): String = when (this) {
  * and the review all run on the server, so the reviewer can leave and come back.
  */
 @Composable
-internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: AnalyzePage = AnalyzePage.Main) {
+internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: AnalyzePage = AnalyzePage.Main, onTour: () -> Unit = {}) {
     val context = LocalContext.current
     val toaster = LocalToaster.current
     val settings = session.settings
@@ -100,11 +102,23 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: An
         }
     }
 
-    // Opened straight on the model page, that page is the first one: there is no Analyze page behind it.
-    val parent: (AnalyzePage) -> AnalyzePage? = { if (it == AnalyzePage.Model && start == AnalyzePage.Model) null else it.parent }
+    // Opened straight on the model page, that page is the first one: there is no Analyze page behind it. Opened from the
+    // tour icon, the model page goes back to the tour's page.
+    val parent: (AnalyzePage) -> AnalyzePage? = {
+        when {
+            it != AnalyzePage.Model -> it.parent
+            start == AnalyzePage.Model -> null
+            else -> start
+        }
+    }
     PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = { it.title() }) { current ->
         when (current) {
             AnalyzePage.Main -> AnalyzeMain(session, onRun = ::run, onCustom = { page = AnalyzePage.Custom }, onModel = { page = AnalyzePage.Model })
+            AnalyzePage.Tour -> TourStart(session, onModel = { page = AnalyzePage.Model }) {
+                onClose()
+                generateTour(session, context)
+                onTour()
+            }
             AnalyzePage.Custom -> {
                 SheetCard {
                     PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
@@ -114,19 +128,34 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: An
                 }
                 CtaButton("Analyze", { run(custom) }, Modifier.fillMaxWidth().padding(top = 16.dp))
             }
-            AnalyzePage.Model -> ModelPage(settings, onDone = { if (start == AnalyzePage.Model) onClose() else page = AnalyzePage.Main }, onEffort = { page = AnalyzePage.Effort })
+            AnalyzePage.Model -> ModelPage(settings, onDone = { if (start == AnalyzePage.Model) onClose() else page = parent(AnalyzePage.Model) ?: AnalyzePage.Main }, onEffort = { page = AnalyzePage.Effort })
             AnalyzePage.Effort -> EffortPage(settings, onBack = { page = AnalyzePage.Model })
         }
     }
 }
 
-/** The first page: the presets, Custom, and the model they will run with. */
+/**
+ * What the tour icon opens while the pull request has no tour (rule 113): that there is none yet, the model that would
+ * write it, and Generate. Nothing on the Overview offers a tour; this sheet is the one way in, every time.
+ */
 @Composable
-private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoice) -> Unit, onCustom: () -> Unit, onModel: () -> Unit) {
+private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, onGenerate: () -> Unit) {
+    val c = LocalPullsColors.current
+    Text(
+        "Pulls reads the change and the code around it, then walks you through it section by section.",
+        Modifier.padding(horizontal = 4.dp),
+        style = PullsType.read, color = c.muted,
+    )
+    ModelCard(session, onModel, Modifier.padding(top = 16.dp))
+    CtaButton("Generate tour", onGenerate, Modifier.fillMaxWidth().padding(top = 16.dp), enabled = session.key != null)
+}
+
+/** The row that names the model an analysis or a tour runs with; a tap opens the model page. */
+@Composable
+private fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val messages = LocalMessages.current
-    val settings = session.settings
     val repo = remember { Repo(context) }
     // Read again each time the page opens, because the model page may have changed them.
     val config = ServerStore.load(context)
@@ -134,19 +163,25 @@ private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoic
     val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine, config.model) {
         value = ModelCatalogs.get(config.engine) ?: fetchCatalog(repo, config.engine).getOrNull()
     }
-    val last = settings.analyzeChoice
+    SheetCard(modifier) {
+        SheetRow("Model", onModel, first = true, iconless = true) {
+            Text(analysisModelLabel(config, catalog, session.settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+        }
+    }
+}
+
+/** The first page: the presets, Custom, and the model they will run with. */
+@Composable
+private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoice) -> Unit, onCustom: () -> Unit, onModel: () -> Unit) {
+    val last = session.settings.analyzeChoice
     SheetCard {
         AnalyzePreset.entries.forEachIndexed { index, preset ->
             ChoiceRow(preset.title, preset.blurb, selected = last.preset == preset, first = index == 0) { onRun(AnalyzeChoice.of(preset)) }
         }
         ChoiceRow("Custom", if (last.preset == null) last.summary() else "Pick the passes yourself.", selected = last.preset == null, first = false, onClick = onCustom)
     }
-    SheetCard {
-        SheetRow("Model", onModel, first = true, iconless = true) {
-            Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-        }
-    }
+    ModelCard(session, onModel)
 }
 
 /** A choice with a line of what it does, and a tick on the one the button runs. The Review sheet's lenses use it too (rule 70). */
@@ -188,21 +223,3 @@ private fun PassRow(title: String, hint: String, checked: Boolean, first: Boolea
     }
 }
 
-/** Analyze with a chevron: the button runs the last choice, the chevron opens the others. The page's accent fill with white ink, the colour of the Review button below it, so the two main actions on the page match. */
-@Composable
-internal fun AnalyzeSplitButton(choice: String, onRun: () -> Unit, onMenu: () -> Unit, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
-    // raw-value-ok: white on the accent fill, the same ink as the Review button
-    val ink = Color.White
-    Row(modifier.clip(CircleShape).background(c.primary), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.defaultMinSize(minHeight = TOUCH).cueClickable(role = Role.Button, onClickLabel = "Analyze, $choice", onClick = onRun).padding(start = 18.dp, end = 12.dp),
-            contentAlignment = Alignment.Center,
-        ) { Text("Analyze", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = ink, maxLines = 1) }
-        Box(Modifier.width(1.dp).height(20.dp).background(ink.copy(alpha = 0.3f)))
-        Box(
-            Modifier.size(TOUCH).cueClickable(role = Role.Button, onClickLabel = "Choose how to analyze", onClick = onMenu),
-            contentAlignment = Alignment.Center,
-        ) { LuIcon(Lu.chevd, tint = ink, size = 18.dp) }
-    }
-}

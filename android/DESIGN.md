@@ -544,7 +544,7 @@ Source: canvas. Checked by: review.
 
 #### 19. Analyze is one action, three outputs.
 
-Analysing a PR = summary + per-file explanations + tour. Call it Analyze, not Write tour. An unanalysed PR is a real state with a visible way in. Per-file explanations show on the file rows.
+Analysing a PR = summary + per-file explanations + tour. Call it Analyze, not Write tour. An unanalysed PR is a real state with a visible way in. Per-file explanations show on the file rows. (Since rule 113 the way in is the tour icon, not a card on the Overview.)
 
 Source: canvas. Checked by: review.
 
@@ -1051,7 +1051,7 @@ Source: overhaul. Checked by: review.
 
 #### 86. A card that works keeps its height.
 
-Nothing on a page moves while AI works. The Analyze card is one fixed height (72dp) in every state: idle, running and finished. Its status is one line that ends in an ellipsis, because this is not important content and tapping it shows more. The step chips are not in the card while it runs, and the log opens in a sheet. A new line or a wrapped chip never moves what is below.
+Nothing on a page moves while AI works. (The Overview's Analyze card is gone since rule 113; the rest stands for every card that works.) The Analyze card is one fixed height (72dp) in every state: idle, running and finished. Its status is one line that ends in an ellipsis, because this is not important content and tapping it shows more. The step chips are not in the card while it runs, and the log opens in a sheet. A new line or a wrapped chip never moves what is below.
 
 Check: run an analysis and watch the page. Nothing above or below the card moves.
 
@@ -1282,6 +1282,24 @@ Check: in Settings tap Dark, then Light: the new look grows from the top right, 
 
 Source: walkthrough. Checked by: review.
 
+### Rules 113 and 114, from Tavi's picks of 2026-10-15
+
+#### 113. A tour starts from the tour icon.
+
+Tavi: "What if we only generate the Tour when you tap on the Tour icon. We pop a bottom sheet with a 'There's no tour currently. Do you wanna generate one?' and a model selector every time you tap on the tour and there's no tour. Then we can completely take it out of the PR page." The Overview has no Analyze card and nothing that asks for an analysis: the page is the pull request. Tapping the tour icon in the header when there is no tour, and none is being written, opens a sheet titled "No tour yet" with one line on what a tour is, the Model row (its page slides in inside the same sheet, rule 78), and Generate tour. Generate closes the sheet and opens the Tour page on the work log: "Reading the change" while the analysis that comes first runs, then "Building the tour". With a tour, or one on its way, the icon opens the Tour page as before, and its dot breathes while one is written. The other analysis passes stay in ⋯, under Analyze options. This replaces rule 19's "visible way in" on the Overview and rule 86's Analyze card.
+
+Check: open a pull request with no tour. The Summary starts with the description. Tap the tour icon: the sheet says there is no tour yet and names the model; Generate tour opens the Tour page on its work log. Go back and tap the icon again: the Tour page opens, not the sheet.
+
+Source: answers. Checked by: review.
+
+#### 114. Sort sits beside search.
+
+Tavi picked option A of the second round: the Inbox's sort is a round button as tall as the search pill, beside it at the bottom, under the thumb, so it never hides past the edge of the chips. The chips are the three filters alone. The button's label names the order the Inbox is in, and a tap opens the Sort sheet. Tours has no order to choose, so on Tours the button leaves and the pill takes the row.
+
+Check: open the Inbox: sort is the round button right of the search pill and the chips hold only Waiting on you, Authored and All. Swipe to Tours: the button goes and the pill widens.
+
+Source: answers. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -1436,3 +1454,4 @@ Every difference between this file and the rendered app, and how it was settled.
 - **2026-10-15, fixes from the review of 0.20.0 to 0.24.0 (0.26.0).** Nothing changes how a screen looks; these are behaviour fixes that review bots found. Home re-reads the server's stored list every few seconds, for two minutes at most, while Jev is still sorting rows, so kinds and risk arrive without a reload and no screen-wide loading shows (rule 51). The stack under a pull request's title loads again on every load, and a failed load keeps the one shown. The Review sheet's list belongs to the server it came from, so a switched server never offers the old one's skills. "Needs a look" marks and left-out patches belong to the head they were asked for: a push clears the marks, and a late patch for the old head is dropped.
 - **2026-10-15, updates are required and tours are kept (0.28.0, rule 104). Asked by Tavi.** He wanted Update in the command palette, the changelog shown and the update made mandatory when he opens an old version, and the tours he has gone through stored so they load quickly. The floating update card and its ✕ are gone: while the server offers a newer build, a full-screen update screen covers the app with the changelog and Update, and only installing it ends it. The last offer is kept on the phone, so the screen shows from the first frame; the background check keeps it too. Commands has Update Pulls (asks the server now, however recently it was asked) and What's new. Tours: the server already kept every tour on disk, and the phone kept only the Tours list and your place in each; the tour itself was fetched after the whole diff on every open. Now the phone keeps each tour it has shown (the newest 200), opens it before the diff or the overview arrives, and replaces it with the server's answer; Home fetches the tours on the Tours list the phone lacks. My readings: Back on the update screen leaves the app rather than doing nothing; a tour's sources and mentions open once the diff has arrived. Open edges: checked by compiling and unit tests, not on a phone.
 - **2026-10-15, the walkthrough of 0.24.0 (rules 107 to 112, 0.29.0). Asked by Tavi.** His recording of 0.24.0 named 36 points, written down with their times in `/mnt/project-files/design/feedback-2026-10-15-0.24.0.md` and checked against the frames. Pages that sit side by side now slide whole with no fade (`SidePages` for the Inbox and Tours and a repository's two pages, `rememberPageSlide(full = true)` for the Overview's tabs and the Diff's files); a sheet's pages travel a third of its width. Sheets settle on a spring, Commands rises from the bottom like every sheet (the old "drops from the top" of rule 105 is gone), and a sheet only closes when its content is at the top and the drag starts there. Every cue also vibrates, with a Vibration switch. Light and Dark wipe in from a corner. The server keeps each repository's first page of pull requests and fetches the Inbox's busiest twelve ahead, and the phone keeps the last page it saw, so the repository page opens with rows. The Overview takes a pull request's size from the list it was opened from until its diff counts it. Two points wait on Tavi's pick from design options: the Analyze card and where sort sits at the top of Home. Kept as he asked: auto refresh, and Closed pull requests in Profile for now. Already fixed before this walkthrough: the squeezed "Viewing commit 2 of 7" bar (0.25.0). The feel of the swipes, the spring and the vibrations was not tried on a phone.
+- **2026-10-15, the tour from its icon and sort beside search (rules 113 and 114, 0.30.0). Picked by Tavi.** He turned down the first round of options for the Analyze card and the top of Home ("I don't like any of the options"), which only restyled the same card and chip. From the second round he took sort beside the search (A) and, for Analyze, asked for his own variant of the top-bar icon (D): no Analyze card on the Overview at all, and the tour icon opening a "No tour yet" sheet with the model and Generate tour whenever there is no tour (`AnalyzePage.Tour` in `AnalyzeSheet`, `generateTour`). The Analyze card's code (`AnalysisBlock`, `AnalyzeStatusCard`, `AnalyzeSplitButton`, the log sheet and core's `analyzeCard`) is gone; the Tour page shows the analysis's own work log until the tour's starts (`tourComing`). My readings: the sheet's title is "No tour yet" and its button "Generate tour", from his words; the empty Tour page that a Tours row or a link can still open offers the same Generate tour. Open edges: checked by compiling, unit tests and the design checks, not on a phone.

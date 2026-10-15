@@ -47,6 +47,7 @@ import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.ReviewSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
+import com.octaviantocan.pulls.ui.ai.tourComing
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalMessages
@@ -147,6 +148,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         push(PrView.Diff)
     }
     fun toChanges() { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) }
+    // The tour icon is the one way to a tour (rule 113): with none written or on its way it asks whether to write one,
+    // with the model that would; otherwise it opens the tour, or the work that is writing it.
+    fun openTour() {
+        if (session.tour == null && !tourComing(session)) sheet = "tour" else switchTo(PrView.Tour)
+    }
     fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
         ask = AskRequest(
             if (forTour) "Ask about this tour" else "Ask about ${head?.label ?: "this pull request"}",
@@ -231,8 +237,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
                         Spacer(Modifier.weight(1f))
                         SectionCapsule(
-                            selected = view.ordinal, live = tourRunning,
-                            onOverview = ::toOverview, onChanges = ::toChanges, onTour = { switchTo(PrView.Tour) },
+                            selected = view.ordinal, live = tourComing(session),
+                            onOverview = ::toOverview, onChanges = ::toChanges, onTour = ::openTour,
                             onCorner = { sheet = if (view == PrView.Diff) "tools" else "more" },
                             corner = if (view == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
                         )
@@ -253,7 +259,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             PrView.Diff -> PrDiffScreen(
                                 session, ui, diffPath, { diffPath = it },
                                 onOverview = ::toOverview,
-                                onTour = { switchTo(PrView.Tour) },
+                                onTour = ::openTour,
                                 onFiles = { sheet = "files" },
                                 onAsk = { reference -> openAsk(forTour = false, reference = reference) },
                             )
@@ -277,8 +283,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
                     "analyze" -> AnalyzeSheet(session, onClose = { sheet = null })
+                    "tour" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Tour, onTour = { switchTo(PrView.Tour) })
                     "model" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Model)
-                    "log" -> AnalysisLogSheet(session) { sheet = null }
                     "stack" -> session.stack?.let { stack -> StackSheet(stack, onOpen = { number -> session.pull?.let { nav.openTarget(OpenTarget.Pull(it.owner, it.repo, number, "github.com")) } }) { sheet = null } }
                     "review" -> ReviewSheet(session, onClose = { sheet = null }) { lens ->
                         sheet = null
