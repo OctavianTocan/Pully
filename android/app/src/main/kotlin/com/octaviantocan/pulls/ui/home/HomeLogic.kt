@@ -107,12 +107,15 @@ fun relativeTime(thenMs: Long, nowMs: Long): Pair<Long, TimeUnit> {
 // then a fresh list, with a generation guard against answers for an old state.
 // ---------------------------------------------------------------------------------------
 
-/** `my-pulls-cached`'s answer. */
-data class PullsSnapshot(val pulls: List<PullRow>, val fetchedAt: Long, val refreshing: Boolean = false)
+/** `my-pulls-cached`'s answer. [jev]: the server sorts pull requests with Jev (`classifier: "jev"`), so rows carry `jev`. */
+data class PullsSnapshot(val pulls: List<PullRow>, val fetchedAt: Long, val refreshing: Boolean = false, val jev: Boolean = false)
 
 fun JsonObject.asSnapshot(): PullsSnapshot? {
     val at = (this["fetchedAt"] as? JsonPrimitive)?.longOrNull ?: return null
-    return PullsSnapshot(asPulls(), at, (this["refreshing"] as? JsonPrimitive)?.contentOrNull == "true")
+    return PullsSnapshot(
+        asPulls(), at, (this["refreshing"] as? JsonPrimitive)?.contentOrNull == "true",
+        jev = (this["classifier"] as? JsonPrimitive)?.contentOrNull == "jev",
+    )
 }
 
 /** A string store (SharedPreferences on the phone, a map in tests). */
@@ -144,6 +147,13 @@ class MyPullsSync(
     var error by mutableStateOf<String?>(null)
         private set
 
+    /**
+     * The server sorts pull requests with Jev, so the Inbox may group them by kind and sort them by risk. Only
+     * `my-pulls-cached` says so: a snapshot without `classifier` turns it off, a plain `my-pulls` list leaves it as it was.
+     */
+    var jev by mutableStateOf(false)
+        private set
+
     private var state = "open"
     private var generation = 0
 
@@ -153,6 +163,7 @@ class MyPullsSync(
         val stored = readStored(state)
         pulls = stored?.pulls
         fetchedAt = stored?.fetchedAt
+        stored?.let { jev = it.jev }
         load(false)
     }
 
@@ -173,10 +184,12 @@ class MyPullsSync(
         error = null
         try {
             val server = try { cached(selected) } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+            // Whether the server runs Jev is news even when its list is older than the one on screen.
+            if (server != null && isCurrent()) jev = server.jev
             if (server != null) show(server)
             if (!force && server != null && !server.refreshing && now() - server.fetchedAt < freshForMs) return
             val list = fresh(selected)
-            show(PullsSnapshot(list, now()))
+            show(PullsSnapshot(list, now(), jev = jev))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -198,6 +211,7 @@ class MyPullsSync(
             storage?.set(STORAGE_PREFIX + state, buildJsonObject {
                 put("pulls", JsonArray(value.pulls.map { it.toJson() }))
                 put("fetchedAt", value.fetchedAt)
+                if (value.jev) put("classifier", "jev")
             }.toString())
         }
     }
@@ -229,6 +243,9 @@ fun PullRow.toJson(): JsonObject = buildJsonObject {
             put("id", stack.id); put("position", stack.position); put("size", stack.size); put("native", stack.native)
             stack.below?.let { put("below", it) }
         })
+    }
+    jev?.let { jev ->
+        put("jev", buildJsonObject { put("kind", jev.kind); put("kindConfidence", jev.kindConfidence); put("risk", jev.risk) })
     }
 }
 

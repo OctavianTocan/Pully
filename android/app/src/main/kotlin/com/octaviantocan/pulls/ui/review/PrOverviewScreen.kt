@@ -490,7 +490,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
                 onClick = { onDiff(file.path) }, onLongClick = { onSheet(FILE_SHEET + file.path) },
             ) {
                 // The first row of a list has no line above it, so the heading over it has none under it (rule 75).
-                FileRow(file, state, note, analyzing && note == null, ruled = index > 0, onToggle = toggle)
+                FileRow(file, state, note, analyzing && note == null, ruled = index > 0, needsLook = session.attention[file.path] == "p0", onToggle = toggle)
             }
         }
     }
@@ -498,10 +498,11 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
 
 /**
  * `.flr`: the checkbox on the first line, the file name, its folder cut from the front under it (a tap shows the whole
- * path), `+n −n` on the right, and the AI's note in two lines at most.
+ * path), `+n −n` on the right, and the AI's note in two lines at most. A file Jev says needs a human starts the second
+ * line with "Needs a look".
  */
 @Composable
-private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit) {
+internal fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit, needsLook: Boolean = false) {
     val c = LocalPullsColors.current
     val reviewed = state == ReviewState.Reviewed
     val dir = file.path.substringBeforeLast('/', "")
@@ -517,11 +518,16 @@ private fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoa
                 style = PullsType.base.copy(fontWeight = FontWeight.SemiBold),
                 color = if (reviewed) c.muted else c.text,
             )
-            if (dir.isNotEmpty()) {
-                val pathStyle = PullsType.sm.copy(fontFamily = PullsType.mono)
-                val pathTap = Modifier.clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (whole) "Shorten the path" else "Show the whole path") { whole = !whole }
-                if (whole) Text("$dir/", pathTap, style = pathStyle, color = c.faint)
-                else PathTail(dir, pathStyle, c.faint, pathTap)
+            if (dir.isNotEmpty() || needsLook) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (needsLook) NeedsLook(trailingDot = dir.isNotEmpty())
+                    if (dir.isNotEmpty()) {
+                        val pathStyle = PullsType.sm.copy(fontFamily = PullsType.mono)
+                        val pathTap = Modifier.weight(1f, fill = false).clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (whole) "Shorten the path" else "Show the whole path") { whole = !whole }
+                        if (whole) Text("$dir/", pathTap, style = pathStyle, color = c.faint)
+                        else PathTail(dir, pathStyle, c.faint, pathTap)
+                    }
+                }
             }
             when {
                 state == ReviewState.Changed -> Text("Changed since you reviewed it", style = PullsType.sm, color = c.orange)
