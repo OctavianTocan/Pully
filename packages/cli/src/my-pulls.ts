@@ -1,8 +1,11 @@
 import type { Env } from '@pulls.review/core/env'
 import type { MyPull, MyPullChecks, MyPullMergeable, MyPullReviewDecision, MyPullRole, MyPullsSnapshot, MyPullStack, MyPullState } from '@pulls.review/core/local-rpc'
+import type { PullClassifier, PullClassifierStore } from './jev-pulls'
 import process from 'node:process'
 import { MY_PULL_ROLES } from '@pulls.review/core/local-rpc'
 import { resolveGithubToken } from './credentials'
+import { sharedJev } from './jev'
+import { createPullClassifier } from './jev-pulls'
 import { createSwrCache } from './swr'
 
 const SEARCH_LIMIT = 100
@@ -398,6 +401,8 @@ export interface MyPullsServiceOptions {
   graphql: GithubGraphql
   /** The clock, replaceable in tests. */
   now?: () => number
+  /** Sorts open pull requests by kind and risk in the background; the list never waits for it. */
+  classifier?: PullClassifier
 }
 
 /**
@@ -405,7 +410,7 @@ export interface MyPullsServiceOptions {
  * @returns A `my-pulls` service with its own cache.
  */
 export function createMyPullsService(options: MyPullsServiceOptions): MyPullsService {
-  const { graphql, now = Date.now } = options
+  const { graphql, now = Date.now, classifier } = options
   const enrichments = new Map<string, EnrichmentEntry>()
   const nativeStacks = new Map<string, EnrichmentEntry<NativeStack>>()
   let nativeUnsupportedUntil = 0
@@ -486,16 +491,32 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
       await Promise.all([enrich(merged), readNativeStacks(merged)])
       applyStacks(merged, id => nativeStacks.get(id)?.data)
     }
-    return merged.map(hit => hit.pull)
+    const pulls = merged.map(hit => hit.pull)
+    if (classifier) {
+      // Saved classifications are read from local storage; Jev itself runs after the list is answered.
+      await classifier.load(pulls).catch(() => {})
+      if (state === 'open')
+        void classifier.classify(pulls).catch(() => {})
+    }
+    return pulls
   }
 
   const cache = createSwrCache<MyPull[]>(state => fetchList(state as MyPullState), now)
+  // Applied on every answer rather than once per fetch, so a cached list picks up classifications that finished since.
+  const classified = (pulls: MyPull[]) => classifier ? classifier.apply(pulls) : pulls
 
   return {
-    list: async state => (await cache.get(state, FRESH_MS)).value,
+    list: async state => classified((await cache.get(state, FRESH_MS)).value),
     cached(state) {
       const entry = cache.peekAndRevalidate(state, REVALIDATE_AFTER_MS)
-      return entry ? { pulls: entry.value, fetchedAt: entry.fetchedAt, refreshing: cache.isRefreshing(state) } : null
+      if (!entry)
+        return null
+      return {
+        pulls: classified(entry.value),
+        fetchedAt: entry.fetchedAt,
+        refreshing: cache.isRefreshing(state),
+        ...(classifier?.enabled() ? { classifier: 'jev' as const } : {}),
+      }
     },
   }
 }
@@ -529,9 +550,24 @@ export function createGithubGraphql(env: Env): GithubGraphql {
 }
 
 let shared: MyPullsService | undefined
+let store: PullClassifierStore | undefined
 
 function service(): MyPullsService {
-  return shared ??= createMyPullsService({ graphql: createGithubGraphql(process.env) })
+  return shared ??= createMyPullsService({
+    graphql: createGithubGraphql(process.env),
+    classifier: createPullClassifier({ jev: sharedJev(), store: () => store }),
+  })
+}
+
+/**
+ * Gives the shared service the server's storage, so Jev's classifications survive a restart
+ * and use the changed paths of diffs the server already holds. Until it is called they
+ * live in memory only.
+ *
+ * @param value The server session's storage and diff cache.
+ */
+export function setMyPullsStore(value: PullClassifierStore): void {
+  store = value
 }
 
 /**

@@ -1,5 +1,9 @@
 import type { EnrichNode, GithubGraphql, NativeStackNode, SearchNode, StackCandidate } from './my-pulls'
+import { createStorage } from 'unstorage'
+import memoryDriver from 'unstorage/drivers/memory'
 import { describe, expect, it, vi } from 'vitest'
+import { createJevClient } from './jev'
+import { createPullClassifier } from './jev-pulls'
 import { applyStacks, checksFromRollup, createMyPullsService, inferStacks, mergeRoleBatches, searchQueries, toEnrichment, toFoundPull, toNativeStack } from './my-pulls'
 
 function node(id: string, overrides: Partial<SearchNode> = {}): SearchNode {
@@ -315,5 +319,80 @@ describe('stacks in the list', () => {
     clock = 20_000
     expect((await service.list('open'))[1]!.stack?.below).toBe(1)
     expect(refused).toBe(1)
+  })
+})
+
+describe('classification with Jev', () => {
+  const ANSWER = {
+    model: 'jev-1.13.0',
+    answers: {
+      kind: { type: 'choice', choice: 'fix', probabilities: { fix: 0.8 }, confidence: 0.8 },
+      risk: { type: 'score', score: 0.6, legend: { 0: 'trivial', 1: 'low', 2: 'medium', 3: 'high' }, probabilities: { 0: 0.4, 1: 0.6 }, confidence: 0.6 },
+    },
+    usage: { input_tokens: 60, output_tokens: 0 },
+  }
+
+  /** A service whose Jev answers only once `answer()` is called. */
+  function setup(respond: () => Response = () => Response.json(ANSWER), options: { apiKey?: string } = { apiKey: 'key' }) {
+    let clock = 0
+    const held: (() => void)[] = []
+    const bodies: { state: Record<string, unknown> }[] = []
+    const fetch = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(init.body as string))
+      await new Promise<void>(resolve => held.push(resolve))
+      return respond()
+    }) as typeof globalThis.fetch
+    const jev = createJevClient({ apiKey: options.apiKey, fetch, log: () => {}, sleep: async () => {} })
+    const storage = createStorage({ driver: memoryDriver() })
+    const { graphql } = fakeGraphql({ 'author:@me': [node('n1', { labels: { nodes: [{ name: 'bug' }] } })] })
+    const service = createMyPullsService({ graphql, now: () => clock, classifier: createPullClassifier({ jev, store: () => ({ storage }) }) })
+    return {
+      service,
+      bodies,
+      answer: () => held.splice(0).forEach(resolve => resolve()),
+      tick: (ms: number) => { clock += ms },
+    }
+  }
+
+  it('answers the list before Jev does, and later lists carry the classification', async () => {
+    const { service, bodies, answer } = setup()
+    const [pull] = await service.list('open')
+    expect(pull.jev).toBeUndefined()
+
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0].state).toEqual({ repository: 'acme/app', title: 'PR n1', labels: ['bug'], branch: 'branch-n1', author: 'octo' })
+    answer()
+    await vi.waitFor(async () => expect((await service.list('open'))[0].jev).toEqual({ kind: 'fix', kindConfidence: 0.8, risk: 0.6 }))
+    expect(service.cached('open')).toMatchObject({ classifier: 'jev', pulls: [{ jev: { kind: 'fix' } }] })
+  })
+
+  it('does not ask again for a pull request it already classified', async () => {
+    const { service, bodies, answer, tick } = setup()
+    await service.list('open')
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    answer()
+    await vi.waitFor(async () => expect((await service.list('open'))[0].jev).toBeDefined())
+    tick(60_000)
+    await service.list('open')
+    expect(bodies).toHaveLength(1)
+  })
+
+  it('keeps listing when TypeSafe refuses the key, and stops offering the grouping', async () => {
+    const { service, bodies, answer } = setup(() => Response.json({ error: 'bad key' }, { status: 401 }))
+    expect(await service.list('open')).toHaveLength(1)
+    expect(service.cached('open')).toMatchObject({ classifier: 'jev' })
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    answer()
+    await vi.waitFor(() => expect(service.cached('open')).not.toHaveProperty('classifier'))
+    const [pull] = await service.list('open')
+    expect(pull.jev).toBeUndefined()
+  })
+
+  it('without a key, offers no grouping and asks nothing', async () => {
+    const { service, bodies } = setup(undefined, {})
+    await service.list('open')
+    expect(service.cached('open')).not.toHaveProperty('classifier')
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(bodies).toHaveLength(0)
   })
 })

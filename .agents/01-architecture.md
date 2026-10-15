@@ -108,6 +108,26 @@ generator improvements apply with a version bump. Contract:
   `pnpm-workspace.yaml`): its postinstall sends install telemetry, and the parser needs
   no build.
 
+## Jev sorts pull requests and files (`packages/cli/src/jev*.ts`)
+
+With a TypeSafe key (`PULLS_REVIEW_TYPESAFE_API_KEY`, else `TYPESAFE_API_KEY`) the local
+server asks Jev, TypeSafe's classification model, typed questions; it never writes text.
+Contract:
+
+- Without a key, or once TypeSafe refuses it (401), Jev is off for the run: nothing is
+  asked, nothing fails toward a client, `jev-files` answers `{ enabled: false, files: {}, pending: 0 }`.
+- `my-pulls` MUST NOT wait for Jev. Open pull requests without a classification of their
+  current head sha and title are classified in the background (`kind`, `risk`); every
+  list answer copies what is done into `MyPull.jev`, and `MyPullsSnapshot.classifier` is
+  `'jev'` while Jev is on. The plain `my-pulls` answer stays an array.
+- `jev-files` classifies an opened diff's files (non-binary, at most 300) as `p0`/`p1`/`p2`;
+  an answer under 0.5 confidence counts as `p0`. The first call starts the work, later
+  calls return more until `pending` is 0.
+- Results live in memory and in the server's storage (`jev-pr:<owner>/<repo>#<number>`,
+  `jev-file:<sha256 of blob sha and path>`), so a restart does not ask again. One client
+  per process keeps 8 requests in flight, paces under TypeSafe's rate limits and retries
+  429/529 up to three attempts.
+
 ## Invariants
 
 - Nothing is proxied through a server we run. There is no backend — no server
