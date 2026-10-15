@@ -90,6 +90,23 @@ The Claude Code and Codex processes run on the server itself, or, with
   offer the skills of the account it runs under, and the image replaces its skill folders
   with the same set on every start.
 
+## Pi, the server's own agent loop (`packages/cli/src/ai/pi.ts`, `plans/11-pi-engine.md`)
+
+`pi` is a third engine next to `claude-code` and `codex`. A `pi` job runs pi-agent-core's
+loop in the server process against the OpenAI-compatible endpoint the environment names
+(`PULLS_REVIEW_PI_BASE_URL`, `PULLS_REVIEW_PI_API_KEY`, `PULLS_REVIEW_PI_MODEL`), such as
+CLIProxyAPI. Contract:
+
+- The endpoint and its key come only from the server's environment. A client names an
+  engine and a model, never a URL or a key. Without a base URL every `pi` job and catalog
+  fails with how to set it up, and nothing else changes.
+- The model gets exactly the tools the CLIs get over MCP (`prTools`/`inboxTools`, called
+  through `piTools`), and nothing more: no shell, files or web. A schema answer comes
+  through the `submit_answer` tool.
+- A `pi` job goes through the same queue, watchdogs, work log and usage as a CLI job, so
+  every task and client treats the three engines alike. `startAgent` and the Docker
+  runtime do not apply: there is no process to start.
+
 ## The phone reads the server's store (`packages/cli/src/pr-store.ts`, `stored-diff.ts`)
 
 Opening a pull request on the phone MUST NOT wait on every page of its files. Contract:

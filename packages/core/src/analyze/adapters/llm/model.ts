@@ -1,5 +1,6 @@
 import type { Api, Model } from '@earendil-works/pi-ai'
 import type { LlmSettings } from './settings'
+import { ENGINE_SETTINGS } from './settings'
 
 export interface ResolvedModel {
   model: Model<Api>
@@ -36,6 +37,10 @@ export function resolveModel(llm: LlmSettings): ResolvedModel | undefined {
     case 'codex':
       return { model: customModel(llm.codexModel, 'openai-completions', 'codex', ''), apiKey: '', effort: llm.codexEffort || undefined }
 
+    // The server holds the endpoint and its key; the page only names the model.
+    case 'pi':
+      return { model: customModel(llm.piModel, 'openai-completions', 'pi', ''), apiKey: '', effort: llm.piEffort || undefined }
+
     case 'gateway':
       return llm.gatewayToken
         ? { model: customModel(llm.gatewayModel, 'anthropic-messages', 'vercel-ai-gateway', 'https://ai-gateway.vercel.sh'), apiKey: llm.gatewayToken }
@@ -57,7 +62,7 @@ export function resolveModel(llm: LlmSettings): ResolvedModel | undefined {
 export function resolveAskModel(llm: LlmSettings): ResolvedModel | undefined {
   if (!llm.askProvider)
     return resolveModel(llm)
-  const model = llm.askModel || (llm.askProvider === 'codex' ? llm.codexModel : llm.claudeCodeModel)
-  const api = llm.askProvider === 'codex' ? 'openai-completions' : 'anthropic-messages'
+  const model = llm.askModel || llm[ENGINE_SETTINGS[llm.askProvider].model]
+  const api = llm.askProvider === 'claude-code' ? 'anthropic-messages' : 'openai-completions'
   return { model: customModel(model, api, llm.askProvider, ''), apiKey: '', effort: llm.askEffort || undefined }
 }

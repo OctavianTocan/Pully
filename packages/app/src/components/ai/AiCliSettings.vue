@@ -5,6 +5,7 @@ import type { CliModelsState } from '../../composables/useCliModels'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import ActionToggleGroup from '@antfu/design/components/Action/ActionToggleGroup.vue'
 import FormField from '@antfu/design/components/Form/FormField.vue'
+import { ENGINE_SETTINGS, serverEngine } from '@pulls.review/core/analyze'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AiEffortPicker from './AiEffortPicker.vue'
@@ -29,10 +30,11 @@ const { t } = useI18n()
 const engineOptions = [
   { value: 'claude-code', label: 'Claude Code', icon: 'i-simple-icons-claude' },
   { value: 'codex', label: 'Codex', icon: 'i-simple-icons-openai' },
+  { value: 'pi', label: 'Pi', icon: 'i-ph:pi-bold' },
 ]
 const askOptions = computed(() => [{ value: '', label: t('settings.llm.askSame') }, ...engineOptions])
 
-const engine = computed<LlmEngine>(() => props.llmSettings.provider === 'codex' ? 'codex' : 'claude-code')
+const engine = computed<LlmEngine>(() => serverEngine(props.llmSettings.provider))
 const askEngine = computed(() => props.llmSettings.askProvider || undefined)
 
 function update(patch: Partial<LlmSettings>) {
@@ -49,22 +51,20 @@ function keptEffort(catalog: CliModelCatalog | undefined, id: string, effort: st
 }
 
 function engineModel(target: LlmEngine): string {
-  return target === 'codex' ? props.llmSettings.codexModel : props.llmSettings.claudeCodeModel
+  return props.llmSettings[ENGINE_SETTINGS[target].model]
 }
 
 const analysisModel = computed({
   get: () => engineModel(engine.value),
   set: (id) => {
-    const catalog = props.analysisModels.catalog
-    update(engine.value === 'codex'
-      ? { codexModel: id, codexEffort: keptEffort(catalog, id, props.llmSettings.codexEffort) }
-      : { claudeCodeModel: id, claudeCodeEffort: keptEffort(catalog, id, props.llmSettings.claudeCodeEffort) })
+    const keys = ENGINE_SETTINGS[engine.value]
+    update({ [keys.model]: id, [keys.effort]: keptEffort(props.analysisModels.catalog, id, props.llmSettings[keys.effort]) })
   },
 })
 
 const analysisEffort = computed({
-  get: () => engine.value === 'codex' ? props.llmSettings.codexEffort : props.llmSettings.claudeCodeEffort,
-  set: effort => update(engine.value === 'codex' ? { codexEffort: effort } : { claudeCodeEffort: effort }),
+  get: () => props.llmSettings[ENGINE_SETTINGS[engine.value].effort],
+  set: effort => update({ [ENGINE_SETTINGS[engine.value].effort]: effort }),
 })
 
 // An unset ask model falls back to the saved model of the ask engine.

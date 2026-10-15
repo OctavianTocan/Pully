@@ -40,6 +40,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "catalog:frontend",
+    "@earendil-works/pi-ai": "catalog:frontend",
     "@pulls.review/core": "workspace:^",
     "beautiful-mermaid": "catalog:frontend",
     "devframe": "catalog:frontend",

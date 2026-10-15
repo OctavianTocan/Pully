@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 885,
+        "line": 889,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -285,7 +285,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 902,
+        "line": 906,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -346,7 +346,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 896,
+        "line": 900,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -478,7 +478,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 863,
+        "line": 867,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops, moving to a new count over 400ms.",
         "params": [
           {
@@ -504,7 +504,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 870,
+        "line": 874,
         "doc": "The tour ring filled to [fraction] (0 to 1) as given, for a ring that follows the tour's scroll without jumps (rule 97).",
         "params": [
           {
@@ -906,7 +906,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 913,
+        "line": 917,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {

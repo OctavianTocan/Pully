@@ -3,7 +3,7 @@ import type { Env } from '@pulls.review/core/env'
 import type { AiPrContext, MyPull } from '@pulls.review/core/local-rpc'
 import type { DiffsPayload, GroupedResult } from '@pulls.review/core/types'
 import process from 'node:process'
-import { defaultLlmSettings, resolveModel } from '@pulls.review/core/analyze'
+import { defaultLlmSettings, ENGINE_SETTINGS, resolveModel } from '@pulls.review/core/analyze'
 import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { createGithubPullRequestSource } from '@pulls.review/core/github'
 import { DEFAULT_LOCALE } from '@pulls.review/core/locales'
@@ -14,7 +14,7 @@ import { resolveGithubToken } from './credentials'
 import { listMyPulls } from './my-pulls'
 import { createRepoCacheDriver } from './storage'
 
-export const PREANALYZE_ENGINES = ['claude-code', 'codex'] as const
+export const PREANALYZE_ENGINES = ['claude-code', 'codex', 'pi'] as const
 export type PreanalyzeEngine = typeof PREANALYZE_ENGINES[number]
 
 /**
@@ -178,7 +178,7 @@ export async function startPreanalyze(options: PreanalyzeOptions): Promise<() =>
   setCliRunner(runAiJob)
   const settings = { ...defaultLlmSettings, provider: engine }
   if (model)
-    Object.assign(settings, engine === 'codex' ? { codexModel: model } : { claudeCodeModel: model })
+    Object.assign(settings, { [ENGINE_SETTINGS[engine].model]: model })
   // The CLI engines need no API key, so a model always resolves.
   const resolved = resolveModel(settings)!
 

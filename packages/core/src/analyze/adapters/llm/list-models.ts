@@ -56,6 +56,7 @@ export function listModels(llm: LlmSettings): Promise<ModelOption[]> {
   switch (llm.provider) {
     case 'claude-code':
     case 'codex':
+    case 'pi':
       return Promise.resolve([])
     case 'gateway':
       return listGatewayModels(llm.gatewayToken)
