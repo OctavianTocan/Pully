@@ -7,6 +7,12 @@
     <!-- Removing a past version from Settings, Advanced, Past versions. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
+    <!-- Only apps signed with this key may open a past version, and each past version is opened with it. -->
+    <permission
+        android:name="com.octaviantocan.pulls.permission.PAST_UI"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.octaviantocan.pulls.permission.PAST_UI" />
+
     <!-- The past versions of Pulls, each its own package, found by the category only they answer. -->
     <queries>
         <intent>

@@ -152,6 +152,7 @@ internal fun ColumnScope.PastVersionsPage() {
 private fun PastStatus.versionName(): String? = when (this) {
     is PastStatus.NeedsPermission -> version.versionName
     is PastStatus.Downloading -> version.versionName
+    is PastStatus.Confirming -> version.versionName
     is PastStatus.Installing -> version.versionName
     is PastStatus.Ready -> version.versionName
     is PastStatus.Failed -> version.versionName

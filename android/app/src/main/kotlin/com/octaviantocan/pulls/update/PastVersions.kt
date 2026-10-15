@@ -29,7 +29,10 @@ sealed interface PastStatus {
     /** [fraction] of the APK is down, or -1 while the size is not known. */
     data class Downloading(val version: PastVersion, val fraction: Float) : PastStatus
 
-    /** The system install dialog is up, or the install is under way. */
+    /** The system install dialog is up. */
+    data class Confirming(val version: PastVersion) : PastStatus
+
+    /** Handed to the installer, which has not answered yet. */
     data class Installing(val version: PastVersion) : PastStatus
 
     /** Installed while the page was waiting for it: the page opens it. */
@@ -59,7 +62,7 @@ object PastVersions {
     var status by mutableStateOf<PastStatus>(PastStatus.Idle)
         private set
 
-    val busy: Boolean get() = status is PastStatus.Downloading || status is PastStatus.Installing
+    val busy: Boolean get() = status is PastStatus.Downloading || status is PastStatus.Confirming || status is PastStatus.Installing
 
     private val scope = MainScope()
 
@@ -87,8 +90,12 @@ object PastVersions {
         false
     }
 
-    /** Opens the installed [version] with this phone's server; false when it is not installed. */
+    /**
+     * Opens the installed [version] with this phone's server; false when it is not installed, or when the package under
+     * that name is not signed with this app's key, which keeps the Access token from an impostor.
+     */
     fun open(context: Context, version: PastVersion): Boolean {
+        if (context.packageManager.checkSignatures(context.packageName, version.packageName) != PackageManager.SIGNATURE_MATCH) return false
         val find = Intent(Intent.ACTION_MAIN).addCategory(CATEGORY).setPackage(version.packageName)
         val activity = context.packageManager.queryIntentActivities(find, 0).firstOrNull()?.activityInfo ?: return false
         val config = ServerStore.load(context)
@@ -145,8 +152,13 @@ object PastVersions {
         }
     }
 
-    /** Back from the install settings with it allowed now, the download starts without a second tap. */
+    /**
+     * Pulls is in front again. Back from the system dialog without an answer (it was left, not cancelled), Get is
+     * offered again, as the update screen does. Back from the install settings with it allowed now, the download starts
+     * without a second tap.
+     */
     fun resume(context: Context) {
+        if (status is PastStatus.Confirming) status = PastStatus.Idle
         val waiting = (status as? PastStatus.NeedsPermission)?.version ?: return
         if (Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()) {
             status = PastStatus.Idle
@@ -163,11 +175,13 @@ object PastVersions {
     internal fun installed(result: InstallResult) {
         val version = when (val now = status) {
             is PastStatus.Downloading -> now.version
+            is PastStatus.Confirming -> now.version
             is PastStatus.Installing -> now.version
+            // A dialog left and answered later still lands: the page offers Open for what was installed.
             else -> return
         }
         status = when (result) {
-            InstallResult.Confirming -> PastStatus.Installing(version)
+            InstallResult.Confirming -> PastStatus.Confirming(version)
             InstallResult.Installed -> PastStatus.Ready(version)
             InstallResult.Cancelled -> PastStatus.Idle
             is InstallResult.Failed -> PastStatus.Failed(version, "Install failed.").also { Log.w("pulls", "past install failed: ${result.message}") }

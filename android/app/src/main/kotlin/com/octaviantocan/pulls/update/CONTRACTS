@@ -28,5 +28,6 @@ this app. Its versionCode is offset so no update is ever offered to it.
 
 @cc [owner:OctavianTocan,label:security;architecture] past-versions-get-the-server-at-launch
 A past version gets the server address and Access token only in the explicit intent
-that opens it, to the activity of the package this app installed; nothing else exposes
-them to other apps.
+that opens it, and only when its package is signed with this app's key; nothing else
+exposes them to other apps. Its activity is behind a signature permission, so no other
+app can open it and point it at another server.

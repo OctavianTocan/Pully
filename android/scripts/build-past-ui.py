@@ -7,7 +7,7 @@ the app as it was when the next version replaced it. Every build is changed in t
 - its own package, `com.octaviantocan.pulls.v0_20_0`, so it installs beside the current app and the others;
 - a versionCode of 1000000 plus its own, so no update the server offers is ever newer and its update screen stays away;
 - the label "Pulls 0.20.0", and no launcher icon, link handling or share target: its activity answers only the
-  PAST_UI category the current app opens it with;
+  PAST_UI category the current app opens it with, behind a signature permission only the current app holds;
 - `PastUiBoot`, which takes the server address and Access token from the current app when it opens the old one;
 - the pinned debug key, so a rebuild on any machine installs over the last one.
 
@@ -36,6 +36,7 @@ GRADLE_FILE = "android/app/build.gradle.kts"
 MANIFEST = "src/main/AndroidManifest.xml"
 BOOT = ANDROID / "scripts" / "past-ui" / "PastUiBoot.kt"
 CATEGORY = "com.octaviantocan.pulls.category.PAST_UI"
+PERMISSION = "com.octaviantocan.pulls.permission.PAST_UI"
 PACKAGE = "com.octaviantocan.pulls"
 CODE_OFFSET = 1_000_000
 
@@ -167,6 +168,14 @@ android {{
         opener += "\n        </activity>"
     text = text[: activity.start()] + opener + text[activity.end() :]
     text = re.sub(r'(<application\b[^>]*?android:label=)"[^"]*"', rf'\1"Pulls {name}"', text, count=1, flags=re.S)
+    # Only an app signed with the same key, the current Pulls, may open it (and so hand it a server).
+    text = text.replace(head, head.replace("<activity", f'<activity android:permission="{PERMISSION}"', 1), 1)
+    permission = f"""<permission
+        android:name="{PERMISSION}"
+        android:protectionLevel="signature" />
+
+    <application"""
+    text = re.sub(r"<application\b", lambda _: permission, text, count=1)
     provider = """        <provider
             android:name="com.octaviantocan.pulls.pastui.PastUiBoot"
             android:authorities="${applicationId}.pastui"
