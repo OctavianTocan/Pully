@@ -80,7 +80,7 @@ export interface PrStoreDeps {
   /** The GitHub token, or `undefined` when the server has none. */
   token: () => Promise<string | undefined>
   /** The cache the phone and the page read diffs from. */
-  diffs: Pick<DiffCache, 'get' | 'getMeta' | 'putDiff'>
+  diffs: Pick<DiffCache, 'getMeta' | 'updateDiff'>
   /** Where overviews are stored. */
   storage: Storage
   fetchDiff: (pull: MyPull, token: string) => Promise<DiffsPayload>
@@ -142,14 +142,11 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
     const id = `diff ${key}@${pull.headSha}`
     try {
       const diff = await fetchDiff(pull, auth)
-      // A phone may have stored a newer head while this one was on its way; an older fetch never replaces it.
-      if ((await diffs.getMeta(key))?.headSha !== before) {
-        logged.delete(id)
-        return false
-      }
-      await diffs.putDiff(key, diff, diff.head?.sha ?? pull.headSha ?? '', { viewed: false })
+      // A phone may have stored a newer head while this one was on its way; an older fetch never replaces it. With no
+      // readable entry there is nothing to lose (an unreadable body after an upgrade gets repaired).
+      const stored = await diffs.updateDiff(key, existing => !existing || existing.headSha === before ? { diff, headSha: diff.head?.sha ?? pull.headSha ?? '' } : undefined, { viewed: false })
       logged.delete(id)
-      return true
+      return !!stored
     }
     catch (error) {
       once(id, `storing the diff of ${key} failed: ${messageOf(error)}`)
@@ -162,15 +159,16 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
    * the overview just fetched brings them in without fetching the files again.
    */
   async function freshenDiff(pull: MyPull, overview: PrOverview): Promise<void> {
-    const key = diffKey(pull)
-    const entry = await diffs.get(key)
-    if (!entry || entry.headSha !== overview.head?.oid)
-      return
-    const { diff } = entry
     const state = overview.state
-    if (diff.title === overview.title && diff.description === overview.body && diff.pullRequest?.state === state)
-      return
-    await diffs.putDiff(key, { ...diff, title: overview.title, description: overview.body, pullRequest: { ...diff.pullRequest, state }, updatedAt: overview.updatedAt ?? diff.updatedAt }, entry.headSha, { viewed: false })
+    await diffs.updateDiff(diffKey(pull), (entry) => {
+      // Decided on the entry as stored when the write's turn comes: a head the phone stored meanwhile stays.
+      if (!entry || entry.headSha !== overview.head?.oid)
+        return undefined
+      const { diff } = entry
+      if (diff.title === overview.title && diff.description === overview.body && diff.pullRequest?.state === state)
+        return undefined
+      return { diff: { ...diff, title: overview.title, description: overview.body, pullRequest: { ...diff.pullRequest, state }, updatedAt: overview.updatedAt ?? diff.updatedAt }, headSha: entry.headSha }
+    }, { viewed: false })
   }
 
   async function storeOverviewOf(pull: MyPull, auth: string): Promise<boolean> {

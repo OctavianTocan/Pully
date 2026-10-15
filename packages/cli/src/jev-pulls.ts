@@ -123,7 +123,8 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
   const running = new Set<string>()
   /** Each pull request's newest version handed to Jev, so an answer for an older one is dropped. */
   const latest = new Map<string, string>()
-  const failedAt = new Map<string, number>()
+  /** The version that last failed, per pull request: a newer head or title is asked about at once. */
+  const failed = new Map<string, { version: string, at: number }>()
 
   /** Changed paths of the pull requests whose diff the server holds at their current head. */
   async function cachedPaths(pulls: MyPull[]): Promise<Map<string, string[]>> {
@@ -155,13 +156,13 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
         model: answer.model,
       }
       saved.set(key, entry)
-      failedAt.delete(key)
+      failed.delete(key)
       await store()?.storage?.setItem(`${STORAGE_PREFIX}${key}`, entry).catch(() => {})
     }
     catch {
       // The pull request shows without a kind; it is asked again once `RETRY_FAILED_MS` passes.
       if (!stale())
-        failedAt.set(key, now())
+        failed.set(key, { version: versionKey(pull), at: now() })
     }
   }
 
@@ -194,9 +195,10 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
         return
       const todo = pulls.filter((pull) => {
         const key = pullKey(pull)
-        const failed = failedAt.get(key)
-        return pull.state === 'open' && !isCurrent(saved.get(key), pull) && !running.has(versionKey(pull))
-          && (failed === undefined || now() - failed >= RETRY_FAILED_MS)
+        const version = versionKey(pull)
+        const failure = failed.get(key)
+        return pull.state === 'open' && !isCurrent(saved.get(key), pull) && !running.has(version)
+          && (failure?.version !== version || now() - failure.at >= RETRY_FAILED_MS)
       })
       if (todo.length === 0)
         return

@@ -98,10 +98,12 @@ Opening a pull request on the phone MUST NOT wait on every page of its files. Co
   over the server's storage MUST pass it - the session, the task manager, `--preanalyze`, and
   the `PR_LOCAL` page's RPC driver - since each enforces its own budget and evicts the rest.
 - Unless `--no-warm`, the server stores the open pull requests (`my-pulls`, newest first)
-  every few minutes: a diff when its head moved, an overview when its `updatedAt` did. These
-  writes use `putDiff(..., { viewed: false })` and MUST NOT count as views: they keep the
-  entry's `lastViewedAt` (`0` when new), and `listRecent` and the viewed marks on a
-  repository's list (`repo-viewed`, `loadViewed`) leave never-viewed entries out.
+  every few minutes: a diff when its head moved, an overview when its `updatedAt` did or it is
+  30 minutes old, and a new overview's title, description and state go into the stored diff.
+  These writes use `updateDiff(..., { viewed: false })`, which decides inside the key's write
+  queue, so they MUST NOT replace a head stored after they read it. They MUST NOT count as
+  views: they keep the entry's `lastViewedAt` (`0` when new), and `listRecent` and the viewed
+  marks on a repository's list (`repo-viewed`, `loadViewed`) leave never-viewed entries out.
 - `github-pr` answers the stored diff when GitHub's head (one request) matches it, and the
   stored diff marked `stale` when GitHub can't be asked; `fresh` fetches anyway. The store
   always holds the full diff. `lite` trims only the answer: files past the patch budget go

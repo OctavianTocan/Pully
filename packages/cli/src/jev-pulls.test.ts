@@ -160,6 +160,17 @@ describe('createPullClassifier', () => {
     expect(classifier.apply([pull(1)])[0].jev?.kind).toBe('fix')
   })
 
+  it('asks about a new head at once, even while the one before it waits out a failure', async () => {
+    let fail = true
+    const { classifier, states } = setup({ now: () => 0, respond: () => fail ? Response.json({ error: 'bad state' }, { status: 400 }) : Response.json(answer()) })
+    await classifier.classify([pull(1)])
+    fail = false
+    const pushed = pull(1, { headSha: 'sha-1b' })
+    await classifier.classify([pushed])
+    expect(states).toHaveLength(2)
+    expect(classifier.apply([pushed])[0].jev?.kind).toBe('fix')
+  })
+
   it('keeps the risk on its four levels', async () => {
     const { classifier } = setup({ respond: () => Response.json(answer('feature', 0.4, 3.2)) })
     await classifier.classify([pull(1)])

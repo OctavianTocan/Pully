@@ -157,6 +157,30 @@ describe('diff cache', () => {
     expect(back!.lastViewedAt).toBe(1000)
   })
 
+  it('updateDiff decides on the entry as stored when its turn comes', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'sha-a', 1000))
+    const newer = cache.putDiff('a', makeEntry('a', 'sha-b', 0).diff, 'sha-b')
+    const seen: (string | undefined)[] = []
+    const updated = cache.updateDiff('a', (existing) => {
+      seen.push(existing?.headSha)
+      return existing?.headSha === 'sha-a' ? { diff: { ...existing.diff, title: 'edited' }, headSha: 'sha-a' } : undefined
+    })
+    await newer
+    expect(await updated).toBeUndefined()
+    expect(seen).toEqual(['sha-b'])
+    expect(await cache.getMeta('a')).toMatchObject({ headSha: 'sha-b', title: 't' })
+  })
+
+  it('updateDiff writes like putDiff when it gets something to write', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'sha-a', 1000))
+    await cache.setLlmSession('a', session)
+    const entry = await cache.updateDiff('a', existing => ({ diff: { ...existing!.diff, title: 'edited' }, headSha: 'sha-a' }), { viewed: false })
+    expect(entry).toMatchObject({ headSha: 'sha-a', lastViewedAt: 1000, llmSession: session, diff: { title: 'edited' } })
+    expect(await cache.get('a')).toEqual(entry)
+  })
+
   it('evicts never-viewed entries before viewed ones', async () => {
     const { cache } = cacheWith({ maxEntries: 2 })
     await cache.put(makeEntry('old', 'sha-old', 1000))
