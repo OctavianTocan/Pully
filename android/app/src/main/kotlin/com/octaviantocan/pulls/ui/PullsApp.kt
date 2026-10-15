@@ -39,6 +39,7 @@ import com.octaviantocan.pulls.ui.home.HomeScreen
 import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
+import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.update.UpdateGate
@@ -88,6 +89,8 @@ fun PullsApp(initialTarget: String?) {
     }
     // After an update, what changed opens once, over whatever page Pulls opened on.
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
+    // Commands' Change theme opens the theme list as a sheet of its own over whatever page is open (K18).
+    var themePicker by remember { mutableStateOf(false) }
     AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
     val nav = remember {
         Nav(
@@ -107,7 +110,9 @@ fun PullsApp(initialTarget: String?) {
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     // Every code view reads `PullsType.mono`, which follows this.
     if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont) com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont
-    val dark = LocalPullsColors.current.dark
+    // The look asked for, not the palette's: a theme with one look stays dark under Light, and the toggle still flips the choice.
+    val dark = com.octaviantocan.pulls.ui.settings.wantsDark(settings)
+    val colorTheme = com.octaviantocan.pulls.ui.design.ColorThemes.of(settings.colorTheme)
     val moving = com.octaviantocan.pulls.ui.design.rememberMotionEnabled()
     // The inbox's tab, chip and search live above the screens, so they are still there after a review.
     val homeUi = remember { HomeUi() }
@@ -119,9 +124,10 @@ fun PullsApp(initialTarget: String?) {
             Command("settings", messages.t("keys.settings"), group) { nav.settings() },
             Command("home", messages.t("keys.home"), group) { nav.home() },
             Command("theme", messages.t("keys.theme"), group) {
-                // The toggle always goes to the other look than the one on screen, so it always wipes.
-                scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = true) { settings.updateTheme(if (dark) "light" else "dark") } }
+                // The toggle always goes to the other look than the one asked for; it wipes unless the theme has one look.
+                scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
+            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette opencode appearance") { themePicker = true },
             Command("update", "Update Pulls", group, keywords = "upgrade new version install check latest") {
                 scope.launch { updateFromCommand(context, toaster) }
             },
@@ -143,6 +149,7 @@ fun PullsApp(initialTarget: String?) {
                 }
             }
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
+            if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()
             ToastHost(toaster)

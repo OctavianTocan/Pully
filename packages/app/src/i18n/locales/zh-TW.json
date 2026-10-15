@@ -39,6 +39,7 @@
     "escape": "Leave the text field or clear the selection",
     "settings": "Open settings",
     "theme": "Toggle dark mode",
+    "colorTheme": "變更主題",
     "nextFile": "Next file",
     "prevFile": "Previous file",
     "nextHunk": "Next change",
@@ -635,6 +636,7 @@
     "autoRefresh": "發現新提交時自動重新整理",
     "language": "語言",
     "theme": "外觀",
+    "colorTheme": "主題",
     "light": "淺色",
     "dark": "深色",
     "token": {

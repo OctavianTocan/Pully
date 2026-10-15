@@ -11,8 +11,8 @@ export const RULES = [14, 45, 47]
 export const BASELINE = join(ANDROID, 'scripts', 'design', 'raw-values.baseline.json')
 const UPDATE = 'pnpm run android:design:update'
 
-/** Files that define the tokens: raw values are their job. */
-const DEFINES_TOKENS = new Set(['ui/design/Tokens.kt', 'ui/design/Scale.kt'])
+/** Files that define the tokens: raw values are their job. OpenCodeThemes.kt is the colour themes' palettes, generated. */
+const DEFINES_TOKENS = new Set(['ui/design/Tokens.kt', 'ui/design/Scale.kt', 'ui/design/OpenCodeThemes.kt'])
 
 /** Functions that are allowed to call `.shadow(` because every other shadow goes through them. */
 const SHADOW_HELPERS = ['floatShadow']

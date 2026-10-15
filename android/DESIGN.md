@@ -353,6 +353,8 @@ Dark mode is derived from the light set (`dark-*`). Every colour has a dark pair
 
 The Kotlin names are the properties of `PullsColors` in `Tokens.kt`. A name here is that property in kebab-case: `border-mute` is `borderMute`, `primary-600` is `primary600`. Alpha is the last pair in this file and the first in Kotlin.
 
+Colour themes (K18). This palette is the theme named Pulls, and the default. Settings, Theme (and Change theme in Commands) offers the others: OpenCode's built-in themes (https://github.com/anomalyco/opencode, MIT), converted by `android/scripts/gen-opencode-themes.mjs` from the theme files vendored beside it into `ui/design/OpenCodeThemes.kt`, one `PullsColors` for each look. Light, Dark and System still pick the look; a theme with one look (Aura, Ayu) keeps it under both. The mapping: `base`, `secondary` (and `paper`, `code`) and `sunken` are OpenCode's background, panel and element; `text` and `muted` its text roles, `faint` the muted one a third of the way into the background; borders its subtle border halfway into the background; `raised` a step above the sheet; `accent-teal` and `active-text` its primary; `primary` its primary darkened until white ink reads on it at 3:1; states and the diff washes from its own. The tokens check and the UI Book's Colors page are about this palette; the Themes page shows every theme. Code colours come from the server's highlighter and do not follow the theme yet.
+
 ## Typography
 
 Geist carries interface text, Mona Sans carries numbers and file names, and Geist Mono carries code and branch names. Sizes come from `PullsType`. `xs` and `sm` step down one notch from 768dp up, so each has a `-wide` twin in the front matter. `xxl` is a page title (26, rule 12), `xl` a section heading, `lg` a sheet title, `row` and `body` a row title and body copy, `read` the reading size of summaries and tour text, `base` inputs, `sm` lists and meta.
@@ -1276,7 +1278,7 @@ Source: walkthrough. Checked by: review.
 
 #### 112. Light and dark wipe in from a corner.
 
-Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes. The wipe plays only when the look on screen changes: choosing System while the phone is already in the look on screen, or going back from it, changes the setting without a wipe (J2).
+Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes. The wipe plays only when the look on screen changes: choosing System while the phone is already in the look on screen, or going back from it, changes the setting without a wipe (J2). Picking a colour theme wipes the same way, from the top right for a theme further down the list and from the top left for one higher up (K18).
 
 Check: in Settings tap Dark, then Light: the new look grows from the top right, then from the top left.
 

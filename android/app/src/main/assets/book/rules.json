@@ -1031,7 +1031,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes. The wipe plays only when the look on screen changes: choosing System while the phone is already in the look on screen, or going back from it, changes the setting without a wipe (J2).\n\nCheck: in Settings tap Dark, then Light: the new look grows from the top right, then from the top left."
+    "text": "Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes. The wipe plays only when the look on screen changes: choosing System while the phone is already in the look on screen, or going back from it, changes the setting without a wipe (J2). Picking a colour theme wipes the same way, from the top right for a theme further down the list and from the top left for one higher up (K18).\n\nCheck: in Settings tap Dark, then Light: the new look grows from the top right, then from the top left."
   },
   {
     "n": 113,

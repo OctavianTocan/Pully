@@ -39,6 +39,7 @@
     "escape": "Leave the text field or clear the selection",
     "settings": "Open settings",
     "theme": "Toggle dark mode",
+    "colorTheme": "테마 변경",
     "nextFile": "Next file",
     "prevFile": "Previous file",
     "nextHunk": "Next change",
@@ -635,6 +636,7 @@
     "autoRefresh": "새 커밋이 발견되면 자동 새로 고침",
     "language": "언어",
     "theme": "화면 모드",
+    "colorTheme": "테마",
     "light": "라이트",
     "dark": "다크",
     "token": {

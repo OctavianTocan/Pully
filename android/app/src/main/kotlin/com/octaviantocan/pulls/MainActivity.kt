@@ -11,9 +11,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.toArgb
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.PullsApp
+import com.octaviantocan.pulls.ui.design.ColorThemes
+import com.octaviantocan.pulls.ui.design.PullsColors
 import com.octaviantocan.pulls.ui.theme.PullsTheme
 import com.octaviantocan.pulls.update.UpdateNotice
 import com.octaviantocan.pulls.update.Updates
@@ -29,30 +32,33 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) UpdateNotice.handle(this, intent)
         // Paint the window in the chosen theme before the first frame, so a dark phone does not flash paper.
         val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        paintWindow(when (settings.theme) { "dark" -> true; "light" -> false; else -> night })
+        paintWindow(ColorThemes.of(settings.colorTheme).colors(when (settings.theme) { "dark" -> true; "light" -> false; else -> night }))
         setContent {
             val dark = when (settings.theme) {
                 "dark" -> true
                 "light" -> false
                 else -> isSystemInDarkTheme()
             }
-            // The bars follow the app's theme, not the system's: dark icons on the light paper.
-            DisposableEffect(dark) {
-                paintWindow(dark)
+            val theme = ColorThemes.of(settings.colorTheme)
+            val colors = theme.colors(dark)
+            // The bars follow the app's theme, not the system's: dark icons on the light paper. A theme with one look
+            // keeps it under Light too, so the bars follow the palette on screen rather than the choice.
+            DisposableEffect(colors) {
+                paintWindow(colors)
                 val clear = android.graphics.Color.TRANSPARENT
-                val style = if (dark) SystemBarStyle.dark(clear) else SystemBarStyle.light(clear, clear)
+                val style = if (colors.dark) SystemBarStyle.dark(clear) else SystemBarStyle.light(clear, clear)
                 this@MainActivity.enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose { }
             }
-            PullsTheme(dark = dark, locale = settings.locale) {
+            PullsTheme(dark = dark, theme = theme, locale = settings.locale) {
                 PullsApp(initialTarget = readTarget(intent))
             }
         }
     }
 
     /** The window's own background, behind the first frame and any gap in the layout: the theme's `base`. */
-    private fun paintWindow(dark: Boolean) {
-        window.setBackgroundDrawable(ColorDrawable(if (dark) DARK_BASE else LIGHT_BASE))
+    private fun paintWindow(colors: PullsColors) {
+        window.setBackgroundDrawable(ColorDrawable(colors.base.toArgb()))
     }
 
     /** Ctrl+K (Cmd+K) opens the command palette from a keyboard, as the web does. */
@@ -70,11 +76,6 @@ class MainActivity : ComponentActivity() {
         if (UpdateNotice.handle(this, intent)) return
         setIntent(intent)
         recreate()
-    }
-
-    private companion object {
-        const val LIGHT_BASE = 0xFFFDFCF9.toInt()
-        const val DARK_BASE = 0xFF161616.toInt()
     }
 
     private fun readTarget(intent: Intent?): String? {
