@@ -1,0 +1,20 @@
+@cc [owner:OctavianTocan,label:product] update-screen-is-required
+When the server offers a newer build, Pulls shows only the update screen from the first
+frame of a start: "Pulls 0.28.0 is ready", "Update to keep using Pulls.", every version
+it brings with its summary and bullets, and "Update to 0.28.0" as the main action.
+Nothing closes it but the update, and Back leaves the app (rule 104).
+
+@cc [owner:OctavianTocan,label:product] update-shows-its-progress
+Update downloads and installs in the app and shows how far it got in place (a ring while
+it downloads, the orb while the system installs). A failed download or install offers Try
+again and never lets the reader through (rules 63 and 104).
+
+@cc [owner:OctavianTocan,label:design] whats-new-reads-like-a-changelog
+What's new shows each version as its own block: the version as a small header, a New tag
+on the newest, the summary as a bold headline, one bullet per line with an accent dot, a
+hairline between versions, and `### New` / `### Fixed` groups where the section has them
+("Think of how good professional changelogs look", rule 127; J6).
+
+@cc [owner:OctavianTocan,label:product] whats-new-opens-once
+After an install the update screen did not show, What's new opens by itself once; it is
+also a page of Settings and a command (rule 104).

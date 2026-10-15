@@ -64,10 +64,61 @@ val changelogAsset = tasks.register<ChangelogAsset>("changelogAsset") {
     source.set(rootProject.layout.projectDirectory.file("CHANGELOG.md"))
 }
 
+/**
+ * Gathers every `CONTRACTS` file of the repository into one `contracts.txt` asset for the UI Book's
+ * Contracts page: each file's text after a `== <repo-relative path> ==` line, root first, then by path.
+ */
+abstract class ContractsAsset : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sources: ConfigurableFileCollection
+
+    @get:Input
+    abstract val root: Property<String>
+
+    @get:OutputDirectory
+    abstract val output: DirectoryProperty
+
+    @TaskAction
+    fun bundle() {
+        val base = File(root.get())
+        val files = sources.files.map { it.relativeTo(base).invariantSeparatorsPath to it }.sortedBy { it.first }
+        val text = buildString {
+            for ((path, file) in files) {
+                val body = file.readText().replace("\r\n", "\n")
+                require(body.lines().none { it.matches(Regex("^== .+ ==$")) }) { "$path has a line that looks like a bundle separator" }
+                append("== ").append(path).append(" ==\n").append(body)
+                if (!body.endsWith("\n")) append('\n')
+            }
+        }
+        output.get().file("contracts.txt").asFile.writeText(text)
+    }
+}
+
+val repoRoot: Directory = rootProject.layout.projectDirectory.dir("..")
+
+val contractsAsset = tasks.register<ContractsAsset>("contractsAsset") {
+    root.set(repoRoot.asFile.canonicalPath)
+    sources.from(
+        fileTree(repoRoot) {
+            include("**/CONTRACTS")
+            exclude("**/node_modules", "**/node_modules/**", "**/build/**", "**/.gradle/**", "**/.git/**", "**/dist/**")
+        },
+    )
+}
+
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(changelogAsset, ChangelogAsset::output)
+        variant.sources.assets?.addGeneratedSourceDirectory(contractsAsset, ContractsAsset::output)
     }
+}
+
+// The unit tests read the bundle the APK ships (ContractsBundleTest), so they build it first.
+tasks.withType<Test>().configureEach {
+    dependsOn(contractsAsset)
+    val bundle = contractsAsset.flatMap { it.output.file("contracts.txt") }
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dpulls.contracts=${bundle.get().asFile.absolutePath}") })
 }
 
 dependencies {

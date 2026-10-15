@@ -19,5 +19,6 @@ internal fun BookRoute(id: String, book: BookData) {
         "foundations/icons" -> IconsPage()
         "checks/specs" -> SpecsPage(book)
         "checks/rules" -> RulesPage(book)
+        "contracts/all" -> ContractsPage()
     }
 }

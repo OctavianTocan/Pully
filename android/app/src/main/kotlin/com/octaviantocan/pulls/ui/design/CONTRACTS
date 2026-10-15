@@ -1,0 +1,133 @@
+@cc [owner:OctavianTocan,label:architecture;motion] kit-decides-the-way
+Which way a page, tab, file or label moves is decided in the kit, never by a screen:
+`BlurSwitch`, `LabelSwitch` and `rememberPageSlide` take an `order` and work the way out
+with `pageWay`, and Back goes through `PageBack`. A kit slide MUST take its offset from
+the way (rule 105; motion check).
+
+@cc [owner:OctavianTocan,label:motion] kit-drags-carry-on-or-settle
+A page, row or sheet let go after a drag settles back where it was or carries on the way
+the finger went, at the speed it was thrown; it never springs toward the start first. A
+throw of 500dp/s counts as a swipe however short, and a throw back against the drag
+cancels it (rule 105).
+
+@cc [owner:OctavianTocan,label:motion] kit-side-pages-slide-whole
+`SidePages` and `FilePages` move pages that sit side by side the whole width with
+nothing fading or blurring, both pages in view while they move, and settle on
+`PullsMotion.PageSpring`, critically damped with no snap at the end (rule 107; H20, H36,
+J7).
+
+@cc [owner:OctavianTocan,label:product] kit-side-pages-keep-state
+A page held by `SidePages` keeps its scroll and saved state while another page is on
+screen, and finds them again when it comes back (rule 118; J9).
+
+@cc [owner:OctavianTocan,label:motion] kit-tab-ink-follows-the-pages
+The underline of `UnderlineTabs` is one stroke that slides between labels in 250ms and,
+while a finger drags the pages, sits where the pages are on that frame (rule 105; J15).
+
+@cc [owner:OctavianTocan,label:motion] kit-segment-highlight-slides
+In `CapsuleTabs` the highlight slides to the tapped segment instead of jumping, and the
+new content fades in (rule 67).
+
+@cc [owner:OctavianTocan,label:product;motion] kit-sheet-rests-at-two-heights
+Every `PullsSheet` rests at its normal height (its content, at most half the screen) or
+at its tall height, and slides between them: a quick throw goes to the next stop, a slow
+release to the nearest, a long drag down closes. A short sheet can still be lifted, the
+room under its content being its paper (rule 77; F8).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-header-is-fixed
+A sheet's header stays put and its content scrolls under it through the edge fade, so
+the ✕ never overlaps text and nothing is sliced under it (rules 74 and 77; F10).
+
+@cc [owner:OctavianTocan,label:motion] kit-sheet-rises-and-bounces
+Every sheet comes up from the bottom and settles on `PullsMotion.SheetSpring` (damping
+0.74), which goes a little past its place and comes back, a fifth less than the first
+version (rule 108; H3, J1).
+
+@cc [owner:OctavianTocan,label:product;motion] kit-sheet-closes-only-when-pulled
+Scrolling a sheet's content down and back up never moves the sheet. Only a drag that
+starts with the content at its top, or on the grabber or header, pulls it down (rule
+108; H2).
+
+@cc [owner:OctavianTocan,label:motion] kit-sheet-lifts-on-its-spring
+A field that takes the keyboard lifts its sheet to the tall height on the sheet spring,
+never popping there; lowering the sheet puts the keyboard away (rule 77; J10).
+
+@cc [owner:OctavianTocan,label:product;motion] kit-sheet-pages-stay-in-the-sheet
+A sheet opened from a sheet is a page inside it: the content slides sideways a third of
+the sheet's width in 350ms with a blur, the sheet and its lip stay still, the ✕ becomes
+←, and back returns to where it was with the scroll kept. The parent never closes and
+reopens, and Back moves the page to the right (rules 78 and 115; F9, H1, H4).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-dims-everything
+Everything beneath a sheet dims uniformly through `scrim`, the header and the trigger
+included (rule 5).
+
+@cc [owner:OctavianTocan,label:product] kit-sheet-is-felt
+A sheet is felt as it arrives, as a drag takes it to its other height, and as a pull down
+crosses the point where letting go closes it (rule 120; J12).
+
+@cc [owner:OctavianTocan,label:architecture] kit-sheet-is-our-own
+Bottom sheets are `PullsSheet`, the app's own window, because Material's
+`ModalBottomSheet` cannot follow rule 73's timings; no screen MAY use Material's sheet
+(bans check).
+
+@cc [owner:OctavianTocan,label:motion;design] kit-press-only-tints
+Pressing a row, tile, card or sheet row tints it while held and nothing else: no scale,
+no shift, no ripple. Small controls (round buttons, pills, chips, the send circle) MAY
+keep their 0.97 press (rule 82; F71).
+
+@cc [owner:OctavianTocan,label:design] kit-edges-fade
+Content that scrolls under anything pinned (a header, chips, a sheet's header, the Tour
+strip, the bottom pill, the Diff's counts line) fades to the page colour with a blur made
+from content past the edge; it never ends in a hard line, is never stretched, and the
+pinned thing itself stays sharp (rule 74; F2, F57).
+
+@cc [owner:OctavianTocan,label:design] kit-sideways-scroll-fades
+Anything that scrolls sideways (the branch row, chips, a code block, a table) fades at an
+edge it can still scroll toward and stays sharp at an edge with nothing past it
+(`sideScrollFade`, rule 74; J14, J23).
+
+@cc [owner:OctavianTocan,label:motion] kit-skeletons-shimmer
+Every skeleton bar shimmers: a soft band about 40% of its width sweeps left to right every
+1200ms in light and dark. A skeleton that does not move is a defect; with "Remove
+animations" on it sits still (rule 85; F42, F66).
+
+@cc [owner:OctavianTocan,label:design] kit-floating-things-cast-the-canvas-shadow
+Every floating element (round header buttons, the search pill, bars, cards, menus) carries
+`floatShadow` at its level: a soft ink drop pushed down, with the tight edge layer, never
+an even glow. A missing or different shadow is a defect (rule 45).
+
+@cc [owner:OctavianTocan,label:design] kit-same-control-on-page-and-sheet
+One kind of control looks the same on a page and in a sheet: a sheet's close and back
+buttons are the round white button with its shadow, and its segmented controls are the
+Inbox capsule (rule 70).
+
+@cc [owner:OctavianTocan,label:motion] kit-menus-and-dialogs-move
+Menus grow out of their trigger and dialogs scale in, with rule 73's numbers: 150ms for
+closes and text swaps, 250ms for opens and tabs, 400ms for panels, one smooth-out curve
+(rules 59 and 73).
+
+@cc [owner:OctavianTocan,label:design] kit-one-markdown
+All Markdown in the app (AI text, changelogs, rules, contracts) is drawn by the kit's
+`Markdown`, so a mention, a cite and a code span look and behave the same everywhere.
+
+@cc [owner:OctavianTocan,label:design] kit-icons-from-lu
+Icons come from `Lu` (Lucide, a published set) and the brand marks; no icon is drawn by
+hand in a screen, and the same icon never appears twice on one card (rule 48).
+
+@cc [owner:OctavianTocan,label:design] kit-dark-is-neutral-grey
+In dark mode every surface is a grey whose red, green and blue differ by at most 2, the
+accent stays teal, and every colour token has a dark pair (rule 76; F13).
+
+@cc [owner:OctavianTocan,label:design] kit-teal-is-the-darker-one
+The Overview's Review and the Diff's round › take `primary`, the darker teal Tavi kept
+over the canvas's brighter one (D2).
+
+@cc [owner:OctavianTocan,label:motion] kit-theme-wipe-only-on-change
+Switching Light and Dark spreads the new look in a circle from the top corner on the side
+of the chosen option, over the page and any sheet, in 650ms. It plays only when the look on
+screen changes: choosing System while the phone is already in that look does not wipe
+(rule 112; H5, J2).
+
+@cc [owner:OctavianTocan,label:product] kit-copy-shows-a-toast
+Copying shows the dark toast and leaves the copied control unchanged (rule 83; F21).

@@ -1,0 +1,104 @@
+@cc [owner:OctavianTocan,label:product] ai-work-shows-from-the-tap
+Anything that starts AI work shows its running work log, its first line and its clock, in
+the same frame as the tap, before the server answers. A page that tap opens never shows
+its "nothing yet" state first ("I feel very lied to", rule 121; J28, J31).
+
+@cc [owner:OctavianTocan,label:product] ai-nothing-between-states
+When AI work ends the page goes straight from the work log to what the work made, and
+from one pass to the next pass's log; no empty or start page shows between (rule 122;
+J34).
+
+@cc [owner:OctavianTocan,label:product;motion] ai-work-looks-alive
+AI work in progress is always a live, animated indicator, never a blank or a spinner. Grey
+bars MAY sit under the indicator as a hint of where the output arrives, but never replace
+it or stand alone (rules 18, 43 and 71).
+
+@cc [owner:OctavianTocan,label:design] ai-thinking-line
+While work runs there is one shimmering line, a present-tense verb and the elapsed seconds
+("Working 12s"); when it ends the line becomes "Worked for 2m 3s" with a chevron that
+opens the steps. The internal tool is never named (rules 18 and 72).
+
+@cc [owner:OctavianTocan,label:design] ai-steps-read-calmly
+Each step is one plain sentence in regular weight after the icon of what it does, the
+icon centred on its line of text. Only a failed step is red: a finished step ("Wrote the
+answer") is never red, and no step ("Started") is greyer than the rest. One thing happens
+at a time, and there is no "Wrote 3 of 6 stops, Active 3s ago, 4s elapsed" row
+(rule 72; recording 15 Oct 13:54, 05:59 to 06:41; K13).
+
+@cc [owner:OctavianTocan,label:product] ai-no-machinery-on-content
+A tour, a note or an answer does not show the model name, token counts or cache numbers,
+and the work log does not start "Started Claude (model id)"; those live in Settings and
+the model sheet. Rewrite is an icon at the card's corner with no word (rule 98; F58).
+
+@cc [owner:OctavianTocan,label:product] ai-mentions-are-links
+Every mention of a file, line, symbol or dimension in a note, the summary, a finding, a
+tour or an answer is a link that scrolls to that place, including file names listed in a
+code block ("Super, super, super important", rule 96; F43; recording 14 Oct 19:19,
+03:43 to 03:55).
+
+@cc [owner:OctavianTocan,label:design] ai-links-look-alike
+Links in AI text are teal text with no underline, all in one face: one cite is never in
+the code font while the next is not. They sit on the text line and never grow it (rules
+39 and 96; F40; recording 15 Oct 13:54, 07:36 to 07:44; K16).
+
+@cc [owner:OctavianTocan,label:product] ai-links-read-from-the-root
+A link in AI text is read from the repository root: `./` and `../` never go above it, and
+a dot-folder (`.agents`, `.github`) keeps its dot. A file the pull request changes opens
+in the app; any other opens on GitHub at the head commit, never a 404 (rule 124; J36).
+
+@cc [owner:OctavianTocan,label:product] ai-code-works-like-the-diff
+A code block in a tour or an answer is the diff's code view: syntax colours (pseudocode
+too), sideways scroll and pinch zoom. Inline code shows as code and never with its
+backticks (rule 95; F59, F63).
+
+@cc [owner:OctavianTocan,label:product] ai-structures-are-drawn
+A flow, a call tree and a file tree are drawn by the app from structured data, never
+printed as text; a flow line that does not parse stays as words in its place. A file in a
+tree that the pull request changes opens it (rule 95; F59; recording 14 Oct 19:19, 04:01).
+
+@cc [owner:OctavianTocan,label:design] ai-tables-stay-readable
+A table keeps a readable width for each column (a description never below about 230dp)
+and scrolls sideways with a fade at its edge; no column is squeezed to a few letters. In
+"In the code" the place sits on its own line and its reason under it at full width
+(rule 95; F62).
+
+@cc [owner:OctavianTocan,label:security;architecture] ai-brief-is-data
+A brief or tour page arrives as a plain `{type, props}` tree and is drawn natively from
+the kit; it is data, never executed. A component the app does not know is not drawn
+(architecture, The brief).
+
+@cc [owner:OctavianTocan,label:product] ask-never-needs-analyze
+Ask opens the chat and the reader can ask at once, on a pull request that was never
+analysed (rule 62).
+
+@cc [owner:OctavianTocan,label:design] ask-replies-are-plain
+The AI's reply is plain text with no box, fill or shadow; only the person's own message
+is a bubble, in the accent. There is never a bubble with dots in it ("I don't want that
+ever"), and "Clear" is not a word on the screen: a new-chat button sits at the top right
+(rule 99; F67, F68, F69).
+
+@cc [owner:OctavianTocan,label:product] ask-streams-and-cites
+Ask streams its thinking and its answer as they are written, with no jump when the saved
+reply takes over. Under each answer, source chips (the files it read and the places it
+names) scroll to their place, and two or three follow-up questions tap to send (rule 99;
+F70).
+
+@cc [owner:OctavianTocan,label:product] ask-opens-without-the-keyboard
+The chat opens at its normal height with no keyboard; tapping the field brings the
+keyboard and lifts the sheet ("it goes into this text mode immediately" was jarring,
+rule 77).
+
+@cc [owner:OctavianTocan,label:product] ask-send-needs-text
+A send button is grey and does nothing until its field has text (rule 84; F65).
+
+@cc [owner:OctavianTocan,label:product] ai-analyze-is-one-action
+Analysing a pull request is one action with three outputs (a summary, a note per file and
+a tour), called Analyze, never "Write tour" (rule 19).
+
+@cc [owner:OctavianTocan,label:product] ai-presets-start-the-run
+On the Analyze options page, tapping Quick, Standard or Deep starts the analysis at once
+("pretty awesome"); choosing a model only saves it (rule 89; F34).
+
+@cc [owner:OctavianTocan,label:product] ai-file-notes-show-on-rows
+The AI's note for each file shows on its file row, in two lines at most, at once (rules
+19 and 102; F44).

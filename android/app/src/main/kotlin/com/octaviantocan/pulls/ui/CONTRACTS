@@ -1,0 +1,51 @@
+@cc [owner:OctavianTocan,label:product;motion] nav-back-returns-to-the-exact-place
+After following a link out of a page (a tour's source, a mention, a file, a path), Back
+MUST return to that page scrolled exactly where it was, with what was open still open.
+For a mention in an Ask answer that place is the Ask sheet at the same scroll. Tavi on
+0.31.0: "I go back, I am still here. Great. This is what we wanted ... I hope that's in a
+contract, because it's very important" (recording 15 Oct 13:54, 07:03 to 07:15; K15;
+J35; rule 123).
+
+@cc [owner:OctavianTocan,label:product] nav-back-keeps-the-page-state
+A page under another page keeps its state while the other is on top: its scroll, its open
+folds, its selected tab and anything typed. Opening something from a page and coming back
+MUST NOT rebuild it from the top (recording 14 Oct 19:19, 04:15 to 04:47; rule 123).
+
+@cc [owner:OctavianTocan,label:motion] nav-back-always-goes-backward
+Back, the phone's Back and a back swipe always move toward the page before, whichever
+page they land on; a back swipe moves the page with the finger and carries it on that
+way (rule 105).
+
+@cc [owner:OctavianTocan,label:motion] nav-pages-slide
+Opening a page (a pull request from a row, by tap or by swipe, a repository) and
+returning slide the page in from the side it belongs to; nothing pops. The stack of pages
+is ranked by depth (rules 88 and 105; F7).
+
+@cc [owner:OctavianTocan,label:product] nav-one-destination-one-presentation
+A destination reached from more than one place opens the same way from each: always as a
+sheet or always as a page, never a sheet from one place and a page from another (rule 66).
+
+@cc [owner:OctavianTocan,label:product] nav-pull-down-for-commands-everywhere
+Pulling any page's list down past its top opens Commands: the Inbox, Tours, a repository's
+lists, and the Overview, Diff and Tour of a pull request, with "Pull for commands" then
+"Release for commands" while pulling ("I should be able to pull for commands on any page.
+Again, consistency", rule 117; J30; F4).
+
+@cc [owner:OctavianTocan,label:product;motion] nav-commands-is-a-bottom-sheet
+Commands is a bottom sheet like any other: it rises from the bottom and a throw down
+carries it on down. It MUST NOT drop in from the top (H6; rules 105 and 108).
+
+@cc [owner:OctavianTocan,label:product] nav-commands-ready-to-type
+Commands opens at its tall height and its search takes the keyboard as soon as it rests,
+so a command can be typed at once, and it opens without a delay after the pull (J11;
+recording 15 Oct 13:54, 00:56 to 01:05; K5; rule 77).
+
+@cc [owner:OctavianTocan,label:product] nav-commands-reach-everywhere
+Commands holds Home, Settings, the theme, Update Pulls and What's new on every page, and
+a page adds its own commands while it is open. Commands is the one palette: there is no
+second command menu and no Commands row in the ⋯ or profile sheets (rules 61 and 104;
+J30, H22; recording 15 Oct 13:54, 12:33).
+
+@cc [owner:OctavianTocan,label:product] nav-commands-themes
+Commands offers Themes, which opens the same theme sheet as Settings (recording 15 Oct
+13:54, 08:33 to 09:11; K18).
