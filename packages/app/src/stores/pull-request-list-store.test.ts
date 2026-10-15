@@ -44,12 +44,12 @@ function parseKey(key: string) {
   return { kind: 'github-pr' as const, owner, repo, number }
 }
 
-function viewedEntry(key: string, analyzedBy: PrCacheEntry['analyzedBy'] = {}): PrCacheEntry {
+function viewedEntry(key: string, analyzedBy: PrCacheEntry['analyzedBy'] = {}, lastViewedAt = 1000): PrCacheEntry {
   return {
     key,
     headSha: 'head',
     analyzedBy,
-    lastViewedAt: 0,
+    lastViewedAt,
     sizeBytes: 0,
     diff: {
       ref: parseKey(key),
@@ -138,6 +138,8 @@ describe('createPullRequestListStore', () => {
     const aiGroups = [{ key: 'g1', label: 'One', filePaths: ['src/a.ts', 'docs/b.md'] }]
     await cache.diffs.put(viewedEntry('github:o/r#2', { llm: { source: 'llm', schemaVersion: 1, generatedAt: '', groups: aiGroups } }))
     await cache.diffs.put(viewedEntry('github:other/r#3'))
+    // Stored ahead of time by the server, never opened.
+    await cache.diffs.put(viewedEntry('github:o/r#4', {}, 0))
     mocks.fetchOpenPullRequests.mockResolvedValue(page([2, 1], 2))
     const store = createPullRequestListStore({ owner: 'o', repo: 'r' }, { cache, credentials: staticCredentials() })
 
@@ -148,6 +150,7 @@ describe('createPullRequestListStore', () => {
     expect(store.viewed.get(1)).toEqual({ additions: 15, deletions: 2, files: 2, groups: 2, hasAiResult: false })
     expect(store.viewed.get(2)).toMatchObject({ groups: 1, hasAiResult: true })
     expect(store.viewed.has(3)).toBe(false)
+    expect(store.viewed.has(4)).toBe(false)
   })
 
   it('drops a continuation that resolves after a refresh replaced the list', async () => {

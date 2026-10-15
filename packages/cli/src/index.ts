@@ -10,6 +10,7 @@ import { agentRuntime } from './ai/runtime'
 import devframe from './devframe'
 import { handleNativeRequest } from './native-api'
 import { pageFor } from './page'
+import { startPrStore } from './pr-store'
 import { isPreanalyzeEngine, PREANALYZE_ENGINES, startPreanalyze } from './preanalyze'
 
 const HELP = `Usage: pulls.review [target] [options]
@@ -36,6 +37,9 @@ Options:
   --no-auth      skip the terminal code gate; only for a deployment whose
                  reverse proxy already authenticates every request
   --no-open      do not open the browser
+  --no-warm      do not keep your open pull requests stored on the server; by
+                 default their diffs and overviews are refreshed every 3
+                 minutes, so the phone opens them without waiting on GitHub
   --preanalyze   every 10 minutes, group the open pull requests that request
                  your review with AI, so they open already analyzed; runs on
                  your Claude Code or Codex plan, off by default
@@ -51,6 +55,13 @@ Options:
                  PULLS_REVIEW_AGENT_RUNTIME, with PULLS_REVIEW_AGENT_IMAGE
                  naming another image
   -h, --help
+
+Environment:
+  PULLS_REVIEW_TYPESAFE_API_KEY (or TYPESAFE_API_KEY)
+                 a TypeSafe AI key turns on Jev, TypeSafe's classifier model:
+                 the phone app then gets open pull requests sorted by kind and
+                 risk, and each diff's files by how much review they need.
+                 Without a key Jev stays off and nothing else changes
 
 To review a GitHub pull request in CI, use @pulls.review/actions.
 `
@@ -92,6 +103,7 @@ async function main() {
       'allow-origin': { type: 'string', multiple: true },
       'no-auth': { type: 'boolean' },
       'no-open': { type: 'boolean' },
+      'no-warm': { type: 'boolean' },
       'preanalyze': { type: 'boolean' },
       'preanalyze-engine': { type: 'string', default: 'claude-code' },
       'preanalyze-model': { type: 'string' },
@@ -125,6 +137,8 @@ async function main() {
       process.stdout.write(`pulls.review is serving ${origin}${page}\n`)
     },
   })
+  if (!flags['no-warm'])
+    await startPrStore({ cwd: process.cwd(), env: process.env })
   if (flags.preanalyze && isPreanalyzeEngine(preanalyzeEngine))
     await startPreanalyze({ cwd: process.cwd(), env: process.env, engine: preanalyzeEngine, model: flags['preanalyze-model'] })
 }

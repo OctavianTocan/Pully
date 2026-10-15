@@ -36,10 +36,15 @@ class Repo(private val context: Context) {
 
     // --- Opening a diff ---
 
-    suspend fun open(target: OpenTarget): OpenedReview = when (target) {
-        is OpenTarget.Pull -> call("github-pr") { pull(target) }.asOpened()
-        is OpenTarget.Compare -> call("github-compare") { put("owner", target.owner); put("repo", target.repo); put("base", target.base); put("head", target.head) }.asOpened()
-        is OpenTarget.Commit -> call("github-commit") { put("owner", target.owner); put("repo", target.repo); put("sha", target.sha) }.asOpened()
+    /**
+     * The diff. A GitHub one comes from the server's stored copy when its head is still current, and [fresh] asks
+     * GitHub again. It is lite: past a size the server leaves patches out ([ReviewFile.patchOmitted]) and
+     * [diffPatches] brings them as the files are shown, so a huge pull request opens at once.
+     */
+    suspend fun open(target: OpenTarget, fresh: Boolean = false): OpenedReview = when (target) {
+        is OpenTarget.Pull -> call("github-pr") { pull(target); lite(fresh) }.asOpened()
+        is OpenTarget.Compare -> call("github-compare") { put("owner", target.owner); put("repo", target.repo); put("base", target.base); put("head", target.head); lite(fresh) }.asOpened()
+        is OpenTarget.Commit -> call("github-commit") { put("owner", target.owner); put("repo", target.repo); put("sha", target.sha); lite(fresh) }.asOpened()
         is OpenTarget.Branch -> {
             val base = call("repo-info").jsonObject.obj("defaultBranch")?.s("ref")?.ifBlank { null } ?: "HEAD"
             call("local-diff") { put("target", "$base...${target.name}") }.asOpened()
@@ -47,6 +52,15 @@ class Repo(private val context: Context) {
         is OpenTarget.Local -> call("local-diff") { put("target", target.target) }.asOpened()
         OpenTarget.Worktree -> call("local-diff") { put("target", "") }.asOpened()
     }
+
+    private fun JsonObjectBuilder.lite(fresh: Boolean) {
+        put("lite", true)
+        if (fresh) put("fresh", true)
+    }
+
+    /** The patches [open] left out, by path, for the files of the diff stored under [key]. */
+    suspend fun diffPatches(key: String, paths: List<String>): Map<String, FilePatch> =
+        call("diff-patches") { put("key", key); put("paths", JsonArray(paths.map { JsonPrimitive(it) })) }.asPatches()
 
     suspend fun savedState(key: String): SavedState = call("review-state") { put("key", key) }.asSavedState()
 
@@ -62,6 +76,9 @@ class Repo(private val context: Context) {
 
     suspend fun fullFile(key: String, path: String): FullFile = call("file-content") { put("key", key); put("path", path) }.asFullFile()
 
+    /** Which files of an opened diff need a look, by Jev; `enabled` is false while the server has no Jev. */
+    suspend fun jevFiles(key: String): JevFiles = (call("jev-files") { put("key", key) } as? JsonObject)?.asJevFiles() ?: JevFiles(false, emptyMap(), 0)
+
     /** Shiki spans with the pierre theme, like the web diff. */
     suspend fun highlight(path: String, lines: List<String>, dark: Boolean): JsonObject =
         call("highlight") { put("path", path); put("dark", dark); put("lines", JsonArray(lines.map { JsonPrimitive(it) })) }.jsonObject
@@ -72,6 +89,8 @@ class Repo(private val context: Context) {
 
     /** The stack the pull request is a layer of, bottom first; null when it is in none. */
     suspend fun prStack(target: OpenTarget.Pull): PrStack? = (call("pr-stack") { pull(target) } as? JsonObject)?.get("stack")?.asPrStack()
+    /** The overview the server stored when it last refreshed this pull request, without asking GitHub; null when it has none. */
+    suspend fun storedOverview(target: OpenTarget.Pull): JsonObject? = call("pr-overview") { pull(target); put("cached", true) } as? JsonObject
 
     /** `action`: merge, update-branch, close, reopen, ready, draft. */
     suspend fun prAction(id: String, action: String, method: String? = null, title: String? = null, body: String? = null, expectedHeadOid: String? = null) {

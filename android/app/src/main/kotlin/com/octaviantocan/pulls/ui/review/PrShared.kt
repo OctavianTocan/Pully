@@ -38,8 +38,9 @@ internal data class PrHead(
 /** Approving or requesting changes needs an open pull request; an unknown state (a compare, or no overview yet) counts as open. */
 internal val PrHead.isOpen: Boolean get() = state != "merged" && state != "closed"
 
+/** The page's header facts: from the overview when it is there, else from the diff; null while neither has arrived. */
 internal fun prHead(session: ReviewSession, data: PrOverviewData?): PrHead? {
-    val opened = session.prOpened ?: session.opened ?: return null
+    val opened = session.prOpened ?: session.opened
     val parent = when (val target = session.target) {
         is OpenTarget.Pull -> target.owner to target.repo
         is OpenTarget.Compare -> target.owner to target.repo
@@ -49,11 +50,13 @@ internal fun prHead(session: ReviewSession, data: PrOverviewData?): PrHead? {
     val pr = data?.overview
     return if (pr != null) {
         PrHead(pr.title, "#${pr.number}", pr.url, pr.state, pr.baseRef, pr.headRef, pr.author?.login, pr.createdAt, parent?.first, parent?.second)
-    } else {
+    } else if (opened != null) {
         PrHead(
             opened.title.ifBlank { parent?.let { "${it.first}/${it.second}" } ?: "Changes" }, opened.label, opened.url, opened.state, opened.baseRef, opened.headRef,
             opened.author?.login?.takeIf { it.isNotBlank() }, null, parent?.first, parent?.second,
         )
+    } else {
+        null
     }
 }
 

@@ -134,6 +134,48 @@ describe('diff cache', () => {
     expect(back?.sizeBytes).toBeGreaterThan(0)
   })
 
+  it('putDiff with viewed: false stores a new entry as never viewed and leaves it out of listRecent', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('seen', 'sha-seen', 1000))
+    await cache.putDiff('warm', makeEntry('warm', 'sha-1', 0).diff, 'sha-1', { viewed: false })
+
+    expect((await cache.get('warm'))!.lastViewedAt).toBe(0)
+    expect((await cache.listRecent(10)).map(meta => meta.key)).toEqual(['seen'])
+
+    await cache.touch('warm')
+    expect((await cache.listRecent(10)).map(meta => meta.key)).toEqual(['warm', 'seen'])
+  })
+
+  it('putDiff with viewed: false keeps the existing lastViewedAt', async () => {
+    const { cache } = cacheWith()
+    const entry = makeEntry('a', 'sha-old', 1000)
+    await cache.put(entry)
+    await cache.putDiff('a', { ...entry.diff, files: [{ ...entry.diff.files[0]!, sha: 'sha-new' }] }, 'sha-new', { viewed: false })
+
+    const back = await cache.get('a')
+    expect(back!.headSha).toBe('sha-new')
+    expect(back!.lastViewedAt).toBe(1000)
+  })
+
+  it('evicts never-viewed entries before viewed ones', async () => {
+    const { cache } = cacheWith({ maxEntries: 2 })
+    await cache.put(makeEntry('old', 'sha-old', 1000))
+    await cache.put(makeEntry('new', 'sha-new', 2000))
+    await cache.putDiff('warm', makeEntry('warm', 'sha-warm', 0).diff, 'sha-warm', { viewed: false })
+
+    expect(await cache.get('warm')).toBeUndefined()
+    expect(await cache.get('old')).toBeDefined()
+  })
+
+  it('getMeta reads the metadata without the diff body', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'sha-a', 1000))
+    reads = []
+    expect(await cache.getMeta('a')).toMatchObject({ key: 'a', headSha: 'sha-a', lastViewedAt: 1000 })
+    expect(await cache.getMeta('missing')).toBeUndefined()
+    expect(reads.some(key => key.startsWith('pr-body'))).toBe(false)
+  })
+
   it('touch bumps lastViewedAt', async () => {
     const { cache } = cacheWith()
     await cache.put(makeEntry('a', 'sha-a', 1000))

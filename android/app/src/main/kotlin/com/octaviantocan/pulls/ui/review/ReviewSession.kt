@@ -16,12 +16,15 @@ import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.SavedState
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.data.asTaskState
+import com.octaviantocan.pulls.data.matches
+import com.octaviantocan.pulls.data.withHunks
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -70,10 +73,23 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     var overview by mutableStateOf<JsonObject?>(null)
     var overviewError by mutableStateOf<String?>(null)
 
+    /**
+     * Jev's word on each file of [opened], by path: `p0` needs a human, `p1` is worth a look, `p2` is low attention. Empty
+     * while the server has no Jev, before it answers, and when asking failed; a file it has not sorted yet is missing.
+     */
+    var attention by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+    private var attentionKey: String? = null
+    private var attentionJob: Job? = null
+
     /** The stack this pull request is a layer of, bottom first (PRs only); null when it is in none or did not load. */
     var stack by mutableStateOf<PrStack?>(null)
         private set
     private var stackAsked = false
+
+    /** [overview] is still the server's stored copy, which may trail the diff by a push, so it says nothing about staleness. */
+    var overviewStored by mutableStateOf(false)
+        private set
 
     /** Phone-only: `diff` (the review page) or `tour` (the AI walkthrough). */
     var pageTab by mutableStateOf("diff")
@@ -128,13 +144,15 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     val visibleFindings: List<CritiqueFinding>
         get() = saved?.critique?.findings.orEmpty().filter { finding -> findingSeverities?.contains(finding.severity) ?: true }
 
-    fun load() {
+    fun load(fresh: Boolean = false) {
         scope.launch {
             loading = true
             loadError = null
-            runCatching { repo.open(target) }
+            runCatching { repo.open(target, fresh) }
                 .onSuccess {
                     prOpened = it
+                    patchesAsked.clear()
+                    patchProblems.clear()
                     if (selection == null) { opened = it; shownSelection = null }
                     // The overview can arrive before the diff does, so this page's own copy counts too.
                     rememberedAs?.let { name -> recent[name] = Remembered(it, overview ?: recent[name]?.overview) }
@@ -149,7 +167,52 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** Refetches the diff, the overview and the reviews; AI results stay. A commit selection is dropped. */
     fun refresh() {
         selection = null
-        load()
+        load(fresh = true)
+    }
+
+    /** Paths whose left-out patches were asked for, so a file scrolled past twice asks once. */
+    private val patchesAsked = HashSet<String>()
+
+    /**
+     * Left-out patches that did not arrive, by path: [PatchProblem.Moved] when the server's copy of the pull request moved
+     * on since this diff opened, [PatchProblem.Failed] when asking failed. The file says so instead of waiting for ever.
+     */
+    val patchProblems = mutableStateMapOf<String, PatchProblem>()
+
+    /**
+     * Brings the patches the server left out of a large diff ([ReviewFile.patchOmitted]) for [paths], and puts them
+     * into the diff on screen and the PR's own. A patch for another version of the file is not put in.
+     */
+    fun loadPatches(paths: List<String>) {
+        val key = opened?.key ?: return
+        val wanted = paths.filter { it !in patchProblems && patchesAsked.add(it) }
+        if (wanted.isEmpty()) return
+        scope.launch {
+            runCatching { repo.diffPatches(key, wanted) }
+                .onSuccess { patches ->
+                    val byPath = opened?.takeIf { it.key == key }?.files.orEmpty().associateBy { it.path }
+                    val fitting = patches.filter { (path, patch) -> byPath[path]?.matches(patch) == true }
+                    fun fill(review: OpenedReview?): OpenedReview? = review?.takeIf { it.key == key }
+                        ?.let { it.copy(files = it.files.map { file -> fitting[file.path]?.let { patch -> file.withHunks(patch.hunks) } ?: file }) } ?: review
+                    val before = prOpened
+                    prOpened = fill(prOpened)
+                    opened = if (opened === before) prOpened else fill(opened)
+                    rememberedAs?.let { name -> recent[name]?.let { kept -> prOpened?.let { recent[name] = kept.copy(opened = it) } } }
+                    // The server answered: a file it sent no fitting patch for is in a newer version than this diff.
+                    wanted.filterNot { it in fitting }.forEach { patchProblems[it] = PatchProblem.Moved }
+                }
+                .onFailure {
+                    // The file on screen says so; the ones ahead ask again when they are shown.
+                    patchesAsked.removeAll(wanted.toSet())
+                    patchProblems[wanted.first()] = PatchProblem.Failed(it.message ?: it.toString())
+                }
+        }
+    }
+
+    /** Asks again for a left-out patch that failed to arrive. */
+    fun retryPatch(path: String) {
+        patchProblems.remove(path)
+        loadPatches(patchesAround(files, path))
     }
 
     private suspend fun afterOpen() {
@@ -157,7 +220,30 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         reloadSavedNow()
         runCatching { repo.reviewed(key) }.onSuccess { (shas, changed) -> reviewed = shas; changedSinceReviewed = changed }
         if (!hasAiResult) analyzeMode = "rules"
+        loadAttention()
         resumeTasks()
+    }
+
+    /**
+     * Asks Jev which files need a look once the diff has opened, then again every few seconds while it is still sorting
+     * some, for two minutes at most. Jev off or a failed call leaves the files unmarked and says nothing: the marks are
+     * a hint, not part of the review.
+     */
+    private fun loadAttention() {
+        val key = opened?.key ?: return
+        if (key != attentionKey) attention = emptyMap()
+        attentionKey = key
+        attentionJob?.cancel()
+        attentionJob = scope.launch {
+            val until = System.currentTimeMillis() + ATTENTION_FOR_MS
+            while (true) {
+                val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
+                if (!answer.enabled || attentionKey != key) break
+                attention = answer.files
+                if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
+                delay(ATTENTION_EVERY_MS)
+            }
+        }
     }
 
     fun reloadSaved() { scope.launch { reloadSavedNow() } }
@@ -169,9 +255,16 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     fun reloadOverview() {
         val pull = pull ?: return
+        // Nothing on screen yet: the copy the server stored as it refreshed shows at once, until GitHub's own arrives.
+        if (overview == null) scope.launch {
+            runCatching { repo.storedOverview(pull) }.getOrNull()?.let { stored ->
+                if (overview == null) { overview = stored; overviewStored = true }
+            }
+        }
         scope.launch {
             runCatching { repo.overview(pull) }.onSuccess {
                 overview = it
+                overviewStored = false
                 overviewError = null
                 rememberedAs?.let { name -> recent[name]?.let { before -> recent[name] = before.copy(overview = it) } }
             }.onFailure { overviewError = it.message }
@@ -343,6 +436,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     private companion object {
         const val REMEMBERED = 6
+        const val ATTENTION_EVERY_MS = 3_000L
+        const val ATTENTION_FOR_MS = 120_000L
 
         // Least recently opened first; the oldest goes when a seventh arrives. Touched on the main thread only.
         val recent = object : LinkedHashMap<String, Remembered>(8, 0.75f, true) {
@@ -366,4 +461,12 @@ fun resolveGroups(groups: List<FileGroup>, files: List<ReviewFile>): List<FileGr
     val resolved = groups.map(::resolve)
     val rest = files.map { it.path }.filter { it !in referenced }
     return if (rest.isEmpty()) resolved else resolved + FileGroup(label = "", summary = "", paths = rest, key = "uncategorized", category = "other")
+}
+
+/** Why a file's left-out patch is not on screen. */
+sealed interface PatchProblem {
+    /** The server's copy moved to a newer version of the pull request; loading it again shows the new one. */
+    data object Moved : PatchProblem
+
+    data class Failed(val message: String) : PatchProblem
 }

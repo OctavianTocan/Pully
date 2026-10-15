@@ -89,6 +89,7 @@ fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: M
 
 /** Whether the PR has moved on since the diff on screen was fetched (the web's `isStale`). */
 fun isStale(session: ReviewSession, overview: PrOverview?): Boolean {
+    if (session.overviewStored) return false
     val head = overview?.headOid?.takeIf { it.isNotBlank() } ?: return false
     val shown = session.prOpened?.headSha?.takeIf { it.isNotBlank() } ?: return false
     return head != shown

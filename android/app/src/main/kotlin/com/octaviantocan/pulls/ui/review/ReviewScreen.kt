@@ -138,6 +138,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         if (here == PrView.Overview) pages.add(page) else pages[pages.lastIndex] = page
     }
     fun openDiff(path: String?) {
+        // The changes open once the diff has arrived; until then the Files rows are bars and there is nothing to show.
+        if (session.opened == null) return
         val files = orderedFiles()
         diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
         push(PrView.Diff)
@@ -198,9 +200,12 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         )
     }
 
+    // The overview alone is enough for the page, so a huge pull request shows its description while its files still
+    // come (the Files rows are bars until then); only a page opened on the tour waits for the diff the tour reads.
+    val waiting = head == null || (opened == null && pages.last() != PrView.Overview)
     Box(Modifier.fillMaxSize().background(c.base)) {
         when {
-            opened == null && session.loadError != null -> Placeholder(onBack = nav.back) {
+            waiting && session.loadError != null -> Placeholder(onBack = nav.back) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(messages.t("pr.loadFailed"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                     session.loadError?.let { Text(it, style = PullsType.sm, color = c.muted) }
@@ -208,8 +213,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
-            opened == null -> PrOpening(target, preview, onBack = nav.back)
-            opened != null && head != null -> {
+            waiting -> PrOpening(target, preview, onBack = nav.back)
+            else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
                     // One header over the three views, drawn once: the same pixels on each while only what is under it slides

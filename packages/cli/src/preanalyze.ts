@@ -4,7 +4,7 @@ import type { AiPrContext, MyPull } from '@pulls.review/core/local-rpc'
 import type { DiffsPayload, GroupedResult } from '@pulls.review/core/types'
 import process from 'node:process'
 import { defaultLlmSettings, resolveModel } from '@pulls.review/core/analyze'
-import { createCacheRepositories } from '@pulls.review/core/cache'
+import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { createGithubPullRequestSource } from '@pulls.review/core/github'
 import { DEFAULT_LOCALE } from '@pulls.review/core/locales'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
@@ -184,7 +184,7 @@ export async function startPreanalyze(options: PreanalyzeOptions): Promise<() =>
 
   const preanalyzer = createPreanalyzer({
     listPulls: () => listMyPulls('open'),
-    cache: createCacheRepositories(createStorage({ driver: await createRepoCacheDriver(cwd) })),
+    cache: createCacheRepositories(createStorage({ driver: await createRepoCacheDriver(cwd) }), SERVER_CACHE_BUDGET),
     fetchDiff: async pull => createGithubPullRequestSource(
       { owner: pull.owner, repo: pull.repo, number: String(pull.number) },
       staticCredentials(await resolveGithubToken(env)),

@@ -87,6 +87,25 @@ The Claude Code and Codex processes run on the server itself, or, with
   `PULLS_REVIEW_SKILLS_DIR`). The server MUST NOT offer the skills of the account it
   runs under, and the image replaces its skill folders with the same set on every start.
 
+## The phone reads the server's store (`packages/cli/src/pr-store.ts`, `stored-diff.ts`)
+
+Opening a pull request on the phone MUST NOT wait on every page of its files. Contract:
+
+- The server's cache uses `SERVER_CACHE_BUDGET` (`core/cache.ts`). Every repositories object
+  over the server's storage MUST pass it - the session, the task manager, `--preanalyze`, and
+  the `PR_LOCAL` page's RPC driver - since each enforces its own budget and evicts the rest.
+- Unless `--no-warm`, the server stores the open pull requests (`my-pulls`, newest first)
+  every few minutes: a diff when its head moved, an overview when its `updatedAt` did. These
+  writes use `putDiff(..., { viewed: false })` and MUST NOT count as views: they keep the
+  entry's `lastViewedAt` (`0` when new), and `listRecent` and the viewed marks on a
+  repository's list (`repo-viewed`, `loadViewed`) leave never-viewed entries out.
+- `github-pr` answers the stored diff when GitHub's head (one request) matches it, and the
+  stored diff marked `stale` when GitHub can't be asked; `fresh` fetches anyway. The store
+  always holds the full diff. `lite` trims only the answer: files past the patch budget go
+  out with no hunks and `patchOmitted`, and `diff-patches` serves their hunks by path.
+- `pr-overview` stores each overview it fetches (`pr-overview:<owner>/<repo>#<number>`,
+  `{ at, updatedAt, value }`); `cached: true` answers that copy without asking GitHub.
+
 ## The brief: a page the agent designs (`core/src/analyze/adapters/llm/brief.ts`)
 
 A `brief` task asks the agent to design the page a reviewer reads before the diff. It
@@ -107,6 +126,26 @@ generator improvements apply with a version bump. Contract:
 - `@openuidev/lang-core` is allowed no install script (`allowBuilds` in
   `pnpm-workspace.yaml`): its postinstall sends install telemetry, and the parser needs
   no build.
+
+## Jev sorts pull requests and files (`packages/cli/src/jev*.ts`)
+
+With a TypeSafe key (`PULLS_REVIEW_TYPESAFE_API_KEY`, else `TYPESAFE_API_KEY`) the local
+server asks Jev, TypeSafe's classification model, typed questions; it never writes text.
+Contract:
+
+- Without a key, or once TypeSafe refuses it (401), Jev is off for the run: nothing is
+  asked, nothing fails toward a client, `jev-files` answers `{ enabled: false, files: {}, pending: 0 }`.
+- `my-pulls` MUST NOT wait for Jev. Open pull requests without a classification of their
+  current head sha and title are classified in the background (`kind`, `risk`); every
+  list answer copies what is done into `MyPull.jev`, and `MyPullsSnapshot.classifier` is
+  `'jev'` while Jev is on. The plain `my-pulls` answer stays an array.
+- `jev-files` classifies an opened diff's files (non-binary, at most 300) as `p0`/`p1`/`p2`;
+  an answer under 0.5 confidence counts as `p0`. The first call starts the work, later
+  calls return more until `pending` is 0.
+- Results live in memory and in the server's storage (`jev-pr:<owner>/<repo>#<number>`,
+  `jev-file:<sha256 of blob sha and path>`), so a restart does not ask again. One client
+  per process keeps 8 requests in flight, paces under TypeSafe's rate limits and retries
+  429/529 up to three attempts.
 
 ## Invariants
 

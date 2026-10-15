@@ -3,8 +3,10 @@ package com.octaviantocan.pulls.data
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -49,7 +51,16 @@ data class PullRow(
     val headRef: String = "",
     /** Open pull requests only: its place in a stack, null when it is in none. */
     val stack: PullStack? = null,
+    /** Jev's classification of its head commit and title; null until the server has one, and while Jev is off. */
+    val jev: PullJev? = null,
 )
+
+/**
+ * What Jev, the server's classifier, made of a listed pull request (`MyPullJev` in core `local-rpc.ts`): its [kind]
+ * (`feature`, `fix`, `refactor`, `performance`, `docs`, `tests`, `dependencies` or `infra`), how sure it is of that
+ * from 0 to 1, and its [risk] from 0 (trivial) to 3 (high), which can sit between two levels.
+ */
+data class PullJev(val kind: String, val kindConfidence: Double, val risk: Double)
 
 /**
  * Where a listed pull request sits in a stack (`MyPullStack` in core `local-rpc.ts`): GitHub's own when
@@ -69,6 +80,8 @@ data class ReviewFile(
     val isBinary: Boolean = false,
     val truncated: Boolean = false,
     val hunks: List<Hunk> = emptyList(),
+    /** The server left this file's patch out of a large diff; [Repo.diffPatches] brings it when the file is shown. */
+    val patchOmitted: Boolean = false,
 )
 
 /**
@@ -117,6 +130,8 @@ data class OpenedReview(
     val commits: List<CommitInfo> = emptyList(),
     /** `github-pr`, `github-compare`, `github-commit`, `local` or `paste`. */
     val refKind: String = "",
+    /** The server's stored copy, sent because GitHub could not be asked whether it is current. */
+    val stale: Boolean = false,
 )
 
 data class Finding(
@@ -183,8 +198,28 @@ fun JsonObject.asPull(): PullRow {
         baseRef = obj.str("baseRef"),
         headRef = obj.str("headRef"),
         stack = (obj["stack"] as? JsonObject)?.asPullStack(),
+        jev = (obj["jev"] as? JsonObject)?.asPullJev(),
     )
 }
+
+/** A `MyPullJev`; null without a kind or a risk, which every classification has. */
+fun JsonObject.asPullJev(): PullJev? {
+    val kind = str("kind").ifBlank { return null }
+    val risk = this["risk"]?.jsonPrimitive?.doubleOrNull ?: return null
+    return PullJev(kind, this["kindConfidence"]?.jsonPrimitive?.doubleOrNull ?: 0.0, risk)
+}
+
+/**
+ * The `jev-files` answer for an opened diff: whether Jev is on, each classified file's priority by path (`p0` needs
+ * a human, `p1` is worth a look, `p2` is low attention), and how many files it is still sorting.
+ */
+data class JevFiles(val enabled: Boolean, val files: Map<String, String>, val pending: Int)
+
+fun JsonObject.asJevFiles(): JevFiles = JevFiles(
+    enabled = this["enabled"]?.jsonPrimitive?.contentOrNull == "true",
+    files = (this["files"] as? JsonObject).orEmpty().mapNotNull { (path, value) -> (value as? JsonObject)?.str("priority")?.ifBlank { null }?.let { path to it } }.toMap(),
+    pending = this["pending"]?.jsonPrimitive?.intOrNull ?: 0,
+)
 
 /** A `MyPullStack`; null without an id or a position, which no real stack lacks. */
 fun JsonObject.asPullStack(): PullStack? {
@@ -228,7 +263,27 @@ fun JsonElement.asOpened(): OpenedReview {
         description = diff.str("description"),
         commits = diff["commits"]?.jsonArray.orEmpty().map { CommitInfo(it.jsonObject.str("sha"), it.jsonObject.str("message")) },
         refKind = (diff["ref"] as? JsonObject)?.str("kind").orEmpty(),
+        stale = obj["stale"]?.jsonPrimitive?.booleanOrNull == true,
     )
+}
+
+/** One file's patch sent after the diff: its hunks in the diff's own JSON shape, and the blob [sha] they belong to. */
+data class FilePatch(val hunks: JsonArray, val sha: String)
+
+/** `diff-patches`: each path's patch. A path the stored diff no longer has is missing. */
+fun JsonElement.asPatches(): Map<String, FilePatch> =
+    (this as? JsonObject)?.get("files")?.jsonObject.orEmpty().mapNotNull { (path, file) ->
+        val obj = file as? JsonObject ?: return@mapNotNull null
+        obj["hunks"]?.jsonArray?.let { path to FilePatch(it, obj.str("sha")) }
+    }.toMap()
+
+/** Whether [patch] is this file's: the server's stored diff can move to a newer head after the phone opened it. */
+fun ReviewFile.matches(patch: FilePatch): Boolean = sha.isEmpty() || patch.sha.isEmpty() || sha == patch.sha
+
+/** This file with the patch [hunks] the server sent later, parsed as [asFile] parses a whole diff. */
+fun ReviewFile.withHunks(hunks: JsonArray): ReviewFile {
+    val (lines, parsed) = parseHunks(hunks)
+    return copy(patchLines = lines, hunks = parsed, patchOmitted = false)
 }
 
 /** A `{ key, label, summary, category, filePaths, children }` group from the server. */
@@ -241,13 +296,13 @@ fun JsonObject.asGroup(): FileGroup = FileGroup(
     children = this["children"]?.jsonArray.orEmpty().map { it.jsonObject.asGroup() },
 )
 
-private fun JsonObject.asFile(): ReviewFile {
+private fun parseHunks(json: List<JsonElement>): Pair<List<DiffLine>, List<Hunk>> {
     val lines = mutableListOf<DiffLine>()
     val hunks = mutableListOf<Hunk>()
     // Unmodified lines between hunks, counted on the old side (the new side for an added file).
     var nextOld = 1
     var nextNew = 1
-    this["hunks"]?.jsonArray.orEmpty().forEachIndexed { index, element ->
+    json.forEachIndexed { index, element ->
         val hunk = element.jsonObject
         val oldStart = hunk["oldStart"]?.jsonPrimitive?.intOrNull ?: 1
         val newStart = hunk["newStart"]?.jsonPrimitive?.intOrNull ?: 1
@@ -270,6 +325,11 @@ private fun JsonObject.asFile(): ReviewFile {
         nextOld = old
         nextNew = new
     }
+    return lines to hunks
+}
+
+private fun JsonObject.asFile(): ReviewFile {
+    val (lines, hunks) = parseHunks(this["hunks"]?.jsonArray.orEmpty())
     return ReviewFile(
         path = str("path"),
         status = str("status"),
@@ -281,6 +341,7 @@ private fun JsonObject.asFile(): ReviewFile {
         isBinary = this["isBinary"]?.jsonPrimitive?.contentOrNull == "true",
         truncated = this["truncated"]?.jsonPrimitive?.contentOrNull == "true",
         hunks = hunks,
+        patchOmitted = this["patchOmitted"]?.jsonPrimitive?.booleanOrNull == true,
     )
 }
 

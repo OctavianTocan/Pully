@@ -86,7 +86,8 @@ export function createPullRequestListStore(params: { owner: string, repo: string
 
   async function loadViewed() {
     const next = new Map<number, ViewedPullRequest>()
-    const entries = await cache.diffs.listMatching(({ ref }) => ref.kind === 'github-pr' && ref.owner === owner && ref.repo === repo)
+    // A diff the server stored ahead of time but nobody opened (`lastViewedAt` 0) is not viewed.
+    const entries = await cache.diffs.listMatching(({ ref, lastViewedAt }) => lastViewedAt !== 0 && ref.kind === 'github-pr' && ref.owner === owner && ref.repo === repo)
     for (const entry of entries) {
       const { ref } = entry.diff
       if (ref.kind !== 'github-pr')

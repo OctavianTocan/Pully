@@ -12,7 +12,7 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
-## 0.23.0
+## 0.25.0
 
 Everything still missing from your walkthrough video is now in.
 
@@ -30,6 +30,22 @@ Everything still missing from your walkthrough video is now in.
 - Every file or line the AI mentions is a link, in notes, findings and answers too, and in what it posts on GitHub.
 - Claude's models show their version, and each one's usual effort is marked Recommended.
 - The Tours tab hides the repositories you chose to hide.
+
+## 0.24.0
+
+Huge pull requests open at once.
+
+- The title, description and conversation show right away, even on pull requests with thousands of changed lines.
+- The server keeps a copy of your open pull requests, so they open from it instead of waiting on GitHub.
+- On a big diff, each file's code loads as you reach it.
+
+## 0.23.0
+
+Group pull requests by kind and see the riskiest first.
+
+- When the server has Jev, TypeSafe's classifier, the Sort sheet adds Riskiest first and a Group by choice: by repository or by kind, such as fixes, features and refactors.
+- Grouped by kind, each row names its repository next to the author.
+- In a pull request's files, the ones Jev thinks need a closer look say "Needs a look".
 
 ## 0.22.0
 

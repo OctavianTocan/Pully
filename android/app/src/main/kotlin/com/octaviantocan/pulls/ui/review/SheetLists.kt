@@ -204,7 +204,7 @@ internal fun FilesSheet(session: ReviewSession, ui: DiffUi, current: String?, on
     PullsSheet(onClose, "Files", expandable = true) {
         if (total > 1) SheetSearch(query, { query = it }, "Find a file", Modifier.padding(top = 8.dp, bottom = 6.dp))
         FilesList(
-            fileSections(session, ui), query, current, state = session::reviewState,
+            fileSections(session, ui), query, current, state = session::reviewState, attention = session.attention,
             // The section of the file the diff is on starts open, whatever the size of the change.
             folded = { section -> ui.folds[section.label.orEmpty()] ?: (total > FOLD_ABOVE && section.files.none { it.path == current }) },
             onFold = { section, fold -> ui.folds[section.label.orEmpty()] = fold },
@@ -247,6 +247,7 @@ internal fun ColumnScope.FilesList(
     onFold: (FileSection, Boolean) -> Unit,
     onToggle: (ReviewFile, Boolean) -> Unit,
     onOpen: (String) -> Unit,
+    attention: Map<String, String> = emptyMap(),
 ) {
     val c = LocalPullsColors.current
     val searching = query.isNotBlank()
@@ -270,11 +271,17 @@ internal fun ColumnScope.FilesList(
             val review = state(file)
             val reviewed = review == ReviewState.Reviewed
             val dir = file.path.substringBeforeLast('/', "")
+            val needsLook = attention[file.path] == "p0"
             ListRow(
                 AnnotatedString(file.path.substringAfterLast('/')),
                 // The folder cut from the front (rule 90), so a deep path never takes two lines.
-                under = if (dir.isEmpty() && review != ReviewState.Changed) null else ({
-                    if (dir.isNotEmpty()) PathTail(dir, PullsType.sm, c.muted)
+                under = if (dir.isEmpty() && review != ReviewState.Changed && !needsLook) null else ({
+                    if (dir.isNotEmpty() || needsLook) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (needsLook) NeedsLook(trailingDot = dir.isNotEmpty())
+                            if (dir.isNotEmpty()) PathTail(dir, PullsType.sm, c.muted, Modifier.weight(1f, fill = false))
+                        }
+                    }
                     if (review == ReviewState.Changed) Text("Changed since you reviewed it", style = PullsType.sm, color = c.orange)
                 }),
                 first = index == 0,
@@ -295,6 +302,17 @@ internal fun ColumnScope.FilesList(
     if (budget < 0) {
         ListRow("Show all ${sections.sumOf { it.files.size }} files", onClick = { all = true }, trailing = { LuIcon(Lu.chevd, tint = c.faint, size = 18.dp) })
     }
+}
+
+/**
+ * Jev's mark on a file that needs a human: the plain words in the amber the app gives warnings, at the meta size
+ * (rule 14). With [trailingDot] a faint dot parts it from the folder that follows on the same line.
+ */
+@Composable
+internal fun NeedsLook(trailingDot: Boolean) {
+    val c = LocalPullsColors.current
+    Text("Needs a look", style = PullsType.sm, color = c.amber, maxLines = 1, softWrap = false)
+    if (trailingDot) Text(" · ", style = PullsType.sm, color = c.faint, maxLines = 1, softWrap = false)
 }
 
 /**

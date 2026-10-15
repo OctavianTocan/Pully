@@ -44,7 +44,7 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
 
-/** The list key of a repository's heading in the Inbox and Tours lists. */
+/** The list key of a heading in the Inbox and Tours lists: a repository's, or a kind's (`kind:fix`). */
 internal fun groupKey(name: String): String = "group:$name"
 
 /** The repository a heading's list key names; null for any other key. */
@@ -106,6 +106,7 @@ internal fun PinnedHeadings(
  * them again; a tap on the name itself opens the repository (Tavi, 14 Oct). It looks like the Files headings that fold
  * (rule 70). The one line under a heading is its first row's own (rule 75), so a folded heading and the pinned one,
  * which have no row of their own under them, draw it. While a search runs nothing folds (rule 101): [onFold] is null.
+ * A kind's heading has nothing of its own to open: with [onOpen] null the name is part of the heading's target.
  */
 @Composable
 internal fun GroupHeading(
@@ -114,7 +115,7 @@ internal fun GroupHeading(
     first: Boolean,
     folded: Boolean,
     onFold: (() -> Unit)?,
-    onOpen: () -> Unit,
+    onOpen: (() -> Unit)?,
     modifier: Modifier = Modifier,
     line: Boolean = folded,
 ) {
@@ -136,7 +137,7 @@ internal fun GroupHeading(
         Text(
             label,
             Modifier.clip(RoundedCornerShape(PullsRadius.md))
-                .cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen)
+                .then(if (onOpen != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen) else Modifier)
                 .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
             style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
             color = c.muted,
