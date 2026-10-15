@@ -8,11 +8,14 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,6 +29,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +48,7 @@ import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Material
 import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.sound.directionOf
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.book.UiBookRow
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
@@ -139,6 +146,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Advanced(Main),
     Server(Advanced),
     Font(Main),
+    Sound(Main),
     Model(Main),
     Effort(Model),
     WhatsNew(Main),
@@ -151,6 +159,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Advanced -> "Advanced"
     SettingsPage.Server -> "Server"
     SettingsPage.Font -> "Code font"
+    SettingsPage.Sound -> "Sound"
     SettingsPage.Model -> "Select model"
     SettingsPage.Effort -> "Effort"
     SettingsPage.WhatsNew -> "What's new"
@@ -158,7 +167,7 @@ internal fun SettingsPage.title(): String = when (this) {
 
 /**
  * Settings, as a sheet like the rest of the app: grouped white cards on paper, one row for each choice.
- * Language, the code font, the model, its effort and Advanced (the server and the UI Book) are pages inside this one
+ * Language, the code font, the sound, the model, its effort and Advanced (the server and the UI Book) are pages inside this one
  * sheet (rule 78). Rows carry no explanations under them: a row says what it is, and its page says the rest (H8).
  * A setting that changes how something looks shows the result (rule 81): the diff layout as two small diffs,
  * the code size and font as a sample line.
@@ -181,6 +190,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
         SettingsPage.Advanced -> AdvancedPage(nav, open = onPage)
         SettingsPage.Server -> ServerPage()
         SettingsPage.Font -> CodeFontPage(settings, onDone = { onPage(SettingsPage.Main) })
+        SettingsPage.Sound -> SoundPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) }, onEffort = { onPage(SettingsPage.Effort) })
         SettingsPage.Effort -> EffortPage(settings, onBack = { onPage(SettingsPage.Model) })
         SettingsPage.WhatsNew -> {
@@ -226,6 +236,8 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     val language = Messages.LOCALES.firstOrNull { it.first == settings.locale }?.second ?: settings.locale
     val scope = rememberCoroutineScope()
     val moving = rememberMotionEnabled()
+    val dark = c.dark
+    val systemDark = isSystemInDarkTheme()
     val zoomIndex = ZOOMS.indexOfFirst { kotlin.math.abs(settings.codeZoom - it.second) < 0.04f }.coerceAtLeast(0)
 
     Group("Appearance") {
@@ -235,8 +247,10 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
                 listOf("System", "Light", "Dark"),
                 themes.indexOf(settings.theme).coerceAtLeast(0),
                 { picked ->
-                    // The new look wipes in from the top corner on the side of the choice: Dark from the right (H5).
-                    scope.launch { ThemeWipe.run(fromRight = picked == 2, motion = moving) { settings.updateTheme(themes[picked]) } }
+                    // The new look wipes in from the top corner on the side of the choice: Dark from the right (H5). System
+                    // while the phone is already in the look on screen changes nothing, so nothing wipes (J2).
+                    val next = when (themes[picked]) { "dark" -> true; "light" -> false; else -> systemDark }
+                    scope.launch { ThemeWipe.run(fromRight = picked == 2, motion = moving, changes = next != dark) { settings.updateTheme(themes[picked]) } }
                 },
                 Modifier.fillMaxWidth(),
             )
@@ -272,32 +286,18 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
             SheetRow("Button sounds", { toggleSounds(settings, !settings.sounds) }, first = true, iconless = true) {
                 PullsSwitch(settings.sounds, { toggleSounds(settings, it) }, "Button sounds")
             }
+            // Which material the sounds are made of, as a page like the code font's (J5); only while there are sounds.
+            if (settings.sounds) {
+                SheetRow("Sound", { open(SettingsPage.Sound) }, iconless = true) {
+                    Text(Material.of(settings.soundMaterial).label, style = PullsType.sm, color = c.muted)
+                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+                }
+            }
             // Taps, swipes and outcomes are felt as well (H18); turning it on answers with a click.
             SheetRow("Vibration", { toggleHaptics(settings, !settings.haptics) }, iconless = true) {
                 PullsSwitch(settings.haptics, { toggleHaptics(settings, it) }, "Vibration")
             }
         }
-        if (settings.sounds) {
-            val materials = Material.entries
-            val picked = materials.indexOf(Material.of(settings.soundMaterial))
-            Box(Modifier.padding(top = 10.dp)) {
-                CapsuleTabs(
-                    materials.map { it.label },
-                    picked,
-                    {
-                        settings.updateSoundMaterial(materials[it].id)
-                        // The picker is silent itself and says one cue in the new material, so choosing one is hearing it.
-                        Sounds.play(Cue.Select, Emphasis.Normal, if (it > picked) Direction.Forward else Direction.Back)
-                    },
-                    Modifier.fillMaxWidth(),
-                    sound = false,
-                )
-            }
-        }
-        Text(
-            if (settings.sounds) "${Material.of(settings.soundMaterial).blurb} Silent on your phone's silent and vibrate modes." else "Taps and results make no sound. Turn this on to hear them.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
     }
     Group(t("settings.cached")) {
         SheetCard {
@@ -391,6 +391,35 @@ private fun toggleSounds(settings: AppSettings, on: Boolean) {
     settings.updateSounds(on)
     Sounds.refresh()
     if (on) Sounds.play(Cue.Toggle, Emphasis.Normal, Direction.Forward)
+}
+
+/**
+ * The four materials the sounds are made of, the chosen one ticked. The rows are silent themselves: picking one
+ * says one cue in the new material, so choosing is hearing it, and goes back as the code font does.
+ */
+@Composable
+private fun ColumnScope.SoundPage(settings: AppSettings, onDone: () -> Unit) {
+    val c = LocalPullsColors.current
+    val chosen = Material.of(settings.soundMaterial)
+    SheetCard {
+        Material.entries.forEachIndexed { index, material ->
+            Row(
+                Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+                    .drawBehind { if (index > 0) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+                    .clickable(role = Role.RadioButton, onClickLabel = material.label) {
+                        settings.updateSoundMaterial(material.id)
+                        Sounds.play(Cue.Select, Emphasis.Normal, directionOf(chosen.ordinal, material.ordinal))
+                        onDone()
+                    }
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(material.label, Modifier.weight(1f), style = PullsType.row, color = c.text, maxLines = 1)
+                if (material == chosen) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
+            }
+        }
+    }
 }
 
 /** The languages the app is written in; picking one changes the app at once and goes back. */

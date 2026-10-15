@@ -44,10 +44,11 @@ object ThemeWipe {
 
     /**
      * Makes the change with [apply] and wipes it in from the top corner on the right when [fromRight], else on the left.
-     * Without [motion] the change simply happens.
+     * Without [motion] the change simply happens, and so it does when it [changes] nothing on screen: Light to System on
+     * a phone that is light already keeps the same look, and a wipe of a look over itself only flickers (J2).
      */
-    suspend fun run(fromRight: Boolean, motion: Boolean, apply: () -> Unit) {
-        if (!motion) {
+    suspend fun run(fromRight: Boolean, motion: Boolean, changes: Boolean, apply: () -> Unit) {
+        if (!motion || !changes) {
             apply()
             return
         }

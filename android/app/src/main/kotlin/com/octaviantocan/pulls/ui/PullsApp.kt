@@ -119,7 +119,8 @@ fun PullsApp(initialTarget: String?) {
             Command("settings", messages.t("keys.settings"), group) { nav.settings() },
             Command("home", messages.t("keys.home"), group) { nav.home() },
             Command("theme", messages.t("keys.theme"), group) {
-                scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving) { settings.updateTheme(if (dark) "light" else "dark") } }
+                // The toggle always goes to the other look than the one on screen, so it always wipes.
+                scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = true) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
             Command("update", "Update Pulls", group, keywords = "upgrade new version install check latest") {
                 scope.launch { updateFromCommand(context, toaster) }
