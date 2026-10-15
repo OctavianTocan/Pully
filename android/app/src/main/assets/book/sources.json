@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 982,
+        "line": 992,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -290,7 +290,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 999,
+        "line": 1009,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -313,7 +313,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 877,
+        "line": 887,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small\ndot instead of the tick, for work that has not run, or did not finish, so a tick never claims\nsomething that was not done. [stop] turns the breathing dot into a small square, because the orb is\nthen the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -351,7 +351,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 993,
+        "line": 1003,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -483,7 +483,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 960,
+        "line": 970,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops, moving to a new count over 400ms.",
         "params": [
           {
@@ -509,7 +509,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 967,
+        "line": 977,
         "doc": "The tour ring filled to [fraction] (0 to 1) as given, for a ring that follows the tour's scroll without jumps (rule 97).",
         "params": [
           {
@@ -536,7 +536,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 780,
+        "line": 790,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -607,7 +607,7 @@
             "type": "@Composable (item: T, first: Boolean) -> Unit"
           }
         ],
-        "source": "@Composable\nfun <T> ColumnScope.SearchList(\n    items: List<T>,\n    text: (T) -> String,\n    placeholder: String,\n    modifier: Modifier = Modifier,\n    group: ((T) -> String?)? = null,\n    searchFrom: Int = 8,\n    empty: String = \"Nothing matches\",\n    row: @Composable (item: T, first: Boolean) -> Unit,\n) {\n    val c = LocalPullsColors.current\n    var query by remember { mutableStateOf(\"\") }\n    if (items.size > searchFrom) SheetSearch(query, { query = it }, placeholder, modifier.padding(top = 8.dp, bottom = 2.dp))\n    val found = if (query.isBlank()) items else items.filter { matchesSearch(text(it), query) }\n    if (found.isEmpty() && items.isNotEmpty()) {\n        Text(empty, Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)\n        return\n    }\n    val runs = if (group == null) listOf(null to found) else found.groupBy(group).toList()\n    runs.forEach { (label, rows) ->\n        if (label != null) Text(label, Modifier.padding(start = 4.dp, top = 18.dp), style = PullsType.sm, color = c.muted)\n        SheetCard(gap = if (label != null) 8.dp else 12.dp) {\n            rows.forEachIndexed { index, item -> row(item, index == 0) }\n        }\n    }\n}"
+        "source": "@Composable\nfun <T> ColumnScope.SearchList(\n    items: List<T>,\n    text: (T) -> String,\n    placeholder: String,\n    modifier: Modifier = Modifier,\n    group: ((T) -> String?)? = null,\n    searchFrom: Int = 8,\n    empty: String = \"Nothing matches\",\n    row: @Composable (item: T, first: Boolean) -> Unit,\n) {\n    val c = LocalPullsColors.current\n    var query by remember { mutableStateOf(\"\") }\n    if (items.size > searchFrom) SheetSearch(query, { query = it }, placeholder, modifier.padding(top = 8.dp, bottom = 2.dp))\n    val found = if (query.isBlank()) items else items.filter { matchesSearch(text(it), query) }\n    if (found.isEmpty() && items.isNotEmpty()) {\n        Text(empty, Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)\n        return\n    }\n    val runs = if (group == null) listOf(null to found) else searchRuns(found, group)\n    runs.forEach { (label, rows) ->\n        if (label != null) Text(label, Modifier.padding(start = 4.dp, top = 18.dp), style = PullsType.sm, color = c.muted)\n        SheetCard(gap = if (label != null) 8.dp else 12.dp) {\n            rows.forEachIndexed { index, item -> row(item, index == 0) }\n        }\n    }\n}"
       }
     ]
   },
@@ -971,7 +971,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 1010,
+        "line": 1020,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
@@ -1077,7 +1077,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 821,
+        "line": 831,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
