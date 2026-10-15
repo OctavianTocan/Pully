@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { createDevServer } from 'devframe/adapters/dev'
 import { H3 } from 'h3'
+import { agentRuntime } from './ai/runtime'
 import devframe from './devframe'
 import { handleNativeRequest } from './native-api'
 import { pageFor } from './page'
@@ -42,6 +43,13 @@ Options:
                  the CLI --preanalyze runs (default claude-code)
   --preanalyze-model <model>
                  the model --preanalyze asks for (default: the engine's own)
+  --agents <host|docker>
+                 where Claude Code and Codex run: on this machine (default),
+                 or in the pulls-review-agents Docker image, which only has
+                 the review skills in docker/agents/skills (set it up with
+                 docker/agents/setup.sh all); the same as setting
+                 PULLS_REVIEW_AGENT_RUNTIME, with PULLS_REVIEW_AGENT_IMAGE
+                 naming another image
   -h, --help
 
 To review a GitHub pull request in CI, use @pulls.review/actions.
@@ -87,6 +95,7 @@ async function main() {
       'preanalyze': { type: 'boolean' },
       'preanalyze-engine': { type: 'string', default: 'claude-code' },
       'preanalyze-model': { type: 'string' },
+      'agents': { type: 'string' },
       'help': { type: 'boolean', short: 'h' },
     },
     allowPositionals: true,
@@ -95,6 +104,12 @@ async function main() {
     process.stdout.write(HELP)
     return
   }
+  // Jobs read the runtime from the environment, so the flag sets it there; a bad value fails at start, not on the first run.
+  if (flags.agents !== undefined)
+    process.env.PULLS_REVIEW_AGENT_RUNTIME = flags.agents
+  const runtime = agentRuntime()
+  if (runtime.kind === 'docker')
+    process.stdout.write(`Claude Code and Codex run in the Docker image ${runtime.image}.\n`)
   const preanalyzeEngine = flags['preanalyze-engine']
   if (flags.preanalyze && !isPreanalyzeEngine(preanalyzeEngine))
     throw new Error(`--preanalyze-engine must be one of: ${PREANALYZE_ENGINES.join(', ')}`)
