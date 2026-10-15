@@ -2,34 +2,57 @@ package com.octaviantocan.pulls.core
 
 /**
  * One version's section of `android/CHANGELOG.md`: its [summary] sentence and the [items] under it,
- * each a bullet's Markdown.
+ * each a bullet's Markdown. [groups] are the same items under the section's own `### New`, `### Fixed`
+ * headings, in order; a section without them is one group with no title.
  */
-data class ChangelogEntry(val version: String, val summary: String, val items: List<String>)
+data class ChangelogEntry(
+    val version: String,
+    val summary: String,
+    val items: List<String>,
+    val groups: List<ChangelogGroup> = if (items.isEmpty()) emptyList() else listOf(ChangelogGroup(null, items)),
+)
+
+/** Bullets under a `### <title>` heading inside a version's section, or before any such heading when [title] is null. */
+data class ChangelogGroup(val title: String?, val items: List<String>)
 
 private val HEADING = Regex("""^##\s+(\S+)\s*$""")
+private val GROUP = Regex("""^###\s+(.+?)\s*$""")
 private val BULLET = Regex("""^\s*[-*]\s+(.*)$""")
 private val COMMENT = Regex("""<!--.*?-->""", RegexOption.DOT_MATCHES_ALL)
 
 /**
  * The sections of a changelog, in file order (newest first). A section is a `## <version>` heading, a
- * first paragraph that is its summary, and bullets. Comments and the `#` title are skipped.
+ * first paragraph that is its summary, and bullets, which `### <title>` headings may sort into groups.
+ * Comments and the `#` title are skipped. Older builds skip the `###` lines too and read the same bullets
+ * as one list, so a section with groups still shows on a phone that has not updated yet.
  */
 fun parseChangelog(text: String): List<ChangelogEntry> {
     val entries = mutableListOf<ChangelogEntry>()
     var version: String? = null
     val summary = StringBuilder()
     val items = mutableListOf<String>()
+    // Where each group starts in [items], and its title.
+    val starts = mutableListOf<Pair<String?, Int>>()
     fun close() {
         val v = version ?: return
-        entries += ChangelogEntry(v, summary.toString().trim(), items.toList())
+        val bounds = if (starts.firstOrNull()?.second == 0) starts.toList() else listOf<Pair<String?, Int>>(null to 0) + starts
+        val groups = bounds.mapIndexed { i, (title, from) -> ChangelogGroup(title, items.subList(from, bounds.getOrNull(i + 1)?.second ?: items.size).toList()) }
+            .filter { it.items.isNotEmpty() }
+        entries += ChangelogEntry(v, summary.toString().trim(), items.toList(), groups)
         summary.clear()
         items.clear()
+        starts.clear()
     }
     for (line in COMMENT.replace(text, "").lines()) {
         val heading = HEADING.matchEntire(line)
         if (heading != null) {
             close()
             version = heading.groupValues[1]
+            continue
+        }
+        val group = GROUP.matchEntire(line)
+        if (version != null && group != null) {
+            starts += group.groupValues[1] to items.size
             continue
         }
         if (version == null || line.isBlank() || line.startsWith("#")) continue
