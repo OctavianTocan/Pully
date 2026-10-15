@@ -1,7 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.sound.cueCombinedClickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.draggable
@@ -57,7 +57,6 @@ import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.ReviewThread
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
-import com.octaviantocan.pulls.sound.cued
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -393,7 +392,7 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
         Box(
             Modifier.weight(1f).fillMaxHeight()
                 .let { if (wrap) it else it.draggable(drag, Orientation.Horizontal) }
-                .combinedClickable(onLongClick = { ui.onCodeLongPress(file, cell) }, onClick = cued(Cue.Select) { ui.tapLine(file, cell) })
+                .cueCombinedClickable(Cue.Select, onLongClick = { ui.onCodeLongPress(file, cell) }) { ui.tapLine(file, cell) }
                 .clipToBounds()
                 .padding(start = 2.dp, end = if (wrap) 12.dp else 0.dp),
         ) {

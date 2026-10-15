@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.design
 
+import androidx.compose.foundation.ScrollState
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
@@ -692,6 +693,23 @@ private fun DrawScope.fadeBand(source: GraphicsLayer, layers: List<GraphicsLayer
     }.sortedBy { it.first }.toTypedArray()
     drawRect(Brush.verticalGradient(*stops, startY = y, endY = y + height), topLeft = Offset(0f, y), size = Size(size.width, height), alpha = amount)
 }
+
+/**
+ * [sideFade] for a row that scrolls sideways with [scroll]: each edge fades over [band] only while there is more past it,
+ * so a row at rest at its start is sharp on the left (J14, J23). [color] is what the row sits on.
+ */
+@Composable
+fun Modifier.sideScrollFade(scroll: ScrollState, band: Dp = SIDE_BAND, color: Color = LocalPullsColors.current.base): Modifier {
+    val px = with(LocalDensity.current) { band.toPx() }
+    return sideFade(
+        start = band, end = band, color = color,
+        startStrength = { (scroll.value / px).coerceIn(0f, 1f) },
+        endStrength = { ((scroll.maxValue - scroll.value) / px).coerceIn(0f, 1f) },
+    )
+}
+
+/** How far a sideways row fades at an edge it can still scroll toward. */
+val SIDE_BAND = 24.dp
 
 /**
  * [edgeFade] for content that scrolls sideways, such as the branch row (J14): what runs past the [start] and [end] edges

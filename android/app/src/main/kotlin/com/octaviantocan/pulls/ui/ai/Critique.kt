@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -336,7 +337,8 @@ private fun postCritique(session: ReviewSession, ids: List<String>) {
 @Composable
 private fun SeverityFilter(result: Critique, value: Set<String>, onChange: (Set<String>) -> Unit) {
     val c = LocalPullsColors.current
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val scroll = rememberScrollState()
+    Row(Modifier.sideScrollFade(scroll, color = c.paper).horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SEVERITIES.forEach { severity ->
             val count = result.findings.count { it.severity == severity }
             val on = severity in value

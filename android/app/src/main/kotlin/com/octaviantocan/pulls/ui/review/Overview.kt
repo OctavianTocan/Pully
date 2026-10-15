@@ -2,6 +2,7 @@
 
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.sound.Cue
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -753,7 +754,7 @@ private fun CardHeader(collapsed: Boolean, onToggle: () -> Unit, trailing: @Comp
     // Who and what on the left, wrapping when long; when and the chevron always in the same place on the right.
     Row(
         Modifier.fillMaxWidth()
-            .cueClickable(role = Role.Button, onClickLabel = if (collapsed) "Show the comment" else "Hide the comment", onClick = onToggle)
+            .cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (collapsed) "Show the comment" else "Hide the comment", onClick = onToggle)
             .defaultMinSize(minHeight = TOUCH).padding(start = 14.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
+import com.octaviantocan.pulls.sound.cueCombinedClickable
 import kotlinx.coroutines.CoroutineScope
 import com.octaviantocan.pulls.data.PullSizes
 import android.content.Context
@@ -21,9 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import com.octaviantocan.pulls.sound.Haptics
-import com.octaviantocan.pulls.sound.cued
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -454,8 +454,10 @@ internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSett
 /** `.chips`: Waiting on you, Authored and All, each with the size of the list it would show. */
 @Composable
 internal fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> Unit) {
+    // Chips that run past the edge dissolve into the page there, as every sideways row does (J14).
+    val scroll = rememberScrollState()
     Row(
-        Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().padding(top = 12.dp).sideScrollFade(scroll).horizontalScroll(scroll).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Triage.inboxFilters.forEach { chip ->
@@ -716,11 +718,8 @@ internal fun SwipeRow(
                     }
                 })
                 .then(
-                    if (onLongClick != null) Modifier.combinedClickable(
-                        role = Role.Button, onClickLabel = label, onClick = cued(onClick = onClick), onLongClickLabel = "More actions",
-                        // The hold is felt through the app's own vibration, which Settings can turn off (H18).
-                        hapticFeedbackEnabled = false, onLongClick = { Haptics.hold(); onLongClick() },
-                    )
+                    // The hold is felt through the app's own vibration, which Settings can turn off (H18).
+                    if (onLongClick != null) Modifier.cueCombinedClickable(role = Role.Button, onClickLabel = label, onLongClickLabel = "More actions", onLongClick = onLongClick, onClick = onClick)
                     else Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick),
                 ),
         ) { content() }

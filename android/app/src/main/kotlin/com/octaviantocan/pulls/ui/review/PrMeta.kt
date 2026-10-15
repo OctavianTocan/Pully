@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
@@ -16,8 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import com.octaviantocan.pulls.ui.design.sideFade
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -99,11 +98,8 @@ internal fun BranchRow(base: String, head: String) {
     // Always one line (H31): a long branch runs past the edge and the row scrolls sideways to read it, never wraps and
     // never cuts the name short. Where it runs past an edge it dissolves into the page (J14).
     val scroll = rememberScrollState()
-    val band = with(LocalDensity.current) { BRANCH_FADE.toPx() }
     Row(
-        Modifier.fillMaxWidth().padding(top = 10.dp)
-            .sideFade(start = BRANCH_FADE, end = BRANCH_FADE, startStrength = { (scroll.value / band).coerceIn(0f, 1f) }, endStrength = { ((scroll.maxValue - scroll.value) / band).coerceIn(0f, 1f) })
-            .horizontalScroll(scroll),
+        Modifier.fillMaxWidth().padding(top = 10.dp).sideScrollFade(scroll).horizontalScroll(scroll),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         if (head.isNotBlank()) Chip(head, Modifier)
@@ -112,5 +108,3 @@ internal fun BranchRow(base: String, head: String) {
     }
 }
 
-/** How wide the branch row's edges dissolve where it runs past them. */
-private val BRANCH_FADE = 24.dp

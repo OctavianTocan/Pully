@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.sound.Haptics
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -333,6 +334,8 @@ private fun FilePages(
         if (to == target.path) {
             glideTo(to, speed)
         } else {
+            // A file that changes under the finger is felt like any page that does (rule 109, J20).
+            Haptics.page()
             slide.thrownTo = to
             slide.speed = speed
             onPath(to)

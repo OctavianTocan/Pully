@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.SidePages
@@ -308,7 +309,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                 return@SidePages
             }
             Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val sortScroll = rememberScrollState()
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp).sideScrollFade(sortScroll).horizontalScroll(sortScroll).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PullListQuery.sorts.forEach { option -> SoftChip(t("pulls.sort.$option"), option == sort, { sort = option }) }
             }
             val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp

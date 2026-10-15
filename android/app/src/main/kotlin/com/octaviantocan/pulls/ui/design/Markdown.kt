@@ -325,10 +325,11 @@ private fun Details(summary: String, body: String, style: TextStyle) {
 @Composable
 private fun CodeBlock(code: String) {
     val c = LocalPullsColors.current
+    val scroll = rememberScrollState()
     // On the code paper with no border, at body size (rules 14 and 49); AI text swaps in the diff's code view instead.
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.code)
-            .horizontalScroll(rememberScrollState()).padding(12.dp),
+            .sideScrollFade(scroll, color = c.code).horizontalScroll(scroll).padding(12.dp),
     ) {
         Text(code, style = PullsType.sm.copy(fontFamily = PullsType.mono, color = c.text), softWrap = false)
     }

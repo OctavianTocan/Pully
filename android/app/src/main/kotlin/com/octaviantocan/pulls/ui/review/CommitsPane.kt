@@ -1,8 +1,8 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.sound.cueCombinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +31,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.R
-import com.octaviantocan.pulls.sound.cued
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
@@ -151,6 +150,6 @@ private fun commitTint(checks: String?): Color? {
 /** A row that only tints while it is held (rule 82), with the tap's sound. */
 @OptIn(ExperimentalFoundationApi::class)
 private fun Modifier.combinedClickableCued(onClick: () -> Unit, onLongClick: (() -> Unit)? = null): Modifier =
-    combinedClickable(role = Role.Button, onClick = cued(onClick = onClick), onLongClick = onLongClick)
+    cueCombinedClickable(role = Role.Button, onLongClick = onLongClick, onClick = onClick)
 
 private fun Modifier.hairline(color: Color): Modifier = drawBehind { drawRect(color, Offset.Zero, Size(size.width, 1.dp.toPx())) }
