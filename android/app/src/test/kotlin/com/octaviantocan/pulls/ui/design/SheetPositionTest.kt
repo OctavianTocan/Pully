@@ -2,84 +2,162 @@ package com.octaviantocan.pulls.ui.design
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 
-/** Where a sheet rests when its size or half the window changes. Run without motion, so every move is immediate. */
+/**
+ * Where a sheet rests: its normal height and its tall height (rule 77), and what moves it between them. Run without
+ * motion, so every move is immediate. The panel is always the tall height (2000px here); its offset is how far it is
+ * pushed down from there.
+ */
 class SheetPositionTest {
     private val scope = CoroutineScope(Job())
+    private val speed = 500f
 
-    private fun expandable(half: Float, height: Int) = SheetPosition().apply {
-        expandable = true
+    private fun sheet(half: Float, content: Int, panel: Int = 2000, expandable: Boolean = true) = SheetPosition().apply {
+        this.expandable = expandable
         this.half = half
-        measured(height, scope, false)
+        measured(panel, scope, false)
+        measuredContent(content, scope, false)
     }
 
-    @Test fun anExpandableSheetOpensAtHalfTheWindow() {
-        assertEquals(800f, expandable(1000f, 1800).offset)
+    private fun full(half: Float, panel: Int = 2000) = SheetPosition().apply {
+        fills = true
+        this.half = half
+        measured(panel, scope, false)
+    }
+
+    @Test fun aLongSheetOpensAtHalfTheWindow() {
+        // 1800px of content shows 1000px, half the window, so the 2000px panel is pushed down 1000px.
+        assertEquals(1000f, sheet(1000f, 1800).offset)
+    }
+
+    @Test fun aShortSheetOpensAtItsContentHeight() {
+        assertEquals(1400f, sheet(1000f, 600).offset)
+    }
+
+    @Test fun itOpensOnceBothThePanelAndTheContentHaveASize() {
+        val position = SheetPosition().apply { half = 1000f }
+        position.measured(2000, scope, false)
+        assertFalse(position.settled)
+        position.measuredContent(600, scope, false)
+        assertTrue(position.settled)
+        assertEquals(1400f, position.shift(2000f))
+    }
+
+    @Test fun aShortSheetLiftsToTheTallHeightAndComesBack() {
+        val position = sheet(1000f, 600)
+        position.dragBy(-300f)
+        position.settle(scope, -2000f, speed, false) {}
+        assertEquals(0f, position.offset)
+        assertTrue(position.tall)
+        // Down from the tall height goes to the normal one, not off the screen.
+        position.dragBy(200f)
+        position.settle(scope, 2000f, speed, false) { error("dismissed from the tall height") }
+        assertEquals(1400f, position.offset)
+        assertFalse(position.tall)
+        // Down from the normal height closes it.
+        var dismissed = false
+        position.dragBy(100f)
+        position.settle(scope, 2000f, speed, false) { dismissed = true }
+        assertTrue(dismissed)
+    }
+
+    @Test fun aSlowDragUpPastHalfWayLiftsItAndAShortOneFallsBack() {
+        val position = sheet(1000f, 600)
+        position.dragBy(-400f)
+        position.settle(scope, 0f, speed, false) {}
+        assertEquals(1400f, position.offset)
+        position.dragBy(-900f)
+        position.settle(scope, 0f, speed, false) {}
+        assertEquals(0f, position.offset)
+    }
+
+    @Test fun aFullSheetRestsAtHalfAndLaysItsContentOutAtWhatShows() {
+        val position = full(1000f)
+        assertEquals(1000f, position.offset)
+        assertEquals(1000, position.shown())
+        position.lift(scope, false)
+        assertEquals(0f, position.offset)
+        assertEquals(2000, position.shown())
+        // Leaving, the content keeps its normal height and rides down with the panel, footer and all.
+        position.dragBy(1500f)
+        assertEquals(1000, position.shown())
+    }
+
+    @Test fun liftedBeforeItOpensItOpensTall() {
+        val position = SheetPosition().apply { half = 1000f }
+        position.lift(scope, false)
+        position.measured(2000, scope, false)
+        position.measuredContent(600, scope, false)
+        assertEquals(0f, position.offset)
+        assertTrue(position.tall)
+    }
+
+    @Test fun aSheetWithNoTallHeightStaysAtItsContent() {
+        val position = sheet(1000f, 1800, expandable = false)
+        assertEquals(200f, position.offset)
+        position.lift(scope, false)
+        assertEquals(200f, position.shift(2000f))
+        // A finger cannot take it above its one rest, and a throw up leaves it there.
+        position.dragBy(-500f)
+        assertEquals(200f, position.offset)
+        position.settle(scope, -2000f, speed, false) {}
+        assertEquals(200f, position.offset)
+        assertFalse(position.canRise)
     }
 
     @Test fun itFollowsAChangeOfHalfTheWindowWithNoChangeOfSize() {
-        val position = expandable(1000f, 1800)
-        position.half = 600f
+        val position = sheet(1000f, 1800)
+        position.updateHalf(600f)
         position.follow(scope, false)
-        assertEquals(1200f, position.offset)
+        assertEquals(1400f, position.offset)
     }
 
-    @Test fun itFollowsANewSize() {
-        val position = expandable(1000f, 1800)
-        position.measured(1500, scope, false)
-        assertEquals(500f, position.shift(1500f))
-    }
-
-    @Test fun aRestingPanelKeepsItsStopAsItsSizeMovesFrameByFrame() {
-        val position = expandable(1000f, 1800)
-        // The size animates, one frame after another; the stop is worked out from each size, so the top never lags.
-        listOf(1900, 2100, 2400).forEach { px ->
-            position.measured(px, scope, false)
-            assertEquals(px - 1000f, position.shift(px.toFloat()))
+    @Test fun aRestingPanelKeepsItsStopAsItsContentMovesFrameByFrame() {
+        val position = sheet(1000f, 300)
+        // The content animates, one frame after another (a page of another height); the stop is worked out from each size.
+        listOf(400, 600, 900, 1200).forEach { px ->
+            position.measuredContent(px, scope, false)
+            assertEquals(2000f - minOf(px, 1000), position.shift(2000f))
         }
     }
 
-    @Test fun aPanelShorterThanHalfRestsAtTheTop() {
-        val position = expandable(1000f, 900)
-        assertEquals(0f, position.shift(900f))
-        position.measured(1800, scope, false)
-        assertEquals(800f, position.shift(1800f))
-        position.measured(700, scope, false)
-        assertEquals(0f, position.shift(700f))
-    }
-
     @Test fun aPanelThatWasPulledUpStaysUpWhenAnotherPageSlidesIn() {
-        val position = expandable(1000f, 1800)
-        position.settle(scope, -2000f, 500f, false) {}
-        position.measured(1400, scope, false)
-        assertEquals(0f, position.shift(1400f))
+        val position = sheet(1000f, 1800)
+        position.settle(scope, -2000f, speed, false) {}
+        position.measuredContent(400, scope, false)
+        assertEquals(0f, position.shift(2000f))
     }
 
     @Test fun aSheetUnderAFingerIsLeftAlone() {
-        val position = expandable(1000f, 1800)
+        val position = sheet(1000f, 1800)
         position.dragBy(100f)
-        position.half = 600f
+        assertTrue(position.held)
+        position.updateHalf(600f)
         position.follow(scope, false)
-        position.measured(1500, scope, false)
-        assertEquals(900f, position.offset)
+        position.measuredContent(1500, scope, false)
+        assertEquals(1100f, position.offset)
     }
 
     @Test fun aSheetThatIsClosingIsLeftAlone() {
-        val position = expandable(1000f, 1800)
+        val position = sheet(1000f, 1800)
         position.startClosing()
-        position.half = 600f
+        position.updateHalf(600f)
         position.follow(scope, false)
-        assertEquals(800f, position.offset)
+        position.lift(scope, false)
+        assertEquals(1000f, position.offset)
     }
 
-    @Test fun aSheetThatRestsAtFullHeightStaysThere() {
-        val position = expandable(1000f, 1800)
-        position.settle(scope, -2000f, 500f, false) {}
+    @Test fun aSheetThatRestsAtTheTallHeightStaysThere() {
+        val position = sheet(1000f, 1800)
+        position.settle(scope, -2000f, speed, false) {}
         assertEquals(0f, position.offset)
-        position.half = 600f
+        position.updateHalf(600f)
         position.follow(scope, false)
-        assertEquals(0f, position.offset)
+        assertEquals(0f, position.shift(2000f))
+        assertFalse(position.canRise)
     }
 }

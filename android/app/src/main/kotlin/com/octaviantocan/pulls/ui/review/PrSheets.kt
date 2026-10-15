@@ -104,7 +104,8 @@ private val AUTO_MERGE_WAITS = setOf("blocked", "checking")
 
 /**
  * `#sheet`: Checks, GitHub and Analyze again as tiles; the analysis model; Approve and Request changes;
- * the merge; draft and close; and the few AI and refresh actions the prototype did not draw.
+ * the merge; draft and close; and the few AI actions the prototype did not draw. There is no Refresh: the page takes
+ * new commits by itself.
  */
 @Composable
 internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?, head: PrHead, onClose: () -> Unit, onSheet: (String) -> Unit) {
@@ -275,7 +276,6 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, first = first, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
-            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, icon = { LuIcon(Lu.redo, tint = c.text) })
         }
     }
 }
