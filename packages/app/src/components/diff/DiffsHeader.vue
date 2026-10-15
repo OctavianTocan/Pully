@@ -95,7 +95,8 @@ function scrollToGroup(key: string) {
         <KitFloatButton v-if="!isEmbedded" icon="i-lu-back" :to="back" :label="$t('keys.home')" class="shrink-0" />
         <PrStatusIcon v-else-if="display.state" :state="display.state" />
         <div class="order-last min-w-0 flex basis-full flex-col gap-3 lg:(order-none flex-1 basis-auto gap-1)">
-          <h1 class="break-words text-xxl font-medium font-display lg:(text-xl leading-tight)">
+          <!-- Beside the controls a long title would grow the sticky header without end, so a desktop shows two lines. -->
+          <h1 class="break-words text-xxl font-medium font-display lg:(line-clamp-2 text-xl leading-tight)" :title="display.title">
             {{ display.title }}
           </h1>
           <div class="flex flex-col gap-2 lg:(flex-row flex-wrap items-center gap-x-4 gap-y-1)">

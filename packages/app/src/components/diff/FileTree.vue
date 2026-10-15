@@ -159,7 +159,7 @@ const virtualizer = useVirtualizer(computed(() => ({
             :title="reviewStatus(store, row.row.file) === 'changed' ? $t('file.changedSinceReviewed') : undefined"
             @click="emit('navigate', row.row.file.sha)"
           >
-            <span class="min-w-0 flex-1 truncate font-semibold" :class="reviewStatus(store, row.row.file) === 'reviewed' ? 'color-muted' : 'color-base'">{{ row.row.name }}</span>
+            <span class="min-w-0 flex-1 truncate font-semibold" :class="reviewStatus(store, row.row.file) === 'reviewed' ? 'color-muted' : 'color-base'" :title="row.row.file.path">{{ row.row.name }}</span>
             <DiffStats :additions="row.row.file.additions" :deletions="row.row.file.deletions" class="font-medium font-mono" />
             <FileStatus :status="row.row.file.status" />
           </button>
