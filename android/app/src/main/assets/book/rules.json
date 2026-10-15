@@ -951,12 +951,12 @@
   },
   {
     "n": 104,
-    "title": "A new version floats above the search, and what it changed opens once.",
+    "title": "A new version must be installed, and its changelog is the screen that asks.",
     "source": "answers",
     "checkedBy": [
       "review"
     ],
-    "text": "When the server has a newer build, a white card floats just above Home's search pill with the canvas shadow: \"Pulls 0.19.0 is ready\", the version's one-sentence summary under it, and an Update pill. A tap on the words opens What's new for the coming version, with Update at its foot. Update downloads and installs in the app, and the card says how far it got (a ring while it downloads, the orb while the system installs) instead of stacking more cards. ✕ hides it until Pulls next starts, and it steps aside while the search has the keyboard. It is never a row inside the list. The phone is also told in a notification when the app is closed, and once the update is installed, What's new opens by itself as a sheet, one time, with every version the phone skipped. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version. The card rises above the search, Update installs it, and after the restart the sheet lists what changed, once."
+    "text": "When the server has a newer build, Pulls shows only the update screen, from the first frame of a start: \"Pulls 0.27.0 is ready\", \"Update to keep using Pulls.\", then every version it brings over the installed one, each with its summary and bullets, and \"Update to 0.27.0\" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pulls, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version and open Pulls. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pulls from Commands with no newer build: it says this is the newest."
   },
   {
     "n": 105,

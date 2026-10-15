@@ -2,8 +2,8 @@
 
 <!--
 One section per version, newest first, headed with the versionName from app/build.gradle.kts.
-The first paragraph is the summary: one short sentence (70 characters at most, the update card
-shows two short lines) that the card, the notification and the published latest.json use. The
+The first paragraph is the summary: one short sentence (70 characters at most, the notification
+shows two short lines) that the update notification and the published latest.json use. The
 bullets under it are what the What's new sheet lists.
 
 Write for the person holding the phone: what they will see or can now do, in plain words. No
@@ -11,6 +11,15 @@ rule numbers, file names or component names. A pull request that bumps the versi
 section here; `pnpm run android:design` fails when the version has none. The app bundles this
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
+
+## 0.27.0
+
+Updates are required now, and tours you have opened load at once.
+
+- When a new version is out, Pulls opens on it: what it brings, and Update. The app waits until you update.
+- Commands has Update Pulls, which checks for a new version and installs it, and What's new.
+- A tour you have opened is kept on the phone, so it shows straight away, before the rest of the pull request loads.
+- Tours on the Tours list are saved to the phone in the background, including ones written while the app was closed.
 
 ## 0.26.0
 

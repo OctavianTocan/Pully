@@ -10,7 +10,7 @@ export const NAME = 'changelog'
 export const PATH = join(ANDROID, 'CHANGELOG.md')
 const GRADLE = join(ANDROID, 'app', 'build.gradle.kts')
 
-/** The update card on Home shows the summary in two short lines. */
+/** The update notification and the changelog headlines show the summary in two short lines. */
 const SUMMARY_MAX = 70
 
 const HEADING = /^##\s+(\S+)\s*$/
@@ -78,7 +78,7 @@ export function checkChangelog(text, version) {
     if (!entry.summary)
       problems.push(`CHANGELOG.md: ${entry.version} needs a summary sentence under its heading, before the bullets`)
     else if (entry.summary.length > SUMMARY_MAX)
-      problems.push(`CHANGELOG.md: ${entry.version}'s summary is ${entry.summary.length} characters. Keep it to ${SUMMARY_MAX}: the update card shows two short lines of it, and the bullets carry the rest`)
+      problems.push(`CHANGELOG.md: ${entry.version}'s summary is ${entry.summary.length} characters. Keep it to ${SUMMARY_MAX}: the notification shows two short lines of it, and the bullets carry the rest`)
     if (entry.items.length === 0)
       problems.push(`CHANGELOG.md: ${entry.version} needs at least one bullet saying what changed`)
   })

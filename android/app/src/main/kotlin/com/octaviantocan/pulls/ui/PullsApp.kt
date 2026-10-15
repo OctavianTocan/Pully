@@ -1,6 +1,9 @@
 package com.octaviantocan.pulls.ui
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,7 +39,11 @@ import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.ui.update.UpdateGate
 import com.octaviantocan.pulls.ui.update.WhatsNewSheet
+import com.octaviantocan.pulls.update.AppVersion
+import com.octaviantocan.pulls.update.UpdateCheck
 import com.octaviantocan.pulls.update.UpdateChecks
 import com.octaviantocan.pulls.update.UpdatePrefs
 import com.octaviantocan.pulls.update.Updates
@@ -79,7 +86,7 @@ fun PullsApp(initialTarget: String?) {
     }
     // After an update, what changed opens once, over whatever page Pulls opened on.
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
-    AskForUpdateNotifications(waiting = whatsNew.isNotEmpty())
+    AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
     val nav = remember {
         Nav(
             openTarget = { stack.add(Screen.Review(it)) },
@@ -101,13 +108,17 @@ fun PullsApp(initialTarget: String?) {
     // The inbox's tab, chip and search live above the screens, so they are still there after a review.
     val homeUi = remember { HomeUi() }
     val toaster = remember { Toaster() }
-    // `KeyboardLayer.vue`'s always-on commands.
+    // `KeyboardLayer.vue`'s always-on commands, and the app's own update.
     UseCommands {
         val group = messages.t("palette.group.general")
         listOf(
             Command("settings", messages.t("keys.settings"), group) { nav.settings() },
             Command("home", messages.t("keys.home"), group) { nav.home() },
             Command("theme", messages.t("keys.theme"), group) { settings.updateTheme(if (dark) "light" else "dark") },
+            Command("update", "Update Pulls", group, keywords = "upgrade new version install check latest") {
+                scope.launch { updateFromCommand(context, toaster) }
+            },
+            Command("whatsNew", "What's new", group, keywords = "changelog changes version release notes") { whatsNew = WhatsNew.all(context) },
         )
     }
     CompositionLocalProvider(LocalToaster provides toaster) {
@@ -128,8 +139,30 @@ fun PullsApp(initialTarget: String?) {
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()
             ToastHost(toaster)
+            // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pulls.
+            UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
         }
     }
+}
+
+/**
+ * The Update command: asks the server now, however recently it was asked. A newer build starts downloading at once, on
+ * the update screen; otherwise a toast says this is the newest, or that the server could not be reached.
+ */
+private suspend fun updateFromCommand(context: Context, toaster: Toaster) {
+    if (Updates.available != null) return Updates.start(context)
+    when (Updates.check(context, force = true)) {
+        UpdateCheck.Found -> Updates.start(context)
+        UpdateCheck.UpToDate -> toaster.show("Pulls ${AppVersion.name(context)} is the newest version")
+        UpdateCheck.Failed -> toaster.show("Couldn't reach the server to check for updates", cue = Cue.Error)
+        UpdateCheck.Skipped -> {}
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /**

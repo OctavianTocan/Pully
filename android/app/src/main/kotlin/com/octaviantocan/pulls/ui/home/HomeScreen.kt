@@ -103,6 +103,8 @@ import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
+import com.octaviantocan.pulls.data.SavedState
+import com.octaviantocan.pulls.data.TourStore
 import com.octaviantocan.pulls.data.Triage
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -134,13 +136,12 @@ import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.softBlur
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
-import com.octaviantocan.pulls.ui.update.UpdateFloat
-import com.octaviantocan.pulls.ui.update.WhatsNewSheet
-import com.octaviantocan.pulls.ui.update.updateFloatPadding
-import com.octaviantocan.pulls.update.Updates
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.octaviantocan.pulls.core.parsePullKey
 
 /** Keeps the last list per state on this device, like the web's `localStorage` copy. */
 internal fun deviceStore(context: Context, name: String = "pulls-home"): KeyValueStore {
@@ -149,6 +150,16 @@ internal fun deviceStore(context: Context, name: String = "pulls-home"): KeyValu
         override fun get(key: String): String? = prefs.getString(key, null)
         override fun set(key: String, value: String) { prefs.edit().putString(key, value).apply() }
     }
+}
+
+/** How many missing tours Home fetches for the phone each time the Tours list changes. */
+private const val TOURS_FETCHED_AT_ONCE = 8
+
+/** Keeps the tour in [state], the saved state of the server's pull request [key] (`github:owner/repo#n`), on the phone. */
+private suspend fun keepTour(store: TourStore, key: String, state: SavedState) {
+    val ref = parsePullKey(key) ?: return
+    val json = state.tourJson ?: return
+    withContext(Dispatchers.IO) { store.put("${ref.owner}/${ref.repo}#${ref.number}", json) }
 }
 
 /** The inbox's tab, chip and search. They live above the screens so a review does not reset them. */
@@ -205,10 +216,22 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val now = rememberNow(60_000)
     val workTasks = rememberWork(repo)
     val work = remember(workTasks) { pullWorkByKey(workTasks) }
-    // A tour the server started or finished while no page was open still gets its row.
+    // A tour the server started or finished while no page was open still gets its row, and the phone keeps it.
+    val tourStore = remember { TourStore.get(context) }
     LaunchedEffect(workTasks) {
         tours.reconcile(workTasks, System.currentTimeMillis()) { key ->
-            try { repo.savedState(key).tour?.stops?.size } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
+            try { repo.savedState(key).also { keepTour(tourStore, key, it) }.tour?.stops?.size } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
+        }
+    }
+    // Every tour on the Tours list is kept on the phone, so it opens at once; one the phone lacks (listed before tours
+    // were kept, or written on the web) is fetched here once per run, a few at a time.
+    val tourAsked = remember { HashSet<String>() }
+    LaunchedEffect(tours.entries) {
+        val missing = tours.entries.filter { !it.writing && it.stops > 0 && it.key !in tourAsked && !withContext(Dispatchers.IO) { tourStore.has(it.key) } }
+        for (entry in missing.take(TOURS_FETCHED_AT_ONCE)) {
+            tourAsked += entry.key
+            val key = "github:${entry.owner}/${entry.repo}#${entry.number}"
+            try { keepTour(tourStore, key, repo.savedState(key)) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) {}
         }
     }
     var activityOpen by remember { mutableStateOf(false) }
@@ -288,7 +311,6 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     }
 
     var searchFocused by remember { mutableStateOf(false) }
-    var whatsNewOpen by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
@@ -345,12 +367,10 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             )
         }
         // `.search`: the list fades into the page under this pill (`edgeFade` on the lists), and nothing else sits behind it.
-        // A new version of the app floats just above it, and steps aside while the search has the keyboard.
         Column(
             Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            UpdateFloat(visible = !searchFocused, onWhatsNew = { whatsNewOpen = true })
             SearchPill(
                 ui.search, { ui.search = it },
                 if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
@@ -359,9 +379,6 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                 onFocus = { searchFocused = it },
                 onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
             )
-        }
-        if (whatsNewOpen) {
-            WhatsNewSheet(remember { Updates.changes(context) }, onClose = { whatsNewOpen = false }, offer = true)
         }
         if (ui.askOpen) {
             InboxAskSheet(inboxAsk, listed, openListed, onClose = { ui.askOpen = false })
@@ -495,7 +512,7 @@ internal fun InboxList(
     onRepo: (Triage.RepoGroup) -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp + updateFloatPadding()
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     // A search shows every heading it found something in, folded or not (rule 101).
@@ -822,7 +839,7 @@ internal fun ToursList(
     onDismiss: (TourEntry) -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp + updateFloatPadding()
+    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
     if (entries.isEmpty()) {
         Column(Modifier.fillMaxWidth().padding(top = 48.dp, start = 32.dp, end = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("No tours yet", style = PullsType.lg.copy(fontWeight = FontWeight.Medium), color = c.text, textAlign = TextAlign.Center)

@@ -14,6 +14,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.Color
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.ReviewFile
+import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.ui.design.PullsFonts
 
 /** The three pages of one review: the overview, one file's diff, and the AI tour. */
@@ -58,6 +59,20 @@ internal fun prHead(session: ReviewSession, data: PrOverviewData?): PrHead? {
     } else {
         null
     }
+}
+
+/**
+ * The header facts for a tour the phone kept, before the overview or the diff has arrived: the title from the Inbox
+ * or the Tours list ([preview]), else the tour's own. Null for anything but a pull request, or with no kept [tour].
+ * The state is unknown until the overview comes, which counts as open.
+ */
+internal fun storedTourHead(target: OpenTarget, preview: PullPreview?, tour: Tour?): PrHead? {
+    val pull = target as? OpenTarget.Pull ?: return null
+    if (tour == null) return null
+    return PrHead(
+        preview?.title?.takeIf { it.isNotBlank() } ?: tour.title, "#${pull.number}", "https://github.com/${pull.owner}/${pull.repo}/pull/${pull.number}",
+        if (preview?.isDraft == true) "draft" else "", "", "", preview?.author, null, pull.owner, pull.repo,
+    )
 }
 
 /** A run of files under an optional heading. */

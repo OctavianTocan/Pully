@@ -58,6 +58,7 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.TourEntry
 import com.octaviantocan.pulls.ui.home.TourIndex
+import com.octaviantocan.pulls.data.TourStore
 import com.octaviantocan.pulls.ui.home.deviceStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -86,7 +87,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val messages = LocalMessages.current
     val c = LocalPullsColors.current
     val session = remember(target) {
-        ReviewSession(target, Repo(context), scope, AppSettings.get(context)).also { it.load() }
+        ReviewSession(target, Repo(context), scope, AppSettings.get(context), TourStore.get(context)).also { it.load() }
     }
     DisposableEffect(session) { onDispose { session.detach() } }
     // The title and number the phone already knows, for the page to show while the rest loads.
@@ -104,7 +105,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     // How the last change of view was made, for the ones the capsule's order cannot tell: Back and a back swipe (rule 105).
     val viewMotion = remember(session) { PageMotion() }
     val opened = session.opened
-    val head = prHead(session, data)
+    // A tour the phone kept opens before the overview or the diff has arrived, named from what the phone knows.
+    val head = prHead(session, data) ?: storedTourHead(target, preview, session.tour).takeIf { pages.last() == PrView.Tour }
 
     SideEffect {
         ui.uncategorizedLabel = messages.t("group.uncategorized")
@@ -184,7 +186,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         }
     }
     // The Tours tab lists a tour once it exists or is being written.
-    val tour = session.saved?.tour
+    val tour = session.tour
     val tourRunning = session.taskFor("tour")?.running == true
     val pull = session.pull
     LaunchedEffect(tour?.generatedAt, tourRunning, head?.title) {
@@ -201,8 +203,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     }
 
     // The overview alone is enough for the page, so a huge pull request shows its description while its files still
-    // come (the Files rows are bars until then); only a page opened on the tour waits for the diff the tour reads.
-    val waiting = head == null || (opened == null && pages.last() != PrView.Overview)
+    // come (the Files rows are bars until then). A page opened on the tour waits for the diff the tour reads, unless the
+    // phone kept the tour from an earlier visit: then it shows at once and its links work once the diff is in.
+    val waiting = head == null || (opened == null && pages.last() == PrView.Diff) || (opened == null && pages.last() == PrView.Tour && session.tour == null)
     Box(Modifier.fillMaxSize().background(c.base)) {
         when {
             waiting && session.loadError != null -> Placeholder(onBack = nav.back) {

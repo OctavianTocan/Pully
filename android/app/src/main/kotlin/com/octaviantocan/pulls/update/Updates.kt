@@ -13,12 +13,15 @@ import com.octaviantocan.pulls.core.ChangelogEntry
 import com.octaviantocan.pulls.core.UpdateManifest
 import com.octaviantocan.pulls.core.changesSince
 import com.octaviantocan.pulls.core.parseChangelog
+import com.octaviantocan.pulls.core.parseUpdateManifest
 import com.octaviantocan.pulls.core.since
 import com.octaviantocan.pulls.data.ServerStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /** What an update is doing, for the floating card on Home and the What's new sheet. */
 sealed interface UpdateStatus {
@@ -39,21 +42,25 @@ sealed interface UpdateStatus {
     data class Failed(val message: String) : UpdateStatus
 }
 
+/** What asking the server for a newer build found. */
+enum class UpdateCheck { Found, UpToDate, Failed, Skipped }
+
 /**
  * The app's update, one for the whole process: what the server offers, and the download and install. The
- * floating card on Home, the What's new sheet and the notification's Update all start and show the same one,
- * and a download keeps going when the page that started it goes away.
+ * update screen, the Update command and the notification's Update all start and show the same one, and a
+ * download keeps going when the page that started it goes away.
  */
 object Updates {
-    /** The newer build the server offers, or null when there is none or the check has not answered. */
+    /**
+     * The newer build the server offers, or null when there is none. While it is set, Pulls shows only the update
+     * screen. It starts as the last offer the phone heard of, so a newer build is asked for from the first frame,
+     * before the server answers again.
+     */
     var available by mutableStateOf<UpdateManifest?>(null)
         private set
 
     var status by mutableStateOf<UpdateStatus>(UpdateStatus.Idle)
         private set
-
-    /** The card's ✕: hidden until Pulls is next started (MainActivity clears it), or a newer build turns up. */
-    var hidden by mutableStateOf(false)
 
     val busy: Boolean get() = status is UpdateStatus.Downloading || status is UpdateStatus.Confirming || status is UpdateStatus.Installing
 
@@ -61,17 +68,27 @@ object Updates {
 
     private var checkedAt = 0L
 
+    private var restored = false
+
     /** The shortest time between two checks while the app is open. */
     private const val CHECK_GAP_MS = 5 * 60_000L
 
+    /** Picks up the offer the phone last heard of, if it is still newer than this build. Once per process. */
+    fun restore(context: Context) {
+        if (restored) return
+        restored = true
+        val offer = UpdatePrefs.offer(context)
+        if (offer != null && offer.versionCode > AppVersion.code(context)) available = offer else UpdatePrefs.saveOffer(context, null)
+    }
+
     /**
      * Asks the server for a newer build. Finding one while the app is open counts as being told about it, so the
-     * background check does not notify for it as well.
+     * background check does not notify for it as well. Coming back to the app often is not a reason to ask the server
+     * as often, so a check within a few minutes of the last is [UpdateCheck.Skipped], unless [force]d.
      */
-    suspend fun check(context: Context) {
-        // Coming back to the app often is not a reason to ask the server as often.
+    suspend fun check(context: Context, force: Boolean = false): UpdateCheck {
         val now = System.currentTimeMillis()
-        if (now - checkedAt < CHECK_GAP_MS) return
+        if (!force && now - checkedAt < CHECK_GAP_MS) return UpdateCheck.Skipped
         checkedAt = now
         val answer = withContext(Dispatchers.IO) {
             runCatching {
@@ -80,18 +97,20 @@ object Updates {
             }.onFailure { Log.w("pulls", "update check failed", it) }
         }
         // A check that failed keeps the offer; a server with nothing newer takes it away, as after switching servers.
-        val manifest = answer.getOrElse { return } ?: return withdraw()
-        if (manifest.versionCode != available?.versionCode) hidden = false
+        val manifest = answer.getOrElse { return UpdateCheck.Failed } ?: return UpdateCheck.UpToDate.also { withdraw(context) }
         available = manifest
+        UpdatePrefs.saveOffer(context, manifest)
         UpdatePrefs.markNotified(context, manifest.versionCode)
         UpdateNotice.clear(context)
+        return UpdateCheck.Found
     }
 
-    /** The server has nothing newer: the card goes, unless a download it started is still running. */
-    private fun withdraw() {
+    /** The server has nothing newer: the update screen goes, unless a download it started is still running. */
+    private fun withdraw(context: Context) {
         if (busy) return
         available = null
         status = UpdateStatus.Idle
+        UpdatePrefs.saveOffer(context, null)
     }
 
     /** What [available] brings over the installed version, newest first. */
@@ -123,6 +142,7 @@ object Updates {
                     val updater = AppUpdater(app)
                     val manifest = updater.check(config.url, config.headers(), AppVersion.code(app)) ?: return@runCatching null
                     withContext(Dispatchers.Main) { available = manifest }
+                    UpdatePrefs.saveOffer(app, manifest)
                     var shown = -1
                     val apk = updater.download(manifest, config.headers()) { read, total ->
                         // The ring moves in whole percents, so the main thread is not asked to redraw for every buffer.
@@ -141,7 +161,7 @@ object Updates {
                     // The installer may already have answered (its dialog is up); only a status still downloading moves on.
                     if (manifest == null) {
                         status = UpdateStatus.Idle
-                        withdraw()
+                        withdraw(app)
                     } else if (status is UpdateStatus.Downloading) status = UpdateStatus.Installing
                 }
                 .onFailure {
@@ -170,9 +190,9 @@ object Updates {
         status = when (result) {
             InstallResult.Confirming -> UpdateStatus.Confirming
             InstallResult.Installed -> UpdateStatus.Installing
-            // Cancelling the system dialog is a choice, not a failure: the card offers Update again.
+            // Cancelling the system dialog is a choice, not a failure: the update screen offers Update again.
             InstallResult.Cancelled -> UpdateStatus.Idle
-            // The installer's own words are for the log; the card has one short line.
+            // The installer's own words are for the log; the update screen has one short line.
             is InstallResult.Failed -> UpdateStatus.Failed("Install failed.").also { Log.w("pulls", "install failed: ${result.message}") }
         }
     }
@@ -211,6 +231,14 @@ internal object UpdatePrefs {
     fun askedForNotifications(context: Context): Boolean = prefs(context).getBoolean("askedNotifications", false)
 
     fun markAskedForNotifications(context: Context) = prefs(context).edit().putBoolean("askedNotifications", true).apply()
+
+    /** The last newer build the server offered, kept so the next start asks for it before the server answers again. */
+    fun offer(context: Context): UpdateManifest? =
+        prefs(context).getString("offer", null)?.let { runCatching { parseUpdateManifest(it) }.getOrNull() }
+
+    fun saveOffer(context: Context, manifest: UpdateManifest?) {
+        prefs(context).edit().apply { if (manifest == null) remove("offer") else putString("offer", Json.encodeToString(manifest)) }.apply()
+    }
 }
 
 /** The changelog this build carries, from `android/CHANGELOG.md`, and which part of it the reader has not seen. */

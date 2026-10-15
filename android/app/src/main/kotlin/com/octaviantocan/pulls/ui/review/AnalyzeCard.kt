@@ -166,7 +166,7 @@ internal fun AnalysisBlock(session: ReviewSession, onSheet: (String) -> Unit) {
         analyze = analyzeTask?.status,
         tour = tourTask?.status,
         brief = briefTask?.status,
-        hasTour = session.saved?.tour != null,
+        hasTour = session.tour != null,
         hasBrief = session.saved?.brief != null,
         then = analyzeTask?.then.orEmpty(),
     )
@@ -234,7 +234,7 @@ internal fun AnalysisLogSheet(session: ReviewSession, onClose: () -> Unit) {
         analyze = analyzeTask?.status,
         tour = tourTask?.status,
         brief = briefTask?.status,
-        hasTour = session.saved?.tour != null,
+        hasTour = session.tour != null,
         hasBrief = session.saved?.brief != null,
         then = analyzeTask?.then.orEmpty(),
     )
