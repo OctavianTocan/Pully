@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.home.stayOnPull
 import com.octaviantocan.pulls.data.JEV_FILE_WORDS
 import com.octaviantocan.pulls.data.JEV_RISK_WORDS
 import com.octaviantocan.pulls.data.PullJev
@@ -117,6 +118,7 @@ import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.design.hairlineTop
 import com.octaviantocan.pulls.ui.design.bleed
+import com.octaviantocan.pulls.ui.design.edgeFade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.offset
@@ -189,7 +191,21 @@ internal fun PrOverviewScreen(
                 }
             }
         }
-        SidePages(sides, labels.indices.toList(), Modifier.fillMaxSize().clipToBounds().holdUnless("description")) { tab ->
+        val band = with(density) { PullsMotion.EdgeTop.toPx() }
+        // The rows dissolve under the pinned tabs and under the bottom buttons instead of meeting a hard line or a block of
+        // the page's colour (L7, L8, L10; rule 74). The top band starts where the head ends and only shows once rows go
+        // under it, so a page at rest stays sharp.
+        val fades = Modifier.edgeFade(
+            top = PullsMotion.EdgeTop,
+            bottom = PullsMotion.EdgeBottom,
+            topStrength = {
+                val list = front
+                val scrolled = if (list.firstVisibleItemIndex > 0) Int.MAX_VALUE else list.firstVisibleItemScrollOffset
+                ((scrolled.toFloat() - maxLift) / band).coerceIn(0f, 1f)
+            },
+            topInset = { (headHeight - lifted(front)).coerceAtLeast(0).toFloat() },
+        )
+        SidePages(sides, labels.indices.toList(), Modifier.fillMaxSize().clipToBounds().then(fades).holdUnless("description")) { tab ->
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -244,8 +260,7 @@ internal fun PrOverviewScreen(
                 UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp).onSizeChanged { tabsHeight = it.height + with(density) { 2.dp.roundToPx() } }, position = { sides.at })
             }
         }
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
-        BottomBar(session, head, Modifier.align(Alignment.BottomCenter).backUnless("").holdUnless(""), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
+        BottomBar(session, head, Modifier.align(Alignment.BottomCenter).stayOnPull().backUnless("").holdUnless(""), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
             top.reviewVerdict = "APPROVE"
             top.reviewOpen = true
         })
@@ -400,8 +415,8 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
             Text("−${compactCount(dels)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.red(c.dark), maxLines = 1)
         }
         // Narrowed to some commits, the cell says which, in the link colour, and opens the sheet that goes back (K25).
-        // Only the numbers, "3" or "12–15", so a range fits the cell; the Diff's pill says "of 50".
-        val narrowed = commitLabel(session.selection, overview)?.removePrefix("Commits ")?.removePrefix("Commit ")?.substringBefore(" of ")
+        // Only the numbers, "3" or "12–15", so a range fits the cell; the Diff's pill says "Only commit 3".
+        val narrowed = commitNumbers(session.selection, overview)
         Cell("Commits", Modifier.width(76.dp), onClick = if (overview != null && (commits ?: 0) > 0) onCommits else null) {
             // A bar until the number is known, not a 0 that turns into 50 (K22).
             if (commits == null) Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp))
@@ -604,6 +619,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
             FoldHeading(
                 label, section.files.size, first = index == 0, folded = folded,
                 modifier = rows.bleed(16.dp).padding(top = 4.dp).animateItem(), line = folded, background = LocalPullsColors.current.base,
+                changes = section.files.sumOf { it.additions } to section.files.sumOf { it.deletions },
             ) { ui.folds[label] = !folded }
         }
         if (!folded) itemsIndexed(section.files, key = { _, file -> "file:${file.path}" }) { index, file ->
@@ -677,8 +693,8 @@ internal fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewStat
 
 /**
  * The description, in the summary's place. When the viewer may change this pull request (their own, or one they
- * maintain) a tap turns it into a field holding GitHub's Markdown and leaving it saves (rule 83); the page then shows
- * GitHub's own rendering again.
+ * maintain) a tap opens it on a sheet as GitHub's Markdown in a text field, and leaving the sheet saves (L13); the page
+ * then shows GitHub's own rendering again.
  */
 @Composable
 private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modifier: Modifier) {
@@ -686,10 +702,10 @@ private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modif
     val overview = data?.overview
     val html = overview?.bodyHTML.orEmpty()
     val source = overview?.body ?: (session.prOpened ?: session.opened)?.description.orEmpty()
-    EditableText(
-        source, canEdit = overview?.viewer?.canEditText == true, textStyle = PullsType.read, saved = "Description updated",
+    EditableInSheet(
+        source, canEdit = overview?.viewer?.canEditText == true, title = "Description", saved = "Description updated",
         onSave = { body -> session.repo.prAction(overview!!.id, "edit", body = body); session.reloadOverview() },
-        modifier = modifier, multiline = true, allowBlank = true, placeholder = "Describe the change in Markdown",
+        modifier = modifier, placeholder = "Describe the change in Markdown",
     ) { text ->
         // GitHub's own rendering while the text is the one it holds; the typed Markdown for the moment after a save.
         val markdown = remember(text, html, overview?.body) { if (html.isNotBlank() && text == overview?.body) htmlToMarkdown(html) else text }
@@ -714,8 +730,9 @@ private fun BottomBar(
     val left = session.files.count { it.sha !in session.reviewed }
     val canApprove = session.pull != null && session.canWrite && head.isOpen
     val done = left == 0 && session.files.isNotEmpty()
-    // The overview came before the diff: the button waits, dimmed, until there are files to count and open. It already
-    // counts the files the Inbox knew of, so its words do not change when they arrive (K22).
+    // The overview came before the diff: the button already counts the files the Inbox knew of, so its words do not change
+    // when they arrive (K22), and it is never greyed out while the rest loads; the Diff it opens shows bars until the
+    // files come ("the review button is greyed out", recording 15 Oct 15:37, 03:29 to 04:12; L5).
     val arrived = session.opened != null
     val known = (session.target as? OpenTarget.Pull)?.let { PullSizes.get(it.owner, it.repo, it.number) }?.files
     ReviewBar(
@@ -726,7 +743,7 @@ private fun BottomBar(
             else -> reviewFilesLabel(left)
         },
         approve = done && canApprove,
-        enabled = arrived,
+        enabled = true,
         modifier = modifier,
         onAsk = onAsk,
         onMore = onMore,

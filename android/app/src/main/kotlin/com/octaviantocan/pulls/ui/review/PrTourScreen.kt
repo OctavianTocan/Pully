@@ -1,5 +1,8 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.data.tourPreview
+import com.octaviantocan.pulls.data.TourPreview
+import com.octaviantocan.pulls.ui.home.stayOnPull
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
@@ -168,7 +171,14 @@ internal fun PrTourScreen(
     // A tour seen for the first time brings its stops onto the page one after another, rising into place (K14); one
     // already seen, or a card scrolled back into view, is simply there.
     var arrivedFor by rememberSaveable { mutableStateOf<String?>(null) }
-    val arriving = tour != null && tour.generatedAt != arrivedFor
+    // While the tour is written, its plan and each stop already written show under the progress, in the places the stops
+    // will take, so nothing moves when they come and the page is never scrolled for the reader ("start creating some
+    // previews of what it's gonna build under it while it does it ... without moving me", recording 15 Oct 15:37, 13:47
+    // to 14:05; L26). The finished tour then takes their places without rising in again.
+    val preview = if (tour == null) session.taskFor("tour")?.takeIf { it.running }?.let { tourPreview(it.activities) } else null
+    var previewed by rememberSaveable { mutableStateOf(false) }
+    if (preview != null && !previewed) previewed = true
+    val arriving = tour != null && tour.generatedAt != arrivedFor && !previewed
     LaunchedEffect(tour?.generatedAt) { if (tour != null) { delay(PullsMotion.SLOW.toLong()); arrivedFor = tour.generatedAt } }
 
     // A swipe to the right takes the cards back to the Diff, following the finger as the Diff's files do. The Tour is
@@ -234,7 +244,12 @@ internal fun PrTourScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        item(key = "intro") { Intro(session, head, tour, running) }
+                        item(key = "intro") { Intro(session, head, tour, running, preview) }
+                        if (preview != null) itemsIndexed(preview.planned, key = { index, _ -> "stop:$index" }) { index, (title, purpose) ->
+                            val written = preview.written[index]
+                            if (written != null) StopCard(session, written, onOpenSource)
+                            else PlannedStop(title, purpose, next = (0 until index).all { it in preview.written })
+                        }
                         itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop ->
                             Box(Modifier.arrive(index, play = arriving)) { StopCard(session, stop, onOpenSource) }
                         }
@@ -247,7 +262,7 @@ internal fun PrTourScreen(
             var askText by remember { mutableStateOf("") }
             var askFocused by remember { mutableStateOf(false) }
             SearchDim(askFocused, askText.isEmpty())
-            AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
+            AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
         }
     }
 
@@ -288,11 +303,17 @@ private fun Card(content: @Composable () -> Unit) {
 
 /** The tour's own card: its title and overview, a note when it was written for an older commit, and the way to make a new one. */
 @Composable
-private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Boolean) {
+private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Boolean, preview: TourPreview? = null) {
     val c = LocalPullsColors.current
     Card {
         when {
-            tour == null && (running || tourComing(session)) -> TourRunning(session, Modifier)
+            tour == null && (running || tourComing(session)) -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TourRunning(session, Modifier)
+                if (preview != null) {
+                    Text(preview.title, style = PullsType.xxl, color = c.text)
+                    if (preview.overview.isNotBlank()) Markdown(preview.overview, style = PullsType.read.copy(color = c.text))
+                }
+            }
             // A tour that failed says why; so does an analysis that was to write one. Another analysis's failure is not the tour's.
             tour == null -> TourEmpty(
                 session,
@@ -321,6 +342,25 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
                         FloatIcon(Lu.redo, "Rewrite the tour", { startTour(session) }, Modifier.offset(x = 10.dp, y = 6.dp), flat = true, size = 40.dp, tint = c.muted)
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * A stop the plan names that is not written yet: its title and purpose in the quiet colours, in a card the shape of the
+ * stop it will become. The one being written next breathes.
+ */
+@Composable
+private fun PlannedStop(title: String, purpose: String, next: Boolean) {
+    val c = LocalPullsColors.current
+    Card {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, style = PullsType.xxl, color = c.muted)
+            if (purpose.isNotBlank()) Text(purpose, style = PullsType.read, color = c.faint)
+            if (next) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.octaviantocan.pulls.ui.design.BreathingDot()
+                Text("Writing this stop", style = PullsType.sm, color = c.muted)
             }
         }
     }

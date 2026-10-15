@@ -14,7 +14,9 @@ cancels it (rule 105).
 `SidePages` and `FilePages` move pages that sit side by side the whole width with
 nothing fading or blurring, both pages in view while they move, and settle on
 `PullsMotion.PageSpring`, critically damped with no snap at the end (rule 107; H20, H36,
-J7).
+J7). A page moves exactly as far as the finger, and a quick flick turns the page only once
+the finger has moved it part of the way, so a page never "swipes by itself" (recording
+15 Oct 15:37, 04:12 to 04:31; L6).
 
 @cc [owner:OctavianTocan,label:product] kit-side-pages-keep-state
 A page held by `SidePages` keeps its scroll and saved state while another page is on
@@ -131,3 +133,26 @@ screen changes: choosing System while the phone is already in that look does not
 
 @cc [owner:OctavianTocan,label:product] kit-copy-shows-a-toast
 Copying shows the dark toast and leaves the copied control unchanged (rule 83; F21).
+
+@cc [owner:OctavianTocan,label:product;design] kit-picking-lists-search
+A sheet that picks from a list (themes, earlier chats, models) has a search over it once the
+list is long. The plain lists (themes, earlier chats) are the one `SearchList` component, and
+its groups keep the list's order; the model list, which folds older models and splits Pi's by
+provider, uses the same `SheetSearch` and matching ("most bottom sheets that we have actually
+benefit a lot from search", recording 15 Oct 15:37, 12:26 to 12:36; L4, L23, L36).
+
+@cc [owner:OctavianTocan,label:design] kit-fold-headings-line-up
+Every fold heading, on a page or a sheet, has its chevron on one line at the right edge
+whatever its name's length, and the hairline under it ("these chevrons are not aligned,
+there's no horizontal line under Failing, Passing, Skipped", recording 15 Oct 15:37, 08:05
+to 08:21; L3, L12).
+
+@cc [owner:OctavianTocan,label:design] kit-tab-marks-sit-centred
+A capsule tab's mark and word sit centred in the tab with room either side; a word too long
+for it ends in an ellipsis and never wraps out of sight (recording 15 Oct 15:37, 11:50 to
+12:07; L22).
+
+@cc [owner:OctavianTocan,label:design;product] kit-pictures-are-sharp-and-open
+A picture in Markdown is drawn from a load at the screen's density, as sharp as on GitHub,
+and a tap on it opens its link, or the picture itself, never what is under the text
+(recording 15 Oct 15:37, 09:10 to 09:28; L14, L15).

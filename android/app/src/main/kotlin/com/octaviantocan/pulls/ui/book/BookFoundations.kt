@@ -381,6 +381,7 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "tool" to Lu.tool,
     "newChat" to Lu.newChat,
     "followUp" to Lu.followUp,
+    "history" to Lu.history,
 )
 
 @Composable

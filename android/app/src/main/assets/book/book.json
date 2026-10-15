@@ -107,6 +107,12 @@
       "component": "sheet-search"
     },
     {
+      "id": "components/search-list",
+      "title": "Search list",
+      "group": "Components",
+      "component": "search-list"
+    },
+    {
       "id": "components/sheet",
       "title": "Sheet",
       "group": "Components",
@@ -437,6 +443,26 @@
       "rules": [
         70,
         74
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "search-list": {
+      "composable": "SearchList",
+      "summary": "The list a sheet picks from, in cards, with a search field over it once it is long: themes, earlier chats.",
+      "usage": [
+        "Use it for any sheet that picks one thing from a list, so every picking list searches the same way.",
+        "The search shows past eight rows; a line says when nothing matches.",
+        "Group the rows under small headings when the list has natural runs."
+      ],
+      "rules": [
+        70,
+        101
       ],
       "variants": [
         {

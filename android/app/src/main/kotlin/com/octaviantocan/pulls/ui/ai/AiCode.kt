@@ -211,11 +211,50 @@ internal fun AiFence(session: ReviewSession, code: String, lang: String) {
             val items = remember(code) { parseFlow(code) }
             if (items != null) FlowView(items) else AiCodeView(session, code, "")
         }
+        "pseudo", "pseudocode" -> PseudoView(code)
+        // An answer in Ask draws with the tour's forms, a diagram too (L34).
+        "mermaid" -> Diagram(session, com.octaviantocan.pulls.data.TourBlock("diagram", "", body = code))
         "calls" -> SketchTree(session, code, files = false)
         "tree" -> SketchTree(session, code, files = true)
         else -> AiCodeView(session, code, lang)
     }
 }
+
+/**
+ * A ```pseudo sketch as plain steps, not code: the reading face at the body's meta size, each line wrapped whole under
+ * its own indent so nothing scrolls sideways, no syntax colours, and only the step words that steer it (if, else, for,
+ * while, return...) in medium weight. As a code view it was cut at both edges and coloured like a language it is not
+ * ("pseudocode looks ugly as sin", recording 15 Oct 15:37, 14:31 to 14:33; L27).
+ */
+@Composable
+private fun PseudoView(code: String) {
+    val c = LocalPullsColors.current
+    val lines = remember(code) { code.trimEnd().lines().dropWhile { it.isBlank() } }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg)).background(c.sunken).padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        lines.forEach { line ->
+            if (line.isBlank()) return@forEach
+            val depth = (line.length - line.trimStart().length) / 2
+            val words = line.trim()
+            val lead = words.substringBefore(' ').lowercase().trimEnd(':')
+            val text = buildAnnotatedString {
+                if (lead in PSEUDO_STEERS) {
+                    withStyle(SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, color = c.text)) { append(words.substringBefore(' ')) }
+                    append(words.removePrefix(words.substringBefore(' ')))
+                } else append(words)
+            }
+            Text(text, Modifier.padding(start = PSEUDO_INDENT * depth.coerceAtMost(6)), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted)
+        }
+    }
+}
+
+/** How far one level of a pseudocode step sits in. */
+private val PSEUDO_INDENT = 14.dp
+
+/** The words that steer a pseudocode step, set in medium weight at the start of a line. */
+private val PSEUDO_STEERS = setOf("if", "else", "elif", "for", "foreach", "while", "return", "then", "when", "otherwise", "each", "until", "try", "catch", "on", "repeat")
 
 /** One level of a drawn tree: its guide runs down the middle of this width. */
 private val TREE_INDENT = 18.dp

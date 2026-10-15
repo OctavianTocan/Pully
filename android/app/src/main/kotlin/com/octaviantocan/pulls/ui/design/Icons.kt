@@ -113,4 +113,6 @@ internal object Lu {
     val newChat = LuGlyph(1.8f, LuPath("M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"), LuPath("M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"))
     /** Lucide corner-down-right: a question to ask next, under an answer. */
     val followUp = LuGlyph(2f, LuPath("m15 10 5 5-5 5"), LuPath("M4 4v7a4 4 0 0 0 4 4h12"))
+    /** Lucide history: the earlier chats of a pull request, on Ask's button while nothing is typed (L36). */
+    val history = LuGlyph(1.8f, LuPath("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"), LuPath("M3 3v5h5"), LuPath("M12 7v5l4 2"))
 }

@@ -8,7 +8,7 @@ import { createModels, fauxAssistantMessage, fauxProvider, fauxToolCall, getCurr
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runAgent } from './agent'
 import { compactContext, createChatSession, LANGUAGE_REMINDER, MAX_CHAT_TURNS, OMITTED_DIFF_TEXT, withChatInstructions, withLanguageReminder } from './chat'
-import { AGENT_SYSTEM_PROMPT, CHAT_SYSTEM_SECTION, MENTION_RULE } from './prompt'
+import { AGENT_SYSTEM_PROMPT, CHAT_SYSTEM_SECTION, MENTION_RULE, NATIVE_FORMS } from './prompt'
 
 const runtime = vi.hoisted(() => ({ streamFn: undefined as StreamFn | undefined }))
 
@@ -136,6 +136,14 @@ describe('withChatInstructions', () => {
     expect(prompt).toContain(CHAT_SYSTEM_SECTION)
     // Every answer links what it mentions (rule 96).
     expect(prompt).toContain(MENTION_RULE)
+  })
+
+  // L34: an answer may draw what a tour draws, with the same fences the phone parses, prose first and two visuals at most.
+  it('offers the tour\'s native forms to answers, word for word, prose first and at most two', () => {
+    for (const line of NATIVE_FORMS.split('\n'))
+      expect(CHAT_SYSTEM_SECTION).toContain(`  ${line}`)
+    expect(CHAT_SYSTEM_SECTION).toContain('Lead with prose')
+    expect(CHAT_SYSTEM_SECTION).toContain('at most two visuals')
   })
 })
 

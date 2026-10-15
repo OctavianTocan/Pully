@@ -55,6 +55,7 @@ export interface DiffCache {
   touch: (key: string) => Promise<void>
   setChangedSinceReviewed: (key: string, paths: string[]) => Promise<void>
   setAnalyzedResult: (key: string, source: PersistedGroupSource, result: GroupedResult) => Promise<void>
+  /** Writes the chat transcript; one that leaves out `archive` keeps the stored archive, `undefined` drops it all. */
   setLlmSession: (key: string, session: LlmSession | undefined) => Promise<void>
   setSharedComment: (key: string, sharedComment: PrCacheEntry['sharedComment']) => Promise<void>
   setReviewData: (key: string, reviews: ReviewData) => Promise<void>
@@ -254,8 +255,10 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
         const entry = await get(key)
         if (!entry)
           return
+        // A session written without its archive (a chat turn, a new analysis, the page) keeps the stored one.
+        const archive = session && session.archive === undefined ? entry.llmSession?.archive : undefined
         // The persisted session keeps only the fields the schema checks; `AgentMessage` is wider.
-        const llmSession = session as PrCacheBody['llmSession']
+        const llmSession = (archive ? { ...session, archive } : session) as PrCacheBody['llmSession']
         await write({ ...entry, llmSession, sizeBytes: computeEntrySizeBytes(entry.diff, entry.analyzedBy, llmSession) })
       })
       await enforceBudget()

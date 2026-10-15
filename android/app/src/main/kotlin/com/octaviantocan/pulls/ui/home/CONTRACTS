@@ -45,6 +45,12 @@ the canvas's 1.3px) and nothing to tap after. A tap opens the pull request (rule
 A pull request the person did not open has no Archive: no swipe left to archive and no
 Archive in its hold actions (recording 15 Oct 13:54, 09:42 to 09:53; K20).
 
+@cc [owner:OctavianTocan,label:product;motion] home-left-swipe-goes-to-tours
+A row with nothing on its left, someone else's pull request, does not take a left swipe:
+the swipe moves the Inbox on to Tours, so the pages move from anywhere on the list
+("we can actually allow this swipe, but from anywhere": recording 15 Oct 15:37, 01:28 to
+01:50; L1).
+
 @cc [owner:OctavianTocan,label:product] home-hold-opens-actions
 Holding a pull request row opens a sheet of its actions (Open on GitHub, Copy link, Start
 a tour, Open repository and, for the person's own, Archive), with the app's one hold
@@ -60,9 +66,15 @@ A repository heading has one hairline under it and none above, so the first head
 nothing between it and the chips (rule 75; F1).
 
 @cc [owner:OctavianTocan,label:design] home-pinned-headings-stay-whole
-A repository heading pinned at the top of the list, open or folded, is cut at the top of
-the list and never slides over the chips; no pill or row is left half cut under them
-(H13; recording 15 Oct 13:54, 09:17 to 09:37; K19).
+Every repository heading, open or folded, sticks whole at the top of the list when it gets
+there; the next heading slides up under it and takes its place, so no heading is pushed half
+under the chips, and at rest none is left half under the pinned one. Tavi changed this from
+pushing the pinned heading away ("collapsed project categories not becoming sticky with the
+top bar": recording 15 Oct 15:37, 01:56 to 02:15; L2; H13; K19).
+
+@cc [owner:OctavianTocan,label:design] home-heading-chevrons-line-up
+Every heading's chevron sits on one line at the right edge, whatever the length of its name
+(recording 15 Oct 15:37, 02:16 to 02:37; L3).
 
 @cc [owner:OctavianTocan,label:product] home-heading-name-opens-repository
 A tap on a repository heading folds its rows, and a tap on its name opens the repository:
@@ -110,3 +122,14 @@ that" (rules 52 and 117; F4).
 @cc [owner:OctavianTocan,label:design] home-pill-clears-the-gesture-bar
 The bottom search pill sits clear of the system gesture bar and rides on top of the
 keyboard when it is up (rules 47 and 55).
+
+@cc [owner:OctavianTocan,label:product;motion] home-bottom-bars-stay-on-pull
+Pulling a page down for Commands moves the page, not the bars pinned to the bottom of the
+screen: Ask and Review, the Diff's bar and the Tour's Ask pill stay where they are ("these
+buttons should be stuck at the bottom even if I'm starting to pull", recording 15 Oct
+15:37, 05:18 to 05:33; L9).
+
+@cc [owner:OctavianTocan,label:product;motion] home-row-tap-is-not-a-swipe
+A drag a row's swipe has taken is never also a tap: a short sideways drag springs the row
+back and opens nothing, so a row never comes back pulled aside or animating (recording
+15 Oct 15:37, 09:28 to 09:44; L16).

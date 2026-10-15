@@ -170,6 +170,13 @@ class Repo(private val context: Context) {
 
     suspend fun clearChat(key: String) { call("chat-clear") { put("key", key) } }
 
+    /** This diff's earlier chats, newest first: each one's id, its first question as a title, when it ended and how many questions it had. */
+    suspend fun chatHistory(key: String): List<ChatHistoryEntry> =
+        call("chat-history") { put("key", key) }.jsonObject.arr("chats").map { ChatHistoryEntry(it.s("id"), it.s("title"), it.s("at"), it.i("turns") ?: 0) }
+
+    /** Brings an earlier chat back as the current one; the current one, if it asked anything, goes into the history. */
+    suspend fun restoreChat(key: String, id: String) { call("chat-restore") { put("key", key); put("id", id) } }
+
     /** A Mermaid diagram as a flat SVG string (theme colours resolved on the server). */
     suspend fun mermaidSvg(source: String, dark: Boolean): String = call("mermaid-svg") { put("source", source); put("dark", dark) }.jsonObject.s("svg")
 
@@ -198,3 +205,6 @@ internal fun JsonElement.arrayOrEmpty(): JsonArray = this as? JsonArray ?: JsonA
 
 @Suppress("unused")
 private fun JsonElement.firstArray(): JsonArray = jsonArray
+
+/** An earlier chat of a diff, as `chat-history` lists it. */
+data class ChatHistoryEntry(val id: String, val title: String, val at: String, val turns: Int)

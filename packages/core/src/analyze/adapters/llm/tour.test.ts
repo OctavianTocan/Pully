@@ -1,7 +1,8 @@
+import type { AiActivity } from '../../../local-rpc'
 import type { DiffsPayload } from '../../../types/diff'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setCliRunner } from './cli-stream'
-import { MENTION_RULE } from './prompt'
+import { MENTION_RULE, NATIVE_FORMS } from './prompt'
 import { buildTourPlanPrompt, buildTourStopPrompt, MAX_STOPS, resolveTourPlan, resolveTourStop, runTour, TOUR_FORMS, TOUR_PLAN_SCHEMA, TOUR_STOP_SCHEMA } from './tour'
 
 const diff: DiffsPayload = {
@@ -71,6 +72,19 @@ describe('tour prompts', () => {
     expect(buildTourStopPrompt(diff, prose, 1, 'en')).toContain('this stop\'s form: list,')
   })
 
+  // L27, L29, L30: pseudocode stays short and plain, excerpts name their real language, sources say what a place does.
+  it('carries the native forms, short pseudocode, real fence languages and plain source captions', () => {
+    const prompt = buildTourStopPrompt(diff, plan, 0, 'en')
+    for (const line of NATIVE_FORMS.split('\n'))
+      expect(prompt).toContain(`  ${line}`)
+    expect(NATIVE_FORMS).toContain('```pseudo for the logic as pseudocode: at most 12 short lines, each under 50 characters, indented two spaces per level')
+    expect(NATIVE_FORMS).toContain('Never ```text')
+    expect(prompt).toContain('Each source\'s why is one short, plain sentence')
+    const why = TOUR_STOP_SCHEMA.properties.sources.items.properties.why.description
+    expect(why).toContain('Under 90 characters')
+    expect(why).not.toContain('60 characters')
+  })
+
   it('gives one stop the outline and only its own files', () => {
     const prompt = buildTourStopPrompt(diff, plan, 1, 'en')
     expect(prompt).toContain('2. The cache: How entries live.   <- this stop')
@@ -115,6 +129,19 @@ describe('resolving answers', () => {
     ])
     expect(stop.sources).toEqual([{ path: 'src/cache.ts', line: 1, why: 'the map' }])
   })
+
+  // L30: a code block labelled "Code text". A fence that names no real language shows none.
+  it('gives an excerpt fenced as text, txt, plain, plaintext or nothing no language', () => {
+    const body = ['text', 'txt', 'Plain', 'plaintext', '', 'sh'].map(lang => `\`\`\`${lang}\nrm -rf "$dir"\n\`\`\``).join('\n\n')
+    expect(resolveTourStop({ body }).blocks.map(block => block.kind === 'shape' && [block.lang, block.text])).toEqual([
+      ['code', ''],
+      ['code', ''],
+      ['code', ''],
+      ['code', ''],
+      ['code', ''],
+      ['code', 'sh'],
+    ])
+  })
 })
 
 describe('runTour', () => {
@@ -135,6 +162,29 @@ describe('runTour', () => {
     expect(tour.stops[0]).toMatchObject({ takeaway: 'Entry.' })
     expect(tour.stops[1]).toMatchObject({ title: 'The cache', error: 'engine fell over' })
     expect(tour).toMatchObject({ headSha: 'h1', model: 'sonnet-5', locale: 'en', glossary: plan.glossary })
+  })
+
+  // L26: the phone previews the tour while it builds, from the outline and each stop as it lands.
+  it('puts the outline on the done plan entry and each written stop on its own entry, exactly as the result holds it', async () => {
+    setCliRunner((async (request: { prompt: string }) => {
+      if (request.prompt.includes('Plan a guided tour'))
+        return { text: JSON.stringify(plan) }
+      if (request.prompt.includes('Write stop 2'))
+        throw new Error('engine fell over')
+      return { text: JSON.stringify({ takeaway: 'Entry.', body: 'Starts here.\n\n```ts\nparse()\n```', sources: [{ path: 'src/parse.ts', line: 3, why: 'Calls the parser once per save' }] }) }
+    }) as never)
+    const activities: AiActivity[] = []
+    const tour = await runTour(diff, resolved, { locale: 'en', onActivity: batch => activities.push(...batch) })
+
+    const planned = activities.find(activity => activity.id === 'tour-plan' && activity.status === 'done')!
+    expect(JSON.parse(planned.text!)).toEqual({
+      title: 'Parser cache',
+      overview: 'Adds a cache.',
+      stops: [{ title: 'Where parsing starts', purpose: 'The entry point.' }, { title: 'The cache', purpose: 'How entries live.' }],
+    })
+    const stops = activities.filter(activity => activity.id.startsWith('tour-stop:'))
+    expect(stops.map(activity => [activity.id, activity.title, activity.status])).toEqual([['tour-stop:0', 'Wrote Where parsing starts', 'done']])
+    expect(JSON.parse(stops[0]!.text!)).toEqual(tour.stops[0])
   })
 
   it('fails when no stop could be written', async () => {

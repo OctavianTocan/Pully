@@ -185,8 +185,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         if (here == PrView.Overview) pages.add(page) else pages[pages.lastIndex] = page
     }
     fun openDiff(path: String?) {
-        // The changes open once the diff has arrived; until then the Files rows are bars and there is nothing to show.
-        if (session.opened == null) return
+        // Review tapped before the diff came opens the Diff on its bars, and the file is chosen once the diff is in (L5).
+        if (session.opened == null) { diffPath = path; push(PrView.Diff); return }
         val files = orderedFiles()
         diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
         push(PrView.Diff)
@@ -224,10 +224,18 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         diffPath = wanted.path
         push(PrView.Diff)
     }
-    // A source tapped in a kept tour before the diff arrived opens now.
+    // A source tapped in a kept tour before the diff arrived opens now, the way it was asked for (on a sheet from the
+    // Tour); a Diff opened on its bars gets its first file to read.
     LaunchedEffect(opened) {
         if (opened == null) return@LaunchedEffect
-        session.waitingSource?.let { source -> session.waitingSource = null; openSource(session, source, uri::openUri) }
+        session.waitingSource?.let { source ->
+            session.waitingSource = null
+            openSource(session, source, uri::openUri, inSheet = session.waitingInSheet)
+        }
+        if (diffPath == null && pages.last() == PrView.Diff) {
+            val files = orderedFiles()
+            diffPath = files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
+        }
     }
     // A refresh or a commit range failed while a diff is already on screen: the full-page error only shows before one is.
     val loadError = session.loadError
@@ -273,7 +281,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
-            waiting -> PrOpening(target, preview, onBack = nav.back)
+            waiting -> PrOpening(target, preview, onBack = nav.back, onReview = { openDiff(null) }, onAsk = { openAsk(false) })
             else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
@@ -314,7 +322,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                     resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                                     onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                                     onChanges = ::toChanges,
-                                    onOpenSource = { source -> openSource(session, source, uri::openUri) },
+                                    onOpenSource = { source -> openSource(session, source, uri::openUri, inSheet = true) },
                                     onAsk = { question -> openAsk(forTour = true, initial = question) },
                                 )
                             }
@@ -332,6 +340,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     }
                 }
                 // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
+                // A place the Tour opened: that file's diff alone, on a sheet over the Tour (L28).
+                session.sourceSheet?.let { place -> FileDiffSheet(session, ui, place, onClose = { session.sourceSheet = null }) }
                 when (sheet) {
                     "more" -> PrSheet(session, top, data, head, PrPage.Actions, onClose = { sheet = null }, onReview = ::review)
                     // Aa on the diff: the code's look, then the file's own actions and one row on to the pull request's ⋯,
@@ -390,14 +400,17 @@ private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() 
 }
 
 /** A tour source or a mention: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
-internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
+internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit, inSheet: Boolean = false) {
     // A kept tour shows before the diff: the place opens once the diff is in.
     if (session.opened == null) {
         session.waitingSource = source
+        session.waitingInSheet = inSheet
         return
     }
     if (session.files.any { it.path == source.path }) {
-        session.focus = Focus(source.path, source.line)
+        // From the Tour a changed file opens on a sheet, alone, and the Tour stays under it ("open in the same sort of diff
+        // style but in a bottom sheet, and it's just that one file", recording 15 Oct 15:37, 14:53 to 15:16; L28).
+        if (inSheet) session.sourceSheet = Focus(source.path, source.line) else session.focus = Focus(source.path, source.line)
         return
     }
     val repo = FileLinks.repoOf(session.target)

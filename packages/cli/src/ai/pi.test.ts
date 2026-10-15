@@ -94,6 +94,18 @@ describe('piModels', () => {
     expect(listed.filter(model => model.isDefault)).toHaveLength(1)
   })
 
+  // L24: "when I select them, the only reasoning effort they have is that one".
+  it('gives a model whose id names its effort that effort alone, as its default, keeping its name', () => {
+    const body = { data: [{ id: 'gemini-3.8-flash-high' }, { id: 'gpt-oss-120b-medium' }, { id: 'agy-claude-opus-5-5-high' }, { id: 'gpt-5.5(low)' }, { id: 'gemini-3.8-flash' }] }
+    const byId = new Map(piModels(body).map(model => [model.id, model]))
+    expect(byId.get('gemini-3.8-flash-high')).toMatchObject({ name: 'Gemini 3.8 Flash (High)', efforts: ['high'], defaultEffort: 'high' })
+    expect(byId.get('gpt-oss-120b-medium')).toMatchObject({ name: 'GPT-OSS 120B (Medium)', efforts: ['medium'], defaultEffort: 'medium' })
+    expect(byId.get('agy-claude-opus-5-5-high')).toMatchObject({ name: 'Claude Opus 5.5 (High)', efforts: ['high'], defaultEffort: 'high' })
+    expect(byId.get('gpt-5.5(low)')).toMatchObject({ efforts: ['low'], defaultEffort: 'low' })
+    expect(byId.get('gemini-3.8-flash')).toMatchObject({ efforts: ['low', 'medium', 'high'] })
+    expect(byId.get('gemini-3.8-flash')!.defaultEffort).toBeUndefined()
+  })
+
   it('sorts by version, not by a size in the name', () => {
     const body = { data: [{ id: 'kimi-k2' }, { id: 'kimi-k3' }, { id: 'kimi-k2.8' }, { id: 'gpt-5.5' }, { id: 'gpt-oss-120b' }, { id: 'o3-mini-20250131' }, { id: 'o4-mini' }] }
     expect(piModels(body, 'gpt-5.5').map(model => model.id)).toEqual(['gpt-5.5', 'gpt-oss-120b', 'o4-mini', 'o3-mini-20250131', 'kimi-k3', 'kimi-k2.8', 'kimi-k2'])
@@ -268,6 +280,18 @@ describe('runPi', () => {
 
     expect(outcome.error).toContain(SUBMIT_TOOL)
     expect(faux.state.callCount).toBe(2)
+  })
+
+  it('sends the picked effort, and none beside an id that names its own (L24)', async () => {
+    const sent: unknown[] = []
+    const spy: StreamFn = (model, context, options) => {
+      sent.push(options?.reasoning)
+      return streamFn(model, context, options)
+    }
+    faux.setResponses([fauxAssistantMessage('a'), fauxAssistantMessage('b'), fauxAssistantMessage('c')])
+    for (const [model, effort] of [['m', 'high'], ['gemini-3.8-flash-high', 'high'], ['gemini-3.8-flash-high', 'low']])
+      await runPi({ engine: 'pi', model: model!, effort, system: 'S', prompt: 'P' }, { tools: [], sink: sink(), signal: new AbortController().signal, config, streamFn: spy })
+    expect(sent).toEqual(['high', undefined, undefined])
   })
 
   it('reports a stop as stopped', async () => {

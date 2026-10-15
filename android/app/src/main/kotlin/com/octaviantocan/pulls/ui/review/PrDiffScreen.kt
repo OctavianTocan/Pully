@@ -1,5 +1,8 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.design.bleed
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
+import com.octaviantocan.pulls.ui.home.stayOnPull
 import com.octaviantocan.pulls.sound.Haptics
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -118,8 +121,6 @@ import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
 import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -165,7 +166,10 @@ internal fun PrDiffScreen(
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
 
     Box(Modifier.fillMaxSize().background(c.base)) {
-        if (file == null) {
+        if (file == null && session.opened == null && session.loadError == null) {
+            // Review was tapped before the diff came: bars where the code will be, no loading page (rule 51; L5).
+            RowsSkeleton(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp), rows = 8)
+        } else if (file == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No files in this change.", style = PullsType.sm, color = c.muted) }
         } else {
             FilePages(session, ui, files, index, commit, onPath, onOverview, onFiles, onAsk, Modifier.fillMaxSize().padding(top = 8.dp))
@@ -259,6 +263,7 @@ private fun FilePages(
     val swipeFrom = with(density) { 64.dp.toPx() }
     val fling = with(density) { PullsMotion.Fling.toPx() }
     val range = with(density) { PullsMotion.FingerRange.toPx() }
+    val gap = with(density) { PullsMotion.PageGap.toPx() }
     val count = files.size
 
     fun glideTo(to: String, speed: Float = 0f) {
@@ -322,7 +327,8 @@ private fun FilePages(
         }
         val at = order(slide.current)
         if (at < 0) return
-        val next = slide.at - rest / width
+        // A file moves by its width and the gap to the next, so the finger divides by both and the files stay under it.
+        val next = slide.at - rest / (width + gap)
         val lo = if (at > 0) -1f else 0f
         val hi = if (at in 0 until count - 1) 1f else 0f
         val held = next.coerceIn(lo, hi)
@@ -346,14 +352,19 @@ private fun FilePages(
             }
             return
         }
+        // A third of the way over is enough to go on to that file, and a throw that way goes on however short it was;
+        // half the width and a hard fling was too much ("I have to like really like slide my finger very hard ... and
+        // then it goes back to the same one", recording 15 Oct 15:37, 10:13 to 10:27; L18).
         val at = slide.at
+        val forward = velocity < -fling || (velocity <= fling && at > FILE_SETTLE)
+        val backward = velocity > fling || (velocity >= -fling && at < -FILE_SETTLE)
         val step = when {
-            velocity < -fling -> ceil(at)
-            velocity > fling -> floor(at)
-            else -> at.roundToInt().toFloat()
-        }.toInt()
+            forward && at > 0f -> 1
+            backward && at < 0f -> -1
+            else -> 0
+        }
         val to = files.getOrNull(order(slide.current) + step)?.path ?: slide.current
-        val speed = if (width > 0) (-velocity / width).takeIf { it.isFinite() } ?: 0f else 0f
+        val speed = if (width > 0) (-velocity / (width + gap)).takeIf { it.isFinite() } ?: 0f else 0f
         if (to == target.path) {
             glideTo(to, speed)
         } else {
@@ -400,7 +411,7 @@ private fun FilePages(
             onPrev = { files.getOrNull(index - 1)?.let { onPath(it.path) } },
             onNext = { files.getOrNull(index + 1)?.let { onPath(it.path) } },
             onFiles = onFiles,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier.align(Alignment.BottomCenter).stayOnPull(),
         )
     }
 }
@@ -559,8 +570,11 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
             when {
                 // Held still past a long press: that is a selection, not a swipe.
                 change.uptimeMillis - down.uptimeMillis > longPress && abs(dx) <= slop -> return
-                abs(dy) > slop && abs(dy) >= abs(dx) -> return
-                abs(dx) > slop && abs(dx) > abs(dy) -> {
+                // A thumb's swipe runs at a slant, so one more sideways than steeply down is the file's, decided the moment
+                // the finger passes the slop either way, before the list takes it as a scroll (L18).
+                maxOf(abs(dx), abs(dy)) <= slop -> Unit
+                abs(dx) < abs(dy) * SWIPE_SLANT -> return
+                else -> {
                     if (code && codeHasRoom(dx, down.position.x / size.width.coerceAtLeast(1))) return
                     taken = true
                     change.consume()
@@ -851,6 +865,12 @@ private fun FilePill(file: ReviewFile, index: Int, count: Int, commit: String?, 
     }
 }
 
+/** How far over (in pages) a file must be dragged for letting go to go on to it. */
+private const val FILE_SETTLE = 0.3f
+
+/** How much of the downward move a sideways one must at least be for the swipe to change file: about 55° from flat. */
+private const val SWIPE_SLANT = 0.7f
+
 /** A file name up to this long leaves room in the pill for the end of its folder. */
 private const val SHORT_NAME = 22
 
@@ -860,14 +880,18 @@ private const val SHORT_NAME = 22
  * consumed once it has been shown, so coming back to the screen does not jump again.
  */
 @Composable
-private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, listState: LazyListState) {
-    val focus = session.focus
+private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, listState: LazyListState) =
+    DiffFocusOn(session.focus, ui, file, listState) { target -> if (session.focus === target) session.focus = null }
+
+/** Scrolls [listState] to [focus]'s line in [file] and marks it; [onDone] takes the request once it is met. */
+@Composable
+private fun DiffFocusOn(focus: Focus?, ui: DiffUi, file: ReviewFile, listState: LazyListState, onDone: (Focus) -> Unit) {
     LaunchedEffect(focus, file.path) {
         val target = focus ?: return@LaunchedEffect
         if (target.path != file.path) return@LaunchedEffect
         if (target.line <= 0) {
             listState.scrollToItem(0)
-            if (session.focus === target) session.focus = null
+            onDone(target)
             return@LaunchedEffect
         }
         ui.mark = LineMark(file.path, target.side, target.line, target.findingId)
@@ -883,7 +907,7 @@ private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, list
         repeat(60) { if (key == null) { key = ui.lineKey[file.path]?.get(anchor); if (key == null) delay(16) } }
         val at = key?.let { ui.indexOf[file.path]?.get(it) }
         if (at != null) listState.animateScrollToItem(at, scrollOffset = -240)
-        if (session.focus === target) session.focus = null
+        onDone(target)
     }
     // Consuming the request changes the key above and cancels that effect, so the mark fades on its own timer.
     val mark = ui.mark
@@ -891,5 +915,33 @@ private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, list
         if (mark == null) return@LaunchedEffect
         delay(2500)
         if (ui.mark == mark) ui.mark = null
+    }
+}
+
+/**
+ * One changed file's diff on a sheet, opened from a place the Tour names: the same rows, colours and threads as the Diff,
+ * scrolled to the line and marking it, while the Tour stays under the sheet where it was ("I can stay on this page",
+ * recording 15 Oct 15:37, 14:53 to 15:16; L28). The file's name is the sheet's title.
+ */
+@Composable
+internal fun FileDiffSheet(session: ReviewSession, ui: DiffUi, place: Focus, onClose: () -> Unit) {
+    val c = LocalPullsColors.current
+    val file = session.files.firstOrNull { it.path == place.path } ?: return
+    val listState = remember(place.path) { LazyListState() }
+    var request by remember(place) { mutableStateOf<Focus?>(place) }
+    DiffFocusOn(request, ui, file, listState) { request = null }
+    val dark = c.dark
+    val texts = ui.lineTexts(file)
+    LaunchedEffect(file.path, texts, dark) { if (!file.isBinary) ui.highlight(file, texts, dark) }
+    LaunchedEffect(file.patchOmitted) { if (file.patchOmitted) session.loadPatches(patchesAround(session.files, file.path)) }
+    val height = LocalConfiguration.current.screenHeightDp.dp * 0.72f
+    val density = LocalDensity.current
+    PullsSheet(onClose, file.path.substringAfterLast('/'), expandable = false) {
+        Box(Modifier.fillMaxWidth().height(height).bleed(16.dp).clipToBounds().background(c.raised)) {
+            LazyColumn(
+                Modifier.fillMaxSize().pinchToZoomCode(session.settings) { end -> keepUnderFingers(listState, ui, file, end, density) },
+                state = listState,
+            ) { fileDiffItems(session, ui, file, tail = 24.dp) }
+        }
     }
 }

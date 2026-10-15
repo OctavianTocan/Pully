@@ -241,6 +241,7 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     val messages = LocalMessages.current
     val config = remember { ServerStore.load(context) }
     val repo = remember { Repo(context) }
+    remember { ModelCatalogs.warm(context) }
     // The catalog gives the model its name; until it comes, the id is written as a name (H7).
     val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine) {
         if (value == null) value = fetchCatalog(repo, config.engine).getOrNull()

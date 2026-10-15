@@ -75,12 +75,29 @@ export function agentSystemPrompt(mentions = false): string {
   return mentions ? `${AGENT_SYSTEM_PROMPT}\n\n${AGENT_MENTIONS_SECTION}` : AGENT_SYSTEM_PROMPT
 }
 
+/**
+ * The visuals the phone draws natively, each with the fence it takes (`splitTourBody` and the phone's parser read
+ * them). The tour stop prompt and chat answers both carry this list word for word, so an answer can draw what a tour
+ * draws (L34). Pseudocode stays short and plain (L27), and an excerpt names its file's real language (L30).
+ */
+export const NATIVE_FORMS = `- a Markdown table (at most 4 columns and 8 rows, a few words per cell), and bullet or numbered lists,
+- \`\`\`calls for a call tree of the runtime flow (indent two spaces per level),
+- \`\`\`tree for a file tree with a short comment per entry,
+- \`\`\`pseudo for the logic as pseudocode: at most 12 short lines, each under 50 characters, indented two spaces per level, plain words over symbols, one idea per block. Anything longer is a list or prose instead,
+- \`\`\`flow for data moving between parts: one hop per line, \`From -> To: what moves\` (the label after the colon is optional), naming a part the same way each time it comes back; the app draws it,
+- \`\`\`mermaid for a small flowchart TD or sequenceDiagram (at most 10 nodes, labels under 25 characters),
+- a fence named with the real language of the file (\`\`\`ts, \`\`\`rust, \`\`\`sh, \`\`\`kotlin...) for a short excerpt of the code, only when the exact code is the point. Never \`\`\`text, \`\`\`plain or a fence with no language.
+Each fence stays under 25 lines of 60 characters.`
+
 export const CHAT_SYSTEM_SECTION = `<chat>
 The reviewer is now asking follow-up questions about this pull request.
 - Always reply in the same natural language as the user's latest message, whatever language the diffs, summaries and earlier messages are in. Keep code, paths and identifiers as they are.
 - Answer from the diffs. Call read_diffs when you need a file you have not seen or whose diff was omitted.
 - Call update_grouping only when the user asks to change the grouping. Send the complete new grouping; every manifest path must appear exactly once.
 - Be concise and use Markdown.
+- Lead with prose that answers the question. When a visual makes the answer clearer on a phone, add one after it, in the forms the app draws natively:
+${NATIVE_FORMS.split('\n').map(line => `  ${line}`).join('\n')}
+  Use at most two visuals in one answer, and none when a sentence or two says it.
 - ${MENTION_RULE}
 </chat>`
 

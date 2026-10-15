@@ -44,7 +44,10 @@ export function piNotSetUp(): Error {
   return new Error(`Pi is not set up on this server. ${PI_SETUP_HINT}`)
 }
 
-/** Reasoning efforts offered for every model: the endpoint does not say which models reason, and drops what it cannot map. */
+/**
+ * Reasoning efforts offered for every model whose id names none: the endpoint does not say which models reason, and
+ * drops what it cannot map. A model whose id names its effort offers only that one (`piModelEffort`).
+ */
 export const PI_EFFORTS = ['low', 'medium', 'high'] as const
 
 const MODELS_TIMEOUT_MS = 15_000
@@ -209,15 +212,8 @@ function splitRoute(id: string): RoutedId {
   return { route, model: rest }
 }
 
-/**
- * A readable name for a model id, the way its vendor writes it: `claude-opus-5-5` reads "Claude Opus 5.5",
- * `claude-3-7-sonnet-20250219` "Claude Sonnet 3.7", `gpt-5.5-codex` "GPT-5.5 Codex", `gpt-oss-120b-medium`
- * "GPT-OSS 120B (Medium)", `gemini-3.8-flash-high` "Gemini 3.8 Flash (High)". A provider or route prefix
- * (`agy-`, `codex-`, `openrouter/`, `xai-`), dates and revision tags are dropped.
- * @param id - The id the endpoint lists.
- * @returns The name to show.
- */
-export function piModelName(id: string): string {
+/** An id's words, dates, snapshots and a repeated family word dropped, and the thinking level it folds in, if any. */
+function readId(id: string): { words: string[], effort?: string } {
   let base = splitRoute(id).model.trim()
   // CLIProxyAPI takes a thinking level after the id: `gpt-5.5(high)`.
   const bracket = /\(([^)]*)\)$/.exec(base)
@@ -229,6 +225,30 @@ export function piModelName(id: string): string {
   let effort = bracket?.[1]?.trim() || undefined
   if (!effort && words.length > 2 && EFFORT_WORD.test(words.at(-1)!.toLowerCase()))
     effort = words.pop()
+  return { words, effort }
+}
+
+/**
+ * The reasoning effort a model id folds in, as `piModelName` shows it in brackets: `gemini-3.8-flash-high` and
+ * `gpt-5.5(high)` are `high`, `gpt-oss-120b-medium` is `medium`. Such a model runs at that effort and no other (L24).
+ * @param id - The id the endpoint lists.
+ * @returns The effort in lower case, or `undefined` when the id names none.
+ */
+export function piModelEffort(id: string): string | undefined {
+  const effort = readId(id).effort?.toLowerCase()
+  return effort && EFFORT_WORD.test(effort) ? effort : undefined
+}
+
+/**
+ * A readable name for a model id, the way its vendor writes it: `claude-opus-5-5` reads "Claude Opus 5.5",
+ * `claude-3-7-sonnet-20250219` "Claude Sonnet 3.7", `gpt-5.5-codex` "GPT-5.5 Codex", `gpt-oss-120b-medium`
+ * "GPT-OSS 120B (Medium)", `gemini-3.8-flash-high` "Gemini 3.8 Flash (High)". A provider or route prefix
+ * (`agy-`, `codex-`, `openrouter/`, `xai-`), dates and revision tags are dropped.
+ * @param id - The id the endpoint lists.
+ * @returns The name to show.
+ */
+export function piModelName(id: string): string {
+  const { words, effort } = readId(id)
   if (words[0]?.toLowerCase() === 'claude' && /^\d/.test(words[1] ?? '') && CLAUDE_TIER.test(words[2]?.toLowerCase() ?? ''))
     words.splice(1, 2, words[2]!, words[1]!)
   // OpenAI writes its o-series in lower case: o4-mini.
@@ -271,7 +291,7 @@ function version(name: string): number {
  * The chat models of an OpenAI-compatible `/models` answer, one row per model a reader can tell apart: grouped by who
  * serves them (`group`), each group's families newest version first. The default comes first and its group leads;
  * the other groups follow by name. Two ids that read the same in one group are one row: the default's id, else the
- * one without a route, else the shorter.
+ * one without a route, else the shorter. A model whose id names its effort offers that effort alone, as its default.
  * @param body - The parsed answer.
  * @param preferred - The model the server runs by default, when it names one.
  * @returns The catalog's models.
@@ -305,7 +325,11 @@ export function piModels(body: unknown, preferred?: string): CliModel[] {
     || family(a.name).localeCompare(family(b.name))
     || version(b.name) - version(a.name)
     || a.name.localeCompare(b.name))
-  return named.map(({ id, name, group }) => ({ id, name, group, efforts: [...PI_EFFORTS], isDefault: id === fallback || undefined }))
+  return named.map(({ id, name, group }) => {
+    // A model whose id names its effort takes only that one (L24).
+    const effort = piModelEffort(id)
+    return { id, name, group, efforts: effort ? [effort] : [...PI_EFFORTS], ...(effort ? { defaultEffort: effort } : {}), isDefault: id === fallback || undefined }
+  })
 }
 
 /**
@@ -334,7 +358,8 @@ export async function piCatalog(config = piConfig(), fetcher: typeof fetch = fet
 
 /**
  * The pi-ai model for an id the endpoint serves. Every model is marked as reasoning, so a picked effort goes out as
- * `reasoning_effort`; with none picked nothing is sent and the model reasons as it does by default.
+ * `reasoning_effort`; with none picked, or an id that names its own effort, nothing is sent and the model reasons as
+ * it does by default.
  * @param id - The model id.
  * @param config - The endpoint.
  * @returns The model description pi-ai streams with.
@@ -563,7 +588,8 @@ export async function runPi(request: AiJobRequest & { model: string }, options: 
     { messages: [{ role: 'system', content: system, timestamp: Date.now() }], tools },
     {
       model,
-      reasoning: (request.effort || undefined) as ThinkingLevel | undefined,
+      // An id that folds its effort in says it already; a second one sent beside it could only disagree (L24).
+      reasoning: (piModelEffort(request.model) ? undefined : request.effort || undefined) as ThinkingLevel | undefined,
       sessionId: request.key ?? undefined,
       cacheRetention: 'short',
       convertToLlm: messages => messages.filter((message): message is Message => ['system', 'user', 'assistant', 'toolResult'].includes(message.role)),

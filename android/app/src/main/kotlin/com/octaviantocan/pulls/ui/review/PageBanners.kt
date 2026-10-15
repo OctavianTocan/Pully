@@ -42,23 +42,34 @@ import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 
 /**
- * What the changes are narrowed to, in a few words ("Commit 2 of 5", "Commits 2–4 of 5", or short shas), or null when
- * they show the whole pull request. It replaces the box that sat over the pages (K25): the Commits number on the
- * Overview and the file pill on the Diff say it, and the Commits sheet's "All commits" goes back.
+ * Which commits the changes are narrowed to, as their numbers in the pull request ("4" or "4–6"), or the short shas when
+ * they are not in the list GitHub sent; null when the changes show the whole pull request.
  */
-fun commitLabel(selection: Pair<String, String>?, overview: PrOverview?): String? {
+fun commitNumbers(selection: Pair<String, String>?, overview: PrOverview?): String? {
     val picked = selection ?: return null
     val commits = overview?.commits.orEmpty()
     val range = resolveCommitSelection(commits, CommitSelection(picked.first, picked.second))
     // Commits GitHub did not return are the oldest ones, so they shift every position.
     val offset = overview?.commitsHidden ?: 0
-    val total = commits.size + offset
     return when {
-        range != null && range.first == range.last -> "Commit ${range.first + 1 + offset} of $total"
-        range != null -> "Commits ${range.first + 1 + offset}–${range.last + 1 + offset} of $total"
-        picked.first == picked.second -> "Commit ${picked.first.take(7)}"
-        else -> "${picked.first.take(7)} to ${picked.second.take(7)}"
+        range != null && range.first == range.last -> "${range.first + 1 + offset}"
+        range != null -> "${range.first + 1 + offset}–${range.last + 1 + offset}"
+        picked.first == picked.second -> picked.first.take(7)
+        else -> "${picked.first.take(7)}–${picked.second.take(7)}"
     }
+}
+
+/**
+ * What the changes are narrowed to, in a few words ("Only commit 4", "Only commits 4–6"), or null when they show the
+ * whole pull request. It replaces the box that sat over the pages (K25): the Commits number on the Overview and the
+ * file pill on the Diff say it, and the Commits sheet's "All commits" goes back. "Commit 4 of 8" read like a page
+ * count beside the file's own "3/12" ("it says commit 4 of 8 ... kind of confusing", recording 15 Oct 15:37, 07:06 to
+ * 07:17; L11).
+ */
+fun commitLabel(selection: Pair<String, String>?, overview: PrOverview?): String? {
+    val numbers = commitNumbers(selection, overview) ?: return null
+    val several = numbers.contains('–')
+    return if (several) "Only commits $numbers" else "Only commit $numbers"
 }
 
 /** Whether the PR has moved on since the diff on screen was fetched (the web's `isStale`). */

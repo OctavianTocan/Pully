@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,7 +33,7 @@ import com.octaviantocan.pulls.ui.home.compactAge
 
 /**
  * `.meta`: `dayflow #241 · author · 6h ago`, the repository and number first and the age last (rule 26, Row W). The
- * author and repository are links. A name is never cut with an ellipsis (rule 2): when the parts do not fit one line,
+ * repository is a link and the author is plain text (L21). A name is never cut with an ellipsis (rule 2): when the parts do not fit one line,
  * the line breaks between them and each stays whole, and a name wider than the whole line wraps instead of being clipped. The page and the opening page draw it alike, so the line does not
  * change shape when the pull request arrives. A repository is only a link when [onOpenRepo] is given.
  */
@@ -42,7 +41,6 @@ import com.octaviantocan.pulls.ui.home.compactAge
 @Composable
 internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owner: String?, repo: String?, onOpenRepo: ((String, String) -> Unit)?) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
     val sep = @Composable { Text("·", style = PullsType.sm, color = c.muted) }
     FlowRow(
         Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -59,10 +57,9 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
         Text(label, style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1, softWrap = false)
         author?.let { login ->
             sep()
-            Text(
-                login, Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $login on GitHub") { uri.openUri("https://github.com/${login.removeSuffix("[bot]")}") },
-                style = PullsType.sm, color = c.muted,
-            )
+            // The author is a plain name: a tap that left for their GitHub profile surprised (recording 15 Oct 15:37,
+            // 11:17 to 11:25; L21). The repository's name before it still opens the repository.
+            Text(login, style = PullsType.sm, color = c.muted)
         }
         createdAt?.let { iso ->
             val age = compactAge(prIsoMillis(iso), System.currentTimeMillis())

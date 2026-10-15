@@ -249,14 +249,7 @@ data class Tour(
 fun JsonObject.asTour(): Tour = Tour(
     title = s("title"),
     overview = s("overview"),
-    stops = arr("stops").map { st ->
-        TourStop(
-            title = st.s("title"), purpose = st.s("purpose"), files = st.strings("files"), takeaway = st.s("takeaway"),
-            blocks = st.arr("blocks").map { b -> TourBlock(b.s("kind"), b.s("text"), b.s("lang"), b.s("body")) },
-            sources = st.arr("sources").map { so -> TourSource(so.s("path"), so.i("line") ?: 0, so.s("why")) },
-            error = st.sOrNull("error"),
-        )
-    },
+    stops = arr("stops").map { it.asTourStop() },
     glossary = arr("glossary").map { it.s("term") to it.s("meaning") },
     headSha = sOrNull("headSha"),
     model = sOrNull("model"),
@@ -333,3 +326,32 @@ fun JsonElement.asReviewData(): ReviewData {
 data class FullFile(val old: String?, val new: String?)
 
 fun JsonElement.asFullFile(): FullFile = jsonObject.let { FullFile(it.sOrNull("old"), it.sOrNull("new")) }
+
+/** One stop of a tour as the server writes it. */
+fun JsonObject.asTourStop(): TourStop = TourStop(
+    title = s("title"), purpose = s("purpose"), files = strings("files"), takeaway = s("takeaway"),
+    blocks = arr("blocks").map { b -> TourBlock(b.s("kind"), b.s("text"), b.s("lang"), b.s("body")) },
+    sources = arr("sources").map { so -> TourSource(so.s("path"), so.i("line") ?: 0, so.s("why")) },
+    error = sOrNull("error"),
+)
+
+/**
+ * What a tour being written has shown so far: its plan (title, overview and each stop's title and purpose) once the
+ * planner is done, and every stop already written, by its place in the plan. The server sends them as work entries
+ * (`tour-plan` and `tour-stop:<index>`, their `text` the JSON); they are previews, not steps of the work log.
+ */
+data class TourPreview(val title: String, val overview: String, val planned: List<Pair<String, String>>, val written: Map<Int, TourStop>)
+
+/** Whether a work entry is one of the tour's previews rather than a step to list. */
+fun isTourPreview(activity: Activity): Boolean = activity.id == "tour-plan" || activity.id.startsWith("tour-stop:")
+
+/** The preview a running tour's work entries carry, or null before its plan is ready. */
+fun tourPreview(activities: List<Activity>): TourPreview? {
+    fun parse(text: String?): JsonObject? = text?.let { runCatching { kotlinx.serialization.json.Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+    val plan = parse(activities.lastOrNull { it.id == "tour-plan" }?.text) ?: return null
+    val written = activities.mapNotNull { activity ->
+        val index = activity.id.removePrefix("tour-stop:").takeIf { activity.id.startsWith("tour-stop:") }?.toIntOrNull() ?: return@mapNotNull null
+        parse(activity.text)?.let { index to it.asTourStop() }
+    }.toMap()
+    return TourPreview(plan.s("title"), plan.s("overview"), plan.arr("stops").map { it.s("title") to it.s("purpose") }, written)
+}

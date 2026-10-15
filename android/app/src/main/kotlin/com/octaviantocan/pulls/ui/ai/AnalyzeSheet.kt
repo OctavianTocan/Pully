@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
+import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,6 +67,7 @@ internal enum class AnalyzePage(val parent: AnalyzePage?) {
     Custom(Main),
     Model(Main),
     Effort(Model),
+    TourEffort(Tour),
 }
 
 private fun AnalyzePage.title(): String = when (this) {
@@ -73,7 +75,7 @@ private fun AnalyzePage.title(): String = when (this) {
     AnalyzePage.Tour -> "No tour yet"
     AnalyzePage.Custom -> "Custom analysis"
     AnalyzePage.Model -> "Select model"
-    AnalyzePage.Effort -> "Effort"
+    AnalyzePage.Effort, AnalyzePage.TourEffort -> "Effort"
 }
 
 /**
@@ -146,7 +148,7 @@ internal fun ColumnScope.AnalyzePageContent(
 
     when (current) {
         AnalyzePage.Main -> AnalyzeMain(session, onRun = ::run, onCustom = { onPage(AnalyzePage.Custom) }, onModel = { onPage(AnalyzePage.Model) })
-        AnalyzePage.Tour -> TourStart(session, onModel = { onPage(AnalyzePage.Model) }) {
+        AnalyzePage.Tour -> TourStart(session, onModel = { onPage(AnalyzePage.Model) }, onEffort = { onPage(AnalyzePage.TourEffort) }) {
             onClose()
             generateTour(session, context)
             onTour()
@@ -163,6 +165,7 @@ internal fun ColumnScope.AnalyzePageContent(
         }
         AnalyzePage.Model -> ModelPage(settings, onDone = onModelDone, onEffort = { onPage(AnalyzePage.Effort) })
         AnalyzePage.Effort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Model) })
+        AnalyzePage.TourEffort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Tour) })
     }
 }
 
@@ -171,34 +174,49 @@ internal fun ColumnScope.AnalyzePageContent(
  * write it, and Generate. Nothing on the Overview offers a tour; this sheet is the one way in, every time.
  */
 @Composable
-private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, onGenerate: () -> Unit) {
+private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, onEffort: () -> Unit, onGenerate: () -> Unit) {
     val c = LocalPullsColors.current
     Text(
         "Pulls reads the change and the code around it, then walks you through it section by section.",
         Modifier.padding(horizontal = 4.dp),
         style = PullsType.read, color = c.muted,
     )
-    ModelCard(session, onModel, Modifier.padding(top = 16.dp))
+    // The effort sits under the model as a row of its own, where the tour is set up ("I would maybe put the effort level
+    // here in this menu", recording 15 Oct 15:37, 13:10 to 13:17; L25).
+    ModelCard(session, onModel, Modifier.padding(top = 16.dp), onEffort = onEffort)
     CtaButton("Generate tour", onGenerate, Modifier.fillMaxWidth().padding(top = 16.dp), enabled = session.key != null)
 }
 
 /** The row that names the model an analysis or a tour runs with; a tap opens the model page. */
 @Composable
-private fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Modifier = Modifier) {
+private fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Modifier = Modifier, onEffort: (() -> Unit)? = null) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val messages = LocalMessages.current
     val repo = remember { Repo(context) }
+    remember { ModelCatalogs.warm(context) }
     // Read again each time the page opens, because the model page may have changed them.
     val config = ServerStore.load(context)
     // The model's own efforts decide what Quick and Deep ask for, so fetch the list if the app has not yet.
     val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine, config.model) {
         value = ModelCatalogs.get(config.engine) ?: fetchCatalog(repo, config.engine).getOrNull()
     }
+    val model = AiSettingsLogic.current(catalog, config.model)
+    val efforts = model?.efforts.orEmpty()
+    // With its own Effort row the Model row names the model alone; a model with one effort has no choice to offer.
+    val effortRow = onEffort != null && efforts.size > 1
     SheetCard(modifier) {
         SheetRow("Model", onModel, first = true, iconless = true) {
-            Text(analysisModelLabel(config, catalog, session.settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val label = if (effortRow) analysisModelLabel(config, catalog, "", messages).substringBefore(" · ") else analysisModelLabel(config, catalog, session.settings.effort, messages)
+            Text(label, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+        }
+        if (effortRow) {
+            val effort = session.settings.effort.ifBlank { model?.defaultEffort.orEmpty() }
+            SheetRow("Effort", onEffort!!, iconless = true) {
+                if (effort.isNotBlank()) Text(AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
         }
     }
 }

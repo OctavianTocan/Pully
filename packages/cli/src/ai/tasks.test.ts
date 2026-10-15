@@ -72,6 +72,30 @@ describe('ai tasks', () => {
     expect(tasks.list('other')).toEqual([])
   })
 
+  it('sets the chat that followed an older analysis aside in the chat history, and keeps that history across chat turns (L36)', async () => {
+    const { tasks, cache } = await setup()
+    await cache.diffs.setLlmSession(KEY, { messages: [{ role: 'user', content: 'Old analysis', timestamp: 0 }, { role: 'user', content: 'Why the cache?', timestamp: 5 }], chatStartIndex: 1 })
+    await settled(tasks.wait, await tasks.start({ kind: 'analyze', key: KEY, model, locale: 'en' }))
+    const analyzed = (await cache.diffs.get(KEY))!.llmSession!
+    expect(analyzed.messages).toEqual([{ role: 'user', content: 'Group this', timestamp: 0 }])
+    expect(analyzed.archive?.map(chat => chat.messages)).toEqual([[{ role: 'user', content: 'Why the cache?', timestamp: 5 }]])
+    await settled(tasks.wait, await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Why?' }))
+    expect((await cache.diffs.get(KEY))!.llmSession!.archive).toEqual(analyzed.archive)
+  })
+
+  // L26: the phone previews a tour from its `tour-plan` and `tour-stop:<n>` entries, so their text arrives whole.
+  it('hands a tour\'s preview entries on with their text whole', async () => {
+    const stop = JSON.stringify({ title: 'Stop', body: 'x'.repeat(20_000) })
+    const tour = vi.fn<TaskRunners['tour']>(async (_diff, _resolved, _locale, hooks) => {
+      hooks.onActivity?.([{ id: 'tour-stop:0', kind: 'status', title: 'Wrote Stop', text: stop, status: 'done', startedAt: 1, endedAt: 1, rev: 0 }])
+      return { title: 'Tour', overview: 'o', stops: [], glossary: [], headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-12T00:00:00Z' }
+    })
+    const { tasks } = await setup({ tour })
+    const id = await tasks.start({ kind: 'tour', key: KEY, model, locale: 'en' })
+    await settled(tasks.wait, id)
+    expect((await tasks.wait(id, 0)).activities.find(activity => activity.id === 'tour-stop:0')?.text).toBe(stop)
+  })
+
   it('has Jev read the diff before a review of the whole of it, and not before a question', async () => {
     const triage = vi.fn<NonNullable<TaskRunners['triage']>>(async () => {})
     const { tasks } = await setup({ triage })

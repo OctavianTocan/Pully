@@ -21,6 +21,18 @@ data class PinchFrame(val scale: Float = 1f, val x: Float = 0f, val y: Float = 0
         return PinchFrame(scaled, toX - k * (fromX - x), toY - k * (fromY - y))
     }
 
+    /**
+     * The next frame of a pinch that only zooms: the code grows or shrinks by [zoom] about the point where the fingers
+     * first met, ([pivotX], [pivotY]), and does not follow the fingers as they move, so a pinch never drags the page
+     * somewhere it then springs back from when the fingers lift ("when I zoom I can like move the page and then it like
+     * sticks again", recording 15 Oct 15:37, 09:58 to 10:11; L17). The left edge of the code never comes away from the
+     * left of the view, so no empty strip opens beside the line numbers.
+     */
+    fun zoomAbout(zoom: Float, pivotX: Float, pivotY: Float, minScale: Float, maxScale: Float): PinchFrame {
+        val next = next(zoom, pivotX, pivotY, pivotX, pivotY, minScale, maxScale)
+        return next.copy(x = next.x.coerceAtMost(0f))
+    }
+
     /** The point of the code, as it was laid out before the pinch, that is drawn at [screenX]. */
     fun contentX(screenX: Float): Float = (screenX - x) / scale
 

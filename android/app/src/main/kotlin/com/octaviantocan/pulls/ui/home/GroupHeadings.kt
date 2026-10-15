@@ -1,12 +1,13 @@
 package com.octaviantocan.pulls.ui.home
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -58,42 +59,46 @@ internal fun groupKey(name: String): String = "group:$name"
 /** The repository a heading's list key names; null for any other key. */
 internal fun groupOfKey(key: Any?): String? = (key as? String)?.takeIf { it.startsWith("group:") }?.removePrefix("group:")
 
-/** The heading pinned over a grouped list: its group, and how far up (px, zero or less) the next heading pushes it. */
-internal data class Pinned(val group: String, val push: Int)
+/** The heading pinned over a grouped list: its group, and how far up (px, zero or less) it is drawn. */
+internal data class Pinned(val group: String, val push: Int = 0)
 
 /**
  * Which heading to pin, from the items on screen in order: each one's key and its offset from the top of the list in px.
  * None while the first item is a heading whose top is in view, or belongs to no group (the update banner). [groupOf]
- * names the group of a row's key. The next heading pushes the pinned one up as it arrives, as a section header does.
+ * names the group of a row's key. Every heading sticks whole at the top, a folded one as well as an open one, and the
+ * next heading slides up under it and takes its place when it gets there, so nothing is ever pushed half under the chips
+ * ("collapsed project categories not becoming sticky with the top bar": recording 15 Oct 15:37, 01:56 to 02:15; L2).
+ * [headingHeight] is kept for callers that measure the pinned heading.
  */
+@Suppress("UNUSED_PARAMETER")
 internal fun pinnedGroup(visible: List<Pair<Any, Int>>, headingHeight: Int, groupOf: (Any) -> String?): Pinned? {
     val (firstKey, firstOffset) = visible.firstOrNull() ?: return null
     val heading = groupOfKey(firstKey)
     if (heading != null && firstOffset >= 0) return null
     val group = heading ?: groupOf(firstKey) ?: return null
-    val next = visible.drop(1).firstOrNull { groupOfKey(it.first) != null }
-    return Pinned(group, next?.let { (it.second - headingHeight).coerceAtMost(0) } ?: 0)
+    return Pinned(group)
 }
 
 /**
- * How far to scroll (px, either way) so a folded heading cut by the top of the list is shown whole or hidden whole, from
- * the items on screen in order as key, offset and size. Null when the first item is not a heading cut by the edge, or is
- * an open one (a row of its own follows it, and the pinned copy covers it).
+ * How far to scroll (px, either way) when the list comes to rest with a heading half under the pinned one, from the
+ * items on screen in order as key, offset and size: it settles fully under it, where it is pinned in its turn, or just
+ * below it, never half a pill (K19, L2). Null when nothing is pinned ([pinnedHeight] 0) or no heading is cut by it.
  */
-internal fun cutFoldedHeading(visible: List<Triple<Any, Int, Int>>): Int? {
-    val (key, offset, size) = visible.firstOrNull() ?: return null
-    if (groupOfKey(key) == null || offset >= 0 || -offset >= size) return null
-    val next = visible.getOrNull(1)?.first
-    if (next != null && groupOfKey(next) == null) return null
-    return if (-offset * 2 > size) size + offset else offset
+internal fun cutUnderPinned(visible: List<Triple<Any, Int, Int>>, pinnedHeight: Int): Int? {
+    if (pinnedHeight <= 0) return null
+    val (firstKey, firstOffset) = visible.firstOrNull() ?: return null
+    if (groupOfKey(firstKey) != null && firstOffset >= 0) return null
+    val (_, offset, size) = visible.drop(1).firstOrNull { groupOfKey(it.first) != null && it.second in 1 until pinnedHeight } ?: return null
+    val under = pinnedHeight - offset
+    return if (under * 2 > size) offset else offset - pinnedHeight
 }
 
 /**
  * A list grouped by repository whose heading stays pinned at the top while its rows scroll under it (Tavi, 14 Oct: "I
- * need the project row to stay sticky as you scroll down"), the next heading pushing it away as it arrives. The rows
+ * need the project row to stay sticky as you scroll down"). The rows
  * fade out just below the pinned heading, as under any pinned edge (rule 74). [list] is the LazyColumn, given the
- * modifier that fades it; headings in it are keyed with [groupKey]. The pinned heading is cut at the top of the list, so
- * one pushed away by the next goes under the edge and never over the chips above the list (H13).
+ * modifier that fades it; headings in it are keyed with [groupKey]. A folded heading sticks as an open one does, and the
+ * next heading slides under the pinned one instead of pushing it over the chips (H13, L2).
  */
 @Composable
 internal fun PinnedHeadings(
@@ -108,11 +113,10 @@ internal fun PinnedHeadings(
         derivedStateOf { pinnedGroup(state.layoutInfo.visibleItemsInfo.map { it.key to it.offset }, height, groups) }
     }
     val band = with(LocalDensity.current) { PullsMotion.EdgeTop.toPx() }
-    // A folded heading has no rows to pin it over, so when the list comes to rest with one cut by the top edge, the list
-    // settles onto the nearer edge of it: shown whole, or gone under the edge, never half a pill (K19).
+    // At rest no heading is left half under the pinned one: it settles under it or just below it (K19, L2).
     LaunchedEffect(state) {
         snapshotFlow { state.isScrollInProgress }.filter { !it }.collect {
-            val cut = cutFoldedHeading(state.layoutInfo.visibleItemsInfo.map { item -> Triple(item.key, item.offset, item.size) }) ?: return@collect
+            val cut = cutUnderPinned(state.layoutInfo.visibleItemsInfo.map { item -> Triple(item.key, item.offset, item.size) }, if (pinned != null) height else 0) ?: return@collect
             state.animateScrollBy(cut.toFloat(), tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))
         }
     }
@@ -151,6 +155,7 @@ internal fun GroupHeading(
     modifier: Modifier = Modifier,
     line: Boolean = folded,
     background: Color = LocalPullsColors.current.base,
+    extra: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
     val turn by animateFloatAsState(if (folded) -90f else 0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "fold")
@@ -165,21 +170,25 @@ internal fun GroupHeading(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // The name keeps its own target, padded so it is easy to hit; its text still starts on the rows' 16dp line and
-        // sits 18dp under the rows above and 6dp over its own, as the heading did before it folded.
-        Text(
-            label,
-            Modifier.weight(1f, fill = false).clip(RoundedCornerShape(PullsRadius.md))
-                .then(if (onOpen != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen) else Modifier)
-                .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
-            style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
-            color = c.muted,
-            // A long name ends in … on its one line; the count and the chevron never wrap or get cut (K24).
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint, maxLines = 1, softWrap = false)
-        Spacer(Modifier.weight(1f))
+        // The name and its count take the row up to the chevron, so every heading's chevron sits on one line at the
+        // right edge whatever the name's length (recording 15 Oct 15:37, 02:16 to 02:37; L3).
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            // The name keeps its own target, padded so it is easy to hit; its text still starts on the rows' 16dp line and
+            // sits 18dp under the rows above and 6dp over its own, as the heading did before it folded.
+            Text(
+                label,
+                Modifier.weight(1f, fill = false).clip(RoundedCornerShape(PullsRadius.md))
+                    .then(if (onOpen != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen) else Modifier)
+                    .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
+                style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
+                color = c.muted,
+                // A long name ends in … on its one line; the count and the chevron never wrap or get cut (K24).
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint, maxLines = 1, softWrap = false)
+        }
+        if (extra != null) { extra(); Spacer(Modifier.width(8.dp)) }
         if (onFold != null) LuIcon(Lu.chevd, Modifier.rotate(turn), tint = c.faint, size = 18.dp)
     }
 }

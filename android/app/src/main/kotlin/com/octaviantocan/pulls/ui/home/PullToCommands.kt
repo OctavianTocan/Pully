@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +29,21 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import kotlin.math.max
+
+/**
+ * How far (px) a [PullToCommands] around this content has moved it down, read while drawing. A bar pinned to the bottom
+ * of the screen moves back up by as much with [stayOnPull], so pulling for Commands never takes the bottom buttons down
+ * with the page ("these buttons should be stuck at the bottom even if I'm starting to pull": recording 15 Oct 15:37,
+ * 05:18 to 05:33; L9).
+ */
+internal val LocalCommandsPull = staticCompositionLocalOf<() -> Float> { { 0f } }
+
+/** Keeps something pinned to the bottom of the screen where it is while the page is pulled for Commands (L9). */
+@Composable
+internal fun Modifier.stayOnPull(): Modifier {
+    val pull = LocalCommandsPull.current
+    return graphicsLayer { translationY = -pull() }
+}
 
 /**
  * Pulling a list down past the top does not refresh it (that happens quietly, on its own). It opens
@@ -77,7 +94,11 @@ internal fun PullToCommands(onTrigger: () -> Unit, modifier: Modifier = Modifier
     }
     val c = LocalPullsColors.current
     Box(modifier.nestedScroll(connection)) {
-        Box(Modifier.graphicsLayer { translationY = pull * 0.6f }) { content() }
+        // Read while drawing, so a pull never recomposes the page.
+        val moved = remember { { pull * 0.6f } }
+        Box(Modifier.graphicsLayer { translationY = moved() }) {
+            CompositionLocalProvider(LocalCommandsPull provides moved) { content() }
+        }
         val progress = (pull / threshold).coerceIn(0f, 1f)
         if (progress > 0.05f) {
             Text(

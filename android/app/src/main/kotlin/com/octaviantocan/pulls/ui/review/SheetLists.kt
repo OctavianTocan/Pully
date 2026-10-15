@@ -289,7 +289,11 @@ internal fun ColumnScope.FilesList(
         // A search opens every section it found something in; otherwise a heading folds its files away.
         val closed = section.label != null && !searching && folded(section)
         if (section.label != null) {
-            FoldHeading(section.label, section.files.size, first, closed, onClick = if (searching) null else ({ onFold(section, !closed) }))
+            FoldHeading(
+                section.label, section.files.size, first, closed,
+                changes = section.files.sumOf { it.additions } to section.files.sumOf { it.deletions },
+                onClick = if (searching) null else ({ onFold(section, !closed) }),
+            )
         }
         first = false
         // The files sit in a card under their heading, which folds it away and opens it again as the Inbox's do (J18, J24).
@@ -349,7 +353,9 @@ internal fun JevMark(priority: String, trailingDot: Boolean) {
 
 /**
  * A section's heading that folds it: the one fold heading the Inbox uses (J18), with its name, how many files, and a
- * chevron that turns as it folds. On a sheet the rows sit in a card under it, so it draws no [line] and no background.
+ * chevron that turns as it folds. It draws the one hairline under it on a sheet too, as fold headings do everywhere
+ * ("there's no horizontal line under Failing, Passing, Skipped, which is how these usually look": recording 15 Oct
+ * 15:37, 08:11; L12), and no background.
  */
 @Composable
 internal fun FoldHeading(
@@ -358,8 +364,27 @@ internal fun FoldHeading(
     first: Boolean,
     folded: Boolean,
     modifier: Modifier = Modifier,
-    line: Boolean = false,
+    line: Boolean = true,
     background: Color = Color.Transparent,
+    changes: Pair<Int, Int>? = null,
     onClick: (() -> Unit)?,
-) = GroupHeading(label, count, first, folded, onFold = onClick, onOpen = null, modifier = modifier, line = line, background = background)
+) = GroupHeading(
+    label, count, first, folded, onFold = onClick, onOpen = null, modifier = modifier, line = line, background = background,
+    extra = changes?.let { (adds, dels) -> { SectionChanges(adds, dels) } },
+)
+
+/**
+ * A file section's + and − numbers on its heading, in the files' own green and red at the meta size, so a group says
+ * how big it is before it is opened ("I wish they had ... the diff numbers", recording 15 Oct 15:37, 10:56 to 11:04;
+ * L20).
+ */
+@Composable
+private fun SectionChanges(adds: Int, dels: Int) {
+    val c = LocalPullsColors.current
+    val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontFeatureSettings = "tnum")
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("+${compactCount(adds)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1, softWrap = false)
+        Text("−${compactCount(dels)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1, softWrap = false)
+    }
+}
 

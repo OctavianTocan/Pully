@@ -9,9 +9,10 @@ from one pass to the next pass's log; no empty or start page shows between (rule
 J34).
 
 @cc [owner:OctavianTocan,label:product;motion] ai-work-looks-alive
-AI work in progress is always a live, animated indicator, never a blank or a spinner. Grey
-bars MAY sit under the indicator as a hint of where the output arrives, but never replace
-it or stand alone (rules 18, 43 and 71).
+AI work in progress is always a live, animated indicator, never a blank or a spinner. No
+grey skeleton bars sit under it: Tavi called the bars under Ask's steps "awful" and took them
+out, so the answer simply arrives where it goes (recording 15 Oct 15:37, 16:24 to 16:37;
+L33; this replaces the hint bars of rule 71).
 
 @cc [owner:OctavianTocan,label:design] ai-thinking-line
 While work runs there is one shimmering line, a present-tense verb and the elapsed seconds
@@ -89,7 +90,9 @@ keyboard and lifts the sheet ("it goes into this text mode immediately" was jarr
 rule 77).
 
 @cc [owner:OctavianTocan,label:product] ask-send-needs-text
-A send button is grey and does nothing until its field has text (rule 84; F65).
+Send does nothing until its field has text (rule 84; F65). With nothing typed the button is
+the earlier chats of the pull request instead, by Tavi's choice (L36); it is a grey Send
+only where there are no earlier chats to offer.
 
 @cc [owner:OctavianTocan,label:product] ai-analyze-is-one-action
 Analysing a pull request is one action with three outputs (a summary, a note per file and
@@ -102,3 +105,34 @@ On the Analyze options page, tapping Quick, Standard or Deep starts the analysis
 @cc [owner:OctavianTocan,label:product] ai-file-notes-show-on-rows
 The AI's note for each file shows on its file row, in two lines at most, at once (rules
 19 and 102; F44).
+
+@cc [owner:OctavianTocan,label:design] ask-progress-like-the-tour
+Ask's work on an answer looks like the Tour's progress: the shimmering verb and time over
+the steps with their icons, the same component, with no orb or bars of its own under the
+steps ("the thinking does not look the same", recording 15 Oct 15:37, 16:09 to 16:14; L31).
+
+@cc [owner:OctavianTocan,label:product] ask-loader-in-the-button
+While an answer is on its way the turning orb sits in the field's button, where Send was,
+and a tap on it stops the answer ("that should just be where the button is", recording
+15 Oct 15:37, 16:28 to 16:35; L33).
+
+@cc [owner:OctavianTocan,label:product;motion] ask-scroll-is-the-readers
+An answer being written MUST NOT scroll the reader back down once they have scrolled up;
+the sheet follows the end only while they are at it, and again when they return to it or
+ask again (recording 15 Oct 15:37, 16:14 to 16:23; L32).
+
+@cc [owner:OctavianTocan,label:product] ask-answers-draw-like-tours
+Answers in Ask MAY use the tour's forms (tables, call trees, file trees, pseudocode, flows,
+diagrams, real-language code) and the sheet draws them as the Tour does (recording 15 Oct
+15:37, 16:45 to 16:58; L34).
+
+@cc [owner:OctavianTocan,label:product;design] ask-new-chat-is-instant
+New chat empties the page at once, and an empty chat, the first or a new one, offers its
+starting questions as the same rows that follow an answer, in a card ("it took a while to
+load ... that's not how the other one looks", recording 15 Oct 15:37, 16:58 to 17:12; L35).
+
+@cc [owner:OctavianTocan,label:product] ask-history-of-chats
+A pull request keeps its earlier chats. With nothing typed, the field's button opens them
+on a sheet built from the shared searchable list, newest first, each its first question,
+when and how many questions; a tap brings one back and the open chat takes its place in the
+list (Tavi's idea, recording 15 Oct 15:37, 17:19 to 17:48; L36).

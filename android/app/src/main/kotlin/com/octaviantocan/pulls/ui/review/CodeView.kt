@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
@@ -53,8 +54,8 @@ private fun pinchStep(event: PointerEvent): Triple<Offset, Offset, Float>? {
 }
 
 /**
- * Two fingers pinch the code: while they are down the code is drawn bigger or smaller around the point between them
- * and moves with them, so nothing is laid out again and they can pan too; when they lift, the new code size is written
+ * Two fingers pinch the code: while they are down the code is drawn bigger or smaller around the point where they met,
+ * so nothing is laid out again, and it does not pan with them (L17); when they lift, the new code size is written
  * once and [onEnd] scrolls the view so the line under them stays where it was. One finger is left alone, so the list
  * still scrolls: events are read on the initial pass and taken only while two pointers are down. The size stays within
  * [AppSettings.MIN_ZOOM] and [AppSettings.MAX_ZOOM].
@@ -69,6 +70,7 @@ fun Modifier.pinchToZoomCode(settings: AppSettings, onEnd: ((PinchEnd) -> Unit)?
                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                 var start = settings.codeZoom
                 var last = Offset.Unspecified
+                var pivot = Offset.Unspecified
                 var moved = false
                 while (true) {
                     val event = awaitPointerEvent(PointerEventPass.Initial)
@@ -76,9 +78,10 @@ fun Modifier.pinchToZoomCode(settings: AppSettings, onEnd: ((PinchEnd) -> Unit)?
                     if (pressed >= 2) {
                         val step = pinchStep(event)
                         if (step != null) {
-                            val (from, to, zoom) = step
-                            frame.value = frame.value.next(zoom, from.x, from.y, to.x, to.y, AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
-                            last = to
+                            val (from, _, zoom) = step
+                            if (!pivot.isSpecified) pivot = from
+                            frame.value = frame.value.zoomAbout(zoom, pivot.x, pivot.y, AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
+                            last = pivot
                             moved = true
                         }
                         event.changes.forEach { it.consume() }
@@ -91,6 +94,7 @@ fun Modifier.pinchToZoomCode(settings: AppSettings, onEnd: ((PinchEnd) -> Unit)?
                             if (to != settings.codeZoom) settings.updateCodeZoom(to)
                             ended.value?.invoke(end)
                             frame.value = PinchFrame()
+                            pivot = Offset.Unspecified
                             moved = false
                         }
                         if (pressed == 0) break

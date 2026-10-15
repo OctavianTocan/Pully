@@ -117,8 +117,17 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** A tour source tapped before the diff arrived (a kept tour opens first); it opens once the diff is in. */
     var waitingSource by mutableStateOf<TourSource?>(null)
 
+    /** Whether [waitingSource] was asked for on a sheet over the Tour, so it opens there too. */
+    var waitingInSheet = false
+
+    /** A New chat or a restored chat on its way to the server: a question waits for it, so it lands in the new chat. */
+    var chatChange: kotlinx.coroutines.Job? = null
+
     /** Scroll requests for the diff body; the body consumes and keeps the last one. */
     var focus by mutableStateOf<Focus?>(null)
+
+    /** A place the Tour asked to see: that one file's diff on a sheet over the Tour, which stays where it is (L28). */
+    var sourceSheet by mutableStateOf<Focus?>(null)
     var focusGroupKey by mutableStateOf<String?>(null)
 
     /** Tasks by id, merged across polls. Use [taskFor] to find the one a button shows. */
@@ -275,8 +284,10 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
                 if (!answer.enabled || attentionFor != version) break
                 attention = answer.files
-                // The server answers for the head and title the diff has now, so a renamed pull request loses its old read.
-                pullJev = answer.pull
+                // A read stays until a newer one replaces it: an answer without one (Jev still sorting, or a call that
+                // failed) MUST NOT take the line away and bring it back ("it appears, disappears", recording 15 Oct
+                // 15:37, 03:29 to 04:12; L5). A new head starts without one, above.
+                answer.pull?.let { pullJev = it }
                 if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
                 delay(ATTENTION_EVERY_MS)
             }

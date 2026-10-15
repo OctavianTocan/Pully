@@ -29,3 +29,43 @@ and an entry read back from storage (architecture, Canonical data structures).
 Every `FileChange` carries a `sha` (GitHub's blob SHA, else one read from the patch's
 `index` line, else a SHA-256 of the patch), and persisted review state is keyed by it
 (architecture, Canonical data structures).
+
+@cc [owner:OctavianTocan,label:architecture] engine-chat-history-survives-writes
+A diff's earlier chats (`LlmSession.archive`) are part of the stored session schema, so
+they are read back from storage, and a `setLlmSession` write that leaves `archive` out
+MUST keep the stored one: a chat turn, a new analysis or the page writing its transcript
+never drops the chat history. Only an explicit `archive` (an empty list included) or
+clearing the whole session replaces it (recording 15 Oct 2026 15:37, L36).
+
+@cc [owner:OctavianTocan,label:product] engine-tour-previews-while-it-builds
+While a tour builds, `runTour` MUST put the plan's outline on its done `tour-plan` entry
+as JSON (`{ title, overview, stops: [{ title, purpose }] }`), and each stop it writes on a
+done `tour-stop:<index>` entry titled `Wrote <stop title>` whose `text` is that `TourStop`
+as JSON, exactly as the result holds it. A failed stop adds no such entry, and the
+previews MUST NOT change the result (recording 15 Oct 2026 15:37, L26).
+
+@cc [owner:OctavianTocan,label:product] engine-sources-say-what-a-place-does
+A tour stop's source `why` is asked for as one short, plain sentence a reader new to the
+code understands, saying what that place does for the stop, under about 90 characters,
+with no jargon fragments and no name the path already shows. Captions such as "cleanup
+trap" or "fifo opened read-write on fd 3" are what this prevents ("what does that mean?",
+recording 15 Oct 2026 15:37, L29).
+
+@cc [owner:OctavianTocan,label:product] engine-excerpts-name-their-language
+The tour and chat instructions MUST ask for code excerpts fenced with the real language of
+their file and never `text`, and `splitTourBody` MUST give an excerpt fenced as `text`,
+`txt`, `plain`, `plaintext` or nothing an empty language, so no block is labelled "Code
+text" ("why does it say code, and why does it say text?", recording 15 Oct 2026 15:37,
+L30).
+
+@cc [owner:OctavianTocan,label:product] engine-pseudocode-stays-short
+Pseudocode is asked for as at most about 12 short lines, each under about 50 characters,
+indented two spaces per level, in plain words over symbols and one idea per block;
+anything longer becomes a list or prose ("pseudocode looks ugly as sin", recording 15 Oct
+2026 15:37, L27).
+
+@cc [owner:OctavianTocan,label:product] engine-answers-draw-like-tours
+The chat instructions MUST offer answers the same native forms a tour stop has, with the
+same fence syntax word for word (`NATIVE_FORMS`), prose first and at most two visuals in
+one answer ("so it can build interfaces that are as clean as it wants right here too to
+reply to me", recording 15 Oct 2026 15:37, L34).

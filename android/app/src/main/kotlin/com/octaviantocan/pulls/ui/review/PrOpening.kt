@@ -37,7 +37,7 @@ import com.octaviantocan.pulls.ui.home.compactCount
  * have the page's own shapes and places, so when the page replaces it nothing moves; only words fill in (K22).
  */
 @Composable
-internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit) {
+internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit, onReview: () -> Unit, onAsk: () -> Unit) {
     val c = LocalPullsColors.current
     val pull = target as? OpenTarget.Pull
     val known = pull?.let { PullSizes.get(it.owner, it.repo, it.number) }
@@ -69,6 +69,6 @@ internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> 
                 RowsSkeleton(Modifier.padding(top = 14.dp), rows = 5)
             }
         }
-        ReviewBar(reviewFilesLabel(files), approve = false, enabled = false, modifier = Modifier.align(Alignment.BottomCenter), onAsk = {}, onMore = {}, onClick = {})
+        ReviewBar(reviewFilesLabel(files), approve = false, enabled = true, modifier = Modifier.align(Alignment.BottomCenter), onAsk = onAsk, onMore = {}, onClick = onReview)
     }
 }

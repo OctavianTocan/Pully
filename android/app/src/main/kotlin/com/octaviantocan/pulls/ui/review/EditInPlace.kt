@@ -1,5 +1,8 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.PullsSheet
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -197,5 +200,84 @@ internal fun EditableText(
                 } else Modifier,
             ),
         ) { display(shown) }
+    }
+}
+
+/**
+ * Long text the viewer owns, edited on a sheet with a proper text field instead of in place: a tap on it at rest opens
+ * the sheet with the caret at the end, and the page does not scroll or move under it. Leaving the sheet, by Save, ✕,
+ * Back or a swipe down, saves a changed text, as leaving an in-place field does (rule 83). A link or a picture in the
+ * text at rest opens itself and never the sheet. Tavi chose this for the description; the title stays in place ("if I
+ * tap to edit it, you just open a bottom sheet with it in a nice like text editor ... the title, you can leave for
+ * editing here", recording 15 Oct 15:37, 08:29 to 08:56; L13).
+ */
+@Composable
+internal fun EditableInSheet(
+    value: String,
+    canEdit: Boolean,
+    title: String,
+    saved: String,
+    onSave: suspend (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "",
+    display: @Composable (String) -> Unit,
+) {
+    val c = LocalPullsColors.current
+    val toaster = LocalToaster.current
+    val scope = rememberCoroutineScope()
+    var shown by remember(value) { mutableStateOf(value) }
+    var draft by remember { mutableStateOf(TextFieldValue(value)) }
+    var open by remember { mutableStateOf(false) }
+    fun finish() {
+        if (!open) return
+        open = false
+        val next = draft.text
+        if (next == shown) return
+        val before = shown
+        shown = next
+        scope.launch {
+            runCatching { onSave(next) }
+                .onSuccess { toaster.show(saved, cue = Cue.Success) }
+                .onFailure {
+                    shown = before
+                    toaster.show("Couldn't save: ${it.message ?: it}", cue = Cue.Error)
+                }
+        }
+    }
+    Box(
+        modifier.fillMaxWidth().then(
+            if (canEdit) Modifier.cueClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onClickLabel = "Edit $title") {
+                draft = TextFieldValue(shown, TextRange(shown.length))
+                open = true
+            } else Modifier,
+        ),
+    ) { display(shown) }
+    if (open) {
+        val focus = remember { FocusRequester() }
+        PullsSheet(
+            onClose = ::finish,
+            title = title,
+            tall = true,
+            footer = { CtaButton("Save", ::finish, Modifier.fillMaxWidth()) },
+        ) {
+            LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+            BasicTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                textStyle = PullsType.read.copy(color = c.text),
+                cursorBrush = SolidColor(c.accentTeal),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(focus),
+                decorationBox = { inner ->
+                    Box(
+                        Modifier.fillMaxWidth().defaultMinSize(minHeight = 240.dp).clip(RoundedCornerShape(PullsRadius.card)).background(c.raised).padding(16.dp),
+                        contentAlignment = Alignment.TopStart,
+                    ) {
+                        if (draft.text.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, style = PullsType.read, color = c.muted)
+                        inner()
+                    }
+                },
+            )
+        }
     }
 }

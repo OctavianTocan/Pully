@@ -161,7 +161,9 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
                     }
                 }
             } else {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                // The footer keeps the card's inside margin round Resolve, so the pill never meets the card's edge
+                // ("these comments have no margin on the resolve button", recording 15 Oct 15:37, 10:28 to 10:33; L19).
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!thread.pending) {
                         Row(
                             Modifier.weight(1f).height(44.dp).cueClickable(role = Role.Button) { replying = true },
@@ -176,7 +178,7 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
                         PillButton(
                             t("review.resolve"),
                             { val pull = session.pull ?: return@PillButton; actions.run({ session.repo.resolve(pull, thread.threadId) }) },
-                            Modifier.padding(end = 8.dp), enabled = !actions.busy, leading = { LuIcon(Lu.check, tint = c.text, size = 18.dp) },
+                            Modifier.padding(end = 10.dp), enabled = !actions.busy, leading = { LuIcon(Lu.check, tint = c.text, size = 18.dp) },
                         )
                     }
                 }
