@@ -93,6 +93,7 @@ function createAppWithRefRoutes(): H3 {
       url: event.url,
       method: event.req.method,
       json: () => event.req.json(),
+      body: event.req.body,
     }, process.cwd())
     if (native)
       return native

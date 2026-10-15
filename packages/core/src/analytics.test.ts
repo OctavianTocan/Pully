@@ -33,6 +33,15 @@ describe('cleanEvent', () => {
     expect(scrubText('bad token ghp_abcdefghijklmnopqrstuvwxyz0123 here')).toBe('bad token [redacted] here')
     expect(scrubText('ENOENT: open \'/home/tavi/repo/a.ts\'')).toBe('ENOENT: open \'[path]')
     expect(scrubText('at https://prs.example.com/assets/index.js:1:2')).toBe('at https://prs.example.com/assets/index.js:1:2')
+    expect(scrubText('at file:///srv/app/x.js:3:4')).toBe('at [path]')
+  })
+
+  it('redacts relative paths, e-mail addresses and quoted text, but keeps names', () => {
+    expect(scrubText('could not load src/private/plan.ts')).toBe('could not load [path]')
+    expect(scrubText('no access for tavi@example.com')).toBe('no access for [email]')
+    expect(scrubText('"ship the secret plan" is not valid JSON')).toBe('"…" is not valid JSON')
+    expect(scrubText('Cannot read properties of undefined (reading \'files\')')).toBe('Cannot read properties of undefined (reading \'files\')')
+    expect(scrubText('at com.octaviantocan.pulls.Repo.load(Repo.kt:12)')).toBe('at com.octaviantocan.pulls.Repo.load(Repo.kt:12)')
   })
 
   it('cuts strings, keeps longer stacks, and refuses an event over 8 KB', () => {
@@ -94,6 +103,36 @@ describe('createAnalyticsTracker', () => {
     advance(ANALYTICS_SESSION_GAP_MS)
     tracker.foreground()
     expect(tracker.session).toBe('s2')
+  })
+
+  it('does not put a failed batch back after analytics was turned off', async () => {
+    let fail!: () => void
+    const tracker = createAnalyticsTracker({
+      app: 'web',
+      version: '1.0.0',
+      device: 'dev',
+      transport: { send: () => new Promise<boolean>((resolve) => {
+        fail = () => resolve(false)
+      }) },
+    })
+    tracker.track('ui.tap')
+    const flushing = tracker.flush()
+    tracker.setEnabled(false)
+    tracker.setEnabled(true)
+    fail()
+    await flushing
+    expect(tracker.queued).toBe(0)
+  })
+
+  it('splits batches to stay under the beacon size', async () => {
+    const { tracker, sent } = setup()
+    for (let i = 0; i < 40; i++)
+      tracker.track('error.client', { stack: 's'.repeat(2000) })
+    await tracker.flush()
+    expect(sent.length).toBeGreaterThan(1)
+    for (const batch of sent)
+      expect(JSON.stringify(batch).length).toBeLessThan(ANALYTICS_LIMITS.batchBytes + 2100)
+    expect(sent.flat()).toHaveLength(40)
   })
 
   it('drops the queue and records nothing while turned off', () => {

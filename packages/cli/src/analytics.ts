@@ -34,6 +34,9 @@ function dayOf(iso: string): string {
   return iso.slice(0, 10)
 }
 
+/** Events held in memory while the day files cannot be written. */
+const MAX_PENDING = 5000
+
 let pending: StoredAnalyticsEvent[] = []
 let writing: Promise<void> = Promise.resolve()
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -55,13 +58,18 @@ export function flushAnalytics(env: Env = process.env): Promise<void> {
       const day = dayOf(event.rx)
       byDay.set(day, [...byDay.get(day) ?? [], JSON.stringify(event)])
     }
+    const written = new Set<string>()
     try {
       await mkdir(dir, { recursive: true })
-      for (const [day, lines] of byDay)
+      for (const [day, lines] of byDay) {
         await appendFile(join(dir, `${day}.ndjson`), `${lines.join('\n')}\n`)
+        written.add(day)
+      }
     }
     catch (error) {
-      // Analytics never breaks the work it measures.
+      // Analytics never breaks the work it measures. The days not written go with the next flush, so a disk that
+      // fills up for a moment loses nothing; past `MAX_PENDING` the oldest go first.
+      pending = [...batch.filter(event => !written.has(dayOf(event.rx))), ...pending].slice(-MAX_PENDING)
       console.error(`pulls.review: analytics could not be written (${error instanceof Error ? error.message : String(error)})`)
     }
   })
@@ -229,7 +237,10 @@ export function analyticsRange(input: { from?: unknown, to?: unknown, days?: unk
   const to = valid(input?.to) ?? dayOf(new Date(now).toISOString())
   const span = typeof input?.days === 'number' && input.days >= 1 ? Math.min(366, Math.floor(input.days)) : 30
   const from = valid(input?.from) ?? dayOf(new Date(Date.parse(`${to}T00:00:00Z`) - (span - 1) * DAY_MS).toISOString())
-  return from <= to ? { from, to } : { from: to, to: from }
+  const [first, last] = from <= to ? [from, to] : [to, from]
+  // Never more days than the files are kept for, however far apart `from` and `to` are.
+  const earliest = dayOf(new Date(Date.parse(`${last}T00:00:00Z`) - 365 * DAY_MS).toISOString())
+  return { from: first < earliest ? earliest : first, to: last }
 }
 
 interface Bucket { ms: number[], calls: number, failures: number }
@@ -243,16 +254,21 @@ const COUNTERS: Record<string, (tally: Tally, event: StoredAnalyticsEvent) => vo
     tally.screen(str(props.screen, 'unknown')).seconds += num(props.seconds)
   },
   'pr.open': (tally, event) => {
+    // The web also opens branches, commits and worktrees; the phone only opens pull requests and sends no kind.
+    if (str(event.props.kind, 'github-pr') !== 'github-pr')
+      return
     tally.totals.prsOpened++
     const day = tally.perDay.get(dayOf(event.rx))
     if (day)
       day.prsOpened++
   },
   'file.reviewed': (tally, event) => {
-    tally.totals.filesReviewed++
+    // Marking a group reviewed is one event carrying how many files it marked.
+    const files = Math.max(1, num(event.props.files))
+    tally.totals.filesReviewed += files
     const day = tally.perDay.get(dayOf(event.rx))
     if (day)
-      day.filesReviewed++
+      day.filesReviewed += files
   },
   'pr.load': (tally, event) => tally.sped('pr.load', event.app, num(event.props.ms)),
   'app.open': (tally, event) => tally.sped(`app.open ${str(event.props.start, 'cold')}`, event.app, num(event.props.ms)),

@@ -30,8 +30,11 @@ async function load() {
       summary.value = next
   }
   catch {
-    if (ask === asked)
-      failed.value = !summary.value
+    // The numbers on screen belong to another range now, so they go and the retry shows.
+    if (ask === asked) {
+      summary.value = undefined
+      failed.value = true
+    }
   }
 }
 watch(range, load, { immediate: true })

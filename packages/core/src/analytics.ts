@@ -38,6 +38,8 @@ export interface StoredAnalyticsEvent extends AnalyticsEvent {
 export const ANALYTICS_LIMITS = {
   /** Events in one `POST /api/events`. */
   batch: 200,
+  /** Serialized events one batch carries, below the 64 KiB browsers allow a beacon or keepalive request. */
+  batchBytes: 48 * 1024,
   /** One event, serialized. */
   eventBytes: 8 * 1024,
   /** Characters kept of a string value. */
@@ -61,9 +63,24 @@ const KEY_SHAPED = /\b(?:gh[pousr]_\w{20,}|github_pat_\w{20,}|sk-[\w-]{16,}|xox[
 /** An absolute path on a computer: `/home/…`, `~/…`, `C:\…`. URLs keep theirs. */
 const LOCAL_PATH = /(^|[\s'"(=])(?:~\/|\/(?:home|Users|root|tmp|var|etc|mnt|opt|private|data)\/|[A-Z]:\\)\S*/g
 
-/** Removes keys and paths from a string, then cuts it to `limit` characters. */
+/** A `file://` URL, which names a place on a computer. */
+const FILE_URL = /file:\/\/\S*/g
+/** A relative file path such as `src/a.ts`: folders, then a name with an extension. URLs keep theirs. */
+const RELATIVE_PATH = /(^|[\s'"(=:`])(?:[\w.-]+\/)+[\w.-]+\.[a-z\d]{1,8}\b/gi
+/** Quoted text; when it has a space in it, it is what someone typed or read rather than a name. */
+const QUOTED = /(['"`])([^'"`\n]*)\1/g
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
+
+/** Removes keys, paths, e-mail addresses and quoted text from a string, then cuts it to `limit` characters. */
 export function scrubText(value: string, limit: number = ANALYTICS_LIMITS.stringChars): string {
-  return value.replace(KEY_SHAPED, '[redacted]').replace(LOCAL_PATH, '$1[path]').slice(0, limit)
+  return value
+    .replace(KEY_SHAPED, '[redacted]')
+    .replace(FILE_URL, '[path]')
+    .replace(LOCAL_PATH, '$1[path]')
+    .replace(RELATIVE_PATH, '$1[path]')
+    .replace(EMAIL, '[email]')
+    .replace(QUOTED, (quoted, mark: string, inside: string) => /\s/.test(inside) ? `${mark}…${mark}` : quoted)
+    .slice(0, limit)
 }
 
 function cleanProps(raw: unknown): Record<string, AnalyticsValue> {
@@ -231,21 +248,34 @@ export function createAnalyticsTracker(options: AnalyticsTrackerOptions): Analyt
   let session = randomId()
   let backgroundAt: number | undefined
   let sending: Promise<void> | undefined
+  /** Goes up each time analytics is turned off, so a batch already on its way is never put back. */
+  let generation = 0
 
+  /** The front of the queue, up to `batch` events and `batchBytes`; always at least one event. */
   const take = () => {
-    const batch = queue.slice(0, ANALYTICS_LIMITS.batch)
-    queue = queue.slice(batch.length)
+    let bytes = 0
+    let count = 0
+    while (count < queue.length && count < ANALYTICS_LIMITS.batch) {
+      bytes += JSON.stringify(queue[count]).length + 1
+      if (count && bytes > ANALYTICS_LIMITS.batchBytes)
+        break
+      count++
+    }
+    const batch = queue.slice(0, count)
+    queue = queue.slice(count)
     return batch
   }
 
   async function sendAll(): Promise<void> {
+    const started = generation
     // Turning analytics off empties the queue, which ends the loop.
     while (queue.length) {
       const batch = take()
       const ok = await options.transport.send(batch).catch(() => false)
       if (!ok) {
-        // Back to the front, to go with the next flush.
-        queue = [...batch, ...queue].slice(-maxQueue)
+        // Back to the front, to go with the next flush, unless analytics was turned off meanwhile.
+        if (generation === started)
+          queue = [...batch, ...queue].slice(-maxQueue)
         return
       }
     }
@@ -290,8 +320,10 @@ export function createAnalyticsTracker(options: AnalyticsTrackerOptions): Analyt
     },
     setEnabled(next) {
       enabled = next
-      if (!next)
+      if (!next) {
         queue = []
+        generation++
+      }
     },
     get enabled() {
       return enabled

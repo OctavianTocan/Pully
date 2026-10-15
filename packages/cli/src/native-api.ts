@@ -1,6 +1,7 @@
 import type { DiffCache } from '@pulls.review/core/cache'
 import type { DiffSource, ReviewDraftTarget } from '@pulls.review/core/types'
 import type { OpenedDiff } from './stored-diff'
+import { Buffer } from 'node:buffer'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -46,6 +47,39 @@ export interface NativeRequest {
   url: URL
   method: string
   json: () => Promise<unknown>
+  /** The raw body, so a route can stop reading past a size limit. */
+  body?: ReadableStream<Uint8Array> | null
+}
+
+/** The most `POST /api/events` reads: a full batch of the largest events, with room for the envelope. */
+export const EVENTS_BODY_LIMIT = 2 * 1024 * 1024
+
+const TOO_LARGE = Symbol('too large')
+
+/** The body as JSON, `undefined` when it is not JSON, or `TOO_LARGE` past `limit` bytes (reading stops there). */
+async function readJsonUpTo(request: NativeRequest, limit: number): Promise<unknown> {
+  if (!request.body)
+    return request.json().catch(() => undefined)
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done)
+      break
+    size += value.byteLength
+    if (size > limit) {
+      await reader.cancel().catch(() => {})
+      return TOO_LARGE
+    }
+    chunks.push(value)
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+  }
+  catch {
+    return undefined
+  }
 }
 
 function androidDir(): string {
@@ -122,7 +156,9 @@ function androidRoute(path: string): Promise<Response> | undefined {
  * day files (`analytics.ts`). Answers 204 without waiting for the write.
  */
 async function analyticsEvents(request: NativeRequest): Promise<Response> {
-  const body = await request.json().catch(() => undefined)
+  const body = await readJsonUpTo(request, EVENTS_BODY_LIMIT).catch(() => undefined)
+  if (body === TOO_LARGE)
+    return new Response(null, { status: 413 })
   ingestAnalytics(body)
   return new Response(null, { status: 204 })
 }
