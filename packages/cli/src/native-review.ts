@@ -1,14 +1,13 @@
 import type { GithubClient, MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
 import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
 import type { FileAttentionService } from './jev-files'
+import type { PatchReader } from './stored-diff'
 import process from 'node:process'
 import {
-  assessMergeability,
   cancelAutoMerge,
   changePullRequestState,
   createGithubClient,
   createGithubSource,
-  defaultMergeCommit,
   enableAutoMerge,
   fetchGithubTokenMeta,
   fetchOpenPullRequests,
@@ -23,7 +22,9 @@ import { staticCredentials } from '@pulls.review/core/types'
 import { resolveGithubToken } from './credentials'
 import { sharedJev } from './jev'
 import { createFileAttention, JEV_FILES_OFF } from './jev-files'
+import { overviewValue, readStoredOverview, storeOverview } from './pr-store'
 import { serverSession } from './server-session'
+import { createPatchReader, MAX_PATCH_PATHS } from './stored-diff'
 
 /**
  * The phone's review routes beyond opening a diff: reviewed marks, full file content,
@@ -88,6 +89,13 @@ async function sourceOfKey(cwd: string, key: string): Promise<{ source: DiffSour
   if (ref.kind === 'paste')
     throw new Error('A pasted diff has no full files.')
   return { source: createGithubSource(ref, staticCredentials(await resolveGithubToken(process.env))), entry }
+}
+
+let patches: Promise<PatchReader> | undefined
+
+/** The patch reader over the server session's cache; it remembers the diffs `github-pr` just served. */
+export function sessionPatches(cwd: string): Promise<PatchReader> {
+  return patches ??= serverSession(cwd).then(session => createPatchReader(session.cache.diffs))
 }
 
 const MERGE_METHODS: MergeMethod[] = ['merge', 'squash', 'rebase']
@@ -164,12 +172,32 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return { old: old ?? null, new: current ?? null }
   },
 
-  /** The PR overview (checks, commits, timeline, viewer abilities) plus whether and how it can merge. */
-  'pr-overview': async function (_cwd, args) {
-    const { owner, repo, number } = pullOf(args)
-    const overview = await fetchPullRequestOverview(await client(), owner, repo, number)
-    const commits = Object.fromEntries(MERGE_METHODS.map(method => [method, defaultMergeCommit(overview, method)]))
-    return { overview, mergeability: assessMergeability(overview), defaultCommits: commits }
+  /**
+   * The PR overview (checks, commits, timeline, viewer abilities) plus whether and how it can
+   * merge, stored for next time. `cached: true` answers the stored one at once with when it was
+   * fetched (`storedAt`), or `null` when none is stored, without asking GitHub.
+   */
+  'pr-overview': async function (cwd, args) {
+    const pull = pullOf(args)
+    const { storage } = await serverSession(cwd)
+    if (args?.cached === true) {
+      const stored = await readStoredOverview(storage, pull)
+      return stored ? { ...stored.value, storedAt: stored.at } : null
+    }
+    const overview = await fetchPullRequestOverview(await client(), pull.owner, pull.repo, pull.number)
+    // A failed write only costs the next cached open; the phone still gets the overview.
+    return storeOverview(storage, pull, overview).catch(() => overviewValue(overview))
+  },
+
+  /** Hunks of a stored diff's files, for the ones a lite `github-pr` answer left out (`patchOmitted`). */
+  'diff-patches': async function (cwd, args) {
+    const key = text(args?.key)
+    const paths = Array.isArray(args?.paths) ? args.paths.filter((path): path is string => typeof path === 'string') : undefined
+    if (!key || !paths)
+      throw new Error('Loading patches needs the diff key and the paths.')
+    if (paths.length > MAX_PATCH_PATHS)
+      throw new Error(`Ask for at most ${MAX_PATCH_PATHS} paths at a time.`)
+    return { files: await (await sessionPatches(cwd)).read(key, paths) }
   },
 
   /**

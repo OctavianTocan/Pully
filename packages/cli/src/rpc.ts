@@ -2,7 +2,7 @@ import type { Env } from '@pulls.review/core/env'
 import type { AiAskThread, AiInboxChat, AiJobSnapshot, AiTaskRequest, AiTaskSnapshot, CliModelCatalog, MyPull } from '@pulls.review/core/local-rpc'
 import type { Driver } from 'unstorage'
 import type { TaskManager } from './ai/tasks'
-import { createCacheRepositories } from '@pulls.review/core/cache'
+import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { createLocalSource, readRepoInfo } from '@pulls.review/core/local'
 import { AI_FOLLOW_UPS, INBOX_KEY, LLM_ENGINES, LOCAL_RPC, MY_PULL_STATES, REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
 import { DiffsPayloadSchema } from '@pulls.review/core/types'
@@ -87,7 +87,7 @@ const diffKey = v.object({ key: v.string() })
 export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: LocalRpcOptions) {
   const source = (text: string) => createLocalSource({ cwd, target: text })
   const storage = createStorage({ driver })
-  const tasks = givenTasks ?? createTaskManager({ cache: createCacheRepositories(storage), storage, runners: defaultTaskRunners(getLens) })
+  const tasks = givenTasks ?? createTaskManager({ cache: createCacheRepositories(storage, SERVER_CACHE_BUDGET), storage, runners: defaultTaskRunners(getLens) })
   return [
     defineRpcFunction({ name: LOCAL_RPC.repoInfo, type: 'query', handler: () => readRepoInfo(cwd) }),
     defineRpcFunction({ name: LOCAL_RPC.sourceKey, type: 'query', args: [target], returns: v.string(), handler: ({ target }) => source(target).key() }),

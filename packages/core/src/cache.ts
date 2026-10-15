@@ -34,6 +34,14 @@ export interface CacheRepositories {
   briefs: BriefCache
 }
 
+/**
+ * The budget for the server's on-disk cache (`pulls.review` keeps every open pull request
+ * stored, plus what was opened). Every repositories object over that storage MUST use it:
+ * each one enforces its own budget, so one built with the browser-sized default would evict
+ * the server's entries and prune their review marks.
+ */
+export const SERVER_CACHE_BUDGET: CacheBudget = { maxBytes: 1024 * 1024 * 1024, maxEntries: 400 }
+
 /** Every collection shares one storage by key prefix (`pr-meta:*`, `review:*`, ...). */
 export function createCacheRepositories(storage: Storage, budget?: CacheBudget): CacheRepositories {
   const reviewMarks = createReviewMarks(storage)
