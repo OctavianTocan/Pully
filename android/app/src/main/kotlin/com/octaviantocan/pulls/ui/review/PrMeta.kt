@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -89,11 +91,16 @@ internal fun BranchRow(head: PrHead) {
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(name, style = PullsType.sm.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium), color = c.accentWashInk)
+            Text(name, style = PullsType.sm.copy(fontFamily = PullsFonts.display, fontWeight = FontWeight.Medium), color = c.accentWashInk, maxLines = 1, softWrap = false)
         }
     }
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (head.head.isNotBlank()) Chip(head.head, Modifier.weight(1f, fill = false))
+    // Always one line (H31): a long branch runs past the edge and the row scrolls sideways to read it, never wraps and
+    // never cuts the name short.
+    Row(
+        Modifier.fillMaxWidth().padding(top = 10.dp).horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (head.head.isNotBlank()) Chip(head.head, Modifier)
         if (head.head.isNotBlank() && head.base.isNotBlank()) LuIcon(Lu.to, tint = c.muted, size = 14.dp)
         if (head.base.isNotBlank()) Chip(head.base, Modifier)
     }

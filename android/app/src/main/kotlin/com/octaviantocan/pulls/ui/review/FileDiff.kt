@@ -410,7 +410,7 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
                 // column. Rows are measured intrinsically, so read the width from the window, not a
                 // SubcomposeLayout (BoxWithConstraints throws under intrinsic measurement).
                 val window = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
-                val column = if (ui.session.settings.layout == "split" && LocalConfiguration.current.screenWidthDp >= 640) window / 2f else window
+                val column = if (effectiveSplit(ui.session.settings.layout, file, LocalConfiguration.current.screenWidthDp)) window / 2f else window
                 val indent = with(density) { minOf(space * columns.toFloat(), column / 3f).toSp() }
                 Text(
                     if (lead > 0 && lead <= code.length) code.subSequence(lead, code.length) else code,

@@ -103,6 +103,8 @@ object Sounds {
         durationMs: Int? = null,
         material: Material? = null,
     ) {
+        // Felt as well as heard, whether or not sound is on (H18); the sound board's samples are only heard.
+        if (material == null) Haptics.cue(cue, emphasis)
         ready()?.play(cue, PlayOptions(emphasis = emphasis, direction = direction, input = input, key = key, durationMs = durationMs, material = material))
     }
 

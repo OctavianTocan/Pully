@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -60,6 +61,7 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -110,6 +112,9 @@ object PullsMotion {
     /** `ease-in-out`: icon and text swaps. */
     val InOut = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 
+    /** Gathering speed to the end: a page leaving the whole width, so the next one arriving on [SmoothOut] carries on its speed (H36). */
+    val Accelerate = CubicBezierEasing(0.4f, 0f, 1f, 1f)
+
     /** A dropdown opens from 0.97 and closes to 0.99. */
     const val DROPDOWN_OPEN_SCALE = 0.97f
     const val DROPDOWN_CLOSE_SCALE = 0.99f
@@ -136,8 +141,23 @@ object PullsMotion {
     /** How far a finger can drag the rows of a page, and where they have faded most (rule 88). */
     val FingerRange = 96.dp
 
+    /** The room between two pages that sit side by side, past the screen's own margins (H20, H36). */
+    val PageGap = 32.dp
+
     /** A throw faster than this, per second, changes the page however short the drag was (rule 105). */
     val Fling = 500.dp
+
+    /**
+     * How a sheet comes up and settles (H3): a spring that goes a little past its stop and comes back, instead of a
+     * straight glide. Damping 0.72 overshoots by about 3% of the way, and stiffness 320 settles in about 450ms.
+     */
+    val SheetSpring = spring<Float>(dampingRatio = 0.72f, stiffness = 320f)
+
+    /**
+     * How pages that sit side by side settle after a tab or a swipe (H20): no overshoot, so the edge of the next page
+     * never shows, and stiff enough to land in about 350ms, carrying the speed the finger let go at.
+     */
+    val PageSpring = spring<Float>(dampingRatio = 1f, stiffness = 380f)
 }
 
 /**
@@ -165,6 +185,8 @@ fun Modifier.softBlur(radius: Dp): Modifier =
  * person went (rule 105). A change [order] cannot know the way of, Back and a back swipe, comes
  * through [motion], which also holds a page under a back swipe (see [PageBack]). A centred title passes
  * [contentAlignment] `Center`, so the one leaving does not ride the edge of a container that shrinks around it.
+ * [reach] above 0 makes the pages travel that share of their width instead of 8dp, and [slow] takes 350ms in and 250ms
+ * out instead of 250 and 150: a sheet's pages move far and slow enough to see the way they went (H1).
  */
 @Composable
 fun <S> BlurSwitch(
@@ -173,9 +195,14 @@ fun <S> BlurSwitch(
     order: (S) -> Int,
     motion: PageMotion? = null,
     contentAlignment: Alignment = Alignment.TopStart,
+    reach: Float = 0f,
+    slow: Boolean = false,
     content: @Composable AnimatedContentScope.(S) -> Unit,
 ) {
-    val travel = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
+    val step = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
+    val travel = { width: Int -> if (reach > 0f) (width * reach).toInt() else step }
+    val inMs = if (slow) PullsMotion.MEDIUM else PullsMotion.FAST
+    val outMs = if (slow) PullsMotion.FAST else PullsMotion.QUICK
     val moving = rememberMotionEnabled()
     val change = remember { WayOfChange(target) }
     change.update(target, order, motion)
@@ -192,13 +219,13 @@ fun <S> BlurSwitch(
         transitionSpec = {
             if (!moving) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
             val way = change.way
-            ((fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { way * travel }) togetherWith
-                (fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { -way * travel }))
+            ((fadeIn(tween(inMs, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(inMs, easing = PullsMotion.SmoothOut)) { way * travel(it) }) togetherWith
+                (fadeOut(tween(outMs, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(outMs, easing = PullsMotion.SmoothOut)) { -way * travel(it) }))
                 // A screen of another height resizes the container on the same curve, so a sheet grows or shrinks with its page.
-                .using(SizeTransform(clip = true) { _, _ -> tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) })
+                .using(SizeTransform(clip = true) { _, _ -> tween(inMs, easing = PullsMotion.SmoothOut) })
         },
     ) { state ->
-        val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut) }, label = "blur") {
+        val blur by transition.animateDp(transitionSpec = { tween(inMs, easing = PullsMotion.SmoothOut) }, label = "blur") {
             if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurMedium
         }
         Box(Modifier.then(if (motion != null) Modifier.heldBy(motion, state) else Modifier).softBlur(blur)) { content(state) }
@@ -382,6 +409,12 @@ class PageSlide<T> internal constructor(initial: T) {
     internal var step = 0f
     internal var reach = 0f
 
+    /** The pages sit side by side: the rows travel the whole width and do not fade or blur (H36). */
+    internal var full = false
+
+    /** The window's width in px, which every row travels alike whatever its own width, so the page leaves as one. */
+    internal var width = 0f
+
     /**
      * The rows follow a drag of [delta] pixels, up to [limit] either way. With no page before ([back] false) or after
      * ([forward] false) they do not leave their place that way, but always come back under a finger that returns.
@@ -446,8 +479,10 @@ class PageSlide<T> internal constructor(initial: T) {
 private const val SMOOTH_OUT_START = 4.55f
 
 @Composable
-fun <T> rememberPageSlide(target: T, order: (T) -> Int): PageSlide<T> {
+fun <T> rememberPageSlide(target: T, order: (T) -> Int, full: Boolean = false): PageSlide<T> {
     val slide = remember { PageSlide(target) }
+    slide.full = full
+    slide.width = LocalWindowInfo.current.containerSize.width.toFloat()
     val motion = rememberMotionEnabled()
     val density = LocalDensity.current
     slide.step = with(density) { PullsMotion.SlideDistance.toPx() }
@@ -475,7 +510,7 @@ fun <T> rememberPageSlide(target: T, order: (T) -> Int): PageSlide<T> {
             // The way the pages sit, which is the way a swipe that made this change went (rule 105).
             val way = pageWay(order(slide.shown), order(target)).toFloat()
             if (slide.span <= 0f) slide.span = slide.step
-            slide.travel.animateTo(-way, tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut))
+            slide.travel.animateTo(-way, tween(PullsMotion.QUICK, easing = if (slide.full) PullsMotion.Accelerate else PullsMotion.SmoothOut))
             slide.shown = target
             slide.finger = 0f
             slide.span = 0f
@@ -489,9 +524,19 @@ fun <T> rememberPageSlide(target: T, order: (T) -> Int): PageSlide<T> {
     return slide
 }
 
-/** The rows of a [PageSlide]: following the finger, then fading, blurring and sliding by how far the change has gone. Reads the animation in the layer, so no frame recomposes. */
+/**
+ * The rows of a [PageSlide]: following the finger, then fading, blurring and sliding by how far the change has gone.
+ * With pages side by side ([PageSlide.full]) they only slide, the whole width and a gap, so the page goes out of sight
+ * and the next comes in from the edge. Reads the animation in the layer, so no frame recomposes.
+ */
 fun Modifier.pageSlide(slide: PageSlide<*>): Modifier = graphicsLayer {
     val t = slide.travel.value
+    if (slide.full) {
+        translationX = t * (slide.width + PullsMotion.PageGap.toPx()) + slide.finger
+        alpha = 1f
+        renderEffect = null
+        return@graphicsLayer
+    }
     val pull = (abs(slide.finger) / PullsMotion.FingerRange.toPx()).coerceIn(0f, 1f)
     val span = if (slide.span > 0f) slide.span else PullsMotion.SlideDistance.toPx()
     translationX = t * span + slide.finger

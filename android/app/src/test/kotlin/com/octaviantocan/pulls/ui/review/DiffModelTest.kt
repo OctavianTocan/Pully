@@ -90,10 +90,10 @@ class DiffModelTest {
     }
 
     @Test
-    fun splitIsForcedUnifiedWhenNarrowOrOneSided() {
+    fun splitIsUnifiedOnlyWhenOneSided() {
         val both = file("x.ts", add = 2, del = 1)
         assertTrue(effectiveSplit("split", both, 900))
-        assertFalse(effectiveSplit("split", both, 600))
+        assertTrue(effectiveSplit("split", both, 400))
         assertFalse(effectiveSplit("unified", both, 900))
         assertFalse(effectiveSplit("split", file("y.ts", add = 3, del = 0), 900))
     }

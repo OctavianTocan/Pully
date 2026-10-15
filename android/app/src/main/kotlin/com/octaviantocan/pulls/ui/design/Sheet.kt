@@ -96,13 +96,13 @@ import kotlinx.coroutines.launch
  * [footer] stays on screen at either height. [expandable] off keeps a sheet at its normal height. [back]
  * swaps the close X for a back arrow.
  *
- * The sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the
- * panel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in
- * 350ms, both on the smooth-out curve. It follows a finger: dragged up from its normal height it goes to
- * the tall one, down from the tall height to the normal one, and down from the normal height it closes.
+ * The sheet is the kit's own window, not Material's. It rises from below the screen on a spring with a little bounce
+ * while fading in through a 2px blur, and leaves in 350ms on the smooth-out curve (rule 73, H3). It follows a finger:
+ * dragged up from its normal height it goes to the tall one, down from the tall height to the normal one, and down
+ * from the normal height it closes, settling on the same spring at the speed it was let go. Only a drag that starts
+ * with the content at its top moves the sheet: scrolling the content back up to its top, or a fling that runs into
+ * it, never takes the sheet down with it (H2). A sheet is always a bottom sheet, wherever it was opened from (H6).
  * A field that takes the keyboard lifts it to the tall height, so the field never sits behind the keyboard.
- * [fromTop] is for a sheet a finger pulled down (Commands from the Inbox): it comes down from the top, with
- * the pull, and goes back up when closed (rule 105).
  */
 @Composable
 fun PullsSheet(
@@ -114,11 +114,10 @@ fun PullsSheet(
     scroll: ScrollState? = null,
     expandable: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
-    fromTop: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollState = scroll ?: rememberScrollState()
-    SheetHost(onClose, onBack = back, fromTop = fromTop) { position, dismiss ->
+    SheetHost(onClose, onBack = back) { position, dismiss ->
         SheetPanel(position, dismiss, full, expandable) {
             SheetHeader(
                 leading = { if (back != null) FloatIcon(Lu.back, "Back", back) else FloatIcon(Lu.close, "Close", dismiss) },
@@ -140,14 +139,14 @@ fun PullsSheet(
     scroll: ScrollState? = null,
     expandable: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
-    fromTop: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
-) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, fromTop, content)
+) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, content)
 
 /**
  * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze
  * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns
- * into ← and the body slides sideways, 250ms through a 3px blur, exactly like a page change. [parent]
+ * into ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow
+ * enough to see which way it went: forward from the right, ← to the right (H1). [parent]
  * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller
  * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.
  * At its normal height the panel grows or shrinks to the next page's height as the body slides.
@@ -173,10 +172,10 @@ fun <P : Any> PullsPagedSheet(
  * The system back goes to [onBack] when the sheet has a page to go back to, and closes the sheet when it has not.
  */
 @Composable
-private fun SheetHost(onClose: () -> Unit, onBack: (() -> Unit)? = null, fromTop: Boolean = false, panel: @Composable (SheetPosition, () -> Unit) -> Unit) {
+private fun SheetHost(onClose: () -> Unit, onBack: (() -> Unit)? = null, panel: @Composable (SheetPosition, () -> Unit) -> Unit) {
     val motion = rememberMotionEnabled()
     val scope = rememberCoroutineScope()
-    val position = remember { SheetPosition(fromTop) }
+    val position = remember { SheetPosition() }
     val dismiss: () -> Unit = {
         // The panel leaves first and the caller is told once it has gone.
         if (position.startClosing()) scope.launch {
@@ -215,14 +214,14 @@ private fun SheetWindow() {
  * ([height]); [offset] is how far it is pushed down from fully up, in px, while it is on its way or under
  * a finger. It rests at two stops (rule 77): fully up, its tall height, and its normal height, where it
  * shows its content up to half the window (half the window for a [fills] sheet). [reveal] is 0 to 1 and
- * drives the fade, the 2px blur and the scrim. Opening and closing take 400ms and 350ms (rule 73); a
- * finger moves [offset] directly and the panel settles on release. Once the panel rests it is pinned to
- * its stop: [shift] then works the stop out from the content's size on every frame, so a panel whose
- * content grows or shrinks (a page of another height sliding in) keeps its top where it belongs. A sheet
- * [fromTop] comes down from above the screen instead, and goes back up unless a finger threw it down.
+ * drives the fade, the 2px blur and the scrim. It opens and settles on [PullsMotion.SheetSpring] and closes in 350ms
+ * (rule 73, H3); a finger moves [offset] directly and the panel settles on release, carrying the finger's speed into the
+ * spring. Once the panel rests it is pinned to its stop: [shift] then works the stop out from the content's size on
+ * every frame, so a panel whose content grows or shrinks (a page of another height sliding in) keeps its top where it
+ * belongs.
  */
 @Stable
-internal class SheetPosition(private val fromTop: Boolean = false) {
+internal class SheetPosition {
     var offset by mutableFloatStateOf(0f)
         private set
     var reveal by mutableFloatStateOf(0f)
@@ -238,14 +237,11 @@ internal class SheetPosition(private val fromTop: Boolean = false) {
     /** Half the window: the most a sheet shows at its normal height. */
     var half = 0f
 
-    /** The window's height: a sheet that comes from the top starts this far up, wholly above the screen. */
+    /** The window's height. */
     var window = 0f
 
-    /** A finger threw the sheet down to close it, so it leaves downward whichever way it came in. */
-    private var thrownDown = false
-
-    /** Where the panel is when it is off the screen on the side it came from (or leaves by). */
-    private val away: Float get() = if (fromTop && !thrownDown) -maxOf(window, height.toFloat()) else height.toFloat()
+    /** Where the panel is when it is off the screen, below it. */
+    private val away: Float get() = height.toFloat()
 
     /** The sheet has a tall height to lift to; without one it rests at its normal height only. */
     var expandable = true
@@ -386,11 +382,16 @@ internal class SheetPosition(private val fromTop: Boolean = false) {
             return
         }
         offset = away
-        glide(scope, rest, PullsMotion.SLOW, true)
+        glide(scope, rest, PullsMotion.SLOW, true, bounce = true)
         revealJob = scope.launch { animate(0f, 1f, animationSpec = tween(PullsMotion.SLOW, easing = PullsMotion.SmoothOut)) { v, _ -> reveal = v } }
     }
 
-    private fun glide(scope: CoroutineScope, target: Float, ms: Int, motion: Boolean) {
+    /**
+     * Moves the panel to [target]: on [PullsMotion.SheetSpring] when it [bounce]s (opening, and settling after a finger,
+     * starting at the finger's [velocity]), else in [ms] on the smooth-out curve. The spring never lifts the panel above
+     * fully up, where there is no paper under it.
+     */
+    private fun glide(scope: CoroutineScope, target: Float, ms: Int, motion: Boolean, bounce: Boolean = false, velocity: Float = 0f) {
         offsetJob?.cancel()
         unpin()
         goal = target
@@ -400,7 +401,8 @@ internal class SheetPosition(private val fromTop: Boolean = false) {
             return
         }
         offsetJob = scope.launch {
-            animate(offset, target, animationSpec = tween(ms, easing = PullsMotion.SmoothOut)) { v, _ -> offset = v }
+            if (bounce) animate(offset, target, initialVelocity = velocity, animationSpec = PullsMotion.SheetSpring) { v, _ -> offset = maxOf(v, 0f) }
+            else animate(offset, target, animationSpec = tween(ms, easing = PullsMotion.SmoothOut)) { v, _ -> offset = v }
             // It got where it was going: from here the stop follows the panel's size.
             pinned = !closing && abs(target - rest) < 2f
         }
@@ -443,15 +445,14 @@ internal class SheetPosition(private val fromTop: Boolean = false) {
         val target = sheetTarget(offset, velocity, speed, rests, gone)
         if (target >= gone) {
             // Thrown down: it carries on down, the way the finger went (rule 105).
-            thrownDown = true
             dismiss()
             return
         }
         tall = expandable && target < 1f
-        glide(scope, target, PullsMotion.FAST, motion)
+        glide(scope, target, PullsMotion.FAST, motion, bounce = true, velocity = velocity)
     }
 
-    /** Out in 350ms, fading through the blur as it goes: down, or back up for a sheet that came from the top. */
+    /** Out in 350ms, down, fading through the blur as it goes. */
     suspend fun hide(motion: Boolean) {
         offsetJob?.cancel()
         revealJob?.cancel()
@@ -486,30 +487,36 @@ internal fun sheetTarget(offset: Float, velocity: Float, speed: Float, rests: Li
 
 /**
  * Lets the panel follow the content: scrolling up raises a lowered sheet first, and pulling down at the top of the
- * content lowers it. A fling settles the panel only when the finger moved it, so a fling inside a list scrolls the list.
+ * content lowers it, but only when the drag began with the content already at its top. A drag that scrolled the content
+ * leaves the sheet where it is when the content reaches its top, and so does a fling that runs into the top: the sheet
+ * moves when it is taken hold of, never because a scroll ran out (H2). A fling settles the panel only when the finger
+ * moved it, so a fling inside a list scrolls the list.
  */
-private class SheetScroll(
+internal class SheetScroll(
     private val position: SheetPosition,
     private val scope: CoroutineScope,
     private val speed: Float,
     private val motion: () -> Boolean,
     private val dismiss: () -> Unit,
 ) : NestedScrollConnection {
+    /** This drag has scrolled the content, so it belongs to the content until the finger lifts. */
+    private var scrolledContent = false
+
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
         if (available.y < 0f && position.canRise && source == NestedScrollSource.UserInput) Offset(0f, position.dragBy(available.y)) else Offset.Zero
 
-    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
-        if (available.y > 0f && source == NestedScrollSource.UserInput) Offset(0f, position.dragBy(available.y)) else Offset.Zero
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        if (consumed.y != 0f) scrolledContent = true
+        return if (available.y > 0f && !scrolledContent) Offset(0f, position.dragBy(available.y)) else Offset.Zero
+    }
 
     override suspend fun onPreFling(available: Velocity): Velocity {
+        // The finger is up: the next drag decides afresh.
+        scrolledContent = false
         if (!position.held) return Velocity.Zero
         position.settle(scope, available.y, speed, motion(), dismiss)
         return available
-    }
-
-    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-        if (available.y > speed) position.settle(scope, available.y, speed, motion(), dismiss)
-        return Velocity.Zero
     }
 }
 
@@ -567,7 +574,7 @@ internal fun SheetPanel(
     } else {
         Modifier.heightIn(max = tall)
     }
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().themeWipe()) {
         Box(
             Modifier.fillMaxSize().graphicsLayer { alpha = position.scrim }.background(c.scrim)
                 .cueClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = "Close", role = Role.Button) { dismiss() },
@@ -662,6 +669,9 @@ private fun SheetPage(scroll: ScrollState, full: Boolean, footer: (@Composable C
     }
 }
 
+/** How far a sheet's page travels as it changes, as a share of the sheet's width (H1). */
+private const val SHEET_PAGE_REACH = 0.34f
+
 /** The panel of a [PullsPagedSheet]: the header changes with the page, and the page slides through [BlurSwitch]. */
 @Composable
 internal fun <P : Any> PagedSheetPanel(
@@ -684,7 +694,7 @@ internal fun <P : Any> PagedSheetPanel(
             leading = { if (up != null) FloatIcon(Lu.back, "Back", { onPage(up) }) else FloatIcon(Lu.close, "Close", dismiss) },
             title = { BlurSwitch(page, order = depth, contentAlignment = Alignment.Center) { SheetTitle(title(it)) } },
         )
-        BlurSwitch(page, Modifier.weight(1f, fill = full), order = depth) { p ->
+        BlurSwitch(page, Modifier.weight(1f, fill = full), order = depth, reach = SHEET_PAGE_REACH, slow = true) { p ->
             val pageFooter: (@Composable ColumnScope.() -> Unit)? = footer?.let { f -> { f(p) } }
             SheetPage(scrolls.getOrPut(p) { ScrollState(0) }, full, pageFooter, if (full) Modifier.fillMaxSize() else Modifier) { content(p) }
         }

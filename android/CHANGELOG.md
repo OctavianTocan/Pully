@@ -12,6 +12,25 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.29.0
+
+Screens slide side by side, sheets bounce, and taps are felt.
+
+- Inbox and Tours sit side by side: tap or swipe between them. Summary, Commits and Conversation, and the files in Changes, slide whole too, with no fade.
+- Pages inside a sheet move far enough to see which way they went, and Back goes to the right.
+- Sheets rise from the bottom with a little bounce, Commands too, and scrolling a sheet's content back up no longer closes it.
+- Taps, swipes and results vibrate. Settings has a Vibration switch under Sounds.
+- Switching Light and Dark sweeps the new look in from a corner.
+- Settings shows the model's name, keeps Server under Advanced at the bottom, drops three explanations, and lets you pick Split on any phone.
+- Profile: tap your photo or name for your GitHub profile. Commands and the server address are gone, and the list sits closer.
+- Inbox: names stay on one line, a stacked pull request shows its place, like 2/10, under its number, and holding a row opens its actions.
+- The search dims the list as soon as you tap it, and the dim lifts a little slower.
+- Repository headings no longer slide over the filter chips.
+- A repository's page opens with its list straight away, because the server keeps it ready.
+- Tours: a repository heading opens that repository's tours, and a finished tour shows a tick without "Read".
+- A pull request shows its size at once. Its branch stays on one line and scrolls sideways, and only the part under the tabs swipes between them.
+- Tapping a title puts the caret where you tapped, and the rest of the page fades while you edit.
+
 ## 0.28.0
 
 Updates are required now, and tours you have opened load at once.

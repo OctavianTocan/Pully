@@ -146,7 +146,7 @@ internal fun PrDiffScreen(
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
     // Another file arrives as a page (rule 88): for a beat the rows still hold the one that is leaving.
-    val slide = rememberPageSlide(file?.path, order = { p -> files.indexOfFirst { it.path == p } })
+    val slide = rememberPageSlide(file?.path, order = { p -> files.indexOfFirst { it.path == p } }, full = true)
     val shown = files.firstOrNull { it.path == slide.shown } ?: file
 
     Box(Modifier.fillMaxSize().background(c.base)) {

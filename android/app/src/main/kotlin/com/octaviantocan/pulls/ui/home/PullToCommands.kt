@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.sound.Haptics
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -44,7 +45,9 @@ internal fun PullToCommands(onTrigger: () -> Unit, modifier: Modifier = Modifier
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (pull > 0f && available.y < 0f) {
                     val used = max(available.y, -pull)
+                    val armed = pull >= threshold
                     pull += used
+                    if (armed && pull < threshold) Haptics.threshold()
                     return Offset(0f, used)
                 }
                 return Offset.Zero
@@ -54,7 +57,10 @@ internal fun PullToCommands(onTrigger: () -> Unit, modifier: Modifier = Modifier
                 if (source == NestedScrollSource.UserInput && available.y > 0f) {
                     // Resistance: the further it goes, the less each pixel of finger moves it.
                     val resisted = available.y * (1f - pull / limit).coerceIn(0.15f, 1f)
+                    val armed = pull >= threshold
                     pull = (pull + resisted).coerceAtMost(limit)
+                    // Felt when letting go would open Commands (H18).
+                    if (!armed && pull >= threshold) Haptics.threshold()
                     return Offset(0f, available.y)
                 }
                 return Offset.Zero

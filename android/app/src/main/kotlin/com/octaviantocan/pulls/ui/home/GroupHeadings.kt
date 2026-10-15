@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
@@ -71,7 +72,8 @@ internal fun pinnedGroup(visible: List<Pair<Any, Int>>, headingHeight: Int, grou
  * A list grouped by repository whose heading stays pinned at the top while its rows scroll under it (Tavi, 14 Oct: "I
  * need the project row to stay sticky as you scroll down"), the next heading pushing it away as it arrives. The rows
  * fade out just below the pinned heading, as under any pinned edge (rule 74). [list] is the LazyColumn, given the
- * modifier that fades it; headings in it are keyed with [groupKey].
+ * modifier that fades it; headings in it are keyed with [groupKey]. The pinned heading is cut at the top of the list, so
+ * one pushed away by the next goes under the edge and never over the chips above the list (H13).
  */
 @Composable
 internal fun PinnedHeadings(
@@ -86,7 +88,7 @@ internal fun PinnedHeadings(
         derivedStateOf { pinnedGroup(state.layoutInfo.visibleItemsInfo.map { it.key to it.offset }, height, groups) }
     }
     val band = with(LocalDensity.current) { PullsMotion.EdgeTop.toPx() }
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().clipToBounds()) {
         list(
             Modifier.edgeFade(
                 top = PullsMotion.EdgeTop,

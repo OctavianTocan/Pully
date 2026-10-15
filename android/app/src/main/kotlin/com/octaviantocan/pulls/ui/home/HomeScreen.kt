@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
+import kotlinx.coroutines.CoroutineScope
+import com.octaviantocan.pulls.data.PullSizes
 import android.content.Context
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -13,6 +15,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import com.octaviantocan.pulls.sound.Haptics
 import com.octaviantocan.pulls.sound.cued
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
@@ -53,6 +56,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -78,6 +82,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -110,15 +116,17 @@ import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
-import com.octaviantocan.pulls.ui.design.BlurSwitch
+import com.octaviantocan.pulls.ui.design.SidePages
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.Toaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.design.OkDot
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.ProfileDot
 import com.octaviantocan.pulls.ui.design.ProgressRing
@@ -237,6 +245,8 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val settings = remember { AppSettings.get(context) }
     val hidden = settings.hiddenRepos
     val pulls = remember(everything, hidden) { everything?.inShownRepos(hidden) }
+    // A pull request opened from here shows its size at once (H29).
+    LaunchedEffect(everything) { everything?.forEach { PullSizes.put(it.owner, it.repo, it.number, it.additions, it.deletions, it.changedFiles) } }
     val needle = ui.search.trim().lowercase()
     // An archived pull request whose head commit moved since comes back, so only the still-current entries count.
     val archived = remember(pulls, archive.entries) { archive.active(pulls.orEmpty()) }
@@ -307,13 +317,16 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         toaster.show("Archived #${pull.number}", "Undo", Cue.Success) { archive.restore(key) }
     }
 
+    // The pull request whose row is held: its actions are open (H17).
+    var held by remember { mutableStateOf<PullRow?>(null) }
     var searchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
-            // The chips and the activity strip belong to the Inbox, so they slide away with it instead of popping (rule 105).
-            BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth(), order = { it }) { tab ->
+            // The Inbox and Tours sit side by side: a tab or a swipe moves both, and the chips and the activity strip belong
+            // to the Inbox, so they go with it (H20, rule 105).
+            SidePages(ui.tab, listOf(0, 1), { ui.tab = it }, Modifier.weight(1f).fillMaxWidth()) { tab ->
                 if (tab == 0) Column(Modifier.fillMaxSize()) {
                     FilterChips(ui.filter, inbox.counts, sort, onSort = { sortOpen = true }) { ui.filter = it }
                     ActivityStrip(workTasks, { activityOpen = true })
@@ -322,8 +335,9 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(),
                         sort = sort, groupBy = groupBy, folded = layout.folded, onFold = { section -> layout.toggle(section.key) },
-                        onRetry = reload, onCommands = { Commands.open(fromTop = true) },
+                        onRetry = reload, onCommands = { Commands.open() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
+                        onHold = { held = it },
                     )
                 } else Box(Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
@@ -331,32 +345,29 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         pulls = everything.orEmpty(),
                         tasks = workTasks,
                         onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) },
-                        onRepo = { owner, name -> nav.openRepo(owner, name) },
+                        // From Tours a repository's heading opens its tours, not its pull requests (H26).
+                        onRepo = { owner, name -> nav.openRepoTours(owner, name) },
                         folded = if (needle.isEmpty()) layout.folded else emptySet(),
                         onFold = if (needle.isEmpty()) layout::toggle else null,
-                        onDismiss = { entry ->
-                            // A tour still being written is stopped; a finished one leaves the list (it stays saved on the server).
-                            val serverKey = pullKey(entry.owner, entry.repo, entry.number)
-                            val running = runningTaskId(workTasks, serverKey, "tour")
-                            val taskIds = workTasks.filter { it.kind == "tour" && it.key == serverKey }.map { it.id }
-                            if (running != null) {
-                                scope.launch { repo.cancelTask(running) }
-                                // A tour stopped before it had a stop has nothing to list; one that had keeps its row.
-                                if (entry.stops > 0) tours.upsert(entry.copy(writing = false)) else tours.dismiss(entry.key, taskIds)
-                                toaster.show("Stopped the tour for #${entry.number}")
-                            } else {
-                                tours.dismiss(entry.key, taskIds)
-                                toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
-                            }
-                        },
+                        onDismiss = { entry -> dismissTour(entry, workTasks, tours, repo, scope, toaster) },
                     )
                 }
             }
         }
         // While the search waits for its first letter the list dims a little, and a tap on it puts the keyboard away; once
         // something is typed the matches are what the search is for, so they are shown at full strength and take taps.
-        val waiting = searchFocused && ui.search.isEmpty() && WindowInsets.ime.getBottom(LocalDensity.current) > 0
-        val dim by animateFloatAsState(if (waiting) 1f else 0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "search-dim")
+        // The dim starts with the tap, not when the keyboard is up, and comes in quickly; it goes a little slower than it
+        // came, as the pill settles back down (H12). Putting the keyboard away with Back lifts it too.
+        val imeUp = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        var imeShown by remember { mutableStateOf(false) }
+        LaunchedEffect(searchFocused) { if (!searchFocused) imeShown = false }
+        SideEffect { if (searchFocused && imeUp) imeShown = true }
+        val waiting = searchFocused && ui.search.isEmpty() && (imeUp || !imeShown)
+        val dim by animateFloatAsState(
+            if (waiting) 1f else 0f,
+            if (waiting) tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut) else tween(PullsMotion.MEDIUM, easing = PullsMotion.InOut),
+            label = "search-dim",
+        )
         if (dim > 0f) {
             Box(
                 Modifier.fillMaxSize().graphicsLayer { alpha = dim * SEARCH_DIM }.background(c.scrim)
@@ -382,6 +393,15 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         }
         if (activityOpen) {
             ActivitySheet(workTasks, onOpen = { ref -> nav.openTarget(OpenTarget.Pull(ref.owner, ref.repo, ref.number, "github.com")) }, onClose = { activityOpen = false })
+        }
+        held?.let { pull ->
+            PullActionsSheet(
+                pull, archived = Triage.key(pull) in archived,
+                onTour = { nav.openTour(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
+                onRepo = { nav.openRepo(pull.owner, pull.repo) },
+                onArchive = { archivePull(pull) },
+                onClose = { held = null },
+            )
         }
         if (sortOpen) {
             SortSheet(sort, groupBy, jev = sync.jev, onPick = layout::updateSort, onGroup = layout::updateGroupBy, onClose = { sortOpen = false })
@@ -506,6 +526,7 @@ internal fun InboxList(
     onCommands: () -> Unit,
     onOpen: (PullRow) -> Unit,
     onArchive: (PullRow) -> Unit,
+    onHold: (PullRow) -> Unit = {},
     onRepo: (Triage.RepoGroup) -> Unit,
 ) {
     val c = LocalPullsColors.current
@@ -539,7 +560,8 @@ internal fun InboxList(
             groupOf = { key -> sectionOfRow[key] },
             heading = { key, modifier ->
                 sections.firstOrNull { it.key == key }?.let { section ->
-                    GroupHeading(section.label, section.pulls.size, first = false, folded = isFolded(section), onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = modifier, line = true)
+                    // The first heading keeps its own 6dp top when it pins, so it does not jump as it sticks (H13).
+                    GroupHeading(section.label, section.pulls.size, first = sections.firstOrNull()?.key == key, folded = isFolded(section), onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = modifier, line = true)
                 }
             },
         ) { fade ->
@@ -579,6 +601,7 @@ internal fun InboxList(
                                 onArchive = { onArchive(pull) },
                                 archived = key in archived,
                                 modifier = Modifier.animateItem(),
+                                onLongClick = { onHold(pull) },
                             ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)], repo = rowRepos["${pull.owner}/${pull.repo}"]) }
                         }
                     }
@@ -617,7 +640,12 @@ internal fun SwipeRow(
     var width by remember { mutableFloatStateOf(1f) }
     val threshold = with(density) { 110.dp.toPx() }
     val ramp = with(density) { 60.dp.toPx() }
-    val drag = rememberDraggableState { delta -> dx = (dx + delta).coerceIn(-width, width) }
+    val drag = rememberDraggableState { delta ->
+        val armed = abs(dx) > threshold
+        dx = (dx + delta).coerceIn(-width, width)
+        // Felt the moment letting go would act, and again if the finger takes it back (H18).
+        if (armed != abs(dx) > threshold) Haptics.threshold()
+    }
     val ink = c.shadow
     Box(
         modifier
@@ -676,7 +704,11 @@ internal fun SwipeRow(
                     }
                 })
                 .then(
-                    if (onLongClick != null) Modifier.combinedClickable(role = Role.Button, onClickLabel = label, onClick = cued(onClick = onClick), onLongClickLabel = "More actions", onLongClick = onLongClick)
+                    if (onLongClick != null) Modifier.combinedClickable(
+                        role = Role.Button, onClickLabel = label, onClick = cued(onClick = onClick), onLongClickLabel = "More actions",
+                        // The hold is felt through the app's own vibration, which Settings can turn off (H18).
+                        hapticFeedbackEnabled = false, onLongClick = { Haptics.hold(); onLongClick() },
+                    )
                     else Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick),
                 ),
         ) { content() }
@@ -691,7 +723,9 @@ private val SWIPE_BLUR = 1.3.dp
 
 /**
  * `.pr`: number and title on top; author, checks, diff size and age on a second line. Under a kind's heading, rows from
- * several repositories mix, so the second line starts with the [repo] name, muted like the author it comes before.
+ * several repositories mix, so the second line starts with the [repo] name, muted like the author it comes before. A
+ * stacked pull request says where it sits under its number, "2/10" as GitHub counts it (H16), so the second line has
+ * room for the name: one line, always across (H15), cut only when it cannot fit at all.
  */
 @Composable
 internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?, repo: String? = null) {
@@ -710,15 +744,17 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
             .padding(horizontal = 16.dp, vertical = 13.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("#${pull.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
+        Column(Modifier.width(52.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("#${pull.number}", style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
+            StackTag(pull)
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(title, style = PullsType.row, color = c.text)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
-                    // A name wraps whole inside its column rather than being cut (rule 90).
-                    Text(if (repo != null) "$repo · ${pull.author}" else pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
-                    StackTag(pull)
+                    // One line, across (H15): a name never stacks its letters in a narrow column.
+                    Text(if (repo != null) "$repo · ${pull.author}" else pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                     WorkMark(work)
                 }
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) { CheckMark(pull) }
@@ -730,18 +766,26 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
 }
 
 /**
- * A stacked pull request's place in its stack, after the author: the layers glyph, then "on #241" for the layer it
- * sits on. The bottom layer shows the glyph alone. The PR page's mark and Stack sheet show the whole stack.
+ * A stacked pull request's place in its stack, under its number: the layers glyph and "2/10", its layer and how many
+ * there are, counted from the bottom as GitHub does (H16). The PR page's mark and Stack sheet show the whole stack.
  */
 @Composable
 private fun StackTag(pull: PullRow) {
     val stack = pull.stack ?: return
     val c = LocalPullsColors.current
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        LuIcon(Lu.layers, tint = c.muted, size = 15.dp, contentDescription = if (stack.below == null) "Bottom of a stack" else null)
-        stack.below?.let { Text("on #$it", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1) }
+    val place = stackPlace(stack)
+    Row(
+        Modifier.semantics(mergeDescendants = true) { contentDescription = place?.let { "Layer ${stack.position} of ${stack.size} in a stack" } ?: "In a stack" },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        LuIcon(Lu.layers, tint = c.muted, size = 14.dp)
+        place?.let { Text(it, style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false) }
     }
 }
+
+/** "2/10": a layer's place in its stack, or null when the size is not known. */
+internal fun stackPlace(stack: com.octaviantocan.pulls.data.PullStack): String? =
+    if (stack.size >= stack.position && stack.size > 1 && stack.position > 0) "${stack.position}/${stack.size}" else null
 
 /** The CI mark: a red cross when checks fail or the branch conflicts, a green tick when they pass, an amber dot while they run. */
 @Composable
@@ -874,7 +918,7 @@ internal fun ToursList(
             line = pinned || name in folded,
         )
     }
-    PinnedHeadings(state, groupOf = { key -> groupOfRow[key] }, heading = { name, modifier -> Heading(name, first = false, modifier, pinned = true) }) { fade ->
+    PinnedHeadings(state, groupOf = { key -> groupOfRow[key] }, heading = { name, modifier -> Heading(name, first = groups.keys.firstOrNull() == name, modifier, pinned = true) }) { fade ->
     LazyColumn(
         Modifier.fillMaxSize().then(fade),
         state = state,
@@ -900,12 +944,31 @@ internal fun ToursList(
 }
 
 /**
+ * A swipe left on a tour: one still being written is stopped, a finished one leaves the list (it stays saved on the
+ * server). Its tasks are recorded as dismissed, so the server's task list does not bring the row back.
+ */
+internal fun dismissTour(entry: TourEntry, workTasks: List<WorkTask>, tours: TourIndex, repo: Repo, scope: CoroutineScope, toaster: Toaster) {
+    val serverKey = pullKey(entry.owner, entry.repo, entry.number)
+    val running = runningTaskId(workTasks, serverKey, "tour")
+    val taskIds = workTasks.filter { it.kind == "tour" && it.key == serverKey }.map { it.id }
+    if (running != null) {
+        scope.launch { repo.cancelTask(running) }
+        // A tour stopped before it had a stop has nothing to list; one that had keeps its row.
+        if (entry.stops > 0) tours.upsert(entry.copy(writing = false)) else tours.dismiss(entry.key, taskIds)
+        toaster.show("Stopped the tour for #${entry.number}")
+    } else {
+        tours.dismiss(entry.key, taskIds)
+        toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
+    }
+}
+
+/**
  * A Tours row is the pull request row with the tour's ring leading it, rule 36's second anatomy: the ring says
  * how far you read, or the orb turns while the tour is written. When the pull request is not in the Inbox its
  * author's column says where the tour stands instead.
  */
 @Composable
-private fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
+internal fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
     val c = LocalPullsColors.current
     val inset = with(LocalDensity.current) { 16.dp.toPx() }
     Row(
@@ -914,14 +977,20 @@ private fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
             .padding(horizontal = 16.dp, vertical = 13.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(Modifier.padding(end = 4.dp).size(22.dp)) {
-            if (entry.writingAt(now)) Orb(size = 22.dp) else ProgressRing(entry.reached, entry.stops, size = 22.dp)
+        Box(Modifier.padding(end = 4.dp).size(22.dp), contentAlignment = Alignment.Center) {
+            when {
+                entry.writingAt(now) -> Orb(size = 22.dp)
+                // A tour read to the end is a filled tick, so nothing has to say "Read" (H27).
+                entry.doneAt(now) -> OkDot(size = 20.dp)
+                else -> ProgressRing(entry.reached, entry.stops, size = 22.dp)
+            }
         }
         Text("#${entry.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(entry.prTitle, style = PullsType.row, color = c.text)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(pull?.author ?: tourState(entry, now), Modifier.weight(1f), style = PullsType.sm, color = c.muted)
+                // One line, so it sits level with the checks, the numbers and the age (H28).
+                Text(pull?.author ?: tourState(entry, now), Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                 if (pull != null) {
                     Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) { CheckMark(pull) }
                     Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) { DiffNumbers(pull) }
@@ -932,10 +1001,10 @@ private fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
     }
 }
 
-/** Where a tour stands, for a row whose pull request is not in the Inbox: no counts (rules 11 and 14). */
+/** Where a tour stands, for a row whose pull request is not in the Inbox: no counts (rules 11 and 14). A finished one says nothing: its tick does (H27). */
 internal fun tourState(entry: TourEntry, now: Long): String = when {
     entry.writingAt(now) -> "Writing"
-    entry.doneAt(now) -> "Read"
+    entry.doneAt(now) -> ""
     entry.reached > 0 -> entry.stopTitle.ifBlank { "Reading" }
     else -> "Not started"
 }
