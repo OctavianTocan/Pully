@@ -61,6 +61,8 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
                 AppUpdater(context).check(config.url, config.headers(), AppVersion.code(context))
             }.onFailure { Log.w("pulls", "background update check failed", it) }.getOrNull()
         } ?: return Result.success()
+        // The next start of the app asks for this build from its first frame.
+        UpdatePrefs.saveOffer(context, manifest)
         if (manifest.versionCode <= UpdatePrefs.notifiedCode(context)) return Result.success()
         UpdateNotice.post(context, manifest)
         UpdatePrefs.markNotified(context, manifest.versionCode)

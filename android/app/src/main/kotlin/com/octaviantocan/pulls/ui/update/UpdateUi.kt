@@ -1,134 +1,99 @@
 package com.octaviantocan.pulls.ui.update
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.octaviantocan.pulls.core.ChangelogEntry
 import com.octaviantocan.pulls.core.plainChangelogText
-import com.octaviantocan.pulls.sound.Emphasis
-import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
-import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.Markdown
+import com.octaviantocan.pulls.ui.design.ModalReveal
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.ProgressRing
 import com.octaviantocan.pulls.ui.design.PullsMotion
-import com.octaviantocan.pulls.ui.design.PullsRadius
-import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
-import com.octaviantocan.pulls.ui.design.softBlur
+import com.octaviantocan.pulls.ui.design.edgeFade
+import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.update.UpdatePrefs
 import com.octaviantocan.pulls.update.UpdateStatus
 import com.octaviantocan.pulls.update.Updates
 
-/** How much room the floating update card takes above the search pill at most, for the lists to scroll clear of it. */
-val UpdateFloatRoom = 100.dp
-
-/** True while the floating update card is on Home: a newer build is offered and the reader has not hidden it. */
-val updateFloatShown: Boolean get() = Updates.available != null && (!Updates.hidden || Updates.busy)
-
 /**
- * The update, floating just above Home's search pill: "Pulls 0.17.0 is ready", the new version's summary under
- * it, and Update. A tap on the words opens what's new; Update downloads and installs in the app, and the card
- * says how far it got (a ring while it downloads, the orb while the system installs). ✕ hides it until Pulls
- * next starts. It rises in like the toast, 16dp through a 2px blur in 250ms, and leaves in 150ms (rule 73).
- * [visible] false puts it away, such as while the search has the keyboard.
+ * The update screen. While the server offers a newer build Pulls shows only this, from the first frame of a start
+ * (Tavi, 15 Oct: "When I have not updated and I enter the app, show me the changelog! Make me update!"). It names the
+ * version and lists what it brings over the installed one, newest first, with Update at its foot. Update downloads and
+ * installs in the app and says how far it got (a ring while it downloads, the orb while the system installs); a
+ * download or install that fails offers Try again. Nothing closes it but the update: Back leaves Pulls ([onLeave]), as
+ * Back does on the first page. It opens as a modal (rule 73).
  */
 @Composable
-internal fun UpdateFloat(visible: Boolean, onWhatsNew: () -> Unit, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
+internal fun UpdateGate(onLeave: () -> Unit) {
     val context = LocalContext.current
-    val motion = rememberMotionEnabled()
     val manifest = Updates.available
-    val status = Updates.status
-    val show = visible && manifest != null && updateFloatShown
-    val shown by animateFloatAsState(
-        if (show) 1f else 0f,
-        if (motion) tween(if (show) PullsMotion.FAST else PullsMotion.QUICK, easing = PullsMotion.SmoothOut) else tween(0),
-        label = "update-float",
-    )
-    // Keeps the last offer on screen while it leaves.
+    // Keeps the offer on screen while the screen leaves.
     var last by remember { mutableStateOf(manifest) }
     if (manifest != null) last = manifest
-    val offer = last ?: return
-    if (shown < 0.01f) return
-    val shape = RoundedCornerShape(PullsRadius.card)
-    val summary = remember(offer) { plainChangelogText(Updates.changes(context).firstOrNull()?.summary.orEmpty()) }
-    var summaryLines by remember(offer) { mutableIntStateOf(1) }
-    Row(
-        modifier
-            .fillMaxWidth()
-            .softBlur(PullsMotion.BlurSmall * (1f - shown))
-            .graphicsLayer {
-                alpha = shown
-                translationY = (1f - shown) * 16.dp.toPx()
-            }
-            .floatShadow(shape, PullsShadow.Search)
-            .clip(shape)
-            .background(c.raised)
-            .heightIn(min = 64.dp)
-            .padding(start = 18.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ModalReveal(
+        manifest != null, onLeave,
+        DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
     ) {
+        val offer = last ?: return@ModalReveal
+        val c = LocalPullsColors.current
+        val entries = remember(offer) { Updates.changes(context) }
+        val scroll = rememberScrollState()
         Column(
-            Modifier.weight(1f).cueClickable(role = Role.Button, onClickLabel = "See what's new", onClick = onWhatsNew),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            Modifier.fillMaxSize().background(c.base).padding(top = headerTopPadding()).navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         ) {
-            Text("Pulls ${offer.versionName} is ready", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            // The summary may take two lines; the shorter words that replace it keep its lines, so the card keeps its height (rule 86).
-            val idle = status == UpdateStatus.Idle
-            Text(
-                statusLine(status, summary),
-                style = PullsType.sm, color = if (status is UpdateStatus.Failed) c.error else c.muted,
-                maxLines = 2, minLines = if (idle) 1 else summaryLines, overflow = TextOverflow.Ellipsis,
-                onTextLayout = { if (idle) summaryLines = it.lineCount },
-            )
-        }
-        UpdateAction(status, Modifier) { Updates.start(context) }
-        // While it works there is nothing to hide, but the slot stays so the ring sits where Update was (rule 69).
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            if (!Updates.busy) FloatIcon(Lu.close, "Hide the update", { Updates.hidden = true }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
+            Column(
+                Modifier.weight(1f).fillMaxWidth()
+                    .edgeFade(
+                        top = PullsMotion.EdgeTop, bottom = PullsMotion.EdgeTop,
+                        topStrength = { if (scroll.canScrollBackward) 1f else 0f },
+                        bottomStrength = { if (scroll.canScrollForward) 1f else 0f },
+                    )
+                    .verticalScroll(scroll)
+                    .padding(bottom = 16.dp),
+            ) {
+                Text("Pulls ${offer.versionName} is ready", style = PullsType.xxl, color = c.text)
+                Text("Update to keep using Pulls. This is what it brings.", Modifier.padding(top = 8.dp), style = PullsType.read, color = c.muted)
+                ChangelogEntries(entries, Modifier.padding(top = 20.dp))
+            }
+            UpdateFooter(offer.versionName) {
+                // The changelog was read here, so the What's new sheet does not open with it again after the install.
+                UpdatePrefs.markSeen(context, offer.versionName)
+                Updates.start(context)
+            }
         }
     }
 }
 
-/** The card's second line: the summary until something happens, then what is happening, in words short enough for one line. */
-private fun statusLine(status: UpdateStatus, summary: String): String = when (status) {
-    UpdateStatus.Idle -> summary.ifBlank { "Tap to see what's new." }
+/** What the update is doing, in words short enough for one line. */
+private fun statusLine(status: UpdateStatus): String = when (status) {
+    UpdateStatus.Idle -> ""
     UpdateStatus.NeedsPermission -> "Allow installs first."
     is UpdateStatus.Downloading -> "Downloading…"
     UpdateStatus.Confirming -> "Confirm the update."
@@ -137,48 +102,17 @@ private fun statusLine(status: UpdateStatus, summary: String): String = when (st
 }
 
 /**
- * Update as a 40dp dark pill (the search pill's Open), the download ring while it downloads, the orb while it installs.
- * The slot is as wide as the pill, so the ring takes its place without the row moving.
- */
-@Composable
-private fun UpdateAction(status: UpdateStatus, modifier: Modifier, onUpdate: () -> Unit) {
-    val c = LocalPullsColors.current
-    Box(modifier.height(40.dp).widthIn(min = 92.dp), contentAlignment = Alignment.Center) {
-        when {
-            status is UpdateStatus.Downloading && status.fraction >= 0f -> ProgressRing(status.fraction, size = 30.dp)
-            Updates.busy -> Orb(size = 30.dp)
-            else -> Box(
-                Modifier.height(40.dp).clip(CircleShape).background(c.cta)
-                    .cueClickable(emphasis = Emphasis.Normal, role = Role.Button, onClickLabel = "Update Pulls", onClick = onUpdate)
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(if (status is UpdateStatus.Failed) "Try again" else "Update", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1)
-            }
-        }
-    }
-}
-
-/**
  * What's new, as a sheet: each version's summary and what it changed, newest first. It opens by itself once
- * after an update, from the floating card before one (then Update sits at its foot), and from Settings.
+ * after an update, and from Settings and Commands.
  */
 @Composable
-internal fun WhatsNewSheet(entries: List<ChangelogEntry>, onClose: () -> Unit, offer: Boolean = false) {
-    val context = LocalContext.current
-    val manifest = Updates.available
-    PullsSheet(
-        onClose = onClose,
-        title = "What's new",
-        footer = if (offer && manifest != null) {
-            { UpdateFooter(manifest.versionName) { Updates.start(context) } }
-        } else null,
-    ) {
+internal fun WhatsNewSheet(entries: List<ChangelogEntry>, onClose: () -> Unit) {
+    PullsSheet(onClose = onClose, title = "What's new") {
         ChangelogEntries(entries)
     }
 }
 
-/** The sheet's Update: the dark main action, and once it runs, the card's own words for how far it got. */
+/** The update screen's Update: the dark main action, and once it runs, words for how far it got. */
 @Composable
 private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
     val c = LocalPullsColors.current
@@ -187,7 +121,7 @@ private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
     if (!Updates.busy) {
         if (status != UpdateStatus.Idle) {
             Text(
-                statusLine(status, ""), Modifier.padding(bottom = 10.dp).align(Alignment.CenterHorizontally),
+                statusLine(status), Modifier.padding(bottom = 10.dp).align(Alignment.CenterHorizontally),
                 style = PullsType.sm, color = if (status is UpdateStatus.Failed) c.error else c.muted,
             )
         }
@@ -195,7 +129,7 @@ private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
     } else {
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)) {
             if (status is UpdateStatus.Downloading && status.fraction >= 0f) ProgressRing(status.fraction, size = 30.dp) else Orb(size = 30.dp)
-            Text(statusLine(status, ""), style = PullsType.sm, color = c.text, maxLines = 2)
+            Text(statusLine(status), style = PullsType.sm, color = c.text, maxLines = 2)
         }
     }
 }
@@ -220,6 +154,3 @@ internal fun ChangelogEntries(entries: List<ChangelogEntry>, modifier: Modifier 
         }
     }
 }
-
-/** What a list on Home adds to its bottom padding so its last row can scroll clear of the [UpdateFloat]. */
-internal fun updateFloatPadding() = if (updateFloatShown) UpdateFloatRoom else 0.dp

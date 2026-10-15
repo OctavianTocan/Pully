@@ -23,8 +23,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val settings = AppSettings.get(this)
-        // The process can outlive the screen, so a fresh start shows a hidden update card again; a rotation does not.
-        if (savedInstanceState == null) Updates.hidden = false
+        // A newer build the phone already heard of is asked for from the first frame, before the server answers again.
+        Updates.restore(this)
         // Only a fresh launch from the notification acts on it: not a rotation, and not a reopen from Recents.
         if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) UpdateNotice.handle(this, intent)
         // Paint the window in the chosen theme before the first frame, so a dark phone does not flash paper.
