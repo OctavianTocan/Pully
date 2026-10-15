@@ -28,7 +28,7 @@ const tone = computed(() => props.status === 'changed'
 
 <template>
   <CheckboxRoot
-    class="h-4 w-4 flex shrink-0 items-center justify-center border border-base rounded bg-raised outline-none transition focus-visible:ring-2"
+    class="h-4.5 w-4.5 flex shrink-0 items-center justify-center border-[1.5px] border-base rounded-1.5 bg-raised outline-none transition focus-visible:ring-2"
     :class="tone"
     :model-value="modelValue"
     :aria-label="ariaLabel"

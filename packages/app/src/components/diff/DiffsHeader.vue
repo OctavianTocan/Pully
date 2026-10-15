@@ -82,86 +82,93 @@ function scrollToGroup(key: string) {
 <!--
   The phone's PR header: a back button and the page's controls floating over the paper, the title large,
   then one quiet line of where and who, the branches as soft chips, and the PR's own chips.
+  On a desktop the title, its line and the branches sit between the back button and the controls,
+  so the header is two rows: who and what, then the chips.
 -->
 <template>
   <header
-    class="left-0 right-0 top-0 z-nav bg-base px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-shadow md:sticky"
+    class="left-0 right-0 top-0 z-nav bg-base px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-shadow md:sticky lg:px-6"
     :class="scrollY > 20 ? 'shadow-bar' : ''"
   >
     <div class="mxa max-w-500 w-full flex flex-col gap-3">
-      <div class="flex items-center gap-2">
-        <KitFloatButton v-if="!isEmbedded" icon="i-lu-back" :to="back" :label="$t('keys.home')" />
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-3 lg:(flex-nowrap gap-x-4)">
+        <KitFloatButton v-if="!isEmbedded" icon="i-lu-back" :to="back" :label="$t('keys.home')" class="shrink-0" />
         <PrStatusIcon v-else-if="display.state" :state="display.state" />
-        <div class="flex-1" />
-        <DiffReviewThreadsToggle
-          v-if="reviews"
-          :show-threads="reviews.showThreads"
-          @update:show-threads="reviews.setShowThreads($event)"
-        />
-        <KitFloatButton v-if="store.canRefresh" icon="i-lu-refresh" :label="$t('common.refresh')" @click="refresh" />
-        <NavControls :document="document">
-          <!-- The sidebar only exists at `lg` and up, so the choice is only offered there. -->
-          <div class="hidden lg:block">
-            <DiffGroupNavToggle />
+        <div class="order-last min-w-0 flex basis-full flex-col gap-3 lg:(order-none flex-1 basis-auto gap-1)">
+          <h1 class="break-words text-xxl font-medium font-display lg:(text-xl leading-tight)">
+            {{ display.title }}
+          </h1>
+          <div class="flex flex-col gap-2 lg:(flex-row flex-wrap items-center gap-x-4 gap-y-1)">
+            <p class="flex flex-wrap items-center gap-x-1.5 text-sm color-muted">
+              <RouterLink v-if="parent && !isEmbedded" :to="parent.route" class="hover:underline">
+                {{ parent.label }}
+              </RouterLink>
+              <a v-if="display.label" :href="display.url" target="_blank" rel="noopener" class="color-base font-semibold hover:underline">{{ display.label }}</a>
+              <template v-if="display.author">
+                <span aria-hidden="true">·</span>
+                <span class="flex items-center gap-1.5">
+                  <GithubAvatar :login="display.author.login" :avatar-url="display.author.avatarUrl" :size="16" />
+                  {{ display.author.login }}
+                </span>
+              </template>
+            </p>
+            <p v-if="display.base && display.head && !isEmbedded" class="max-w-full min-w-0 flex items-center gap-2 text-sm">
+              <span class="min-w-0 truncate rounded-md bg-accent-wash px-2 py-0.5 color-accent-wash-ink" :title="display.head">{{ display.head }}</span>
+              <span class="i-lu-to shrink-0 text-4 color-muted" aria-hidden="true" />
+              <span class="min-w-0 truncate rounded-md bg-accent-wash px-2 py-0.5 color-accent-wash-ink" :title="display.base">{{ display.base }}</span>
+            </p>
           </div>
-        </NavControls>
+        </div>
+        <div class="flex-1 lg:hidden" />
+        <div class="flex shrink-0 items-center gap-2">
+          <DiffReviewThreadsToggle
+            v-if="reviews"
+            :show-threads="reviews.showThreads"
+            @update:show-threads="reviews.setShowThreads($event)"
+          />
+          <KitFloatButton v-if="store.canRefresh" icon="i-lu-refresh" :label="$t('common.refresh')" @click="refresh" />
+          <NavControls :document="document">
+            <!-- The sidebar only exists at `lg` and up, so the choice is only offered there. -->
+            <div class="hidden lg:block">
+              <DiffGroupNavToggle />
+            </div>
+          </NavControls>
+        </div>
       </div>
 
-      <h1 class="break-words text-xxl font-medium font-display">
-        {{ display.title }}
-      </h1>
+      <!-- On a desktop the PR's chips and the group chips share one row when both fit. -->
+      <div class="flex flex-col gap-3 lg:(flex-row items-start gap-x-4)">
+        <div class="flex flex-wrap items-center gap-2 text-sm lg:min-h-9" :class="showGroupSidebar ? 'flex-1' : 'lg:flex-none'">
+          <!-- Once an AI grouping exists the capsule is the only way between it and the rules. -->
+          <KitCapsuleTabs v-if="aiResult" v-model="analyzeMode" :options="analyzeOptions" :aria-label="$t('pr.analyzeBy')" flat class="border border-base" />
+          <PrHeaderChips />
+          <span v-if="aiResult?.sharedBy && store.analyzeMode !== 'rule-based'" class="h-9 flex items-center gap-1.5 border border-base rounded-full px-3.5" :title="aiResult.model">
+            <template v-if="aiResult.sharedBy === ACTIONS_BOT_LOGIN">
+              {{ $t('pr.sharedAnalysis') }}
+            </template>
+            <template v-else>
+              {{ $t('pr.sharedBy') }}
+              <GithubAvatar :login="aiResult.sharedBy" :size="16" />
+              {{ aiResult.sharedBy }}
+            </template>
+          </span>
+          <DiffAnalyzeButton v-if="store.llm" :store="store" :document="document" />
+          <CritiqueButton v-if="CritiqueButton && store.critique?.available" :critique="store.critique" :document="document" />
+          <DiffShareButton v-if="canShareResult" :store="store" :document="document" />
+          <DiffPrMeta v-if="showGroupSidebar" class="ml-auto" :store="store" :document="document" />
+        </div>
 
-      <div class="flex flex-col gap-2">
-        <p class="flex flex-wrap items-center gap-x-1.5 text-sm color-muted">
-          <RouterLink v-if="parent && !isEmbedded" :to="parent.route" class="hover:underline">
-            {{ parent.label }}
-          </RouterLink>
-          <a v-if="display.label" :href="display.url" target="_blank" rel="noopener" class="color-base font-semibold hover:underline">{{ display.label }}</a>
-          <template v-if="display.author">
-            <span aria-hidden="true">·</span>
-            <span class="flex items-center gap-1.5">
-              <GithubAvatar :login="display.author.login" :avatar-url="display.author.avatarUrl" :size="16" />
-              {{ display.author.login }}
-            </span>
-          </template>
-        </p>
-        <p v-if="display.base && display.head && !isEmbedded" class="max-w-full min-w-0 flex items-center gap-2 text-sm">
-          <span class="min-w-0 truncate rounded-md bg-accent-wash px-2 py-0.5 color-accent-wash-ink" :title="display.head">{{ display.head }}</span>
-          <span class="i-lu-to shrink-0 text-4 color-muted" aria-hidden="true" />
-          <span class="min-w-0 truncate rounded-md bg-accent-wash px-2 py-0.5 color-accent-wash-ink" :title="display.base">{{ display.base }}</span>
-        </p>
-      </div>
+        <div v-if="!showGroupSidebar" class="flex flex-wrap items-center gap-2 text-sm lg:(min-w-0 flex-1)">
+          <DiffGroupNav
+            class="min-w-60 flex-auto"
+            :groups="groups"
+            :groups-visable="groupsVisable"
+            :reviewed="store.reviewed"
+            @select="scrollToGroup"
+          />
 
-      <div class="flex flex-wrap items-center gap-2 text-sm">
-        <!-- Its own row on every width: once an AI grouping exists it is the only way between the two. -->
-        <KitCapsuleTabs v-if="aiResult" v-model="analyzeMode" :options="analyzeOptions" :aria-label="$t('pr.analyzeBy')" flat class="border border-base" />
-        <PrHeaderChips />
-        <span v-if="aiResult?.sharedBy && store.analyzeMode !== 'rule-based'" class="h-9 flex items-center gap-1.5 border border-base rounded-full px-3.5" :title="aiResult.model">
-          <template v-if="aiResult.sharedBy === ACTIONS_BOT_LOGIN">
-            {{ $t('pr.sharedAnalysis') }}
-          </template>
-          <template v-else>
-            {{ $t('pr.sharedBy') }}
-            <GithubAvatar :login="aiResult.sharedBy" :size="16" />
-            {{ aiResult.sharedBy }}
-          </template>
-        </span>
-        <DiffAnalyzeButton v-if="store.llm" :store="store" :document="document" />
-        <CritiqueButton v-if="CritiqueButton && store.critique?.available" :critique="store.critique" :document="document" />
-        <DiffShareButton v-if="canShareResult" :store="store" :document="document" />
-        <DiffPrMeta v-if="showGroupSidebar" class="ml-auto" :store="store" :document="document" />
-      </div>
-
-      <div v-if="!showGroupSidebar" class="flex flex-wrap items-center gap-2 text-sm">
-        <DiffGroupNav
-          class="min-w-60 flex-auto"
-          :groups="groups"
-          :groups-visable="groupsVisable"
-          :reviewed="store.reviewed"
-          @select="scrollToGroup"
-        />
-
-        <DiffPrMeta class="ml-auto self-end" :store="store" :document="document" />
+          <DiffPrMeta class="ml-auto self-end lg:(min-h-9 self-center)" :store="store" :document="document" />
+        </div>
       </div>
     </div>
   </header>

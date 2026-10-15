@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { FileChange } from '@pulls.review/core/types'
 import type { DiffsStore } from '../../stores/types'
-import DisplayFileIcon from '@antfu/design/components/Display/DisplayFileIcon.vue'
 import DisplayFilePath from '@antfu/design/components/Display/DisplayFilePath.vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useMediaQuery } from '@vueuse/core'
@@ -109,7 +108,7 @@ const scrollElRef = useTemplateRef<HTMLDivElement>('scrollEl')
 
 // Rows are a fixed height; on a touch screen each one is a 44px target.
 const isCoarse = useMediaQuery('(pointer: coarse)')
-const rowHeight = computed(() => isCoarse.value ? 44 : 24)
+const rowHeight = computed(() => isCoarse.value ? 44 : 32)
 const isNarrow = useMediaQuery('(max-width: 767.9px)')
 const indent = computed(() => isNarrow.value ? 0.6 : 1)
 
@@ -128,8 +127,8 @@ const virtualizer = useVirtualizer(computed(() => ({
       <div
         v-for="row in virtualizer.getVirtualItems().map(item => ({ item, row: rows[item.index]! }))"
         :key="row.row.key"
-        class="flex items-center gap-1.5 rounded text-sm"
-        :class="row.row.file && filesVisible.includes(row.row.file.sha) ? 'bg-active' : ''"
+        class="flex items-center gap-2 rounded-lg pr-2 text-sm"
+        :class="row.row.file && filesVisible.includes(row.row.file.sha) ? 'bg-ambient' : ''"
         :style="{
           position: 'absolute',
           top: 0,
@@ -146,8 +145,7 @@ const virtualizer = useVirtualizer(computed(() => ({
             :aria-label="$t('file.markFolderReviewed', { name: row.row.name })"
             @update="store.setReviewed(row.row.files!.map(file => file.sha), $event)"
           />
-          <DisplayFileIcon directory :path="row.row.name" class="op-fade" />
-          <span class="truncate op-fade">{{ row.row.name }}</span>
+          <span class="truncate text-xs color-faint font-mono">{{ row.row.name }}/</span>
         </template>
         <template v-else-if="row.row.file">
           <ReviewCheckbox
@@ -161,8 +159,8 @@ const virtualizer = useVirtualizer(computed(() => ({
             :title="reviewStatus(store, row.row.file) === 'changed' ? $t('file.changedSinceReviewed') : undefined"
             @click="emit('navigate', row.row.file.sha)"
           >
-            <DisplayFilePath :path="row.row.name" :dim="false" class="min-w-0 flex-1" />
-            <DiffStats :additions="row.row.file.additions" :deletions="row.row.file.deletions" />
+            <span class="min-w-0 flex-1 truncate font-semibold" :class="reviewStatus(store, row.row.file) === 'reviewed' ? 'color-muted' : 'color-base'">{{ row.row.name }}</span>
+            <DiffStats :additions="row.row.file.additions" :deletions="row.row.file.deletions" class="font-medium font-mono" />
             <FileStatus :status="row.row.file.status" />
           </button>
         </template>

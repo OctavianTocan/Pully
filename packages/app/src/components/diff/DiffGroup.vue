@@ -2,7 +2,6 @@
 import type { ComponentPublicInstance } from 'vue'
 import type { DiffsStore } from '../../stores/types'
 import type { ResolvedGroupWithChildren } from './group-utils'
-import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import DisplayDonut from '@antfu/design/components/Display/DisplayDonut.vue'
 import { Markdown } from '@comark/vue'
 import { computed, nextTick, ref } from 'vue'
@@ -15,7 +14,6 @@ import DiffStats from './DiffStats.vue'
 import FileDiff from './FileDiff.vue'
 import FileTree from './FileTree.vue'
 import { countGroupFiles, countGroupStats } from './group-utils'
-import GroupCategoryIcon from './GroupCategoryIcon.vue'
 
 const props = defineProps<{
   store: DiffsStore
@@ -97,33 +95,24 @@ function navigateToFile(sha: string) {
 
 <template>
   <section :id="`group-${group.key}`" class="scroll-mt-[var(--diffs-header-height)]">
-    <header v-if="isChapter" class="flex flex-col gap-2 border-b border-base p-3">
+    <header v-if="isChapter" class="flex flex-col gap-2 p-3">
       <div class="w-full flex items-center">
         <button
           type="button"
-          class="press-tint min-w-0 flex flex-1 items-start rounded px-2 py-1 text-left"
+          class="press-tint min-w-0 flex flex-1 flex-col gap-1.5 rounded-lg px-2 py-1 text-left hover:bg-hover"
           :aria-expanded="!collapsed"
           @click="emit('toggle')"
         >
-          <ActionIconButton
-            compact
-            class="ml--5 py2 op-mute hover:op-100"
-            :icon="collapsed ? 'i-lu-next' : 'i-lu-chevd'"
-            :label="$t('group.toggle')"
-            as="span"
-          />
-          <div class="min-w-0 flex flex-1 flex-col gap-1.5">
-            <div class="flex items-center gap-2 leading-1em">
-              <GroupCategoryIcon :category="group.category" class="text-xl" />
-              <span class="truncate text-2xl font-medium leading-1em" :title="group.label">{{ group.label }}</span>
-            </div>
-            <div class="flex items-center gap-2 leading-1em">
-              <DiffStats :additions="totalAdded" :deletions="totalDeleted" />
-              <span class="text-xs op-fade">{{ $t('common.files', { n: totalFiles }, totalFiles) }}</span>
-              <span class="text-xs op-fade">{{ $t('common.subgroups', { n: group.children.length }, group.children.length) }}</span>
-              <DisplayDonut :value="progress" :size="12" :thickness="2.5" />
-            </div>
-          </div>
+          <span class="w-full flex items-center gap-2">
+            <span class="min-w-0 flex-1 truncate text-xxl font-medium font-display" :title="group.label">{{ group.label }}</span>
+            <span class="i-lu-chevd shrink-0 text-5 color-faint transition-transform duration-slide ease-slide" :class="collapsed ? '-rotate-90' : ''" aria-hidden="true" />
+          </span>
+          <span class="flex items-center gap-2 text-sm color-muted">
+            <DiffStats :additions="totalAdded" :deletions="totalDeleted" class="font-mono" />
+            <span>{{ $t('common.files', { n: totalFiles }, totalFiles) }}</span>
+            <span>{{ $t('common.subgroups', { n: group.children.length }, group.children.length) }}</span>
+            <DisplayDonut :value="progress" :size="12" :thickness="2.5" />
+          </span>
         </button>
         <div v-if="$slots.actions" class="flex shrink-0 items-center gap-1 px-2">
           <slot name="actions" />
@@ -131,7 +120,7 @@ function navigateToFile(sha: string) {
       </div>
       <template v-if="!collapsed">
         <Suspense v-if="group.summary">
-          <Markdown :value="group.summary" class="max-w-200 px-2 text-sm op-fade" @click="keepRepoLinks" />
+          <Markdown :value="group.summary" class="max-w-200 px-2 text-sm color-muted" @click="keepRepoLinks" />
         </Suspense>
         <!-- The sidebar already lists this subtree, so the inline sub-nav would only repeat it. -->
         <DiffGroupNav
@@ -161,36 +150,26 @@ function navigateToFile(sha: string) {
           <div class="w-full flex items-center">
             <button
               type="button"
-              class="press-tint min-w-0 flex flex-1 items-start rounded px-2 py-1 text-left text-sm"
+              class="press-tint min-w-0 flex flex-1 flex-col gap-1 rounded-lg px-2 py-1 text-left hover:bg-hover"
               :aria-expanded="!collapsed"
               @click="emit('toggle')"
             >
-              <ActionIconButton
-                compact
-                class="ml--5 py1.5 op-mute hover:op-100"
-                :icon="collapsed ? 'i-lu-next' : 'i-lu-chevd'"
-                :label="$t('group.toggle')"
-                as="span"
-              />
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 leading-1em">
-                  <GroupCategoryIcon :category="group.category" class="text-base" />
-                  <span
-                    ref="labelBox"
-                    class="min-w-0 flex-1 truncate text-xl font-medium"
-                    :style="{ fontSize: `${labelFontSize}px` }"
-                    :title="group.label"
-                  >
-                    <span ref="labelText">{{ group.label }}</span>
-                  </span>
-                  <div class="flex shrink-0 items-center" :title="$t('group.filesReviewed', { reviewed: reviewedCount, total: totalFiles })" />
-                </div>
-                <div class="flex items-center gap-2 leading-1em">
-                  <DiffStats :additions="totalAdded" :deletions="totalDeleted" />
-                  <span class="text-xs op-fade">{{ $t('common.files', { n: totalFiles }, totalFiles) }}</span>
-                  <DisplayDonut :value="progress" :size="12" :thickness="2.5" />
-                </div>
-              </div>
+              <span class="w-full flex items-center gap-2">
+                <span
+                  ref="labelBox"
+                  class="min-w-0 flex-1 truncate font-medium font-display"
+                  :style="{ fontSize: `${labelFontSize}px` }"
+                  :title="group.label"
+                >
+                  <span ref="labelText">{{ group.label }}</span>
+                </span>
+                <span class="i-lu-chevd shrink-0 text-4.5 color-faint transition-transform duration-slide ease-slide" :class="collapsed ? '-rotate-90' : ''" aria-hidden="true" />
+              </span>
+              <span class="flex items-center gap-2 text-sm color-muted" :title="$t('group.filesReviewed', { reviewed: reviewedCount, total: totalFiles })">
+                <DiffStats :additions="totalAdded" :deletions="totalDeleted" class="font-mono" />
+                <span>{{ $t('common.files', { n: totalFiles }, totalFiles) }}</span>
+                <DisplayDonut :value="progress" :size="12" :thickness="2.5" />
+              </span>
             </button>
             <div v-if="$slots.actions" class="flex shrink-0 items-center gap-1 px-2">
               <slot name="actions" />
@@ -199,7 +178,7 @@ function navigateToFile(sha: string) {
         </header>
         <template v-if="!collapsed">
           <Suspense v-if="group.summary && !isChapter">
-            <Markdown :value="group.summary" class="border-b border-base pb-2 pl2 text-sm op-fade" @click="keepRepoLinks" />
+            <Markdown :value="group.summary" class="px-2 text-sm color-muted" @click="keepRepoLinks" />
           </Suspense>
           <FileTree
             class="min-h-0 flex-1"

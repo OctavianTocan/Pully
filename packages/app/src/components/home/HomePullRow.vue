@@ -37,7 +37,10 @@ const requested = computed(() => props.pull.requestedFromMe ?? props.pull.role =
 const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.owner, repo: props.pull.repo, number: String(props.pull.number) }))
 </script>
 
-<!-- The phone's `PullRowContent`: the number in its own column, the title, then who wrote it, the checks, the size and the age. -->
+<!--
+  The phone's `PullRowContent`: the number in its own column, the title, then who wrote it, the checks, the size and the age.
+  On a wide desktop the title and the meta share one line, with the meta in fixed columns at the end.
+-->
 <template>
   <RouterLink
     :to="to"
@@ -48,14 +51,14 @@ const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.own
     @blur="emit('leave', pull)"
   >
     <span class="w-13 shrink-0 text-num font-semibold font-display tabular-nums">#{{ pull.number }}</span>
-    <span class="min-w-0 flex flex-1 flex-col gap-1.25">
-      <span class="text-row">
+    <span class="min-w-0 flex flex-1 flex-col gap-1.25 xl:(flex-row items-baseline gap-6)">
+      <span class="text-row xl:(min-w-0 flex-1)">
         <span v-if="pull.isDraft" class="color-muted">[{{ $t('local.home.draft') }}] </span>{{ pull.title }}
       </span>
-      <span class="flex items-center gap-1.5 text-sm color-muted">
-        <span class="min-w-0 flex flex-1 items-center gap-1.5">
+      <span class="flex items-center gap-1.5 text-sm color-muted xl:flex-none">
+        <span class="min-w-0 flex flex-1 items-center gap-1.5 xl:(w-44 flex-none)">
           <span v-if="requested" class="h-1.75 w-1.75 shrink-0 rounded-full bg-accent-teal" role="img" :aria-label="$t('triage.requested')" :title="$t('triage.requested')" />
-          <span class="min-w-0 break-words">{{ pull.author }}</span>
+          <span class="min-w-0 break-words xl:truncate">{{ pull.author }}</span>
           <span v-if="pull.stack" class="flex shrink-0 items-center gap-1 tabular-nums">
             <span class="i-lu-layers text-3.75" aria-hidden="true" />
             <template v-if="pull.stack.below">{{ $t('triage.stackedOn', { n: pull.stack.below }) }}</template>
