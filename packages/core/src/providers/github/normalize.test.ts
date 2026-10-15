@@ -1,6 +1,6 @@
 import type { GithubPullRequestFileJson, GithubPullRequestJson } from './api'
 import { describe, expect, it, vi } from 'vitest'
-import { MAX_SELF_DIFF_CHARS, MAX_SELF_DIFF_COST, normalizePullRequest } from './normalize'
+import { MAX_SELF_DIFF_BYTES, MAX_SELF_DIFF_COST, normalizePullRequest } from './normalize'
 
 const noFallbacks = { loadDiffText: async () => '', loadFileContent: async () => undefined }
 
@@ -133,8 +133,8 @@ describe('normalizePullRequest', () => {
       const loadFileContent = vi.fn(async (path: string) => path === 'old.ts' ? 'x\n' : path === 'new.ts' ? 'y\n' : 'l1\nl2\n')
       const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
 
-      expect(loadFileContent).toHaveBeenCalledWith('old.ts', 'base123')
-      expect(loadFileContent).not.toHaveBeenCalledWith('added.ts', 'base123')
+      expect(loadFileContent).toHaveBeenCalledWith('old.ts', 'base123', MAX_SELF_DIFF_BYTES)
+      expect(loadFileContent).not.toHaveBeenCalledWith('added.ts', 'base123', MAX_SELF_DIFF_BYTES)
       expect(diff.files[1]!.hunks[0]).toMatchObject({ oldStart: 0, oldLines: 0, newStart: 1, newLines: 2 })
     })
 
@@ -161,14 +161,32 @@ describe('normalizePullRequest', () => {
       expect(loadFileContent).not.toHaveBeenCalled()
     })
 
-    it('marks a file as too large when either version is past the size limit', async () => {
+    it('marks a file as too large when either version is past the size limit, asking for no more than it', async () => {
       const files: GithubPullRequestFileJson[] = [
         { filename: 'big.json', status: 'modified', additions: 1, deletions: 1, sha: 'b1' },
       ]
-      const loadFileContent = vi.fn(async (_path: string, ref: string) => ref === 'base123' ? 'a\n' : 'b'.repeat(MAX_SELF_DIFF_CHARS + 1))
+      const loadFileContent = vi.fn(async (_path: string, ref: string) => ref === 'base123' ? 'a\n' : null)
       const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
 
+      expect(loadFileContent).toHaveBeenCalledWith('big.json', 'head456', MAX_SELF_DIFF_BYTES)
       expect(diff.files[0]).toMatchObject({ hunks: [], truncated: true })
+    })
+
+    it('diffs only a few files at a time', async () => {
+      const files: GithubPullRequestFileJson[] = Array.from({ length: 12 }, (_, i) => ({ filename: `f${i}.ts`, status: 'modified', additions: 1, deletions: 1, sha: `s${i}` }))
+      let inFlight = 0
+      let most = 0
+      const loadFileContent = async (_path: string, ref: string) => {
+        most = Math.max(most, ++inFlight)
+        await new Promise(resolve => setTimeout(resolve, 5))
+        inFlight--
+        return ref === 'base123' ? 'old\n' : 'new\n'
+      }
+      const diff = await normalizePullRequest('owner', 'repo', '1', PR_JSON, files, [], { ...tooLarge, loadFileContent })
+
+      expect(diff.files.every(f => f.hunks.length === 1)).toBe(true)
+      // Two loads (base and head) per file in flight.
+      expect(most).toBeLessThanOrEqual(8)
     })
 
     it('marks a file as too large when its lines times its changed lines would take too long to diff', async () => {
