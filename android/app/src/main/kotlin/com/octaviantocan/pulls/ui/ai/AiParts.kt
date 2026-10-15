@@ -159,8 +159,10 @@ internal fun ThinkingSwap(target: String, modifier: Modifier = Modifier, content
         transitionSpec = {
             if (!motion) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
             val enter = fadeIn(tween(PullsMotion.QUICK, delayMillis = SWAP_GAP_MS, easing = PullsMotion.InOut)) +
+                // motion-ok: a log only reads on, so its next line always rises from below (rule 105).
                 slideInVertically(tween(PullsMotion.QUICK, delayMillis = SWAP_GAP_MS, easing = PullsMotion.InOut)) { travel }
             val exit = fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.InOut)) +
+                // motion-ok: and the line it replaces leaves upward.
                 slideOutVertically(tween(PullsMotion.QUICK, easing = PullsMotion.InOut)) { -travel }
             (enter togetherWith exit) using SizeTransform(clip = false)
         },

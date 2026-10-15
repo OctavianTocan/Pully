@@ -287,19 +287,20 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
-            if (ui.tab == 0) FilterChips(ui.filter, inbox.counts, layout.sort, onSort = { sortOpen = true }) { ui.filter = it }
-            if (ui.tab == 0) ActivityStrip(workTasks, { activityOpen = true })
-            BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth().padding(top = if (ui.tab == 0) 0.dp else 10.dp), order = { it }) { tab ->
-                if (tab == 0) {
+            // The chips and the activity strip belong to the Inbox, so they slide away with it instead of popping (rule 105).
+            BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth(), order = { it }) { tab ->
+                if (tab == 0) Column(Modifier.fillMaxSize()) {
+                    FilterChips(ui.filter, inbox.counts, layout.sort, onSort = { sortOpen = true }) { ui.filter = it }
+                    ActivityStrip(workTasks, { activityOpen = true })
                     InboxList(
                         groups = groups, labels = labels, now = now, archived = archived, work = work,
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(),
                         sort = layout.sort, folded = layout.folded, onFold = { group -> layout.toggle(group.name) },
-                        onRetry = reload, onCommands = { Commands.open() },
+                        onRetry = reload, onCommands = { Commands.open(fromTop = true) },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                     )
-                } else {
+                } else Box(Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
                         entries = tours.entries.filter { needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle) },
                         pulls = everything.orEmpty(),

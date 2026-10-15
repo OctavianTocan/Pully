@@ -93,7 +93,8 @@ import kotlinx.coroutines.launch
  * The sheet is the kit's own window, not Material's, so its motion follows rule 73's panel reveal: the
  * panel rises from below the screen over 400ms while fading in through a 2px blur, and leaves in
  * 350ms, both on the smooth-out curve. It follows a finger down to dismiss and, when [expandable],
- * rests at half height or full.
+ * rests at half height or full. [fromTop] is for a sheet a finger pulled down (Commands from the
+ * Inbox): it comes down from the top, with the pull, and goes back up when closed (rule 105).
  */
 @Composable
 fun PullsSheet(
@@ -105,10 +106,11 @@ fun PullsSheet(
     scroll: ScrollState? = null,
     expandable: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
+    fromTop: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollState = scroll ?: rememberScrollState()
-    SheetHost(onClose, onBack = back) { position, dismiss ->
+    SheetHost(onClose, onBack = back, fromTop = fromTop) { position, dismiss ->
         SheetPanel(position, dismiss, full, expandable && !full) {
             SheetHeader(
                 leading = { if (back != null) FloatIcon(Lu.back, "Back", back) else FloatIcon(Lu.close, "Close", dismiss) },
@@ -130,8 +132,9 @@ fun PullsSheet(
     scroll: ScrollState? = null,
     expandable: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
+    fromTop: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
-) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, content)
+) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, fromTop, content)
 
 /**
  * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze
@@ -162,10 +165,10 @@ fun <P : Any> PullsPagedSheet(
  * The system back goes to [onBack] when the sheet has a page to go back to, and closes the sheet when it has not.
  */
 @Composable
-private fun SheetHost(onClose: () -> Unit, onBack: (() -> Unit)? = null, panel: @Composable (SheetPosition, () -> Unit) -> Unit) {
+private fun SheetHost(onClose: () -> Unit, onBack: (() -> Unit)? = null, fromTop: Boolean = false, panel: @Composable (SheetPosition, () -> Unit) -> Unit) {
     val motion = rememberMotionEnabled()
     val scope = rememberCoroutineScope()
-    val position = remember { SheetPosition() }
+    val position = remember { SheetPosition(fromTop) }
     val dismiss: () -> Unit = {
         // The panel leaves first and the caller is told once it has gone.
         if (position.startClosing()) scope.launch {
@@ -206,10 +209,11 @@ private fun SheetWindow() {
  * [offset] directly and the panel settles on release. Once the panel rests it is pinned to its stop:
  * [shift] then works the stop out from the panel's size on every frame, so a panel that is growing
  * or shrinking (a page of another height sliding in) keeps its top where it belongs, with no frame
- * of lag.
+ * of lag. A sheet [fromTop] comes down from above the screen instead, and goes back up unless a finger
+ * threw it down.
  */
 @Stable
-internal class SheetPosition {
+internal class SheetPosition(private val fromTop: Boolean = false) {
     var offset by mutableFloatStateOf(0f)
         private set
     var reveal by mutableFloatStateOf(0f)
@@ -219,6 +223,15 @@ internal class SheetPosition {
 
     /** Half the window, where an expandable sheet opens. */
     var half = 0f
+
+    /** The window's height: a sheet that comes from the top starts this far up, wholly above the screen. */
+    var window = 0f
+
+    /** A finger threw the sheet down to close it, so it leaves downward whichever way it came in. */
+    private var thrownDown = false
+
+    /** Where the panel is when it is off the screen on the side it came from (or leaves by). */
+    private val away: Float get() = if (fromTop && !thrownDown) -maxOf(window, height.toFloat()) else height.toFloat()
 
     var expandable = false
 
@@ -319,7 +332,7 @@ internal class SheetPosition {
             pinned = true
             return
         }
-        offset = height.toFloat()
+        offset = away
         glide(scope, rest, PullsMotion.SLOW, true)
         revealJob = scope.launch { animate(0f, 1f, animationSpec = tween(PullsMotion.SLOW, easing = PullsMotion.SmoothOut)) { v, _ -> reveal = v } }
     }
@@ -365,6 +378,8 @@ internal class SheetPosition {
         val gone = height.toFloat()
         val target = sheetTarget(offset, velocity, speed, rests, gone)
         if (target >= gone) {
+            // Thrown down: it carries on down, the way the finger went (rule 105).
+            thrownDown = true
             dismiss()
             return
         }
@@ -372,18 +387,18 @@ internal class SheetPosition {
         glide(scope, target, PullsMotion.FAST, motion)
     }
 
-    /** Down and out in 350ms, fading through the blur as it goes. */
+    /** Out in 350ms, fading through the blur as it goes: down, or back up for a sheet that came from the top. */
     suspend fun hide(motion: Boolean) {
         offsetJob?.cancel()
         revealJob?.cancel()
         unpin()
         if (!motion) {
             reveal = 0f
-            offset = height.toFloat()
+            offset = away
             return
         }
         coroutineScope {
-            launch { animate(offset, height.toFloat(), animationSpec = tween(PullsMotion.MEDIUM, easing = PullsMotion.SmoothOut)) { v, _ -> offset = v } }
+            launch { animate(offset, away, animationSpec = tween(PullsMotion.MEDIUM, easing = PullsMotion.SmoothOut)) { v, _ -> offset = v } }
             launch { animate(reveal, 0f, animationSpec = tween(PullsMotion.MEDIUM, easing = PullsMotion.SmoothOut)) { v, _ -> reveal = v } }
         }
     }
@@ -453,7 +468,8 @@ internal fun SheetPanel(
     val sized = if (full) Modifier.height(ceiling - 44.dp) else Modifier.heightIn(max = ceiling - 44.dp)
     val window = LocalWindowInfo.current.containerSize.height
     position.expandable = detents
-    position.updateHalf((if (window > 0) window.toFloat() else with(density) { screen.toPx() }) / 2f)
+    position.window = if (window > 0) window.toFloat() else with(density) { screen.toPx() }
+    position.updateHalf(position.window / 2f)
     // Half the window can change with no change to the panel (the keyboard, split screen): an expandable sheet moves to its new rest.
     LaunchedEffect(position.half, detents) { position.follow(scope, motion) }
     val latestDismiss by rememberUpdatedState(dismiss)
@@ -565,7 +581,7 @@ internal fun <P : Any> PagedSheetPanel(
     SheetPanel(position, dismiss, full, detents = !full) {
         SheetHeader(
             leading = { if (up != null) FloatIcon(Lu.back, "Back", { onPage(up) }) else FloatIcon(Lu.close, "Close", dismiss) },
-            title = { BlurSwitch(page, order = depth) { SheetTitle(title(it)) } },
+            title = { BlurSwitch(page, order = depth, contentAlignment = Alignment.Center) { SheetTitle(title(it)) } },
         )
         BlurSwitch(page, Modifier.weight(1f, fill = full), order = depth) { p ->
             val pageFooter: (@Composable ColumnScope.() -> Unit)? = footer?.let { f -> { f(p) } }

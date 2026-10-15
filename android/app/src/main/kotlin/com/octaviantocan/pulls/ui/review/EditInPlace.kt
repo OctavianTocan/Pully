@@ -89,7 +89,7 @@ internal fun EditableText(
     }
 
     if (editing) {
-        // Back leaves the field with what it had before, the way Escape would.
+        // motion-ok: Back leaves the field with what it had before, the way Escape would; no page moves, so none follows the finger.
         BackHandler { editing = false; gotFocus = false; draft = shown }
         LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
         BasicTextField(

@@ -29,12 +29,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.DarkPullsColors
+import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.IconSwap
+import com.octaviantocan.pulls.ui.design.LabelSwitch
 import com.octaviantocan.pulls.ui.design.LightPullsColors
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -175,6 +178,8 @@ internal fun MotionPage(book: BookData) {
         CapsuleTabs(listOf("Inbox", "Tours", "Done"), selected, { selected = it })
         SectionTitle("Slide in a list")
         PageSlideDemo()
+        SectionTitle("Label")
+        LabelDemo()
         SectionTitle("Swap")
         SwapDemo()
         SectionTitle("Breathe, turn and shimmer")
@@ -207,7 +212,10 @@ private fun PressDemo() {
     ) { Text("Press and hold", style = PullsType.row, color = c.text) }
 }
 
-/** Rows that change as a page when the tab above them does: the old rows leave and the new ones arrive (rule 73), the tabs stay put. */
+/**
+ * Rows that change as a page when the tab above them does: the old rows leave the way the tabs go and the new ones
+ * arrive from the other side (rules 73 and 105), the tabs stay put.
+ */
 @Composable
 private fun PageSlideDemo() {
     val c = LocalPullsColors.current
@@ -218,6 +226,21 @@ private fun PageSlideDemo() {
         Column(Modifier.pageSlide(slide), verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
             repeat(3) { row -> Text("${listOf("Summary", "Commits", "Conversation")[slide.shown]}, row ${row + 1}", style = PullsType.row, color = c.text) }
         }
+    }
+}
+
+/** A label replaced by its neighbour, as the file name between ‹ and › is: the next comes from the right, the previous from the left (rule 105). */
+@Composable
+private fun LabelDemo() {
+    val c = LocalPullsColors.current
+    val names = listOf("Motion.kt", "Kit.kt", "Sheet.kt", "Tokens.kt")
+    var at by remember { mutableIntStateOf(0) }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
+        FloatIcon(Lu.prev, "Previous", { at = (at - 1).coerceAtLeast(0) }, enabled = at > 0)
+        LabelSwitch(at, Modifier.weight(1f), order = { it }) { i ->
+            Text(names[i], Modifier.fillMaxWidth(), style = PullsType.row, color = c.text, textAlign = TextAlign.Center)
+        }
+        FloatIcon(Lu.next, "Next", { at = (at + 1).coerceAtMost(names.lastIndex) }, enabled = at < names.lastIndex)
     }
 }
 

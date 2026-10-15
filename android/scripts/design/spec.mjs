@@ -8,7 +8,7 @@ import { ANDROID } from './kotlin.mjs'
 export const DESIGN_PATH = join(ANDROID, 'DESIGN.md')
 
 /** The names `Checked by` may use. `review` is a person; the others are modules that declare their rules. */
-export const CHECKS = ['tokens', 'raw-values', 'bans', 'book', 'review']
+export const CHECKS = ['tokens', 'raw-values', 'bans', 'book', 'motion', 'review']
 
 const FRONT = /^---\n([\s\S]*?)\n---\n/
 const FOOTER = /^Source: (\w+)\.(?: Checked by: (.+))?$/

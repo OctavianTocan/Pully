@@ -77,6 +77,7 @@ import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import kotlinx.coroutines.launch
+import com.octaviantocan.pulls.ui.design.LabelSwitch
 
 /**
  * The tour: the capsule header, a calm strip under it (the ring, the stop you are on, a chevron) that opens the
@@ -89,10 +90,6 @@ internal fun PrTourScreen(
     head: PrHead,
     resumeAt: Int,
     onReached: (stop: Int, total: Int, title: String) -> Unit,
-    onBack: () -> Unit,
-    onOverview: () -> Unit,
-    onChanges: () -> Unit,
-    onMore: () -> Unit,
     onOpenSource: (TourSource) -> Unit,
     onAsk: (String?) -> Unit,
 ) {
@@ -149,13 +146,8 @@ internal fun PrTourScreen(
     // Every mention in the tour opens its place, and its code is the diff's code view (rules 95 and 96).
     ProvideAiText(session, { place -> onOpenSource(TourSource(place.path, place.line, "")) }) {
         Box(Modifier.fillMaxSize().background(c.base)) {
+            // The capsule header is the review's, over all three views (rule 93); the strip starts under it.
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                    FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                    Spacer(Modifier.weight(1f))
-                    // The same capsule as the Overview, with the Tour lit. The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which a tour has.
-                    SectionCapsule(selected = 2, live = running, onOverview = onOverview, onChanges = onChanges, onTour = {}, onCorner = onMore)
-                }
                 if (n > 0 && current in 1..n) {
                     // The ring, the stop you are on and the chevron, each in its own column so the title never runs under
                     // the ring; no "2 of 4" (rule 97). Tapping it opens the sections.
@@ -167,8 +159,11 @@ internal fun PrTourScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         ProgressRing(progress)
-                        // One line with an ellipsis, or two whole lines: never a line cut in half.
-                        Text(stops[current - 1].title, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        // One line with an ellipsis, or two whole lines: never a line cut in half. Reading on brings the next stop's
+                        // name up from below and scrolling back brings the last one down, with the cards (rule 105).
+                        LabelSwitch(current, Modifier.weight(1f), order = { it }, vertical = true) { at ->
+                            Text(stops.getOrNull(at - 1)?.title.orEmpty(), Modifier.fillMaxWidth(), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
                         LuIcon(Lu.chevd, tint = c.muted, size = 20.dp)
                     }
                 }

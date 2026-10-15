@@ -31,6 +31,10 @@ object Commands {
     var paletteOpen by mutableStateOf(false)
     var scope by mutableStateOf<PaletteScope?>(null)
 
+    /** The palette was pulled down from the top of a list, so it comes down from the top (rule 105). */
+    var fromTop by mutableStateOf(false)
+        private set
+
     /** Every registered command in registration order; later registrations of an id win. */
     fun all(): List<Command> {
         val byId = LinkedHashMap<String, Command>()
@@ -38,8 +42,9 @@ object Commands {
         return byId.values.toList()
     }
 
-    fun open(scope: PaletteScope? = null) {
+    fun open(scope: PaletteScope? = null, fromTop: Boolean = false) {
         this.scope = scope
+        this.fromTop = fromTop
         paletteOpen = true
     }
 
