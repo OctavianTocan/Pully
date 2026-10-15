@@ -84,6 +84,10 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      */
     var attention by mutableStateOf<Map<String, String>>(emptyMap())
         private set
+
+    /** What Jev made of the pull request at [opened]'s head: its kind and risk, once a review had Jev read it. */
+    var pullJev by mutableStateOf<com.octaviantocan.pulls.data.PullJev?>(null)
+        private set
     /** The diff and head the marks are for: a pull request keeps its key across pushes, so the head counts too. */
     private var attentionFor: String? = null
     private var attentionJob: Job? = null
@@ -253,15 +257,16 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     }
 
     /**
-     * Asks Jev which files need a look once the diff has opened, then again every few seconds while it is still sorting
-     * some, for two minutes at most. Jev off or a failed call leaves the files unmarked and says nothing: the marks are
-     * a hint, not part of the review.
+     * Reads what Jev said about the diff once it has opened, then again every few seconds while it is still rating
+     * some files, for two minutes at most. Jev reads a diff only when a review of it starts (an analysis, Look for
+     * problems, a tour or a brief), so [follow] reads again as one starts and as it ends. Jev off or a failed call
+     * leaves the files unmarked and says nothing: the marks are a hint, not part of the review.
      */
     private fun loadAttention() {
         val opened = opened ?: return
         val key = opened.key
         val version = "$key@${opened.headSha}"
-        if (version != attentionFor) attention = emptyMap()
+        if (version != attentionFor) { attention = emptyMap(); pullJev = null }
         attentionFor = version
         attentionJob?.cancel()
         attentionJob = scope.launch {
@@ -270,6 +275,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
                 if (!answer.enabled || attentionFor != version) break
                 attention = answer.files
+                answer.pull?.let { pullJev = it }
                 if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
                 delay(ATTENTION_EVERY_MS)
             }
@@ -432,6 +438,10 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     private fun follow(id: String, onDone: (TaskState) -> Unit = {}) {
         if (followers[id]?.isActive == true) return
         followers[id] = scope.launch {
+            // A review of the whole diff starts with Jev reading it, so its marks are read while it rates and once it has.
+            val triaged = tasks[id]?.kind in JEV_TASKS
+            var rated = false
+            if (triaged) loadAttention()
             while (true) {
                 val current = tasks[id] ?: break
                 val next = runCatching { repo.waitTask(id, current.rev) }.getOrElse { error ->
@@ -439,8 +449,13 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                     break
                 }
                 tasks[id] = if (current.label.isEmpty()) next.asTaskState().let { fresh -> fresh.copy(activities = current.merge(next).activities) } else current.merge(next)
+                if (triaged && !rated && tasks[id]?.activities?.any { it.id == JEV_STEP && it.status != "running" } == true) {
+                    rated = true
+                    loadAttention()
+                }
                 if (tasks[id]?.running != true) break
             }
+            if (triaged) loadAttention()
             reloadSavedNow()
             if (tasks[id]?.kind == "analyze") {
                 if (hasAiResult) analyzeMode = "ai"
@@ -480,6 +495,10 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         const val REMEMBERED = 6
         const val ATTENTION_EVERY_MS = 3_000L
         const val ATTENTION_FOR_MS = 120_000L
+        /** The tasks the server starts with Jev's read of the diff (`TRIAGED` in the server's `tasks.ts`). */
+        val JEV_TASKS = setOf("analyze", "critique", "tour", "brief")
+        /** The work-log step that read is (`jev-triage` in the server's `jev-review.ts`). */
+        const val JEV_STEP = "jev-triage"
 
         // Least recently opened first; the oldest goes when a seventh arrives. Touched on the main thread only.
         val recent = object : LinkedHashMap<String, Remembered>(8, 0.75f, true) {

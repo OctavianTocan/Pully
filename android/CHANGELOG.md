@@ -12,6 +12,15 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.31.0
+
+Pull requests show their kind and risk, and files their rating.
+
+- A pull request Jev has read says what kind of change it is and how risky, under its name in the Inbox and under the branch on its page.
+- Every rated file says "Needs a look", "Worth a look" or "Skim".
+- Jev reads a pull request when it is analysed, and the AI uses its ratings to decide where to look first.
+- The Inbox asks Jev about every pull request only while it is sorted by risk or grouped by kind.
+
 ## 0.30.0
 
 Tours start from the tour icon, and sort sits next to search.

@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.data.JEV_FILE_WORDS
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -271,14 +272,14 @@ internal fun ColumnScope.FilesList(
             val review = state(file)
             val reviewed = review == ReviewState.Reviewed
             val dir = file.path.substringBeforeLast('/', "")
-            val needsLook = attention[file.path] == "p0"
+            val mark = attention[file.path]?.takeIf { it in JEV_FILE_WORDS }
             ListRow(
                 AnnotatedString(file.path.substringAfterLast('/')),
                 // The folder cut from the front (rule 90), so a deep path never takes two lines.
-                under = if (dir.isEmpty() && review != ReviewState.Changed && !needsLook) null else ({
-                    if (dir.isNotEmpty() || needsLook) {
+                under = if (dir.isEmpty() && review != ReviewState.Changed && mark == null) null else ({
+                    if (dir.isNotEmpty() || mark != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (needsLook) NeedsLook(trailingDot = dir.isNotEmpty())
+                            if (mark != null) JevMark(mark, trailingDot = dir.isNotEmpty())
                             if (dir.isNotEmpty()) PathTail(dir, PullsType.sm, c.muted, Modifier.weight(1f, fill = false))
                         }
                     }
@@ -305,13 +306,15 @@ internal fun ColumnScope.FilesList(
 }
 
 /**
- * Jev's mark on a file that needs a human: the plain words in the amber the app gives warnings, at the meta size
- * (rule 14). With [trailingDot] a faint dot parts it from the folder that follows on the same line.
+ * Jev's word on a file, starting its second line at the meta size (rule 14): "Needs a look" in the amber the app gives
+ * warnings for a file that needs a human (`p0`), "Worth a look" and "Skim" in the muted ink for the rest (`p1`, `p2`).
+ * With [trailingDot] a faint dot parts it from the folder that follows on the same line.
  */
 @Composable
-internal fun NeedsLook(trailingDot: Boolean) {
+internal fun JevMark(priority: String, trailingDot: Boolean) {
     val c = LocalPullsColors.current
-    Text("Needs a look", style = PullsType.sm, color = c.amber, maxLines = 1, softWrap = false)
+    val words = JEV_FILE_WORDS[priority] ?: return
+    Text(words, style = PullsType.sm, color = if (priority == "p0") c.amber else c.muted, maxLines = 1, softWrap = false)
     if (trailingDot) Text(" · ", style = PullsType.sm, color = c.faint, maxLines = 1, softWrap = false)
 }
 

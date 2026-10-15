@@ -210,16 +210,50 @@ fun JsonObject.asPullJev(): PullJev? {
 }
 
 /**
- * The `jev-files` answer for an opened diff: whether Jev is on, each classified file's priority by path (`p0` needs
- * a human, `p1` is worth a look, `p2` is low attention), and how many files it is still sorting.
+ * The `jev-files` answer for an opened diff: whether Jev is on, each rated file's priority by path (`p0` needs a human,
+ * `p1` is worth a look, `p2` is low attention), how many files it is rating now, and what it made of the pull request
+ * ([pull]), when a review of it had Jev read it.
  */
-data class JevFiles(val enabled: Boolean, val files: Map<String, String>, val pending: Int)
+data class JevFiles(val enabled: Boolean, val files: Map<String, String>, val pending: Int, val pull: PullJev? = null)
 
 fun JsonObject.asJevFiles(): JevFiles = JevFiles(
     enabled = this["enabled"]?.jsonPrimitive?.contentOrNull == "true",
     files = (this["files"] as? JsonObject).orEmpty().mapNotNull { (path, value) -> (value as? JsonObject)?.str("priority")?.ifBlank { null }?.let { path to it } }.toMap(),
     pending = this["pending"]?.jsonPrimitive?.intOrNull ?: 0,
+    pull = (this["pull"] as? JsonObject)?.asPullJev(),
 )
+
+/** Jev's kinds as one item reads: "Fix", "Feature". */
+val JEV_KIND_WORDS: Map<String, String> = mapOf(
+    "fix" to "Fix", "feature" to "Feature", "refactor" to "Refactor", "performance" to "Performance",
+    "docs" to "Docs", "tests" to "Tests", "dependencies" to "Dependencies", "infra" to "Infra",
+)
+
+/** Jev's risk levels, lowest first, as a row says them. */
+val JEV_RISK_WORDS: List<String> = listOf("Trivial", "Low risk", "Medium risk", "High risk")
+
+/** The level [PullJev.risk] is nearest: 0 trivial to 3 high. */
+val PullJev.riskLevel: Int get() = kotlin.math.floor(risk + 0.5).toInt().coerceIn(0, JEV_RISK_WORDS.lastIndex)
+
+/** "High risk", "Trivial". */
+val PullJev.riskWords: String get() = JEV_RISK_WORDS[riskLevel]
+
+/**
+ * The kind as a row says it, with how sure Jev is in words rather than a number: "Fix" when it is sure (three in four
+ * or more), "Likely a fix" from one in two, "Maybe a fix" below. Null for a kind this app does not know.
+ */
+val PullJev.kindWords: String? get() {
+    val word = JEV_KIND_WORDS[kind] ?: return null
+    val noun = if (kind == "docs" || kind == "tests" || kind == "dependencies") word.lowercase() else "a ${word.lowercase()}"
+    return when {
+        kindConfidence >= 0.75 -> word
+        kindConfidence >= 0.5 -> "Likely $noun"
+        else -> "Maybe $noun"
+    }
+}
+
+/** Jev's word on a file, by its priority: what the Overview and the Files sheet write on its second line. */
+val JEV_FILE_WORDS: Map<String, String> = mapOf("p0" to "Needs a look", "p1" to "Worth a look", "p2" to "Skim")
 
 /** A `MyPullStack`; null without an id or a position, which no real stack lacks. */
 fun JsonObject.asPullStack(): PullStack? {
