@@ -1,4 +1,4 @@
-import type { AiTaskSnapshot } from '@pulls.review/core/local-rpc'
+import type { AiTaskSnapshot, MyPull } from '@pulls.review/core/local-rpc'
 import type { TaskRunners } from './tasks'
 import { createCacheRepositories } from '@pulls.review/core/cache'
 import { createPasteSource } from '@pulls.review/core/paste'
@@ -13,6 +13,10 @@ const diff = { ...await createPasteSource(PATCH).fetch(), head: { sha: 'h1', ref
 const KEY = serializeRef(diff.ref)
 const model = { engine: 'claude-code' as const, model: 'opus', effort: 'high' }
 const grouping = normalizeGroupedResult('llm', { overallSummary: 'Summary', groups: [], schemaVersion: 1 }, 'claude-code/opus')
+
+function pull(owner: string, repo: string, number: number): MyPull {
+  return { owner, repo, number, title: 'T', author: 'a', isDraft: false, updatedAt: '2026-10-14T00:00:00Z', commentsCount: 0, labels: [], state: 'open', role: 'authored' }
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -36,6 +40,9 @@ async function setup(runners: Partial<TaskRunners> = {}) {
     tour: vi.fn<TaskRunners['tour']>(async () => ({ title: 'Tour', overview: 'o', stops: [], glossary: [], headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-12T00:00:00Z' })),
     brief: vi.fn<TaskRunners['brief']>(async () => ({ lang: 'root = Stack([])', headSha: 'h1', engine: 'claude-code', locale: 'en', generatedAt: '2026-10-14T00:00:00Z' })),
     suggest: vi.fn<TaskRunners['suggest']>(async () => []),
+    inboxPulls: vi.fn<TaskRunners['inboxPulls']>(async () => ({ open: [pull('o', 'web', 5), pull('o', 'hidden', 6)], closed: [pull('o', 'web', 4)] })),
+    inbox: vi.fn<TaskRunners['inbox']>(async () => ({ text: 'o/web#5 waits on you.', usage: { costUsd: 0.02 } })),
+    suggestInbox: vi.fn<TaskRunners['suggestInbox']>(async () => ['Why is it failing?']),
     lens: vi.fn<TaskRunners['lens']>(async () => undefined),
     usage: vi.fn<TaskRunners['usage']>(() => ({ costUsd: 0.5 })),
     ...runners,
@@ -131,6 +138,50 @@ describe('ai tasks', () => {
     const failed = await tasks.start({ kind: 'ask', key: KEY, model, threadId: 't2', selection, question: 'boom' })
     expect(await settled(tasks.wait, failed)).toMatchObject({ status: 'failed', error: 'CLI broke' })
     await vi.waitFor(async () => expect((await tasks.threads(KEY)).map(thread => thread.turns[0]!.outcome)).toEqual(['stopped', 'failed']))
+  })
+
+  it('answers a question about the inbox, leaves hidden repositories out and saves the turn with its follow-ups', async () => {
+    const { tasks, runners } = await setup()
+    const first = await tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'What waits on me?', skip: ['o/hidden'] })
+    expect((await tasks.inboxChat()).turns).toEqual([expect.objectContaining({ question: 'What waits on me?', taskId: first })])
+    expect(await settled(tasks.wait, first)).toMatchObject({ status: 'done', kind: 'inbox', key: 'inbox', label: 'Ask about your pull requests', text: 'What waits on me?', result: 'o/web#5 waits on you.' })
+    const [pulls, , locale, request] = vi.mocked(runners.inbox).mock.calls[0]!
+    expect(pulls.open.map(item => item.repo)).toEqual(['web'])
+    expect(pulls.closed.map(item => item.number)).toEqual([4])
+    expect(locale).toBe('en')
+    expect(request).toEqual({ question: 'What waits on me?', history: [] })
+    await vi.waitFor(async () => expect(await tasks.inboxChat()).toMatchObject({ turns: [{ answer: 'o/web#5 waits on you.', outcome: 'done' }], suggestions: ['Why is it failing?'] }))
+
+    const second = await tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'And mine?' })
+    expect((await tasks.inboxChat()).suggestions).toBeUndefined()
+    await settled(tasks.wait, second)
+    expect(vi.mocked(runners.inbox).mock.calls[1]![3]).toEqual({ question: 'And mine?', history: [{ question: 'What waits on me?', answer: 'o/web#5 waits on you.' }] })
+
+    // Answering again replaces the last turn instead of adding one.
+    await settled(tasks.wait, await tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'And mine?', retry: true }))
+    expect((await tasks.inboxChat()).turns.map(turn => turn.question)).toEqual(['What waits on me?', 'And mine?'])
+
+    await tasks.clearInboxChat()
+    expect(await tasks.inboxChat()).toEqual({ turns: [] })
+  })
+
+  it('marks a stopped and a failed inbox question, and one cut off by a restart', async () => {
+    const { tasks, storage, cache, runners } = await setup({
+      inbox: vi.fn<TaskRunners['inbox']>((_p, _r, _l, request, hooks) => request.question === 'boom'
+        ? Promise.reject(new Error('CLI broke'))
+        : new Promise((_resolve, reject) => hooks.signal.addEventListener('abort', () => reject(new Error('aborted'))))),
+    })
+    const slow = await tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'slow' })
+    expect(tasks.cancel(slow)).toBe(true)
+    expect(await settled(tasks.wait, slow)).toMatchObject({ status: 'cancelled' })
+    const failed = await tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'boom' })
+    expect(await settled(tasks.wait, failed)).toMatchObject({ status: 'failed', error: 'CLI broke' })
+    await vi.waitFor(async () => expect((await tasks.inboxChat()).turns.map(turn => turn.outcome)).toEqual(['stopped', 'failed']))
+    expect(runners.suggestInbox).not.toHaveBeenCalled()
+
+    await storage.setItem('inbox-chat', { turns: [{ question: 'Q', taskId: 'gone' }] })
+    const restarted = createTaskManager({ cache, storage, runners })
+    expect((await restarted.inboxChat()).turns[0]).toMatchObject({ outcome: 'failed', error: expect.stringContaining('restarted') })
   })
 
   it('says a question was cut off when its task is unknown after a restart', async () => {

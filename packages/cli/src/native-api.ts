@@ -33,6 +33,8 @@ const ALLOWED = new Set<string>([
   LOCAL_RPC.aiTaskListAll,
   LOCAL_RPC.askThreads,
   LOCAL_RPC.askThreadClose,
+  LOCAL_RPC.inboxChat,
+  LOCAL_RPC.inboxChatClear,
 ])
 
 export interface NativeRequest {

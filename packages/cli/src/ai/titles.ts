@@ -73,6 +73,12 @@ export function describeTool(name: string, input: Record<string, unknown> = {}):
     }
     case 'read_discussion':
       return step('Reading', 'Read', 'the PR description and comments')
+    case 'read_pull_request':
+      return step('Reading', 'Read', text('pull') ?? 'a pull request')
+    case 'read_pull_request_diff': {
+      const paths = strings(input.paths)
+      return step('Reading', 'Read', `the diff of ${text('pull') ?? 'a pull request'}${paths.length ? ` (${files(paths)})` : ''}`)
+    }
     case 'web_search':
       return step('Searching', 'Searched', `the web for ${code(text('query') ?? '')}`)
     default:

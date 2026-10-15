@@ -83,6 +83,8 @@ import org.commonmark.node.Text as MdText
 import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
 import androidx.compose.foundation.layout.Spacer
+import com.octaviantocan.pulls.core.PULL_MENTION
+import com.octaviantocan.pulls.core.pullRefOfUrl
 
 private val parser: Parser = Parser.builder()
     .extensions(listOf(TablesExtension.create(), StrikethroughExtension.create(), AutolinkExtension.create(), TaskListItemsExtension.create()))
@@ -100,6 +102,15 @@ class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit)
 
 /** Set by AI screens: their Markdown turns mentions into links. Elsewhere Markdown links stay links. */
 val LocalMentions = staticCompositionLocalOf<Mentions?> { null }
+
+/**
+ * Where an answer about the inbox sends the pull requests it names: [resolve] says whether `owner/repo#12` (or a link
+ * to it on GitHub) is one the inbox lists, and [open] opens it in the app. Unlisted names stay plain text.
+ */
+class PullMentions(val resolve: (owner: String, repo: String, number: Int) -> Boolean, val open: (owner: String, repo: String, number: Int) -> Unit)
+
+/** Set by the inbox's Ask: its Markdown turns the pull requests it names into links that open them. */
+val LocalPullMentions = staticCompositionLocalOf<PullMentions?> { null }
 
 /** Set by AI screens to draw fenced code their own way (the diff's code view, rule 95); the code and its fence language. */
 val LocalCodeBlock = staticCompositionLocalOf<(@Composable (code: String, lang: String) -> Unit)?> { null }
@@ -468,8 +479,9 @@ private fun Inline(node: Node, style: TextStyle) {
     if (hasImage(node)) { InlineWithImages(node, style); return }
     val c = LocalPullsColors.current
     val mentions = LocalMentions.current
-    val text = remember(node, c, mentions) {
-        buildAnnotatedString { appendInline(node, c, mentions) }
+    val pulls = LocalPullMentions.current
+    val text = remember(node, c, mentions, pulls) {
+        buildAnnotatedString { if (pulls != null) appendWithPulls(node, c, pulls) else appendInline(node, c, mentions) }
     }
     if (text.isEmpty()) return
     Text(text, style = style.copy(color = style.color.takeOrElse(c.text)))
@@ -485,6 +497,49 @@ private fun AnnotatedString.Builder.appendInline(parent: Node, c: PullsColors, m
         node = node.next
     }
 }
+
+/** A pull request an inbox answer names: drawn like a mention (rule 96), and a tap opens it. */
+private fun AnnotatedString.Builder.withPull(owner: String, repo: String, number: Int, c: PullsColors, pulls: PullMentions, content: AnnotatedString.Builder.() -> Unit) {
+    val style = TextLinkStyles(SpanStyle(color = c.activeText, fontFamily = PullsType.display, fontWeight = FontWeight.Medium))
+    withLink(LinkAnnotation.Clickable("pull", style) { pulls.open(owner, repo, number) }) { content() }
+}
+
+/** Inline Markdown of an inbox answer: `owner/repo#12` and links to listed pull requests open them, shown as `repo#12`. */
+private fun AnnotatedString.Builder.appendWithPulls(parent: Node, c: PullsColors, pulls: PullMentions) {
+    var node = parent.firstChild
+    while (node != null) {
+        val current = node
+        when {
+            current is MdText -> {
+                var at = 0
+                for (match in PULL_MENTION.findAll(current.literal)) {
+                    val (owner, repo, digits) = match.destructured
+                    val number = digits.toIntOrNull() ?: continue
+                    if (!pulls.resolve(owner, repo, number)) continue
+                    append(current.literal.substring(at, match.range.first))
+                    withPull(owner, repo, number, c, pulls) { append("$repo#$number") }
+                    at = match.range.last + 1
+                }
+                append(current.literal.substring(at))
+            }
+            current is Link && pullLink(current.destination, pulls) != null -> {
+                val (owner, repo, number) = pullLink(current.destination, pulls)!!
+                withPull(owner, repo, number, c, pulls) { appendWithPulls(current, c, pulls) }
+            }
+            current is Code || current is HardLineBreak || current is SoftLineBreak || current is Image || current is HtmlInline || current is TaskListItemMarker -> appendInlineOne(current, c)
+            current is Emphasis -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendWithPulls(current, c, pulls) }
+            current is StrongEmphasis -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { appendWithPulls(current, c, pulls) }
+            current is Strikethrough -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { appendWithPulls(current, c, pulls) }
+            current is Link -> withLink(LinkAnnotation.Url(current.destination, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) { appendWithPulls(current, c, pulls) }
+            else -> appendWithPulls(current, c, pulls)
+        }
+        node = node.next
+    }
+}
+
+/** The listed pull request a link points at on GitHub, or null. */
+private fun pullLink(destination: String, pulls: PullMentions): Triple<String, String, Int>? =
+    pullRefOfUrl(destination)?.takeIf { pulls.resolve(it.owner, it.repo, it.number) }?.let { Triple(it.owner, it.repo, it.number) }
 
 /** A mention: Mona Sans medium in the link colour with no underline, as the analysis cites (rule 96). */
 private fun AnnotatedString.Builder.withMention(place: CodePlace, c: PullsColors, mentions: Mentions, content: AnnotatedString.Builder.() -> Unit) {

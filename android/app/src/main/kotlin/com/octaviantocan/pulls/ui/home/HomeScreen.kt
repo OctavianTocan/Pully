@@ -92,12 +92,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.ListedPull
+import com.octaviantocan.pulls.core.knownPull
+import com.octaviantocan.pulls.core.looksLikeQuestion
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.PullWork
 import com.octaviantocan.pulls.core.WorkTask
 import com.octaviantocan.pulls.core.pullKey
 import com.octaviantocan.pulls.core.pullWorkByKey
 import com.octaviantocan.pulls.core.runningTaskId
+import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
@@ -155,6 +158,8 @@ class HomeUi {
     var filter by mutableStateOf("waiting")
     var showClosed by mutableStateOf(false)
     var search by mutableStateOf("")
+    /** The Ask sheet over the inbox is open; it stays open across a pull request opened from it. */
+    var askOpen by mutableStateOf(false)
 }
 
 private val CHIP_LABELS = mapOf("waiting" to "Waiting on you", "authored" to "Authored", "all" to "All")
@@ -249,6 +254,19 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             null -> {}
         }
     }
+    // A question typed in the search opens Ask over the whole inbox; Claude Code or Codex on the server answers it.
+    val canAsk = remember { cliEngine(context) }
+    val inboxAsk = remember { InboxAsk(repo, scope, settings) }
+    val knownPulls = remember(listed) { { owner: String, name: String, number: Int -> knownPull(owner, name, number, listed) } }
+    val openListed = remember(nav) { { pull: ListedPull -> nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) } }
+    fun askSearch() {
+        val question = ui.search.trim()
+        if (question.isEmpty()) return
+        ui.search = ""
+        ui.askOpen = true
+        // A question still being answered keeps the new one in the field, to send once it is done.
+        if (inboxAsk.busy) inboxAsk.input = question else inboxAsk.ask(question)
+    }
     fun archivePull(pull: PullRow) {
         val key = Triage.key(pull)
         // Under All an archived row is still there, dimmed; swiping it again brings it back.
@@ -320,8 +338,12 @@ fun HomeScreen(nav: Nav, updateNotice: String?, ui: HomeUi) {
             openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
             onOpen = ::openSearch,
             onFocus = { searchFocused = it },
+            onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
             modifier = Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
         )
+        if (ui.askOpen) {
+            InboxAskSheet(inboxAsk, knownPulls, openListed, onClose = { ui.askOpen = false })
+        }
         if (activityOpen) {
             ActivitySheet(workTasks, onOpen = { ref -> nav.openTarget(OpenTarget.Pull(ref.owner, ref.repo, ref.number, "github.com")) }, onClose = { activityOpen = false })
         }
@@ -611,12 +633,16 @@ private fun DiffNumbers(pull: PullRow) {
 
 /**
  * `.search`: a 54dp white pill. Typing filters the list at once. When the text is a link or a number that names one
- * pull request, an Open pill appears in it and the keyboard's action opens it, so no separate field is needed.
+ * pull request, an Open pill appears in it and the keyboard's action opens it, so no separate field is needed. With
+ * [onAsk], any other text can be asked instead: Ask sits in the pill as a quiet word, and once the text reads as a
+ * question it fills like Open and the keyboard's action asks it.
  */
 @Composable
-internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier, onFocus: (Boolean) -> Unit = {}) {
+internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier, onFocus: (Boolean) -> Unit = {}, onAsk: (() -> Unit)? = null) {
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
+    val askable = onAsk != null && openLabel == null && value.isNotBlank()
+    val question = askable && looksLikeQuestion(value)
     Row(
         modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = if (value.isEmpty()) 20.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -629,8 +655,8 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
             singleLine = true,
             textStyle = PullsType.lg.copy(color = c.text),
             cursorBrush = SolidColor(c.accentTeal),
-            keyboardOptions = KeyboardOptions(imeAction = if (openLabel != null) ImeAction.Go else ImeAction.Search, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }, onGo = { onOpen() }),
+            keyboardOptions = KeyboardOptions(imeAction = if (openLabel != null) ImeAction.Go else if (question) ImeAction.Send else ImeAction.Search, autoCorrectEnabled = false),
+            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }, onGo = { onOpen() }, onSend = { focus.clearFocus(); onAsk?.invoke() }),
             modifier = Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
@@ -644,6 +670,14 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
                 Modifier.height(40.dp).clip(CircleShape).background(c.cta).cueClickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpen).padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) { Text("Open", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
+        }
+        if (askable && onAsk != null) {
+            val ask = { focus.clearFocus(); onAsk() }
+            Box(
+                Modifier.height(40.dp).clip(CircleShape).then(if (question) Modifier.background(c.cta) else Modifier)
+                    .cueClickable(role = Role.Button, onClickLabel = "Ask Pulls", onClick = ask).padding(horizontal = if (question) 16.dp else 8.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text("Ask", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (question) c.onCta else c.activeText, maxLines = 1) }
         }
         if (value.isNotEmpty()) FloatIcon(Lu.close, "Clear search", { onChange("") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
     }

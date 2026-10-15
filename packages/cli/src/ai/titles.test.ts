@@ -20,4 +20,10 @@ describe('work-log titles', () => {
     expect(describeTool('mcp__pr__search_source', { pattern: 'useQueue', path: 'src/**' }).done).toBe('Searched the code for `useQueue` in src/**')
     expect(describeTool('mcp__other__thing').running).toBe('Running thing')
   })
+
+  it('describes inbox tools by the pull request they read', () => {
+    expect(describeTool('mcp__inbox__read_pull_request', { pull: 'o/r#5' })).toEqual({ running: 'Reading o/r#5', done: 'Read o/r#5' })
+    expect(describeTool('mcp__inbox__read_pull_request_diff', { pull: 'o/r#5', paths: ['a.ts'] }).done).toBe('Read the diff of o/r#5 (a.ts)')
+    expect(describeTool('mcp__inbox__read_pull_request_diff', {}).running).toBe('Reading the diff of a pull request')
+  })
 })

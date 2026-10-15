@@ -10,6 +10,7 @@ import { runAgent } from './agent'
 
 export * from './ask'
 export * from './critique'
+export * from './inbox'
 
 export const LLM_SCHEMA_VERSION = 1
 

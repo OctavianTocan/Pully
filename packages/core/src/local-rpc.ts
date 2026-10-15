@@ -57,6 +57,10 @@ export const LOCAL_RPC = {
   askThreads: 'ask-threads',
   /** Drops a question thread and stops its running answer. */
   askThreadClose: 'ask-thread-close',
+  /** The conversation about the signed-in user's pull requests, asked from the phone's Home search. */
+  inboxChat: 'inbox-chat',
+  /** Starts that conversation afresh, stopping an answer still on its way. */
+  inboxChatClear: 'inbox-chat-clear',
 } as const
 
 /** A skill offered as a point of view for an AI review. */
@@ -158,6 +162,13 @@ export interface AiJobRequest {
   key?: string
   /** Lets the model read the PR's diffs and source through tools. */
   context?: AiPrContext
+  /** Lets the model read the pull requests of an inbox through tools; set by the server's own tasks only. */
+  inbox?: AiInboxContext
+}
+
+/** The pull requests an inbox question may read through tools: only these, nothing else on GitHub. */
+export interface AiInboxContext {
+  pulls: { owner: string, repo: string, number: number }[]
 }
 
 export const AI_JOB_STATUSES = ['running', 'done', 'failed', 'cancelled'] as const
@@ -235,8 +246,11 @@ export interface MyPullsSnapshot {
 }
 
 /** What a server task does; each saves its result where the page reads it back. */
-export const AI_TASK_KINDS = ['analyze', 'critique', 'ask', 'chat', 'tour', 'brief'] as const
+export const AI_TASK_KINDS = ['analyze', 'critique', 'ask', 'chat', 'tour', 'brief', 'inbox'] as const
 export type AiTaskKind = typeof AI_TASK_KINDS[number]
+
+/** The task key of a question about the inbox, which belongs to no diff. */
+export const INBOX_KEY = 'inbox'
 
 /** What an analysis starts by itself once it succeeds, so the whole job finishes with the phone asleep. */
 export const AI_FOLLOW_UPS = ['tour', 'brief'] as const
@@ -275,6 +289,11 @@ export type AiTaskRequest
     | AiTaskRequestBase & { kind: 'chat', locale: string, text?: string, retry?: boolean }
     | AiTaskRequestBase & { kind: 'tour', locale: string }
     | AiTaskRequestBase & { kind: 'brief', locale: string }
+    /**
+     * A question about the signed-in user's pull requests, keyed {@link INBOX_KEY}. `retry` answers the last question
+     * again in place of its old answer; `skip` names repositories (`owner/repo`) the phone hides.
+     */
+    | AiTaskRequestBase & { kind: 'inbox', locale: string, question: string, retry?: boolean, skip?: string[] }
 
 /** A task as of revision `rev`; `activities` holds only entries changed since the caller's `after`. */
 export interface AiTaskSnapshot {
@@ -301,7 +320,7 @@ export interface AiTaskSnapshot {
   lens?: string
   /** `ask`: the thread the question belongs to. */
   threadId?: string
-  /** `ask`: the question; `chat`: the message sent. */
+  /** `ask` and `inbox`: the question; `chat`: the message sent. */
   text?: string
   /** `analyze`: what it starts after itself, so a client can show those steps from the first moment. */
   then?: AiFollowUp[]
@@ -319,6 +338,12 @@ export interface AiAskTurn {
   outcome?: 'done' | 'failed' | 'stopped'
   /** The server task answering it. */
   taskId?: string
+}
+
+/** The conversation about the inbox: its turns, oldest first, and the questions offered under the last answer. */
+export interface AiInboxChat {
+  turns: AiAskTurn[]
+  suggestions?: string[]
 }
 
 /** Questions about one selection of lines, saved on the server per diff. */

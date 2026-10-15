@@ -125,6 +125,12 @@ class Repo(private val context: Context) {
     /** Every diff's running and recent tasks, newest first, with the pull request's title and no work log or result. */
     suspend fun allTasks(): List<TaskState> = (call("ai-task-list-all") as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asTaskState() }
 
+    /** The conversation about the inbox, asked from the Home search. */
+    suspend fun inboxChat(): InboxChat = (call("inbox-chat") as? JsonObject)?.asInboxChat() ?: InboxChat(emptyList(), emptyList())
+
+    /** Starts that conversation afresh; an answer still on its way stops. */
+    suspend fun clearInboxChat() { call("inbox-chat-clear") }
+
     suspend fun askThreads(key: String): List<AskThread> = (call("ask-threads") { put("key", key) } as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asAskThread() }
     suspend fun closeAsk(key: String, threadId: String) { call("ask-thread-close") { put("key", key); put("threadId", threadId) } }
 
