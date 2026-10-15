@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
+import com.octaviantocan.pulls.data.isTourPreview
 import android.content.Context
 import android.graphics.Picture
 import androidx.compose.foundation.Canvas
@@ -74,7 +75,10 @@ import kotlinx.serialization.json.put
  * rendered, drawn with AndroidSVG (no WebView).
  */
 
-private val SHAPE_LABELS = mapOf("calls" to "Call tree", "tree" to "Files", "pseudo" to "Pseudocode", "code" to "Code", "flow" to "Flow")
+private val SHAPE_LABELS = mapOf("calls" to "Call tree", "tree" to "Files", "pseudo" to "Pseudocode", "flow" to "Flow")
+
+/** Fence languages that name no language: the code is shown uncoloured. */
+private val PLAIN_LANGS = setOf("text", "txt", "plain", "plaintext")
 
 /** Starts a tour in the reader's language, unless one is already running. */
 fun startTour(session: ReviewSession) {
@@ -156,7 +160,7 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     val stop = guardedStop(session, listOf(kind), task.running) { session.cancelTask(task.id) }
     // The newest three steps, and no "Wrote 3 of 6 stops" line: the stops appear on the page as they are written (K13).
     AiActivityLogFull(
-        task.activities.filterNot { it.id == "tour-write" }, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 },
+        task.activities.filterNot { it.id == "tour-write" || isTourPreview(it) }, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 },
         compact = true, workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop,
     )
 }
@@ -210,13 +214,15 @@ internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
     when (block.kind) {
         "text" -> Markdown(block.text, style = PullsType.read.copy(color = c.text))
         "shape" -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // The kind and its caption at body size: a 10sp label was below the floor of rule 14.
+            // The kind and its caption at body size: a 10sp label was below the floor of rule 14. Code carries no label:
+            // it plainly is code, and its language ("text") said nothing ("why does it say Code Text?", recording 15 Oct
+            // 15:37, 15:35 to 15:48; L30).
+            if (block.lang != "code") Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(SHAPE_LABELS[block.lang] ?: "Sketch", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentTeal)
                 if (block.text.isNotBlank()) Text(block.text, style = PullsType.sm, color = c.muted)
             }
             // A flow is drawn from its hops, a call tree and a file tree as trees, pseudocode and code as the diff's code view (rule 95).
-            AiFence(session, block.body, if (block.lang == "code") block.text else block.lang)
+            AiFence(session, block.body, if (block.lang == "code") block.text.takeUnless { it.lowercase() in PLAIN_LANGS }.orEmpty() else block.lang)
         }
         "diagram" -> Diagram(session, block)
     }
@@ -226,7 +232,7 @@ private val svgCache = mutableStateMapOf<String, Result<String>>()
 
 /** A Mermaid diagram the server rendered to SVG, drawn natively; tap opens it full screen with pinch zoom. */
 @Composable
-private fun Diagram(session: ReviewSession, block: TourBlock) {
+internal fun Diagram(session: ReviewSession, block: TourBlock) {
     val c = LocalPullsColors.current
     val key = "${c.dark}:${block.body}"
     LaunchedEffect(key) {

@@ -34,6 +34,19 @@ class CodeZoomTest {
     }
 
     @Test
+    fun aZoomStaysAboutWhereTheFingersMetAndNeverPans() {
+        // The fingers met at (100, 300) and drift while they spread: the code grows about the first point only.
+        val frame = PinchFrame().zoomAbout(2f, 100f, 300f, 0.3f, 3f).zoomAbout(1f, 100f, 300f, 0.3f, 3f)
+        near(2f, frame.scale)
+        near(-100f, frame.x)
+        near(-300f, frame.y)
+        near(300f, frame.contentY(300f))
+        // The code's left edge stays at the view's left edge or beyond it, never leaving a gap.
+        val out = PinchFrame().zoomAbout(0.5f, 100f, 300f, 0.3f, 3f)
+        near(0f, out.x)
+    }
+
+    @Test
     fun theScaleStopsAtItsLimits() {
         near(3f, PinchFrame().next(10f, 0f, 0f, 0f, 0f, 0.3f, 3f).scale)
         near(0.3f, PinchFrame().next(0.01f, 0f, 0f, 0f, 0f, 0.3f, 3f).scale)

@@ -18,17 +18,38 @@ export const PersistedAnalysesSchema = v.object({
 export type PersistedAnalyses = v.InferOutput<typeof PersistedAnalysesSchema>
 export type PersistedGroupSource = keyof PersistedAnalyses
 
+const ArchivedChatSchema = v.object({
+  id: v.string(),
+  archivedAt: v.number(),
+  messages: v.array(v.looseObject({ role: v.string() })),
+  suggestions: v.optional(v.array(v.string())),
+})
+
 const LlmSessionSchema = v.object({
   messages: v.array(v.looseObject({ role: v.string() })),
   chatStartIndex: v.number(),
   suggestions: v.optional(v.array(v.string())),
+  archive: v.optional(v.array(ArchivedChatSchema)),
 })
+
+/** A chat set aside by "new chat": the messages that came after the analysis, as they were (see `chat-archive.ts`). */
+export interface ArchivedChat {
+  id: string
+  archivedAt: number
+  messages: AgentMessage[]
+  suggestions?: string[]
+}
 
 export interface LlmSession {
   messages: AgentMessage[]
   chatStartIndex: number
   /** Questions to offer under the last answer, written by a small model after the turn (rule 99). */
   suggestions?: string[]
+  /**
+   * Earlier chats of this diff, most recent first. A write that leaves it out keeps the stored one
+   * (`setLlmSession`), so a chat turn or a new analysis never drops the history.
+   */
+  archive?: ArchivedChat[]
 }
 
 /**

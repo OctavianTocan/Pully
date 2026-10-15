@@ -312,6 +312,19 @@ describe('diff cache', () => {
     expect(cleared!.sizeBytes).toBe(computeEntrySizeBytes(entry.diff, entry.analyzedBy))
   })
 
+  it('setLlmSession keeps the stored chat archive when a write leaves it out, and reads it back (L36)', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'sha-a', 1000))
+    const archive = [{ id: 'c1', archivedAt: 5, messages: [{ role: 'user', content: 'Earlier?', timestamp: 4 }] }] as LlmSession['archive']
+    await cache.setLlmSession('a', { ...session, archive })
+    // A chat turn or a new analysis writes the transcript alone.
+    await cache.setLlmSession('a', { messages: [...session.messages, { role: 'user', content: 'next', timestamp: 6 }], chatStartIndex: 1 })
+    expect((await cache.get('a'))!.llmSession).toMatchObject({ chatStartIndex: 1, archive })
+    // An empty archive is a write of its own.
+    await cache.setLlmSession('a', { ...session, archive: [] })
+    expect((await cache.get('a'))!.llmSession!.archive).toEqual([])
+  })
+
   it('an entry rewritten via put without the field has no session', async () => {
     const { cache } = cacheWith()
     await cache.put(makeEntry('a', 'sha-a', 1000))

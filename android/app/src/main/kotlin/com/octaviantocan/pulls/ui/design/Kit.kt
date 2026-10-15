@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.design
 
+import androidx.compose.ui.text.style.TextOverflow
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.Crossfade
@@ -57,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -275,9 +277,15 @@ fun CapsuleTabs(
                     ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // The mark and the word sit centred in the tab with room either side; a word too long for it ends in …
+                    // instead of wrapping out of sight, which pushed the mark against the tab's edge (recording 15 Oct
+                    // 15:37, 11:50 to 12:07; L22).
+                    Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         leading?.invoke(index)
-                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)
+                        Text(
+                            label, Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
+                            color = if (index == selected) c.text else c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -730,6 +738,41 @@ fun SheetSearch(value: String, onChange: (String) -> Unit, placeholder: String, 
             },
         )
         if (value.isNotEmpty()) FloatIcon(Lu.close, "Clear", { onChange("") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
+    }
+}
+
+/**
+ * The list a sheet picks from, with a [SheetSearch] over it once it is longer than [searchFrom] rows: themes, models,
+ * past chats. Most sheets are easier with a search ("most bottom sheets that we have actually benefit a lot from
+ * search": recording 15 Oct 15:37, 12:28 to 12:36; L4, L23, L36), so every picking list is this one component. [group]
+ * splits the rows under small headings in their order, each run in its own card; [row] draws one, told whether it is
+ * the first in its card. [text] is what a search matches, every word in any order (rule 101).
+ */
+@Composable
+fun <T> ColumnScope.SearchList(
+    items: List<T>,
+    text: (T) -> String,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    group: ((T) -> String?)? = null,
+    searchFrom: Int = 8,
+    empty: String = "Nothing matches",
+    row: @Composable (item: T, first: Boolean) -> Unit,
+) {
+    val c = LocalPullsColors.current
+    var query by remember { mutableStateOf("") }
+    if (items.size > searchFrom) SheetSearch(query, { query = it }, placeholder, modifier.padding(top = 8.dp, bottom = 2.dp))
+    val found = if (query.isBlank()) items else items.filter { matchesSearch(text(it), query) }
+    if (found.isEmpty() && items.isNotEmpty()) {
+        Text(empty, Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
+        return
+    }
+    val runs = if (group == null) listOf(null to found) else found.groupBy(group).toList()
+    runs.forEach { (label, rows) ->
+        if (label != null) Text(label, Modifier.padding(start = 4.dp, top = 18.dp), style = PullsType.sm, color = c.muted)
+        SheetCard(gap = if (label != null) 8.dp else 12.dp) {
+            rows.forEachIndexed { index, item -> row(item, index == 0) }
+        }
     }
 }
 

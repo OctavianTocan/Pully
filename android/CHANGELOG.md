@@ -12,6 +12,40 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.34.0
+
+Chat history in Ask, tour previews, and smoother swipes and zoom.
+
+### New
+
+- Ask keeps your earlier chats: with nothing typed, the button opens them in a list you can search, and a tap brings one back.
+- While a tour is written, its stops show under the progress as they are planned and written, without moving the page.
+- A file or line the tour names opens that file's changes in a sheet, and the tour stays where you were.
+- Answers in Ask can use the tour's tables, trees, steps, flows and diagrams.
+- The theme list and the model list have a search.
+- The "No tour yet" sheet lets you pick the effort under the model.
+- File groups on the Summary and in Files show their added and removed lines.
+
+### Changed
+
+- A sideways swipe anywhere on the Inbox, even on a pull request, goes to Tours.
+- Every heading on Home stays whole at the top as you scroll, and all their arrows line up.
+- Swiping between Summary and Conversation follows your finger and no longer turns the page by itself.
+- Going from one file to the next is easy: a third of the way or a flick is enough, and it never slides back.
+- Pinching code zooms it without dragging the page around, in the diff and on the tour.
+- The pull request page fades softly under its tabs and under the bottom buttons, with no hard edges.
+- The bottom buttons stay put while you pull down for Commands.
+- Review is never greyed out while a pull request opens, and the Jev line no longer flickers.
+- Tapping the description opens it in an editor on a sheet; the title still edits in place.
+- Badges in descriptions are sharp and open their link.
+- Tapping the author no longer opens their GitHub profile.
+- On the Commits sheet, tapping the chosen commit again goes back to all commits, and a held range is easy to see.
+- The model list shows at once instead of loading each time, and Pi models named with an effort only offer that effort.
+- Ask's progress looks like the tour's, the loader sits in the button, and scrolling up while it writes keeps you there.
+- New chat opens at once, and an empty chat offers its first questions the way answers offer the next ones.
+- Pseudocode in tours reads as plain steps, code blocks lose their "Code text" label, and "In the code" notes say what each place does.
+- Check groups have a line under them, and comment cards give Resolve some room.
+
 ## 0.33.0
 
 Colour themes, Commits and Checks as sheets, and a steadier diff.

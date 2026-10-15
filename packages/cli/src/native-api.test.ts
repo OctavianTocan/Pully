@@ -104,3 +104,36 @@ describe('pr-overview cached', () => {
     expect(github).not.toHaveBeenCalled()
   })
 })
+
+describe('chat history', () => {
+  const analysis = [{ role: 'user', content: 'Group this', timestamp: 1 }, { role: 'assistant', content: [{ type: 'text', text: 'Grouped.' }], timestamp: 2 }]
+  const turn = (question: string, at: number) => [
+    { role: 'user', content: [{ type: 'text', text: question }], timestamp: at },
+    { role: 'assistant', content: [{ type: 'text', text: `About ${question}` }], timestamp: at + 1 },
+  ]
+
+  it('sets a cleared chat aside, lists it, and puts it back, leaving the analysis transcript alone (L36)', async () => {
+    const diffs = (await serverSession(repo)).cache.diffs
+    await diffs.setLlmSession(KEY, { messages: [...analysis, ...turn('Why the cache?', 10)], chatStartIndex: 2 } as never)
+
+    expect((await call('chat-clear', { key: KEY })).body.result).toEqual({ cleared: 2 })
+    const listed = (await call('chat-history', { key: KEY })).body.result
+    expect(listed).toEqual({ chats: [{ id: expect.any(String), title: 'Why the cache?', at: new Date(11).toISOString(), turns: 1 }] })
+    expect((await call('review-state', { key: KEY })).body.result.chat).toEqual([])
+
+    // A newer chat is set aside when an earlier one is put back.
+    await diffs.setLlmSession(KEY, { ...(await diffs.get(KEY))!.llmSession!, messages: [...analysis, ...turn('What about TTL?', 20)] } as never)
+    expect((await call('chat-restore', { key: KEY, id: listed.chats[0].id })).body.result).toEqual({ restored: true })
+    const stored = (await diffs.get(KEY))!.llmSession!
+    expect(stored.messages).toEqual([...analysis, ...turn('Why the cache?', 10)])
+    expect(stored.chatStartIndex).toBe(2)
+    expect((await call('chat-history', { key: KEY })).body.result.chats.map((chat: { title: string }) => chat.title)).toEqual(['What about TTL?'])
+    expect((await call('review-state', { key: KEY })).body.result.chat.map((message: { text: string }) => message.text)).toEqual(['Why the cache?', 'About Why the cache?'])
+  })
+
+  it('refuses an id that is not in the history', async () => {
+    const { status, body } = await call('chat-restore', { key: KEY, id: 'missing' })
+    expect(status).toBe(400)
+    expect(body.error).toContain('not in this pull request\'s history')
+  })
+})

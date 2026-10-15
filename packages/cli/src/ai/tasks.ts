@@ -7,6 +7,7 @@ import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResu
 import type { Storage } from 'unstorage'
 import { randomUUID } from 'node:crypto'
 import { defaultLlmSettings, ENGINE_SETTINGS, resolveModel } from '@pulls.review/core/analyze'
+import { archiveChat } from '@pulls.review/core/cache'
 import { AI_FOLLOW_UPS } from '@pulls.review/core/local-rpc'
 import { DEFAULT_LOCALE, isLocale } from '@pulls.review/core/locales'
 import { serializeRef } from '@pulls.review/core/types'
@@ -314,7 +315,9 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
           const { result, transcript } = await runners.analyze(diff, resolved, localeOf(request.locale), hooks)
           task.controller.signal.throwIfAborted()
           await cache.diffs.setAnalyzedResult(request.key, 'llm', result)
-          await cache.diffs.setLlmSession(request.key, { messages: transcript, chatStartIndex: transcript.length })
+          // The chat that followed the old analysis goes to the diff's chat history rather than away (L36).
+          const previous = (await cache.diffs.get(request.key))?.llmSession as LlmSession | undefined
+          await cache.diffs.setLlmSession(request.key, { messages: transcript, chatStartIndex: transcript.length, archive: previous && archiveChat(previous).archive })
           // The page also gets the grouping itself, so a browser write racing this one can't lose it.
           return { usage: runners.usage(hooks.tag), result: JSON.stringify(result) }
         })

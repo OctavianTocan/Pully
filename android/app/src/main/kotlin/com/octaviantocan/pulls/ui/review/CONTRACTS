@@ -20,10 +20,12 @@ The title is a plain 26sp heading that wraps whole, never cut and never in a bub
 (rules 2 and 12).
 
 @cc [owner:OctavianTocan,label:product] pr-edit-in-place
-On a pull request the person may edit, a tap on the title or description turns it into a
-field with the caret where the finger landed; the text is underlined in the accent and
-the rest of the page fades to a quarter; leaving it saves. There is no Edit button
-(rules 83 and 110; F20, H34, H35).
+On a pull request the person may edit, a tap on the title turns it into a field with the
+caret where the finger landed; the text is underlined in the accent and the rest of the
+page fades to a quarter; leaving it saves. There is no Edit button (rules 83 and 110; F20,
+H34, H35). The description is edited on a sheet instead: a tap opens it in a proper text
+field and leaving the sheet saves; the page never scrolls under it (Tavi, recording 15 Oct
+15:37, 08:29 to 08:56; L13).
 
 @cc [owner:OctavianTocan,label:product] pr-edit-blocks-the-page
 While the title or description is being edited, a tap anywhere else only leaves the
@@ -68,7 +70,9 @@ NOT put a "Viewing commit N of M" box on top of the Overview (recording 15 Oct 1
 When the Diff shows part of the pull request (one commit, a range), it says so where the
 reader already looks, with no box over the page: the Diff's file pill names the commit and
 the Overview's Commits number reads just "3" (or "12–15") so it fits its cell, and opens the
-Commits sheet whose first row "All commits" goes back (rule 80; F26). Tavi's K25 replaced the pinned "Viewing commit" bar
+Commits sheet whose first row "All commits" goes back (rule 80; F26). The pill says "Only
+commit 4", never "Commit 4 of 8", which read like a page count (recording 15 Oct 15:37,
+07:06 to 07:17; L11). Tavi's K25 replaced the pinned "Viewing commit" bar
 (recording 15 Oct 13:54, 10:48 to 11:18).
 
 @cc [owner:OctavianTocan,label:design] pr-tabs-are-light
@@ -171,7 +175,10 @@ its scroll (rules 107 and 118; J25).
 
 @cc [owner:OctavianTocan,label:motion] diff-file-swipe-always-settles
 A swipe between files always settles on one file. Two files MUST NOT stay side by side
-half way (recording 15 Oct 13:54, 03:47 to 03:54; K10).
+half way (recording 15 Oct 13:54, 03:47 to 03:54; K10). Going to the next file is easy: a
+thumb's slanted swipe counts, a third of the way over is enough, and a flick that way goes
+on; it never needs a hard fling or slides back to the same file (recording 15 Oct 15:37,
+10:13 to 10:27; L18).
 
 @cc [owner:OctavianTocan,label:product;motion] diff-swipe-changes-file
 A swipe on the code goes to the next or previous file and the page follows the finger.
@@ -208,9 +215,11 @@ A review thread is a card under its line in the code, and an Ask about lines sho
 them the way the chat shows it, the answer as plain text with no box (rules 9, 94 and 99).
 
 @cc [owner:OctavianTocan,label:product;motion] diff-pinch-keeps-the-line
-A pinch scales the code under the fingers and pans with them; when they lift the size is
-kept and the line that was under them stays there. The code is not re-laid out on every
-frame (rule 93; F53).
+A pinch scales the code about the point where the fingers met and MUST NOT pan with them:
+a pinch that dragged the page let it spring back when the fingers lifted ("I can move the
+page and then it sticks again", recording 15 Oct 15:37, 09:58 to 10:11; L17, replacing
+the panning of F53). When they lift the size is kept and the line that was under them stays
+there. The code is not re-laid out on every frame (rule 93). The Tour's code is the same.
 
 @cc [owner:OctavianTocan,label:product] diff-text-and-tools-shows-itself
 Aa opens "Text and tools" as a bottom sheet in which every choice shows what it does:
@@ -336,3 +345,59 @@ quiet "Ask | ⋯" capsule; there is never a second Ask inside a comment card (ru
 A pull request in a stack says so under its title ("Stacked on #241"), and a tap opens
 the Stack sheet with every layer top first down to the base branch, where a tap on
 another layer opens it (DESIGN.md checklist 51).
+
+@cc [owner:OctavianTocan,label:design] pr-edges-dissolve
+On the pull request page the rows dissolve under the pinned tabs and into the page under
+the bottom buttons with the kit's edge fade: no hard line under the tabs and no block of
+solid page colour below Ask and Review ("just blur the edge", recording 15 Oct 15:37, 04:33
+to 05:14 and 07:48 to 08:04; L7, L8, L10).
+
+@cc [owner:OctavianTocan,label:product] pr-opening-stays-steady
+While a pull request opens, Review is never greyed out (before the files come it opens the
+Diff with bars where the code will be), and the Jev line, once shown, stays until a newer
+read replaces it ("the review button is greyed out ... it appears, disappears", recording
+15 Oct 15:37, 03:29 to 04:12; L5).
+
+@cc [owner:OctavianTocan,label:product] pr-commits-pick-back
+On the Commits sheet a tap on the one commit already chosen goes back to all commits, and a
+range held on the sheet is named at its top with the way to see its changes (recording
+15 Oct 15:37, 06:45 to 07:39; L11).
+
+@cc [owner:OctavianTocan,label:product] pr-author-is-plain
+The author on the pull request page is a plain name: a tap opens nothing. The repository's
+name before it opens the repository (recording 15 Oct 15:37, 11:17 to 11:25; L21).
+
+@cc [owner:OctavianTocan,label:design] pr-file-sections-show-changes
+The Overview's file sections and the Files sheet's show their + and − numbers on their
+headings (Tavi's idea, recording 15 Oct 15:37, 10:56 to 11:04; L20).
+
+@cc [owner:OctavianTocan,label:design] diff-thread-buttons-have-room
+A thread card's Resolve button keeps the card's inside margin and never meets its edge
+(recording 15 Oct 15:37, 10:28 to 10:33; L19).
+
+@cc [owner:OctavianTocan,label:product] models-shown-at-once
+The model sheet shows the names it last had at once, every time and after a restart, and
+refreshes them quietly; only an engine never listed before shows bars ("the models cannot
+be loading", recording 15 Oct 15:37, 12:07 to 12:24; L22). A long list has a search (L23).
+
+@cc [owner:OctavianTocan,label:product] models-effort-in-the-name
+A Pi model whose name carries an effort, "(High)" or "(Medium)", runs at that effort and
+offers only it (recording 15 Oct 15:37, 12:36 to 12:53; L24).
+
+@cc [owner:OctavianTocan,label:product] tour-effort-under-model
+The "No tour yet" sheet has the effort as a row of its own under Model (recording 15 Oct
+15:37, 13:10 to 13:17; L25).
+
+@cc [owner:OctavianTocan,label:product;motion] tour-previews-while-writing
+While a tour is written its plan and each stop already written show under the progress, in
+the places the stops will take, and the page is never scrolled for the reader (Tavi's idea,
+recording 15 Oct 15:37, 13:47 to 14:05; L26).
+
+@cc [owner:OctavianTocan,label:design] tour-sketches-read-cleanly
+Pseudocode reads as plain steps that wrap under their indent, never as coloured code cut at
+both edges, and a code block has no "Code" or "text" label (recording 15 Oct 15:37, 14:31
+to 14:33 and 15:35 to 15:48; L27, L30).
+
+@cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
+A file or line the Tour names opens that one file's diff on a sheet over the Tour, at the
+line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28).

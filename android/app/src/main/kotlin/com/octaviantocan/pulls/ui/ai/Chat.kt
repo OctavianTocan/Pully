@@ -1,5 +1,18 @@
 package com.octaviantocan.pulls.ui.ai
 
+import com.octaviantocan.pulls.ui.review.prIsoMillis
+import com.octaviantocan.pulls.ui.review.timeAgo
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.produceState
+import com.octaviantocan.pulls.ui.design.Orb
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
+import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SearchList
+import com.octaviantocan.pulls.data.ChatHistoryEntry
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.defaultMinSize
@@ -139,10 +152,25 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     val nextQuestions = if (lastAnswer != null && !busy && pending == null) session.saved?.suggestions.orEmpty() else emptyList()
     val failed = task?.status == "failed"
     val scroll = keptScroll ?: rememberScrollState()
-    // Each new line brings the end into view; a sheet opened again where it was is left there until something new comes.
+    // Each new line brings the end into view while the reader is at the end; once they scroll up the answer goes on
+    // writing below without pulling them back down, until they come back to the end or ask again ("if I scroll up, you
+    // scroll me down again immediately", recording 15 Oct 15:37, 16:14 to 16:23; L32). A sheet opened again where it was
+    // is left there until something new comes.
     val stay = remember { booleanArrayOf(returning) }
+    var following by remember { mutableStateOf(true) }
+    val ours = remember { booleanArrayOf(false, false) }
+    val slack = with(LocalDensity.current) { 96.dp.toPx() }
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.isScrollInProgress }.collect { moving ->
+            if (moving && !ours[0]) { ours[1] = true; following = false }
+            if (!moving && ours[1]) { ours[1] = false; following = scroll.value >= scroll.maxValue - slack }
+        }
+    }
     LaunchedEffect(rows.size, pending, task?.activities?.size, streaming, written?.length) {
-        if (stay[0]) stay[0] = false else scroll.animateScrollTo(scroll.maxValue)
+        if (stay[0]) { stay[0] = false; return@LaunchedEffect }
+        if (!following) return@LaunchedEffect
+        ours[0] = true
+        try { scroll.animateScrollTo(scroll.maxValue) } finally { ours[0] = false }
     }
     LaunchedEffect(initial) {
         if (!initial.isNullOrBlank() && !busy) session.sendChat(initial)
@@ -155,8 +183,19 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         val question = text.trim()
         if (question.isEmpty() || busy) return
         val about = attached
+        following = true
         session.sendChat(if (about == null) question else "About ${about.label}: \"${about.text}\"\n\n$question")
         attached = null
+    }
+
+    // The chats this pull request had before, on a searchable sheet over this one (L36).
+    var history by remember { mutableStateOf(false) }
+    fun newChat() {
+        val key = session.key ?: return
+        ui.chatError = null
+        // The page empties at once; the server keeps the old chat in the history meanwhile (L35, L36).
+        session.saved = session.saved?.copy(chat = emptyList(), suggestions = emptyList())
+        session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
     }
 
     @Composable
@@ -180,13 +219,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
             full = true,
             scroll = scroll,
             // A fresh conversation, in place of a "Clear" button (F69).
-            trailing = if (rows.isNotEmpty() && !busy) ({
-                FloatIcon(Lu.newChat, "New chat", {
-                    val key = session.key ?: return@FloatIcon
-                    ui.chatError = null
-                    session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
-                })
-            }) else null,
+            trailing = if (rows.isNotEmpty() && !busy) ({ FloatIcon(Lu.newChat, "New chat", ::newChat) }) else null,
             footer = {
                 attached?.let { about -> AttachedReference(about) { attached = null } }
                 AskField(
@@ -195,6 +228,9 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) },
                     sendEnabled = !busy && ui.chatInput.isNotBlank(),
                     onStop = if (streaming && task != null) ({ session.cancelTask(task.id) }) else null,
+                    // With nothing typed the button opens the chats this pull request had (Tavi, L36).
+                    onHistory = if (session.key != null && !busy) ({ history = true }) else null,
+                    working = streaming || ui.chatPending != null,
                 )
             },
         ) {
@@ -212,13 +248,14 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                 val sentAt = remember(ui.chatPending) { System.currentTimeMillis() }
                 val turnTask = task?.takeIf { answering } ?: task?.takeIf { !working && lastQuestion >= 0 && it.activities.isNotEmpty() }
                 if (working || turnTask != null) key(turnTask?.id) {
+                    // The tour's progress, line for line: "Thinking" and the time over the steps with their icons, and no
+                    // grey bars or orb under them; what is running shows in the send button (recording 15 Oct 15:37, 16:09
+                    // to 16:37; L31, L33).
                     AiActivityLogFull(
                         turnTask?.activities.orEmpty(), working, startedAt = turnTask?.startedAt?.takeIf { it > 0 } ?: sentAt,
                         endedAt = turnTask?.endedAt, outcome = outcomeOf(turnTask), compact = true, mark = false,
                     )
                 }
-                // The grey bars hint where the answer will arrive until its first words do (rule 71).
-                AiLiveMark(working, hint = written == null)
                 // The answer as it is written, in the place the saved reply takes: plain text, never a bubble (rule 99).
                 if (written != null) Answer(written)
                 shown.drop(turnAt).forEach { RowView(it) }
@@ -233,10 +270,50 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                 }
                 ui.chatError?.takeIf { !failed }?.let { Text(it, style = PullsType.sm, color = c.error) }
             }
-            if (rows.isEmpty() && pending == null && suggestions.isNotEmpty()) {
-                FlowRow(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    suggestions.forEach { suggestion -> SoftChip(suggestion, selected = false, onClick = { ask(suggestion) }) }
+            // An empty chat, the first and every new one alike: the questions to start with as the same rows that follow
+            // an answer, in a card, instead of loose chips ("this is not how we do things", 16:58 to 17:12; L35).
+            if (rows.isEmpty() && pending == null && !answering && suggestions.isNotEmpty()) {
+                Text("Start with", Modifier.padding(start = 4.dp, top = 6.dp), style = PullsType.sm, color = c.muted)
+                SheetCard(gap = 8.dp) {
+                    suggestions.forEachIndexed { index, suggestion ->
+                        SheetRow(suggestion, { ask(suggestion) }, first = index == 0, icon = { LuIcon(Lu.followUp, tint = c.muted, size = 18.dp) })
+                    }
                 }
+            }
+        }
+    }
+    if (history) ChatHistorySheet(session, onClose = { history = false }) { following = true }
+}
+
+/**
+ * The chats this pull request had, newest first, on the one searchable list a sheet picks from ([SearchList]): each its
+ * first question, when it was and how many questions it had. A tap brings that chat back into Ask, and the chat that was
+ * open goes into the list in its place (Tavi's idea: recording 15 Oct 15:37, 17:19 to 17:48; L36).
+ */
+@Composable
+private fun ChatHistorySheet(session: ReviewSession, onClose: () -> Unit, onRestored: () -> Unit) {
+    val c = LocalPullsColors.current
+    val key = session.key ?: return
+    val ui = aiUi(session)
+    val chats by produceState<List<ChatHistoryEntry>?>(null, key) {
+        value = runCatching { session.repo.chatHistory(key) }.getOrElse { ui.chatError = it.message; emptyList() }
+    }
+    PullsSheet(onClose, "Chats") {
+        val list = chats
+        when {
+            list == null -> RowsSkeleton(Modifier.padding(top = 12.dp), rows = 3)
+            list.isEmpty() -> Text("No earlier chats on this pull request.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
+            else -> SearchList(list, text = { it.title }, placeholder = "Find a chat", empty = "No chat matches") { chat, first ->
+                val ago = prIsoMillis(chat.at)?.let { timeAgo(it) }
+                val asked = if (chat.turns == 1) "1 question" else "${chat.turns} questions"
+                SheetRow(chat.title.ifBlank { "Chat" }, {
+                    onClose()
+                    session.scope.launch {
+                        runCatching { session.repo.restoreChat(key, chat.id) }.onFailure { ui.chatError = it.message }
+                        session.reloadSaved()
+                        onRestored()
+                    }
+                }, first = first, iconless = true, detail = listOfNotNull(ago, asked).joinToString(" · "))
             }
         }
     }
@@ -335,11 +412,20 @@ private fun SourceChip(source: AnswerSource) {
 }
 
 /**
- * Ask's field, at the foot of its sheet: a 52dp pill with the question and Send, or Stop while an answer is on its way.
- * The keyboard's action sends too.
+ * Ask's field, at the foot of its sheet: a 52dp pill with the question and Send; the turning orb, which stops it, while
+ * an answer is on its way; and with nothing typed, [onHistory]'s earlier chats. The keyboard's action sends too.
  */
 @Composable
-internal fun AskField(value: String, onValueChange: (String) -> Unit, placeholder: String, onSend: () -> Unit, sendEnabled: Boolean, onStop: (() -> Unit)?) {
+internal fun AskField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    onSend: () -> Unit,
+    sendEnabled: Boolean,
+    onStop: (() -> Unit)?,
+    onHistory: (() -> Unit)? = null,
+    working: Boolean = false,
+) {
     val c = LocalPullsColors.current
     Row(
         Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
@@ -362,10 +448,12 @@ internal fun AskField(value: String, onValueChange: (String) -> Unit, placeholde
                 }
             },
         )
-        if (onStop != null) {
-            FloatIcon(Lu.stop, t("common.stop"), onStop, size = 40.dp, iconSize = 18.dp, primary = true)
-        } else {
-            SendButton(onSend, t("common.send"), enabled = sendEnabled)
+        when {
+            // The loader is the button: while an answer is on its way the orb turns where Send was, and a tap stops it (L33).
+            onStop != null -> StopOrb(onStop, Modifier.size(40.dp))
+            working -> Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { Orb(size = 22.dp) }
+            value.isBlank() && onHistory != null -> FloatIcon(Lu.history, "Earlier chats", onHistory, size = 40.dp, iconSize = 20.dp, flat = true, tint = c.muted)
+            else -> SendButton(onSend, t("common.send"), enabled = sendEnabled)
         }
     }
 }

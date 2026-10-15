@@ -61,10 +61,24 @@ internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOvervi
         if (commits.size > 1) SheetSearch(query, { query = it }, "Find a commit", Modifier.padding(top = 8.dp, bottom = 6.dp))
         else Spacer(Modifier.height(8.dp))
         val searching = query.isNotBlank()
+        // A range held on the sheet is named at the top with the way to see it, since the rows alone barely showed it
+        // ("Commits four to six ... I wish I could, like, see them", 06:51 to 07:03; L11).
+        if (range != null && range.first != range.last) {
+            SheetCard(gap = 6.dp, modifier = Modifier.padding(bottom = 6.dp)) {
+                ListRow(
+                    "Commits ${range.first + 1 + hidden} to ${range.last + 1 + hidden}",
+                    detail = "${range.last - range.first + 1} commits chosen · tap to see their changes",
+                    first = true, selected = true,
+                    onClick = { onClose(); onOpen() },
+                    leading = { LuIcon(Lu.diff, tint = c.activeText, size = 20.dp) },
+                )
+            }
+        }
         if (!searching) {
             SheetCard(gap = 6.dp) {
                 ListRow(
-                    "All commits", detail = "Every change in the pull request", first = true, selected = selection == null,
+                    "All commits", detail = if (commits.size > 1) "Every change · hold a commit to pick several" else "Every change in the pull request",
+                    first = true, selected = selection == null,
                     onClick = { ui.commitAnchor = null; session.selectCommits(null); onClose() },
                     leading = { LuIcon(Lu.commit, tint = if (selection == null) c.activeText else c.muted, size = 20.dp) },
                 )
@@ -103,9 +117,13 @@ internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOvervi
                             selected = picked,
                             onClick = {
                                 ui.commitAnchor = index
-                                session.selectCommits(pickCommit(commits, selection, null, index, extend = false)?.pair ?: (commit.oid to commit.oid))
+                                val picked = pickCommit(commits, selection, null, index, extend = false)
+                                // Tapping the one commit already chosen goes back to all of them, as All commits does
+                                // ("if I click on it again, it would have just deselected it", recording 15 Oct 15:37,
+                                // 07:29 to 07:39; L11).
+                                session.selectCommits(picked?.pair)
                                 onClose()
-                                onOpen()
+                                if (picked != null) onOpen()
                             },
                             onLongClick = { session.selectCommits(pickCommit(commits, selection, ui.commitAnchor, index, extend = true)?.pair) },
                             leading = { Text("${index + 1 + hidden}", style = PullsType.row.copy(fontFeatureSettings = "tnum"), color = if (picked) c.activeText else c.faint, textAlign = TextAlign.Center) },

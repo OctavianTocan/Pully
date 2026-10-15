@@ -1,7 +1,9 @@
+import type { LlmSession } from '@pulls.review/core/cache'
 import type { GithubClient, MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
 import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
 import type { PatchReader } from './stored-diff'
 import process from 'node:process'
+import { archiveChat, chatHistory, restoreChat } from '@pulls.review/core/cache'
 import {
   cancelAutoMerge,
   changePullRequestState,
@@ -31,9 +33,10 @@ import { createPatchReader, MAX_PATCH_PATHS } from './stored-diff'
 /**
  * The phone's review routes beyond opening a diff: reviewed marks, full file content,
  * the PR overview and its actions, the stack a PR sits in, pending reviews, posting an AI
- * review, sharing an analysis, a repository's pull requests, and clearing the chat. Each one runs the
- * same core function the web stores call, with the server's GitHub token. `jev-files`
- * is the phone's own: what Jev said about the diff.
+ * review, sharing an analysis, a repository's pull requests, and the chat's history (a new
+ * chat, the earlier ones, putting one back). Each one runs the same core function the web
+ * stores call, with the server's GitHub token. `jev-files` is the phone's own: what Jev
+ * said about the diff.
  */
 type Args = Record<string, unknown> | undefined
 type Handler = (cwd: string, args: Args) => Promise<unknown>
@@ -411,16 +414,42 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return repoPulls.first(owner, repo, args?.fresh === true)
   },
 
-  /** Drops the chat after the analysis, keeping the analysis turn, as `useLlmChat.clear` does. */
+  /**
+   * Starts a new chat: the one after the analysis is set aside in the diff's chat history (at most
+   * `MAX_ARCHIVED_CHATS`), not thrown away, and the analysis turn stays as it was (L36).
+   */
   'chat-clear': async function (cwd, args) {
     const key = text(args?.key)
     const session = await serverSession(cwd)
     const entry = key ? await session.cache.diffs.get(key) : undefined
-    const stored = entry?.llmSession
+    const stored = entry?.llmSession as LlmSession | undefined
     if (!stored)
       return { cleared: 0 }
-    await session.cache.diffs.setLlmSession(key, { messages: stored.messages.slice(0, stored.chatStartIndex), chatStartIndex: stored.chatStartIndex } as never)
+    await session.cache.diffs.setLlmSession(key, archiveChat(stored))
     return { cleared: stored.messages.length - stored.chatStartIndex }
+  },
+
+  /** The diff's earlier chats for the history sheet, most recent first: `{ chats: [{ id, title, at, turns }] }`. */
+  'chat-history': async function (cwd, args) {
+    const key = text(args?.key)
+    if (!key)
+      throw new Error('That needs the diff key.')
+    const entry = await (await serverSession(cwd)).cache.diffs.get(key)
+    return { chats: chatHistory(entry?.llmSession as LlmSession | undefined) }
+  },
+
+  /** Puts an earlier chat back as the current one, setting the current chat aside first when it asked anything. */
+  'chat-restore': async function (cwd, args) {
+    const key = text(args?.key)
+    const id = text(args?.id)
+    if (!key || !id)
+      throw new Error('That needs the diff key and the chat.')
+    const session = await serverSession(cwd)
+    const stored = (await session.cache.diffs.get(key))?.llmSession as LlmSession | undefined
+    if (!stored)
+      throw new Error('That chat is not in this pull request\'s history.')
+    await session.cache.diffs.setLlmSession(key, restoreChat(stored, id))
+    return { restored: true }
   },
 
   /**

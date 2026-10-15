@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.design
 
+import kotlin.math.roundToInt
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -503,7 +505,11 @@ private fun InlineWithImages(node: Node, style: TextStyle) {
                 is Piece.Picture -> {
                     flush()
                     val src = piece.title.takeIf { c.dark && it.startsWith("dark:") }?.removePrefix("dark:") ?: piece.src
-                    InlinePicture(src, piece.alt, piece.href?.let { href -> { runCatching { uri.openUri(href) } } })
+                    // A picture always opens something, its link or else itself, so a tap on a badge never falls through
+                    // to what is under the text, such as the description's editor ("I clicked on Devin review and it
+                    // opened the editing", recording 15 Oct 15:37, 09:10 to 09:15; L14).
+                    val target = piece.href ?: piece.src
+                    InlinePicture(src, piece.alt) { runCatching { uri.openUri(target) } }
                 }
             }
         }
@@ -517,22 +523,34 @@ private fun altText(image: Image): String = buildString {
 }
 
 /**
- * An image at its own CSS size (`[&_img]:h-auto [&_img]:max-w-full`): loaded at its original
- * size, where one image pixel is one dp as one CSS px is, and shrunk only to fit the width.
+ * An image at its own CSS size (`[&_img]:h-auto [&_img]:max-w-full`): one image pixel is one dp as one CSS px is, and
+ * it is shrunk only to fit the width. The first load at the image's own size gives that size; the image is then drawn
+ * from a second load at the screen's density, so a vector badge is as sharp as on GitHub instead of a small bitmap
+ * stretched three times ("it is rendering in pretty low quality", recording 15 Oct 15:37, 09:17 to 09:28; L15).
  */
 @Composable
 private fun InlinePicture(src: String, alt: String, onClick: (() -> Unit)?) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
     val request = remember(src) { coil3.request.ImageRequest.Builder(context).data(src).size(coil3.size.Size.ORIGINAL).build() }
-    val painter = coil3.compose.rememberAsyncImagePainter(request)
-    val size = painter.intrinsicSize
+    val probe = coil3.compose.rememberAsyncImagePainter(request)
+    val size = probe.intrinsicSize
     val known = size.isSpecified && size.width > 0f && size.height > 0f
     androidx.compose.foundation.layout.BoxWithConstraints {
         val maxW = maxWidth.value
         val w = if (known) minOf(size.width, maxW) else 0f
         val h = if (known) w * size.height / size.width else 0f
+        val sharpRequest = remember(src, w, h, density) {
+            if (!known) request
+            else coil3.request.ImageRequest.Builder(context).data(src)
+                .size((w * density).roundToInt().coerceAtLeast(1), (h * density).roundToInt().coerceAtLeast(1))
+                .precision(coil3.size.Precision.EXACT)
+                .build()
+        }
+        val sharp = coil3.compose.rememberAsyncImagePainter(sharpRequest)
+        val ready by sharp.state.collectAsState()
         androidx.compose.foundation.Image(
-            painter, alt,
+            if (ready is coil3.compose.AsyncImagePainter.State.Success) sharp else probe, alt,
             Modifier.width(w.dp).height(h.dp).let { m -> if (onClick != null) m.cueClickable(onClick = onClick) else m },
             contentScale = androidx.compose.ui.layout.ContentScale.Fit,
         )

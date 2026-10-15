@@ -92,3 +92,26 @@ not the one answering (rule 99; F70).
 @cc [owner:OctavianTocan,label:architecture] server-serves-the-android-build
 The server serves `/android/latest.json` and `/android/pulls.apk` from its Android folder
 with `Cache-Control: no-store`, and answers 404 when no build has been published.
+
+@cc [owner:OctavianTocan,label:product] server-new-chat-keeps-the-old-one
+The phone's "new chat" (`chat-clear`) MUST set the current chat aside in the diff's chat
+history, not throw it away, and a new analysis does the same with the chat after the old
+one. `chat-history` lists the earlier chats most recent first as `{ chats: [{ id, title,
+at, turns }] }`, and `chat-restore` puts one back as the current chat, setting the current
+one aside first when it asked anything; an unknown id fails with a plain error. None of
+them MAY change the analysis transcript before `chatStartIndex`. A diff keeps at most 30
+earlier chats ("make this button a chat history button ... a list of the chats for this PR
+that you've already gone into", recording 15 Oct 2026 15:37, L36).
+
+@cc [owner:OctavianTocan,label:product] server-tour-previews-reach-the-phone
+A tour's `tour-plan` and `tour-stop:<index>` work-log entries reach the phone through the
+task snapshots with their `text` whole: nothing between `runTour` and `ai-task-wait` MAY
+cut or drop it, since the phone builds its previews of the tour from that JSON (recording
+15 Oct 2026 15:37, L26).
+
+@cc [owner:OctavianTocan,label:product] server-pi-effort-in-the-id
+A Pi model whose id names a reasoning effort (`gemini-3.8-flash-high`, `gpt-5.5(high)`,
+shown as "(High)") MUST offer that effort alone, as its default, and a run on it MUST NOT
+send a reasoning effort beside the id ("just assume that that's the reasoning effort, and
+when I select them, the only reasoning effort they have is that one", recording 15 Oct
+2026 15:37, L24).

@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.book
 
+import com.octaviantocan.pulls.ui.design.SearchList
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,6 +82,7 @@ internal fun bookPreviews(id: String): List<BookVariant> = when (id) {
     "sheet-card" -> sheetCardVariants()
     "sheet-field" -> sheetFieldVariants()
     "sheet-search" -> sheetSearchVariants()
+    "search-list" -> searchListVariants()
     "sheet-row" -> sheetRowVariants()
     "quick-action" -> quickActionVariants()
     "toast" -> toastVariants()
@@ -312,6 +314,21 @@ private fun sheetSearchVariants() = listOf(
         listOf(
             BookState("Empty") { OnPaper { SheetSearch("", {}, "Find a repository") } },
             BookState("Typed") { OnPaper { SheetSearch("pulls", {}, "Find a repository") } },
+        ),
+    ),
+)
+
+private fun searchListVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Short, no search") {
+                OnPaper { Column { SearchList(listOf("Catppuccin", "Dracula", "Nord"), text = { it }, placeholder = "Find a theme") { name, first -> SheetRow(name, {}, first = first, iconless = true) } } }
+            },
+            BookState("Long, with search") {
+                val names = listOf("Aura", "Ayu", "Catppuccin", "Cobalt", "Dracula", "Everforest", "Gruvbox", "Kanagawa", "Nord", "One Dark", "Rosé Pine")
+                OnPaper { Column { SearchList(names, text = { it }, placeholder = "Find a theme") { name, first -> SheetRow(name, {}, first = first, iconless = true) } } }
+            },
         ),
     ),
 )

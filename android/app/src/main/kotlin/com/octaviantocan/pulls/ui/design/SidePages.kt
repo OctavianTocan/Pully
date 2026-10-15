@@ -52,6 +52,12 @@ class SidePagesState internal constructor(start: Float) {
     /** How fast the finger let go, in pages per second, for the glide that follows it. */
     internal var speed = 0f
     internal var width by mutableIntStateOf(0)
+
+    /** The room between two pages (px); a page moves by its width and this, so the drag divides by both. */
+    internal var gap = 0f
+
+    /** Where the pages were when the finger went down, so a throw counts only once the finger has moved them. */
+    private var startAt = 0f
     internal var index = 0
     internal var last = 0
     internal var moving = true
@@ -74,19 +80,28 @@ class SidePagesState internal constructor(start: Float) {
         }
     }
 
+    /** One page's travel (px): its width and the gap to the next, the distance [SidePages] moves it by. */
+    private val travel get() = width + gap
+
+    // The pages move exactly as far as the finger: dividing by the width alone ran them ahead of it by the gap ("it
+    // doesn't follow my fingers properly", recording 15 Oct 15:37, 04:15 to 04:27; L6).
     internal val drag = DraggableState { delta ->
         if (width <= 0) return@DraggableState
         val end = last + if (onPastEnd != null) stretch else 0f
-        at = (at - delta / width).coerceIn(0f, end)
+        at = (at - delta / travel).coerceIn(0f, end)
     }
 
     internal fun started() {
         glide?.cancel()
+        startAt = at
     }
 
     internal fun stopped(velocity: Float) {
         val now = at
-        val speed = if (width > 0) -velocity / width else 0f
+        val speed = if (width > 0) -velocity / travel else 0f
+        // A flick turns the page only once the finger has taken it part of the way: a small nudge let go quickly settles
+        // back instead of the page going on by itself ("it just kind of swipes by itself", 04:22 to 04:27; L6).
+        val moved = abs(now - startAt) >= THROW_AFTER
         // Pulled on past the last page, or thrown that way from it: the screen goes on to what follows (rule 93).
         if (onPastEnd != null && now > last && (now - last > stretch / 2f || velocity < -fling)) {
             glideTo(last, speed)
@@ -95,8 +110,8 @@ class SidePagesState internal constructor(start: Float) {
         }
         // A throw goes on to the next page the way it went; a slow drag settles on the nearer one.
         val to = when {
-            velocity < -fling -> ceil(now).toInt()
-            velocity > fling -> floor(now).toInt()
+            moved && velocity < -fling -> ceil(now).toInt()
+            moved && velocity > fling -> floor(now).toInt()
             else -> now.roundToInt()
         }.coerceIn(0, last)
         if (to != index) {
@@ -123,6 +138,7 @@ fun rememberSidePages(index: Int, count: Int, onPage: (Int) -> Unit, onPastEnd: 
     state.scope = rememberCoroutineScope()
     state.moving = rememberMotionEnabled()
     state.fling = with(LocalDensity.current) { PullsMotion.Fling.toPx() }
+    state.gap = with(LocalDensity.current) { PullsMotion.PageGap.toPx() }
     state.index = index
     state.last = (count - 1).coerceAtLeast(0)
     state.onPage = { latest(it) }
@@ -136,6 +152,9 @@ fun rememberSidePages(index: Int, count: Int, onPage: (Int) -> Unit, onPastEnd: 
     }
     return state
 }
+
+/** How far (in pages) the finger must move the pages before a throw turns them. */
+private const val THROW_AFTER = 0.12f
 
 /** How far past the last page a finger may pull, in pages, when a swipe can go on from there. */
 private const val PAST_END = 0.3f

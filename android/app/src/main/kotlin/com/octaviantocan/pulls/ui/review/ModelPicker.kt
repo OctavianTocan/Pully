@@ -1,5 +1,9 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.ui.text.style.TextAlign
+import com.octaviantocan.pulls.ui.design.matchesSearch
+import com.octaviantocan.pulls.ui.design.SheetSearch
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -202,16 +206,21 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
     val messages = LocalMessages.current
     val repo = remember { Repo(context) }
     val memory = remember { EngineModels(context) }
+    remember { ModelCatalogs.warm(context) }
     var config by remember { mutableStateOf(ServerStore.load(context)) }
     var attempt by remember { mutableStateOf(0) }
     val engine = config.engine
     // The producer restarts with the engine, but only after a frame; a result is tagged with its engine and
     // ignored for any other, so a tap in that frame cannot save the old engine's model under the new one.
+    // A kept list shows at once and is refreshed underneath; only an engine never listed before waits, with bars.
     val produced by produceState<Pair<String, Result<CliCatalog>>?>(ModelCatalogs.get(engine)?.let { engine to Result.success(it) }, engine, attempt) {
         val cached = if (attempt == 0) ModelCatalogs.get(engine) else null
         value = cached?.let { engine to Result.success(it) }
-        if (cached == null) value = engine to fetchCatalog(repo, engine, refresh = attempt > 0)
+        val fresh = fetchCatalog(repo, engine, refresh = attempt > 0)
+        if (cached == null || fresh.isSuccess) value = engine to fresh
     }
+    // The other engines' lists are fetched too, so switching tab finds names there as well.
+    LaunchedEffect(Unit) { ENGINES.filter { it != engine && ModelCatalogs.get(it) == null }.forEach { fetchCatalog(repo, it) } }
     val loaded = produced?.takeIf { it.first == engine }?.second
     val catalog = loaded?.getOrNull()
     fun save(next: ServerConfig) {
@@ -221,8 +230,13 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
     // An id the server now lists under another one (Pi lists `claude-claude-opus-5` once, as `claude-opus-5`) ticks the row of the same name.
     val inUse = catalog?.let { AiSettingsLogic.current(it, config.model)?.id ?: sameNamed(it.models, config.model)?.id ?: config.model }
     // Pi mixes providers, so its list is in a section per provider with nothing folded under "Older models" (K2, K3).
-    val sections = if (engine == "pi") catalog?.let { modelSections(it.models) } else null
-    val groups = if (sections == null) catalog?.let { groupModels(it.models) } else null
+    // A search over the names (and Pi's providers) once a list is long enough to need one ("most bottom sheets that we
+    // have, they actually benefit a lot from search", recording 15 Oct 15:37, 12:26 to 12:36; L23).
+    var query by remember(engine) { mutableStateOf("") }
+    val searching = query.isNotBlank()
+    val shownModels = catalog?.models?.filter { !searching || matchesSearch("${modelLabel(it)} ${it.id} ${it.group.orEmpty()}", query) }
+    val sections = if (engine == "pi") shownModels?.let { modelSections(it) } else null
+    val groups = if (sections == null) shownModels?.let { if (searching) ModelGroups(it, emptyList()) else groupModels(it) } else null
     fun choose(model: CliModel) {
         val chosen = catalog ?: return
         val kept = AiSettingsLogic.keptEffort(chosen, model.id, settings.effort)
@@ -235,7 +249,8 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
 
     Box(Modifier.padding(top = 14.dp)) {
         CapsuleTabs(
-            ENGINES.map(::engineName),
+            // The maker's name alone fits a third of the sheet beside its mark; Settings names the engine in full.
+            ENGINES.map { if (it == "claude-code") "Claude" else engineName(it) },
             ENGINES.indexOf(config.engine).coerceAtLeast(0),
             { index ->
                 val next = ENGINES[index]
@@ -249,7 +264,12 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
             leading = { index -> EngineMark(ENGINES[index], size = 20.dp) },
         )
     }
-    if (sections != null) {
+    if ((catalog?.models?.size ?: 0) > MODEL_SEARCH_FROM) {
+        SheetSearch(query, { query = it }, "Find a model", Modifier.padding(top = 12.dp))
+    }
+    if (searching && shownModels.isNullOrEmpty()) {
+        Text("No model matches “${query.trim()}”.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
+    } else if (sections != null) {
         sections.forEachIndexed { index, section ->
             if (section.heading != null) ModelHeading(section.heading, first = index == 0)
             SheetCard(gap = if (section.heading != null) 8.dp else 12.dp) {
@@ -286,6 +306,9 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
         }
     }
 }
+
+/** Above this many models the picker has a search. */
+private const val MODEL_SEARCH_FROM = 8
 
 /** The small heading over a card of models: "Older models" on the CLIs' lists, a provider on Pi's. */
 @Composable
@@ -355,6 +378,7 @@ internal fun ColumnScope.EffortPage(settings: AppSettings, onBack: () -> Unit) {
     val context = LocalContext.current
     val messages = LocalMessages.current
     val config = remember { ServerStore.load(context) }
+    remember { ModelCatalogs.warm(context) }
     val catalog = ModelCatalogs.get(config.engine)
     val choice = AiSettingsLogic.current(catalog, config.model)
     val efforts = choice?.efforts.orEmpty()

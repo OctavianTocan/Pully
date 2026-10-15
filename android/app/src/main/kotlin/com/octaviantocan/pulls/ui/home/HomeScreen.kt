@@ -27,6 +27,12 @@ import com.octaviantocan.pulls.sound.Haptics
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.composed
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.ime
@@ -66,6 +72,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -699,29 +706,68 @@ internal fun SwipeRow(
                     if (dx < 0f) drawRect(Brush.horizontalGradient(listOf(ink.copy(alpha = 0.16f * strength), Color.Transparent), startX = size.width, endX = size.width + edge), Offset(size.width, 0f), Size(edge, size.height))
                 }
                 .background(c.base)
-                .draggable(drag, Orientation.Horizontal, onDragStopped = {
-                    val end = dx
-                    when {
-                        end > threshold -> {
-                            animate(end, with(density) { 72.dp.toPx() }, animationSpec = tween(120)) { value, _ -> dx = value }
-                            onOpen()
-                            animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
-                        }
-                        end < -threshold -> {
-                            animate(end, -width, animationSpec = tween(200)) { value, _ -> dx = value }
-                            onArchive?.invoke()
-                            // Under All the row stays (dimmed): bring it back.
-                            animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
-                        }
-                        else -> animate(end, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
-                    }
-                })
+                // The tap is outside the swipe, so a drag the swipe has taken is never also a tap: a short sideways drag
+                // used to open the file and leave its row pulled aside, which then slid back on return ("this plays an
+                // animation for no reason when I come back", recording 15 Oct 15:37, 09:28 to 09:44; L16).
                 .then(
                     // The hold is felt through the app's own vibration, which Settings can turn off (H18).
                     if (onLongClick != null) Modifier.cueCombinedClickable(role = Role.Button, onClickLabel = label, onLongClickLabel = "More actions", onLongClick = onLongClick, onClick = onClick)
                     else Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick),
+                )
+                .rowSwipe(
+                    // A row with nothing on its left leaves a left swipe to the pages beside it, so the Inbox goes on
+                    // to Tours from anywhere, a pull request row too (recording 15 Oct 15:37, 01:28 to 01:50; L1).
+                    leftFree = onArchive == null,
+                    offset = { dx },
+                    onDelta = { delta -> drag.dispatchRawDelta(delta) },
+                    onStop = {
+                        val end = dx
+                        when {
+                            end > threshold -> {
+                                animate(end, with(density) { 72.dp.toPx() }, animationSpec = tween(120)) { value, _ -> dx = value }
+                                onOpen()
+                                animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
+                            }
+                            end < -threshold -> {
+                                animate(end, -width, animationSpec = tween(200)) { value, _ -> dx = value }
+                                onArchive?.invoke()
+                                // Under All the row stays (dimmed): bring it back.
+                                animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
+                            }
+                            else -> animate(end, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
+                        }
+                    },
                 ),
         ) { content() }
+    }
+}
+
+/**
+ * A row's sideways drag: it takes the gesture once the finger passes the touch slop sideways and feeds [onDelta] until
+ * it lifts, then runs [onStop]. With [leftFree], a drag that starts to the left while the row is at rest ([offset] 0)
+ * is not taken, so the pages around the list get it instead.
+ */
+private fun Modifier.rowSwipe(leftFree: Boolean, offset: () -> Float, onDelta: (Float) -> Unit, onStop: suspend CoroutineScope.() -> Unit): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    val stop by rememberUpdatedState(onStop)
+    val delta by rememberUpdatedState(onDelta)
+    pointerInput(leftFree) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var taken = false
+            val start = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+                if (leftFree && over < 0f && offset() <= 0f) return@awaitHorizontalTouchSlopOrCancellation
+                change.consume()
+                taken = true
+                delta(over)
+            }
+            if (start == null || !taken) return@awaitEachGesture
+            horizontalDrag(start.id) { change ->
+                delta(change.positionChange().x)
+                change.consume()
+            }
+            scope.launch { stop() }
+        }
     }
 }
 

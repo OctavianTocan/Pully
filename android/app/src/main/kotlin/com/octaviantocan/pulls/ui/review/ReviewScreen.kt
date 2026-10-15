@@ -314,7 +314,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                     resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                                     onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                                     onChanges = ::toChanges,
-                                    onOpenSource = { source -> openSource(session, source, uri::openUri) },
+                                    onOpenSource = { source -> openSource(session, source, uri::openUri, inSheet = true) },
                                     onAsk = { question -> openAsk(forTour = true, initial = question) },
                                 )
                             }
@@ -332,6 +332,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     }
                 }
                 // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
+                // A place the Tour opened: that file's diff alone, on a sheet over the Tour (L28).
+                session.sourceSheet?.let { place -> FileDiffSheet(session, ui, place, onClose = { session.sourceSheet = null }) }
                 when (sheet) {
                     "more" -> PrSheet(session, top, data, head, PrPage.Actions, onClose = { sheet = null }, onReview = ::review)
                     // Aa on the diff: the code's look, then the file's own actions and one row on to the pull request's ⋯,
@@ -390,14 +392,16 @@ private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() 
 }
 
 /** A tour source or a mention: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
-internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
+internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit, inSheet: Boolean = false) {
     // A kept tour shows before the diff: the place opens once the diff is in.
     if (session.opened == null) {
         session.waitingSource = source
         return
     }
     if (session.files.any { it.path == source.path }) {
-        session.focus = Focus(source.path, source.line)
+        // From the Tour a changed file opens on a sheet, alone, and the Tour stays under it ("open in the same sort of diff
+        // style but in a bottom sheet, and it's just that one file", recording 15 Oct 15:37, 14:53 to 15:16; L28).
+        if (inSheet) session.sourceSheet = Focus(source.path, source.line) else session.focus = Focus(source.path, source.line)
         return
     }
     val repo = FileLinks.repoOf(session.target)

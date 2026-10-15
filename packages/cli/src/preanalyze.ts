@@ -4,7 +4,7 @@ import type { AiPrContext, MyPull } from '@pulls.review/core/local-rpc'
 import type { DiffsPayload, GroupedResult } from '@pulls.review/core/types'
 import process from 'node:process'
 import { defaultLlmSettings, ENGINE_SETTINGS, resolveModel } from '@pulls.review/core/analyze'
-import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
+import { archiveChat, createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { createGithubPullRequestSource } from '@pulls.review/core/github'
 import { DEFAULT_LOCALE } from '@pulls.review/core/locales'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
@@ -95,7 +95,9 @@ export function createPreanalyzer(deps: PreanalyzerDeps): Preanalyzer {
     if (!reused)
       await cache.diffs.putDiff(key, diff, diff.head?.sha ?? pull.headSha ?? '')
     await cache.diffs.setAnalyzedResult(key, 'llm', result)
-    await cache.diffs.setLlmSession(key, { messages: transcript, chatStartIndex: transcript.length })
+    // A chat asked before any analysis goes to the diff's chat history rather than away (L36).
+    const previous = (await cache.diffs.get(key))?.llmSession as LlmSession | undefined
+    await cache.diffs.setLlmSession(key, { messages: transcript, chatStartIndex: transcript.length, archive: previous && archiveChat(previous).archive })
     log(`pre-analyzed ${key}`)
   }
 

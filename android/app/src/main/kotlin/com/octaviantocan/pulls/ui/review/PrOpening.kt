@@ -69,6 +69,6 @@ internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> 
                 RowsSkeleton(Modifier.padding(top = 14.dp), rows = 5)
             }
         }
-        ReviewBar(reviewFilesLabel(files), approve = false, enabled = false, modifier = Modifier.align(Alignment.BottomCenter), onAsk = {}, onMore = {}, onClick = {})
+        ReviewBar(reviewFilesLabel(files), approve = false, enabled = true, modifier = Modifier.align(Alignment.BottomCenter), onAsk = {}, onMore = {}, onClick = {})
     }
 }

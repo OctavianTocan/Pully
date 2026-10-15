@@ -16,6 +16,7 @@ import { createReviewMarks } from './cache/review-marks'
 import { createTourCache } from './cache/tour-cache'
 
 export * from './cache/brief-cache'
+export * from './cache/chat-archive'
 export * from './cache/critique-cache'
 export * from './cache/diff-cache'
 export * from './cache/file-content-cache'

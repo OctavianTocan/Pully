@@ -6,7 +6,7 @@ import { LOCALES } from '../../../locales'
 import { serializeRef } from '../../../types/source'
 import { isCliEngine, runCli } from './cli-stream'
 import { fencedContent, prContextOf, prHeading, renderNumberedDiff, WRITING_RULES } from './critique'
-import { MENTION_RULE } from './prompt'
+import { MENTION_RULE, NATIVE_FORMS } from './prompt'
 
 /*
  * A guided tour of a pull request, with no diffs. After DeepWiki: one run plans the stops,
@@ -29,8 +29,8 @@ export const TOUR_FORMS = {
   'flow': 'a ```flow, only for a real sequence: data or control moving from part to part, in order',
   'calls': 'a ```calls tree, for who calls whom at runtime',
   'tree': 'a ```tree, for where the pieces live in the file tree',
-  'pseudo': 'a ```pseudo block, for logic with branches or a loop that prose would blur',
-  'code': 'a short excerpt in the source language, when the exact code is the point: a signature, a type, a config entry',
+  'pseudo': 'a short ```pseudo block, for logic with branches or a loop that prose would blur',
+  'code': 'a short excerpt fenced with the language of its file (never text), when the exact code is the point: a signature, a type, a config entry',
   'before-after': 'two short fences under the lines **Before** and **After**, when the old shape is what explains the new one',
   'diagram': 'a ```mermaid sequenceDiagram or flowchart, for several actors talking or a state machine',
   'prose': 'no visual: two or three short paragraphs, when the idea is simple enough to say',
@@ -109,7 +109,7 @@ export const TOUR_STOP_SCHEMA = {
         properties: {
           path: { type: 'string' },
           line: { type: 'number', description: 'Line in the new version of the file; 0 for the whole file.' },
-          why: { type: 'string', description: 'What is there, under 60 characters.' },
+          why: { type: 'string', description: 'One short, plain sentence a reader new to this code understands: what this place does for the stop, such as "Deletes the temporary folder when the script exits". Under 90 characters, no jargon fragments, no file or symbol name the path already shows.' },
         },
         required: ['path', 'line', 'why'],
         additionalProperties: false,
@@ -122,10 +122,13 @@ export const TOUR_STOP_SCHEMA = {
 
 /** Fence languages that name a sketch kind; any other language is a code excerpt. */
 const SHAPES = new Set(['calls', 'tree', 'pseudo', 'flow', 'code'])
+/** Fence names that say no language; an excerpt under one shows none ("why does it say text?", L30). */
+const NO_LANGUAGE = new Set(['text', 'txt', 'plain', 'plaintext'])
 
 /**
  * Splits a stop's Markdown into prose and visuals: a `mermaid` fence is a diagram, a fence
- * of a sketch kind is that sketch, any other fence is a code excerpt.
+ * of a sketch kind is that sketch, any other fence is a code excerpt whose `text` is its
+ * language, empty for a fence that names none (`text`, `txt`, `plain`, `plaintext` or nothing).
  * @param markdown - The stop body.
  * @returns The blocks in reading order.
  */
@@ -192,7 +195,7 @@ function fenceBlock(fence: OpenFence): TourBlock | undefined {
   if (fence.lang === 'mermaid')
     return { kind: 'diagram', text: '', body }
   const sketch = SHAPES.has(fence.lang)
-  return { kind: 'shape', text: sketch ? '' : fence.lang, lang: sketch ? fence.lang : 'code', body }
+  return { kind: 'shape', text: sketch || NO_LANGUAGE.has(fence.lang) ? '' : fence.lang, lang: sketch ? fence.lang : 'code', body }
 }
 
 function languageOf(locale: string): string {
@@ -279,14 +282,8 @@ Write stop ${index + 1} of ${plan.stops.length}.
 - Add a second visual only for a second point that needs one; most stops need one, some need none. Never add a flow, pseudocode or a callout out of habit.
 - Write the body as Markdown, no headings. Paragraphs are at most three short sentences: split a longer one, or turn it into a list. Bold a key term once where it first appears.
 - The app draws these natively:
-  - a Markdown table (at most 4 columns and 8 rows, a few words per cell), and bullet or numbered lists,
-  - \`\`\`calls for a call tree of the runtime flow (indent two spaces per level),
-  - \`\`\`tree for a file tree with a short comment per entry,
-  - \`\`\`pseudo for the logic as pseudocode,
-  - \`\`\`flow for data moving between parts: one hop per line, \`From -> To: what moves\` (the label after the colon is optional), naming a part the same way each time it comes back; the app draws it,
-  - \`\`\`mermaid for a small flowchart TD or sequenceDiagram (at most 10 nodes, labels under 25 characters),
-  - a fence in the source language (\`\`\`ts, \`\`\`rust...) for a short excerpt of the new code, only when the exact code is the point.
-  Each fence stays under 25 lines of 60 characters.
+${NATIVE_FORMS.split('\n').map(line => `  ${line}`).join('\n')}
+- Each source's why is one short, plain sentence that a reader new to this code understands: what that place does for this stop, such as "Deletes the temporary folder when the script exits". Under 90 characters, no jargon fragments, and no file or symbol name the path already shows.
 - The takeaway is a callout: give one only when there is a single thing the reader must not miss (a gotcha, an invariant, a risk); otherwise leave it empty.
 - Do not repeat what earlier stops cover; refer to them by name when needed.
 - ${MENTION_RULE}
@@ -348,13 +345,15 @@ export interface TourRunOptions {
   label?: string
 }
 
-function status(id: string, title: string, running: boolean): AiActivity {
+function status(id: string, title: string, running: boolean, text?: string): AiActivity {
   const now = Date.now()
-  return { id, kind: 'status', title, status: running ? 'running' : 'done', startedAt: now, endedAt: running ? undefined : now, rev: 0 }
+  return { id, kind: 'status', title, ...(text === undefined ? {} : { text }), status: running ? 'running' : 'done', startedAt: now, endedAt: running ? undefined : now, rev: 0 }
 }
 
 /**
- * Plans the tour, then writes every stop in parallel through Claude Code or Codex.
+ * Plans the tour, then writes every stop in parallel through Claude Code or Codex. While it builds, the done `tour-plan`
+ * entry carries the outline as JSON (`{ title, overview, stops: [{ title, purpose }] }`) in its `text`, and each stop
+ * written carries itself as JSON (a `TourStop`) on a done `tour-stop:<index>` entry; a failed stop adds no entry.
  * @param diff - The pull request.
  * @param resolved - The model; its provider must be a CLI engine.
  * @param options - Language, abort signal, activity listener and job label.
@@ -380,7 +379,9 @@ export async function runTour(diff: DiffsPayload, resolved: ResolvedModel, optio
   }, hooks)
   options.signal?.throwIfAborted()
   const plan = resolveTourPlan(parseJson(planned.text))
-  options.onActivity?.([status('tour-plan', `Planned ${plan.stops.length} stops`, false)])
+  // The plan's outline rides on its entry, so the phone can show the tour taking shape while the stops are written (L26).
+  const outline = { title: plan.title, overview: plan.overview, stops: plan.stops.map(stop => ({ title: stop.title, purpose: stop.purpose })) }
+  options.onActivity?.([status('tour-plan', `Planned ${plan.stops.length} stops`, false, JSON.stringify(outline))])
 
   let written = 0
   const stops = await Promise.all(plan.stops.map(async (stop, index): Promise<TourStop> => {
@@ -393,7 +394,10 @@ export async function runTour(diff: DiffsPayload, resolved: ResolvedModel, optio
         key: `tour-stop:${subject}:${diff.head?.sha ?? ''}:${engine}:${resolved.model.id}:${options.locale}:${index}:${stop.title}`,
       }, hooks)
       options.signal?.throwIfAborted()
-      return { title: stop.title, purpose: stop.purpose, files: stop.files, ...resolveTourStop(parseJson(answer.text)) }
+      const done: TourStop = { title: stop.title, purpose: stop.purpose, files: stop.files, ...resolveTourStop(parseJson(answer.text)) }
+      // Each finished stop rides on an entry of its own, exactly as the result will hold it, for the phone to preview.
+      options.onActivity?.([status(`tour-stop:${index}`, `Wrote ${stop.title}`, false, JSON.stringify(done))])
+      return done
     }
     catch (error) {
       if (options.signal?.aborted)

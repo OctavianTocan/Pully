@@ -24,7 +24,7 @@ import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.PullsColors
 import com.octaviantocan.pulls.ui.design.PullsSheet
-import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SearchList
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.ThemeWipe
 import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
@@ -56,8 +56,8 @@ internal fun CoroutineScope.applyColorTheme(settings: AppSettings, theme: ColorT
 
 /**
  * Every colour theme, Pulls first, each with dots of its screen, accent, success and error colours in the look the
- * Light, Dark and System choice asks for, and a tick on the one in use. A tap applies it at once and stays here, so
- * themes can be tried one after the other (K18).
+ * Light, Dark and System choice asks for, and a tick on the one in use, under "Find a theme". A tap applies it at once
+ * and stays here, so themes can be tried one after the other (K18, L4).
  */
 @Composable
 internal fun ColumnScope.ColorThemePage(settings: AppSettings) {
@@ -66,13 +66,12 @@ internal fun ColumnScope.ColorThemePage(settings: AppSettings) {
     val motion = rememberMotionEnabled()
     val scope = rememberCoroutineScope()
     val chosen = ColorThemes.of(settings.colorTheme)
-    SheetCard {
-        ColorThemes.all.forEachIndexed { index, theme ->
-            SheetRow(theme.name, { scope.applyColorTheme(settings, theme, dark, motion) }, first = index == 0, iconless = true) {
-                ThemeDots(theme.colors(dark))
-                Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-                    if (theme.id == chosen.id) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
-                }
+    // A search over the themes, as the other picking sheets have (recording 15 Oct 15:37, 02:51 to 02:58; L4).
+    SearchList(ColorThemes.all, text = { it.name }, placeholder = "Find a theme", empty = "No theme matches") { theme, first ->
+        SheetRow(theme.name, { scope.applyColorTheme(settings, theme, dark, motion) }, first = first, iconless = true) {
+            ThemeDots(theme.colors(dark))
+            Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                if (theme.id == chosen.id) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
             }
         }
     }
