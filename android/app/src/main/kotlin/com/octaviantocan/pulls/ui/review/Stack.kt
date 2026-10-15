@@ -98,10 +98,18 @@ private val BASE_GLYPH = 20.dp
 @Composable
 internal fun StackSheet(stack: PrStack, onOpen: (number: Int) -> Unit, onClose: () -> Unit) {
     PullsSheet(onClose, "Stack", expandable = true) {
+        StackLayers(stack, onOpen = { number -> onOpen(number); onClose() })
+    }
+}
+
+/** The Stack sheet's list on its own: every layer top first, then the base branch. */
+@Composable
+internal fun StackLayers(stack: PrStack, onOpen: (number: Int) -> Unit) {
+    Column {
         val trunk = stack.base.isNotBlank()
         val layers = stack.entries.asReversed()
         layers.forEachIndexed { index, entry ->
-            LayerRow(entry, first = index == 0, last = !trunk && index == layers.lastIndex, onOpen = if (entry.current) null else { { onOpen(entry.number); onClose() } })
+            LayerRow(entry, first = index == 0, last = !trunk && index == layers.lastIndex, onOpen = if (entry.current) null else { { onOpen(entry.number) } })
         }
         if (trunk) BaseRow(stack.base)
     }
