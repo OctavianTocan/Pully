@@ -1,5 +1,6 @@
 import type { CliModel, CliModelCatalog, LlmEngine } from '@pulls.review/core/local-rpc'
 import type { CliProcess } from './process'
+import { piCatalog } from './pi'
 import { cliVersion } from './process'
 import { startAgent } from './runtime'
 
@@ -166,8 +167,9 @@ async function codexCatalog(): Promise<CliModelCatalog> {
 }
 
 /**
- * The models (and their reasoning efforts) the server's CLI offers to the account it is signed in with.
- * @param engine - Which CLI to ask.
+ * The models (and their reasoning efforts) the server's CLI offers to the account it is signed in with, or the
+ * endpoint `pi` is set up with.
+ * @param engine - Which engine to ask.
  * @param refresh - Skip the ten-minute cache.
  * @returns The catalog, in the CLI's own order.
  * @throws When the CLI is missing, signed out or answers with something unreadable.
@@ -176,7 +178,7 @@ export function listCliModels(engine: LlmEngine, refresh = false): Promise<CliMo
   const hit = cache.get(engine)
   if (hit && !refresh && Date.now() - hit.at < CACHE_MS)
     return hit.value
-  const entry = { at: Date.now(), value: engine === 'codex' ? codexCatalog() : claudeCatalog() }
+  const entry = { at: Date.now(), value: engine === 'codex' ? codexCatalog() : engine === 'pi' ? piCatalog() : claudeCatalog() }
   cache.set(engine, entry)
   entry.value.catch(() => {
     if (cache.get(engine) === entry)

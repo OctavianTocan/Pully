@@ -6,7 +6,7 @@ import type { Locale } from '@pulls.review/core/locales'
 import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResult } from '@pulls.review/core/types'
 import type { Storage } from 'unstorage'
 import { randomUUID } from 'node:crypto'
-import { defaultLlmSettings, resolveModel } from '@pulls.review/core/analyze'
+import { defaultLlmSettings, ENGINE_SETTINGS, resolveModel } from '@pulls.review/core/analyze'
 import { AI_FOLLOW_UPS } from '@pulls.review/core/local-rpc'
 import { DEFAULT_LOCALE, isLocale } from '@pulls.review/core/locales'
 import { serializeRef } from '@pulls.review/core/types'
@@ -105,9 +105,8 @@ function localeOf(value: string): Locale {
  * @returns The resolved model; the CLI engines need no key, so it always resolves.
  */
 export function resolveTaskModel(model: AiTaskModel): ResolvedModel {
-  const settings = model.engine === 'codex'
-    ? { ...defaultLlmSettings, provider: model.engine, codexModel: model.model || defaultLlmSettings.codexModel, codexEffort: model.effort ?? '' }
-    : { ...defaultLlmSettings, provider: model.engine, claudeCodeModel: model.model || defaultLlmSettings.claudeCodeModel, claudeCodeEffort: model.effort ?? '' }
+  const keys = ENGINE_SETTINGS[model.engine]
+  const settings = { ...defaultLlmSettings, provider: model.engine, [keys.model]: model.model || defaultLlmSettings[keys.model], [keys.effort]: model.effort ?? '' }
   return resolveModel(settings)!
 }
 

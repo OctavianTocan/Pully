@@ -12,6 +12,14 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.27.0
+
+Pi joins Claude Code and Codex: any model from your own API.
+
+- The model picker has a third tab, Pi. It lists every model your server's API offers, such as Claude, GPT and Gemini models through CLIProxyAPI, with the newest of each family first.
+- Analysis, reviews, tours, briefs, questions and Ask about your inbox all run on the model you pick there, the same way they do on Claude Code and Codex.
+- Until the server is set up for it, the Pi tab says what the server needs.
+
 ## 0.26.0
 
 Fixes for stacks, Jev groupings, AI reviews and huge pull requests.

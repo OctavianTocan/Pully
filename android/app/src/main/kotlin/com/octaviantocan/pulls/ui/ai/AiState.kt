@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.octaviantocan.pulls.data.ENGINES
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.ui.review.ReviewSession
@@ -52,8 +53,8 @@ private val uis = WeakHashMap<ReviewSession, AiUi>()
 
 internal fun aiUi(session: ReviewSession): AiUi = synchronized(uis) { uis.getOrPut(session) { AiUi() } }
 
-/** Claude Code and Codex run as server tasks; other engines can't review, ask or chat (web `isCliEngine`). */
-internal fun cliEngine(context: Context): Boolean = ServerStore.load(context).engine in setOf("claude-code", "codex")
+/** Claude Code, Codex and Pi run as server tasks; other engines can't review, ask or chat (web `isCliEngine`). */
+internal fun cliEngine(context: Context): Boolean = ServerStore.load(context).engine in ENGINES
 
 /** `outcome` of a settled task, as the activity log words it. */
 internal fun outcomeOf(task: TaskState?): String = when (task?.status) {

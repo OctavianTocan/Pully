@@ -39,7 +39,7 @@ export function setCliRunner(next: CliRunner | undefined): void {
  */
 export async function runCli(request: CliRunRequest, hooks?: CliRunHooks): Promise<CliRunResult> {
   if (!runner)
-    throw new Error('Claude Code and Codex run on the pulls.review server; this build has none.')
+    throw new Error('Claude Code, Codex and Pi run on the pulls.review server; this build has none.')
   return runner(request, hooks)
 }
 

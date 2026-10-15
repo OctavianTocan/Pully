@@ -1,6 +1,6 @@
 import type { LlmSettings } from '@pulls.review/core/analyze'
 import type { Locale } from '@pulls.review/core/locales'
-import { defaultLlmSettings, deriveProvider } from '@pulls.review/core/analyze'
+import { defaultLlmSettings, deriveProvider, serverEngine } from '@pulls.review/core/analyze'
 import { detectLocale, isLocale } from '@pulls.review/core/locales'
 import { useLocalStorage } from '@vueuse/core'
 
@@ -31,8 +31,8 @@ export const settings = useLocalStorage<Settings>('diffs:settings', defaultSetti
     if (!storage?.llm?.provider)
       llm.provider = deriveProvider(llm)
     // The local build has no API keys; whatever a browser stored from the site falls back to Claude Code.
-    if (import.meta.env.PR_LOCAL && llm.provider !== 'codex')
-      llm.provider = 'claude-code'
+    if (import.meta.env.PR_LOCAL)
+      llm.provider = serverEngine(llm.provider)
     // A locale this build no longer ships (or none stored yet) falls back to the browser's.
     const locale = isLocale(storage?.locale) ? storage.locale : defaults.locale
     return { ...defaults, ...storage, llm, locale }

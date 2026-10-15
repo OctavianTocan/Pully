@@ -26,7 +26,7 @@ export function llmSettingsFromEnv(env: Env, flags: { provider?: string, model?:
   }
   const requested = first(flags.provider, env.PULLS_REVIEW_PROVIDER)
   if (requested !== undefined && !isLlmProvider(requested))
-    throw new Error(`Unknown provider "${requested}": expected claude-code, codex, gateway, anthropic or openai-compatible.`)
+    throw new Error(`Unknown provider "${requested}": expected claude-code, codex, pi, gateway, anthropic or openai-compatible.`)
   const provider = requested ?? deriveProvider(conventional)
   const apiKey = first(env.PULLS_REVIEW_API_KEY)
   const model = first(flags.model, env.PULLS_REVIEW_MODEL)
@@ -44,6 +44,8 @@ export function llmSettingsFromEnv(env: Env, flags: { provider?: string, model?:
       return { ...llm, claudeCodeModel: model ?? llm.claudeCodeModel }
     case 'codex':
       return { ...llm, codexModel: model ?? llm.codexModel }
+    case 'pi':
+      return { ...llm, piModel: model ?? llm.piModel }
     case 'gateway':
       return { ...llm, gatewayToken: apiKey ?? llm.gatewayToken, gatewayModel: model ?? llm.gatewayModel }
     case 'anthropic':

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { LlmProvider, LlmSettings } from '@pulls.review/core/analyze'
 import type { ModelOption } from '@pulls.review/core/llm'
+import type { LlmEngine } from '@pulls.review/core/local-rpc'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import ActionToggleGroup from '@antfu/design/components/Action/ActionToggleGroup.vue'
 import FormField from '@antfu/design/components/Form/FormField.vue'
 import FormTextInput from '@antfu/design/components/Form/FormTextInput.vue'
+import { serverEngine } from '@pulls.review/core/analyze'
 import { computed, reactive, ref, watch } from 'vue'
 import { refreshCliModels, useCliModels } from '../../composables/useCliModels'
 import { FIELD, vField } from '../../directives/field'
@@ -28,11 +30,11 @@ const emit = defineEmits<{
 // requests AI providers need. Keyed off the compile-time `PR_EMBED` flag, not a prop.
 const isEmbedded = import.meta.env.PR_EMBED
 
-// The local build has no API keys: Claude Code and Codex run on the server under its own sign-in.
+// The local build has no API keys: Claude Code, Codex and Pi run on the server under its own sign-in and endpoint.
 const isLocal = import.meta.env.PR_LOCAL
-type ApiProvider = Exclude<LlmProvider, 'claude-code' | 'codex'>
+type ApiProvider = Exclude<LlmProvider, LlmEngine>
 
-const analysisModels = reactive(useCliModels(() => isLocal ? (props.llmSettings.provider === 'codex' ? 'codex' : 'claude-code') : undefined))
+const analysisModels = reactive(useCliModels(() => isLocal ? serverEngine(props.llmSettings.provider) : undefined))
 const askModels = reactive(useCliModels(() => isLocal ? props.llmSettings.askProvider || undefined : undefined))
 
 interface ProviderConfig {
