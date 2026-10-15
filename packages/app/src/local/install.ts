@@ -1,6 +1,6 @@
 import type { App } from 'vue'
 import type { Router } from 'vue-router'
-import { createCacheRepositories } from '@pulls.review/core/cache'
+import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { setCliRunner } from '@pulls.review/core/llm'
 import { createStorage } from 'unstorage'
 import { createApp } from 'vue'
@@ -63,7 +63,8 @@ export async function installLocal(app: App, router: Router): Promise<void> {
   reloadAfterDisconnect(client)
 
   installAppContext(app, {
-    cache: createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) })),
+    // The server's own storage: a browser-sized budget here would evict what the server keeps.
+    cache: createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) }), SERVER_CACHE_BUDGET),
     credentials: createRpcCredentials(rpc, settingsCredentials),
   })
   app.provide(localRpcKey, rpc)

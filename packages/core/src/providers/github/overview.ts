@@ -154,6 +154,8 @@ export interface PrOverview {
   body: string
   bodyHTML: string
   createdAt: string
+  /** The pull request's `updatedAt`, the same field the `my-pulls` list carries, to tell whether a stored overview is current. */
+  updatedAt?: string
   author?: PrActor
   state: PrOverviewState
   mergedAt?: string
@@ -468,6 +470,7 @@ export function parsePullRequestOverview(data: RawOverviewData): PrOverview | un
     body: pr.body,
     bodyHTML: pr.bodyHTML,
     createdAt: pr.createdAt,
+    updatedAt: pr.updatedAt,
     author: actor(pr.author),
     state: prState(pr),
     mergedAt: pr.mergedAt ?? undefined,

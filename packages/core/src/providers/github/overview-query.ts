@@ -21,6 +21,7 @@ query PullRequestOverview($owner: String!, $repo: String!, $number: Int!) {
       body
       bodyHTML
       createdAt
+      updatedAt
       author { login avatarUrl }
       state
       isDraft
@@ -215,6 +216,8 @@ export interface RawPullRequest {
   body: string
   bodyHTML: string
   createdAt: string
+  /** Absent only in fixtures from before the field was queried. */
+  updatedAt?: string
   author: RawActor | null
   state: 'OPEN' | 'CLOSED' | 'MERGED'
   isDraft: boolean

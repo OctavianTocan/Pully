@@ -1,4 +1,6 @@
-import type { ReviewDraftTarget } from '@pulls.review/core/types'
+import type { DiffCache } from '@pulls.review/core/cache'
+import type { DiffSource, ReviewDraftTarget } from '@pulls.review/core/types'
+import type { OpenedDiff } from './stored-diff'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -11,8 +13,9 @@ import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
 import { resolveGithubToken } from './credentials'
 import { highlightLines, pierreTheme } from './highlight'
-import { NATIVE_REVIEW } from './native-review'
+import { NATIVE_REVIEW, sessionPatches } from './native-review'
 import { serverFunctions, serverSession } from './server-session'
+import { openStoredDiff, trimPatches } from './stored-diff'
 
 /** Methods a phone may call. Storage and the GitHub token stay off this list. */
 const ALLOWED = new Set<string>([
@@ -141,11 +144,18 @@ function githubRef(name: string, args: unknown): Parameters<typeof createGithubS
   return /^\d+$/.test(number) ? { kind: 'github-pr', owner, repo, number } : 'A pull request needs owner, repo and number.'
 }
 
+/** How a phone asked for a GitHub diff: `lite` trims patches to a budget, `fresh` skips the stored copy. */
+interface OpenFlags {
+  lite: boolean
+  fresh: boolean
+}
+
 async function openGithub(cwd: string, name: string, args: unknown): Promise<Response> {
   const ref = githubRef(name, args)
   if (typeof ref === 'string')
     return Response.json({ error: ref }, { status: 400 })
-  return saveGithub(cwd, ref)
+  const input = args as Record<string, unknown> | undefined
+  return saveGithub(cwd, ref, { lite: input?.lite === true, fresh: input?.fresh === true })
 }
 
 async function openLocal(cwd: string, args: unknown): Promise<Response> {
@@ -167,15 +177,36 @@ async function openLocal(cwd: string, args: unknown): Promise<Response> {
   }
 }
 
-async function saveGithub(cwd: string, ref: Parameters<typeof createGithubSource>[0]): Promise<Response> {
+async function openGithubDiff(ref: Parameters<typeof createGithubSource>[0], source: DiffSource, diffs: DiffCache, fresh: boolean): Promise<OpenedDiff & { key: string }> {
+  if (ref.kind === 'github-pr') {
+    const key = serializeRef(ref)
+    return { key, ...await openStoredDiff({ key, source, diffs, fresh }) }
+  }
+  // GitHub caps a compare or a commit at 300 files, so they keep fetching every time.
+  const diff = await source.fetch()
+  const key = serializeRef(diff.ref)
+  await diffs.putDiff(key, diff, diff.head?.sha ?? '')
+  return { key, diff }
+}
+
+/**
+ * A pull request comes from the server's store when its head has not moved (see
+ * `openStoredDiff`); a compare or a commit is fetched every time. Either way the full diff
+ * is stored, and `lite` only trims what this answer carries: the files left without hunks are
+ * marked `patchOmitted`, and `diff-patches` serves them. Rule groups cover the full diff.
+ */
+async function saveGithub(cwd: string, ref: Parameters<typeof createGithubSource>[0], flags: OpenFlags): Promise<Response> {
   const token = await resolveGithubToken(process.env)
   if (!token)
     return Response.json({ error: 'The server has no GitHub token.' }, { status: 400 })
   try {
-    const diff = await createGithubSource(ref, staticCredentials(token)).fetch()
-    const key = serializeRef(diff.ref)
-    await (await serverSession(cwd)).cache.diffs.putDiff(key, diff, diff.head?.sha ?? '')
-    return Response.json({ result: { key, diff, groups: await ruleGroups(diff) } })
+    const source = createGithubSource(ref, staticCredentials(token))
+    const { key, diff, stale } = await openGithubDiff(ref, source, (await serverSession(cwd)).cache.diffs, flags.fresh)
+    const patches = await sessionPatches(cwd)
+    patches.remember(key, diff.head?.sha ?? '', diff)
+    const groups = await ruleGroups(diff)
+    const sent = flags.lite ? trimPatches(diff) : { diff, omitted: 0 }
+    return Response.json({ result: { key, diff: sent.diff, groups, omitted: sent.omitted, ...(stale ? { stale: true } : {}) } })
   }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -212,7 +243,8 @@ async function repoViewed(cwd: string, input: unknown): Promise<Response> {
   const { owner, repo } = (input ?? {}) as { owner?: unknown, repo?: unknown }
   if (typeof owner !== 'string' || typeof repo !== 'string')
     return Response.json({ error: 'That needs an owner and a repo.' }, { status: 400 })
-  const entries = await (await serverSession(cwd)).cache.diffs.listMatching(({ ref }) => ref.kind === 'github-pr' && ref.owner === owner && ref.repo === repo)
+  // Diffs the server stored ahead of time but nobody opened (`lastViewedAt` 0) are left out.
+  const entries = await (await serverSession(cwd)).cache.diffs.listMatching(({ ref, lastViewedAt }) => lastViewedAt !== 0 && ref.kind === 'github-pr' && ref.owner === owner && ref.repo === repo)
   const viewed = await Promise.all(entries.map(async (entry) => {
     const ai = entry.analyzedBy.llm ?? entry.analyzedBy['web-llm']
     const ref = entry.diff.ref

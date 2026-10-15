@@ -19,8 +19,19 @@ export interface CacheBudget {
   maxEntries?: number
 }
 
+export interface PutDiffOptions {
+  /**
+   * `false` for a write nobody is looking at (a server keeping open pull requests fresh):
+   * the entry keeps its `lastViewedAt`, or gets `0` when new, so it neither moves up the
+   * LRU nor shows as recently viewed. Defaults to `true`.
+   */
+  viewed?: boolean
+}
+
 export interface DiffCache {
   get: (key: string) => Promise<PrCacheEntry | undefined>
+  /** One entry's metadata (`headSha`, counts, `lastViewedAt`) without reading its diff. */
+  getMeta: (key: string) => Promise<PrCacheMeta | undefined>
   /** Writes a whole entry as given, replacing what was there. */
   put: (entry: PrCacheEntry) => Promise<void>
   /**
@@ -28,14 +39,14 @@ export interface DiffCache {
    * already holds (AI analyses, chat session, review data, shared comment): those
    * were paid for and stay useful against a newer diff via `resolveGroups`.
    */
-  putDiff: (key: string, diff: DiffsPayload, headSha: string) => Promise<PrCacheEntry>
+  putDiff: (key: string, diff: DiffsPayload, headSha: string, options?: PutDiffOptions) => Promise<PrCacheEntry>
   touch: (key: string) => Promise<void>
   setChangedSinceReviewed: (key: string, paths: string[]) => Promise<void>
   setAnalyzedResult: (key: string, source: PersistedGroupSource, result: GroupedResult) => Promise<void>
   setLlmSession: (key: string, session: LlmSession | undefined) => Promise<void>
   setSharedComment: (key: string, sharedComment: PrCacheEntry['sharedComment']) => Promise<void>
   setReviewData: (key: string, reviews: ReviewData) => Promise<void>
-  /** Most-recently-viewed first. Reads metadata only. */
+  /** Most-recently-viewed first, leaving out entries never viewed (`lastViewedAt` 0). Reads metadata only. */
   listRecent: (limit: number) => Promise<PrCacheMeta[]>
   /** Whole entries whose metadata matches; only those bodies are read. */
   listMatching: (match: (meta: PrCacheMeta) => boolean) => Promise<PrCacheEntry[]>
@@ -184,11 +195,12 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
 
   return {
     get,
+    getMeta,
     async put(entry) {
       await exclusive(entry.key, () => write(entry))
       await enforceBudget()
     },
-    async putDiff(key, diff, headSha) {
+    async putDiff(key, diff, headSha, { viewed = true } = {}) {
       const entry = await exclusive(key, async () => {
         const existing = await get(key)
         const analyzedBy = existing?.analyzedBy ?? {}
@@ -198,7 +210,7 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
           diff,
           headSha,
           analyzedBy,
-          lastViewedAt: Date.now(),
+          lastViewedAt: viewed ? Date.now() : existing?.lastViewedAt ?? 0,
           sizeBytes: computeEntrySizeBytes(diff, analyzedBy, existing?.llmSession),
           changedSinceReviewed: existing ? await changedSinceReviewed(existing, diff) : [],
         }
@@ -225,7 +237,7 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
       await enforceBudget()
     },
     async listRecent(limit) {
-      return (await listMetas()).sort((a, b) => b.lastViewedAt - a.lastViewedAt).slice(0, limit)
+      return (await listMetas()).filter(meta => meta.lastViewedAt !== 0).sort((a, b) => b.lastViewedAt - a.lastViewedAt).slice(0, limit)
     },
     async listMatching(match) {
       const metas = (await listMetas()).filter(match)
