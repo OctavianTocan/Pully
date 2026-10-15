@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
+import android.content.Context
 import android.graphics.Picture
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -81,8 +82,38 @@ fun startTour(session: ReviewSession) {
 }
 
 /**
- * No tour yet. The one action is Analyze (rule 19): with no analysis it runs the last choice with the tour in it, and
- * after one it writes the tour alone. A failed tour says so, with the try-again arrow (rule 87). No word on how the
+ * Writes a tour: with no analysis yet it runs the last choice with the tour in it, and after one it writes the tour
+ * alone. While an analysis runs, the tour waits for it: one that writes a tour needs nothing more, and one that does
+ * not queues the tour, which [followQueuedTour] starts when the analysis is done.
+ */
+internal fun generateTour(session: ReviewSession, context: Context) {
+    val analysis = session.taskFor("analyze")
+    when {
+        analysis?.running == true -> if ("tour" !in analysis.then) session.tourQueued = true
+        session.hasAiResult -> startTour(session)
+        else -> session.runAnalyze(context, session.settings.analyzeChoice.copy(tour = true))
+    }
+}
+
+/** Whether a tour is on its way: its own task runs, it waits for the running analysis, or that analysis writes one. */
+internal fun tourComing(session: ReviewSession): Boolean =
+    session.taskFor("tour")?.running == true ||
+        session.taskFor("analyze")?.let { it.running && (session.tourQueued || "tour" in it.then) } == true
+
+/** Starts a queued tour once the analysis it waited for is done, and drops it if that analysis did not finish. */
+@Composable
+internal fun followQueuedTour(session: ReviewSession) {
+    val status = session.taskFor("analyze")?.status
+    LaunchedEffect(status, session.tourQueued) {
+        if (!session.tourQueued || status == "running") return@LaunchedEffect
+        session.tourQueued = false
+        if (status == "done") startTour(session)
+    }
+}
+
+/**
+ * No tour yet, on a page opened straight on the tour (from the Tours tab or a link): the one action is the tour icon
+ * sheet's Generate tour (rule 113), with no analysis the last choice with the tour in it, after one the tour alone. A failed tour says so, with the try-again arrow (rule 87). No word on how the
  * tour is made: what it does is enough (rule 6).
  */
 @Composable
@@ -100,20 +131,28 @@ internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifie
         )
         if (error != null) ErrorBox("The tour failed", error, onRetry = { startTour(session) }, retryLabel = "Write the tour again")
         else CtaButton(
-            "Analyze",
-            { if (session.hasAiResult) startTour(session) else session.runAnalyze(context, session.settings.analyzeChoice.copy(tour = true)) },
+            "Generate tour",
+            { generateTour(session, context) },
             Modifier.padding(top = 4.dp),
             enabled = session.key != null && session.taskFor("analyze")?.running != true,
         )
     }
 }
 
-/** The first tour being written: its work log, whose orb is the Stop button (rule 87). */
+/**
+ * The first tour being written: its work log, whose orb is the Stop button (rule 87). Before the tour's own task starts,
+ * the analysis that leads to it is what runs, so its log is shown as reading the change.
+ */
 @Composable
 internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
-    val task = session.taskFor("tour") ?: return
-    val stop = guardedStop(session, listOf("tour"), task.running) { session.cancelTask(task.id) }
-    AiActivityLogFull(task.activities, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 }, workingVerb = "Building the tour", onStop = stop)
+    val tour = session.taskFor("tour")?.takeIf { it.running }
+    val task = tour ?: session.taskFor("analyze") ?: return
+    val kind = if (tour != null) "tour" else "analyze"
+    val stop = guardedStop(session, listOf(kind), task.running) { session.cancelTask(task.id) }
+    AiActivityLogFull(
+        task.activities, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 },
+        workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop,
+    )
 }
 
 /**

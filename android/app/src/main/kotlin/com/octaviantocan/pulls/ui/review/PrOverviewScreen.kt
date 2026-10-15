@@ -398,7 +398,7 @@ private fun Cell(label: String, modifier: Modifier, onClick: (() -> Unit)? = nul
 private val SummarySwitchWidth = 240.dp
 
 /**
- * What the pull request is and what the AI made of it: its progress, the summary, the brief and what needs a human.
+ * What the pull request is and what the AI made of it: the summary, the brief and what needs a human.
  * The files follow as list rows. The summary is the author's description until the AI writes one, which then takes
  * its place; a two-way capsule over it switches between the two, and the next summary the AI writes takes the place
  * again.
@@ -413,7 +413,6 @@ private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOvervi
     // The summary and the brief name places in the code; each is a link there (rule 96).
     val cite = { place: CodePlace -> onCite(Cite(place.path, place.line)) }
     Column {
-        AnalysisBlock(session, onSheet)
         if (summary != null) {
             CapsuleTabs(
                 listOf("Summary", "Description"), if (description) 1 else 0,

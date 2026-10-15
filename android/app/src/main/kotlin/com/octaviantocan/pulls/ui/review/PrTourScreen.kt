@@ -60,6 +60,7 @@ import com.octaviantocan.pulls.ui.ai.Sources
 import com.octaviantocan.pulls.ui.ai.TourBlockView
 import com.octaviantocan.pulls.ui.ai.TourEmpty
 import com.octaviantocan.pulls.ui.ai.TourRunning
+import com.octaviantocan.pulls.ui.ai.tourComing
 import com.octaviantocan.pulls.ui.ai.startTour
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -266,8 +267,14 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
     val c = LocalPullsColors.current
     Card {
         when {
-            tour == null && running -> TourRunning(session, Modifier)
-            tour == null -> TourEmpty(session, session.taskFor("tour")?.takeIf { it.status == "failed" }?.error, Modifier)
+            tour == null && (running || tourComing(session)) -> TourRunning(session, Modifier)
+            // A tour that failed says why; so does an analysis that was to write one. Another analysis's failure is not the tour's.
+            tour == null -> TourEmpty(
+                session,
+                session.taskFor("tour")?.takeIf { it.status == "failed" }?.error
+                    ?: session.taskFor("analyze")?.takeIf { it.status == "failed" && "tour" in it.then }?.error,
+                Modifier,
+            )
             else -> {
                 val outdated = tour.headSha != null && session.opened?.headSha?.let { it != tour.headSha } == true
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

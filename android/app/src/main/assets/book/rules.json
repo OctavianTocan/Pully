@@ -175,7 +175,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Analysing a PR = summary + per-file explanations + tour. Call it Analyze, not Write tour. An unanalysed PR is a real state with a visible way in. Per-file explanations show on the file rows."
+    "text": "Analysing a PR = summary + per-file explanations + tour. Call it Analyze, not Write tour. An unanalysed PR is a real state with a visible way in. Per-file explanations show on the file rows. (Since rule 113 the way in is the tour icon, not a card on the Overview.)"
   },
   {
     "n": 20,
@@ -794,7 +794,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Nothing on a page moves while AI works. The Analyze card is one fixed height (72dp) in every state: idle, running and finished. Its status is one line that ends in an ellipsis, because this is not important content and tapping it shows more. The step chips are not in the card while it runs, and the log opens in a sheet. A new line or a wrapped chip never moves what is below.\n\nCheck: run an analysis and watch the page. Nothing above or below the card moves."
+    "text": "Nothing on a page moves while AI works. (The Overview's Analyze card is gone since rule 113; the rest stands for every card that works.) The Analyze card is one fixed height (72dp) in every state: idle, running and finished. Its status is one line that ends in an ellipsis, because this is not important content and tapping it shows more. The step chips are not in the card while it runs, and the log opens in a sheet. A new line or a wrapped chip never moves what is below.\n\nCheck: run an analysis and watch the page. Nothing above or below the card moves."
   },
   {
     "n": 87,
@@ -1032,5 +1032,23 @@
       "review"
     ],
     "text": "Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes.\n\nCheck: in Settings tap Dark, then Light: the new look grows from the top right, then from the top left."
+  },
+  {
+    "n": 113,
+    "title": "A tour starts from the tour icon.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tavi: \"What if we only generate the Tour when you tap on the Tour icon. We pop a bottom sheet with a 'There's no tour currently. Do you wanna generate one?' and a model selector every time you tap on the tour and there's no tour. Then we can completely take it out of the PR page.\" The Overview has no Analyze card and nothing that asks for an analysis: the page is the pull request. Tapping the tour icon in the header when there is no tour, and none is being written, opens a sheet titled \"No tour yet\" with one line on what a tour is, the Model row (its page slides in inside the same sheet, rule 78), and Generate tour. Generate closes the sheet and opens the Tour page on the work log: \"Reading the change\" while the analysis that comes first runs, then \"Building the tour\". With a tour, or one on its way, the icon opens the Tour page as before, and its dot breathes while one is written. The other analysis passes stay in ⋯, under Analyze options. This replaces rule 19's \"visible way in\" on the Overview and rule 86's Analyze card.\n\nCheck: open a pull request with no tour. The Summary starts with the description. Tap the tour icon: the sheet says there is no tour yet and names the model; Generate tour opens the Tour page on its work log. Go back and tap the icon again: the Tour page opens, not the sheet."
+  },
+  {
+    "n": 114,
+    "title": "Sort sits beside search.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Tavi picked option A of the second round: the Inbox's sort is a round button as tall as the search pill, beside it at the bottom, under the thumb, so it never hides past the edge of the chips. The chips are the three filters alone. The button's label names the order the Inbox is in, and a tap opens the Sort sheet. Tours has no order to choose, so on Tours the button leaves and the pill takes the row.\n\nCheck: open the Inbox: sort is the round button right of the search pill and the chips hold only Waiting on you, Authored and All. Swipe to Tours: the button goes and the pill widens."
   }
 ]
