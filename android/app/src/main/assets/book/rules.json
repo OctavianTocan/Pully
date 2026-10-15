@@ -740,7 +740,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "When a screen shows part of something, such as one commit of six, a bar that stays on screen says so (\"Viewing commit 3 of 6\") and carries a \"Show all\" pill. Nobody has to find the way back. The bar is pinned over the Overview and over the Diff, so scrolling never takes it away.\n\nCheck: pick one commit. The way to see all changes is visible without scrolling or opening a menu."
+    "text": "When a screen shows part of something, such as one commit of six, it says so where the reader already looks, never in a box over the page (K25: \"I don't like that box\"): the Commits number on the Overview reads \"3 of 6\" in the link colour, and the file pill on the Diff reads \"Commit 3 of 6\" where the folder was. Both lead back: the Commits number opens the Commits sheet, whose first row is \"All commits\".\n\nCheck: pick one commit. The diff says which commit it shows, and the Commits number opens the way back."
   },
   {
     "n": 81,
@@ -839,7 +839,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. \"commented\" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name, and a long name wraps onto a second line rather than push them or be cut (\"align these always\").\nPushed commits are not in the Conversation. They have a tab of their own, Commits, between Summary and Conversation (\"Commits should be somewhere else. Maybe a tab\"). It lists them oldest first and says so at the top, numbers each one, gives every row room (14dp above and below, a hairline between), and keeps \"All commits\" as the first row. A tap shows only that commit, a long-press stretches the range from the last one tapped, and the banner of rule 80 says what is shown. The Commits cell on the page opens this tab. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs carry no counts, so they fit a phone: they spread from the first label at the start to the last at the end with even gaps, and when they cannot fit they scroll sideways instead of cutting a label.\n\nCheck: open a Conversation with ten comments. Every one folds and unfolds, none says \"commented\", the ages are in one column, and no commit is in it. Open Commits: the order is written, every commit has its number."
+    "text": "Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. \"commented\" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name, and a long name wraps onto a second line rather than push them or be cut (\"align these always\").\nPushed commits are not in the Conversation, and since K29 they have no tab either: the Commits number opens a sheet built like Files (\"just show a bottom sheet like the files\"), with \"Find a commit\", \"All commits\" first, then the commits oldest first and numbered under a fold heading for each day. A tap opens the diff of that commit alone (K25), a long-press stretches the range from the last one tapped and leaves the sheet open. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs are Summary and Conversation, carry no counts, and sit from the start of the line a word's room apart, not spread over the width (K7).\n\nCheck: open a Conversation with ten comments. Every one folds and unfolds, none says \"commented\", the ages are in one column, and no commit is in it. Tap Commits: a sheet with a search, every commit numbered."
   },
   {
     "n": 92,
@@ -857,7 +857,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the last file, a swipe left continues to the Tour; from the first, a swipe right goes back to the Overview. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button, the capsule and the bar of rule 80 are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff, and from the Overview's last tab a swipe left goes on to the Diff. A pinch scales the code under the fingers and pans with them; when they lift, the new size is kept and the line that was under them stays there.\nAa opens \"Text and tools\" as a bottom sheet, and every choice in it shows what it does instead of describing it (\"why am I not seeing what these do\"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with \"wider screens\"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.\n\nCheck: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you."
+    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the first file a swipe right goes back to the Overview; past the last file there is nothing, so the page stays where it is and never opens the Tour (K26). The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button and the capsule are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff. The Overview's last tab is an end too: a swipe left there goes nowhere (K8). A pinch scales the code under the fingers and pans with them; when they lift, the new size is kept and the line that was under them stays there.\nAa opens \"Text and tools\" as a bottom sheet, and every choice in it shows what it does instead of describing it (\"why am I not seeing what these do\"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with \"wider screens\"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.\n\nCheck: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you."
   },
   {
     "n": 94,
@@ -866,7 +866,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. Selecting lines turns the bar at the bottom into the comment bar: a ✕ to let the lines go, the field (its placeholder is the one place the range is written, \"Comment on lines 356–358\"), a small toggle for \"In review\" or \"Post now\", a ⋯ and the send button; letting the lines go turns it back into ‹ name ›. The ⋯ opens a small sheet: Ask about these lines (the Ask sheet, with the lines attached as a card), Copy file and lines, Copy GitHub link. Someone who cannot comment gets the ✕, the range and the ⋯. A comment thread under the line stays a card in the code (rule 9); an Ask about lines shows under them as the chat shows it, the question in its bubble and the answer as plain text with no box (rule 99). Nothing repeats what is already on screen. Tapping a file note opens Ask with that note attached as a card above the field, which a ✕ leaves out.\nThis replaces rule 64's \"a bar you type into\" and the toolbar of rule 49. He chose option B of the target designs, the bar (\"I'll live with this option for now\"), over the sheet of option A (\"I hate this so much\").\n\nCheck: comment on three lines. One bar, one field, and nothing on the screen says the same thing twice. Let the lines go: the file name is back."
+    "text": "The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. Selecting lines turns the bar at the bottom into the comment bar: a ✕ to let the lines go, the field (its placeholder is the one place the range is written, \"Comment on lines 356–358\") and the send button, nothing else (K11: no \"In review\" toggle, no ⋯); a comment goes into the pending review. Letting the lines go turns it back into ‹ name ›. Holding a line selects it, or keeps the selection it is in, and opens a small sheet: Ask about these lines (the Ask sheet, with the lines attached as a card), Copy file and lines, Copy GitHub link. Someone who cannot comment gets the ✕ and the range. A comment thread under the line stays a card in the code (rule 9); an Ask about lines shows under them as the chat shows it, the question in its bubble and the answer as plain text with no box (rule 99). Nothing repeats what is already on screen. Tapping a file note opens Ask with that note attached as a card above the field, which a ✕ leaves out.\nThis replaces rule 64's \"a bar you type into\" and the toolbar of rule 49. He chose option B of the target designs, the bar (\"I'll live with this option for now\"), over the sheet of option A (\"I hate this so much\").\n\nCheck: comment on three lines. One bar, one field, and nothing on the screen says the same thing twice. Let the lines go: the file name is back."
   },
   {
     "n": 95,
@@ -884,7 +884,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Every mention of a file, line, symbol or dimension, in a note, the summary, a finding, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline. They look like what they are and sit on the text line (rule 39). A file name or `path:line` in backticks is a link when it names a changed file, and a mention of a file the pull request does not change opens it on GitHub. What is posted to GitHub links each cite to the file at the head commit.\nHe called F43 \"super, super, super important\", so the analysis, tour, Ask and review instructions all say it and a check makes sure.\n\nCheck: tap every cite in an analysis, a file note, a finding and an answer on lines. Each scrolls to its place."
+    "text": "Every mention of a file, line, symbol or dimension, in a note, the summary, a finding, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline, all in the one face of the text around them, whether the AI wrote them in backticks or not (K16: \"some are monospace font and some are not\"). They look like what they are and sit on the text line (rule 39). A file name or `path:line` in backticks is a link when it names a changed file, and a mention of a file the pull request does not change opens it on GitHub. What is posted to GitHub links each cite to the file at the head commit.\nHe called F43 \"super, super, super important\", so the analysis, tour, Ask and review instructions all say it and a check makes sure.\n\nCheck: tap every cite in an analysis, a file note, a finding and an answer on lines. Each scrolls to its place."
   },
   {
     "n": 97,
@@ -1185,5 +1185,95 @@
       "review"
     ],
     "text": "Tavi: \"They're hard to navigate because sometimes there's a lot of them.\" When both people and bots spoke, chips over the Conversation narrow it to All, People or Bots, with how many each holds; a narrowed one shows all of its comments, not the last 30 (J19).\n\nCheck: open a pull request with bot reviews and tap People: only what people wrote is left."
+  },
+  {
+    "n": 130,
+    "title": "Nothing scrolls over the buttons.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "What scrolls on a page goes under the header, never over it: the back button and the capsule stay sharp and whole however far the page scrolls (\"these buttons become semi transparent… hideous\", K6). The Overview's head goes up until only its tabs are left, and they stay pinned under the header on the page's colour.\n\nCheck: scroll a long Summary. The buttons stay whole, the tabs stay pinned under them, and nothing reaches the status bar."
+  },
+  {
+    "n": 131,
+    "title": "What does not change between pages stays still.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A bar that names the page, like the Diff's counts line (+3 −0, threads, Reviewed) and its bottom bar, stays in place while the pages slide under it; only its words change, coming in the way the pages went (K9: \"that top part I don't think needs to be transitioned\"). A swipe always ends on a page: a gesture cut short still lets go, so no two pages stay side by side (K10).\n\nCheck: swipe between files. The counts bar does not move, its numbers change. Swipe and lift a second finger halfway: the files settle."
+  },
+  {
+    "n": 132,
+    "title": "Every field pill is Home's search pill.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A pill to type into at the bottom of a page has the Home search pill's size, face and placeholder style, and while it waits for its first letter the page behind it dims, as Home's does (K12: \"a convention we use in multiple places\").\n\nCheck: tap the Tour's Ask bar. It looks like Home's search, and the tour dims behind it until you type."
+  },
+  {
+    "n": 133,
+    "title": "Work in progress is calm.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A running log shows its newest three steps, every line in the same grey with its icon centred on the words. A step that failed while the work carries on is a plain line, not red; amber is only for a retry or a rate limit. No line carries \"Active 1s ago · 2s elapsed\": only a stalled step says how long. Progress the page already shows, like \"Wrote 3 of 6 stops\", is not repeated in the log (K13: \"too many things happening at once\").\n\nCheck: start a tour. The log shows three quiet lines, nothing red or amber unless the engine is retrying."
+  },
+  {
+    "n": 134,
+    "title": "New content arrives, it does not pop.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A tour seen for the first time brings its stops in one after another, each fading in and rising into place; one seen before, or a card scrolled back into view, is simply there (K14: \"an animation of the things actually appearing on the page\").\n\nCheck: open a freshly written tour. The stops come in one by one. Leave and come back: they are already there."
+  },
+  {
+    "n": 135,
+    "title": "A pinned heading is never cut.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "When a scroll stops with a folded heading cut by the top of the list, the list settles so the heading is whole or gone, never half under the chips (K19).\n\nCheck: on Home, fold a project and scroll so its heading is half under the chips; let go. It settles whole or out of view."
+  },
+  {
+    "n": 136,
+    "title": "Only the author's actions on the author's pull request.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Archive and editing the title or description are for pull requests the viewer opened: on someone else's there is no Archive swipe or row (K20) and the title and description are plain text (K21). Restoring an archived one is always there.\n\nCheck: open a pull request someone else opened. Its title does not edit, and its Inbox row does not swipe to Archive."
+  },
+  {
+    "n": 137,
+    "title": "A page opens in its final shape.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "While a pull request opens, the page is drawn with its own header, numbers line, tabs and bottom bar in their places, with bars where a number is not known yet; the button counts the files the Inbox knew of. When the page arrives only words fill in: nothing moves, no \"0\" turns into 50 (K22).\n\nCheck: open a pull request from the Inbox. Nothing shifts as it loads."
+  },
+  {
+    "n": 138,
+    "title": "Two versions of a text switch with a link.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Where one text has two versions (the AI summary and the description), a quiet line says which is shown and offers the other as a link (\"AI summary · Show the description\"); the texts fade into each other. No pill switch (K23).\n\nCheck: open a summarised pull request. One line names the source and switches it."
+  },
+  {
+    "n": 139,
+    "title": "Lists on sheets are one pattern.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Files, Commits and Checks are the same sheet: a search (\"Find a file\", \"Find a commit\", \"Find a check\") that also keeps the first heading clear of the ✕, fold headings with counts, rows in cards whose title takes at most two lines and whose detail one, and added and removed lines side by side as on the Inbox (K24, K27, K28: \"we gotta… actually standardize it\").\n\nCheck: open Files, Commits and Checks. Same search, same headings, no name wraps past two lines."
   }
 ]

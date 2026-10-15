@@ -65,14 +65,16 @@ NOT put a "Viewing commit N of M" box on top of the Overview (recording 15 Oct 1
 10:48 to 11:18; K25).
 
 @cc [owner:OctavianTocan,label:product] pr-narrowed-view-shows-the-way-back
-When the Diff shows part of the pull request (one commit, a range), a bar that stays on
-screen says so and carries "Show all", so the way back needs no scrolling or menu
-(rule 80; F26).
+When the Diff shows part of the pull request (one commit, a range), it says so where the
+reader already looks, with no box over the page: the Diff's file pill names the commit and
+the Overview's Commits number reads "3 of 6", which opens the Commits sheet whose first row
+"All commits" goes back (rule 80; F26). Tavi's K25 replaced the pinned "Viewing commit" bar
+(recording 15 Oct 13:54, 10:48 to 11:18).
 
 @cc [owner:OctavianTocan,label:design] pr-tabs-are-light
-The Overview's tabs are underline tabs with no counts and no box, easy to hit, close
-together, and spread across the width; when they cannot fit they scroll sideways, never
-cutting a label. While the tabs swipe, the gap between the pages is narrow, never a wide
+The Overview's tabs are underline tabs with no counts and no box, easy to hit, and close
+together from the start of the line, not spread across the width (K7, Tavi's call); they
+never cut a label. While the tabs swipe, the gap between the pages is narrow, never a wide
 empty band (rules 38, 54 and 91; recording 15 Oct 13:54, 02:20 to 02:38; K7).
 
 @cc [owner:OctavianTocan,label:motion] pr-tabs-are-side-by-side

@@ -848,13 +848,6 @@ internal fun DiffCounts(additions: Int, deletions: Int) {
 }
 
 /**
- * `.search`: a 54dp white pill. Typing filters the list at once. When the text is a link or a number that names one
- * pull request, an Open pill appears in it and the keyboard's action opens it, so no separate field is needed. With
- * [onAsk], any other text can be asked instead: Ask sits in the pill as a quiet word, and once the text reads as a
- * question it fills like Open and the keyboard's action asks it.
- */
-@Composable
-/**
  * While a pill's field waits for its first letter the page behind it dims a little, and a tap on it puts the keyboard
  * away; once something is typed the page is what the field is for, so it is shown at full strength and takes taps.
  * The dim starts with the tap, not when the keyboard is up, and comes in quickly; it goes a little slower than it came,
@@ -883,6 +876,12 @@ internal fun SearchDim(focused: Boolean, empty: Boolean) {
     }
 }
 
+/**
+ * `.search`: a 54dp white pill. Typing filters the list at once. When the text is a link or a number that names one
+ * pull request, an Open pill appears in it and the keyboard's action opens it, so no separate field is needed. With
+ * [onAsk], any other text can be asked instead: Ask sits in the pill as a quiet word, and once the text reads as a
+ * question it fills like Open and the keyboard's action asks it.
+ */
 @Composable
 internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier, onFocus: (Boolean) -> Unit = {}, onAsk: (() -> Unit)? = null) {
     val c = LocalPullsColors.current

@@ -60,6 +60,7 @@ catalogs:
   dev:
     '@antfu/eslint-config': ^9.5.1
     '@google/design.md': ^0.4.0
+    '@spolu/cc-check': 0.2.0
     '@types/node': ^26.6.4
     '@types/picomatch': ^4.0.3
     bumpp: ^12.3.0
