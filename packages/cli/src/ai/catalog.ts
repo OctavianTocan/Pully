@@ -1,5 +1,7 @@
 import type { CliModel, CliModelCatalog, LlmEngine } from '@pulls.review/core/local-rpc'
-import { cliVersion, startCli } from './process'
+import type { CliProcess } from './process'
+import { cliVersion } from './process'
+import { startAgent } from './runtime'
 
 const CACHE_MS = 10 * 60_000
 const CLAUDE_INIT_TIMEOUT_MS = 30_000
@@ -9,9 +11,14 @@ type Json = Record<string, any>
 
 const cache = new Map<LlmEngine, { at: number, value: Promise<CliModelCatalog> }>()
 
+/** The CLIs are asked where jobs run them, so the catalog names what a job will get. */
+function agentProcess(bin: string, args: string[]): CliProcess {
+  return startAgent({ bin, args })
+}
+
 function claudeInitialize(): Promise<Json> {
   return new Promise((resolve, reject) => {
-    const run = startCli('claude', ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--setting-sources', '', '--strict-mcp-config', '--no-session-persistence'], {
+    const run = startAgent({ bin: 'claude', args: ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--setting-sources', '', '--strict-mcp-config', '--no-session-persistence'] }, {
       onLine(line) {
         let event: Json
         try {
@@ -123,17 +130,17 @@ export function claudeModels(models: unknown): CliModel[] {
 }
 
 async function claudeCatalog(): Promise<CliModelCatalog> {
-  const [init, version] = await Promise.all([claudeInitialize(), cliVersion('claude')])
+  const [init, version] = await Promise.all([claudeInitialize(), cliVersion('claude', agentProcess)])
   return { engine: 'claude-code', models: claudeModels(init.models), account: init.account?.subscriptionType, version }
 }
 
 async function codexCatalog(): Promise<CliModelCatalog> {
   let out = ''
-  const run = startCli('codex', ['debug', 'models'])
+  const run = startAgent({ bin: 'codex', args: ['debug', 'models'] })
   run.child.stdout.on('data', chunk => out += chunk)
   run.child.stdin.end()
   const timer = setTimeout(() => run.kill('SIGKILL'), CODEX_TIMEOUT_MS)
-  const [code, version] = await Promise.all([run.exited.finally(() => clearTimeout(timer)), cliVersion('codex')])
+  const [code, version] = await Promise.all([run.exited.finally(() => clearTimeout(timer)), cliVersion('codex', agentProcess)])
   let parsed: Json
   try {
     parsed = JSON.parse(out)

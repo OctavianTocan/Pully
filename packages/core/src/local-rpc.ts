@@ -65,7 +65,11 @@ export const LOCAL_RPC = {
 
 /** A skill offered as a point of view for an AI review. */
 export interface ReviewLens {
+  /** The skill's folder name, which a critique request names it by. */
   name: string
+  /** A few words to show for it, such as "Security"; the name when the skill gives none. */
+  title: string
+  /** One sentence on what it looks for. */
   description?: string
 }
 

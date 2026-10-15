@@ -12,7 +12,7 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
-## 0.21.0
+## 0.22.0
 
 Everything still missing from your walkthrough video is now in.
 
@@ -30,6 +30,14 @@ Everything still missing from your walkthrough video is now in.
 - Every file or line the AI mentions is a link, in notes, findings and answers too, and in what it posts on GitHub.
 - Claude's models show their version, and each one's usual effort is marked Recommended.
 - The Tours tab hides the repositories you chose to hide.
+
+## 0.21.0
+
+Review with AI now offers only the review skills chosen for it.
+
+- The More sheet has one Review with AI row. It opens a short list: General, then each review skill by its name and what it looks for.
+- The list shows only the skills chosen for reviews, not every skill on the server computer.
+- A tap starts the review, and a tick marks the one this pull request was last reviewed with.
 
 ## 0.20.0
 

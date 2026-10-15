@@ -26,7 +26,6 @@ import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.ai.CritiquePanel
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.runAnalyze
-import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.EngineMark
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -252,16 +251,8 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
         SheetCard {
             var first = true
             if (session.key != null && cliEngine(context)) {
-                SheetRow("Review with AI", {
-                    onClose()
-                    if (session.taskFor("critique")?.running == true) {
-                        toaster.show("Already reviewing $number")
-                    } else {
-                        session.runCritique(context, null)
-                        toaster.show("Reviewing $number")
-                    }
-                }, first = true, icon = { LuIcon(Lu.check, tint = c.text) })
-                SheetRow("Review through a lens", { onSheet("lens") }, icon = { LuIcon(Lu.diff, tint = c.text) }) {
+                // One row: the Review sheet picks General or a lens, and a tap there starts the review.
+                SheetRow("Review with AI", { onSheet("review") }, first = true, icon = { LuIcon(Lu.check, tint = c.text) }) {
                     LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
                 }
                 first = false

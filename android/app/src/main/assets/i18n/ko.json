@@ -544,18 +544,6 @@
     "copyLink": "Copy GitHub link",
     "copied": "Copied"
   },
-  "lens": {
-    "pick": "Review with a skill",
-    "title": "Review with",
-    "description": "Run the AI review through one of your skills.",
-    "search": "Search skills…",
-    "general": "General",
-    "generalDescription": "Bugs, risks and nits across the whole diff",
-    "loading": "Loading skills…",
-    "loadFailed": "Could not load skills: {error}",
-    "none": "No skills found.",
-    "noMatch": "No skills match."
-  },
   "chat": {
     "title": "이 PR에 대해 질문",
     "collapse": "접기",

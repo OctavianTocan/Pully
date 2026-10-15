@@ -92,7 +92,7 @@ describe('createCritiqueStore', () => {
   it('appends a lens\'s instructions and fails on a lens that is gone', async () => {
     mocks.runCritique.mockResolvedValue(critique({ lens: 'security' }))
     const lenses: LensSource = {
-      list: async () => [{ name: 'security' }],
+      list: async () => [{ name: 'security', title: 'Security' }],
       get: async name => name === 'security' ? 'Look for injections.' : undefined,
     }
     const store = createCritiqueStore({ cache, diff: ref(diff), getReviews: () => undefined, lenses })

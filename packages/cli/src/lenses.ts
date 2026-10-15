@@ -1,48 +1,25 @@
 import type { ReviewLens } from '@pulls.review/core/local-rpc'
 import { readdir, readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
 
-const DEFAULT_GATEWAY_URL = 'http://127.0.0.1:45819/mcp'
-const GATEWAY_TIMEOUT_MS = 4_000
-const MAX_PROMPT_PAGES = 10
 const MAX_INSTRUCTIONS = 30_000
 
+/**
+ * The skills curated in the repository, the same ones the agents image is built with. This module runs
+ * from `src/` in tests and from the bundle in `dist/` when served; both sit two folders under the root.
+ */
+const CURATED_SKILLS_DIR = fileURLToPath(new URL('../../../docker/agents/skills/', import.meta.url))
+
 export interface LensSourceOptions {
-  /** The agt gateway's MCP endpoint; skills are its prompts. */
-  gatewayUrl?: string
-  /** A folder of skill folders, each holding a `SKILL.md`, read when the gateway is unreachable. */
+  /** A folder of skill folders, each holding a `SKILL.md`; else `PULLS_REVIEW_SKILLS_DIR`, else the curated set. */
   skillsDir?: string
 }
 
-interface GatewayPrompt {
-  name?: unknown
-  description?: unknown
-}
-
-function gatewayUrlOf(options: LensSourceOptions): string {
-  return options.gatewayUrl ?? process.env.PULLS_REVIEW_AGT_URL ?? DEFAULT_GATEWAY_URL
-}
-
 function skillsDirOf(options: LensSourceOptions): string {
-  return options.skillsDir ?? join(homedir(), '.claude', 'skills')
-}
-
-async function gatewayCall(url: string, method: string, params: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'accept': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    signal: AbortSignal.timeout(GATEWAY_TIMEOUT_MS),
-  })
-  if (!response.ok)
-    throw new Error(`agt gateway answered ${response.status}`)
-  const body = await response.json() as { result?: Record<string, unknown>, error?: { code?: number, message?: string } }
-  if (body.error)
-    throw new Error(body.error.message ?? 'agt gateway error')
-  return body.result ?? {}
+  return options.skillsDir ?? (process.env.PULLS_REVIEW_SKILLS_DIR || CURATED_SKILLS_DIR)
 }
 
 /**
@@ -72,64 +49,35 @@ export function parseSkill(text: string): { fields: Record<string, string>, body
   return { fields, body: text.slice(match[0].length).trim() }
 }
 
-function lensOf(prompt: GatewayPrompt): ReviewLens | undefined {
-  if (typeof prompt.name !== 'string' || !REVIEW_LENS_NAME.test(prompt.name))
-    return undefined
-  return { name: prompt.name, description: typeof prompt.description === 'string' ? prompt.description : undefined }
-}
-
-async function gatewayLenses(url: string): Promise<ReviewLens[]> {
-  const lenses: ReviewLens[] = []
-  let cursor: string | undefined
-  for (let page = 0; page < MAX_PROMPT_PAGES; page++) {
-    const result = await gatewayCall(url, 'prompts/list', cursor ? { cursor } : {})
-    lenses.push(...((result.prompts ?? []) as GatewayPrompt[]).map(lensOf).filter(lens => lens !== undefined))
-    cursor = typeof result.nextCursor === 'string' ? result.nextCursor : undefined
-    if (!cursor)
-      break
-  }
-  return lenses
-}
-
-async function localLenses(dir: string): Promise<ReviewLens[]> {
+/**
+ * The skills a review can be run through: the curated folder only, never the skills of the account the
+ * server runs under.
+ * @param options - Which folder to read; the curated set by default.
+ * @returns The lenses sorted by title; empty when the folder is missing or holds none.
+ */
+export async function listLenses(options: LensSourceOptions = {}): Promise<ReviewLens[]> {
+  const dir = skillsDirOf(options)
   const entries = await readdir(dir).catch(() => [] as string[])
-  const lenses = await Promise.all(entries.filter(entry => REVIEW_LENS_NAME.test(entry)).map(async (entry) => {
+  const lenses = await Promise.all(entries.filter(entry => REVIEW_LENS_NAME.test(entry)).map(async (entry): Promise<ReviewLens | undefined> => {
     const text = await readFile(join(dir, entry, 'SKILL.md'), 'utf8').catch(() => undefined)
     if (text === undefined)
       return undefined
-    return { name: entry, description: parseSkill(text).fields.description || undefined }
+    const { fields } = parseSkill(text)
+    return { name: entry, title: fields.title || entry, description: fields.description || undefined }
   }))
-  return lenses.filter(lens => lens !== undefined)
-}
-
-/**
- * The skills a review can be run through: the agt gateway's prompts, else the local Claude skills folder.
- * @param options - Where to look; defaults to the local gateway and `~/.claude/skills`.
- * @returns The lenses sorted by name; empty when neither source has any.
- */
-export async function listLenses(options: LensSourceOptions = {}): Promise<ReviewLens[]> {
-  const lenses = await gatewayLenses(gatewayUrlOf(options)).catch(() => localLenses(skillsDirOf(options)))
-  return lenses.sort((a, b) => a.name.localeCompare(b.name))
+  return lenses.filter(lens => lens !== undefined).sort((a, b) => a.title.localeCompare(b.title))
 }
 
 /**
  * One skill's instructions, without its frontmatter.
  * @param name - The skill's name, as `listLenses` returned it.
- * @param options - Where to look; defaults to the local gateway and `~/.claude/skills`.
+ * @param options - Which folder to read; the curated set by default.
  * @returns The instructions, or `undefined` when no skill has that name.
  */
 export async function getLens(name: string, options: LensSourceOptions = {}): Promise<string | undefined> {
   if (!REVIEW_LENS_NAME.test(name))
     return undefined
-  let text: string | undefined
-  try {
-    const result = await gatewayCall(gatewayUrlOf(options), 'prompts/get', { name })
-    const messages = (result.messages ?? []) as { content?: { type?: string, text?: unknown } }[]
-    text = messages.map(message => typeof message.content?.text === 'string' ? message.content.text : '').join('\n\n')
-  }
-  catch {
-    text = await readFile(join(skillsDirOf(options), name, 'SKILL.md'), 'utf8').catch(() => undefined)
-  }
+  const text = await readFile(join(skillsDirOf(options), name, 'SKILL.md'), 'utf8').catch(() => undefined)
   if (text === undefined)
     return undefined
   const body = parseSkill(text).body

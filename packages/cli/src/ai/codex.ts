@@ -17,9 +17,12 @@ const STATE_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 
  * @param answerPath - Where Codex writes its final message.
  * @param schemaPath - The strict answer schema on disk, when the answer is structured.
  * @param server - The PR tool server Codex may call, if any.
+ * @param options - How the run differs in a container.
+ * @param options.stateDir - Where Codex keeps its logs database; a folder of the server's own by default.
+ * @param options.shell - Whether Codex may run shell commands (read-only); on unless turned off.
  * @returns The argument list for `codex`.
  */
-export function codexArgs(request: AiJobRequest, answerPath: string, schemaPath?: string, server?: McpServerSpec): string[] {
+export function codexArgs(request: AiJobRequest, answerPath: string, schemaPath?: string, server?: McpServerSpec, options: { stateDir?: string, shell?: boolean } = {}): string[] {
   const args = [
     'exec',
     '--json',
@@ -36,8 +39,12 @@ export function codexArgs(request: AiJobRequest, answerPath: string, schemaPath?
     '-c',
     'model_reasoning_summary="auto"',
     '-c',
-    `sqlite_home=${JSON.stringify(STATE_DIR)}`,
+    `sqlite_home=${JSON.stringify(options.stateDir ?? STATE_DIR)}`,
   ]
+  // Codex's read-only sandbox cannot start inside a container (bubblewrap gets no namespaces there), so a
+  // shell command would only fail; without a shell, Codex works through the tool server as Claude does.
+  if (options.shell === false)
+    args.push('-c', 'features.shell_tool=false', '-c', 'features.unified_exec=false')
   if (request.model)
     args.push('--model', request.model)
   if (request.effort)

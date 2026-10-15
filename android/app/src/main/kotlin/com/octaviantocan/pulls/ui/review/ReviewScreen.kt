@@ -46,7 +46,7 @@ import com.octaviantocan.pulls.ui.ai.AnalyzePage
 import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
 import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.ai.AskSheet
-import com.octaviantocan.pulls.ui.ai.LensPickerSheet
+import com.octaviantocan.pulls.ui.ai.ReviewSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -256,7 +256,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "model" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Model)
                     "log" -> AnalysisLogSheet(session) { sheet = null }
                     "stack" -> session.stack?.let { stack -> StackSheet(stack, onOpen = { number -> session.pull?.let { nav.openTarget(OpenTarget.Pull(it.owner, it.repo, number, "github.com")) } }) { sheet = null } }
-                    "lens" -> LensPickerSheet(session, onDismiss = { sheet = null }) { lens ->
+                    "review" -> ReviewSheet(session, onClose = { sheet = null }) { lens ->
                         sheet = null
                         if (session.taskFor("critique")?.running == true) {
                             toaster.show("Already reviewing ${head.label}")

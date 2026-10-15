@@ -38,6 +38,14 @@ class ReviewModelsTest {
     }
 
     @Test
+    fun aLensShowsItsTitleAndFallsBackToItsName() {
+        val lens = json("""{"name":"security","title":"Security","description":"Places where a bad input gets in."}""").jsonObject.asReviewLens()
+        assertEquals(ReviewLens("security", "Security", "Places where a bad input gets in."), lens)
+        // A server from before titles sends only the name and the description.
+        assertEquals(ReviewLens("perf", "perf", null), json("""{"name":"perf"}""").jsonObject.asReviewLens())
+    }
+
+    @Test
     fun followUpQuestionsComeWithTheSavedChat() {
         assertEquals(listOf("What evicts entries?"), json("""{"threads":[],"chat":[],"aiGroups":[],"suggestions":["What evicts entries?"]}""").asSavedState().suggestions)
         assertEquals(emptyList(), json("""{"threads":[],"chat":[],"aiGroups":[]}""").asSavedState().suggestions)

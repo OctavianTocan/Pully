@@ -1,9 +1,10 @@
 import type { AiActivity, AiJobRequest, AiJobSnapshot } from '@pulls.review/core/local-rpc'
+import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { cancelAiJob, listAiJobs, runAiJob, startAiJob, waitAiJob } from './jobs'
 
 const FAKE_CLAUDE = `
@@ -26,6 +27,18 @@ process.stdin.on('end', () => {
   out({ type: 'stream_event', event: { type: 'content_block_stop', index: 0 } })
   out({ type: 'result', subtype: 'success', is_error: false, result: 'Hello', total_cost_usd: 0.5, duration_ms: 10, usage: { input_tokens: 1, output_tokens: 2 } })
 })
+`
+
+/** Stands in for `docker`: logs each call, and runs the image's command on the host in the working folder. */
+const FAKE_DOCKER = `
+const args = process.argv.slice(2)
+require('node:fs').appendFileSync(process.env.FAKE_DOCKER_LOG, JSON.stringify(args) + '\\n')
+if (args[0] !== 'run')
+  process.exit(0)
+const image = args.indexOf('pulls-review-agents')
+const cwd = args.includes('--workdir') ? args[args.indexOf('--workdir') + 1] : undefined
+const child = require('node:child_process').spawn(args[image + 1], args.slice(image + 2), { cwd, stdio: 'inherit' })
+child.on('close', code => process.exit(code ?? 1))
 `
 
 const ask = (prompt: string, extra: Partial<AiJobRequest> = {}): AiJobRequest => ({ engine: 'claude-code', system: 'S', prompt, ...extra })
@@ -71,6 +84,10 @@ describe('ai jobs', () => {
     bin = mkdtempSync(join(tmpdir(), 'fake-cli-'))
     pids = mkdtempSync(join(tmpdir(), 'fake-pids-'))
     writeFileSync(join(bin, 'fake-claude.cjs'), FAKE_CLAUDE)
+    writeFileSync(join(bin, 'fake-docker.cjs'), FAKE_DOCKER)
+    writeFileSync(join(bin, 'docker'), `#!/bin/sh\nexec "${process.execPath}" "$(dirname "$0")/fake-docker.cjs" "$@"\n`)
+    chmodSync(join(bin, 'docker'), 0o755)
+    process.env.FAKE_DOCKER_LOG = join(pids, 'docker.log')
     // A wrapper that stays the parent of the real process, as mise's shim does.
     writeFileSync(join(bin, 'claude'), `#!/bin/sh\n"${process.execPath}" "$(dirname "$0")/fake-claude.cjs" "$@"\n`)
     chmodSync(join(bin, 'claude'), 0o755)
@@ -122,6 +139,62 @@ describe('ai jobs', () => {
 
     await expect(runAiJob(ask('fail'))).rejects.toThrow('Run `claude` once on the server to sign in.')
     await expect(runAiJob(ask('slow'), { signal: AbortSignal.abort() })).rejects.toThrow('Cancelled.')
+  })
+
+  describe('in the agents image', () => {
+    const calls = (): string[][] => existsSync(process.env.FAKE_DOCKER_LOG!) ? readFileSync(process.env.FAKE_DOCKER_LOG!, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : []
+    const runs = () => calls().filter(call => call[0] === 'run')
+    const valueAfter = (call: string[], flag: string) => call[call.indexOf(flag) + 1]!
+
+    beforeAll(() => {
+      process.env.PULLS_REVIEW_AGENT_RUNTIME = 'docker'
+    })
+    afterEach(() => rmSync(process.env.FAKE_DOCKER_LOG!, { force: true }))
+    afterAll(() => {
+      delete process.env.PULLS_REVIEW_AGENT_RUNTIME
+    })
+
+    it('runs the CLI through docker in the job folder, and names the setup script to sign in', async () => {
+      const { last } = await follow(startAiJob(ask('ok')))
+      expect(last).toMatchObject({ status: 'done', result: 'Hello' })
+      const [run] = runs()
+      const dir = valueAfter(run!, '--workdir')
+      expect(dir).toContain('pulls-review-ai-')
+      expect(run).toEqual(expect.arrayContaining(['--rm', '-i', '--init', `type=bind,source=${dir},target=${dir}`, 'type=volume,source=pulls-review-agents-home,target=/home/agent']))
+      expect(run!.slice(run!.indexOf('pulls-review-agents'), run!.indexOf('pulls-review-agents') + 3)).toEqual(['pulls-review-agents', 'claude', '-p'])
+
+      expect((await follow(startAiJob(ask('fail')))).last.error).toBe('Not logged in · Please run /login Run `docker/agents/setup.sh login-claude` on the server to sign in.')
+    })
+
+    it('gives the tool server the image\'s node, its own code and the checkout, read-only', async () => {
+      const headSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+      const [top, common] = execFileSync('git', ['rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'], { encoding: 'utf8' }).trim().split('\n')
+      await follow(startAiJob(ask('ok', { context: { owner: 'o', repo: 'r', number: 1, headSha, files: [] } })))
+      const [run] = runs()
+      const server = JSON.parse(valueAfter(run!, '--mcp-config')).mcpServers.pr
+      expect(server.command).toBe('node')
+      const script = server.args[0] as string
+      const dist = script.slice(0, script.lastIndexOf('/'))
+      expect(run).toContain(`type=bind,source=${top},target=${top},readonly`)
+      if (!common!.startsWith(`${top}/`))
+        expect(run).toContain(`type=bind,source=${common},target=${common},readonly`)
+      if (!dist.startsWith(`${top}/`))
+        expect(run).toContain(`type=bind,source=${dist},target=${dist},readonly`)
+    })
+
+    it('stops the container as well as the docker client', async () => {
+      rmSync(join(pids, 'slow'), { force: true })
+      const id = startAiJob(ask('slow'))
+      await until(() => existsSync(join(pids, 'slow')))
+      const pid = Number(readFileSync(join(pids, 'slow'), 'utf8'))
+      const name = valueAfter(runs()[0]!, '--name')
+      expect(name).toMatch(/^pulls-agent-/)
+
+      expect(cancelAiJob(id)).toBe(true)
+      await until(() => calls().some(call => call[0] === 'kill' && call.at(-1) === name))
+      expect(calls().find(call => call[0] === 'kill')).toEqual(['kill', '--signal', 'SIGTERM', name])
+      await until(() => !alive(pid))
+    })
   })
 
   it('says so when it no longer knows a job', async () => {

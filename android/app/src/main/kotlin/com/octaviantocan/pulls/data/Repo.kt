@@ -137,7 +137,8 @@ class Repo(private val context: Context) {
     suspend fun askThreads(key: String): List<AskThread> = (call("ask-threads") { put("key", key) } as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asAskThread() }
     suspend fun closeAsk(key: String, threadId: String) { call("ask-thread-close") { put("key", key); put("threadId", threadId) } }
 
-    suspend fun lenses(): List<Pair<String, String?>> = (call("lens-list") as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let { o -> o.s("name") to o.sOrNull("description") } }
+    /** `lens-list`: the review skills curated on the server, by title. */
+    suspend fun lenses(): List<ReviewLens> = (call("lens-list") as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asReviewLens()?.takeIf { lens -> lens.name.isNotEmpty() } }
 
     /** `ai-models` for an engine: `{ models: [{ id, name, description, efforts, defaultEffort, isDefault }], account, version }`. */
     suspend fun models(engine: String, refresh: Boolean = false): JsonObject = call("ai-models") { put("engine", engine); put("refresh", refresh) }.jsonObject

@@ -125,6 +125,11 @@ data class CritiqueFinding(
     val suggestion: String?,
 )
 
+/** `ReviewLens`: a curated review skill. [name] goes in the request; [title] and [description] go on screen. */
+data class ReviewLens(val name: String, val title: String, val description: String?)
+
+fun JsonObject.asReviewLens(): ReviewLens = ReviewLens(s("name"), sOrNull("title") ?: s("name"), sOrNull("description"))
+
 /** `CritiqueResult`. */
 data class Critique(
     val summary: String,

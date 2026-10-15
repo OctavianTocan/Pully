@@ -68,11 +68,12 @@ export function startCli(bin: string, args: string[], options: { cwd?: string, o
 /**
  * The version a CLI reports with `--version`.
  * @param bin - The program to ask.
+ * @param start - How to start it; on the server itself by default.
  * @returns The first version number in its output, or undefined when it cannot say.
  */
-export async function cliVersion(bin: string): Promise<string | undefined> {
+export async function cliVersion(bin: string, start: (bin: string, args: string[]) => CliProcess = startCli): Promise<string | undefined> {
   let out = ''
-  const run = startCli(bin, ['--version'])
+  const run = start(bin, ['--version'])
   run.child.stdout.on('data', chunk => out += chunk)
   const timer = setTimeout(() => run.kill('SIGKILL'), 10_000)
   try {

@@ -8,7 +8,8 @@ const PREVIEW_LIMIT = 400
 
 /** What Claude Code's assistant error codes mean to the person waiting. */
 const ERRORS: Record<string, string> = {
-  authentication_failed: 'Claude is not signed in on the server. Run `claude` there once to sign in, then retry.',
+  // The job adds how to sign in, which depends on where Claude runs.
+  authentication_failed: 'Claude is not signed in on the server.',
   oauth_org_not_allowed: 'Claude signed in, but this organization does not allow Claude Code.',
   account_on_hold: 'The Claude account on the server is on hold.',
   billing_error: 'Claude billing or subscription access failed for the account on the server.',

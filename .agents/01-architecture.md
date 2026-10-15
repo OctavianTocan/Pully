@@ -70,6 +70,23 @@ the diff's saved question threads (`ask-threads:<key>`), or `briefs` (below). Co
 - Browser-run providers (gateway, Anthropic, OpenAI-compatible) and builds without a
   local server keep the in-page path.
 
+## Where the CLIs run (`packages/cli/src/ai/runtime.ts`)
+
+The Claude Code and Codex processes run on the server itself, or, with
+`PULLS_REVIEW_AGENT_RUNTIME=docker` (`--agents docker`), in the image built from
+`docker/agents` (`PULLS_REVIEW_AGENT_IMAGE`, default `pulls-review-agents`). Contract:
+
+- Every CLI process the server starts, jobs and the model catalog alike, MUST go through
+  `startAgent`, so the runtime decides for all of them. Unset, nothing changes.
+- In a container a CLI sees only the job's temporary folder (read-write, its working
+  folder), the server's built code and the checkout with its git folders (read-only),
+  each at the same path as on the host, and the `pulls-review-agents-home` volume that
+  keeps its sign-ins. The tool server is started with the image's `node`.
+- Stopping a run MUST stop its container (`docker kill`), not only the `docker` client.
+- Review lenses come only from the curated skills (`docker/agents/skills`, or
+  `PULLS_REVIEW_SKILLS_DIR`). The server MUST NOT offer the skills of the account it
+  runs under, and the image replaces its skill folders with the same set on every start.
+
 ## The brief: a page the agent designs (`core/src/analyze/adapters/llm/brief.ts`)
 
 A `brief` task asks the agent to design the page a reviewer reads before the diff. It

@@ -29,9 +29,6 @@ internal class AiUi {
     var posting by mutableStateOf(false)
     var postError by mutableStateOf<String?>(null)
     var panelOpen by mutableStateOf(true)
-    var lenses by mutableStateOf<List<Pair<String, String?>>?>(null)
-    var lensesLoading by mutableStateOf(false)
-    var lensesError by mutableStateOf<String?>(null)
 
     // --- Ask: a question sent but not yet in the saved thread, by thread id, with the turn count it was sent at ---
     val askPending = mutableStateMapOf<String, Pair<String, Int>>()
