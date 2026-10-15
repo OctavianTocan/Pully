@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -101,13 +99,6 @@ fun phIconId(context: Context, name: String): Int = iconIds.getOrPut(name) {
     context.resources.getIdentifier("ic_ph_$clean", "drawable", context.packageName)
 }
 
-/** Press feedback the web adds on touch (`:active` scale in `main.css`). */
-@Composable
-private fun Modifier.press(interaction: MutableInteractionSource): Modifier {
-    val pressed by interaction.collectIsPressedAsState()
-    return this.scale(if (pressed) 0.97f else 1f)
-}
-
 enum class ButtonVariant { Action, Primary, Text }
 
 /**
@@ -146,13 +137,13 @@ fun ActionButton(
     Row(
         modifier
             .defaultMinSize(minHeight = TOUCH)
-            .press(interaction)
             // `disabled:op50` dims the whole button, fill and border included.
             .alpha(restAlpha)
             .clip(shape)
             .background(fill, shape)
             .border(1.dp, border, shape)
-            .cueClickable(interaction, null, emphasis = if (variant == ButtonVariant.Primary) Emphasis.Normal else Emphasis.Subtle, enabled = enabled && !loading, role = Role.Button, onClick = onClick)
+            // Pressing tints it flat and nothing moves (rule 82).
+            .cueClickable(interaction, PullsIndication, emphasis = if (variant == ButtonVariant.Primary) Emphasis.Normal else Emphasis.Subtle, enabled = enabled && !loading, role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -174,10 +165,9 @@ fun IconButton(icon: String, label: String, onClick: () -> Unit, modifier: Modif
     Box(
         modifier
             .size(TOUCH)
-            .press(interaction)
             .clip(if (compact) RoundedCornerShape(4.dp) else CircleShape)
             .background(if (active) c.active else Color.Transparent)
-            .cueClickable(interaction, null, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
+            .cueClickable(interaction, PullsIndication, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
             .alpha(if (!enabled) 0.3f else if (active) 1f else 0.65f),
         contentAlignment = Alignment.Center,
     ) {

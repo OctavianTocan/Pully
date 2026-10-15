@@ -14,7 +14,7 @@ import com.octaviantocan.pulls.ui.review.ReviewSession
  * Callers outside ui/ai use only the functions below; their signatures are the contract.
  *
  * Files: `Analyze.kt` (running an analysis, shared banner), `Critique.kt`
- * (running a review, lens picker, panel, finding cards), `Ask.kt` (selection actions, threads),
+ * (running a review, lens picker, panel, finding cards), `Ask.kt` (the saved threads on lines),
  * `Chat.kt` (the Ask sheet), `AiParts.kt` (activity log, usage line, sheet, shimmer),
  * `AiState.kt` (page-local AI state), and the pure ports `AiFormat.kt`, `AiActivity.kt`,
  * `AskSelection.kt`.
@@ -28,7 +28,7 @@ fun CritiquePanel(session: ReviewSession, modifier: Modifier = Modifier) = Criti
 @Composable
 fun SharedAnalysisBanner(session: ReviewSession, modifier: Modifier = Modifier) = SharedAnalysisBannerImpl(session, modifier)
 
-/** Something the person asks about, attached to the question: a file note, or a file. [label] names it, [text] is what it says. */
+/** Something the person asks about, attached to the question: a file note, a file, or selected lines. [label] names it, [text] is what it says. */
 data class AskReference(val label: String, val text: String)
 
 /**
@@ -41,17 +41,9 @@ data class AskReference(val label: String, val text: String)
 fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference? = null, onOpen: (CodePlace) -> Unit = {}, onDismiss: () -> Unit) =
     AskSheetImpl(session, title, suggestions, initial, reference, onOpen, onDismiss)
 
-/** `AskThread`: a saved question thread about some lines, shown under its last line. */
+/** `AskThread`: a saved question thread about some lines, shown under its last line as a chat is, with no card around it. */
 @Composable
 fun AskThreadCard(session: ReviewSession, thread: AskThread, modifier: Modifier = Modifier) = AskThreadCardImpl(session, thread, modifier)
-
-/**
- * `SelectionActions` + a new `AskThread`: for selected lines, Ask AI / Copy file and lines /
- * Copy GitHub link. [onDone] closes it.
- */
-@Composable
-fun SelectionActions(session: ReviewSession, path: String, side: String, startLine: Int, endLine: Int, onDone: () -> Unit, modifier: Modifier = Modifier) =
-    SelectionActionsImpl(session, path, side, startLine, endLine, onDone, modifier)
 
 /** `AiActivityLog`: the work log of a task, grouped and timed like the web. */
 @Composable

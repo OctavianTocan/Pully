@@ -82,4 +82,21 @@ class ReviewFlowTest {
         assertEquals(2, swipedFile(2, 5, -79f, 80f))
         assertEquals(0, swipedFile(0, 5, 79f, 80f))
     }
+
+    @Test
+    fun pastTheLastTabTheOverviewContinuesToTheDiff() {
+        assertEquals(3, swipedTabOrNext(2, 3, -120f, 80f))
+    }
+
+    @Test
+    fun betweenTabsTheOverviewSwipesAsBefore() {
+        assertEquals(2, swipedTabOrNext(1, 3, -120f, 80f))
+        assertEquals(0, swipedTabOrNext(1, 3, 120f, 80f))
+        assertEquals(2, swipedTabOrNext(2, 3, -79f, 80f))
+    }
+
+    @Test
+    fun beforeTheFirstTabTheOverviewStaysPut() {
+        assertEquals(0, swipedTabOrNext(0, 3, 300f, 80f))
+    }
 }
