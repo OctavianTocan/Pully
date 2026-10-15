@@ -31,5 +31,5 @@ export const toasts = useToast()
  * @param type - `error` for a failure.
  */
 export function notify(message: string, type: 'success' | 'error' = 'success'): void {
-  toasts.add(message, { type, duration: 2500, icon: type === 'success' ? 'i-ph:check-circle-duotone' : 'i-ph:warning-circle-duotone' })
+  toasts.add(message, { type, duration: 2500, icon: type === 'success' ? 'i-lu-okc' : 'i-ph:warning-circle' })
 }

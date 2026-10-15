@@ -93,7 +93,7 @@ async function confirm() {
         <ActionButton
           variant="primary"
           class="px3"
-          icon="i-ph:git-merge-duotone"
+          icon="i-lu-merge"
           :loading="busy"
           :disabled="!store.mergeability?.ready || (method !== 'rebase' && !title.trim())"
           @click="confirm"

@@ -64,7 +64,7 @@ useDocumentTitle(() => t('local.picker.title'))
             {{ $t('local.picker.tagline') }}
           </p>
           <form class="max-w-md flex items-stretch gap-2" @submit.prevent="compare">
-            <RefAutocomplete v-model="base" :suggestions="suggestions" :placeholder="$t('local.picker.base')" icon="i-ph:git-branch-duotone" class="flex-1" />
+            <RefAutocomplete v-model="base" :suggestions="suggestions" :placeholder="$t('local.picker.base')" icon="i-lu-branch" class="flex-1" />
             <span class="self-center font-mono op-fade" aria-hidden="true">...</span>
             <RefAutocomplete v-model="head" :suggestions="suggestions" :placeholder="$t('local.picker.head')" class="flex-1" />
             <ActionButton
@@ -102,9 +102,9 @@ useDocumentTitle(() => t('local.picker.title'))
             <ul class="flex flex-col border border-base rounded-lg py-1">
               <li v-for="branch in branches" :key="branch">
                 <RouterLink :to="routeForPage({ kind: 'branch', branch })" class="flex items-center gap-2 px-3 py-1.5 text-sm transition hover:bg-hover">
-                  <span class="i-ph:git-branch-duotone shrink-0 op-fade" aria-hidden="true" />
+                  <span class="i-lu-branch shrink-0 op-fade" aria-hidden="true" />
                   <span class="min-w-0 flex-1 truncate font-mono">{{ branch }}</span>
-                  <span v-if="branch === currentBranch" class="i-ph:check-circle-duotone shrink-0 color-accent-teal" :title="$t('local.picker.current')" />
+                  <span v-if="branch === currentBranch" class="i-lu-okc shrink-0 color-accent-teal" :title="$t('local.picker.current')" />
                 </RouterLink>
               </li>
             </ul>

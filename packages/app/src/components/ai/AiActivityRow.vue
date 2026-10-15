@@ -19,10 +19,10 @@ const { t } = useI18n()
 const expanded = ref(false)
 
 const ICONS: Record<ToolCategory, string> = {
-  command: 'i-ph:terminal',
-  edit: 'i-ph:pencil-simple',
+  command: 'i-lu-terminal',
+  edit: 'i-lu-edit',
   read: 'i-ph:file-text',
-  search: 'i-ph:magnifying-glass',
+  search: 'i-lu-search',
   other: 'i-ph:wrench',
 }
 
@@ -32,7 +32,7 @@ const isProse = computed(() => props.activity.kind === 'thinking' || props.activ
 
 const icon = computed(() => {
   if (failed.value)
-    return 'i-ph:x-circle'
+    return 'i-lu-xc'
   if (props.warning)
     return 'i-ph:warning'
   switch (props.activity.kind) {
@@ -90,7 +90,7 @@ const tone = computed(() => {
         class="shrink-0 text-xs not-italic tabular-nums"
         :class="timing?.state === 'idle' ? 'text-amber-700 dark:text-amber-400' : 'op-mute'"
       >{{ timingLabel }}</span>
-      <span v-if="expandable" :class="expanded ? 'i-ph:caret-up' : 'i-ph:caret-down'" class="shrink-0 text-xs op-mute" aria-hidden="true" />
+      <span v-if="expandable" :class="expanded ? 'i-ph:caret-up' : 'i-lu-chevd'" class="shrink-0 text-xs op-mute" aria-hidden="true" />
     </component>
     <p v-if="failed && fullText" class="ml-5 whitespace-pre-wrap break-words text-xs text-red-600 dark:text-red-400">
       {{ fullText }}

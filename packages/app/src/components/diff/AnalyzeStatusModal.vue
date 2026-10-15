@@ -78,7 +78,7 @@ function rerun() {
               class="flex flex-col gap-1 border border-red-500/30 rounded bg-red-500/5 p-3 text-red-600 dark:text-red-400"
             >
               <div class="flex items-center gap-1.5 font-medium">
-                <span class="i-ph:x-circle shrink-0" aria-hidden="true" />
+                <span class="i-lu-xc shrink-0" aria-hidden="true" />
                 {{ $t('analyze.failed') }}
               </div>
               <p class="whitespace-pre-wrap break-words">
@@ -90,7 +90,7 @@ function rerun() {
               {{ $t('ai.stopped') }}
             </p>
             <p v-else-if="groupCount !== undefined" class="flex items-center gap-1.5 color-base">
-              <span class="i-ph:check-circle shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />
+              <span class="i-lu-okc shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />
               {{ $t('analyze.done', { n: groupCount }, groupCount) }}
             </p>
 
@@ -101,10 +101,10 @@ function rerun() {
     </div>
 
     <template #footer>
-      <ActionButton v-if="llm.isAnalyzing" size="sm" icon="i-ph:stop-duotone" @click="llm.abort()">
+      <ActionButton v-if="llm.isAnalyzing" size="sm" icon="i-lu-stop" @click="llm.abort()">
         {{ $t('common.stop') }}
       </ActionButton>
-      <ActionButton v-else size="sm" variant="primary" icon="i-ph:arrow-clockwise-duotone" @click="rerun">
+      <ActionButton v-else size="sm" variant="primary" icon="i-lu-redo" @click="rerun">
         {{ $t('common.rerun') }}
       </ActionButton>
     </template>

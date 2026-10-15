@@ -357,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "#{n} 위",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -633,6 +634,9 @@
     "cached": "캐시된 pull request",
     "autoRefresh": "새 커밋이 발견되면 자동 새로 고침",
     "language": "언어",
+    "theme": "화면 모드",
+    "light": "라이트",
+    "dark": "다크",
     "token": {
       "label": "GitHub 개인 액세스 토큰",
       "optional": "공개 저장소에는 선택 사항이며, 비공개 저장소나 리뷰 작성에는 필수입니다.",
@@ -770,7 +774,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",

@@ -110,7 +110,7 @@ onMounted(() => {
       </template>
       <template #error="{ error: err, retry }">
         <FeedbackEmptyState
-          icon="i-ph:warning-duotone"
+          icon="i-ph:warning"
           :title="$t('pr.loadFailed')"
         >
           <template #hint>

@@ -109,7 +109,6 @@ const model = computed({
     >
       <div>
         <div class="mb1 flex items-center gap-1 text-sm color-base font-medium">
-          <div class="i-ph-sparkle-duotone text-lg" />
           {{ $t('settings.llm.title') }}
         </div>
         <p class="text-sm color-faint">
@@ -152,7 +151,7 @@ const model = computed({
               v-model="draftToken"
               v-field="FIELD.secret"
               type="password"
-              icon="i-ph-key-duotone"
+              icon="i-ph-key"
               :placeholder="config.placeholder"
               class="flex-1"
               @keyup.enter="draftToken && save()"
@@ -194,13 +193,13 @@ const model = computed({
       <template v-else-if="!isLocal">
         <FormField :label="$t('settings.llm.apiKey')">
           <div class="h-9 flex items-center gap-2 border border-base rounded bg-raised px-3 text-sm">
-            <span class="i-ph:check-circle-duotone shrink-0 color-active" aria-hidden="true" />
+            <span class="i-lu-okc shrink-0 color-active" aria-hidden="true" />
             <span class="color-base">{{ $t('settings.llm.configured') }}</span>
             <span class="font-mono op-mute">••••{{ token.slice(-4) }}</span>
             <span v-if="isOpenAi" class="flex-1 truncate text-xs op-mute">{{ llmSettings.openaiBaseUrl }}</span>
             <span v-else class="flex-1" />
             <ActionIconButton
-              icon="i-ph:pencil-simple-duotone"
+              icon="i-lu-edit"
               :label="$t('settings.llm.changeKey')"
               :tooltip="$t('settings.llm.changeKey')"
               compact
@@ -228,7 +227,7 @@ const model = computed({
       v-if="isEmbedded"
       class="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center"
     >
-      <span class="i-ph:shield-warning-duotone text-2xl op-fade" aria-hidden="true" />
+      <span class="i-ph:shield-warning text-2xl op-fade" aria-hidden="true" />
       <p class="text-sm color-base font-medium">
         {{ $t('settings.llm.embedUnavailable') }}
       </p>

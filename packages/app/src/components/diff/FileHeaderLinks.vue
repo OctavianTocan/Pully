@@ -50,7 +50,7 @@ function tooltip(kind: 'path' | 'link') {
 <template>
   <ActionIconButton
     compact
-    :icon="copied && lastCopied === 'path' ? 'i-ph:check' : 'i-ph:copy'"
+    :icon="copied && lastCopied === 'path' ? 'i-lu-check' : 'i-lu-copy'"
     :label="$t('overview.file.copyPath')"
     :tooltip="tooltip('path')"
     class="op-fade hover:op-100"
@@ -59,7 +59,7 @@ function tooltip(kind: 'path' | 'link') {
   <template v-if="github && diff?.url">
     <ActionIconButton
       compact
-      :icon="copied && lastCopied === 'link' ? 'i-ph:check' : 'i-ph:link'"
+      :icon="copied && lastCopied === 'link' ? 'i-lu-check' : 'i-ph:link'"
       :label="$t('overview.file.copyLink')"
       :tooltip="tooltip('link')"
       class="op-fade hover:op-100"
@@ -68,7 +68,7 @@ function tooltip(kind: 'path' | 'link') {
     <ActionIconButton
       v-if="blobUrl"
       compact
-      icon="i-ph:arrow-square-out"
+      icon="i-carbon-logo-github"
       :href="blobUrl"
       target="_blank"
       rel="noopener"

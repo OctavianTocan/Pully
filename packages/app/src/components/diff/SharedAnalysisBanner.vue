@@ -38,7 +38,6 @@ function candidateTitle(candidate: SharedAnalysisCandidate): string | undefined 
     v-if="shared.candidates.length || shared.notice"
     class="flex flex-wrap items-center gap-x-3 gap-y-2 border border-base rounded-lg bg-raised px-3 py-2 text-sm"
   >
-    <span class="i-ph-sparkle-duotone shrink-0 op-fade" aria-hidden="true" />
     <template v-if="shared.candidates.length">
       <span>{{ $t(replacesLocal ? 'share.loadReplaces' : 'share.available') }}</span>
       <ActionButton
@@ -57,6 +56,6 @@ function candidateTitle(candidate: SharedAnalysisCandidate): string | undefined 
     </template>
     <span v-else class="op-fade">{{ shared.notice }}</span>
     <div class="flex-auto" />
-    <ActionIconButton icon="i-ph:x" :label="$t('common.dismiss')" :tooltip="$t('common.dismiss')" class="text-sm" @click="shared.dismiss()" />
+    <ActionIconButton icon="i-lu-close" :label="$t('common.dismiss')" :tooltip="$t('common.dismiss')" class="text-sm" @click="shared.dismiss()" />
   </div>
 </template>

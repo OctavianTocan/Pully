@@ -357,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "#{n} の上",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -633,6 +634,9 @@
     "cached": "キャッシュされた pull request",
     "autoRefresh": "新しいコミットが見つかったら自動更新",
     "language": "言語",
+    "theme": "外観",
+    "light": "ライト",
+    "dark": "ダーク",
     "token": {
       "label": "GitHub 個人アクセストークン",
       "optional": "公開リポジトリでは任意。非公開リポジトリやレビュー投稿には必須です。",
@@ -770,7 +774,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",

@@ -35,7 +35,7 @@ const tone = computed(() => props.status === 'changed'
     @update:model-value="emit('update', $event === true)"
   >
     <CheckboxIndicator class="text-white">
-      <div :class="modelValue === 'indeterminate' ? 'i-ph:minus-bold' : 'i-ph:check-bold'" class="mt--1px text-micro" aria-hidden="true" />
+      <div :class="modelValue === 'indeterminate' ? 'i-ph:minus-bold' : 'i-lu-check'" class="mt--1px text-micro" aria-hidden="true" />
     </CheckboxIndicator>
   </CheckboxRoot>
 </template>

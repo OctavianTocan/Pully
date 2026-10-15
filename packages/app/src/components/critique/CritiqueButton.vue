@@ -43,7 +43,7 @@ function onPick(lens: string | undefined) {
     <ActionButton
       class="shrink-0 text-xs"
       :variant="critique.result || critique.isRunning ? 'text' : 'action'"
-      :icon="critique.isRunning ? 'i-ph:spinner-duotone animate-spin' : 'i-ph:magnifying-glass-duotone'"
+      :icon="critique.isRunning ? 'i-lu-redo animate-spin' : 'i-lu-search'"
       :title="title"
       @click="onClick"
     >
@@ -52,7 +52,7 @@ function onPick(lens: string | undefined) {
     <ActionIconButton
       v-if="critique.hasLenses"
       compact
-      icon="i-ph:caret-down"
+      icon="i-lu-chevd"
       :disabled="critique.isRunning"
       :label="$t('lens.pick')"
       :tooltip="$t('lens.pick')"

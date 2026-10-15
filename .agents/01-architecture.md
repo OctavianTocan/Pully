@@ -456,6 +456,19 @@ land later without a rewrite:
 
 ## UI conventions
 
+- The web looks like the Android app and is drawn from the same source
+  (DESIGN.md rule 106). `android/DESIGN.md`'s front matter is the one token
+  source: `android/scripts/design/web.mjs` writes it, the phone's `Lu` icons
+  and its `PullsFonts` into `app/src/design/*.generated.*`, and
+  `app/src/design/theme.ts` turns those into the UnoCSS theme, CSS variables
+  (`--c-*`, `--shadow-*`), `kit-*` shortcuts and the `i-lu-*` icon set, and
+  redraws `@antfu/design`'s shortcuts in them. `app/src/components/kit/` holds
+  the phone's kit pieces (float button, capsule tabs, soft chip, search pill,
+  group heading). The web locales are the strings' source; the APK carries
+  copies. `pnpm run android:design:update` regenerates all of it, and the
+  `web` check fails when any generated file or copy drifts. Prefer `i-lu-*`
+  icons, then Phosphor's regular weight; no link-out arrows or decorative AI
+  sparkles.
 - Every user-facing string goes through vue-i18n (`app/i18n/`): `$t()` in
   templates, `useI18n()` in component scripts, `i18n.global.t` in plain
   modules. Core has no vue-i18n: the app's adapter registry
@@ -466,7 +479,7 @@ land later without a rewrite:
   via `DefineLocaleMessage`); other locales load on demand. One
   `settings.locale` drives both the UI and the language the LLM writes
   summaries in; it is seeded from `navigator.languages` (core's `locales.ts`)
-  and switched from the `LanguageMenu` icon in `NavControls`. Model-facing
+  and switched in Settings (`LayoutSettingsSection.vue`), as on the phone. Model-facing
   text (prompts, tool errors) and diagnostics that embed URLs/status codes
   stay English.
 - Settings (GitHub PAT, later model keys) and loading a pasted/uploaded diff

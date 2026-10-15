@@ -70,7 +70,7 @@ const rows = computed(() => props.groups.flatMap(group => [
       <DisplayDonut :value="groupProgress(group, reviewed)" :size="16" :thickness="2" class="shrink-0" />
       <ActionIconButton
         v-if="group.children.length"
-        :icon="collapsed.has(group.key) ? 'i-ph:caret-right' : 'i-ph:caret-down'"
+        :icon="collapsed.has(group.key) ? 'i-lu-next' : 'i-lu-chevd'"
         :aria-expanded="!collapsed.has(group.key)"
         :label="$t(collapsed.has(group.key) ? 'group.showSubgroups' : 'group.hideSubgroups')"
         class="shrink-0 text-xs"

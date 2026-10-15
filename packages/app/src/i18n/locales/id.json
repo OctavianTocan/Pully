@@ -357,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "di atas #{n}",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -633,6 +634,9 @@
     "cached": "Pull request di cache",
     "autoRefresh": "Muat ulang otomatis saat ada commit baru",
     "language": "Bahasa",
+    "theme": "Tampilan",
+    "light": "Terang",
+    "dark": "Gelap",
     "token": {
       "label": "GitHub Personal Access Token",
       "optional": "Opsional untuk repositori publik; wajib untuk repositori privat atau untuk memberikan tinjauan.",
@@ -770,7 +774,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",

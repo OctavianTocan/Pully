@@ -1,36 +1,21 @@
 <script setup lang="ts">
-import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
-import { useEventListener } from '@vueuse/core'
-import { ref } from 'vue'
 import NavControls from './NavControls.vue'
 
-const props = defineProps<{
-  document?: Document | ShadowRoot
-}>()
-
-const scrollY = ref(0)
-useEventListener(() => props.document ?? document, 'scroll', (event) => {
-  scrollY.value = event.target instanceof Element ? event.target.scrollTop : window.scrollY
-}, { capture: true })
+/**
+ * The phone's header: no bar, only floating controls over the paper. The wordmark leads home; the
+ * default slot takes the middle, as the Inbox's capsule tabs do on the phone.
+ */
 </script>
 
 <template>
-  <header class="sticky top-0 z-nav h-[calc(3.5rem+env(safe-area-inset-top))] flex items-center gap-3 border-b bg-base bg-glass px-3 pt-[env(safe-area-inset-top)] transition-all sm:px-4" :class="scrollY > 10 ? 'border-base' : 'border-transparent'">
-    <RouterLink to="/" class="shrink-0 text-lg font-mono coarse:(min-h-11 flex items-center)">
+  <header class="sticky top-0 z-nav flex items-center gap-3 bg-base px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    <!-- On a phone the middle (the Inbox's tabs) takes the wordmark's place, as the phone app has none. -->
+    <RouterLink to="/" class="press-tint h-11 flex shrink-0 items-center rounded-full px-1 text-xl font-medium font-display" :class="$slots.default ? 'max-sm:hidden' : ''">
       <span class="color-accent-magenta">+</span>pulls<span class="color-accent-orange">.</span><span class="color-accent-teal">review</span>
     </RouterLink>
-
-    <div class="flex-1" />
-
-    <NavControls>
-      <ActionIconButton
-        href="https://github.com/antfu/pulls.review"
-        target="_blank"
-        rel="noopener"
-        icon="i-carbon-logo-github"
-        :label="$t('common.githubRepository')"
-        tooltip="GitHub"
-      />
-    </NavControls>
+    <div class="min-w-0 flex flex-1 sm:justify-center">
+      <slot />
+    </div>
+    <NavControls />
   </header>
 </template>

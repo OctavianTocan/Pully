@@ -92,7 +92,7 @@ async function sendReply() {
           {{ $t('review.replyPlaceholder') }}
         </button>
         <div v-else class="flex-1" />
-        <ActionButton v-if="canResolve" size="sm" :disabled="busy" icon="i-ph:check-circle-duotone" @click="run(() => reviews.resolveThread(thread.threadId!))">
+        <ActionButton v-if="canResolve" size="sm" :disabled="busy" icon="i-lu-okc" @click="run(() => reviews.resolveThread(thread.threadId!))">
           {{ $t('review.resolve') }}
         </ActionButton>
       </div>

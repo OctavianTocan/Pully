@@ -54,7 +54,7 @@ onMounted(loadAll)
       </template>
       <template #error="{ error: err }">
         <FeedbackEmptyState
-          icon="i-ph:warning-duotone"
+          icon="i-ph:warning"
           :title="$t('load.parseFailed')"
         >
           <template #hint>
@@ -64,7 +64,7 @@ onMounted(loadAll)
       </template>
       <template #empty>
         <FeedbackEmptyState
-          icon="i-ph:upload-simple-duotone"
+          icon="i-ph:upload-simple"
           :title="$t('load.noDiff')"
         >
           <template #hint>

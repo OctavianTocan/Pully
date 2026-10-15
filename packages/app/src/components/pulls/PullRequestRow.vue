@@ -34,15 +34,15 @@ function labelChipStyle(color: string) {
 
 // GitHub's own glyphs and colors for the CI rollup next to the title.
 const CHECKS_ICON: Record<ChecksStatus, string> = {
-  success: 'i-ph:check-bold text-green-600 dark:text-green-400',
-  failure: 'i-ph:x-bold text-red-600 dark:text-red-400',
+  success: 'i-lu-check text-green-600 dark:text-green-400',
+  failure: 'i-lu-close text-red-600 dark:text-red-400',
   pending: 'i-ph:circle-fill text-amber-500',
 }
 
 const REVIEW_ICON: Record<ReviewDecision, string> = {
-  approved: 'i-ph:check-circle-duotone text-green-600 dark:text-green-400',
-  changes_requested: 'i-ph:x-circle-duotone text-red-600 dark:text-red-400',
-  review_required: 'i-ph:eye-duotone op-fade',
+  approved: 'i-lu-okc text-green-600 dark:text-green-400',
+  changes_requested: 'i-lu-xc text-red-600 dark:text-red-400',
+  review_required: 'i-ph:eye op-fade',
 }
 </script>
 
@@ -89,7 +89,7 @@ const REVIEW_ICON: Record<ReviewDecision, string> = {
         <template v-if="pr.milestone">
           <span aria-hidden="true">·</span>
           <span class="flex items-center gap-1" :title="$t('pulls.milestone')">
-            <span class="i-ph:flag-duotone" aria-hidden="true" />
+            <span class="i-ph:flag" aria-hidden="true" />
             {{ pr.milestone }}
           </span>
         </template>
@@ -113,12 +113,12 @@ const REVIEW_ICON: Record<ReviewDecision, string> = {
         >
           <span
             v-if="viewed.hasAiResult"
-            class="i-ph:sparkle-duotone color-accent-teal"
+            class="i-lu-think color-accent-teal"
             role="img"
             :aria-label="$t('pulls.aiAvailable')"
             :title="$t('pulls.aiAvailable')"
           />
-          <span v-else class="i-ph:stack-duotone" aria-hidden="true" />
+          <span v-else class="i-ph:stack" aria-hidden="true" />
           {{ $t('pulls.groups', viewed.groups) }}
         </span>
         <span
@@ -145,7 +145,7 @@ const REVIEW_ICON: Record<ReviewDecision, string> = {
           class="flex items-center gap-1"
           :title="$t('pulls.comments', pr.comments)"
         >
-          <span class="i-ph:chat-circle-duotone" aria-hidden="true" />
+          <span class="i-ph:chat-circle" aria-hidden="true" />
           {{ pr.comments }}
         </span>
       </div>

@@ -20,7 +20,7 @@ const headline = computed(() => range.value && range.value.start === range.value
     v-if="ctx?.selection"
     class="flex flex-wrap items-center gap-x-3 gap-y-2 border border-base rounded-lg bg-raised px-3 py-2 text-sm"
   >
-    <span class="i-ph:git-commit-duotone shrink-0 op-fade" aria-hidden="true" />
+    <span class="i-lu-commit shrink-0 op-fade" aria-hidden="true" />
     <span v-if="range && range.start === range.end" class="min-w-0 flex items-center gap-2">
       <span class="shrink-0">{{ $t('overview.selection.viewing', { index: range.start + 1 + offset, total }) }}</span>
       <span v-if="headline" class="min-w-0 truncate op-fade">{{ headline }}</span>
@@ -38,7 +38,7 @@ const headline = computed(() => range.value && range.value.start === range.value
     <div class="flex items-center gap-1">
       <ActionIconButton
         compact
-        icon="i-ph:caret-left"
+        icon="i-lu-prev"
         :label="$t('overview.selection.previous')"
         :tooltip="$t('overview.selection.previous')"
         :disabled="!adjacent.previous"
@@ -46,7 +46,7 @@ const headline = computed(() => range.value && range.value.start === range.value
       />
       <ActionIconButton
         compact
-        icon="i-ph:caret-right"
+        icon="i-lu-next"
         :label="$t('overview.selection.next')"
         :tooltip="$t('overview.selection.next')"
         :disabled="!adjacent.next"

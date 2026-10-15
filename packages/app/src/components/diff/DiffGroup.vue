@@ -108,7 +108,7 @@ function navigateToFile(sha: string) {
           <ActionIconButton
             compact
             class="ml--5 py2 op-mute hover:op-100"
-            :icon="collapsed ? 'i-ph:caret-right' : 'i-ph:caret-down'"
+            :icon="collapsed ? 'i-lu-next' : 'i-lu-chevd'"
             :label="$t('group.toggle')"
             as="span"
           />
@@ -168,7 +168,7 @@ function navigateToFile(sha: string) {
               <ActionIconButton
                 compact
                 class="ml--5 py1.5 op-mute hover:op-100"
-                :icon="collapsed ? 'i-ph:caret-right' : 'i-ph:caret-down'"
+                :icon="collapsed ? 'i-lu-next' : 'i-lu-chevd'"
                 :label="$t('group.toggle')"
                 as="span"
               />

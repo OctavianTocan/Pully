@@ -3,22 +3,22 @@ import type { DiffCategory } from '@pulls.review/core/types'
 /** @unocss-include */
 
 export const CATEGORY_ICON: Record<DiffCategory, string> = {
-  ui: 'i-ph-compass-tool-duotone',
-  api: 'i-ph:plugs-connected-duotone',
-  core: 'i-ph-code-duotone',
-  data: 'i-ph:database-duotone',
-  cli: 'i-ph-terminal-duotone',
-  security: 'i-ph:shield-check-duotone',
-  tests: 'i-ph:flask-duotone',
-  docs: 'i-ph:book-open-duotone',
-  examples: 'i-ph:play-circle-duotone',
-  deps: 'i-ph:package-duotone',
-  build: 'i-ph:hammer-duotone',
-  scripts: 'i-ph:wrench-duotone',
-  config: 'i-ph:sliders-horizontal-duotone',
-  i18n: 'i-ph:translate-duotone',
-  assets: 'i-ph:image-duotone',
-  other: 'i-ph:dots-three-circle-duotone',
+  ui: 'i-ph-compass-tool',
+  api: 'i-ph:plugs-connected',
+  core: 'i-ph-code',
+  data: 'i-ph:database',
+  cli: 'i-lu-terminal',
+  security: 'i-ph:shield-check',
+  tests: 'i-ph:flask',
+  docs: 'i-ph:book-open',
+  examples: 'i-ph:play-circle',
+  deps: 'i-ph:package',
+  build: 'i-ph:hammer',
+  scripts: 'i-ph:wrench',
+  config: 'i-ph:sliders-horizontal',
+  i18n: 'i-ph:translate',
+  assets: 'i-ph:image',
+  other: 'i-ph:dots-three-circle',
 }
 
 /** One distinct hue per category so groups can be told apart at a glance. */

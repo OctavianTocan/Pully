@@ -62,13 +62,13 @@ function toolCallLabel(call: ToolCall) {
         <Markdown :value="part.text" :streaming="message.stopReason === 'pending'" class="chat-markdown min-w-0 self-stretch" @click="keepRepoLinks" />
       </Suspense>
       <div v-else-if="part.type === 'toolCall'" class="flex items-center gap-1.5 text-xs op-mute">
-        <span class="i-ph:wrench-duotone" aria-hidden="true" />
+        <span class="i-ph:wrench" aria-hidden="true" />
         {{ toolCallLabel(part) }}
       </div>
     </template>
     <div v-if="message.stopReason === 'error'" class="flex flex-wrap items-center gap-2 text-sm text-red-500">
       <span class="break-words">{{ message.errorMessage ?? $t('chat.requestFailed') }}</span>
-      <ActionButton v-if="retryable" size="sm" icon="i-ph:arrow-clockwise-duotone" @click="$emit('retry')">
+      <ActionButton v-if="retryable" size="sm" icon="i-lu-redo" @click="$emit('retry')">
         {{ $t('common.retry') }}
       </ActionButton>
     </div>
@@ -76,12 +76,12 @@ function toolCallLabel(call: ToolCall) {
   </div>
 
   <div v-else-if="groupingNotice" class="flex items-center gap-1.5 text-xs op-mute">
-    <span class="i-ph:tree-structure-duotone" aria-hidden="true" />
+    <span class="i-ph:tree-structure" aria-hidden="true" />
     {{ groupingNotice }}
   </div>
 
   <div v-else-if="toolError" class="flex items-start gap-1.5 text-xs op-mute">
-    <span class="i-ph:warning-duotone mt-0.5 shrink-0" aria-hidden="true" />
+    <span class="i-ph:warning mt-0.5 shrink-0" aria-hidden="true" />
     <span class="whitespace-pre-wrap break-words">{{ toolError }}</span>
   </div>
 </template>

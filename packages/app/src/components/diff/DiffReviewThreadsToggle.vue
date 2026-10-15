@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
+import KitFloatButton from '../kit/KitFloatButton.vue'
 
 defineProps<{
   showThreads: boolean
@@ -11,12 +11,10 @@ defineEmits<{
 </script>
 
 <template>
-  <ActionIconButton
-    class="shrink-0"
-    :class="showThreads ? '' : 'op-fade'"
-    :icon="showThreads ? 'i-ph:chats-duotone' : 'i-ph:chats'"
+  <KitFloatButton
+    icon="i-lu-reply"
+    :active="showThreads"
     :label="$t(showThreads ? 'review.hideComments' : 'review.showComments')"
-    :tooltip="$t(showThreads ? 'review.hideComments' : 'review.showComments')"
     @click="$emit('update:showThreads', !showThreads)"
   />
 </template>

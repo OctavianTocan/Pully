@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { GroupSource } from '@pulls.review/core/types'
 import type { DiffsStore } from '../../stores/types'
-import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
-import ActionToggleGroup from '@antfu/design/components/Action/ActionToggleGroup.vue'
 import { ACTIONS_BOT_LOGIN } from '@pulls.review/core/github'
 import { computed, defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -10,6 +8,8 @@ import { RouterLink } from 'vue-router'
 import { parentForRef } from '../../source-routes'
 import { showGroupSidebar } from '../../state/group-nav'
 import GithubAvatar from '../GithubAvatar.vue'
+import KitCapsuleTabs from '../kit/KitCapsuleTabs.vue'
+import KitFloatButton from '../kit/KitFloatButton.vue'
 import NavControls from '../NavControls.vue'
 import { usePrOverview } from '../overview/context'
 import PrHeaderChips from '../overview/PrHeaderChips.vue'
@@ -53,13 +53,19 @@ const CritiqueButton = import.meta.env.PR_LOCAL
 
 const aiResult = computed(() => props.store.aiResult)
 const analyzeOptions = computed(() => [
-  { value: 'rule-based', label: t('pr.rules') },
-  { value: aiResult.value?.source ?? 'llm', label: t('pr.ai'), icon: 'i-ph-sparkle-duotone' },
+  { value: 'rule-based' as GroupSource, label: t('pr.rules') },
+  { value: (aiResult.value?.source ?? 'llm') as GroupSource, label: t('pr.ai') },
 ])
+const analyzeMode = computed({
+  get: () => props.store.analyzeMode,
+  set: (mode: GroupSource) => props.store.setAnalyzeMode(mode),
+})
 // Share is for results the viewer generated - a loaded shared result is credited, not re-shared.
 const canShareResult = computed(() => props.store.shared && props.store.llm && aiResult.value && !aiResult.value.sharedBy)
 
 const parent = computed(() => parentForRef(meta.value.ref))
+// Back leads where the list came from: the inbox on the local build, the repository's list on the web.
+const back = computed(() => import.meta.env.PR_LOCAL ? '/' : parent.value?.route ?? '/')
 
 const reviews = computed(() => props.store.reviews)
 
@@ -73,73 +79,63 @@ function scrollToGroup(key: string) {
 }
 </script>
 
+<!--
+  The phone's PR header: a back button and the page's controls floating over the paper, the title large,
+  then one quiet line of where and who, the branches as soft chips, and the PR's own chips.
+-->
 <template>
   <header
-    class="left-0 right-0 top-0 z-nav flex flex-col gap-2 border-b bg-base px4 pb2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all md:sticky"
-    :class="scrollY > 20 ? 'border-base shadow-sm' : 'border-transparent' "
+    class="left-0 right-0 top-0 z-nav bg-base px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-shadow md:sticky"
+    :class="scrollY > 20 ? 'shadow-bar' : ''"
   >
-    <div class="mxa max-w-500 w-full">
-      <div class="flex flex-wrap items-center gap-2">
-        <component :is="isEmbedded ? 'div' : RouterLink" to="/" class="flex coarse:(min-h-11 min-w-11 items-center justify-center -ml-3)">
-          <PrStatusIcon v-if="display.state" :state="display.state" />
-          <div v-else class="i-ph-house-line-duotone" />
-        </component>
-        <!-- Phones: the icon and the controls share the first row, so the title gets a full row of its own. -->
-        <div class="flex-auto md:hidden" />
-        <h1 class="flex flex-auto items-center gap-2 break-words text-lg font-semibold max-md:(order-1 basis-full)">
-          {{ display.title }}
-          <a v-if="display.label" :href="display.url" target="_blank" rel="noopener" class="text-base font-normal op-fade coarse:(min-h-11 inline-flex items-center) hover:underline">{{ display.label }}</a>
-          <ActionIconButton
-            v-if="store.canRefresh"
-            icon="i-ph:arrows-clockwise-duotone"
-            :label="$t('common.refresh')" :tooltip="$t('common.refresh')"
-            class="shrink-0 text-sm" @click="refresh"
-          />
-        </h1>
-
-        <div
-          v-if="aiResult"
-          class="flex shrink-0 items-center gap-1.5 text-sm max-md:order-2"
-        >
-          <span class="op-fade">{{ $t('pr.analyzeBy') }}</span>
-          <ActionToggleGroup
-            :model-value="store.analyzeMode"
-            :options="analyzeOptions"
-            @update:model-value="store.setAnalyzeMode($event as GroupSource)"
-          />
-        </div>
-
+    <div class="mxa max-w-500 w-full flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <KitFloatButton v-if="!isEmbedded" icon="i-lu-back" :to="back" :label="$t('keys.home')" />
+        <PrStatusIcon v-else-if="display.state" :state="display.state" />
+        <div class="flex-1" />
+        <KitCapsuleTabs v-if="aiResult" v-model="analyzeMode" :options="analyzeOptions" :aria-label="$t('pr.analyzeBy')" class="max-sm:hidden" />
         <DiffReviewThreadsToggle
           v-if="reviews"
           :show-threads="reviews.showThreads"
           @update:show-threads="reviews.setShowThreads($event)"
         />
-        <div class="shrink-0">
-          <NavControls :document="document">
-            <!-- The sidebar only exists at `lg` and up, so the choice is only offered there. -->
-            <div class="hidden lg:block">
-              <DiffGroupNavToggle />
-            </div>
-          </NavControls>
-        </div>
+        <KitFloatButton v-if="store.canRefresh" icon="i-lu-refresh" :label="$t('common.refresh')" @click="refresh" />
+        <NavControls :document="document">
+          <!-- The sidebar only exists at `lg` and up, so the choice is only offered there. -->
+          <div class="hidden lg:block">
+            <DiffGroupNavToggle />
+          </div>
+        </NavControls>
       </div>
 
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-sm">
-        <RouterLink v-if="parent && !isEmbedded" :to="parent.route" class="flex items-center gap-1.5 op-fade coarse:min-h-11 hover:underline">
-          <span>{{ parent.label }}</span>
-        </RouterLink>
-        <span v-if="display.author" class="flex items-center gap-1.5">
-          <span class="op-fade">{{ $t('pr.by') }}</span>
-          <GithubAvatar :login="display.author.login" :avatar-url="display.author.avatarUrl" :size="16" />
-          <span class="op-fade">{{ display.author.login }}</span>
-        </span>
-        <span v-if="display.base && display.head && !isEmbedded" class="max-w-full min-w-0 flex items-center gap-1 font-mono">
-          <span class="min-w-0 truncate border border-base rounded bg-code px-2 py-0.5 text-xs font-mono" :title="display.base">{{ display.base }}</span>
-          ←
-          <span class="min-w-0 truncate border border-base rounded bg-code px-2 py-0.5 text-xs font-mono" :title="display.head">{{ display.head }}</span>
-        </span>
+      <h1 class="break-words text-xxl font-medium font-display">
+        {{ display.title }}
+      </h1>
+
+      <div class="flex flex-col gap-2">
+        <p class="flex flex-wrap items-center gap-x-1.5 text-sm color-muted">
+          <RouterLink v-if="parent && !isEmbedded" :to="parent.route" class="hover:underline">
+            {{ parent.label }}
+          </RouterLink>
+          <a v-if="display.label" :href="display.url" target="_blank" rel="noopener" class="color-base font-semibold hover:underline">{{ display.label }}</a>
+          <template v-if="display.author">
+            <span aria-hidden="true">·</span>
+            <span class="flex items-center gap-1.5">
+              <GithubAvatar :login="display.author.login" :avatar-url="display.author.avatarUrl" :size="16" />
+              {{ display.author.login }}
+            </span>
+          </template>
+        </p>
+        <p v-if="display.base && display.head && !isEmbedded" class="max-w-full min-w-0 flex items-center gap-2 text-sm">
+          <span class="min-w-0 truncate rounded-md bg-accent-wash px-2 py-0.5 color-accent-wash-ink" :title="display.head">{{ display.head }}</span>
+          <span class="i-lu-to shrink-0 text-4 color-muted" aria-hidden="true" />
+          <span class="min-w-0 truncate rounded-md bg-accent-wash px-2 py-0.5 color-accent-wash-ink" :title="display.base">{{ display.base }}</span>
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-sm">
         <PrHeaderChips />
-        <span v-if="aiResult?.sharedBy && store.analyzeMode !== 'rule-based'" class="flex items-center gap-1.5 border border-base rounded px2" :title="aiResult.model">
+        <span v-if="aiResult?.sharedBy && store.analyzeMode !== 'rule-based'" class="h-9 flex items-center gap-1.5 border border-base rounded-full px-3.5" :title="aiResult.model">
           <template v-if="aiResult.sharedBy === ACTIONS_BOT_LOGIN">
             {{ $t('pr.sharedAnalysis') }}
           </template>
@@ -155,7 +151,7 @@ function scrollToGroup(key: string) {
         <DiffPrMeta v-if="showGroupSidebar" class="ml-auto" :store="store" :document="document" />
       </div>
 
-      <div v-if="!showGroupSidebar" class="flex flex-wrap items-center gap-2 pt-2 text-sm">
+      <div v-if="!showGroupSidebar" class="flex flex-wrap items-center gap-2 text-sm">
         <DiffGroupNav
           class="min-w-60 flex-auto"
           :groups="groups"
@@ -164,7 +160,7 @@ function scrollToGroup(key: string) {
           @select="scrollToGroup"
         />
 
-        <DiffPrMeta class="ml-auto self-end pt-2" :store="store" :document="document" />
+        <DiffPrMeta class="ml-auto self-end" :store="store" :document="document" />
       </div>
     </div>
   </header>

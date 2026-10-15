@@ -258,7 +258,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.toggleReviewed,
         title: t('keys.toggleReviewed'),
         group: pr,
-        icon: 'i-ph:check-square-duotone',
+        icon: 'i-ph:check-square',
         when: hasDiff,
         run: () => {
           const file = currentFile()
@@ -282,7 +282,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.openFile,
         title: t('keys.openFile'),
         group: pr,
-        icon: 'i-ph:arrow-square-out-duotone',
+        icon: 'i-carbon-logo-github',
         when: () => !!s?.diff?.url,
         run: () => {
           const file = currentFile()
@@ -298,7 +298,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.openPr,
         title: t('keys.openPr'),
         group: pr,
-        icon: 'i-ph:github-logo-duotone',
+        icon: 'i-ph:github-logo',
         when: () => !!s?.diff?.url,
         run: () => openExternal(s!.diff!.url!),
       },
@@ -306,7 +306,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.copyPath,
         title: t('keys.copyPath'),
         group: pr,
-        icon: 'i-ph:copy-duotone',
+        icon: 'i-lu-copy',
         when: hasDiff,
         run: () => {
           const file = currentFile()
@@ -318,7 +318,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.copyPermalink,
         title: t('keys.copyPermalink'),
         group: pr,
-        icon: 'i-ph:link-duotone',
+        icon: 'i-ph:link',
         when: () => !!github() && !!s?.diff?.head,
         run: () => {
           const file = currentFile()
@@ -333,7 +333,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.findFile,
         title: t('keys.findFile'),
         group: pr,
-        icon: 'i-ph:magnifying-glass-duotone',
+        icon: 'i-lu-search',
         when: hasDiff,
         run: () => openPalette({ prefix: 'jump.file:', label: t('palette.group.files') }),
       },
@@ -341,7 +341,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.analyze,
         title: t('keys.analyze'),
         group: pr,
-        icon: 'i-ph:sparkle-duotone',
+        icon: 'i-lu-think',
         when: () => !!s?.llm && hasDiff(),
         run: () => {
           const llm = s!.llm!
@@ -353,14 +353,14 @@ export function usePrCommands(context: PrCommandsContext): void {
             return llm.reanalyze()
         },
       },
-      { id: COMMAND.refresh, title: t('keys.refresh'), group: pr, icon: 'i-ph:arrows-clockwise-duotone', when: () => !!s?.canRefresh, run: () => s!.refresh() },
+      { id: COMMAND.refresh, title: t('keys.refresh'), group: pr, icon: 'i-lu-refresh', when: () => !!s?.canRefresh, run: () => s!.refresh() },
       { id: COMMAND.top, title: t('keys.top'), group: pr, hidden: true, run: () => scrollTo(0) },
       { id: COMMAND.bottom, title: t('keys.bottom'), group: pr, hidden: true, run: () => scrollTo((scroller() ?? document.documentElement).scrollHeight) },
       {
         id: COMMAND.layout,
         title: t('keys.layout'),
         group: view,
-        icon: 'i-ph:columns-duotone',
+        icon: 'i-ph:columns',
         when: hasDiff,
         run: () => s!.ui.setLayout(s!.ui.layout === 'split' ? 'unified' : 'split'),
       },
@@ -368,7 +368,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.groupNav,
         title: t('keys.groupNav'),
         group: view,
-        icon: 'i-ph:sidebar-duotone',
+        icon: 'i-ph:sidebar',
         when: hasDiff,
         run: () => {
           groupNav.value = groupNav.value === 'sidebar' ? 'tabs' : 'sidebar'
@@ -378,7 +378,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.threads,
         title: t('keys.threads'),
         group: view,
-        icon: 'i-ph:chats-duotone',
+        icon: 'i-ph:chats',
         when: () => !!s?.reviews,
         run: () => s!.reviews!.setShowThreads(!s!.reviews!.showThreads),
       },
@@ -386,7 +386,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         id: COMMAND.analyzeMode,
         title: t('keys.analyzeMode'),
         group: view,
-        icon: 'i-ph:shuffle-duotone',
+        icon: 'i-ph:shuffle',
         when: () => !!s?.aiResult,
         run: () => s!.setAnalyzeMode(s!.analyzeMode === 'rule-based' ? s!.aiResult!.source ?? 'llm' : 'rule-based'),
       },
@@ -406,7 +406,7 @@ export function usePrCommands(context: PrCommandsContext): void {
         title: t('palette.jumpToFile', { path: file.path }),
         group,
         keywords: [file.previousPath, child.label].filter(Boolean).join(' '),
-        icon: 'i-ph:file-duotone',
+        icon: 'i-lu-file',
         run: () => jumpToFile(file.sha),
       }]
     }))
@@ -418,7 +418,7 @@ export function usePrCommands(context: PrCommandsContext): void {
       id: `jump.group:${child.key}`,
       title: t('palette.jumpToGroup', { name: child === parent ? child.label : `${parent.label} › ${child.label}` }),
       group,
-      icon: 'i-ph:folder-simple-duotone',
+      icon: 'i-ph:folder-simple',
       run: () => jumpToGroup(child.key),
     })))
   })

@@ -12,7 +12,6 @@ defineProps<{
 
 <template>
   <p v-for="(note, index) in anchor.notes" :key="`note-${index}`" class="my-1 max-w-200 flex items-start gap-1.5 text-xs op-fade">
-    <span class="i-ph:sparkle-duotone mt-0.5 shrink-0" aria-hidden="true" />
     <span class="min-w-0">{{ note }}</span>
   </p>
   <template v-if="store.critique">

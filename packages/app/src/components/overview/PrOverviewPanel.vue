@@ -27,9 +27,9 @@ const tabs = computed(() => {
   const conversation = current?.timeline.filter(item => item.kind === 'comment' || item.kind === 'review').length
   const commits = current && current.commits.length + current.commitsHidden
   return [
-    { value: 'conversation', icon: 'i-ph:chat-circle-text-duotone', count: conversation },
-    { value: 'commits', icon: 'i-ph:git-commit-duotone', count: commits },
-    { value: 'checks', icon: 'i-ph:list-checks-duotone', count: undefined },
+    { value: 'conversation', icon: 'i-ph:chat-circle-text', count: conversation },
+    { value: 'commits', icon: 'i-lu-commit', count: commits },
+    { value: 'checks', icon: 'i-ph:list-checks', count: undefined },
   ] satisfies { value: OverviewTab, icon: string, count?: number }[]
 })
 
@@ -48,7 +48,7 @@ function openTab(tab: OverviewTab) {
     <div class="flex items-center gap-1 px-2 py-1.5 md:flex-wrap" :class="{ 'border-b border-base': ctx.open }">
       <ActionIconButton
         compact
-        :icon="ctx.open ? 'i-ph:caret-down' : 'i-ph:caret-right'"
+        :icon="ctx.open ? 'i-lu-chevd' : 'i-lu-next'"
         :label="$t(ctx.open ? 'overview.hide' : 'overview.show')"
         :tooltip="$t(ctx.open ? 'overview.hide' : 'overview.show')"
         :aria-expanded="ctx.open"
@@ -76,7 +76,7 @@ function openTab(tab: OverviewTab) {
       <ActionIconButton
         v-if="overview"
         compact
-        icon="i-ph:arrow-square-out"
+        icon="i-carbon-logo-github"
         :href="overview.url"
         target="_blank"
         rel="noopener"
@@ -113,7 +113,7 @@ function openTab(tab: OverviewTab) {
         </div>
       </div>
       <div v-else-if="ctx.store.error" class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <span class="i-ph:warning-duotone shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+        <span class="i-ph:warning shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
         <span>{{ $t('overview.loadFailed') }}</span>
         <span class="min-w-0 break-words op-fade">{{ ctx.store.error.message }}</span>
         <ActionButton size="sm" @click="ctx.store.refresh()">

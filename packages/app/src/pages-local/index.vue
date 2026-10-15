@@ -1,25 +1,22 @@
 <script setup lang="ts">
 import type { MyPull, MyPullRole, MyPullsSnapshot, MyPullState } from '@pulls.review/core/local-rpc'
 import type { TriageQueue } from '../components/home/triage'
-import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
-import ActionToggleGroup from '@antfu/design/components/Action/ActionToggleGroup.vue'
-import FeedbackEmptyState from '@antfu/design/components/Feedback/FeedbackEmptyState.vue'
-import FeedbackLoading from '@antfu/design/components/Feedback/FeedbackLoading.vue'
-import FormTextInput from '@antfu/design/components/Form/FormTextInput.vue'
 import { createGithubSource } from '@pulls.review/core/github'
 import { LOCAL_RPC, MY_PULL_ROLES, MY_PULL_STATES } from '@pulls.review/core/local-rpc'
 import { useNow } from '@vueuse/core'
-import { computed, inject, ref } from 'vue'
+import { computed, inject, ref, shallowReactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppContext } from '../app-context'
-import AppFooter from '../components/AppFooter.vue'
 import AppHeader from '../components/AppHeader.vue'
 import HomePullRow from '../components/home/HomePullRow.vue'
 import HomeQueueNav from '../components/home/HomeQueueNav.vue'
 import HomeSyncStatus from '../components/home/HomeSyncStatus.vue'
 import { filterPulls, groupByRepo, TRIAGE_QUEUES } from '../components/home/triage'
 import { deviceStorage, useMyPulls } from '../components/home/use-my-pulls'
+import KitCapsuleTabs from '../components/kit/KitCapsuleTabs.vue'
+import KitGroupHeading from '../components/kit/KitGroupHeading.vue'
+import KitSearchPill from '../components/kit/KitSearchPill.vue'
 import { useDocumentTitle } from '../composables/useDocumentTitle'
 import { useHomeNavigation } from '../composables/useHomeNavigation'
 import { FIELD, vField } from '../directives/field'
@@ -35,9 +32,9 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 
-const url = ref('')
+// One field, as on the phone: typing filters the list, and a pasted link gets an Open button instead.
 const search = ref('')
-const parsed = computed(() => routeFromGithubUrl(url.value))
+const parsed = computed(() => routeFromGithubUrl(search.value.trim()))
 
 function fromQuery<T extends string>(name: string, allowed: readonly T[], fallback: T): T {
   const value = route.query[name]
@@ -68,8 +65,8 @@ const role = computed<MyPullRole | 'all'>({
 })
 
 const stateOptions = computed(() => [
-  { value: 'open', label: t('local.home.state.open') },
-  { value: 'closed', label: t('local.home.state.closed') },
+  { value: 'open' as const, label: t('local.home.state.open') },
+  { value: 'closed' as const, label: t('local.home.state.closed') },
 ])
 
 const { pulls, fetchedAt, updating, error, reload } = useMyPulls({
@@ -81,9 +78,14 @@ const now = useNow({ interval: 60_000 })
 const filtered = computed(() => filterPulls(pulls.value ?? [], {
   queue: queue.value,
   role: role.value,
-  needle: search.value.trim().toLowerCase(),
+  needle: parsed.value ? '' : search.value.trim().toLowerCase(),
 }, now.value.getTime()))
 const groups = computed(() => groupByRepo(filtered.value.pulls))
+const folded = shallowReactive(new Set<string>())
+function fold(name: string) {
+  if (!folded.delete(name))
+    folded.add(name)
+}
 
 const prefetcher = createPrefetcher({
   snapshots: prSnapshots(),
@@ -102,84 +104,87 @@ const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.
 
 <template>
   <div class="relative flex flex-col min-h-dvh">
-    <AppHeader />
+    <AppHeader>
+      <KitCapsuleTabs v-model="state" :options="stateOptions" class="max-w-60 w-full" />
+    </AppHeader>
 
-    <main class="mxa max-w-5xl w-full flex flex-1 flex-col gap-6 px-4 py-8 md:px-6 md:py-10">
-      <div class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold">
-          {{ $t('local.home.title') }}
-        </h1>
-        <p class="text-sm op-fade">
-          {{ $t('local.home.tagline') }}
+    <main class="mxa max-w-3xl w-full flex flex-1 flex-col pb-32">
+      <h1 class="sr-only">
+        {{ $t('local.home.title') }}
+      </h1>
+
+      <HomeQueueNav
+        v-model:queue="queue"
+        v-model:role="role"
+        class="pb-2 pt-3"
+        :queue-counts="filtered.queueCounts"
+        :role-counts="filtered.roleCounts"
+        :show-queues="state === 'open'"
+      >
+        <HomeSyncStatus :updating="updating" :fetched-at="fetchedAt" :error="pulls ? error : undefined" class="shrink-0 pl-2" @refresh="reload" />
+      </HomeQueueNav>
+
+      <!-- The shape of the list while the first one loads, never a loading screen. -->
+      <div v-if="!pulls && !error" class="flex flex-col" aria-busy="true" :aria-label="$t('local.home.loading')">
+        <div v-for="n in 6" :key="n" class="flex gap-1.5 px-4 py-3.25">
+          <span class="kit-skeleton w-11 shrink-0" />
+          <span class="flex flex-1 flex-col gap-2">
+            <span class="kit-skeleton" :style="{ width: `${90 - n * 7}%` }" />
+            <span class="kit-skeleton w-1/3" />
+          </span>
+        </div>
+      </div>
+
+      <div v-else-if="!pulls" class="flex flex-col items-center gap-1.5 px-8 py-12 text-center">
+        <p class="text-row font-medium">
+          {{ $t('local.home.failed') }}
         </p>
-      </div>
-
-      <form class="flex items-stretch gap-2" @submit.prevent="open">
-        <FormTextInput v-model="url" v-field="FIELD.identifier" inputmode="url" :placeholder="$t('local.home.urlPlaceholder')" icon="i-ph:link-duotone" class="min-w-0 flex-1" />
-        <ActionButton type="submit" variant="primary" icon="i-ph-arrow-right-bold" :disabled="!parsed">
-          {{ $t('local.home.open') }}
-        </ActionButton>
-      </form>
-
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <FormTextInput v-model="search" v-field="FIELD.search" :placeholder="$t('local.home.search')" icon="i-ph:magnifying-glass-duotone" class="min-w-0 flex-1 basis-60" data-nav-search />
-        <ActionToggleGroup v-model="state" :options="stateOptions" />
-        <HomeSyncStatus :updating="updating" :fetched-at="fetchedAt" :error="pulls ? error : undefined" class="ml-auto" @refresh="reload" />
-      </div>
-
-      <FeedbackLoading v-if="!pulls && !error" :text="$t('local.home.loading')" />
-
-      <FeedbackEmptyState v-else-if="!pulls" icon="i-ph:warning-duotone" :title="$t('local.home.failed')">
-        <template #hint>
+        <p class="text-sm color-muted">
           {{ error }}
-        </template>
-        <template #actions>
-          <ActionButton variant="primary" :disabled="updating" @click="reload">
-            {{ $t('common.retry') }}
-          </ActionButton>
-        </template>
-      </FeedbackEmptyState>
-
-      <div v-else class="grid gap-4 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-6">
-        <aside class="min-w-0 md:sticky md:top-4 md:self-start">
-          <HomeQueueNav
-            v-model:queue="queue"
-            v-model:role="role"
-            :queue-counts="filtered.queueCounts"
-            :role-counts="filtered.roleCounts"
-            :show-queues="state === 'open'"
-          />
-        </aside>
-
-        <section class="min-w-0 flex flex-col gap-4">
-          <FeedbackEmptyState v-if="!groups.length" icon="i-ph:git-pull-request-duotone" :title="queue === 'all' ? $t('local.home.empty') : $t('triage.empty')" />
-
-          <details v-for="group in groups" :key="group.name" open class="group flex flex-col gap-2">
-            <summary class="flex cursor-pointer select-none list-none items-center gap-2 text-sm font-mono coarse:min-h-11">
-              <span class="i-ph:caret-right-bold text-xs op-fade transition group-open:rotate-90" aria-hidden="true" />
-              <span class="i-ph:git-branch-duotone op-fade" aria-hidden="true" />
-              <span class="min-w-0 truncate">{{ group.name }}</span>
-              <span class="op-fade">{{ group.pulls.length }}</span>
-              <RouterLink :to="repoRoute(group.owner, group.repo)" class="ml-auto shrink-0 text-xs op-fade coarse:(min-h-11 flex items-center pl-2) hover:underline" @click.stop>
-                {{ $t('local.home.allInRepo') }}
-              </RouterLink>
-            </summary>
-            <ul class="mt-2 flex flex-col border border-base rounded-lg py-1">
-              <li v-for="pull in group.pulls" :key="pull.number">
-                <HomePullRow
-                  :pull="pull"
-                  :data-nav-row="nav.rowKey(pull)"
-                  :class="{ 'bg-hover ring-1 ring-inset ring-primary-500/50': nav.isActive(pull) }"
-                  @intent="prefetcher.hover"
-                  @leave="prefetcher.leave"
-                />
-              </li>
-            </ul>
-          </details>
-        </section>
+        </p>
+        <button type="button" class="btn-action mt-1" :disabled="updating" @click="reload">
+          <span class="i-lu-redo" aria-hidden="true" />
+          {{ $t('common.retry') }}
+        </button>
       </div>
+
+      <p v-else-if="!groups.length" class="px-8 py-12 text-center text-row font-medium">
+        {{ queue === 'all' ? $t('local.home.empty') : $t('triage.empty') }}
+      </p>
+
+      <section v-for="group in groups" v-else :key="group.name" class="flex flex-col px-4">
+        <KitGroupHeading
+          :label="group.repo"
+          :title="group.name"
+          :count="group.pulls.length"
+          :folded="folded.has(group.name) && !search"
+          :to="repoRoute(group.owner, group.repo)"
+          @fold="fold(group.name)"
+        />
+        <ul v-if="!folded.has(group.name) || search" class="flex flex-col -mx-4">
+          <li v-for="pull in group.pulls" :key="pull.number">
+            <HomePullRow
+              :pull="pull"
+              :data-nav-row="nav.rowKey(pull)"
+              :class="{ 'bg-hover': nav.isActive(pull) }"
+              @intent="prefetcher.hover"
+              @leave="prefetcher.leave"
+            />
+          </li>
+        </ul>
+      </section>
     </main>
 
-    <AppFooter />
+    <div class="pointer-events-none fixed inset-x-0 bottom-0 z-nav px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+      <KitSearchPill
+        v-model="search"
+        v-field="FIELD.search"
+        class="pointer-events-auto mxa max-w-3xl"
+        :placeholder="$t('local.home.search')"
+        :open-label="parsed ? $t('local.home.open') : undefined"
+        data-nav-search
+        @open="open"
+      />
+    </div>
   </div>
 </template>

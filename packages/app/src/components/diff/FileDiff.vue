@@ -419,7 +419,7 @@ defineExpose({
         <ActionIconButton
           v-if="canLoadFullFile || isLoadingFullFile"
           compact
-          :icon="isLoadingFullFile ? 'i-ph:spinner-duotone animate-spin' : 'i-ph:file-text-duotone'"
+          :icon="isLoadingFullFile ? 'i-lu-redo animate-spin' : 'i-ph:file-text'"
           :disabled="isLoadingFullFile"
           :label="$t('file.loadFull')"
           :tooltip="$t('file.loadFull')"
@@ -437,7 +437,7 @@ defineExpose({
       />
       <ActionIconButton
         compact
-        :icon="collapsed ? 'i-ph:caret-right' : 'i-ph:caret-down'"
+        :icon="collapsed ? 'i-lu-next' : 'i-lu-chevd'"
         :label="$t(collapsed ? 'file.expand' : 'file.collapse')"
         @click="collapsed = !collapsed"
       />
@@ -448,7 +448,7 @@ defineExpose({
       <ActionIconButton
         v-if="canLoadFullFile || isLoadingFullFile"
         compact
-        :icon="isLoadingFullFile ? 'i-ph:spinner-duotone animate-spin' : 'i-ph:file-text-duotone'"
+        :icon="isLoadingFullFile ? 'i-lu-redo animate-spin' : 'i-ph:file-text'"
         :disabled="isLoadingFullFile"
         :label="$t('file.loadFull')"
         @click="loadFullFile"
@@ -458,7 +458,7 @@ defineExpose({
   <div v-if="!collapsed" class="overflow-hidden border-x border-b border-base rounded-b-xl">
     <div v-if="status === 'changed'" class="flex flex-wrap items-center justify-between gap-2 border-b border-orange:20 bg-orange:10 px-3 py-1.5 text-sm text-orange-700 dark:text-orange-400">
       <span class="flex items-center gap-1.5">
-        <span class="i-ph:warning-circle-duotone shrink-0" aria-hidden="true" />
+        <span class="i-ph:warning-circle shrink-0" aria-hidden="true" />
         {{ $t('file.changedSinceReviewed') }}
       </span>
       <ActionButton size="sm" @click="store.setReviewed([file.sha], true)">

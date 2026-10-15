@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import type { MyPull, MyPullChecks, MyPullReviewDecision } from '@pulls.review/core/local-rpc'
-import type { PullRequestState } from '@pulls.review/core/types'
+import type { MyPull } from '@pulls.review/core/local-rpc'
+import { useNow } from '@vueuse/core'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { formatTimeAgo } from '../../i18n/time-ago'
+import { compactAge, compactCount } from '../../i18n/time-ago'
 import { routeForRef } from '../../source-routes'
-import DiffStats from '../diff/DiffStats.vue'
-import PrStatusIcon from '../diff/PrStatusIcon.vue'
 
 const props = defineProps<{
   pull: MyPull
@@ -18,84 +16,63 @@ const emit = defineEmits<{
   leave: [pull: MyPull]
 }>()
 
-const { locale } = useI18n()
+const { locale, t } = useI18n()
+const now = useNow({ interval: 60_000 })
 
-// Same glyphs and colors as the repo pull request list.
-const CHECKS_ICON: Record<Exclude<MyPullChecks, 'none'>, string> = {
-  success: 'i-ph:check-bold text-green-600 dark:text-green-400',
-  failure: 'i-ph:x-bold text-red-600 dark:text-red-400',
-  pending: 'i-ph:circle-fill text-amber-500',
-}
-
-const REVIEW: Record<MyPullReviewDecision, { icon: string, label: string }> = {
-  'approved': { icon: 'i-ph:check-circle-duotone text-green-600 dark:text-green-400', label: 'pulls.review.approved' },
-  'changes-requested': { icon: 'i-ph:x-circle-duotone text-red-600 dark:text-red-400', label: 'pulls.review.changes_requested' },
-  'review-required': { icon: 'i-ph:eye-duotone op-fade', label: 'pulls.review.review_required' },
-}
-
-const status = computed<PullRequestState>(() => {
-  const { state, isDraft, merged } = props.pull
-  if (state === 'open')
-    return isDraft ? 'draft' : 'open'
-  return merged ? 'merged' : 'closed'
+/**
+ * The phone's `CheckMark`: a red cross when checks fail or the branch conflicts, a green tick when
+ * they pass, an amber dot while they run.
+ */
+const check = computed(() => {
+  const { checks, mergeable } = props.pull
+  if (checks === 'failure' || mergeable === 'conflicting')
+    return { icon: 'i-lu-xc color-error', label: t(checks === 'failure' ? 'pulls.checks.failure' : 'triage.conflict') }
+  if (checks === 'success')
+    return { icon: 'i-lu-okc color-success', label: t('pulls.checks.success') }
+  if (checks === 'pending')
+    return { icon: 'h-2 w-2 rounded-full bg-amber', label: t('pulls.checks.pending') }
+  return undefined
 })
-const checks = computed(() => props.pull.checks === 'none' ? undefined : props.pull.checks)
-const review = computed(() => props.pull.reviewDecision && REVIEW[props.pull.reviewDecision])
 const requested = computed(() => props.pull.requestedFromMe ?? props.pull.role === 'review-requested')
 const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.owner, repo: props.pull.repo, number: String(props.pull.number) }))
 </script>
 
+<!-- The phone's `PullRowContent`: the number in its own column, the title, then who wrote it, the checks, the size and the age. -->
 <template>
   <RouterLink
     :to="to"
-    class="press-tint flex flex-wrap items-center gap-x-3 gap-y-0.5 px-3 py-2 text-sm transition coarse:min-h-12 sm:flex-nowrap hover:bg-hover"
+    class="press-tint relative flex gap-1.5 px-4 py-3.25 transition-colors hover:bg-hover"
     @pointerenter="emit('intent', pull)"
     @pointerleave="emit('leave', pull)"
     @focus="emit('intent', pull)"
     @blur="emit('leave', pull)"
   >
-    <PrStatusIcon :state="status" class="text-base" />
-    <span class="min-w-10 shrink-0 text-xs font-mono op-fade">#{{ pull.number }}</span>
-    <span class="min-w-0 flex-1 truncate max-sm:(line-clamp-2 order-last basis-full whitespace-normal break-words)">
-      <span v-if="pull.isDraft" class="mr-1 text-xs op-fade">[{{ $t('local.home.draft') }}]</span>{{ pull.title }}
+    <span class="w-13 shrink-0 text-num font-semibold font-display tabular-nums">#{{ pull.number }}</span>
+    <span class="min-w-0 flex flex-1 flex-col gap-1.25">
+      <span class="text-row">
+        <span v-if="pull.isDraft" class="color-muted">[{{ $t('local.home.draft') }}] </span>{{ pull.title }}
+      </span>
+      <span class="flex items-center gap-1.5 text-sm color-muted">
+        <span class="min-w-0 flex flex-1 items-center gap-1.5">
+          <span v-if="requested" class="h-1.75 w-1.75 shrink-0 rounded-full bg-accent-teal" role="img" :aria-label="$t('triage.requested')" :title="$t('triage.requested')" />
+          <span class="min-w-0 break-words">{{ pull.author }}</span>
+          <span v-if="pull.stack" class="flex shrink-0 items-center gap-1 tabular-nums">
+            <span class="i-lu-layers text-3.75" aria-hidden="true" />
+            <template v-if="pull.stack.below">{{ $t('triage.stackedOn', { n: pull.stack.below }) }}</template>
+          </span>
+        </span>
+        <span class="w-6 flex shrink-0 items-center">
+          <span v-if="check" :class="check.icon" class="text-4.5" role="img" :aria-label="check.label" :title="check.label" />
+        </span>
+        <span v-if="pull.additions !== undefined" class="flex shrink-0 justify-end gap-1 text-right font-medium font-mono" :title="pull.changedFiles !== undefined ? $t('triage.files', pull.changedFiles) : undefined">
+          <span class="w-12 color-success sm:w-14">+{{ compactCount(pull.additions) }}</span>
+          <span class="w-9 color-error sm:w-10">−{{ compactCount(pull.deletions ?? 0) }}</span>
+        </span>
+        <time class="w-8 shrink-0 text-right tabular-nums" :datetime="pull.updatedAt" :title="new Date(pull.updatedAt).toLocaleString(locale)">
+          {{ compactAge(new Date(pull.updatedAt), now.getTime()) }}
+        </time>
+      </span>
     </span>
-    <span
-      v-if="checks"
-      :class="CHECKS_ICON[checks]"
-      class="shrink-0 text-xs"
-      role="img"
-      :aria-label="$t(`pulls.checks.${checks}`)"
-      :title="$t(`pulls.checks.${checks}`)"
-    />
-    <span
-      v-if="review"
-      :class="review.icon"
-      class="shrink-0"
-      role="img"
-      :aria-label="$t(review.label)"
-      :title="$t(review.label)"
-    />
-    <span v-if="requested" class="shrink-0 rounded bg-hover px-1.5 py-0.5 text-xs color-accent-teal">{{ $t('triage.requested') }}</span>
-    <span
-      v-if="pull.mergeable === 'conflicting'"
-      class="shrink-0 rounded bg-hover px-1.5 py-0.5 text-xs text-red-600 dark:text-red-400"
-      :title="$t('triage.conflictHint')"
-    >{{ $t('triage.conflict') }}</span>
-    <span
-      v-if="pull.labels.length"
-      class="hidden max-w-24 shrink-0 truncate rounded bg-hover px-1.5 py-0.5 text-xs op-fade lg:inline"
-      :title="pull.labels.join(', ')"
-    >{{ pull.labels[0] }}<template v-if="pull.labels.length > 1"> +{{ pull.labels.length - 1 }}</template></span>
-    <DiffStats
-      v-if="pull.additions !== undefined"
-      class="hidden w-24 shrink-0 text-right md:inline"
-      :additions="pull.additions"
-      :deletions="pull.deletions"
-      :title="pull.changedFiles !== undefined ? $t('triage.files', pull.changedFiles) : undefined"
-    />
-    <span class="hidden w-24 shrink-0 truncate text-xs op-fade sm:inline">{{ pull.author }}</span>
-    <time class="min-w-20 shrink-0 whitespace-nowrap text-right text-xs op-fade max-sm:ml-auto" :datetime="pull.updatedAt" :title="new Date(pull.updatedAt).toLocaleString(locale)">
-      {{ formatTimeAgo(new Date(pull.updatedAt), locale) }}
-    </time>
+    <span class="absolute left-4 right-4 top-0 h-px bg-border-mute" aria-hidden="true" />
   </RouterLink>
 </template>

@@ -46,8 +46,8 @@ function saveEdit() {
       <DisplayBadge v-if="comment.pending" :text="$t('review.pending')" class="text-xs text-amber-700 dark:text-amber-400" />
       <div class="flex-auto" />
       <template v-if="isViewer && !editing">
-        <ActionIconButton compact icon="i-ph:pencil-simple-duotone" :label="$t('review.editComment')" :disabled="busy" @click="startEditing" />
-        <ActionIconButton compact icon="i-ph:trash-duotone" :label="$t('review.deleteComment')" :disabled="busy" @click="emit('delete')" />
+        <ActionIconButton compact icon="i-lu-edit" :label="$t('review.editComment')" :disabled="busy" @click="startEditing" />
+        <ActionIconButton compact icon="i-lu-trash" :label="$t('review.deleteComment')" :disabled="busy" @click="emit('delete')" />
       </template>
     </header>
     <div v-if="editing" class="flex flex-col gap-2">

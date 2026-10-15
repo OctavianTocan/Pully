@@ -64,7 +64,7 @@ function remove() {
         v-model="draft"
         v-field="FIELD.secret"
         type="password"
-        icon="i-ph-key-duotone"
+        icon="i-ph-key"
         placeholder="ghp_…"
         class="flex-1"
         :disabled="busy"
@@ -136,7 +136,7 @@ function remove() {
           </div>
         </div>
         <ActionIconButton
-          icon="i-ph:pencil-simple-duotone"
+          icon="i-lu-edit"
           :label="$t('settings.token.change')"
           :tooltip="$t('settings.token.change')"
           class="text-sm"
@@ -146,13 +146,13 @@ function remove() {
 
       <div v-else class="flex items-center gap-2 text-sm color-faint">
         <template v-if="busy">
-          <span class="i-ph:circle-notch animate-spin" aria-hidden="true" />
+          <span class="i-lu-redo animate-spin" aria-hidden="true" />
           {{ $t('settings.token.checking') }}
         </template>
         <template v-else>
           <span class="flex-1 text-red-600 dark:text-red-400">{{ error ?? $t('settings.token.couldNotVerify') }}</span>
           <ActionIconButton
-            icon="i-ph:pencil-simple-duotone"
+            icon="i-lu-edit"
             :label="$t('settings.token.change')"
             :tooltip="$t('settings.token.change')"
             class="text-sm"

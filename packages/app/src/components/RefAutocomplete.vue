@@ -21,8 +21,8 @@ const model = defineModel<string>({ default: '' })
 
 const portalTo = usePortalTarget(() => undefined)
 const ICONS: Record<RefSuggestion['kind'], string> = {
-  branch: 'i-ph:git-branch-duotone',
-  tag: 'i-ph:tag-duotone',
+  branch: 'i-lu-branch',
+  tag: 'i-ph:tag',
 }
 </script>
 

@@ -357,6 +357,7 @@
     "requested": "Your review",
     "conflict": "Conflicts",
     "conflictHint": "This branch has conflicts that must be resolved",
+    "stackedOn": "sobre #{n}",
     "files": "{n} file | {n} files"
   },
   "analyze": {
@@ -633,6 +634,9 @@
     "cached": "Pull requests em cache",
     "autoRefresh": "Atualizar automaticamente quando novos commits forem encontrados",
     "language": "Idioma",
+    "theme": "Aparência",
+    "light": "Claro",
+    "dark": "Escuro",
     "token": {
       "label": "Token de acesso pessoal do GitHub",
       "optional": "Opcional para repositórios públicos; obrigatório para repositórios privados ou para deixar revisões.",
@@ -770,7 +774,7 @@
     "home": {
       "title": "Your pull requests",
       "tagline": "Open pull requests you're involved in on GitHub, grouped by repository.",
-      "search": "Filter by repo, title, author or label",
+      "search": "Search, or paste a link",
       "allInRepo": "All pull requests",
       "state": {
         "open": "Open",

@@ -8,10 +8,10 @@ defineProps<{
 // GitHub itself uses the same pull-request glyph for open/draft/closed (color-coded)
 // and a distinct merge glyph only for `merged`.
 const ICON: Record<PullRequestState, string> = {
-  open: 'i-ph:git-pull-request-duotone',
-  draft: 'i-ph:git-pull-request-duotone',
-  closed: 'i-ph:git-pull-request-duotone',
-  merged: 'i-ph:git-merge-duotone',
+  open: 'i-ph:git-pull-request',
+  draft: 'i-ph:git-pull-request',
+  closed: 'i-ph:git-pull-request',
+  merged: 'i-lu-merge',
 }
 
 const COLOR_CLASS: Record<PullRequestState, string> = {

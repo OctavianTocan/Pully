@@ -11,7 +11,7 @@ export interface Command {
   keywords?: string
   /** A binding like `mod+shift+m` or `g p`, for commands without a `KEYMAP` entry. */
   shortcut?: string
-  /** Icon class, e.g. `i-ph:gear-duotone`. */
+  /** Icon class, e.g. `i-lu-cog`. */
   icon?: string
   /** Kept out of the palette; still reachable through its shortcut. */
   hidden?: boolean

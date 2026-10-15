@@ -42,9 +42,8 @@ onMounted(() => {
 <template>
   <div class="my-1 max-w-200 overflow-hidden border border-base rounded-lg bg-base" :data-ask-thread="thread.id">
     <div class="flex items-center gap-2 border-b border-base py-1 pl-3 pr-1 text-xs">
-      <span class="i-ph:sparkle-duotone shrink-0 op-fade" aria-hidden="true" />
       <span class="min-w-0 flex-1 truncate font-mono op-fade">{{ thread.label }}</span>
-      <ActionIconButton compact icon="i-ph:x" :label="$t('ask.close')" :tooltip="$t('ask.close')" @click="ask.close(thread.id)" />
+      <ActionIconButton compact icon="i-lu-close" :label="$t('ask.close')" :tooltip="$t('ask.close')" @click="ask.close(thread.id)" />
     </div>
     <div class="flex flex-col gap-3 p-2">
       <div v-for="(turn, index) in thread.turns" :key="index" class="flex flex-col gap-2">
@@ -60,7 +59,7 @@ onMounted(() => {
             :started-at="turn.startedAt"
             :outcome="turn.outcome"
           />
-          <ActionButton v-if="turn.outcome === undefined" size="sm" variant="text" icon="i-ph:stop-duotone" @click="ask.stop(thread.id)">
+          <ActionButton v-if="turn.outcome === undefined" size="sm" variant="text" icon="i-lu-stop" @click="ask.stop(thread.id)">
             {{ $t('common.stop') }}
           </ActionButton>
         </div>

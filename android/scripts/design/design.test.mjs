@@ -12,7 +12,8 @@ import { compare, countsOf } from './ratchet.mjs'
 import * as rawValues from './raw-values.mjs'
 import { checkChecklist, checkRules } from './rules.mjs'
 import { buildSpec, parseDesign, parseRules } from './spec.mjs'
-import { compareColors, compareScale, compareTypography, neutralDarkProblems } from './tokens.mjs'
+import { compareColors, compareScale, compareShadows, compareTypography, neutralDarkProblems } from './tokens.mjs'
+import { componentProblems, localeProblems, webTokens } from './web.mjs'
 
 const FRONT = {
   typography: { 'xs': { fontSize: '13px' }, 'xs-wide': { fontSize: '12px' }, 'sm': { fontSize: '15px' } },
@@ -494,6 +495,60 @@ describe('book', () => {
     assert.ok(problems.some(p => p.includes('labels Lu.back as "bak"')))
     assert.ok(!problems.some(p => p.includes('does not list Lu.cog')))
     assert.ok(kotlin(good, { ...withIcons, 'ui/book/BookFoundations.kt': 'val GLYPHS = listOf("cog" to Lu.cog)\n' }).some(p => p.includes('does not list Lu.back')))
+  })
+})
+
+describe('web', () => {
+  const front = {
+    colors: { 'paper': '#fdfcf9', 'dark-paper': '#161616' },
+    typography: { sm: { fontFamily: 'Geist', fontSize: '15px', lineHeight: '22px', fontWeight: 400 } },
+    rounded: { md: '8px' },
+    elevation: { button: '10px' },
+    shadow: { button: { y: '2px', alpha: 0.08 } },
+    motion: { slide: '250ms cubic-bezier(0.22, 1, 0.36, 1), the page', press: 'a flat tint' },
+    components: { chip: { backgroundColor: '{colors.paper}', typography: '{typography.sm}', rounded: '{rounded.md}', height: '36px', padding: '0px 14px' } },
+  }
+
+  it('pairs colours by theme and reads sizes as px', () => {
+    const tokens = webTokens(front)
+    assert.deepEqual(tokens.colors.paper, { light: '#FDFCF9', dark: '#161616' })
+    assert.equal(tokens.colors['dark-paper'], undefined)
+    assert.deepEqual(tokens.shadow.button, { y: 2, blur: 10, alpha: 0.08 })
+    assert.deepEqual(tokens.motion, { slide: { ms: 250, curve: 'cubic-bezier(0.22, 1, 0.36, 1)' } })
+    assert.deepEqual(tokens.components.chip, { background: 'paper', typography: 'sm', rounded: 'md', height: 36, padding: { y: 0, x: 14 } })
+  })
+
+  it('finds a component naming a token that does not exist', () => {
+    const tokens = webTokens({ ...front, components: { chip: { backgroundColor: '{colors.ink}', rounded: '{rounded.xl}' } } })
+    const problems = componentProblems(tokens)
+    assert.equal(problems.length, 2)
+    assert.match(problems[0], /colors\.ink/)
+    assert.match(problems[1], /rounded\.xl/)
+  })
+
+  it('finds a phone string copy that drifted from the web', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const root = mkdtempSync(join(tmpdir(), 'locales-'))
+    mkdirSync(join(root, 'web'))
+    mkdirSync(join(root, 'android'))
+    writeFileSync(join(root, 'web', 'en.json'), '{"a":"A"}\n')
+    writeFileSync(join(root, 'web', 'de.json'), '{"a":"A"}\n')
+    writeFileSync(join(root, 'android', 'en.json'), '{"a":"B"}\n')
+    writeFileSync(join(root, 'android', 'fr.json'), '{"a":"A"}\n')
+    const problems = localeProblems(join(root, 'web'), join(root, 'android'))
+    assert.equal(problems.length, 3)
+    assert.ok(problems.some(p => p.includes('de.json is missing')))
+    assert.ok(problems.some(p => p.includes('en.json differs')))
+    assert.ok(problems.some(p => p.includes('fr.json has no web locale')))
+  })
+
+  it('compares shadows with PullsShadow both ways', () => {
+    const levels = { button: { y: '2.dp', alpha: '0.08', blur: 'button' }, extra: { y: '1.dp', alpha: '0.1', blur: 'extra' } }
+    const layer = { 'edge-y': '1.dp' }
+    const problems = compareShadows({ 'shadow': { button: { y: '3px', alpha: 0.08 } }, 'shadow-layer': { 'edge-y': '1px' } }, levels, layer)
+    assert.deepEqual(problems, ['shadow.button.y: DESIGN.md 3px, PullsShadow 2.dp', 'PullsShadow level extra is not in DESIGN.md shadow'])
   })
 })
 
