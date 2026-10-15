@@ -51,6 +51,8 @@ describe('piModelName', () => {
     ['gpt-5.5(high)', 'GPT-5.5 (High)'],
     ['gpt-oss-120b-medium', 'GPT-OSS 120B (Medium)'],
     ['o4-mini', 'o4-mini'],
+    ['o3-mini-2025-01-31', 'o3-mini'],
+    ['o3-mini-20250131-high', 'o3-mini (High)'],
     ['gemini-3-pro-preview', 'Gemini 3 Pro Preview'],
     ['gemini-3.8-flash-high', 'Gemini 3.8 Flash (High)'],
     ['models/gemini-2.5-flash-lite', 'Gemini 2.5 Flash Lite'],
@@ -77,8 +79,8 @@ describe('piModels', () => {
   })
 
   it('sorts by version, not by a size in the name', () => {
-    const body = { data: [{ id: 'kimi-k2' }, { id: 'kimi-k3' }, { id: 'kimi-k2.8' }, { id: 'gpt-5.5' }, { id: 'gpt-oss-120b' }] }
-    expect(piModels(body, 'gpt-5.5').map(model => model.id)).toEqual(['gpt-5.5', 'gpt-oss-120b', 'kimi-k3', 'kimi-k2.8', 'kimi-k2'])
+    const body = { data: [{ id: 'kimi-k2' }, { id: 'kimi-k3' }, { id: 'kimi-k2.8' }, { id: 'gpt-5.5' }, { id: 'gpt-oss-120b' }, { id: 'o3-mini-20250131' }, { id: 'o4-mini' }] }
+    expect(piModels(body, 'gpt-5.5').map(model => model.id)).toEqual(['gpt-5.5', 'gpt-oss-120b', 'kimi-k3', 'kimi-k2.8', 'kimi-k2', 'o4-mini', 'o3-mini-20250131'])
   })
 
   it('defaults to the first listed model when the server names none it has', () => {

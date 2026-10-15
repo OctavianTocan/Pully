@@ -101,16 +101,16 @@ export function piModelName(id: string): string {
   // CLIProxyAPI takes a thinking level after the id: `gpt-5.5(high)`.
   const bracket = /\(([^)]*)\)$/.exec(base)
   base = base.slice(0, bracket?.index).replace(/-\d{4}-\d{2}-\d{2}(?=$|-)/, '')
-  // OpenAI writes its o-series in lower case: o4-mini.
-  if (/^o\d/i.test(base))
-    return base.toLowerCase()
   const words = joinVersions(base.split(/[-_\s]+/).filter(word => word && !isSnapshot(word)))
   let effort = bracket?.[1]?.trim() || undefined
   if (!effort && words.length > 2 && EFFORT_WORD.test(words.at(-1)!.toLowerCase()))
     effort = words.pop()
   if (words[0]?.toLowerCase() === 'claude' && /^\d/.test(words[1] ?? '') && CLAUDE_TIER.test(words[2]?.toLowerCase() ?? ''))
     words.splice(1, 2, words[2]!, words[1]!)
-  const name = words.map(pretty).join(' ').replace(/^GPT (?=\d|OSS\b)/, 'GPT-').replace(/\bNon /g, 'Non-')
+  // OpenAI writes its o-series in lower case: o4-mini.
+  const name = /^o\d+$/i.test(words[0] ?? '')
+    ? words.join('-').toLowerCase()
+    : words.map(pretty).join(' ').replace(/^GPT (?=\d|OSS\b)/, 'GPT-').replace(/\bNon /g, 'Non-')
   return effort ? `${name} (${pretty(effort)})` : name
 }
 
