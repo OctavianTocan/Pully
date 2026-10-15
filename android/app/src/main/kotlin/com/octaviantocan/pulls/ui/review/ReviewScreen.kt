@@ -47,6 +47,7 @@ import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.ai.AskSheet
 import com.octaviantocan.pulls.ui.ai.ReviewSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
+import com.octaviantocan.pulls.ui.ai.followQueuedTour
 import com.octaviantocan.pulls.ui.ai.tourComing
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -148,6 +149,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         push(PrView.Diff)
     }
     fun toChanges() { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) }
+    followQueuedTour(session)
     // The tour icon is the one way to a tour (rule 113): with none written or on its way it asks whether to write one,
     // with the model that would; otherwise it opens the tour, or the work that is writing it.
     fun openTour() {

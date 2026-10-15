@@ -268,8 +268,13 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
     Card {
         when {
             tour == null && (running || tourComing(session)) -> TourRunning(session, Modifier)
-            // A tour that failed says why; so does the analysis it was waiting on.
-            tour == null -> TourEmpty(session, listOf("tour", "analyze").firstNotNullOfOrNull { kind -> session.taskFor(kind)?.takeIf { it.status == "failed" }?.error }, Modifier)
+            // A tour that failed says why; so does an analysis that was to write one. Another analysis's failure is not the tour's.
+            tour == null -> TourEmpty(
+                session,
+                session.taskFor("tour")?.takeIf { it.status == "failed" }?.error
+                    ?: session.taskFor("analyze")?.takeIf { it.status == "failed" && "tour" in it.then }?.error,
+                Modifier,
+            )
             else -> {
                 val outdated = tour.headSha != null && session.opened?.headSha?.let { it != tour.headSha } == true
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

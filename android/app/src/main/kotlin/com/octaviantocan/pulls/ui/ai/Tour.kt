@@ -83,16 +83,33 @@ fun startTour(session: ReviewSession) {
 
 /**
  * Writes a tour: with no analysis yet it runs the last choice with the tour in it, and after one it writes the tour
- * alone. Nothing starts while an analysis already runs, since that one writes the tour when it is done.
+ * alone. While an analysis runs, the tour waits for it: one that writes a tour needs nothing more, and one that does
+ * not queues the tour, which [followQueuedTour] starts when the analysis is done.
  */
 internal fun generateTour(session: ReviewSession, context: Context) {
-    if (session.taskFor("analyze")?.running == true) return
-    if (session.hasAiResult) startTour(session) else session.runAnalyze(context, session.settings.analyzeChoice.copy(tour = true))
+    val analysis = session.taskFor("analyze")
+    when {
+        analysis?.running == true -> if ("tour" !in analysis.then) session.tourQueued = true
+        session.hasAiResult -> startTour(session)
+        else -> session.runAnalyze(context, session.settings.analyzeChoice.copy(tour = true))
+    }
 }
 
-/** Whether a tour is on its way: its own task runs, or an analysis that writes one when it is done. */
+/** Whether a tour is on its way: its own task runs, it waits for the running analysis, or that analysis writes one. */
 internal fun tourComing(session: ReviewSession): Boolean =
-    session.taskFor("tour")?.running == true || session.taskFor("analyze")?.let { it.running && "tour" in it.then } == true
+    session.taskFor("tour")?.running == true ||
+        session.taskFor("analyze")?.let { it.running && (session.tourQueued || "tour" in it.then) } == true
+
+/** Starts a queued tour once the analysis it waited for is done, and drops it if that analysis did not finish. */
+@Composable
+internal fun followQueuedTour(session: ReviewSession) {
+    val status = session.taskFor("analyze")?.status
+    LaunchedEffect(status, session.tourQueued) {
+        if (!session.tourQueued || status == "running") return@LaunchedEffect
+        session.tourQueued = false
+        if (status == "done") startTour(session)
+    }
+}
 
 /**
  * No tour yet, on a page opened straight on the tour (from the Tours tab or a link): the one action is the tour icon

@@ -91,6 +91,9 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** The stack this pull request is a layer of, bottom first (PRs only); null when it is in none or did not load. */
     var stack by mutableStateOf<PrStack?>(null)
         private set
+
+    /** A tour asked for while an analysis without one ran: it starts when that analysis is done (rule 113). */
+    var tourQueued by mutableStateOf(false)
     private var stackJob: Job? = null
 
     /** [overview] is still the server's stored copy, which may trail the diff by a push, so it says nothing about staleness. */
