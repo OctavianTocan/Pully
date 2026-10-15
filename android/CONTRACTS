@@ -95,6 +95,13 @@ No screen shows an arrow leaving a box or any other "opens elsewhere" mark: "We'
 web app. We don't open links, not like this." A row that goes to GitHub carries GitHub's
 own mark; any other row says in words what it does (rule 100).
 
+@cc [owner:OctavianTocan,label:design] android-launcher-icon-torch
+The launcher icon is "Torch", which Tavi picked on 15 Oct 2026 from the Pulls Icon Ideas
+canvas: a nine by nine grid of days in GitHub's dark greens, with a beam of light from the
+bottom left corner lighting a wedge of them. It is flat: solid fills only, no gradients,
+shadows or highlights ("3d look is lame"). The themed icon and the notification icon are the
+beam alone. It is drawn only by `android/scripts/gen-icon.mjs`; the drawables are its output.
+
 @cc [owner:OctavianTocan,label:design] android-no-ai-icons
 No icon marks AI: no sparkle, robot head, brain or compass. AI actions are marked by their
 words and by the live indicator. The only marks are the Claude Code and Codex logos, in
