@@ -1,0 +1,215 @@
+@cc [owner:OctavianTocan,label:architecture] android-version-has-changelog
+Every change to `versionName` in `app/build.gradle.kts` MUST come with a `## <version>`
+section at the top of `android/CHANGELOG.md`: a summary sentence written for the reader
+and at least one bullet, newest first. The update screen, What's new and `latest.json`
+read their words from it, never from commit messages (DESIGN.md rule 104, changelog check).
+
+@cc [owner:OctavianTocan,label:security;architecture] android-version-code-rises
+Every published build MUST have a higher `versionCode` than the one before it, so an
+installed phone sees it as newer and Android accepts it as an update.
+
+@cc [owner:OctavianTocan,label:security] android-pinned-signing-key
+The published APK MUST be signed with the pinned `app/debug.keystore`, so every machine
+signs identically and an installed app keeps accepting updates. The key MUST NOT change.
+
+@cc [owner:OctavianTocan,label:design;architecture] android-design-md-is-the-spec
+`android/DESIGN.md` is the spec for how the app looks and moves. Its front matter is the
+source of truth for tokens, and its numbered rules are cited by number. A change that
+departs from a rule changes the rule in the same pull request, with its source.
+
+@cc [owner:OctavianTocan,label:design;architecture] android-design-checks-never-waived
+`pnpm run android:design` MUST pass in CI. A failing check is fixed, never skipped, and a
+baseline MAY only go down: a new raw value or banned use is replaced with a token or a kit
+part, never added to the baseline (DESIGN.md Enforcement).
+
+@cc [owner:OctavianTocan,label:design] android-tokens-only
+A composable MUST NOT write a raw hex colour, font size or corner radius. Colours come
+from `LocalPullsColors`, type from `PullsType`, radii and spacing from `PullsRadius` and
+`PullsSpace` (DESIGN.md Do's and Don'ts; raw-values check).
+
+@cc [owner:OctavianTocan,label:design;architecture] android-one-component-per-pattern
+One pattern, one component, used everywhere: a fold heading, a sheet, a sheet row, a
+search field, a chip, a segmented control, a close button, a row swipe, a toast. A screen
+MUST reuse the kit's part and MUST NOT build its own copy of a pattern the app already
+has ("Collapsible sections differ ... one component, used everywhere", J18; rules 49,
+70, 119, 120).
+
+@cc [owner:OctavianTocan,label:design] android-one-fold-heading
+Every heading that folds rows away is `GroupHeading`: the name, the count, a chevron that
+turns as it folds, a line under it while folded, and the rows leaving and returning with
+motion. The Inbox, Tours, the Overview's file sections, the Files sheet and any new
+folding list use it (rule 119; recording 15 Oct 12:39, J18).
+
+@cc [owner:OctavianTocan,label:design] android-one-dialect
+Every screen is in the mobile style of `ui/design/Kit.kt` and the `Lu` icons. The
+web-port kit (`Components.kt`, Phosphor icons) is frozen: new code MUST NOT use it, and
+its count MAY only fall (rule 49).
+
+@cc [owner:OctavianTocan,label:design] android-kit-over-material
+Where the kit has a component, a screen MUST NOT use Material's: no Material buttons,
+switches, checkboxes, text fields, dialogs, tabs, cards, dividers, progress indicators,
+FABs, icons or `ModalBottomSheet` (bans check; rules 37, 48, 73).
+
+@cc [owner:OctavianTocan,label:design] android-both-themes
+A screen is not done until it is right in light and in dark. Every colour token has a
+dark pair, and dark surfaces are a neutral grey with no colour cast (rule 76; F13).
+
+@cc [owner:OctavianTocan,label:product;design] android-information-first
+Every element on a screen carries a fact or does something; anything that carries
+neither is cut. No initial avatars, decorative glyphs, FAB or Share (rule 1).
+
+@cc [owner:OctavianTocan,label:product] android-not-wanted
+The app MUST NOT have voice input or dictation, a suggestion mode, Share on a pull
+request or tour, "Up next" inside a tour, a floating action button, "Later" as a row
+action, numbered step pips or step counters in progress (rule 11).
+
+@cc [owner:OctavianTocan,label:product;design] android-no-explaining-lines
+A control MUST NOT carry a line of text that explains it ("The Analyze button runs the
+last choice", "Shift-click to select a range", the server and update notes under
+Settings, the lines under the sounds). If a control needs explaining, the control changes
+(rule 87; F25, F30, H8, J4).
+
+@cc [owner:OctavianTocan,label:design] android-no-tiny-text
+Text is never below 15sp and never uppercase or tracked; a section label is one word. The
+only exception is the footnote under a model list, which Tavi asked to be tiny (rules 14
+and 89).
+
+@cc [owner:OctavianTocan,label:product;design] android-whole-identifiers
+Titles of pull requests, commits, tours and files wrap whole and are never cut with an
+ellipsis. Names (an author, a branch) keep to one line and give way only at their end,
+and a path is cut from the left by whole folders (rules 2, 90 and 111; F23, F24, H15).
+
+@cc [owner:OctavianTocan,label:product] android-no-loading-screens
+No page or list shows a loading screen, a spinner page or "Loading..." text. What the app
+already knows shows in the first frame, and only content still on its way stands in as a
+shimmering skeleton of its shape (rules 50, 51 and 85).
+
+@cc [owner:OctavianTocan,label:product] android-refresh-is-silent
+There is no Refresh button, command or pull-to-refresh indicator anywhere. The app
+refreshes itself: new commits on an open pull request arrive without a tap, and a page
+reloads quietly when the app comes back to the front ("we should be refreshing ourselves",
+rule 52; F17).
+
+@cc [owner:OctavianTocan,label:design;product] android-no-link-out-icons
+No screen shows an arrow leaving a box or any other "opens elsewhere" mark: "We're not a
+web app. We don't open links, not like this." A row that goes to GitHub carries GitHub's
+own mark; any other row says in words what it does (rule 100).
+
+@cc [owner:OctavianTocan,label:design] android-no-ai-icons
+No icon marks AI: no sparkle, robot head, brain or compass. AI actions are marked by their
+words and by the live indicator. The only marks are the Claude Code and Codex logos, in
+colour, and the chosen model's own icon (rules 37 and 48).
+
+@cc [owner:OctavianTocan,label:product] android-tappable-does-something
+Anything that looks tappable does something when tapped, and anything that does nothing
+does not light up when pressed (rules 53 and 82; F36).
+
+@cc [owner:OctavianTocan,label:product] android-irreversible-never-primary
+The main action at the bottom of a screen is the reviewing action (Review, Next). An
+action that cannot be undone is never the main action and is never one tap away (rules 7
+and 116).
+
+@cc [owner:OctavianTocan,label:product;security] android-risky-actions-ask-first
+An action that changes the pull request for other people or cannot be undone (approve,
+request changes, merge, auto-merge on, update branch, draft, ready, close, reopen) MUST
+open a page that says what will happen, with the one button that does it. Turning off
+something that only stops a future action MAY skip the page ("you should double check
+that I actually meant to use that", rule 116; J29).
+
+@cc [owner:OctavianTocan,label:product;security] android-only-what-you-may-do
+A control for something the person cannot do on GitHub is not shown: no edit field on a
+title they cannot edit, no Archive on a pull request that is not theirs (recording
+15 Oct 13:54, 09:42 to 10:42; K20, K21).
+
+@cc [owner:OctavianTocan,label:product] android-no-dead-ends
+No state is a dead end. A first tap answers at once, a second quick tap never cancels
+work, and a cancelled or failed run always offers a way to start again (rule 63).
+
+@cc [owner:OctavianTocan,label:motion] android-motion-follows-the-gesture
+Everything moves the way the person moved it: what a finger drags follows the finger, and
+when let go it settles back or carries on the way it went, never springing back toward
+the start first. The next page comes from the right, the previous from the left, and Back
+always goes backward (rule 105).
+
+@cc [owner:OctavianTocan,label:motion] android-reactive-first
+A control or sheet answers the instant it is touched. A spring or bounce is a bonus, and
+a plain change that starts at once beats a springy one that starts late (rule 68).
+
+@cc [owner:OctavianTocan,label:motion;product] android-respects-remove-animations
+With the system setting "Remove animations" on, looping effects, page and tab switches,
+sheets, menus, icon swaps, the thinking shimmer and the theme wipe hold still or change at
+once (rule 73).
+
+@cc [owner:OctavianTocan,label:product;design] android-same-thing-same-feel
+The same kind of control sounds and vibrates the same on every page. A screen MUST NOT
+choose its own cue or vibration for a control the kit already gives one ("You cannot use
+a different vibration and sound for the same element on different pages", rule 120; J20).
+
+@cc [owner:OctavianTocan,label:product] android-shows-what-it-has
+What one screen has already loaded is never fetched again before another shows it: the
+profile photo, a pull request's title, branches, size and author from the row it was
+opened from (rule 128; J8, J13, H29).
+
+@cc [owner:OctavianTocan,label:design] android-fits-the-phone
+Nothing overflows a 390 by 844 frame: no horizontal page scroll, no scrollbar, nothing
+inside the 16dp margin except full-bleed bands, and sliding rows clip inside the frame
+(rule 25).
+
+@cc [owner:OctavianTocan,label:design;architecture] android-component-has-book-page
+A new shared component in `ui/design` lands with its UI Book page in `book.json`, its
+previews and, when DESIGN.md sizes it, a specimen, in the same change (DESIGN.md
+Components; book check).
+
+@cc [owner:OctavianTocan,label:product] android-words-name-their-effect
+A button names its effect in words a GitHub reviewer would use, on one line: a wrapped
+button label is a defect ("Next unreviewed" becomes "Next"). Every paragraph of text is
+labelled (Summary, Description) (rules 6 and 24).
+
+@cc [owner:OctavianTocan,label:design] android-no-number-cards
+Counts are never stat tiles, KPI cards or boxed mini-widgets, and never a run-on sentence
+of counts; they sit in aligned label and value columns that do not move when a digit
+changes (rules 8 and 22).
+
+@cc [owner:OctavianTocan,label:design] android-meta-lines-are-one-line
+A meta line (author · repository #number · age; head → base) stays on one line, each
+segment giving way at its end rather than wrapping, and its variable fields have a fixed
+width (rules 3 and 26).
+
+@cc [owner:OctavianTocan,label:design] android-status-words-where-they-vary
+A status word appears only where it varies: a group titled "Ready to read" does not
+repeat Ready on each row, and failing or passing gets a real icon, not a dot (rule 16).
+
+@cc [owner:OctavianTocan,label:product] android-no-copy-under-lists
+A populated list has no explanatory copy or empty-state prose under it, and a tappable
+row looks tappable (rule 4).
+
+@cc [owner:OctavianTocan,label:motion;design] android-shared-things-stay-put
+When a screen changes state, whatever is present in both states stays exactly where it
+was, so the change reads as a layer arriving (rule 69).
+
+@cc [owner:OctavianTocan,label:product;design] android-working-cards-keep-their-height
+Nothing on a page moves while AI works: a card that shows running work is one fixed
+height in every state, its status one line ending in an ellipsis, with more one tap away
+(rule 86; F37).
+
+@cc [owner:OctavianTocan,label:product] android-one-job-one-control
+Each job has one control: no second Stop beside the orb, a repeat action is the
+try-again arrow with an accessibility label rather than the word Redo (rule 87; F35,
+F39).
+
+@cc [owner:OctavianTocan,label:product] android-sheets-over-pages
+Grouped actions, chat, the composer and files open as bottom sheets over the page, not
+as new pages (rule 5).
+
+@cc [owner:OctavianTocan,label:design] android-measured-not-eyeballed
+A screen is built to the design canvas measurably: render it beside the canvas row at
+the same size and measure the gaps; "close" is not accepted and "different" is a defect
+(rule 47).
+
+@cc [owner:OctavianTocan,label:product] android-liked-things-stay
+What Tavi said he liked MUST NOT regress without his word: pull down for Commands and its
+search, the profile sheet, Settings, sheets at their normal height, the scope chips
+rearranging, the Files list, the description on the Overview, the Diff, mark reviewed
+then the next file, the Tour's sections and Glossary, the "Look for problems" row, and
+the sheet and text-fade transitions (DESIGN.md Keep as is; recording 15 Oct 13:54,
+00:45 and 10:16).

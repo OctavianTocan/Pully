@@ -1,0 +1,336 @@
+@cc [owner:OctavianTocan,label:product] pr-opens-at-once
+A pull request opened from a row shows its title, number, author, branches and size in
+the first frame, from what the row knew, before GitHub answers. There is no "Loading pull
+request" page; parts still on their way are skeletons (rules 50, 51 and 128; J13, H29).
+
+@cc [owner:OctavianTocan,label:design;product] pr-opening-never-jumps
+While a pull request opens, its head is laid out in its final shape from the first frame
+and values change in place: no skeleton that turns into a numbers row that pushes things
+down, and no button label that steps through "Review changes", "Review 84 files" and
+"Review 83 files" (recording 15 Oct 13:54, 09:58; K22; rule 69).
+
+@cc [owner:OctavianTocan,label:design] pr-sticky-head-stays-solid
+The head of the pull request page stays pinned while the page scrolls ("They're sticky
+and they should be"), and what is pinned stays fully readable: its buttons MUST NOT turn
+half transparent over the numbers and tabs, and nothing sits under the status bar
+(recording 15 Oct 13:54, 01:36 to 03:03; K6).
+
+@cc [owner:OctavianTocan,label:design] pr-title-is-whole
+The title is a plain 26sp heading that wraps whole, never cut and never in a bubble
+(rules 2 and 12).
+
+@cc [owner:OctavianTocan,label:product] pr-edit-in-place
+On a pull request the person may edit, a tap on the title or description turns it into a
+field with the caret where the finger landed; the text is underlined in the accent and
+the rest of the page fades to a quarter; leaving it saves. There is no Edit button
+(rules 83 and 110; F20, H34, H35).
+
+@cc [owner:OctavianTocan,label:product] pr-edit-blocks-the-page
+While the title or description is being edited, a tap anywhere else only leaves the
+field: nothing under it switches tab, opens or swipes (J17).
+
+@cc [owner:OctavianTocan,label:product;security] pr-no-editing-others-pull-requests
+When GitHub says the person cannot update the pull request, its title and description are
+plain text: no field, no caret, no fade ("I should not be able to change the title or
+change the description", recording 15 Oct 13:54, 09:58 to 10:42; K21).
+
+@cc [owner:OctavianTocan,label:product] pr-branch-copies-with-a-toast
+A tap on the branch copies its name and shows a small toast ("Branch name copied"); the
+pill keeps showing the branch and never turns into "Copied" (rule 83; F21).
+
+@cc [owner:OctavianTocan,label:design] pr-branch-row-is-one-line
+The branch row is head → base on one line. A long branch runs past the edge and the row
+scrolls sideways, fading at the edge it can scroll toward; "…" is the last resort (rules
+74 and 111; H31, J14).
+
+@cc [owner:OctavianTocan,label:product] pr-no-analyze-card
+The Overview is the pull request: no Analyze card and nothing that asks for an analysis.
+A tour starts from the tour icon, and the other passes sit in ⋯ under Analyze options
+(rule 113; H30).
+
+@cc [owner:OctavianTocan,label:design;product] pr-summary-switch-is-not-a-pill
+The author's description and the AI's summary are not switched by a pill ("I don't like
+this"). When the text changes it fades, which he liked (recording 15 Oct 13:54, 10:07 to
+10:20; K23).
+
+@cc [owner:OctavianTocan,label:product] pr-commits-and-checks-are-sheets
+Commits is not a tab: tapping Commits opens a sheet like Files, with a "Find a commit"
+search and fold headings, and Checks is a sheet made the same way ("all of these
+components are things that we use everywhere", recording 15 Oct 13:54, 13:25 to 14:03;
+K29).
+
+@cc [owner:OctavianTocan,label:product] pr-commit-opens-its-diff
+Tapping a commit opens the diff of that commit alone (or that diff in a sheet). It MUST
+NOT put a "Viewing commit N of M" box on top of the Overview (recording 15 Oct 13:54,
+10:48 to 11:18; K25).
+
+@cc [owner:OctavianTocan,label:product] pr-narrowed-view-shows-the-way-back
+When the Diff shows part of the pull request (one commit, a range), a bar that stays on
+screen says so and carries "Show all", so the way back needs no scrolling or menu
+(rule 80; F26).
+
+@cc [owner:OctavianTocan,label:design] pr-tabs-are-light
+The Overview's tabs are underline tabs with no counts and no box, easy to hit, close
+together, and spread across the width; when they cannot fit they scroll sideways, never
+cutting a label. While the tabs swipe, the gap between the pages is narrow, never a wide
+empty band (rules 38, 54 and 91; recording 15 Oct 13:54, 02:20 to 02:38; K7).
+
+@cc [owner:OctavianTocan,label:motion] pr-tabs-are-side-by-side
+The Overview's tabs sit side by side and move the whole width with the finger, both in
+view while moving, with the underline drawn where the pages are on every frame. A drag
+anywhere on the head (title, meta, numbers, tabs) moves them, except the branch row's own
+scroll and a file row's swipe (rules 107 and 118; J15, J21).
+
+@cc [owner:OctavianTocan,label:motion] pr-last-tab-has-no-empty-page
+On the last tab a swipe toward the next carries on to the Diff or does not move; it never
+drags the page into empty space (recording 15 Oct 13:54, 03:12 to 03:26; K8; rule 93).
+
+@cc [owner:OctavianTocan,label:product] pr-tabs-keep-their-place
+Each of the Overview's tabs keeps its scroll and what is open while another is on
+screen, and the head lifts with whichever tab is in view (rule 118; J9).
+
+@cc [owner:OctavianTocan,label:product] pr-files-fold-and-search
+The files are grouped under fold headings on the Overview and in the Files sheet, and a
+fold is kept while the pull request is open. Over 80 files every section starts folded.
+The Files sheet has a search where a row matches when every typed word is in it, and a
+search opens every section it finds something in (rules 101 and 119).
+
+@cc [owner:OctavianTocan,label:design] pr-counts-sit-side-by-side
+The +N −N of a file row, a file section heading and the Files sheet sit side by side on
+one line, as on Home, never stacked and never clipped (recording 15 Oct 13:54, 10:23 and
+12:16 to 12:58; K24, K27).
+
+@cc [owner:OctavianTocan,label:product;motion] pr-file-row-swipes
+A file row on the Overview swipes like a pull request row: right opens it, left marks it
+reviewed (or not), a tap opens it and a hold opens its actions. Its checkbox sits on the
+first line of text (rule 102; F44, F46).
+
+@cc [owner:OctavianTocan,label:product] pr-conversation-folds
+Every comment in Conversation folds; the first starts open and bot comments start folded.
+"commented" is never written, and the age and chevron line up at the right of every
+header (rule 91; F72).
+
+@cc [owner:OctavianTocan,label:product] pr-conversation-narrows
+When both people and bots spoke, chips narrow the Conversation to All, People or Bots
+with their counts, and a narrowed list shows all of its comments (rule 129; J19).
+
+@cc [owner:OctavianTocan,label:product;design] pr-checks-read-cleanly
+Checks lists failed first, then running, then passed; a row taps through to the check.
+A check's name does not wrap into many lines, and the sheet's close button and its
+heading keep the standard gap (rule 79; recording 15 Oct 13:54, 13:01 to 13:24; K28).
+
+@cc [owner:OctavianTocan,label:design] pr-sheet-rows-in-cards
+In the pull request's sheets the rows sit in the raised cards every other sheet uses,
+one card under each heading, rows at least 60dp with whole titles (rule 79; J24, F27).
+
+@cc [owner:OctavianTocan,label:product;motion] pr-sheet-opens-pages-not-sheets
+Nothing in a pull request sheet closes it to open another: Text and tools, the ⋯
+actions and everything they open (model, Analyze options, Checks, Review with AI, the
+decisions) are pages of the same `PrSheet` with ← back, and the phone's Back walks back a
+page, closing only from the first (rule 115; J27, J32, J33).
+
+@cc [owner:OctavianTocan,label:product;security] pr-decisions-sit-a-page-in
+Approve, Request changes, the merge, Merge when checks pass, Update branch, Convert to
+draft, Ready for review, Close and Reopen sit on "Approve, merge or close", a page of the
+⋯ sheet; each opens a page that says what happens with one button that does it (Close's
+in the error colour). Leave a comment stays in the ⋯ sheet (rule 116; J29).
+
+@cc [owner:OctavianTocan,label:product] pr-more-sheet-on-every-view
+The ⋯ sheet is reachable from the Overview, the Diff and the Tour of a pull request, and
+it holds no Commands row (rules 29 and 61; J30).
+
+@cc [owner:OctavianTocan,label:design;motion] pr-header-never-shifts
+The header of the three views is drawn once: the back button and a capsule of three view
+icons (Overview, Changes, Tour) plus one corner slot (⋯, or Aa on the Diff). Moving
+between views never moves it; only the capsule's selected segment slides (rules 27 and
+93; F56).
+
+@cc [owner:OctavianTocan,label:design] diff-top-is-short
+The Diff's header is the back button and the capsule. The file's name sits at the bottom
+between ‹ and › in a round pill, whole on up to three lines, and opens the Files sheet.
+Pinned chrome is no more than a fifth of the screen, and the file note scrolls away with
+the code (rule 92; F47, F54).
+
+@cc [owner:OctavianTocan,label:product] diff-counts-line-is-pinned
+The line with a file's counts, threads and Reviewed stays pinned at the top of the file
+while it is shown, the code fading under it. There is one Reviewed per file, there, and
+none at the end of the file (rule 92; J22).
+
+@cc [owner:OctavianTocan,label:motion] diff-pinned-lines-do-not-slide
+Moving from file to file, the counts line under the header and the bar at the bottom stay
+where they are; only their text changes. They MUST NOT slide with the code (recording
+15 Oct 13:54, 03:39 to 04:08; K9).
+
+@cc [owner:OctavianTocan,label:motion] diff-files-sit-side-by-side
+Files sit side by side: during a swipe, an arrow or a pick from the Files sheet, the file
+on screen and the next are both in view and move together; a file picked from far away
+still arrives from beside the current one, never through a blank page; each file keeps
+its scroll (rules 107 and 118; J25).
+
+@cc [owner:OctavianTocan,label:motion] diff-file-swipe-always-settles
+A swipe between files always settles on one file. Two files MUST NOT stay side by side
+half way (recording 15 Oct 13:54, 03:47 to 03:54; K10).
+
+@cc [owner:OctavianTocan,label:product;motion] diff-swipe-changes-file
+A swipe on the code goes to the next or previous file and the page follows the finger.
+On code wider than the screen a swipe first scrolls the code and changes file only at its
+edge; nothing changes file while lines are selected (rule 93).
+
+@cc [owner:OctavianTocan,label:product;motion] diff-no-swipe-past-the-last-file
+From the last file a swipe toward the next goes nowhere: it MUST NOT open the Tour or its
+"No tour yet" sheet ("there isn't [anything in that direction] ... that is confusing",
+recording 15 Oct 13:54, 11:33 to 11:47; K26). This replaces the "continues to the Tour"
+of rule 93.
+
+@cc [owner:OctavianTocan,label:product] diff-ends-where-the-code-ends
+A file ends where its code ends: nothing scrolls into empty space beyond the room the
+bottom bar needs (rule 92; F50).
+
+@cc [owner:OctavianTocan,label:product] diff-reviewed-moves-on
+Ticking Reviewed marks the file and moves to the next file not reviewed. Tavi called it
+beautiful; it MUST NOT regress (rule 65; F55).
+
+@cc [owner:OctavianTocan,label:product] diff-one-way-to-comment
+A comment starts only by selecting lines (a tap on a line number, extended by dragging
+the gutter). Nothing floats over the selected lines, and the range is written once
+(rule 94; F51, F52).
+
+@cc [owner:OctavianTocan,label:product] diff-line-bar-is-plain
+The bar for selected lines is a ✕, the field and the send button: no "In review" toggle
+and no ⋯. Ask about these lines, Copy and Copy GitHub link come from holding the line
+("you could just hold ... That makes far more sense", recording 15 Oct 13:54, 04:20 to
+04:45; K11).
+
+@cc [owner:OctavianTocan,label:product] diff-threads-live-on-their-line
+A review thread is a card under its line in the code, and an Ask about lines shows under
+them the way the chat shows it, the answer as plain text with no box (rules 9, 94 and 99).
+
+@cc [owner:OctavianTocan,label:product;motion] diff-pinch-keeps-the-line
+A pinch scales the code under the fingers and pans with them; when they lift the size is
+kept and the line that was under them stays there. The code is not re-laid out on every
+frame (rule 93; F53).
+
+@cc [owner:OctavianTocan,label:product] diff-text-and-tools-shows-itself
+Aa opens "Text and tools" as a bottom sheet in which every choice shows what it does:
+the two small diffs for the layout first, the code size over a sample, the code font as a
+page, then the file's own actions (rules 81 and 93; F48).
+
+@cc [owner:OctavianTocan,label:product] diff-split-is-pickable
+Split can be picked on any phone; only a one-sided file falls back to unified (H10).
+
+@cc [owner:OctavianTocan,label:product] diff-colours-arrive-ahead
+Code colours are fetched ahead for the files around the one shown, so moving to the next
+file shows coloured code, not plain text first (J26).
+
+@cc [owner:OctavianTocan,label:product] diff-note-opens-ask
+Tapping a file note opens Ask with that note attached as a card above the field, which a
+✕ leaves out (rule 94; F49).
+
+@cc [owner:OctavianTocan,label:design] diff-air-above-the-code
+A comment card or a stats row never touches the diff: at least 24dp above the diff's top
+edge (rule 40).
+
+@cc [owner:OctavianTocan,label:product] tour-starts-from-its-icon
+With no tour and none being written, the tour icon opens a "No tour yet" sheet with one
+line on what a tour is, the Model row (a page of the same sheet) and Generate tour. With
+a tour, or one on its way, the icon opens the Tour page, its dot breathing while one is
+written (rule 113).
+
+@cc [owner:OctavianTocan,label:product] tour-generate-opens-the-work
+Generate tour closes the sheet and opens the Tour page on its running work log in the
+same frame ("it immediately takes me there, which is amazing"), and the log turns into
+the tour with nothing between (rules 121 and 122; J28, J34; recording 15 Oct 13:54,
+05:12 to 05:21).
+
+@cc [owner:OctavianTocan,label:motion] tour-stops-arrive-with-motion
+When a tour is drawn its stops come onto the page with motion, one after another, not
+all at once (recording 15 Oct 13:54, 06:41 to 06:54; K14).
+
+@cc [owner:OctavianTocan,label:product] tour-is-one-scrolling-page
+A tour is one scrolling page with no Next button and no "Back to the pull request" at its
+end; the header or a swipe leaves it (rules 31 and 97; F64).
+
+@cc [owner:OctavianTocan,label:design] tour-strip-is-calm
+The Tour strip under the header is a ring that fills continuously with the scroll, the
+stop's title (one line with an ellipsis or two whole lines) and a chevron that opens the
+stops as a sheet with the read ones ticked. No "2 of 4" (rules 42 and 97; F60, F61).
+
+@cc [owner:OctavianTocan,label:product;design] tour-ask-bar-is-home-search
+The "Ask about this tour" bar is the same component as Home's search pill and behaves the
+same: focusing it dims the page behind it (recording 15 Oct 13:54, 05:42 to 05:58; K12).
+
+@cc [owner:OctavianTocan,label:product] tour-ask-needs-a-tour
+While there is no tour yet, the Tour page offers no "Ask about this tour", and it has no
+big Stop button of its own (recording 14 Oct 19:19, 00:14 to 00:24; rule 87).
+
+@cc [owner:OctavianTocan,label:product] tour-ask-bar-lets-go
+Tapping outside the Ask bar lets go of it: no caret keeps blinking in a bar that is not
+being typed in (recording 14 Oct 19:19, 03:36 to 03:42).
+
+@cc [owner:OctavianTocan,label:product] tour-text-can-be-selected
+A tour's text can be selected and copied, and text selected in a tour can be attached to
+an Ask question (recording 14 Oct 19:19, 03:28 to 03:34 and 04:56 to 05:04).
+
+@cc [owner:OctavianTocan,label:product] tour-only-code-controls-where-there-is-code
+The Tour has no text size, wrap or review-comment controls, since it shows no diff
+(rule 60).
+
+@cc [owner:OctavianTocan,label:product] models-show-names
+A model is shown by its name, never its ID ("GPT-6 Luna", not "gpt-6-luna"), with no ID
+line under it, in the picker, Settings and the Tour's Model row (rule 89; H7, F31).
+
+@cc [owner:OctavianTocan,label:product] models-listed-once
+A model appears once in a picker. Where an engine reaches models from many providers
+(Pi), the list is grouped under each provider, and a provider's name is written the way
+it writes it ("AGY", not "Agy") (recording 15 Oct 13:54, 00:16 to 00:29; K1, K2).
+
+@cc [owner:OctavianTocan,label:product] models-no-doubled-provider
+A model's name never repeats its provider ("Claude Claude Opus 5" is a defect), in any
+list, in Settings or on the Tour's Model row (recording 15 Oct 13:54, 00:29 to 00:34; K3).
+
+@cc [owner:OctavianTocan,label:product] models-no-older-fold-for-pi
+The Pi list has no "Older models" section; it is grouped by provider ("this list makes no
+sense to have a older models", recording 15 Oct 13:54, 00:29; K3). Claude Code and Codex
+keep the short list first and the rest under "Older models" of rule 89.
+
+@cc [owner:OctavianTocan,label:product;design] models-recommended-and-tick
+The recommended choice carries the grey "Recommended" pill and the selected one a plain,
+larger ✓; "Default" is never written beside a check. There is no custom model ID field
+(rule 89; F32, F33).
+
+@cc [owner:OctavianTocan,label:product] models-picker-stays-open
+Switching an engine inside the picker changes its list in place; the sheet does not
+close. Choosing a model only saves it (rules 78 and 89; F32, F34).
+
+@cc [owner:OctavianTocan,label:product] analyze-stop-is-the-orb
+While AI work runs, the orb is its Stop: there is no second Stop pill or icon. A second
+quick tap never cancels (rules 63 and 87; F35).
+
+@cc [owner:OctavianTocan,label:product] pr-sub-pages-keep-context
+A page under the pull request (the Diff, the Tour, a tour section) carries the pull
+request's title and number in its header, with progress as a small element there; no
+pips, eyebrow or bottom "X of Y" (rule 23).
+
+@cc [owner:OctavianTocan,label:product] pr-composer-has-two-modes
+Writing on a pull request has two modes only, Comment and Ask Pulls, with no counters
+and no voice (rule 10).
+
+@cc [owner:OctavianTocan,label:design] pr-ai-notes-are-comment-cards
+An AI note about a file is a comment card by "Pulls" (white, rounded, soft shadow), not a
+loose line above the code (rule 34).
+
+@cc [owner:OctavianTocan,label:design] pr-reviewed-is-a-bare-checkbox
+Reviewed is a checkbox and a word, with no pill, chip or border around it (rule 41).
+
+@cc [owner:OctavianTocan,label:design] pr-branches-look-like-github
+Branches are squarish pills, head → base, and a tap copies one (rule 21).
+
+@cc [owner:OctavianTocan,label:product] pr-review-is-the-bottom-action
+The bottom of the Overview carries the reviewing action ("Review 4 files") beside a
+quiet "Ask | ⋯" capsule; there is never a second Ask inside a comment card (rules 7 and
+30).
+
+@cc [owner:OctavianTocan,label:product] pr-stack-is-a-sheet
+A pull request in a stack says so under its title ("Stacked on #241"), and a tap opens
+the Stack sheet with every layer top first down to the base branch, where a tap on
+another layer opens it (DESIGN.md checklist 51).

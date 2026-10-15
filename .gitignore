@@ -11,5 +11,6 @@ packages/app/public/diffs-github.user.js
 packages/app/src/embed/.generated
 .agents/skills/*
 !.agents/skills/publish-android
+!.agents/skills/code-contracts
 
 packages/app/storybook-static

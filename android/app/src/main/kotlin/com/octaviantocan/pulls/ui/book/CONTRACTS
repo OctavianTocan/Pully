@@ -1,0 +1,25 @@
+@cc [owner:OctavianTocan,label:design;architecture] book-is-built-from-the-kit
+The UI Book is built from the same kit and tokens as the screens, so what it shows is
+what ships. It has no look of its own (DESIGN.md UI Book).
+
+@cc [owner:OctavianTocan,label:architecture] book-one-page-list
+`book.json` is the one typed list of the book's pages and components. Every page without
+a component has a route in `BookRoutes.kt`, every route has a page, and every component
+has exactly one default variant and its previews (book check).
+
+@cc [owner:OctavianTocan,label:design] book-shows-both-themes
+A component page shows every state in light and dark, side by side or one at a time, and
+the Component specs page measures each sized component against DESIGN.md on the phone
+(rules 44 and 47).
+
+@cc [owner:OctavianTocan,label:product] book-lists-every-contract
+The Contracts page lists every contract of every `CONTRACTS` file bundled at build time,
+grouped by the area of the code it governs, named in plain words, with a fold per area, a
+label filter (All, Product, Design, Motion, Architecture, Security) and a search over IDs
+and prose. Each contract shows its ID in the code font, its labels and its prose drawn as
+Markdown. Nothing on the page is typed by hand (message 15 Oct).
+
+@cc [owner:OctavianTocan,label:architecture] book-contracts-parse-cleanly
+The bundled contracts MUST parse with the app's parser with no problems: every contract
+has an owner and a label, non-empty prose, and an ID used once in its file and its parent
+`CONTRACTS` files. A unit test reads the bundle the APK ships and fails otherwise.

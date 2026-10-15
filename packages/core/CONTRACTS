@@ -1,0 +1,31 @@
+@cc [owner:OctavianTocan,label:architecture] engine-loads-under-node
+`@pulls.review/core` MUST load under plain Node: no Settings, vue-i18n, `localStorage`,
+`document` or Vite-only syntax inside it. Callers pass model settings and locale in
+(architecture, Layout).
+
+@cc [owner:OctavianTocan,label:architecture;security] engine-brief-is-openui-data
+A brief or tour page is written in OpenUI Lang against the component library in
+`brief.ts`; components take references (a changed path and line), never retyped data, and
+an unknown component never renders. Only the Lang is stored; clients get a plain tree,
+never the Lang, and output is data, never executed (architecture, The brief).
+
+@cc [owner:OctavianTocan,label:product] engine-tours-vary-their-form
+The tour instructions ask the model to use the OpenUI components so each stop takes the
+form that reads best (a flow, a table, a tree, code, a callout), not the same paragraphs
+every time ("it looks a bit boring to read", recording 15 Oct 13:54, 07:46 to 08:14;
+K17).
+
+@cc [owner:OctavianTocan,label:product] engine-mentions-are-links
+An analysis run for the app writes every place it names as a repository-relative
+Markdown link (`MENTION_RULE`), which clients turn into a jump to that line (rule 96;
+architecture, Sharing).
+
+@cc [owner:OctavianTocan,label:architecture] engine-shapes-are-schemas
+Canonical shapes (`DiffsPayload`, `GroupedResult`, `PrCacheEntry`, ...) are valibot
+schemas first, validated where data is untrusted or versioned: a provider's raw answer
+and an entry read back from storage (architecture, Canonical data structures).
+
+@cc [owner:OctavianTocan,label:architecture] engine-files-keyed-by-sha
+Every `FileChange` carries a `sha` (GitHub's blob SHA, else one read from the patch's
+`index` line, else a SHA-256 of the patch), and persisted review state is keyed by it
+(architecture, Canonical data structures).

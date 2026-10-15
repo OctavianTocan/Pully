@@ -1,0 +1,21 @@
+@cc [owner:OctavianTocan,label:product;design] sound-no-ringing-controls
+No control plays a ringing or pitched glass tone. A tap, a select and a toggle are a dry
+click and a short knock, gone in a few hundredths of a second; ringing tones are only for
+outcomes such as success ("This sound, I hate it ... never use that sound for anything",
+rule 125; J3, J16).
+
+@cc [owner:OctavianTocan,label:architecture;product] sound-cue-per-role
+Each kind of control has one cue and one vibration, given by the kit (`cueClickable`,
+`cueCombinedClickable`); a screen MUST NOT pick its own. Every fold toggles the same way
+and every hold is the app's one hold, never the system's buzz (rule 120; J20).
+
+@cc [owner:OctavianTocan,label:product] sound-every-cue-is-felt
+Every control that plays a cue also vibrates with the phone's own short effects: a tick
+for a quiet button or a choice, a click for a main button or a switch, two for a success,
+a heavy one for a failure. A swipe ticks when letting go would act and again if taken
+back; a page that changes under the finger ticks (rule 109; H18).
+
+@cc [owner:OctavianTocan,label:product] sound-follows-the-phone
+Sounds play at the phone's touch-sound volume, stay silent in silent and vibrate modes and
+take no audio focus; vibration follows the phone's touch feedback setting and the app's
+own Vibration switch (rule 109).
