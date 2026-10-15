@@ -7,6 +7,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDp
@@ -38,6 +39,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
@@ -68,6 +71,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import com.octaviantocan.pulls.data.Activity
@@ -329,6 +333,15 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
                 if (expandable) LuIcon(if (expanded) Lu.chevd else Lu.chev, Modifier.padding(start = 6.dp, top = 3.dp), tint = c.mute, size = 14.dp)
             }
         }
+        // Thinking streams as it happens (rule 99): its newest lines under the shimmering title, folding away when it ends.
+        val motion = rememberMotionEnabled()
+        AnimatedVisibility(
+            running && activity.kind == "thinking" && fullText.isNotEmpty(),
+            enter = if (motion) fadeIn(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + expandVertically(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else EnterTransition.None,
+            exit = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkVertically(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None,
+        ) {
+            StreamingLines(fullText, style)
+        }
         if (failed && fullText.isNotEmpty()) Text(fullText, Modifier.padding(start = STEP_INDENT), style = PullsType.sm, color = c.error)
         if (expanded) {
             Box(Modifier.padding(start = STEP_INDENT).fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(4.dp)).background(c.raised).verticalScroll(rememberScrollState()).padding(8.dp)) {
@@ -336,6 +349,38 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
             }
         }
     }
+}
+
+/** How many of a running step's newest lines show under it. */
+private const val STREAM_LINES = 3
+
+/**
+ * The newest lines of text a running step is writing, under its title in the muted colour: at most [STREAM_LINES] lines
+ * tall, the newest at the bottom, the older ones leaving through a fade at the top as the text grows (rule 74).
+ */
+@Composable
+private fun StreamingLines(text: String, style: TextStyle) {
+    val c = LocalPullsColors.current
+    val lineHeight = with(LocalDensity.current) { style.lineHeight.toDp() }
+    val shown = remember(text) { streamTail(text) }
+    var overflows by remember { mutableStateOf(false) }
+    Box(
+        Modifier.padding(start = STEP_INDENT).fillMaxWidth().heightIn(max = lineHeight * STREAM_LINES).clipToBounds()
+            .then(if (overflows) Modifier.fadeTop(lineHeight) else Modifier),
+        contentAlignment = Alignment.BottomStart,
+    ) {
+        Text(
+            shown, Modifier.fillMaxWidth().wrapContentHeight(Alignment.Bottom, unbounded = true),
+            style = style, color = c.muted, onTextLayout = { overflows = it.lineCount > STREAM_LINES },
+        )
+    }
+}
+
+/** Fades the top [height] of what it draws to nothing, whatever lies behind it. */
+private fun Modifier.fadeTop(height: Dp): Modifier = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+    drawContent()
+    // raw-value-ok: an alpha mask that keeps the content where it is opaque, never drawn as a colour
+    drawRect(Brush.verticalGradient(0f to Color.Transparent, 1f to Color.Black, startY = 0f, endY = height.toPx()), blendMode = BlendMode.DstIn)
 }
 
 /**

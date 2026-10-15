@@ -14,6 +14,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,6 +40,8 @@ import com.octaviantocan.pulls.ui.ai.AnswerExtras
 import com.octaviantocan.pulls.ui.ai.AnswerSource
 import com.octaviantocan.pulls.ui.ai.AskField
 import com.octaviantocan.pulls.ui.ai.UserBubble
+import com.octaviantocan.pulls.ui.ai.answerSoFar
+import com.octaviantocan.pulls.ui.ai.pullReads
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullMentions
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -235,8 +238,11 @@ internal fun InboxAskSheet(ask: InboxAsk, listed: List<ListedPull>, onOpen: (Lis
     val split = if (followed >= 0) followed else turns.size
     val current = turns.getOrNull(split)
     val lastIndex = if (pending != null) -1 else turns.lastIndex
+    // The answer as it is written (rule 99), until the saved one takes its place. Not while a question waits to start:
+    // the task is still the last one then.
+    val written = task?.takeIf { pending == null && (it.running || it.status == "done") }?.let { answerSoFar(it.activities) }?.takeIf { current?.answer == null }
     val scroll = rememberScrollState()
-    LaunchedEffect(turns.size, pending, task?.activities?.size, streaming) { scroll.animateScrollTo(scroll.maxValue) }
+    LaunchedEffect(turns.size, pending, task?.activities?.size, streaming, written?.length) { scroll.animateScrollTo(scroll.maxValue) }
     val mentions = remember(known, onOpen) {
         PullMentions(resolve = { owner, repo, number -> listedPull(owner, repo, number, known) != null }) { owner, repo, number -> listedPull(owner, repo, number, known)?.let(onOpen) }
     }
@@ -246,10 +252,13 @@ internal fun InboxAskSheet(ask: InboxAsk, listed: List<ListedPull>, onOpen: (Lis
         val isLast = index == lastIndex
         val answer = turn.answer
         val failure = turn.error ?: task?.takeIf { turn.taskId == it.id && it.status == "failed" }?.error
+        // The steps of the turn: saved with it, or still on the task that wrote it.
+        val steps = turn.activities.ifEmpty { task?.takeIf { turn.taskId == it.id }?.activities.orEmpty() }
         when {
             answer != null -> {
                 Answer(answer)
-                val named = remember(answer, known) { mentionedPulls(answer, known) }
+                // The pull requests it names, then the ones it read and does not name (rule 99), each once.
+                val named = remember(answer, known, steps) { (mentionedPulls(answer, known) + mentionedPulls(pullReads(steps), known)).distinct() }
                 AnswerExtras(
                     answer,
                     named.map { pull -> AnswerSource("${pull.repo}#${pull.number}", "Open ${pull.owner}/${pull.repo}#${pull.number}") { onOpen(pull) } },
@@ -263,6 +272,8 @@ internal fun InboxAskSheet(ask: InboxAsk, listed: List<ListedPull>, onOpen: (Lis
                 Text(failure, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
                 if (isLast && !busy) FloatIcon(Lu.redo, "Ask again", { ask.ask(turn.question, retry = true) }, flat = true, iconSize = 22.dp, tint = c.muted)
             }
+            // Written, and on its way to being saved: the words stay where they are until the saved answer takes their place.
+            written != null && turn.taskId == task?.id -> Answer(written)
         }
     }
 
@@ -294,17 +305,23 @@ internal fun InboxAskSheet(ask: InboxAsk, listed: List<ListedPull>, onOpen: (Lis
                 turns.take(split).forEachIndexed { index, turn -> SavedTurn(turn, index) }
                 val asked = pending ?: current?.question ?: task?.takeIf { busy }?.text
                 if (asked != null) UserBubble(asked)
-                // From the moment the question is sent: "Thinking" and the time, then each step with its icon (rule 72).
+                // From the moment the question is sent: "Thinking" and the time, then each step with its icon (rule 72). When the
+                // answer is in, the same log folds to "Worked for…", so what is under it glides up instead of jumping (rule 69).
                 val sentAt = remember(pending) { System.currentTimeMillis() }
-                if (busy) {
-                    val live = task?.takeIf { streaming }
-                    AiActivityLogFull(live?.activities.orEmpty(), true, startedAt = live?.startedAt?.takeIf { it > 0 } ?: current?.startedAt ?: sentAt, compact = true, mark = false)
-                } else if (current != null) {
-                    val activities = current.activities.ifEmpty { task?.activities.orEmpty() }
-                    val outcome = current.outcome ?: if (task?.status == "failed") "failed" else "done"
-                    if (activities.isNotEmpty()) AiActivityLogFull(activities, false, startedAt = current.startedAt ?: task?.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true)
+                val steps = if (busy) task?.takeIf { streaming }?.activities.orEmpty() else current?.activities?.ifEmpty { task?.activities.orEmpty() }.orEmpty()
+                if (busy || steps.isNotEmpty()) key(if (pending != null) "pending" else task?.id) {
+                    AiActivityLogFull(
+                        steps, busy,
+                        startedAt = if (busy) (task?.takeIf { streaming }?.startedAt?.takeIf { it > 0 } ?: current?.startedAt ?: sentAt) else (current?.startedAt ?: task?.startedAt),
+                        endedAt = if (busy) null else task?.endedAt,
+                        outcome = current?.outcome ?: if (task?.status == "failed") "failed" else "done",
+                        compact = true, mark = false,
+                    )
                 }
-                AiLiveMark(busy, hint = true)
+                // The grey bars hint where the answer will arrive until its first words do (rule 71).
+                AiLiveMark(busy, hint = written == null)
+                // The answer as it is written, plain text in the place the saved one takes (rule 99).
+                if (busy && written != null) Answer(written)
                 if (current != null && !busy) TurnAnswer(current, split)
                 turns.drop(split + 1).forEachIndexed { offset, turn -> SavedTurn(turn, split + 1 + offset) }
                 ask.error?.let { Text(it, style = PullsType.sm, color = c.error) }

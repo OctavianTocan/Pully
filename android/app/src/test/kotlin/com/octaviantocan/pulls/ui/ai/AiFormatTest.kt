@@ -49,4 +49,15 @@ class AiFormatTest {
         assertEquals("ai.verb.thinking.past", verbKey("thinking", "done"))
         assertEquals("ai.verb.thinking.past", verbKey("thinking", "failed"))
     }
+
+    @Test
+    fun aStreamTailKeepsTheWordsWithoutTheirMarks() {
+        assertEquals("Checking the parser\nIt reads the body", streamTail("**Checking** the `parser`\n\n## It reads the body\n"))
+        assertEquals("rest", streamTail("…rest"))
+    }
+
+    @Test
+    fun aLongStreamKeepsItsEndCutAtAWord() {
+        assertEquals("delta epsilon", streamTail("alpha beta gamma delta epsilon", chars = 15))
+    }
 }

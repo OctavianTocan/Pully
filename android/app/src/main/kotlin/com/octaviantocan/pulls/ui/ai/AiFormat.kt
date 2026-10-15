@@ -46,3 +46,18 @@ fun lastLine(text: String): String {
 
 /** `ai.verb.<verb>.now` while running, else `ai.verb.<verb>.past`. */
 fun verbKey(verb: String, status: String): String = "ai.verb.$verb.${if (status == "running") "now" else "past"}"
+
+/**
+ * The end of streamed text, for the lines that show it growing under a running step: Markdown heading, emphasis and code
+ * marks dropped, blank lines closed up, and at most the last [chars] characters, cut at a word.
+ */
+fun streamTail(text: String, chars: Int = 600): String {
+    val lines = text.replace(HTML_COMMENT, "").removePrefix("…").split('\n')
+        .map { it.replace(HEADING, "").replace(MARKS, "").trim() }
+        .filter { it.isNotEmpty() }
+    val joined = lines.joinToString("\n")
+    if (joined.length <= chars) return joined
+    val cut = joined.substring(joined.length - chars)
+    val word = cut.indexOfFirst { it.isWhitespace() }
+    return if (word in 0 until cut.lastIndex) cut.substring(word + 1) else cut
+}
