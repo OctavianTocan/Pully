@@ -52,6 +52,13 @@ Options:
                  naming another image
   -h, --help
 
+Environment:
+  PULLS_REVIEW_TYPESAFE_API_KEY (or TYPESAFE_API_KEY)
+                 a TypeSafe AI key turns on Jev, TypeSafe's classifier model:
+                 the phone app then gets open pull requests sorted by kind and
+                 risk, and each diff's files by how much review they need.
+                 Without a key Jev stays off and nothing else changes
+
 To review a GitHub pull request in CI, use @pulls.review/actions.
 `
 

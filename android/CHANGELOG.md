@@ -12,6 +12,14 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.23.0
+
+Group pull requests by kind and see the riskiest first.
+
+- When the server has Jev, TypeSafe's classifier, the Sort sheet adds Riskiest first and a Group by choice: by repository or by kind, such as fixes, features and refactors.
+- Grouped by kind, each row names its repository next to the author.
+- In a pull request's files, the ones Jev thinks need a closer look say "Needs a look".
+
 ## 0.22.0
 
 Swipes and pages now move the way your finger goes.

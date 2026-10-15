@@ -257,12 +257,16 @@ private fun JsonObject.toEntry(): TourEntry? {
     )
 }
 
-/** How the Inbox orders its rows. The repositories then follow their first row, so a sort orders them too. */
-enum class InboxSort(val id: String, val label: String) {
+/**
+ * How the Inbox orders its rows. The groups then follow their first row, so a sort orders them too. [needsJev]: offered
+ * only while the server sorts pull requests with Jev.
+ */
+enum class InboxSort(val id: String, val label: String, val needsJev: Boolean = false) {
     Updated("updated", "Recently updated"),
     LeastUpdated("least-updated", "Least recently updated"),
     Number("number", "PR number"),
     Size("size", "Largest change"),
+    Risk("risk", "Riskiest first", needsJev = true),
     ;
 
     /** [pulls] in this order. Sorting is stable, so rows that tie keep the order the server sent. */
@@ -271,22 +275,86 @@ enum class InboxSort(val id: String, val label: String) {
         LeastUpdated -> pulls.sortedBy { it.updatedAtMs ?: Long.MAX_VALUE }
         Number -> pulls.sortedByDescending { it.number }
         Size -> pulls.sortedByDescending { (it.additions ?: 0) + (it.deletions ?: 0) }
+        // A row Jev has not sorted yet has no risk to compare, so it waits at the end rather than passing for trivial.
+        Risk -> pulls.sortedWith(compareBy<PullRow> { it.jev == null }.thenByDescending { it.jev?.risk ?: 0.0 })
     }
 
     companion object {
         fun of(id: String?): InboxSort = entries.firstOrNull { it.id == id } ?: Updated
+
+        /** The sorts the Sort sheet lists. */
+        fun offered(jev: Boolean): List<InboxSort> = entries.filter { jev || !it.needsJev }
     }
 }
 
+/** What the Inbox's headings are: the repositories (the default), or, while Jev is on, the kinds of change. */
+enum class InboxGrouping(val id: String, val label: String, val needsJev: Boolean = false) {
+    Repo("repo", "Repository"),
+    Kind("kind", "Kind", needsJev = true),
+    ;
+
+    companion object {
+        fun of(id: String?): InboxGrouping = entries.firstOrNull { it.id == id } ?: Repo
+
+        /** The groupings the Sort sheet lists. */
+        fun offered(jev: Boolean): List<InboxGrouping> = entries.filter { jev || !it.needsJev }
+    }
+}
+
+/** Jev's kinds as the Inbox groups them, in this order, each with its heading. */
+val JEV_KINDS: List<Pair<String, String>> = listOf(
+    "fix" to "Fixes",
+    "feature" to "Features",
+    "refactor" to "Refactors",
+    "performance" to "Performance",
+    "tests" to "Tests",
+    "docs" to "Docs",
+    "dependencies" to "Dependencies",
+    "infra" to "Infra",
+)
+
+/** The heading of the rows Jev has not sorted yet (or sorted into a kind this app does not know), after the kinds. */
+const val UNSORTED_LABEL = "Not sorted yet"
+
 /**
- * How the Inbox is laid out, kept on this phone: the sort, and the repositories whose rows are folded away under their
- * heading. A folded repository stays folded in Inbox and Tours alike, until a tap on its heading opens it again.
+ * One heading of the Inbox and its rows. [key] is what folds it (in [InboxLayout.folded]) and pins it: a repository's
+ * `owner/repo`, or `kind:<kind>` for a kind. [repo] is the repository a tap on the heading's name opens; a kind's name
+ * opens nothing.
+ */
+data class InboxSection(val key: String, val label: String, val pulls: List<PullRow>, val repo: Triage.RepoGroup? = null)
+
+/** [sorted] under the headings [grouping] asks for, every heading keeping the order of its rows. Empty kinds are left out. */
+fun inboxSections(sorted: List<PullRow>, grouping: InboxGrouping): List<InboxSection> = when (grouping) {
+    InboxGrouping.Repo -> {
+        val groups = Triage.groupByRepo(sorted)
+        val labels = Triage.groupLabels(groups)
+        groups.map { InboxSection(it.name, labels[it.name] ?: it.repo, it.pulls, it) }
+    }
+    InboxGrouping.Kind -> {
+        val known = JEV_KINDS.map { it.first }.toSet()
+        val byKind = sorted.groupBy { pull -> pull.jev?.kind?.takeIf { it in known } }
+        JEV_KINDS.mapNotNull { (kind, label) -> byKind[kind]?.let { InboxSection("kind:$kind", label, it) } } +
+            listOfNotNull(byKind[null]?.let { InboxSection("kind:none", UNSORTED_LABEL, it) })
+    }
+}
+
+/** By `owner/repo`, the name a row under a kind shows before its author: what its repository's heading would say. */
+fun repoLabels(pulls: List<PullRow>): Map<String, String> = Triage.groupLabels(Triage.groupByRepo(pulls))
+
+/**
+ * How the Inbox is laid out, kept on this phone: the sort, the grouping, and the headings whose rows are folded away
+ * (repositories by `owner/repo`, kinds by `kind:<kind>`). A folded repository stays folded in Inbox and Tours alike,
+ * until a tap on its heading opens it again. A sort or grouping that needs Jev is kept while Jev is off and comes back
+ * with it; meanwhile [sortWhen] and [groupByWhen] give the default in its place.
  */
 class InboxLayout(private val storage: KeyValueStore?) {
     var sort: InboxSort by mutableStateOf(InboxSort.of(runCatching { storage?.get(SORT_KEY) }.getOrNull()))
         private set
 
-    /** `owner/repo` of every folded repository. */
+    var groupBy: InboxGrouping by mutableStateOf(InboxGrouping.of(runCatching { storage?.get(GROUP_KEY) }.getOrNull()))
+        private set
+
+    /** The key of every folded heading. */
     var folded: Set<String> by mutableStateOf(readFolded())
         private set
 
@@ -295,10 +363,21 @@ class InboxLayout(private val storage: KeyValueStore?) {
         runCatching { storage?.set(SORT_KEY, value.id) }
     }
 
-    fun isFolded(repo: String): Boolean = repo in folded
+    fun updateGroupBy(value: InboxGrouping) {
+        groupBy = value
+        runCatching { storage?.set(GROUP_KEY, value.id) }
+    }
 
-    fun toggle(repo: String) {
-        folded = if (repo in folded) folded - repo else folded + repo
+    /** The sort in force: Riskiest first is Recently updated while Jev is off. */
+    fun sortWhen(jev: Boolean): InboxSort = if (sort.needsJev && !jev) InboxSort.Updated else sort
+
+    /** The grouping in force: Kind is Repository while Jev is off. */
+    fun groupByWhen(jev: Boolean): InboxGrouping = if (groupBy.needsJev && !jev) InboxGrouping.Repo else groupBy
+
+    fun isFolded(key: String): Boolean = key in folded
+
+    fun toggle(key: String) {
+        folded = if (key in folded) folded - key else folded + key
         runCatching { storage?.set(FOLDED_KEY, folded.joinToString("\n")) }
     }
 
@@ -307,6 +386,7 @@ class InboxLayout(private val storage: KeyValueStore?) {
 
     companion object {
         const val SORT_KEY = "pulls-review:inbox-sort:v1"
+        const val GROUP_KEY = "pulls-review:inbox-group:v1"
         const val FOLDED_KEY = "pulls-review:inbox-folded:v1"
     }
 }

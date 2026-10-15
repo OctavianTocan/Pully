@@ -237,6 +237,8 @@ export interface MyPull {
   headRef?: string
   /** Open pull requests only: the stack it is a layer of, when it is in one. */
   stack?: MyPullStack
+  /** Jev's classification of this head commit and title; absent until it is done, or when Jev is off. */
+  jev?: MyPullJev
 }
 
 /**
@@ -255,6 +257,18 @@ export interface MyPullStack {
   below?: number
 }
 
+/** What a pull request is for, as Jev sorts them. */
+export const MY_PULL_KINDS = ['feature', 'fix', 'refactor', 'performance', 'docs', 'tests', 'dependencies', 'infra'] as const
+
+export interface MyPullJev {
+  /** One of `MY_PULL_KINDS`; a client treats any other value as unknown. */
+  kind: string
+  /** How sure Jev is of `kind`, 0 to 1. */
+  kindConfidence: number
+  /** 0 trivial, 1 low, 2 medium, 3 high; probability-weighted, so it can sit between two levels. */
+  risk: number
+}
+
 export type MyPullReviewDecision = 'approved' | 'changes-requested' | 'review-required'
 /** `none`: the head commit reports no checks at all. */
 export type MyPullChecks = 'success' | 'failure' | 'pending' | 'none'
@@ -271,6 +285,8 @@ export interface MyPullsSnapshot {
   fetchedAt: number
   /** A newer list is being fetched right now. */
   refreshing: boolean
+  /** Present when the server classifies pull requests (`MyPull.jev`), so a client can offer grouping by kind and risk. */
+  classifier?: 'jev'
 }
 
 /** What a server task does; each saves its result where the page reads it back. */

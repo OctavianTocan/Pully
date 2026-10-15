@@ -62,6 +62,9 @@ class Repo(private val context: Context) {
 
     suspend fun fullFile(key: String, path: String): FullFile = call("file-content") { put("key", key); put("path", path) }.asFullFile()
 
+    /** Which files of an opened diff need a look, by Jev; `enabled` is false while the server has no Jev. */
+    suspend fun jevFiles(key: String): JevFiles = (call("jev-files") { put("key", key) } as? JsonObject)?.asJevFiles() ?: JevFiles(false, emptyMap(), 0)
+
     /** Shiki spans with the pierre theme, like the web diff. */
     suspend fun highlight(path: String, lines: List<String>, dark: Boolean): JsonObject =
         call("highlight") { put("path", path); put("dark", dark); put("lines", JsonArray(lines.map { JsonPrimitive(it) })) }.jsonObject

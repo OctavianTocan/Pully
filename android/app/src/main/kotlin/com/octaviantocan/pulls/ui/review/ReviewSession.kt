@@ -22,6 +22,7 @@ import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -69,6 +70,15 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** The `pr-overview` answer: `{ overview, mergeability, defaultCommits }` (PRs only). */
     var overview by mutableStateOf<JsonObject?>(null)
     var overviewError by mutableStateOf<String?>(null)
+
+    /**
+     * Jev's word on each file of [opened], by path: `p0` needs a human, `p1` is worth a look, `p2` is low attention. Empty
+     * while the server has no Jev, before it answers, and when asking failed; a file it has not sorted yet is missing.
+     */
+    var attention by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+    private var attentionKey: String? = null
+    private var attentionJob: Job? = null
 
     /** The stack this pull request is a layer of, bottom first (PRs only); null when it is in none or did not load. */
     var stack by mutableStateOf<PrStack?>(null)
@@ -157,7 +167,30 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         reloadSavedNow()
         runCatching { repo.reviewed(key) }.onSuccess { (shas, changed) -> reviewed = shas; changedSinceReviewed = changed }
         if (!hasAiResult) analyzeMode = "rules"
+        loadAttention()
         resumeTasks()
+    }
+
+    /**
+     * Asks Jev which files need a look once the diff has opened, then again every few seconds while it is still sorting
+     * some, for two minutes at most. Jev off or a failed call leaves the files unmarked and says nothing: the marks are
+     * a hint, not part of the review.
+     */
+    private fun loadAttention() {
+        val key = opened?.key ?: return
+        if (key != attentionKey) attention = emptyMap()
+        attentionKey = key
+        attentionJob?.cancel()
+        attentionJob = scope.launch {
+            val until = System.currentTimeMillis() + ATTENTION_FOR_MS
+            while (true) {
+                val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
+                if (!answer.enabled || attentionKey != key) break
+                attention = answer.files
+                if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
+                delay(ATTENTION_EVERY_MS)
+            }
+        }
     }
 
     fun reloadSaved() { scope.launch { reloadSavedNow() } }
@@ -343,6 +376,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     private companion object {
         const val REMEMBERED = 6
+        const val ATTENTION_EVERY_MS = 3_000L
+        const val ATTENTION_FOR_MS = 120_000L
 
         // Least recently opened first; the oldest goes when a seventh arrives. Touched on the main thread only.
         val recent = object : LinkedHashMap<String, Remembered>(8, 0.75f, true) {

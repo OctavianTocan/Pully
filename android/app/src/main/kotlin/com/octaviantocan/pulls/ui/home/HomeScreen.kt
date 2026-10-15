@@ -218,8 +218,12 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     // An archived pull request whose head commit moved since comes back, so only the still-current entries count.
     val archived = remember(pulls, archive.entries) { archive.active(pulls.orEmpty()) }
     val inbox = remember(pulls, ui.filter, archived, needle) { Triage.inbox(pulls.orEmpty(), ui.filter, archived, needle) }
-    val groups = remember(inbox.pulls, layout.sort) { Triage.groupByRepo(layout.sort.apply(inbox.pulls)) }
-    val labels = remember(groups) { Triage.groupLabels(groups) }
+    // Kind and Riskiest first need Jev; while the server has none the saved choice waits and the default stands in.
+    val sort = layout.sortWhen(sync.jev)
+    val groupBy = layout.groupByWhen(sync.jev)
+    val sorted = remember(inbox.pulls, sort) { sort.apply(inbox.pulls) }
+    val sections = remember(sorted, groupBy) { inboxSections(sorted, groupBy) }
+    val rowRepos = remember(sorted, groupBy) { if (groupBy == InboxGrouping.Kind) repoLabels(sorted) else emptyMap() }
     val viewer = remember(everything) { Triage.viewerLogin(everything.orEmpty()) }
     var profileOpen by remember { mutableStateOf(false) }
     var sortOpen by remember { mutableStateOf(false) }
@@ -290,13 +294,13 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             // The chips and the activity strip belong to the Inbox, so they slide away with it instead of popping (rule 105).
             BlurSwitch(ui.tab, Modifier.weight(1f).fillMaxWidth(), order = { it }) { tab ->
                 if (tab == 0) Column(Modifier.fillMaxSize()) {
-                    FilterChips(ui.filter, inbox.counts, layout.sort, onSort = { sortOpen = true }) { ui.filter = it }
+                    FilterChips(ui.filter, inbox.counts, sort, onSort = { sortOpen = true }) { ui.filter = it }
                     ActivityStrip(workTasks, { activityOpen = true })
                     InboxList(
-                        groups = groups, labels = labels, now = now, archived = archived, work = work,
+                        sections = sections, rowRepos = rowRepos, now = now, archived = archived, work = work,
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(),
-                        sort = layout.sort, folded = layout.folded, onFold = { group -> layout.toggle(group.name) },
+                        sort = sort, groupBy = groupBy, folded = layout.folded, onFold = { section -> layout.toggle(section.key) },
                         onRetry = reload, onCommands = { Commands.open(fromTop = true) },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                     )
@@ -364,7 +368,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             ActivitySheet(workTasks, onOpen = { ref -> nav.openTarget(OpenTarget.Pull(ref.owner, ref.repo, ref.number, "github.com")) }, onClose = { activityOpen = false })
         }
         if (sortOpen) {
-            SortSheet(layout.sort, onPick = layout::updateSort, onClose = { sortOpen = false })
+            SortSheet(sort, groupBy, jev = sync.jev, onPick = layout::updateSort, onGroup = layout::updateGroupBy, onClose = { sortOpen = false })
         }
         if (profileOpen) {
             ProfileSheet(
@@ -428,15 +432,37 @@ internal fun SortChip(sort: InboxSort, onClick: () -> Unit, modifier: Modifier =
     }
 }
 
-/** The ways the Inbox can be sorted, the current one ticked. A tap sorts at once and closes the sheet. */
+/**
+ * The ways the Inbox can be sorted, then what its headings are, the current ones ticked. A tap applies at once and
+ * closes the sheet. Riskiest first and Kind are there only while the server sorts pull requests with Jev, and with Jev
+ * off the grouping card would hold Repository alone, a choice of one, so it is left out (rule 1).
+ */
 @Composable
-internal fun SortSheet(sort: InboxSort, onPick: (InboxSort) -> Unit, onClose: () -> Unit) {
+internal fun SortSheet(sort: InboxSort, groupBy: InboxGrouping, jev: Boolean, onPick: (InboxSort) -> Unit, onGroup: (InboxGrouping) -> Unit, onClose: () -> Unit) {
     val c = LocalPullsColors.current
     PullsSheet(onClose, "Sort") {
+        SortSheetBody(sort, groupBy, jev, onPick = { onPick(it); onClose() }, onGroup = { onGroup(it); onClose() })
+    }
+}
+
+/** The Sort sheet's cards, apart from its window so a still can show them. */
+@Composable
+internal fun SortSheetBody(sort: InboxSort, groupBy: InboxGrouping, jev: Boolean, onPick: (InboxSort) -> Unit, onGroup: (InboxGrouping) -> Unit) {
+    val c = LocalPullsColors.current
+    SheetCard {
+        InboxSort.offered(jev).forEachIndexed { index, option ->
+            SheetRow(option.label, { onPick(option) }, first = index == 0, iconless = true) {
+                if (option == sort) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
+            }
+        }
+    }
+    val groupings = InboxGrouping.offered(jev)
+    if (groupings.size > 1) {
+        Text("Group by", Modifier.padding(start = 16.dp, top = 20.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         SheetCard {
-            InboxSort.entries.forEachIndexed { index, option ->
-                SheetRow(option.label, { onPick(option); onClose() }, first = index == 0, iconless = true) {
-                    if (option == sort) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
+            groupings.forEachIndexed { index, option ->
+                SheetRow(option.label, { onGroup(option) }, first = index == 0, iconless = true) {
+                    if (option == groupBy) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
                 }
             }
         }
@@ -446,8 +472,9 @@ internal fun SortSheet(sort: InboxSort, onPick: (InboxSort) -> Unit, onClose: ()
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun InboxList(
-    groups: List<Triage.RepoGroup>,
-    labels: Map<String, String>,
+    sections: List<InboxSection>,
+    /** By `owner/repo`, the repository name a row shows before its author; empty while the headings are repositories. */
+    rowRepos: Map<String, String>,
     now: Long,
     archived: Set<String>,
     work: Map<String, PullWork>,
@@ -456,8 +483,9 @@ internal fun InboxList(
     filter: String,
     searching: Boolean,
     sort: InboxSort,
+    groupBy: InboxGrouping,
     folded: Set<String>,
-    onFold: (Triage.RepoGroup) -> Unit,
+    onFold: (InboxSection) -> Unit,
     onRetry: () -> Unit,
     onCommands: () -> Unit,
     onOpen: (PullRow) -> Unit,
@@ -468,22 +496,23 @@ internal fun InboxList(
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp + updateFloatPadding()
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    // A search shows every repository it found something in, folded or not (rule 101).
-    fun isFolded(group: Triage.RepoGroup) = !searching && group.name in folded
-    val groupOfRow = remember(groups) { groups.flatMap { group -> group.pulls.map { Triage.key(it) to group.name } }.toMap() }
-    // A new sort starts the list from its top, where the order begins.
-    var sorted by remember { mutableStateOf(sort) }
-    LaunchedEffect(sort) {
-        if (sort != sorted) state.scrollToItem(0)
-        sorted = sort
+    // A search shows every heading it found something in, folded or not (rule 101).
+    fun isFolded(section: InboxSection) = !searching && section.key in folded
+    val sectionOfRow = remember(sections) { sections.flatMap { section -> section.pulls.map { Triage.key(it) to section.key } }.toMap() }
+    // A new sort or grouping starts the list from its top, where the order begins.
+    var laidOut by remember { mutableStateOf(sort to groupBy) }
+    LaunchedEffect(sort, groupBy) {
+        if (sort to groupBy != laidOut) state.scrollToItem(0)
+        laidOut = sort to groupBy
     }
-    fun fold(group: Triage.RepoGroup) {
+    fun open(section: InboxSection): (() -> Unit)? = section.repo?.let { repo -> { onRepo(repo) } }
+    fun fold(section: InboxSection) {
         var at = 0
-        for (each in groups) {
-            if (each.name == group.name) break
+        for (each in sections) {
+            if (each.key == section.key) break
             at += 1 + if (isFolded(each)) 0 else each.pulls.size
         }
-        onFold(group)
+        onFold(section)
         // Folded from its pinned heading, the repository's rows leave from under it: bring its heading back to the top.
         if (at <= state.firstVisibleItemIndex) scope.launch { state.scrollToItem(at) }
     }
@@ -491,10 +520,10 @@ internal fun InboxList(
     PullToCommands(onCommands, Modifier.fillMaxSize()) {
         PinnedHeadings(
             state,
-            groupOf = { key -> groupOfRow[key] },
-            heading = { name, modifier ->
-                groups.firstOrNull { it.name == name }?.let { group ->
-                    GroupHeading(labels[name] ?: group.repo, group.pulls.size, first = false, folded = isFolded(group), onFold = if (searching) null else ({ fold(group) }), onOpen = { onRepo(group) }, modifier = modifier, line = true)
+            groupOf = { key -> sectionOfRow[key] },
+            heading = { key, modifier ->
+                sections.firstOrNull { it.key == key }?.let { section ->
+                    GroupHeading(section.label, section.pulls.size, first = false, folded = isFolded(section), onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = modifier, line = true)
                 }
             },
         ) { fade ->
@@ -508,7 +537,7 @@ internal fun InboxList(
                 failed != null -> item(key = "failed") {
                     ListNote(t("local.home.failed"), hint = failed) { FloatIcon(Lu.redo, "Load the list again", onRetry, flat = true, iconSize = 22.dp, tint = c.muted) }
                 }
-                groups.isEmpty() -> item(key = "empty") {
+                sections.isEmpty() -> item(key = "empty") {
                     val title = when {
                         searching -> "Nothing matches"
                         filter == "waiting" -> "Nothing is waiting on you"
@@ -518,15 +547,15 @@ internal fun InboxList(
                     ListNote(title)
                 }
                 else -> {
-                    groups.forEachIndexed { index, group ->
-                        val shut = isFolded(group)
-                        item(key = groupKey(group.name)) {
+                    sections.forEachIndexed { index, section ->
+                        val shut = isFolded(section)
+                        item(key = groupKey(section.key)) {
                             GroupHeading(
-                                labels[group.name] ?: group.repo, group.pulls.size, first = index == 0, folded = shut,
-                                onFold = if (searching) null else ({ fold(group) }), onOpen = { onRepo(group) }, modifier = Modifier.animateItem(),
+                                section.label, section.pulls.size, first = index == 0, folded = shut,
+                                onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = Modifier.animateItem(),
                             )
                         }
-                        if (!shut) items(group.pulls, key = { Triage.key(it) }) { pull ->
+                        if (!shut) items(section.pulls, key = { Triage.key(it) }) { pull ->
                             val key = Triage.key(pull)
                             SwipeRow(
                                 label = "#${pull.number} ${pull.title}",
@@ -534,7 +563,7 @@ internal fun InboxList(
                                 onArchive = { onArchive(pull) },
                                 archived = key in archived,
                                 modifier = Modifier.animateItem(),
-                            ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)]) }
+                            ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)], repo = rowRepos["${pull.owner}/${pull.repo}"]) }
                         }
                     }
                 }
@@ -644,9 +673,12 @@ private const val SEARCH_DIM = 0.5f
 /** The most a swiped row blurs: Row W's 1.3px, a little stronger so it reads on a phone. */
 private val SWIPE_BLUR = 1.3.dp
 
-/** `.pr`: number and title on top; author, checks, diff size and age on a second line. */
+/**
+ * `.pr`: number and title on top; author, checks, diff size and age on a second line. Under a kind's heading, rows from
+ * several repositories mix, so the second line starts with the [repo] name, muted like the author it comes before.
+ */
 @Composable
-internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?) {
+internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?, repo: String? = null) {
     val c = LocalPullsColors.current
     val title = buildAnnotatedString {
         // The draft mark is muted at the title's own size, not a smaller run (rule 14).
@@ -669,7 +701,7 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
                     // A name wraps whole inside its column rather than being cut (rule 90).
-                    Text(pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+                    Text(if (repo != null) "$repo · ${pull.author}" else pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
                     StackTag(pull)
                     WorkMark(work)
                 }

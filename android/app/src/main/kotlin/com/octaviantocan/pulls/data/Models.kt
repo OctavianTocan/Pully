@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -49,7 +50,16 @@ data class PullRow(
     val headRef: String = "",
     /** Open pull requests only: its place in a stack, null when it is in none. */
     val stack: PullStack? = null,
+    /** Jev's classification of its head commit and title; null until the server has one, and while Jev is off. */
+    val jev: PullJev? = null,
 )
+
+/**
+ * What Jev, the server's classifier, made of a listed pull request (`MyPullJev` in core `local-rpc.ts`): its [kind]
+ * (`feature`, `fix`, `refactor`, `performance`, `docs`, `tests`, `dependencies` or `infra`), how sure it is of that
+ * from 0 to 1, and its [risk] from 0 (trivial) to 3 (high), which can sit between two levels.
+ */
+data class PullJev(val kind: String, val kindConfidence: Double, val risk: Double)
 
 /**
  * Where a listed pull request sits in a stack (`MyPullStack` in core `local-rpc.ts`): GitHub's own when
@@ -183,8 +193,28 @@ fun JsonObject.asPull(): PullRow {
         baseRef = obj.str("baseRef"),
         headRef = obj.str("headRef"),
         stack = (obj["stack"] as? JsonObject)?.asPullStack(),
+        jev = (obj["jev"] as? JsonObject)?.asPullJev(),
     )
 }
+
+/** A `MyPullJev`; null without a kind or a risk, which every classification has. */
+fun JsonObject.asPullJev(): PullJev? {
+    val kind = str("kind").ifBlank { return null }
+    val risk = this["risk"]?.jsonPrimitive?.doubleOrNull ?: return null
+    return PullJev(kind, this["kindConfidence"]?.jsonPrimitive?.doubleOrNull ?: 0.0, risk)
+}
+
+/**
+ * The `jev-files` answer for an opened diff: whether Jev is on, each classified file's priority by path (`p0` needs
+ * a human, `p1` is worth a look, `p2` is low attention), and how many files it is still sorting.
+ */
+data class JevFiles(val enabled: Boolean, val files: Map<String, String>, val pending: Int)
+
+fun JsonObject.asJevFiles(): JevFiles = JevFiles(
+    enabled = this["enabled"]?.jsonPrimitive?.contentOrNull == "true",
+    files = (this["files"] as? JsonObject).orEmpty().mapNotNull { (path, value) -> (value as? JsonObject)?.str("priority")?.ifBlank { null }?.let { path to it } }.toMap(),
+    pending = this["pending"]?.jsonPrimitive?.intOrNull ?: 0,
+)
 
 /** A `MyPullStack`; null without an id or a position, which no real stack lacks. */
 fun JsonObject.asPullStack(): PullStack? {
