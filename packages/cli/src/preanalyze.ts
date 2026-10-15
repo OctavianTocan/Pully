@@ -11,6 +11,7 @@ import { serializeRef, staticCredentials } from '@pulls.review/core/types'
 import { createStorage } from 'unstorage'
 import { runAiJob } from './ai/jobs'
 import { resolveGithubToken } from './credentials'
+import { prepareJev } from './jev-review'
 import { listMyPulls } from './my-pulls'
 import { createRepoCacheDriver } from './storage'
 
@@ -182,14 +183,19 @@ export async function startPreanalyze(options: PreanalyzeOptions): Promise<() =>
   // The CLI engines need no API key, so a model always resolves.
   const resolved = resolveModel(settings)!
 
+  const storage = createStorage({ driver: await createRepoCacheDriver(cwd) })
   const preanalyzer = createPreanalyzer({
     listPulls: () => listMyPulls('open'),
-    cache: createCacheRepositories(createStorage({ driver: await createRepoCacheDriver(cwd) }), SERVER_CACHE_BUDGET),
+    cache: createCacheRepositories(storage, SERVER_CACHE_BUDGET),
     fetchDiff: async pull => createGithubPullRequestSource(
       { owner: pull.owner, repo: pull.repo, number: String(pull.number) },
       staticCredentials(await resolveGithubToken(env)),
     ).fetch(),
-    analyze: (diff, pull, signal) => runLlmAnalysis(diff, resolved, DEFAULT_LOCALE, { signal, context: prContext(pull, diff), mentions: true }),
+    analyze: async (diff, pull, signal) => {
+      // An analysis is when Jev reads a pull request: its files rated and its kind and risk sorted, for the model's triage.
+      await prepareJev(diff, { storage })
+      return runLlmAnalysis(diff, resolved, DEFAULT_LOCALE, { signal, context: prContext(pull, diff), mentions: true })
+    },
     log,
   })
 

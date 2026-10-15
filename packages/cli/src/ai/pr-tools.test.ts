@@ -32,6 +32,25 @@ const BASE: PrPayload = {
 }
 
 describe('pr tools on the diff', () => {
+  it('offers Jev\'s triage first, only when Jev gave one', async () => {
+    expect(prTools(BASE).map(tool => tool.name)).not.toContain('triage_files')
+    const triaged: PrPayload = {
+      ...BASE,
+      triage: {
+        pull: { kind: 'fix', kindConfidence: 0.82, risk: 2.6 },
+        files: { 'src/queue.ts': { priority: 'p0', confidence: 0.9 }, 'pnpm-lock.yaml': { priority: 'p2', confidence: 0.97 } },
+      },
+    }
+    expect(prTools(triaged)[0]!.name).toBe('triage_files')
+    const text = await callPrTool(triaged, 'triage_files', {})
+    expect(text).toContain('Pull request: fix (82% sure), high risk (2.6 on a scale of 0 trivial to 3 high).')
+    expect(text).toContain('p0, needs human judgment')
+    expect(text).toContain('- src/queue.ts (90% sure)')
+    expect(text).toContain('- pnpm-lock.yaml (97% sure)')
+    expect(text).not.toContain('p1, worth a look')
+    expect(text).toContain('Not rated: 1 file')
+  })
+
   it('splits a patch into numbered hunks', () => {
     const hunks = parseHunks('src/queue.ts', QUEUE_PATCH)
     expect(hunks.map(hunk => [hunk.id, hunk.oldStart, hunk.newStart, hunk.lines.length])).toEqual([

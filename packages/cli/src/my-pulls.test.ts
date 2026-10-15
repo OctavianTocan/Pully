@@ -390,26 +390,46 @@ describe('classification with Jev', () => {
     }
   }
 
-  it('answers the list before Jev does, and later lists carry the classification', async () => {
+  it('lists without asking Jev, and sorts only when asked', async () => {
     const { service, bodies, answer } = setup()
     const [pull] = await service.list('open')
     expect(pull.jev).toBeUndefined()
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(bodies).toHaveLength(0)
 
+    const sorted = service.classify()
     await vi.waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0].state).toEqual({ repository: 'acme/app', title: 'PR n1', labels: ['bug'], branch: 'branch-n1', author: 'octo' })
     answer()
-    await vi.waitFor(async () => expect((await service.list('open'))[0].jev).toEqual({ kind: 'fix', kindConfidence: 0.8, risk: 0.6 }))
+    await sorted
+    expect((await service.list('open'))[0].jev).toEqual({ kind: 'fix', kindConfidence: 0.8, risk: 0.6 })
     expect(service.cached('open')).toMatchObject({ classifier: 'jev', pulls: [{ jev: { kind: 'fix' } }] })
+    expect(await service.jevOf({ owner: 'acme', repo: 'app', number: 1, headSha: pull.headSha, title: pull.title })).toEqual({ kind: 'fix', kindConfidence: 0.8, risk: 0.6 })
+  })
+
+  it('sorts one pull request on its own, the list\'s or one it does not hold', async () => {
+    const { service, bodies, answer } = setup()
+    const [listed] = await service.list('open')
+    const other = { ...listed, number: 9, title: 'Add dark mode', headSha: 'sha-9' }
+    const sorted = service.classify(pull => pull.number === 42, [other])
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0].state).toMatchObject({ title: 'Add dark mode' })
+    answer()
+    await sorted
+    expect((await service.list('open'))[0].jev).toBeUndefined()
+    expect(await service.jevOf(other)).toMatchObject({ kind: 'fix' })
   })
 
   it('does not ask again for a pull request it already classified', async () => {
     const { service, bodies, answer, tick } = setup()
     await service.list('open')
+    const sorted = service.classify()
     await vi.waitFor(() => expect(bodies).toHaveLength(1))
     answer()
-    await vi.waitFor(async () => expect((await service.list('open'))[0].jev).toBeDefined())
+    await sorted
     tick(60_000)
     await service.list('open')
+    await service.classify()
     expect(bodies).toHaveLength(1)
   })
 
@@ -417,9 +437,11 @@ describe('classification with Jev', () => {
     const { service, bodies, answer } = setup(() => Response.json({ error: 'bad key' }, { status: 401 }))
     expect(await service.list('open')).toHaveLength(1)
     expect(service.cached('open')).toMatchObject({ classifier: 'jev' })
+    const sorted = service.classify()
     await vi.waitFor(() => expect(bodies).toHaveLength(1))
     answer()
-    await vi.waitFor(() => expect(service.cached('open')).not.toHaveProperty('classifier'))
+    await sorted
+    expect(service.cached('open')).not.toHaveProperty('classifier')
     const [pull] = await service.list('open')
     expect(pull.jev).toBeUndefined()
   })
@@ -427,6 +449,7 @@ describe('classification with Jev', () => {
   it('without a key, offers no grouping and asks nothing', async () => {
     const { service, bodies } = setup(undefined, {})
     await service.list('open')
+    await service.classify()
     expect(service.cached('open')).not.toHaveProperty('classifier')
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(bodies).toHaveLength(0)

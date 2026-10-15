@@ -176,4 +176,15 @@ describe('createPullClassifier', () => {
     await classifier.classify([pull(1)])
     expect(classifier.apply([pull(1)])[0].jev).toEqual({ kind: 'feature', kindConfidence: 0.4, risk: 3 })
   })
+
+  it('looks up a classification at a head and title, from storage after a restart, without asking Jev', async () => {
+    const first = setup()
+    await first.classifier.classify([pull(1)])
+    expect(await first.classifier.lookup(pull(1))).toEqual({ kind: 'fix', kindConfidence: 0.9, risk: 1.4 })
+    expect(await first.classifier.lookup(pull(1, { headSha: 'sha-new' }))).toBeUndefined()
+
+    const restarted = setup({ store: first.store })
+    expect(await restarted.classifier.lookup(pull(1))).toEqual({ kind: 'fix', kindConfidence: 0.9, risk: 1.4 })
+    expect(restarted.states).toHaveLength(0)
+  })
 })

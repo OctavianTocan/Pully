@@ -72,6 +72,18 @@ describe('ai tasks', () => {
     expect(tasks.list('other')).toEqual([])
   })
 
+  it('has Jev read the diff before a review of the whole of it, and not before a question', async () => {
+    const triage = vi.fn<NonNullable<TaskRunners['triage']>>(async () => {})
+    const { tasks } = await setup({ triage })
+    for (const kind of ['analyze', 'critique', 'tour', 'brief'] as const)
+      await settled(tasks.wait, await tasks.start(kind === 'critique' ? { kind, key: KEY, model, variant: 'default' } : { kind, key: KEY, model, locale: 'en' }))
+    expect(triage).toHaveBeenCalledTimes(4)
+    expect(triage.mock.calls[0]![0]).toMatchObject({ title: diff.title })
+    const asked = await tasks.start({ kind: 'ask', key: KEY, model, threadId: 't', selection: { path: 'a.ts', side: 'additions', startLine: 1, endLine: 1 }, question: 'Why?' })
+    await settled(tasks.wait, asked)
+    expect(triage).toHaveBeenCalledTimes(4)
+  })
+
   it('keeps running when nobody follows it, and joins a running task doing the same work', async () => {
     const gate = deferred<Awaited<ReturnType<TaskRunners['analyze']>>>()
     const { tasks, cache } = await setup({ analyze: vi.fn<TaskRunners['analyze']>(() => gate.promise) })
