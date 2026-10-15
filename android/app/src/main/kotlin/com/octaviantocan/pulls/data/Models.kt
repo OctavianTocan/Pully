@@ -43,7 +43,20 @@ data class PullRow(
     val merged: Boolean = false,
     val headSha: String = "",
     val reviewRequests: List<String> = emptyList(),
+    /** The branch it merges into; empty when the server did not say. */
+    val baseRef: String = "",
+    /** The branch it merges from; empty when the server did not say. */
+    val headRef: String = "",
+    /** Open pull requests only: its place in a stack, null when it is in none. */
+    val stack: PullStack? = null,
 )
+
+/**
+ * Where a listed pull request sits in a stack (`MyPullStack` in core `local-rpc.ts`): GitHub's own when
+ * [native], else inferred from branch names. [position] 1 sits on the base branch; [below] is the
+ * number of the pull request this one sits on, when the server knows it.
+ */
+data class PullStack(val id: String, val position: Int, val size: Int, val native: Boolean, val below: Int?)
 
 data class ReviewFile(
     val path: String,
@@ -167,6 +180,22 @@ fun JsonObject.asPull(): PullRow {
         merged = bool("merged") == true,
         headSha = obj.str("headSha"),
         reviewRequests = (obj["reviewRequests"] as? JsonArray).orEmpty().mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull },
+        baseRef = obj.str("baseRef"),
+        headRef = obj.str("headRef"),
+        stack = (obj["stack"] as? JsonObject)?.asPullStack(),
+    )
+}
+
+/** A `MyPullStack`; null without an id or a position, which no real stack lacks. */
+fun JsonObject.asPullStack(): PullStack? {
+    val position = this["position"]?.jsonPrimitive?.intOrNull ?: return null
+    val id = str("id").ifBlank { return null }
+    return PullStack(
+        id = id,
+        position = position,
+        size = this["size"]?.jsonPrimitive?.intOrNull ?: 0,
+        native = this["native"]?.jsonPrimitive?.contentOrNull == "true",
+        below = this["below"]?.jsonPrimitive?.intOrNull,
     )
 }
 

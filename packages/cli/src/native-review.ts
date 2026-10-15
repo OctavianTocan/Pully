@@ -12,6 +12,7 @@ import {
   fetchGithubTokenMeta,
   fetchOpenPullRequests,
   fetchPullRequestOverview,
+  fetchPullRequestStack,
   mergePullRequest,
   updatePullRequestBranch,
   updatePullRequestText,
@@ -23,8 +24,8 @@ import { serverSession } from './server-session'
 
 /**
  * The phone's review routes beyond opening a diff: reviewed marks, full file content,
- * the PR overview and its actions, pending reviews, posting an AI review, sharing an
- * analysis, a repository's pull requests, and clearing the chat. Each one runs the
+ * the PR overview and its actions, the stack a PR sits in, pending reviews, posting an AI
+ * review, sharing an analysis, a repository's pull requests, and clearing the chat. Each one runs the
  * same core function the web stores call, with the server's GitHub token.
  */
 type Args = Record<string, unknown> | undefined
@@ -163,6 +164,15 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const overview = await fetchPullRequestOverview(await client(), owner, repo, number)
     const commits = Object.fromEntries(MERGE_METHODS.map(method => [method, defaultMergeCommit(overview, method)]))
     return { overview, mergeability: assessMergeability(overview), defaultCommits: commits }
+  },
+
+  /**
+   * The stack the PR is a layer of, bottom first: GitHub's own, or inferred from branch names when GitHub has
+   * none (or this host has no stack fields). `{ stack: null }` when the PR is in no stack.
+   */
+  'pr-stack': async function (_cwd, args) {
+    const { owner, repo, number } = pullOf(args)
+    return { stack: await fetchPullRequestStack(await client(), owner, repo, number) }
   },
 
   /** Merge now or when checks pass, close, reopen, ready, draft, edit the title or description, or update the branch. */

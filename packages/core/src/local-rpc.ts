@@ -227,6 +227,28 @@ export interface MyPull {
   changedFiles?: number
   /** Logins and `org/team` slugs with a pending review request. */
   reviewRequests?: string[]
+  /** The branch it merges into. */
+  baseRef?: string
+  /** The branch it merges from. */
+  headRef?: string
+  /** Open pull requests only: the stack it is a layer of, when it is in one. */
+  stack?: MyPullStack
+}
+
+/**
+ * Where a pull request sits in a stack: GitHub's own (`native`), or inferred from the listed open
+ * pull requests, one stacked on another when its base branch is the other's head branch.
+ */
+export interface MyPullStack {
+  /** The same for every layer of one stack: `native:<owner>/<repo>:<stack number>` or `inferred:<owner>/<repo>:<bottom head branch>`. */
+  id: string
+  /** 1 sits on the base branch; each layer above counts up. Siblings of a fork share a position. */
+  position: number
+  /** How many pull requests the stack holds. */
+  size: number
+  native: boolean
+  /** The number of the pull request this one sits on, when it is listed or known. */
+  below?: number
 }
 
 export type MyPullReviewDecision = 'approved' | 'changes-requested' | 'review-required'

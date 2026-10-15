@@ -12,6 +12,13 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.20.0
+
+See which pull requests are stacked on others.
+
+- A pull request that sits on another shows a stack mark on Home, with the number of the one under it.
+- On the pull request, a chip under the title says what it is stacked on. Tap it to see the whole stack, top to bottom, and open any other layer.
+
 ## 0.19.0
 
 New versions float above the search and notify your phone.

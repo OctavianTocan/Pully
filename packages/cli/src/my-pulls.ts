@@ -1,5 +1,5 @@
 import type { Env } from '@pulls.review/core/env'
-import type { MyPull, MyPullChecks, MyPullMergeable, MyPullReviewDecision, MyPullRole, MyPullsSnapshot, MyPullState } from '@pulls.review/core/local-rpc'
+import type { MyPull, MyPullChecks, MyPullMergeable, MyPullReviewDecision, MyPullRole, MyPullsSnapshot, MyPullStack, MyPullState } from '@pulls.review/core/local-rpc'
 import process from 'node:process'
 import { MY_PULL_ROLES } from '@pulls.review/core/local-rpc'
 import { resolveGithubToken } from './credentials'
@@ -25,7 +25,8 @@ export type GithubGraphql = <T>(query: string, variables: Record<string, unknown
 
 const LIGHT_FIELDS = `
   id number title url state isDraft updatedAt mergedAt closedAt headRefOid
-  repository { nameWithOwner }
+  baseRefName headRefName isCrossRepository
+  repository { nameWithOwner defaultBranchRef { name } }
   author { login }
   comments { totalCount }
   labels(first: 10) { nodes { name } }`
@@ -42,6 +43,14 @@ const ENRICH_QUERY = `query($ids: [ID!]!) {
   } }
 }`
 
+/**
+ * GitHub's own stacks (generally available since October 2026). A request of its own, never folded into
+ * the ones above: a host whose schema lacks these fields fails it, and that only means "no native stacks".
+ */
+const NATIVE_STACK_QUERY = `query($ids: [ID!]!) {
+  nodes(ids: $ids) { ... on PullRequest { id stack { number size baseRefName } stackEntry { position } } }
+}`
+
 const OWNERS_QUERY = `query { viewer { login organizations(first: 100) { nodes { login } } } }`
 
 export interface SearchNode {
@@ -55,7 +64,11 @@ export interface SearchNode {
   mergedAt: string | null
   closedAt?: string | null
   headRefOid: string
-  repository: { nameWithOwner: string }
+  baseRefName: string
+  headRefName: string
+  /** The head branch lives in a fork. */
+  isCrossRepository?: boolean
+  repository: { nameWithOwner: string, defaultBranchRef?: { name: string } | null }
   author: { login: string } | null
   comments: { totalCount: number }
   labels: { nodes: { name: string }[] } | null
@@ -72,20 +85,33 @@ export interface EnrichNode {
   reviewRequests: { nodes: { requestedReviewer: { login?: string, combinedSlug?: string } | null }[] } | null
 }
 
+export interface NativeStackNode {
+  id: string
+  stack: { number: number, size: number, baseRefName: string } | null
+  stackEntry: { position: number } | null
+}
+
 /** A search hit with the GraphQL node id the enrichment request needs. */
 export interface FoundPull {
   id: string
   pull: MyPull
+  /** Its head branch lives in a fork, so no pull request of the repository can sit on it. */
+  crossRepository?: boolean
+  /** The repository's default branch: a pull request based on it is the bottom of whatever it is in. */
+  defaultBranch?: string
 }
 
 type Enrichment = Pick<MyPull, 'reviewDecision' | 'checks' | 'mergeable' | 'additions' | 'deletions' | 'changedFiles' | 'reviewRequests'>
 
-interface EnrichmentEntry {
+interface EnrichmentEntry<T = Enrichment> {
   updatedAt: string
   headSha: string
   fetchedAt: number
-  data: Enrichment
+  data: T
 }
+
+/** GitHub's own stack of one pull request, `null` when it is in none. */
+export type NativeStack = { number: number, size: number, position: number } | null
 
 /**
  * The GitHub search behind each role.
@@ -116,6 +142,8 @@ export function toFoundPull(node: SearchNode, role: MyPullRole, state: MyPullSta
   const [owner = '', repo = ''] = node.repository.nameWithOwner.split('/')
   return {
     id: node.id,
+    crossRepository: node.isCrossRepository,
+    defaultBranch: node.repository.defaultBranchRef?.name,
     pull: {
       owner,
       repo,
@@ -133,6 +161,8 @@ export function toFoundPull(node: SearchNode, role: MyPullRole, state: MyPullSta
       closedAt: state === 'closed' ? node.mergedAt ?? node.closedAt ?? undefined : undefined,
       headSha: node.headRefOid,
       requestedFromMe: role === 'review-requested',
+      baseRef: node.baseRefName,
+      headRef: node.headRefName,
     },
   }
 }
@@ -206,12 +236,134 @@ export function toEnrichment(node: EnrichNode): Enrichment {
   }
 }
 
+/**
+ * @param node The native stack request's answer for one pull request.
+ * @returns Its place in GitHub's own stack, or `null` when it is in none.
+ */
+export function toNativeStack(node: NativeStackNode): NativeStack {
+  return node.stack && node.stackEntry && node.stack.size > 1
+    ? { number: node.stack.number, size: node.stack.size, position: node.stackEntry.position }
+    : null
+}
+
+/** What stack inference reads of a listed pull request. */
+export interface StackCandidate {
+  owner: string
+  repo: string
+  number: number
+  baseRef?: string
+  headRef?: string
+  /** Its head branch lives in a fork, so nothing can sit on it. */
+  crossRepository?: boolean
+  /** A pull request based on the repository's default branch is a bottom, whatever else is open. */
+  defaultBranch?: string
+}
+
+const pullKey = (pull: { owner: string, repo: string, number: number }) => `${pull.owner}/${pull.repo}#${pull.number}`
+
+/**
+ * Stacks among listed open pull requests, inferred from branch names the way Graphite, spr and plain
+ * branches stack: within one repository, A sits on B when A's base branch is B's head branch. Two or more
+ * pull requests joined that way, as a chain or a tree, are one stack.
+ *
+ * @param pulls Open pull requests GitHub has no stack for.
+ * @returns Each stacked pull request's place keyed `owner/repo#number`; one in no stack is left out.
+ */
+export function inferStacks(pulls: StackCandidate[]): Map<string, MyPullStack> {
+  const repoOf = (pull: StackCandidate) => `${pull.owner}/${pull.repo}`
+  const byHead = new Map<string, StackCandidate[]>()
+  for (const pull of pulls) {
+    if (!pull.headRef || pull.crossRepository)
+      continue
+    const key = `${repoOf(pull)}:${pull.headRef}`
+    byHead.set(key, [...byHead.get(key) ?? [], pull])
+  }
+  // What each one sits on. Two open pull requests can share a head branch (into different bases); the lower number wins.
+  const below = new Map<StackCandidate, StackCandidate>()
+  for (const pull of pulls) {
+    if (!pull.baseRef || pull.baseRef === pull.defaultBranch)
+      continue
+    const parent = byHead.get(`${repoOf(pull)}:${pull.baseRef}`)?.filter(other => other !== pull).sort((a, b) => a.number - b.number)[0]
+    if (parent)
+      below.set(pull, parent)
+  }
+  // Each one's bottom and depth; branches that loop (A on B on A) have no bottom and make no stack.
+  const placed = pulls.flatMap((pull) => {
+    const seen = new Set([pull])
+    let bottom = pull
+    for (let parent = below.get(bottom); parent; parent = below.get(bottom)) {
+      if (seen.has(parent))
+        return []
+      seen.add(parent)
+      bottom = parent
+    }
+    return [{ pull, bottom, position: seen.size }]
+  })
+  const sizes = new Map<StackCandidate, number>()
+  for (const { bottom } of placed)
+    sizes.set(bottom, (sizes.get(bottom) ?? 0) + 1)
+  const stacks = new Map<string, MyPullStack>()
+  for (const { pull, bottom, position } of placed) {
+    const size = sizes.get(bottom)!
+    if (size > 1)
+      stacks.set(pullKey(pull), { id: `inferred:${repoOf(bottom)}:${bottom.headRef}`, position, size, native: false, below: below.get(pull)?.number })
+  }
+  return stacks
+}
+
+/**
+ * Gives each listed open pull request its stack: GitHub's own first, then one inferred from branch names
+ * among those GitHub has none for.
+ *
+ * @param found The listed open pull requests; their `pull.stack` is set in place.
+ * @param nativeOf GitHub's own stack of one, by node id; `undefined` when unknown.
+ */
+export function applyStacks(found: FoundPull[], nativeOf: (id: string) => NativeStack | undefined): void {
+  const rest: FoundPull[] = []
+  for (const hit of found) {
+    const native = nativeOf(hit.id)
+    if (native)
+      hit.pull.stack = { id: `native:${hit.pull.owner}/${hit.pull.repo}:${native.number}`, position: native.position, size: native.size, native: true }
+    else
+      rest.push(hit)
+  }
+  for (const hit of found) {
+    const stack = hit.pull.stack
+    if (!stack)
+      continue
+    const layers = found.filter(other => other !== hit && other.pull.stack?.id === stack.id)
+    const below = layers.find(other => !other.crossRepository && other.pull.headRef === hit.pull.baseRef)
+      ?? layers.find(other => other.pull.stack!.position === stack.position - 1)
+    if (below)
+      stack.below = below.pull.number
+  }
+  const inferred = inferStacks(rest.map(({ pull, crossRepository, defaultBranch }) => ({ ...pull, crossRepository, defaultBranch })))
+  for (const hit of rest) {
+    const stack = inferred.get(pullKey(hit.pull))
+    if (stack)
+      hit.pull.stack = stack
+  }
+}
+
 /** Whether a previous enrichment still describes `pull`. */
 function isReusable(entry: EnrichmentEntry | undefined, pull: MyPull, now: number): entry is EnrichmentEntry {
   if (!entry || entry.updatedAt !== pull.updatedAt || entry.headSha !== pull.headSha)
     return false
   const settled = entry.data.checks !== 'pending' && entry.data.mergeable !== 'unknown'
   return now - entry.fetchedAt < (settled ? SETTLED_ENRICHMENT_TTL_MS : UNSETTLED_ENRICHMENT_TTL_MS)
+}
+
+/** Whether a previous native stack answer still describes `pull`; joining or leaving a stack may not move `updatedAt`, so it ages out. */
+function isStackReusable(entry: EnrichmentEntry<NativeStack> | undefined, pull: MyPull, now: number): entry is EnrichmentEntry<NativeStack> {
+  return !!entry && entry.updatedAt === pull.updatedAt && entry.headSha === pull.headSha && now - entry.fetchedAt < SETTLED_ENRICHMENT_TTL_MS
+}
+
+/** Splits `items` into requests of {@link ENRICH_CHUNK}. */
+function chunked<T>(items: T[]): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < items.length; i += ENRICH_CHUNK)
+    chunks.push(items.slice(i, i + ENRICH_CHUNK))
+  return chunks
 }
 
 /** Runs `tasks` with at most `limit` in flight. */
@@ -255,6 +407,8 @@ export interface MyPullsServiceOptions {
 export function createMyPullsService(options: MyPullsServiceOptions): MyPullsService {
   const { graphql, now = Date.now } = options
   const enrichments = new Map<string, EnrichmentEntry>()
+  const nativeStacks = new Map<string, EnrichmentEntry<NativeStack>>()
+  let nativeUnsupportedUntil = 0
   let owners: { logins: string[], fetchedAt: number } | undefined
 
   async function ownerLogins(): Promise<string[]> {
@@ -276,10 +430,7 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
 
   async function enrich(found: FoundPull[]): Promise<void> {
     const stale = found.filter(({ id, pull }) => !isReusable(enrichments.get(id), pull, now()))
-    const chunks: FoundPull[][] = []
-    for (let i = 0; i < stale.length; i += ENRICH_CHUNK)
-      chunks.push(stale.slice(i, i + ENRICH_CHUNK))
-    await runLimited(chunks.map(chunk => async () => {
+    await runLimited(chunked(stale).map(chunk => async () => {
       const startedAt = now()
       try {
         const data = await graphql<{ nodes: (EnrichNode | null)[] }>(ENRICH_QUERY, { ids: chunk.map(hit => hit.id) })
@@ -300,6 +451,29 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
     }
   }
 
+  /** Reads GitHub's own stacks into `nativeStacks`, like `enrich`; a failure only leaves them unknown. */
+  async function readNativeStacks(found: FoundPull[]): Promise<void> {
+    if (now() < nativeUnsupportedUntil)
+      return
+    const stale = found.filter(({ id, pull }) => !isStackReusable(nativeStacks.get(id), pull, now()))
+    await runLimited(chunked(stale).map(chunk => async () => {
+      const startedAt = now()
+      try {
+        const data = await graphql<{ nodes: (NativeStackNode | null)[] }>(NATIVE_STACK_QUERY, { ids: chunk.map(hit => hit.id) })
+        for (const node of data.nodes) {
+          const hit = node && chunk.find(candidate => candidate.id === node.id)
+          if (node && hit)
+            nativeStacks.set(node.id, { updatedAt: hit.pull.updatedAt, headSha: hit.pull.headSha ?? '', fetchedAt: startedAt, data: toNativeStack(node) })
+        }
+      }
+      catch (error) {
+        // A host without the stack fields refuses every such request alike, so stop asking it for a while.
+        if (/doesn't exist on type/i.test(error instanceof Error ? error.message : String(error)))
+          nativeUnsupportedUntil = now() + OWNERS_TTL_MS
+      }
+    }), ENRICH_CONCURRENCY)
+  }
+
   async function fetchList(state: MyPullState): Promise<MyPull[]> {
     const logins = await ownerLogins().catch(() => [])
     const batches = await Promise.all(searchQueries(state, logins).map(([role, query]) => search(role, query, state)))
@@ -307,9 +481,11 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
     const requested = new Set(batches.find(([role]) => role === 'review-requested')?.[1].map(hit => hit.id))
     for (const hit of merged)
       hit.pull.requestedFromMe = requested.has(hit.id)
-    // Closed pull requests have no review or check state worth triaging.
-    if (state === 'open')
-      await enrich(merged)
+    // Closed pull requests have no review, check or stack state worth triaging.
+    if (state === 'open') {
+      await Promise.all([enrich(merged), readNativeStacks(merged)])
+      applyStacks(merged, id => nativeStacks.get(id)?.data)
+    }
     return merged.map(hit => hit.pull)
   }
 
