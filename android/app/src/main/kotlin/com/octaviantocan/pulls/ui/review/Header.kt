@@ -21,8 +21,8 @@ class ReviewTopUi {
     var busy by mutableStateOf<String?>(null)
     var actionError by mutableStateOf<String?>(null)
 
-    var progressOpen by mutableStateOf(false)
     var reviewOpen by mutableStateOf(false)
+    /** The merge page is on screen, so a failed merge is said there and not in a toast. */
     var mergeOpen by mutableStateOf(false)
 
     /** The verdict the submit sheet opens on: `COMMENT`, `APPROVE` or `REQUEST_CHANGES`. */

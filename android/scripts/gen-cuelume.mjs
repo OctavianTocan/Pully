@@ -1,7 +1,8 @@
 // Generates app/src/main/assets/cuelume/recipes.json and assets/licenses/cuelume.txt from the
 // Cuelume package (https://github.com/danielwh2/cuelume, MIT): every theme's fourteen cues as
 // the layers the package itself plays, with its `knock` / `struck` / `click` builders already
-// expanded. `sound/Palette.kt` reads the file, so the phone plays the same recipes the web does.
+// expanded. `sound/Palette.kt` reads the file, so the phone plays the same recipes the web does, except
+// where `cuelume-pulls.mjs` replaces one (the default tap); the file lists those under "pulls".
 // Run from the repo root:
 //   node android/scripts/gen-cuelume.mjs [path-to-unpacked-cuelume-package]
 // Without a path it downloads the pinned version with `npm pack`.
@@ -11,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
+import { withPulls } from './cuelume-pulls.mjs'
 
 const VERSION = '0.2.8'
 const root = new URL('../../', import.meta.url).pathname
@@ -25,7 +27,9 @@ function packageDir() {
 }
 
 const pkg = packageDir()
-const { THEMES } = await import(pathToFileURL(join(pkg, 'dist/sounds/themes.js')).href)
+const { THEMES: CUELUME_THEMES } = await import(pathToFileURL(join(pkg, 'dist/sounds/themes.js')).href)
+const builders = await import(pathToFileURL(join(pkg, 'dist/sounds/layers.js')).href)
+const { themes: THEMES, replaced } = withPulls(CUELUME_THEMES, builders)
 
 const assets = join(root, 'android/app/src/main/assets')
 mkdirSync(join(assets, 'cuelume'), { recursive: true })
@@ -47,8 +51,8 @@ const themes = Object.entries(THEMES).map(([theme, cues]) => {
   })
   return `${pad(2, `"${theme}": {`)}\n${body.join(',\n')}\n${pad(2, '}')}`
 })
-writeFileSync(join(assets, 'cuelume/recipes.json'), `{\n  "version": "${VERSION}",\n  "themes": {\n${themes.join(',\n')}\n  }\n}\n`)
+writeFileSync(join(assets, 'cuelume/recipes.json'), `{\n  "version": "${VERSION}",\n  "pulls": ${JSON.stringify(replaced)},\n  "themes": {\n${themes.join(',\n')}\n  }\n}\n`)
 
 mkdirSync(join(assets, 'licenses'), { recursive: true })
 copyFileSync(join(pkg, 'LICENSE'), join(assets, 'licenses/cuelume.txt'))
-console.log(`Wrote recipes.json for cuelume ${VERSION}: ${Object.keys(THEMES).join(', ')}`)
+console.log(`Wrote recipes.json for cuelume ${VERSION}: ${Object.keys(THEMES).join(', ')}; Pulls' own: ${replaced.join(', ')}`)

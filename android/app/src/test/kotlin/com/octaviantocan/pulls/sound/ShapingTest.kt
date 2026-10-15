@@ -29,13 +29,25 @@ class ShapingTest {
 
     @Test
     fun emphasisChoosesWhichLayersPlay() {
-        // tap: subtle strips the nail's tick and the knock, strong adds a layer only it plays
+        // tap: subtle strips the nail's tick and the wooden body, strong adds a deeper knock and a thock only it plays
         val subtle = layers(Cue.Tap, Emphasis.Subtle).size
         val normal = layers(Cue.Tap).size
         val strong = layers(Cue.Tap, Emphasis.Strong).size
         assertEquals(3, subtle)
         assertEquals(5, normal)
         assertEquals(7, strong)
+    }
+
+    @Test
+    fun theDefaultControlsNeverRing() {
+        // Tavi hates Cuelume's glass tap (J3, J16): a button, a choice and a switch in Default are a click and a knock,
+        // gone in a few hundredths of a second at every emphasis, with no tone ringing on above the knock's register.
+        for (cue in listOf(Cue.Tap, Cue.Select, Cue.Toggle)) {
+            for (emphasis in Emphasis.entries) {
+                val tones = layers(cue, emphasis, Interaction(input = Input.Touch)).filter { it.kind == Kind.Tone }
+                assertTrue(tones.isNotEmpty() && tones.all { it.decay < 0.06 && it.frequency < 1000 }, "$cue $emphasis")
+            }
+        }
     }
 
     @Test

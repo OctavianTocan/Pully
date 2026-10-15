@@ -59,6 +59,9 @@ object Haptics {
     /** A page changed under the finger, such as the Inbox to Tours. */
     fun page() = feel(Feel.Tick)
 
+    /** A sheet came up and reached its place, or a finger moved it to its other height (J12). */
+    fun sheet() = feel(Feel.Click)
+
     private enum class Feel(val effect: Int) {
         Tick(VibrationEffect.EFFECT_TICK),
         Click(VibrationEffect.EFFECT_CLICK),

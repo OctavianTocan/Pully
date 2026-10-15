@@ -39,6 +39,35 @@ class ChangelogTest {
     }
 
     @Test
+    fun sortsBulletsUnderGroupHeadings() {
+        val entries = parseChangelog(
+            """
+            ## 0.11.0
+
+            Groups for what is new and what is fixed.
+
+            - A bullet before any group.
+
+            ### New
+
+            - Edit a title in place.
+
+            ### Fixed
+
+            - Sheets no longer close
+              on a scroll.
+            """.trimIndent() + "\n\n" + text,
+        )
+        val groups = entries[0].groups
+        assertEquals(listOf(null, "New", "Fixed"), groups.map { it.title })
+        assertEquals(listOf("Sheets no longer close on a scroll."), groups[2].items)
+        // Every bullet is in the flat list too, as an older build reads it.
+        assertEquals(groups.flatMap { it.items }, entries[0].items)
+        // A section without headings is one group with no title.
+        assertEquals(listOf(ChangelogGroup(null, entries[1].items)), entries[1].groups)
+    }
+
+    @Test
     fun comparesVersionsAsNumbers() {
         assertTrue(compareVersions("0.10.0", "0.9.2") > 0)
         assertTrue(compareVersions("0.9.0", "0.10.0") < 0)

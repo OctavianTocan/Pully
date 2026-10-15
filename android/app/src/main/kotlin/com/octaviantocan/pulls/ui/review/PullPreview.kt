@@ -20,6 +20,9 @@ internal data class PullPreview(
     val files: Int? = null,
     val additions: Int? = null,
     val deletions: Int? = null,
+    /** The branches it merges, `main` and `feature/x`, so the Overview shows them before GitHub answers (J13). */
+    val base: String = "",
+    val head: String = "",
 )
 
 /**
@@ -33,7 +36,7 @@ internal fun pullPreview(context: Context, target: OpenTarget): PullPreview? {
         val raw = home.get(MyPullsSync.STORAGE_PREFIX + state) ?: continue
         val snapshot = runCatching { (Json.parseToJsonElement(raw) as? JsonObject)?.asSnapshot() }.getOrNull() ?: continue
         val row = snapshot.pulls.firstOrNull { it.owner.equals(pull.owner, true) && it.repo.equals(pull.repo, true) && it.number == pull.number } ?: continue
-        return PullPreview(row.title, row.author.takeIf { it.isNotBlank() }, row.isDraft, row.changedFiles, row.additions, row.deletions)
+        return PullPreview(row.title, row.author.takeIf { it.isNotBlank() }, row.isDraft, row.changedFiles, row.additions, row.deletions, row.baseRef, row.headRef)
     }
     val tour = TourIndex(deviceStore(context, "pulls-inbox")).get("${pull.owner}/${pull.repo}#${pull.number}")
     return tour?.prTitle?.takeIf { it.isNotBlank() }?.let { PullPreview(it) }

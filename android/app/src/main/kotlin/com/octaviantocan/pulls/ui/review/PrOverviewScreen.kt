@@ -1,5 +1,17 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.rememberSidePages
+import com.octaviantocan.pulls.ui.design.sideSwipe
+import kotlin.math.roundToInt
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.PullSizes
 import androidx.compose.ui.graphics.graphicsLayer
@@ -10,8 +22,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -38,7 +48,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,7 +70,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.showsDescription
 import com.octaviantocan.pulls.core.summaryKey
-import com.octaviantocan.pulls.core.swipedTabOrNext
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -94,17 +102,15 @@ import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
-import com.octaviantocan.pulls.ui.design.pageSlide
-import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.design.hairlineTop
+import com.octaviantocan.pulls.ui.design.bleed
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.offset
-import com.octaviantocan.pulls.core.pageWay
 
 /**
  * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
@@ -136,82 +142,54 @@ internal fun PrOverviewScreen(
     val editing = editFocus.editing
     val stepBack by animateFloatAsState(if (editing != null) EDIT_DIM else 1f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "edit-dim")
     fun Modifier.backUnless(field: String) = graphicsLayer { alpha = if (editing == null || editing == field) 1f else stepBack }
-    // A tap on the empty page leaves a field the person was editing in place, which saves it (rule 83).
+    // While a field is edited, a tap anywhere else on the page only leaves the field, which saves it: nothing under it
+    // opens, switches or swipes (J17, rule 83).
+    fun Modifier.holdUnless(field: String) = then(if (editing != null && editing != field) Modifier.pointerInput(editing) { leaveOnTap { focusManager.clearFocus() } } else Modifier)
     CompositionLocalProvider(LocalEditFocus provides editFocus) {
     Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
-        // The header with the capsule is the review's, above all three views (rule 93).
-        Column(Modifier.fillMaxSize()) {
-            // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
-            // own beside the conversation (rule 91). All three are there from the start, so the row never changes shape
-            // when the conversation arrives (rule 53).
-            val labels = listOf("Summary", "Commits", "Conversation")
-            val shown = pane.coerceAtMost(labels.lastIndex)
-            val commitAnchor = remember { mutableStateOf<Int?>(null) }
-            val slide = rememberPageSlide(shown, order = { it }, full = true)
-            // A swipe left or right moves between the tabs, and left past the last one goes on to the Diff (rule 93).
-            var drag by remember { mutableFloatStateOf(0f) }
-            val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
-            val fling = with(LocalDensity.current) { PullsMotion.Fling.toPx() }
-            val range = with(LocalDensity.current) { PullsMotion.FingerRange.toPx() }
-            // The rows follow the finger toward a tab or the Diff, and stay put against the first tab.
-            val swipe = rememberDraggableState { delta ->
-                drag += delta
-                // Back past the first tab goes nowhere; on past the last one goes to the Diff (rule 93).
-                slide.follow(delta, range, back = shown > 0)
+        // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
+        // own beside the conversation (rule 91). All three are there from the start, so the row never changes shape
+        // when the conversation arrives (rule 53).
+        val labels = listOf("Summary", "Commits", "Conversation")
+        val shown = pane.coerceAtMost(labels.lastIndex)
+        val commitAnchor = remember { mutableStateOf<Int?>(null) }
+        // The three tabs are pages side by side under one head (J15): a swipe anywhere that has no sideways swipe of its
+        // own moves them with the finger, the head's included (J21), the tab stroke sits where the pages are, and on past
+        // the last tab the swipe goes on to the Diff (rule 93).
+        val sides = rememberSidePages(shown, labels.size, onPane, onPastEnd = { onDiff(null) })
+        // Each tab keeps its own list and where it was scrolled (J9); the Summary's is the review's, so coming back from
+        // the Diff finds it where it was.
+        val others = remember { List(labels.size - 1) { LazyListState() } }
+        val lists = remember(scroll) { listOf(scroll) + others }
+        var headHeight by remember { mutableIntStateOf(0) }
+        val density = LocalDensity.current
+        // How far the head has gone up with the tab in view: as far as that tab's list has scrolled past it.
+        fun lifted(list: LazyListState) = if (list.firstVisibleItemIndex > 0) headHeight else minOf(list.firstVisibleItemScrollOffset, headHeight)
+        val front by remember { derivedStateOf { lists[sides.at.roundToInt().coerceIn(0, labels.lastIndex)] } }
+        // The tabs beside the one in view sit at the same height under the head, so a swipe brings them in level with it:
+        // the head where it is, and each tab where it was left once the head has gone (J9).
+        LaunchedEffect(lists, headHeight) {
+            snapshotFlow { lifted(front) }.collect { up ->
+                lists.forEach { list ->
+                    if (list === front) return@forEach
+                    val theirs = lifted(list)
+                    if (up < headHeight && theirs != up) list.requestScrollToItem(0, up)
+                    else if (up >= headHeight && theirs < headHeight) list.requestScrollToItem(1, 0)
+                }
             }
+        }
+        SidePages(sides, labels.indices.toList(), Modifier.fillMaxSize().holdUnless("description")) { tab ->
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
-                Modifier.weight(1f).fillMaxWidth().draggable(
-                    swipe, Orientation.Horizontal,
-                    onDragStarted = { drag = 0f },
-                    onDragStopped = { velocity ->
-                        // A throw counts as well as a long drag, and the rows go on the way the finger went (rule 105).
-                        // Past the last tab the swipe goes on to the Diff, and the rows leave with the whole view.
-                        val to = swipedTabOrNext(shown, labels.size, drag, swipeFrom, velocity, fling)
-                        drag = 0f
-                        if (to == labels.size) {
-                            onDiff(null)
-                            slide.leave(pageWay(shown, to), velocity)
-                        } else {
-                            onPane(to)
-                            slide.release(if (to == shown) 0 else pageWay(shown, to), velocity)
-                        }
-                    },
-                ),
-                state = scroll,
+                Modifier.fillMaxSize(),
+                state = lists[tab],
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
             ) {
-                item(key = "head") {
-                    // Only the page under the tabs swipes between them (H32): a sideways drag on the title, the branch
-                    // or the numbers is held here, so the list's swipe never sees it.
-                    val still = rememberDraggableState { }
-                    Column(Modifier.draggable(still, Orientation.Horizontal)) {
-                        val overview = data?.overview
-                        EditableText(
-                            head.title, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.xxl, saved = "Title updated",
-                            onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
-                            modifier = Modifier.backUnless("title"),
-                        ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
-                        Column(Modifier.backUnless("")) {
-                        PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
-                        if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head)
-                        StackMark(session.stack) { onSheet("stack") }
-                        if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
-                            StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))
-                        }
-                        SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
-                        val overviewError = session.overviewError
-                        if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
-                        StatsLine(session, data, onSheet, onCommits = { onPane(COMMITS_TAB) })
-                        // The ink leans toward the next tab with the finger, and slides there when it changes (rule 105).
-                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true, pull = { slide.pull(range) })
-                        }
-                    }
-                }
-                // The tabs follow the finger at once; the rows under them leave and arrive as a page (rule 73). They hold
-                // the description, so they step back only while the title is edited.
-                val rows = Modifier.pageSlide(slide).backUnless("description")
-                when (slide.shown.coerceAtMost(labels.lastIndex)) {
+                // The head is drawn over the lists, so this is the room it takes at the top of each.
+                item(key = "head") { Spacer(Modifier.fillMaxWidth().height(with(density) { headHeight.toDp() })) }
+                // The rows hold the description, so they step back only while the title is edited.
+                val rows = Modifier.backUnless("description")
+                when (tab) {
                     0 -> {
                         item(key = "summary") { Box(rows) { SummaryPane(session, top, data, onCite, onSheet) } }
                         filesItems(session, ui, onDiff, onSheet, rows)
@@ -221,8 +199,39 @@ internal fun PrOverviewScreen(
                 }
             }
         }
+        // The head: the title, who and when, the branch, the numbers and the tabs. It goes up with the tab in view and
+        // scrolls it when dragged, and a sideways drag on it moves the tabs' pages like one on them (J21).
+        Column(
+            Modifier.fillMaxWidth()
+                .onSizeChanged { headHeight = it.height }
+                .graphicsLayer { translationY = -lifted(front).toFloat() }
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                .scrollable(front, Orientation.Vertical, reverseDirection = true)
+                .sideSwipe(sides),
+        ) {
+            val overview = data?.overview
+            EditableText(
+                head.title, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.xxl, saved = "Title updated",
+                onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
+                modifier = Modifier.backUnless("title").holdUnless("title"),
+            ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
+            Column(Modifier.backUnless("").holdUnless("")) {
+                PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
+                if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head.base, head.head)
+                StackMark(session.stack) { onSheet("stack") }
+                if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
+                    StaleBanner(session, { top.polls = 0; session.refresh() }, Modifier.padding(top = 12.dp))
+                }
+                SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
+                val overviewError = session.overviewError
+                if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
+                StatsLine(session, data, onSheet, onCommits = { onPane(COMMITS_TAB) })
+                // The stroke sits where the pages are, so the tab and the page under it move as one (J15).
+                UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true, position = { sides.at })
+            }
+        }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
-        BottomBar(session, head, Modifier.align(Alignment.BottomCenter).backUnless(""), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
+        BottomBar(session, head, Modifier.align(Alignment.BottomCenter).backUnless("").holdUnless(""), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
             top.reviewVerdict = "APPROVE"
             top.reviewOpen = true
         })
@@ -531,8 +540,13 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
     sections.forEachIndexed { index, section ->
         val label = section.label
         val folded = label != null && ui.isFolded(label, total)
+        // The Inbox's fold heading (J18): run out over the list's side padding so it sits as the Inbox's does, its line
+        // drawn only while folded; open, the first file's own line is the one under it (rule 75).
         if (label != null) item(key = "section:$index") {
-            FoldHeading(label, section.files.size, first = index == 0, folded = folded, modifier = rows.padding(top = 4.dp)) { ui.folds[label] = !folded }
+            FoldHeading(
+                label, section.files.size, first = index == 0, folded = folded,
+                modifier = rows.bleed(16.dp).padding(top = 4.dp).animateItem(), line = folded, background = LocalPullsColors.current.base,
+            ) { ui.folds[label] = !folded }
         }
         if (!folded) itemsIndexed(section.files, key = { _, file -> "file:${file.path}" }) { index, file ->
             val state = session.reviewState(file)
@@ -541,13 +555,14 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
             // The same gestures as the Inbox rows (rule 56): right opens it, as it opens a pull request, left marks it
             // reviewed (or not), a tap opens it and a long-press offers the rest.
             SwipeRow(
-                file.path, onOpen = { onDiff(file.path) }, onArchive = toggle, archived = false, modifier = rows,
+                file.path, onOpen = { onDiff(file.path) }, onArchive = toggle, archived = false, modifier = rows.animateItem(),
                 startLabel = "Open", startIcon = Lu.arrow,
                 endLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", endIcon = Lu.check,
                 onLongClick = { onSheet(FILE_SHEET + file.path) },
             ) {
-                // The first row of a list has no line above it, so the heading over it has none under it (rule 75).
-                FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0, needsLook = session.attention[file.path] == "p0", onToggle = toggle)
+                // The first row of a list has no line above it, unless a heading is over it: then that line is the
+                // heading's underline (rule 75, J18).
+                FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0 || label != null, needsLook = session.attention[file.path] == "p0", onToggle = toggle)
             }
         }
     }

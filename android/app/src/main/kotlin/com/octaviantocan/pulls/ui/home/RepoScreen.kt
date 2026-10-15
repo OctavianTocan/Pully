@@ -1,7 +1,10 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
+import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.data.PullSizes
 import kotlinx.serialization.json.jsonObject
@@ -290,8 +293,11 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                 }
                 Text(repo, style = PullsType.xxl, color = c.text)
             }
-            CapsuleTabs(listOf("Pull requests", "Tours"), tab, { tab = it }, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp))
-            SidePages(tab, listOf(0, 1), { tab = it }, Modifier.weight(1f).fillMaxWidth()) { page ->
+            val sides = rememberSidePages(tab, 2, { tab = it })
+            CapsuleTabs(listOf("Pull requests", "Tours"), tab, { tab = it }, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), position = { sides.at })
+            // Pulling down past the top opens Commands here as on every page (J30).
+            PullToCommands({ Commands.open() }, Modifier.weight(1f).fillMaxWidth()) {
+            SidePages(sides, listOf(0, 1), Modifier.fillMaxSize()) { page ->
             if (page == 1) {
                 val mine = tours.entries.filter {
                     it.owner.equals(owner, ignoreCase = true) && it.repo.equals(repo, ignoreCase = true) &&
@@ -303,7 +309,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                 return@SidePages
             }
             Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val sortScroll = rememberScrollState()
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp).sideScrollFade(sortScroll).horizontalScroll(sortScroll).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PullListQuery.sorts.forEach { option -> SoftChip(t("pulls.sort.$option"), option == sort, { sort = option }) }
             }
             val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
@@ -343,6 +350,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                         }
                     }
                 }
+            }
             }
             }
             }

@@ -11,9 +11,10 @@ import kotlin.test.assertTrue
 
 /**
  * Holds the port to the original. `cuelume-reference.json` holds what Cuelume 0.2.8 itself sounds like
- * (see `android/scripts/gen-cuelume-reference.mjs`): every cue in every material, the emphases, the
- * ways a cue bends to its context, a press and its release, and a walk. Each is rendered here and its
- * loudness over time must match within half a decibel.
+ * (see `android/scripts/gen-cuelume-reference.mjs`), with Pulls' own Default tap rendered by the same
+ * engine: every cue in every material, the emphases, the ways a cue bends to its context, a press and
+ * its release, and a walk. Each is rendered here and its loudness over time must match within half a
+ * decibel.
  */
 class CuelumeFidelityTest {
     private val palette = Palette.parse(File("src/main/assets/cuelume/recipes.json").readText())

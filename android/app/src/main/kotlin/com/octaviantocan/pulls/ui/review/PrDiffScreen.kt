@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.sound.Haptics
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -28,7 +29,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -36,10 +36,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animate
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,11 +53,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -70,13 +77,16 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.codeScrollAfterZoom
 import com.octaviantocan.pulls.core.nextUnreviewed
 import com.octaviantocan.pulls.core.rowTopAfterZoom
 import com.octaviantocan.pulls.core.softBreaks
-import com.octaviantocan.pulls.core.swipedFile
+import com.octaviantocan.pulls.core.BACKWARD
+import com.octaviantocan.pulls.core.FORWARD
+import com.octaviantocan.pulls.core.swipeStep
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Sounds
@@ -90,7 +100,6 @@ import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
-import com.octaviantocan.pulls.ui.design.PageSlide
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsShadow
@@ -102,18 +111,20 @@ import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.design.hairlineTop
 import com.octaviantocan.pulls.ui.design.pageSlide
 import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
+import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import com.octaviantocan.pulls.core.pageWay
 import com.octaviantocan.pulls.ui.design.LabelSwitch
@@ -121,12 +132,16 @@ import com.octaviantocan.pulls.ui.design.LabelSwitch
 /** What the code keeps clear under its last line: the bar's 52dp pill and the space around it (rule 92). */
 private val BAR_ROOM = 84.dp
 
+/** The counts line, and the air between it and the code (rule 40), which is see-through so code passing under it fades there. */
+private val COUNTS_HEIGHT = 44.dp
+private val COUNTS_AIR = 24.dp
+
 /**
  * The prototype's diff under the review's header (the back button and the capsule, with Aa in its corner, rule 93):
- * one scrolling file, its AI note, its counts and Reviewed box, its rows and a Reviewed box again at its end. Pinned
- * under it is the bar: ‹, the file you are on and ›, which turns into the comment field while lines are selected
- * (rule 94). [path] is the file shown; [onPath] moves to another, and a swipe on the file does the same, past the ends
- * into [onOverview] and [onTour].
+ * one scrolling file, its AI note, then its counts and Reviewed box, which stay pinned at the top while the file is
+ * shown and its rows scroll under them. Pinned under it is the bar: ‹, the file you are on and ›, which turns into the
+ * comment field while lines are selected (rule 94). The files sit side by side (rule 107): [path] is the file shown,
+ * [onPath] moves to another, and a swipe on the file does the same, past the ends into [onOverview] and [onTour].
  */
 @Composable
 internal fun PrDiffScreen(
@@ -145,35 +160,77 @@ internal fun PrDiffScreen(
     val file = files.getOrNull(index)
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
-    // Another file arrives as a page (rule 88): for a beat the rows still hold the one that is leaving.
-    val slide = rememberPageSlide(file?.path, order = { p -> files.indexOfFirst { it.path == p } }, full = true)
-    val shown = files.firstOrNull { it.path == slide.shown } ?: file
 
     Box(Modifier.fillMaxSize().background(c.base)) {
-        if (file == null || shown == null) {
+        if (file == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No files in this change.", style = PullsType.sm, color = c.muted) }
         } else {
-            FileBody(
-                session, ui, shown, file, files, index, slide, onPath, onOverview, onTour, onFiles, onAsk,
-                Modifier.fillMaxSize().padding(top = 8.dp),
-            )
+            FilePages(session, ui, files, index, onPath, onOverview, onTour, onFiles, onAsk, Modifier.fillMaxSize().padding(top = 8.dp))
         }
     }
 }
 
 /**
- * One file's note, counts and rows, scrolling as one (rule 92), with the bar over them. [file] is the file the rows
- * hold and [target] the one the bar names; they differ only while a swipe's page change runs.
+ * Where the row of files sits, by path. [current] is the file the page rests on; while the row moves, [other] is the
+ * one beside it, on the right when [way] is forward and on the left when backward, and [at] is how far the row has
+ * gone toward it, from 0 to [way]. A swipe puts the next or the previous file there; a jump from the arrows, the Files
+ * sheet or a ticked Reviewed puts the file it goes to there however far apart the two are in the list, so a move is
+ * always one page with both files in view and never a blank one.
+ */
+@Stable
+private class FileSlide(start: String) {
+    var current by mutableStateOf(start)
+    var other by mutableStateOf<String?>(null)
+    var way by mutableIntStateOf(FORWARD)
+    var at by mutableFloatStateOf(0f)
+    var glide: Job? = null
+
+    /** The file a swipe settled on that the screen has yet to take up, and how fast it was thrown, in pages a second. */
+    var thrownTo: String? = null
+    var speed = 0f
+
+    /** Where [path] is drawn, in pages from the screen: 0 on it, 1 a page to the right. */
+    fun place(path: String): Float = if (path == current) -at else way - at
+
+    /** Rests at once on whichever of the two is nearer, as if the move had finished or never started. */
+    fun snap() {
+        other?.let { if (abs(at) > 0.5f) current = it }
+        other = null
+        at = 0f
+    }
+
+    /** Glides to [to] with the page spring, starting at [speed] pages a second, and rests there. [order] ranks the files. */
+    suspend fun settle(to: String, speed: Float, motion: Boolean, order: (String) -> Int) {
+        if (to != current && to != other) {
+            snap()
+            if (to != current) {
+                other = to
+                way = pageWay(order(current), order(to))
+            }
+        }
+        if (motion) {
+            val end = if (to == current) 0f else way.toFloat()
+            animate(at, end, initialVelocity = speed, animationSpec = PullsMotion.PageSpring) { value, _ -> at = value }
+        }
+        current = to
+        other = null
+        at = 0f
+    }
+}
+
+/**
+ * The files side by side, as `SidePages` sets the Inbox and Tours (rule 107): the file on screen and the next one move
+ * together the whole width with a gap between them, the next arriving from the edge as this one leaves, and nothing
+ * fades. A drag moves both with the finger and letting go settles on the nearer, or goes on the way a throw went (rule
+ * 105); past the first or the last file the page follows the finger alone and leaves with the view on that side. Each
+ * file keeps its place in its list, so coming back to one finds it where it was left.
  */
 @Composable
-private fun FileBody(
+private fun FilePages(
     session: ReviewSession,
     ui: DiffUi,
-    file: ReviewFile,
-    target: ReviewFile,
     files: List<ReviewFile>,
     index: Int,
-    slide: PageSlide<String?>,
     onPath: (String) -> Unit,
     onOverview: () -> Unit,
     onTour: () -> Unit,
@@ -182,75 +239,135 @@ private fun FileBody(
     modifier: Modifier,
 ) {
     val c = LocalPullsColors.current
-    val listState = rememberLazyListState()
+    val target = files[index]
+    val slide = remember { FileSlide(target.path) }
     val scope = rememberCoroutineScope()
-    val note = session.saved?.analysis?.files?.firstOrNull { it.path == file.path }?.summary?.takeIf { it.isNotBlank() }
-    val dark = c.dark
-
-    // A new file starts at its top with nothing selected.
-    LaunchedEffect(file.path) {
-        ui.drafts.clear()
-        ui.selectionStart.clear()
-        ui.mark = null
-        if (session.focus?.path != file.path) listState.scrollToItem(0)
-    }
-    // Syntax colors for the rows on screen come from the server, a file at a time.
-    val texts = remember(ui.entries(file)) { ui.entries(file).mapNotNull { (it as? DiffEntry.Line)?.line?.text } }
-    LaunchedEffect(file.path, texts, dark) { if (!file.isBinary) ui.highlight(file, texts, dark) }
-    DiffFocus(session, ui, file, listState)
-
-    // A sideways swipe is the next or previous file, and past the ends the view either side (rule 93). The rows follow
-    // the finger like the Overview's tabs do; a swipe that falls short puts them back.
+    val motion = rememberMotionEnabled()
+    val latest by rememberUpdatedState(files)
+    val order = { p: String -> latest.indexOfFirst { it.path == p } }
+    // Past the first or the last file: the page that leaves with the whole view, toward the Overview or the Tour.
+    val edge = rememberPageSlide(Unit, order = { 0 }, full = true)
+    var width by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val swipeFrom = with(density) { 64.dp.toPx() }
     val fling = with(density) { PullsMotion.Fling.toPx() }
     val range = with(density) { PullsMotion.FingerRange.toPx() }
-    var drag by remember { mutableFloatStateOf(0f) }
     val count = files.size
+
+    fun glideTo(to: String, speed: Float = 0f) {
+        slide.glide?.cancel()
+        slide.glide = scope.launch { slide.settle(to, speed, motion, order) }
+    }
+
+    // A new file starts with nothing selected, and the row glides to it, as fast as a swipe that chose it was thrown.
+    LaunchedEffect(target.path) {
+        ui.drafts.clear()
+        ui.selectionStart.clear()
+        ui.mark = null
+        val speed = if (slide.thrownTo == target.path) slide.speed else 0f
+        slide.thrownTo = null
+        slide.speed = 0f
+        if (slide.current != target.path || slide.at != 0f) glideTo(target.path, speed)
+    }
+
+    // Syntax colours come from the server a file at a time. Asking for the files a swipe or an arrow away too, while this
+    // one is read, has them coloured before they arrive instead of plain first; a left-out patch is fetched the same way.
+    val dark = c.dark
+    listOf(index, index + 1, index - 1, index + 2).mapNotNull { files.getOrNull(it) }.forEach { near ->
+        val texts = ui.lineTexts(near)
+        key(near.path) {
+            LaunchedEffect(texts, dark) { if (!near.isBinary) ui.highlight(near, texts, dark) }
+            LaunchedEffect(near.patchOmitted) { if (near.patchOmitted) session.loadPatches(patchesAround(session.files, near.path)) }
+        }
+    }
+
+    fun dragBy(delta: Float) {
+        if (width <= 0) return
+        // A finger stops a glide where it is; one between two files far apart in the list rests on the nearer first.
+        if (slide.glide?.isActive == true) {
+            slide.glide?.cancel()
+            val other = slide.other
+            if (other != null && abs(order(other) - order(slide.current)) != 1) slide.snap()
+        }
+        var rest = delta
+        if (edge.finger != 0f) {
+            val before = edge.finger
+            edge.follow(rest, range, back = before > 0f, forward = before < 0f)
+            rest -= edge.finger - before
+            if (edge.finger != 0f || rest == 0f) return
+        }
+        val at = order(slide.current)
+        if (at < 0) return
+        val next = slide.at - rest / width
+        val lo = if (at > 0) -1f else 0f
+        val hi = if (at in 0 until count - 1) 1f else 0f
+        val held = next.coerceIn(lo, hi)
+        slide.at = held
+        when {
+            held > 0f -> { slide.way = FORWARD; slide.other = files[at + 1].path }
+            held < 0f -> { slide.way = BACKWARD; slide.other = files[at - 1].path }
+            else -> slide.other = null
+        }
+        // Past the first or the last file the page follows the finger alone, toward the view on that side.
+        if (next < 0f && lo == 0f) edge.follow(-next * width, range, back = true, forward = false)
+        if (next > 0f && hi == 0f) edge.follow(-next * width, range, back = false, forward = true)
+    }
+
+    fun release(velocity: Float) {
+        if (edge.finger != 0f) {
+            // A throw counts as well as a long drag, and the page goes on the finger's way with the whole view (rule 105).
+            when (swipeStep(edge.finger, swipeFrom, velocity, fling)) {
+                BACKWARD -> { onOverview(); scope.launch { edge.leave(BACKWARD, velocity) } }
+                FORWARD -> { onTour(); scope.launch { edge.leave(FORWARD, velocity) } }
+                else -> scope.launch { edge.release(0, velocity) }
+            }
+            return
+        }
+        val at = slide.at
+        val step = when {
+            velocity < -fling -> ceil(at)
+            velocity > fling -> floor(at)
+            else -> at.roundToInt().toFloat()
+        }.toInt()
+        val to = files.getOrNull(order(slide.current) + step)?.path ?: slide.current
+        val speed = if (width > 0) -velocity / width else 0f
+        if (to == target.path) {
+            glideTo(to, speed)
+        } else {
+            // A file that changes under the finger is felt like any page that does (rule 109, J20).
+            Haptics.page()
+            slide.thrownTo = to
+            slide.speed = speed
+            onPath(to)
+        }
+    }
+
+    // While a move runs, the file it leaves and the one it goes to; a file that left the list is not drawn.
+    val shown = listOfNotNull(slide.current, slide.other).mapNotNull { p -> files.firstOrNull { it.path == p } }.ifEmpty { listOf(target) }
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val leading = if (note != null) 2 else 1
 
     Box(modifier) {
         Box(
-            // The code dissolves into the page under the bar at the bottom instead of being cut by it (rule 74).
-            Modifier.fillMaxSize().edgeFade(bottom = PullsMotion.EdgeBottom, color = c.raised).fileSwipe(
-                enabled = { ui.drafts[file.path] == null && ui.dragSel == null && ui.selectionStart[file.path] == null },
-                onCode = { y -> onCodeRow(listState, y) },
-                codeHasRoom = { dx, across -> !session.settings.codeWrap && codeHasRoom(ui, file, dx, across) },
-                onDrag = { delta -> drag += delta; slide.follow(delta, range) },
-                onEnd = { velocity ->
-                    // A throw counts as well as a long drag, and the rows never come back toward the finger: they go on its
-                    // way into the next file, or with the whole view when the swipe left the files (rule 105).
-                    val to = swipedFile(index, count, drag, swipeFrom, velocity, fling)
-                    val way = if (to == index) 0 else pageWay(index, to)
-                    drag = 0f
-                    when {
-                        to < 0 -> onOverview()
-                        to >= count -> onTour()
-                        to != index -> onPath(files[to].path)
-                    }
-                    scope.launch { if (to < 0 || to >= count) slide.leave(way, velocity) else slide.release(way, velocity) }
-                },
+            Modifier.fillMaxSize().clipToBounds().onSizeChanged { width = it.width }.fileSwipe(
+                enabled = { ui.drafts[target.path] == null && ui.dragSel == null && ui.selectionStart[target.path] == null },
+                onCode = { y -> onCodeRow(ui.lists[target.path], y) },
+                codeHasRoom = { dx, across -> !session.settings.codeWrap && codeHasRoom(ui, target, dx, across) },
+                onDrag = ::dragBy,
+                onEnd = ::release,
             ),
         ) {
-            LazyColumn(
-                Modifier.fillMaxSize().pageSlide(slide).pinchToZoomCode(session.settings) { end -> keepUnderFingers(listState, ui, file, end, density) },
-                state = listState,
-            ) {
-                if (note != null) {
-                    item(key = "note:${file.path}", contentType = "note") {
-                        NoteCard(session, note, Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp)) {
-                            onAsk(AskReference("the note on ${file.path.substringAfterLast('/')}", note))
+            Box(Modifier.fillMaxSize().pageSlide(edge)) {
+                for (file in shown) {
+                    key(file.path) {
+                        Box(Modifier.fillMaxSize().graphicsLayer { translationX = slide.place(file.path) * (size.width + PullsMotion.PageGap.toPx()) }) {
+                            FilePage(session, ui, file, files, current = file.path == target.path, onPath, onAsk, tail = BAR_ROOM + bottom)
                         }
                     }
                 }
-                item(key = "counts:${file.path}", contentType = "counts") { CountsRow(session, file, files, onPath) }
-                // The Reviewed box again under the last line, so finishing a file moves on without scrolling back up.
-                fileDiffItems(session, ui, file, leading = leading, tail = BAR_ROOM + bottom) { EndRow(session, file, files, onPath) }
             }
         }
         DiffBar(
-            session, ui, file, target, index, count, onAsk,
+            session, ui, target, index, count, onAsk,
             onPrev = { files.getOrNull(index - 1)?.let { onPath(it.path) } },
             onNext = { files.getOrNull(index + 1)?.let { onPath(it.path) } },
             onFiles = onFiles,
@@ -259,12 +376,69 @@ private fun FileBody(
     }
 }
 
-/** Is the row under [y] (in the list's own pixels) a line of code, which scrolls sideways itself? */
-private fun onCodeRow(state: LazyListState, y: Float): Boolean {
-    val info = state.layoutInfo
+/**
+ * One file's page: its note, its counts line pinned at the top once the note has gone, and its rows. The rows dissolve
+ * into the page under the counts line, or under the header before it is pinned, and under the bar at the bottom,
+ * instead of being cut by them (rule 74). [current] is the file the bar names, the one a focus request scrolls.
+ */
+@Composable
+private fun FilePage(
+    session: ReviewSession,
+    ui: DiffUi,
+    file: ReviewFile,
+    files: List<ReviewFile>,
+    current: Boolean,
+    onPath: (String) -> Unit,
+    onAsk: (AskReference) -> Unit,
+    tail: Dp,
+) {
+    val c = LocalPullsColors.current
+    val density = LocalDensity.current
+    val listState = remember(file.path) { ui.lists.getOrPut(file.path) { LazyListState() } }
+    val note = session.saved?.analysis?.files?.firstOrNull { it.path == file.path }?.summary?.takeIf { it.isNotBlank() }
+    if (current) DiffFocus(session, ui, file, listState)
+    val leading = if (note != null) 2 else 1
+    val pinnedAt = leading - 1
+    val band = with(density) { PullsMotion.EdgeTop.toPx() }
+    val counts = with(density) { COUNTS_HEIGHT.toPx() }
+    val pinned = { listState.firstVisibleItemIndex >= pinnedAt }
+    val under = { listState.underTop(pinnedAt, band) }
+
+    LazyColumn(
+        Modifier.fillMaxSize()
+            .edgeFade(top = PullsMotion.EdgeTop, color = c.base, topStrength = under, topInset = { if (pinned()) counts else 0f })
+            .edgeFade(bottom = PullsMotion.EdgeBottom, color = c.raised)
+            .pinchToZoomCode(session.settings) { end -> keepUnderFingers(listState, ui, file, end, density) },
+        state = listState,
+    ) {
+        if (note != null) {
+            item(key = "note:${file.path}", contentType = "note") {
+                NoteCard(session, note, Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp)) {
+                    onAsk(AskReference("the note on ${file.path.substringAfterLast('/')}", note))
+                }
+            }
+        }
+        // The counts and the one Reviewed box stay at the top while the file is shown (J22).
+        stickyHeader(key = "counts:${file.path}", contentType = "counts") {
+            CountsRow(session, file, files, onPath, hairline = { if (pinned()) 1f - under() else 1f })
+        }
+        fileDiffItems(session, ui, file, leading = leading, tail = tail)
+    }
+}
+
+/**
+ * How far a file's rows have gone under the top of its page, 0 at rest and 1 once they are a [band] past: under the
+ * pinned counts line, item [pinnedAt], once it is pinned, and before that the note under the page's top.
+ */
+private fun LazyListState.underTop(pinnedAt: Int, band: Float): Float =
+    if (firstVisibleItemIndex > pinnedAt) 1f else (firstVisibleItemScrollOffset / band).coerceIn(0f, 1f)
+
+/** Is the row under [y] (in the list's own pixels) a line of code, which scrolls sideways itself? The pinned counts line covers the code under it. */
+private fun onCodeRow(state: LazyListState?, y: Float): Boolean {
+    val info = state?.layoutInfo ?: return false
     val at = y - info.beforeContentPadding
-    val row = info.visibleItemsInfo.firstOrNull { at >= it.offset && at < it.offset + it.size } ?: return false
-    return row.contentType == "line" || row.contentType == "split"
+    val rows = info.visibleItemsInfo.filter { at >= it.offset && at < it.offset + it.size }
+    return rows.none { it.contentType == "counts" } && rows.any { it.contentType == "line" || it.contentType == "split" }
 }
 
 /**
@@ -373,41 +547,37 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
     if (taken) onEnd(tracker.calculateVelocity().x)
 }
 
-/** The file's counts and threads, and the Reviewed box; reviewing a file moves on to the next one still to review. */
+/**
+ * The file's counts and threads, and the one Reviewed box; reviewing a file moves on to the next one still to review.
+ * It is pinned at the top of the file's page, on the page's colour, and the code passes under it. The air under it is
+ * see-through so the code fades there (rule 74), and the hairline at its foot gives way to that fade by [hairline], 0 to 1.
+ */
 @Composable
-private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit) {
+private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit, hairline: () -> Float) {
     val c = LocalPullsColors.current
     val scope = rememberCoroutineScope()
     val threads = session.reviewData?.threads.orEmpty().count { it.path == file.path && !it.outdated }
-    // The code starts under a hairline, on its own white, with 24dp of air between it and this row (rule 40).
-    Row(
-        Modifier.fillMaxWidth().drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
-            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp).height(44.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1)
-            Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().background(c.base).padding(horizontal = 16.dp).height(COUNTS_HEIGHT),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1)
+                Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1)
+            }
+            Text(when (threads) { 0 -> "No threads"; 1 -> "1 thread"; else -> "$threads threads" }, style = PullsType.sm, color = c.muted, maxLines = 1)
+            Spacer(Modifier.weight(1f))
+            ReviewedBox(session, file) { toggleReviewed(session, file, files, scope, onPath) }
         }
-        Text(when (threads) { 0 -> "No threads"; 1 -> "1 thread"; else -> "$threads threads" }, style = PullsType.sm, color = c.muted, maxLines = 1)
-        Spacer(Modifier.weight(1f))
-        ReviewedBox(session, file) { toggleReviewed(session, file, files, scope, onPath) }
-    }
-}
-
-/** Under the last line, under a hairline: the same Reviewed box as at the top, at the same place on the right. */
-@Composable
-private fun EndRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit) {
-    val c = LocalPullsColors.current
-    val scope = rememberCoroutineScope()
-    Row(
-        Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(start = 16.dp, end = 16.dp, top = 12.dp).height(44.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
-    ) {
-        ReviewedBox(session, file) { toggleReviewed(session, file, files, scope, onPath) }
+        // The code starts under a hairline, on its own white, with 24dp of air between it and this row (rule 40).
+        Box(
+            Modifier.fillMaxWidth().height(COUNTS_AIR).drawBehind {
+                drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()), alpha = hairline().coerceIn(0f, 1f))
+            },
+        )
     }
 }
 
@@ -470,7 +640,6 @@ private fun DiffBar(
     session: ReviewSession,
     ui: DiffUi,
     file: ReviewFile,
-    target: ReviewFile,
     index: Int,
     count: Int,
     onAsk: (AskReference) -> Unit,
@@ -533,7 +702,7 @@ private fun DiffBar(
             if (!selecting) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
-                    FilePill(target, index, count, onFiles, Modifier.weight(1f))
+                    FilePill(file, index, count, onFiles, Modifier.weight(1f))
                     FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, primary = true)
                 }
             } else {
@@ -682,15 +851,15 @@ private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, list
         ui.mark = LineMark(file.path, target.side, target.line, target.findingId)
         val anchor = "${file.path}|${target.side}|${target.line}"
         delay(48)
-        if (ui.lineKey[anchor] == null && !file.isBinary) {
+        if (ui.lineKey[file.path]?.get(anchor) == null && !file.isBinary) {
             // The line sits in an unmodified gap: load the full file and open every gap.
             ui.loadFullFile(file)
             repeat(250) { if (ui.fullLoading[file.path] != true) return@repeat; delay(20) }
             if (ui.fullFiles[file.path] != null) ui.expandedGaps[file.path] = null
         }
         var key: String? = null
-        repeat(60) { if (key == null) { key = ui.lineKey[anchor]; if (key == null) delay(16) } }
-        val at = key?.let { ui.indexOf[it] }
+        repeat(60) { if (key == null) { key = ui.lineKey[file.path]?.get(anchor); if (key == null) delay(16) } }
+        val at = key?.let { ui.indexOf[file.path]?.get(it) }
         if (at != null) listState.animateScrollToItem(at, scrollOffset = -240)
         if (session.focus === target) session.focus = null
     }

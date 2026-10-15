@@ -1,10 +1,12 @@
 package com.octaviantocan.pulls.ui.ai
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -136,6 +138,12 @@ internal object ReviewLenses {
  */
 @Composable
 internal fun ReviewSheet(session: ReviewSession, onClose: () -> Unit, onPick: (String?) -> Unit) {
+    PullsSheet(onClose, "Review") { ReviewLensList(session, onPick) }
+}
+
+/** General and the review skills, for the Review sheet and for the page of it in the pull request's actions (J27). */
+@Composable
+internal fun ColumnScope.ReviewLensList(session: ReviewSession, onPick: (String?) -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val server = remember { ServerStore.load(context).url }
@@ -144,21 +152,19 @@ internal fun ReviewSheet(session: ReviewSession, onClose: () -> Unit, onPick: (S
     val error = ReviewLenses.errorFor(server)
     val current = lensOf(session)
 
-    PullsSheet(onClose, "Review") {
-        SheetCard {
-            ChoiceRow("General", "Bugs, risks and nits across the whole diff.", selected = current == null, first = true) { onPick(null) }
-            lenses?.forEach { lens -> ChoiceRow(lens.title, lens.description, selected = current == lens.name, first = false) { onPick(lens.name) } }
-            // No loading screen: the shape of the rows, replaced in place when they arrive (rule 51).
-            if (lenses == null && error == null) repeat(3) { ChoiceSkeleton() }
+SheetCard {
+        ChoiceRow("General", "Bugs, risks and nits across the whole diff.", selected = current == null, first = true) { onPick(null) }
+        lenses?.forEach { lens -> ChoiceRow(lens.title, lens.description, selected = current == lens.name, first = false) { onPick(lens.name) } }
+        // No loading screen: the shape of the rows, replaced in place when they arrive (rule 51).
+        if (lenses == null && error == null) repeat(3) { ChoiceSkeleton() }
+    }
+    when {
+        // A refresh that fails keeps the list it had; only a list that never arrived says why.
+        lenses == null && error != null -> Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Could not load the review skills: $error", Modifier.weight(1f), style = PullsType.sm, color = c.error)
+            FloatIcon(Lu.redo, "Load the review skills again", { ReviewLenses.load(session, server) }, flat = true, iconSize = 22.dp, tint = c.muted)
         }
-        when {
-            // A refresh that fails keeps the list it had; only a list that never arrived says why.
-            lenses == null && error != null -> Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Could not load the review skills: $error", Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                FloatIcon(Lu.redo, "Load the review skills again", { ReviewLenses.load(session, server) }, flat = true, iconSize = 22.dp, tint = c.muted)
-            }
-            lenses?.isEmpty() == true -> Text("The server offers no review skills.", Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
-        }
+        lenses?.isEmpty() == true -> Text("The server offers no review skills.", Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
     }
 }
 
@@ -331,7 +337,8 @@ private fun postCritique(session: ReviewSession, ids: List<String>) {
 @Composable
 private fun SeverityFilter(result: Critique, value: Set<String>, onChange: (Set<String>) -> Unit) {
     val c = LocalPullsColors.current
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    val scroll = rememberScrollState()
+    Row(Modifier.sideScrollFade(scroll, color = c.paper).horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SEVERITIES.forEach { severity ->
             val count = result.findings.count { it.severity == severity }
             val on = severity in value

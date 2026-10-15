@@ -2,11 +2,11 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -21,7 +21,11 @@ import com.octaviantocan.pulls.data.FileGroup
 import com.octaviantocan.pulls.data.FullFile
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -93,10 +97,13 @@ class DiffUi(val session: ReviewSession) {
     /** Shared sideways scroll of each file's code, by path and column (0 unified, 1 left, 2 right). */
     internal val scrolls = HashMap<Pair<String, Int>, HScroll>()
 
-    // Rebuilt by every emission: item key -> local index, file path of an item, line anchor -> item key.
-    internal var indexOf: Map<String, Int> = emptyMap()
-    internal var pathOfKey: Map<String, String> = emptyMap()
-    internal var lineKey: Map<String, String> = emptyMap()
+    // By file path, rebuilt by every emission of that file's list: item key -> index in it, line anchor -> item key. Two
+    // files' lists are composed at once while one slides in beside the other, so each keeps its own.
+    internal val indexOf = HashMap<String, Map<String, Int>>()
+    internal val lineKey = HashMap<String, Map<String, String>>()
+
+    /** Each file's place in its list, kept while the page lives so coming back to a file finds it where it was left. */
+    internal val lists = HashMap<String, LazyListState>()
 
     fun canLoadFull(file: ReviewFile): Boolean = !file.isBinary && fullFiles[file.path] == null && session.key != null
 
@@ -145,29 +152,59 @@ class DiffUi(val session: ReviewSession) {
     private val emphasisCache = HashMap<String, Pair<List<DiffEntry>, java.util.IdentityHashMap<com.octaviantocan.pulls.data.DiffLine, List<IntRange>>>>()
     private val entryCache = HashMap<String, CachedEntries>()
 
-    /** Requests highlight spans for lines of [file] not tokenized yet (`highlight`, the pierre theme). */
-    suspend fun highlight(file: ReviewFile, texts: List<String>, dark: Boolean) {
-        if (themeDark != dark) { tokens.clear(); themeDark = dark }
-        val have = tokens[file.path].orEmpty()
-        val missing = texts.filter { it !in have }.distinct()
-        if (missing.isEmpty()) return
-        val next = have.toMutableMap()
-        for (chunk in missing.chunked(1500)) {
-            val result = runCatching { session.repo.highlight(file.path, chunk, dark) }.getOrNull() ?: return
-            (result["theme"] as? JsonObject)?.let { t ->
-                fun col(k: String) = (t[k] as? JsonPrimitive)?.contentOrNull?.let(::hexColor)
-                theme = DiffTheme(col("background"), col("foreground"), col("added"), col("removed"), col("gutter"))
-            }
-            val lines = result["lines"] as? JsonArray ?: return
-            chunk.forEachIndexed { i, text ->
-                next[text] = (lines.getOrNull(i) as? JsonArray).orEmpty().mapNotNull { span ->
-                    val o = span as? JsonObject ?: return@mapNotNull null
-                    Tok((o["text"] as? JsonPrimitive)?.contentOrNull.orEmpty(), (o["color"] as? JsonPrimitive)?.contentOrNull?.let(::hexColor))
-                }
-            }
-        }
-        tokens[file.path] = next
+    /** The code of each line of [file]'s current rows, what [highlight] colours; the same list until the rows change. */
+    fun lineTexts(file: ReviewFile): List<String> {
+        val rows = entries(file)
+        val cached = textCache[file.path]
+        if (cached != null && cached.first === rows) return cached.second
+        return rows.mapNotNull { (it as? DiffEntry.Line)?.line?.text }.distinct().also { textCache[file.path] = rows to it }
     }
+
+    private val textCache = HashMap<String, Pair<List<DiffEntry>, List<String>>>()
+
+    /** One request at a time per file: the screen asks for a file and its neighbours, and a second ask waits and finds the spans there. */
+    private val highlighting = HashMap<String, Mutex>()
+
+    /**
+     * Requests highlight spans for lines of [file] not tokenized yet (`highlight`, the pierre theme). The screen asks
+     * for the file on screen and the ones a swipe away, so a file arrives already coloured; the answer is read off the
+     * main thread, and the spans are kept per file for as long as the page lives.
+     */
+    suspend fun highlight(file: ReviewFile, texts: List<String>, dark: Boolean) {
+        if (texts.isEmpty()) return
+        highlighting.getOrPut(file.path) { Mutex() }.withLock {
+            if (themeDark != dark) { tokens.clear(); themeDark = dark }
+            val have = tokens[file.path].orEmpty()
+            val missing = texts.filter { it !in have }
+            if (missing.isEmpty()) return
+            val next = have.toMutableMap()
+            for (chunk in missing.chunked(1500)) {
+                val result = runCatching { session.repo.highlight(file.path, chunk, dark) }.getOrNull() ?: break
+                val (colours, spans) = withContext(Dispatchers.Default) { readHighlight(result, chunk) }
+                colours?.let { theme = it }
+                next.putAll(spans ?: break)
+            }
+            // The theme changed while the request ran: these spans are for the other one.
+            if (themeDark == dark && next.size > have.size) tokens[file.path] = next
+        }
+    }
+}
+
+/** A `highlight` answer: the theme's colours, and the spans of each line of [chunk] by its text (null when it has no lines). */
+private fun readHighlight(result: JsonObject, chunk: List<String>): Pair<DiffTheme?, Map<String, List<Tok>>?> {
+    val colours = (result["theme"] as? JsonObject)?.let { t ->
+        fun col(k: String) = (t[k] as? JsonPrimitive)?.contentOrNull?.let(::hexColor)
+        DiffTheme(col("background"), col("foreground"), col("added"), col("removed"), col("gutter"))
+    }
+    val lines = result["lines"] as? JsonArray ?: return colours to null
+    val spans = HashMap<String, List<Tok>>(chunk.size * 2)
+    chunk.forEachIndexed { i, text ->
+        spans[text] = (lines.getOrNull(i) as? JsonArray).orEmpty().mapNotNull { span ->
+            val o = span as? JsonObject ?: return@mapNotNull null
+            Tok((o["text"] as? JsonPrimitive)?.contentOrNull.orEmpty(), (o["color"] as? JsonPrimitive)?.contentOrNull?.let(::hexColor))
+        }
+    }
+    return colours to spans
 }
 
 /** `#rrggbb` or `#rrggbbaa` to a Compose color. */
@@ -220,20 +257,16 @@ internal class Emitter(private val scope: LazyListScope, leading: Int = 0) {
 
 /**
  * Emits the rows of one [file] into this list and records where each item and line landed, so
- * [PrDiffScreen] can scroll to a line. [leading] is how many items the screen put above the rows, [end]
- * what follows the last row (the Reviewed box), and [tail] the room under it, so the file ends where its
- * code ends and only the bar is cleared (rule 92).
+ * [PrDiffScreen] can scroll to a line. [leading] is how many items the screen put above the rows, and
+ * [tail] the room under the last one, so the file ends where its code ends and only the bar is cleared
+ * (rule 92).
  */
-internal fun LazyListScope.fileDiffItems(session: ReviewSession, ui: DiffUi, file: ReviewFile, leading: Int = 0, tail: Dp = 140.dp, end: (@Composable () -> Unit)? = null) {
+internal fun LazyListScope.fileDiffItems(session: ReviewSession, ui: DiffUi, file: ReviewFile, leading: Int = 0, tail: Dp = 140.dp) {
     val emit = Emitter(this, leading)
     fileBodyItems(emit, session, ui, file)
     emit.item("diff:end:${file.path}", "end") {
-        Column(Modifier.fillMaxWidth().background(LocalPullsColors.current.raised)) {
-            end?.invoke()
-            Box(Modifier.fillMaxWidth().height(tail))
-        }
+        Box(Modifier.fillMaxWidth().height(tail).background(LocalPullsColors.current.raised))
     }
-    ui.indexOf = emit.index
-    ui.pathOfKey = emit.paths
-    ui.lineKey = emit.lines
+    ui.indexOf[file.path] = emit.index
+    ui.lineKey[file.path] = emit.lines
 }
