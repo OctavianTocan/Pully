@@ -85,29 +85,46 @@ private fun lensOf(session: ReviewSession): String? {
 
 /**
  * The server's review skills, kept for the whole run: the list is short and changes only when the server's
- * curated folder does, so the Review sheet shows it at once and refreshes it quietly (rules 50 and 52).
+ * curated folder does, so the Review sheet shows it at once and refreshes it quietly (rules 50 and 52). It
+ * belongs to the server it came from: after a switch in Settings the old server's skills are never offered.
  */
 internal object ReviewLenses {
-    var list by mutableStateOf<List<ReviewLens>?>(null)
-    var loading by mutableStateOf(false)
-    var error by mutableStateOf<String?>(null)
+    /** The server URL [list] and [error] came from. */
+    private var server by mutableStateOf<String?>(null)
+    private var list by mutableStateOf<List<ReviewLens>?>(null)
+    private var error by mutableStateOf<String?>(null)
+    private var loadingFor: String? = null
 
-    /** The title to show for a lens a review ran with, when the server still offers it. */
-    fun titleOf(name: String): String? = list?.firstOrNull { it.name == name }?.title
+    /** The skills [server] offers; null until they arrive. */
+    fun listFor(server: String): List<ReviewLens>? = list.takeIf { this.server == server }
 
-    fun load(session: ReviewSession) {
-        if (loading) return
-        loading = true
+    /** Why [server]'s skills did not load; null when they did or are on their way. */
+    fun errorFor(server: String): String? = error.takeIf { this.server == server }
+
+    /** The title to show for a lens a review ran with, when [server] still offers it. */
+    fun titleOf(name: String, server: String): String? = listFor(server)?.firstOrNull { it.name == name }?.title
+
+    fun load(session: ReviewSession, server: String) {
+        if (server != this.server) {
+            this.server = server
+            list = null
+            error = null
+        }
+        if (loadingFor == server) return
+        loadingFor = server
         session.scope.launch {
             try {
-                list = session.repo.lenses()
-                error = null
+                val lenses = session.repo.lenses()
+                if (this@ReviewLenses.server == server) {
+                    list = lenses
+                    error = null
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                error = e.message ?: e.toString()
+                if (this@ReviewLenses.server == server) error = e.message ?: e.toString()
             } finally {
-                loading = false
+                if (loadingFor == server) loadingFor = null
             }
         }
     }
@@ -120,9 +137,11 @@ internal object ReviewLenses {
 @Composable
 internal fun ReviewSheet(session: ReviewSession, onClose: () -> Unit, onPick: (String?) -> Unit) {
     val c = LocalPullsColors.current
-    LaunchedEffect(Unit) { ReviewLenses.load(session) }
-    val lenses = ReviewLenses.list
-    val error = ReviewLenses.error
+    val context = LocalContext.current
+    val server = remember { ServerStore.load(context).url }
+    LaunchedEffect(server) { ReviewLenses.load(session, server) }
+    val lenses = ReviewLenses.listFor(server)
+    val error = ReviewLenses.errorFor(server)
     val current = lensOf(session)
 
     PullsSheet(onClose, "Review") {
@@ -136,7 +155,7 @@ internal fun ReviewSheet(session: ReviewSession, onClose: () -> Unit, onPick: (S
             // A refresh that fails keeps the list it had; only a list that never arrived says why.
             lenses == null && error != null -> Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Could not load the review skills: $error", Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                FloatIcon(Lu.redo, "Load the review skills again", { ReviewLenses.load(session) }, flat = true, iconSize = 22.dp, tint = c.muted)
+                FloatIcon(Lu.redo, "Load the review skills again", { ReviewLenses.load(session, server) }, flat = true, iconSize = 22.dp, tint = c.muted)
             }
             lenses?.isEmpty() == true -> Text("The server offers no review skills.", Modifier.padding(top = 12.dp), style = PullsType.sm, color = c.muted)
         }
@@ -167,6 +186,7 @@ private fun identity(critique: Critique): String = "${critique.generatedAt}|${cr
 internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
+    val server = remember { ServerStore.load(context).url }
     val ui = aiUi(session)
     val task = rememberLiveTask(session, "critique")
     val running = task?.running == true
@@ -211,7 +231,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
             }
             // The lens and the count are plain muted words at body size, not a tag (rules 14 and 49).
             if (lens != null) {
-                val title = ReviewLenses.titleOf(lens)
+                val title = ReviewLenses.titleOf(lens, server)
                 Text(title ?: lens, style = if (title != null) PullsType.sm else PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
             }
             if (result != null) Text(tc("critique.findingCount", result.findings.size), style = PullsType.sm, color = c.muted)

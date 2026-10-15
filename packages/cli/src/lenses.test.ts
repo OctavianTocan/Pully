@@ -1,9 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLens, listLenses, parseSkill } from './lenses'
+import { curatedSkillsDir, getLens, listLenses, parseSkill } from './lenses'
 
 let skillsDir: string
 
@@ -66,6 +67,18 @@ describe('lenses from a skills folder', () => {
 describe('the curated skills', () => {
   beforeEach(() => {
     vi.stubEnv('PULLS_REVIEW_SKILLS_DIR', '')
+  })
+
+  it('are read from the checkout, and from the copy beside the bundle in an installed CLI', () => {
+    // `skillsDir` stands in for a checkout, then for the folder an installed package sits in.
+    const bundle = pathToFileURL(join(skillsDir, 'packages/cli/dist/index.mjs'))
+    skill('packages/cli/dist/skills/security', 'Check auth.')
+    skill('docker/agents/skills/security', 'Check auth.')
+    expect(curatedSkillsDir(bundle)).toBe(join(skillsDir, 'docker/agents/skills/'))
+    expect(curatedSkillsDir(pathToFileURL(join(skillsDir, 'packages/cli/src/lenses.ts')))).toBe(join(skillsDir, 'docker/agents/skills/'))
+
+    rmSync(join(skillsDir, 'docker'), { recursive: true })
+    expect(curatedSkillsDir(bundle)).toBe(join(skillsDir, 'packages/cli/dist/skills/'))
   })
 
   it('are the default, each with a title, a one-sentence description and instructions', async () => {

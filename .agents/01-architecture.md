@@ -82,10 +82,13 @@ The Claude Code and Codex processes run on the server itself, or, with
   folder), the server's built code and the checkout with its git folders (read-only),
   each at the same path as on the host, and the `pulls-review-agents-home` volume that
   keeps its sign-ins. The tool server is started with the image's `node`.
-- Stopping a run MUST stop its container (`docker kill`), not only the `docker` client.
-- Review lenses come only from the curated skills (`docker/agents/skills`, or
-  `PULLS_REVIEW_SKILLS_DIR`). The server MUST NOT offer the skills of the account it
-  runs under, and the image replaces its skill folders with the same set on every start.
+- Stopping a run MUST stop its container (`docker kill`), not only the `docker` client. A
+  stop can come before the daemon has made the container, so once the client exits the
+  container is also removed by name (`docker rm --force`), then once more a little later.
+- Review lenses come only from the curated skills (`docker/agents/skills`, the copy an
+  installed CLI ships in `dist/skills`, or `PULLS_REVIEW_SKILLS_DIR`). The server MUST NOT
+  offer the skills of the account it runs under, and the image replaces its skill folders
+  with the same set on every start.
 
 ## The phone reads the server's store (`packages/cli/src/pr-store.ts`, `stored-diff.ts`)
 

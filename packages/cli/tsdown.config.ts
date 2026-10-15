@@ -8,4 +8,6 @@ export default defineConfig({
   },
   platform: 'node',
   dts: false,
+  // The curated review skills, so an installed CLI offers them too (`src/lenses.ts`).
+  copy: [{ from: '../../docker/agents/skills', to: 'dist' }],
 })
