@@ -4,7 +4,7 @@ import { createCacheRepositories } from '@pulls.review/core/cache'
 import { serializeRef } from '@pulls.review/core/types'
 import { createStorage } from 'unstorage'
 import memoryDriver from 'unstorage/drivers/memory'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createJevClient } from './jev'
 import { createPullClassifier, PULL_QUESTIONS, pullState } from './jev-pulls'
 
@@ -85,10 +85,33 @@ describe('createPullClassifier', () => {
     expect(states).toHaveLength(4)
   })
 
-  it('leaves closed pull requests alone', async () => {
+  it('leaves closed pull requests alone, and gives a closed one no kind from when it was open', async () => {
     const { classifier, states } = setup()
     await classifier.classify([pull(1, { state: 'closed' })])
     expect(states).toHaveLength(0)
+
+    await classifier.classify([pull(2)])
+    expect(classifier.apply([pull(2)])[0].jev).toBeDefined()
+    expect(classifier.apply([pull(2, { state: 'closed' })])[0].jev).toBeUndefined()
+  })
+
+  it('asks about a new head while Jev still has the old one, and never lets the older answer win', async () => {
+    const held: ((response: Response) => void)[] = []
+    const fetch = (async () => new Promise<Response>(resolve => held.push(resolve))) as typeof globalThis.fetch
+    const jev = createJevClient({ apiKey: 'key', fetch, log: () => {}, sleep: async () => {} })
+    const classifier = createPullClassifier({ jev, store: () => ({ storage: createStorage({ driver: memoryDriver() }) }) })
+    const moved = pull(1, { headSha: 'sha-new' })
+
+    const old = classifier.classify([pull(1)])
+    await vi.waitFor(() => expect(held).toHaveLength(1))
+    const current = classifier.classify([moved])
+    await vi.waitFor(() => expect(held).toHaveLength(2))
+
+    held[1]!(Response.json(answer('feature')))
+    await current
+    held[0]!(Response.json(answer('fix')))
+    await old
+    expect(classifier.apply([moved])[0].jev?.kind).toBe('feature')
   })
 
   it('reads what an earlier run saved instead of asking again', async () => {

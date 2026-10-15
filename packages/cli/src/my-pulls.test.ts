@@ -215,6 +215,9 @@ describe('createMyPullsService', () => {
     const firstRound = searches()
 
     clock = 60_000
+    // Asked only to read the copy, as the phone does while Jev sorts, it leaves GitHub alone.
+    expect(service.cached('open', false)).toMatchObject({ fetchedAt: 0, refreshing: false })
+    expect(searches()).toBe(firstRound)
     const snapshot = service.cached('open')
     expect(snapshot).toMatchObject({ fetchedAt: 0, refreshing: true })
     expect(snapshot!.pulls).toHaveLength(1)

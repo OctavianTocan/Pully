@@ -175,8 +175,9 @@ class Repo(private val context: Context) {
 
     // --- Lists ---
 
-    /** `my-pulls-cached` first for an instant list, then `my-pulls` for a fresh one. */
-    suspend fun myPullsCached(state: String): JsonObject? = call("my-pulls-cached") { put("state", state) } as? JsonObject
+    /** `my-pulls-cached` first for an instant list, then `my-pulls` for a fresh one. [revalidate] false never has the server ask GitHub. */
+    suspend fun myPullsCached(state: String, revalidate: Boolean = true): JsonObject? =
+        call("my-pulls-cached") { put("state", state); if (!revalidate) put("revalidate", false) } as? JsonObject
     suspend fun myPulls(state: String): List<PullRow> = call("my-pulls") { put("state", state) }.asPulls()
 
     suspend fun repoPulls(owner: String, repo: String, next: String? = null): JsonObject = call("repo-pulls") { put("owner", owner); put("repo", repo); next?.let { put("next", it) } }.jsonObject

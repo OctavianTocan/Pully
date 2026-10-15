@@ -63,9 +63,12 @@ export function priorityOf(answer: JevChoiceAnswer): FileAttention {
   return { priority: known && answer.confidence >= MIN_CONFIDENCE ? answer.choice as FilePriority : 'p0', confidence: answer.confidence }
 }
 
-/** One file version: the blob sha says what it holds, the path where (a rename keeps the sha). */
+/**
+ * One change to a file: what Jev is shown of it, and the blob it ends at. The same blob reached from another
+ * base (another pull request, a commit range) is another change and is asked about on its own.
+ */
 function fileKey(file: FileChange): string {
-  return createHash('sha256').update(`${file.sha}\n${file.path}`).digest('hex')
+  return createHash('sha256').update(JSON.stringify([file.sha, fileState(file)])).digest('hex')
 }
 
 function isAttention(value: unknown): value is FileAttention {
@@ -83,14 +86,14 @@ export interface FileAttentionService {
 
 export interface FileAttentionOptions {
   jev: JevClient
-  /** Where results outlive a restart (`jev-file:<sha256 of blob sha and path>`). */
+  /** Where results outlive a restart (`jev-file:<fileKey>`). */
   storage?: Storage
   now?: () => number
 }
 
 /**
- * Which files of a diff need a human, by Jev. Each file version is classified once:
- * results are kept by blob sha and path, in memory and in `storage`.
+ * Which files of a diff need a human, by Jev. Each change to a file is classified once:
+ * results are kept by {@link fileKey}, in memory and in `storage`.
  *
  * @param options The Jev client and where to keep results.
  * @returns The service behind the phone's `jev-files` route.

@@ -85,6 +85,11 @@ function isCurrent(saved: Saved | undefined, pull: MyPull): saved is Saved {
   return !!saved && saved.headSha === (pull.headSha ?? '') && saved.title === pull.title
 }
 
+/** What a classification belongs to: the pull request at one head and title. */
+function versionKey(pull: MyPull): string {
+  return `${pullKey(pull)}@${pull.headSha ?? ''}\n${pull.title}`
+}
+
 /**
  * @param pull The pull request.
  * @param files Its changed paths, when the server has its diff.
@@ -114,7 +119,10 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
   const saved = new Map<string, Saved>()
   /** Pull requests whose storage was already read, found or not. */
   const looked = new Set<string>()
+  /** Versions ({@link versionKey}) being classified now. */
   const running = new Set<string>()
+  /** Each pull request's newest version handed to Jev, so an answer for an older one is dropped. */
+  const latest = new Map<string, string>()
   const failedAt = new Map<string, number>()
 
   /** Changed paths of the pull requests whose diff the server holds at their current head. */
@@ -129,9 +137,11 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
 
   async function classifyOne(pull: MyPull, files: string[] | undefined): Promise<void> {
     const key = pullKey(pull)
+    // A newer head or title came in while Jev answered: its own request decides, this one changes nothing.
+    const stale = () => latest.get(key) !== versionKey(pull)
     try {
       const answer = await jev.ask(pullState(pull, files), PULL_QUESTIONS)
-      if (answer === 'off')
+      if (answer === 'off' || stale())
         return
       const { kind, risk } = answer.answers
       if (!(MY_PULL_KINDS as readonly string[]).includes(kind.choice))
@@ -150,7 +160,8 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
     }
     catch {
       // The pull request shows without a kind; it is asked again once `RETRY_FAILED_MS` passes.
-      failedAt.set(key, now())
+      if (!stale())
+        failedAt.set(key, now())
     }
   }
 
@@ -174,7 +185,8 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
         return pulls
       return pulls.map((pull) => {
         const entry = saved.get(pullKey(pull))
-        return isCurrent(entry, pull) ? { ...pull, jev: { kind: entry.kind, kindConfidence: entry.kindConfidence, risk: entry.risk } } : pull
+        // Only open ones are classified, so a closed one keeps no kind from when it was open.
+        return pull.state === 'open' && isCurrent(entry, pull) ? { ...pull, jev: { kind: entry.kind, kindConfidence: entry.kindConfidence, risk: entry.risk } } : pull
       })
     },
     async classify(pulls) {
@@ -183,22 +195,24 @@ export function createPullClassifier(options: PullClassifierOptions): PullClassi
       const todo = pulls.filter((pull) => {
         const key = pullKey(pull)
         const failed = failedAt.get(key)
-        return pull.state === 'open' && !isCurrent(saved.get(key), pull) && !running.has(key)
+        return pull.state === 'open' && !isCurrent(saved.get(key), pull) && !running.has(versionKey(pull))
           && (failed === undefined || now() - failed >= RETRY_FAILED_MS)
       })
       if (todo.length === 0)
         return
-      const keys = todo.map(pullKey)
-      for (const key of keys)
-        running.add(key)
+      const versions = todo.map(versionKey)
+      for (const [index, pull] of todo.entries()) {
+        running.add(versions[index]!)
+        latest.set(pullKey(pull), versions[index]!)
+      }
       try {
         const paths = await cachedPaths(todo)
         // The client holds requests to its own concurrency limit, so all of them can be handed over at once.
         await Promise.all(todo.map(pull => classifyOne(pull, paths.get(pullKey(pull)))))
       }
       finally {
-        for (const key of keys)
-          running.delete(key)
+        for (const version of versions)
+          running.delete(version)
       }
     },
   }

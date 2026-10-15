@@ -111,6 +111,18 @@ describe('createFileAttention', () => {
     await vi.waitFor(() => expect(paths).toHaveLength(4))
   })
 
+  it('asks again about a file that ends at the same blob by another change', async () => {
+    const { fetch, paths } = typesafe()
+    const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {} }) })
+    const whole = file('src/app.ts')
+    // The same final blob from another base: one commit of the pull request, say, with a smaller patch.
+    const part = file('src/app.ts', { additions: 1, deletions: 0, hunks: [{ header: '@@ -3 +3,2 @@', oldStart: 3, oldLines: 1, newStart: 3, newLines: 2, patch: ' b\n+e' }] })
+    await service.files(diff([whole]))
+    await vi.waitFor(async () => expect((await service.files(diff([whole]))).pending).toBe(0))
+    expect((await service.files(diff([part]))).pending).toBe(1)
+    await vi.waitFor(() => expect(paths).toHaveLength(2))
+  })
+
   it('looks at no more than 300 files of a diff', async () => {
     const { fetch, paths } = typesafe()
     const service = createFileAttention({ jev: createJevClient({ apiKey: 'key', fetch, log: () => {}, sleep: async () => {} }) })

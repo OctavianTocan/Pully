@@ -189,9 +189,12 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             cached = { selected -> repo.myPullsCached(selected)?.asSnapshot() },
             fresh = { selected -> repo.myPulls(selected) },
             storage = deviceStore(context),
+            peek = { selected -> repo.myPullsCached(selected, revalidate = false)?.asSnapshot() },
         )
     }
     LaunchedEffect(state) { sync.select(state) }
+    // Jev sorts the list after the server answered it, so its kinds come in while the Inbox is open.
+    LaunchedEffect(state, sync.fetchedAt, sync.jev) { sync.followJev() }
     // Refreshing is quiet: no indicator. It runs on open and whenever the app comes back to the front.
     val reload: () -> Unit = { scope.launch { sync.reload() } }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {

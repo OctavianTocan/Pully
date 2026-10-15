@@ -393,9 +393,10 @@ export interface MyPullsService {
   list: (state: MyPullState) => Promise<MyPull[]>
   /**
    * @param state Open, or closed including merged.
+   * @param revalidate `false` only reads the copy, as a client waiting for classifications does, and never asks GitHub.
    * @returns The last list fetched, however old, or `null` before the first one; refreshes it in the background once aged.
    */
-  cached: (state: MyPullState) => MyPullsSnapshot | null
+  cached: (state: MyPullState, revalidate?: boolean) => MyPullsSnapshot | null
 }
 
 export interface MyPullsServiceOptions {
@@ -512,8 +513,8 @@ export function createMyPullsService(options: MyPullsServiceOptions): MyPullsSer
 
   return {
     list: async state => classified((await cache.get(state, FRESH_MS)).value),
-    cached(state) {
-      const entry = cache.peekAndRevalidate(state, REVALIDATE_AFTER_MS)
+    cached(state, revalidate = true) {
+      const entry = revalidate ? cache.peekAndRevalidate(state, REVALIDATE_AFTER_MS) : cache.peek(state)
       if (!entry)
         return null
       return {
@@ -589,8 +590,9 @@ export function listMyPulls(state: MyPullState): Promise<MyPull[]> {
 
 /**
  * @param state Whether to look at open or closed (including merged) pull requests.
+ * @param revalidate `false` never starts a refresh from GitHub, however old the list is.
  * @returns The last list the server fetched without waiting, or `null` before the first.
  */
-export function cachedMyPulls(state: MyPullState): MyPullsSnapshot | null {
-  return service().cached(state)
+export function cachedMyPulls(state: MyPullState, revalidate?: boolean): MyPullsSnapshot | null {
+  return service().cached(state, revalidate)
 }

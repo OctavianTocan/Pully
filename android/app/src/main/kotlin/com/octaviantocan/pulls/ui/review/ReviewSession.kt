@@ -79,7 +79,8 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      */
     var attention by mutableStateOf<Map<String, String>>(emptyMap())
         private set
-    private var attentionKey: String? = null
+    /** The diff and head the marks are for: a pull request keeps its key across pushes, so the head counts too. */
+    private var attentionFor: String? = null
     private var attentionJob: Job? = null
 
     /** The stack this pull request is a layer of, bottom first (PRs only); null when it is in none or did not load. */
@@ -230,15 +231,17 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      * a hint, not part of the review.
      */
     private fun loadAttention() {
-        val key = opened?.key ?: return
-        if (key != attentionKey) attention = emptyMap()
-        attentionKey = key
+        val opened = opened ?: return
+        val key = opened.key
+        val version = "$key@${opened.headSha}"
+        if (version != attentionFor) attention = emptyMap()
+        attentionFor = version
         attentionJob?.cancel()
         attentionJob = scope.launch {
             val until = System.currentTimeMillis() + ATTENTION_FOR_MS
             while (true) {
                 val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
-                if (!answer.enabled || attentionKey != key) break
+                if (!answer.enabled || attentionFor != version) break
                 attention = answer.files
                 if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
                 delay(ATTENTION_EVERY_MS)
