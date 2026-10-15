@@ -948,5 +948,14 @@
       "review"
     ],
     "text": "While the search on Home waits for its first letter with the keyboard up, the Inbox behind it dims a little (half the sheet's scrim), and a tap on it puts the keyboard away. Once something is typed, the matches are what the search is for, so they are shown at full strength and take taps.\n\nCheck: tap the search pill. The list dims. Type a letter: the matches are bright and open with one tap."
+  },
+  {
+    "n": 104,
+    "title": "A new version floats above the search, and what it changed opens once.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "When the server has a newer build, a white card floats just above Home's search pill with the canvas shadow: \"Pulls 0.19.0 is ready\", the version's one-sentence summary under it, and an Update pill. A tap on the words opens What's new for the coming version, with Update at its foot. Update downloads and installs in the app, and the card says how far it got (a ring while it downloads, the orb while the system installs) instead of stacking more cards. ✕ hides it until Pulls next starts, and it steps aside while the search has the keyboard. It is never a row inside the list. The phone is also told in a notification when the app is closed, and once the update is installed, What's new opens by itself as a sheet, one time, with every version the phone skipped. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version. The card rises above the search, Update installs it, and after the restart the sheet lists what changed, once."
   }
 ]

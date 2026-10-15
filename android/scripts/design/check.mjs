@@ -5,12 +5,13 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import * as bans from './bans.mjs'
 import * as book from './book.mjs'
+import * as changelog from './changelog.mjs'
 import * as rawValues from './raw-values.mjs'
 import * as rules from './rules.mjs'
 import * as tokens from './tokens.mjs'
 
 /** In the order they run. */
-export const CHECKS = [tokens, rawValues, bans, book, rules]
+export const CHECKS = [tokens, rawValues, bans, book, rules, changelog]
 
 export function run({ update = false } = {}) {
   const written = update ? CHECKS.flatMap(c => c.check({ update: true }).written) : []

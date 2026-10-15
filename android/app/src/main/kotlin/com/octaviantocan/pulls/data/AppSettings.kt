@@ -61,6 +61,10 @@ class AppSettings private constructor(private val context: Context) {
     var soundMaterial by mutableStateOf(prefs.getString("soundMaterial", null) ?: "default")
         private set
 
+    /** Whether the background check sends a notification when a new version of the app is out; on until Settings turns it off. */
+    var updateNotifications by mutableStateOf(prefs.getBoolean("updateNotifications", true))
+        private set
+
     /** Repositories kept out of the Inbox and its counts, as `owner/repo`; none until Profile switches one off. */
     var hiddenRepos by mutableStateOf(prefs.getStringSet("hiddenRepos", null)?.toSet() ?: emptySet())
         private set
@@ -80,6 +84,7 @@ class AppSettings private constructor(private val context: Context) {
     fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
     fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply() }
     fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply() }
+    fun updateUpdateNotifications(value: Boolean) { updateNotifications = value; prefs.edit().putBoolean("updateNotifications", value).apply() }
     /** Switches a repository on or off for the Inbox. */
     fun setRepoShown(repo: String, shown: Boolean) {
         hiddenRepos = if (shown) hiddenRepos - repo else hiddenRepos + repo
