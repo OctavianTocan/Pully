@@ -98,6 +98,12 @@ class ReviewFlowTest {
     }
 
     @Test
+    fun aThrowPastTheLastTabGoesOnToTheDiff() {
+        assertEquals(3, swipedTabOrNext(2, 3, -20f, 80f, velocity = -1500f, fling = 1000f))
+        assertEquals(2, swipedTabOrNext(2, 3, -20f, 80f, velocity = 1500f, fling = 1000f))
+    }
+
+    @Test
     fun beforeTheFirstTabTheOverviewStaysPut() {
         assertEquals(0, swipedTabOrNext(0, 3, 300f, 80f))
     }

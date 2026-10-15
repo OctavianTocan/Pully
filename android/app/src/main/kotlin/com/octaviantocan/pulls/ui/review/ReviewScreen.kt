@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.review
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,6 +61,9 @@ import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.ui.home.deviceStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import com.octaviantocan.pulls.core.BACKWARD
+import com.octaviantocan.pulls.ui.design.PageBack
+import com.octaviantocan.pulls.ui.design.PageMotion
 
 /** What the Ask sheet opens with: its title, the starter chips, a question to send at once, and what the next question is about. */
 private data class AskRequest(val title: String, val suggestions: List<String>, val initial: String?, val reference: AskReference? = null)
@@ -99,6 +101,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
     var ask by remember { mutableStateOf<AskRequest?>(null) }
+    // How the last change of view was made, for the ones the capsule's order cannot tell: Back and a back swipe (rule 105).
+    val viewMotion = remember(session) { PageMotion() }
     val opened = session.opened
     val head = prHead(session, data)
 
@@ -107,11 +111,19 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         ui.uncategorizedSummary = messages.t("group.uncategorizedSummary")
     }
     OverviewEffects(session, top, data)
-    BackHandler(enabled = pages.size > 1) { pages.removeAt(pages.lastIndex) }
+    // Back pops a view and the views move backward; a back swipe moves the view with the finger first.
+    PageBack(viewMotion, enabled = pages.size > 1) { pages.removeAt(pages.lastIndex) }
 
     fun orderedFiles() = fileSections(session, ui).flatMap { it.files }
     fun push(page: PrView) { if (pages.last() != page) pages.add(page) }
-    fun back() { if (pages.size > 1) pages.removeAt(pages.lastIndex) else nav.back() }
+    fun back() {
+        if (pages.size > 1) {
+            viewMotion.next(BACKWARD)
+            pages.removeAt(pages.lastIndex)
+        } else {
+            nav.back()
+        }
+    }
     // The tour can be the first page (opened from the Tours tab), so the overview may not be below it.
     fun toOverview() {
         if (PrView.Overview !in pages) pages.add(0, PrView.Overview)
@@ -130,6 +142,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
         push(PrView.Diff)
     }
+    fun toChanges() { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) }
     fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
         ask = AskRequest(
             if (forTour) "Ask about this tour" else "Ask about ${head?.label ?: "this pull request"}",
@@ -197,30 +210,28 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
             opened == null -> PrOpening(target, preview, onBack = nav.back)
             opened != null && head != null -> {
-                val here = pages.last()
+                val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
-                    // One header for the three pages, drawn once over them: it stays put while only what is under it
-                    // slides between them (rule 93). The capsule lights the page you are on, and its corner is Aa on the
-                    // diff and ⋯ on the other two.
+                    // One header over the three views, drawn once: the same pixels on each while only what is under it slides
+                    // (rule 93), and the capsule's pill slides to the view you go to. Its corner is Aa on the diff and ⋯ elsewhere.
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                         FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
                         Spacer(Modifier.weight(1f))
                         SectionCapsule(
-                            selected = here.ordinal, live = tourRunning,
-                            onOverview = ::toOverview,
-                            onChanges = { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) },
-                            onTour = { switchTo(PrView.Tour) },
-                            onCorner = { sheet = if (here == PrView.Diff) "tools" else "more" },
-                            corner = if (here == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
+                            selected = view.ordinal, live = tourRunning,
+                            onOverview = ::toOverview, onChanges = ::toChanges, onTour = { switchTo(PrView.Tour) },
+                            onCorner = { sheet = if (view == PrView.Diff) "tools" else "more" },
+                            corner = if (view == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
                         )
                     }
-                    // The diff is narrowed to a commit: say so, with the way back, where no page can scroll it away (rule 80).
+                    // The diff is narrowed to a commit: say so, with the way back, where no view can scroll it away (rule 80).
                     CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
-                    BlurSwitch(here, Modifier.weight(1f), order = { it.ordinal }) { page ->
+                    // The views sit left to right as the capsule shows them, so going to one moves the page that way (rule 105).
+                    BlurSwitch(view, Modifier.weight(1f).fillMaxWidth(), order = { it.ordinal }, motion = viewMotion) { page ->
                         when (page) {
                             PrView.Overview -> PrOverviewScreen(
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
-                                onDiff = { path -> if (path == null && diffPath != null) switchTo(PrView.Diff) else openDiff(path) },
+                                onDiff = { path -> if (path == null) toChanges() else openDiff(path) },
                                 onAsk = { openAsk(forTour = false) },
                                 onSheet = { sheet = it },
                                 onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, ""), uri::openUri) },
@@ -237,7 +248,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                 session, head,
                                 resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                                 onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
-                                onChanges = { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) },
+                                onChanges = ::toChanges,
                                 onOpenSource = { source -> openSource(session, source, uri::openUri) },
                                 onAsk = { question -> openAsk(forTour = true, initial = question) },
                             )

@@ -96,6 +96,10 @@ import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.design.hairlineTop
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.offset
+import com.octaviantocan.pulls.core.pageWay
 
 /**
  * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
@@ -123,6 +127,7 @@ internal fun PrOverviewScreen(
     val focusManager = LocalFocusManager.current
     // A tap on the empty page leaves a field the person was editing in place, which saves it (rule 83).
     Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
+        // The header with the capsule is the review's, above all three views (rule 93).
         Column(Modifier.fillMaxSize()) {
             // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
             // own beside the conversation (rule 91). All three are there from the start, so the row never changes shape
@@ -134,22 +139,31 @@ internal fun PrOverviewScreen(
             // A swipe left or right moves between the tabs, and left past the last one goes on to the Diff (rule 93).
             var drag by remember { mutableFloatStateOf(0f) }
             val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
+            val fling = with(LocalDensity.current) { PullsMotion.Fling.toPx() }
             val range = with(LocalDensity.current) { PullsMotion.FingerRange.toPx() }
             // The rows follow the finger toward a tab or the Diff, and stay put against the first tab.
             val swipe = rememberDraggableState { delta ->
                 drag += delta
-                slide.follow(if (shown == 0) minOf(delta, -slide.finger) else delta, range)
+                // Back past the first tab goes nowhere; on past the last one goes to the Diff (rule 93).
+                slide.follow(delta, range, back = shown > 0)
             }
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth().draggable(
                     swipe, Orientation.Horizontal,
                     onDragStarted = { drag = 0f },
-                    onDragStopped = {
-                        val to = swipedTabOrNext(shown, labels.size, drag, swipeFrom)
-                        if (to == labels.size) onDiff(null) else onPane(to)
+                    onDragStopped = { velocity ->
+                        // A throw counts as well as a long drag, and the rows go on the way the finger went (rule 105).
+                        // Past the last tab the swipe goes on to the Diff, and the rows leave with the whole view.
+                        val to = swipedTabOrNext(shown, labels.size, drag, swipeFrom, velocity, fling)
                         drag = 0f
-                        slide.release()
+                        if (to == labels.size) {
+                            onDiff(null)
+                            slide.leave(pageWay(shown, to), velocity)
+                        } else {
+                            onPane(to)
+                            slide.release(if (to == shown) 0 else pageWay(shown, to), velocity)
+                        }
                     },
                 ),
                 state = scroll,
@@ -172,7 +186,8 @@ internal fun PrOverviewScreen(
                         val overviewError = session.overviewError
                         if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
                         StatsLine(session, data, onSheet, onCommits = { onPane(COMMITS_TAB) })
-                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true)
+                        // The ink leans toward the next tab with the finger, and slides there when it changes (rule 105).
+                        UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true, pull = { slide.pull(range) })
                     }
                 }
                 // The tabs follow the finger at once; the rows under them leave and arrive as a page (rule 73).
@@ -240,11 +255,10 @@ internal fun SectionCapsule(
     corner: CapsuleCorner = CapsuleCorner.More,
 ) {
     val c = LocalPullsColors.current
-    BoxWithConstraints(Modifier.width(212.dp).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(2.dp)) {
-        // Four equal segments either side of the divider's 5dp.
-        val segment = (maxWidth - DIVIDER) / 4
-        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "section-capsule")
-        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(CircleShape).background(c.paper2))
+    // One pill slides to the view you go to, the way the page goes (rules 67 and 105), instead of each segment lighting up.
+    val x by animateDpAsState(CAPSULE_SEGMENT * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "section-pill")
+    Box(Modifier.width(CAPSULE_WIDTH).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(CAPSULE_INSET)) {
+        Box(Modifier.offset(x = x).width(CAPSULE_SEGMENT).fillMaxHeight().clip(CircleShape).background(c.paper2))
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Segment("Overview", onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
             Segment("Changes", onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
@@ -252,19 +266,25 @@ internal fun SectionCapsule(
                 LuIcon(Lu.tour, tint = c.text)
                 if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
             }
-            Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).width(1.dp).fillMaxHeight().background(c.border))
+            Box(Modifier.padding(horizontal = CAPSULE_RULE_GAP, vertical = 8.dp).width(CAPSULE_RULE).fillMaxHeight().background(c.border))
             Segment(corner.label, onClick = onCorner) {
-                when (corner) {
-                    CapsuleCorner.More -> LuIcon(Lu.more, tint = c.text)
-                    CapsuleCorner.TextTools -> Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+                IconSwap(corner) { glyph ->
+                    when (glyph) {
+                        CapsuleCorner.More -> LuIcon(Lu.more, tint = c.text)
+                        CapsuleCorner.TextTools -> Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+                    }
                 }
             }
         }
     }
 }
 
-/** The capsule's divider and the room either side of it. */
-private val DIVIDER = 5.dp
+/** The capsule: 212dp wide with 2dp inside its edge, four equal segments and a 1dp rule with 2dp either side before the corner. */
+private val CAPSULE_WIDTH = 212.dp
+private val CAPSULE_INSET = 2.dp
+private val CAPSULE_RULE = 1.dp
+private val CAPSULE_RULE_GAP = 2.dp
+private val CAPSULE_SEGMENT = (CAPSULE_WIDTH - CAPSULE_INSET * 2 - CAPSULE_RULE - CAPSULE_RULE_GAP * 2) / 4
 
 @Composable
 private fun RowScope.Segment(label: String, onClick: (() -> Unit)?, content: @Composable BoxScope.() -> Unit) {

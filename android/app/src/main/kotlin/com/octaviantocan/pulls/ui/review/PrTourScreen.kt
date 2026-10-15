@@ -81,6 +81,9 @@ import com.octaviantocan.pulls.ui.design.pageSlide
 import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.topEdgeStrength
 import kotlinx.coroutines.launch
+import com.octaviantocan.pulls.ui.design.LabelSwitch
+import com.octaviantocan.pulls.core.BACKWARD
+import com.octaviantocan.pulls.core.swipeStep
 
 /**
  * The tour, under the review's header: a calm strip (the ring, the stop you are on, a chevron) that opens the sections
@@ -150,18 +153,20 @@ internal fun PrTourScreen(
 
     // A swipe to the right takes the cards back to the Diff, following the finger as the Diff's files do. The Tour is
     // the last page, so a swipe to the left goes nowhere and the cards stay put. A swipe on code in a card scrolls the code.
-    val slide = rememberPageSlide(Unit)
+    val slide = rememberPageSlide(Unit, order = { 0 })
     var drag by remember { mutableFloatStateOf(0f) }
     val swipeFrom = with(density) { 64.dp.toPx() }
+    val fling = with(density) { PullsMotion.Fling.toPx() }
     val range = with(density) { PullsMotion.FingerRange.toPx() }
     val swipe = rememberDraggableState { delta ->
         drag += delta
-        slide.follow(maxOf(delta, -slide.finger), range)
+        slide.follow(delta, range, forward = false)
     }
 
     // Every mention in the tour opens its place, and its code is the diff's code view (rules 95 and 96).
     ProvideAiText(session, { place -> onOpenSource(TourSource(place.path, place.line, "")) }) {
         Box(Modifier.fillMaxSize().background(c.base)) {
+            // The capsule header is the review's, over all three views (rule 93); the strip starts under it.
             Column(Modifier.fillMaxSize()) {
                 if (n > 0 && current in 1..n) {
                     // The ring, the stop you are on and the chevron, each in its own column so the title never runs under
@@ -174,8 +179,11 @@ internal fun PrTourScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         ProgressRing(progress)
-                        // One line with an ellipsis, or two whole lines: never a line cut in half.
-                        Text(stops[current - 1].title, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        // One line with an ellipsis, or two whole lines: never a line cut in half. Reading on brings the next stop's
+                        // name up from below and scrolling back brings the last one down, with the cards (rule 105).
+                        LabelSwitch(current, Modifier.weight(1f), order = { it }, vertical = true) { at ->
+                            Text(stops.getOrNull(at - 1)?.title.orEmpty(), Modifier.fillMaxWidth(), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
                         LuIcon(Lu.chevd, tint = c.muted, size = 20.dp)
                     }
                 }
@@ -187,10 +195,17 @@ internal fun PrTourScreen(
                             .draggable(
                                 swipe, Orientation.Horizontal,
                                 onDragStarted = { drag = 0f },
-                                onDragStopped = {
-                                    if (drag >= swipeFrom) onChanges()
+                                onDragStopped = { velocity ->
+                                    // A throw counts as well as a long drag, and the cards leave with the view the way the
+                                    // finger went (rule 105); a swipe that falls short puts them back.
+                                    val back = swipeStep(drag, swipeFrom, velocity, fling) == BACKWARD
                                     drag = 0f
-                                    slide.release()
+                                    if (back) {
+                                        onChanges()
+                                        slide.leave(BACKWARD, velocity)
+                                    } else {
+                                        slide.release(0, velocity)
+                                    }
                                 },
                             )
                             .pageSlide(slide)

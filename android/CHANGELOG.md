@@ -12,7 +12,7 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
-## 0.22.0
+## 0.23.0
 
 Everything still missing from your walkthrough video is now in.
 
@@ -23,13 +23,26 @@ Everything still missing from your walkthrough video is now in.
 - Long names wrap instead of being cut short.
 - Selecting lines in the Diff turns the bottom bar into the comment bar, with nothing floating over the lines. Its ⋯ asks about the lines, copies them or copies their GitHub link.
 - Pinch zoom keeps the line under your fingers in place.
-- The top of a pull request stays still while you swipe between Overview, Diff and Tour.
+- Swipe from the Tour back to the Diff, or past the last tab of a pull request on to the Diff.
 - File rows open with the same swipe as pull request rows.
 - In a tour, pseudocode is coloured, call trees and file trees are drawn, and "In the code" no longer squeezes its text.
 - While the AI works you see its latest thinking and the answer as it is written, and its sources include the files it read.
 - Every file or line the AI mentions is a link, in notes, findings and answers too, and in what it posts on GitHub.
 - Claude's models show their version, and each one's usual effort is marked Recommended.
 - The Tours tab hides the repositories you chose to hide.
+
+## 0.22.0
+
+Swipes and pages now move the way your finger goes.
+
+- Swipe between a pull request's tabs and the rows follow your finger, then carry on to the tab you went to instead of springing back first. A quick flick is enough.
+- The line under the tabs leans toward the next tab as you drag and slides across when it changes.
+- Next, previous and Back move the way they say: the next tab, file or view comes in from the right, and Back always slides backward.
+- A back swipe moves the page with your finger, then carries it off the way you swiped.
+- The back button and the Overview, Changes and Tour switch stay still when you change view, and the switch's highlight slides.
+- The file name at the bottom of the diff and the stop on the Tour slide the way you went.
+- The filters and the activity strip move with the Inbox when you switch to Tours.
+- Commands, pulled down from the top, drops from the top and goes back up.
 
 ## 0.21.0
 

@@ -24,30 +24,27 @@ fun showsDescription(summary: String?, switchedAwayFrom: String?): Boolean = sum
 fun summaryKey(generatedAt: String?, text: String?): String? = text?.let { "${generatedAt.orEmpty()}\n$it" }
 
 /**
- * The tab a horizontal drag lands on. A drag of [dx] pixels to the left past [threshold] shows the next tab, one to the
- * right shows the previous one, and the first and last tabs stay put. A shorter drag changes nothing.
+ * The tab a horizontal drag lands on. A drag of [dx] pixels to the left past [threshold], or a throw that way faster
+ * than [fling] (px/s, [velocity] at the release), shows the next tab; to the right, the previous one (see [swipeStep]).
+ * The first and last tabs stay put. A shorter, slower drag changes nothing.
  */
-fun swipedTab(current: Int, count: Int, dx: Float, threshold: Float): Int = when {
-    count <= 1 || dx > -threshold && dx < threshold -> current
-    dx < 0f -> (current + 1).coerceAtMost(count - 1)
-    else -> (current - 1).coerceAtLeast(0)
-}
+fun swipedTab(current: Int, count: Int, dx: Float, threshold: Float, velocity: Float = 0f, fling: Float = Float.POSITIVE_INFINITY): Int =
+    if (count <= 1) current else (current + swipeStep(dx, threshold, velocity, fling)).coerceIn(0, count - 1)
 
 /**
  * Where a horizontal drag of [dx] pixels takes the Overview from tab [current] of [count]: a tab, as [swipedTab] says,
- * or past the last one the next view, the Diff, which is [count] (rule 93). Before the first tab it stays put.
+ * or past the last one the next view, the Diff, which is [count] (rule 93). A throw counts as it does for [swipedTab].
+ * Before the first tab it stays put.
  */
-fun swipedTabOrNext(current: Int, count: Int, dx: Float, threshold: Float): Int =
-    if (current >= count - 1 && dx <= -threshold) count else swipedTab(current, count, dx, threshold)
+fun swipedTabOrNext(current: Int, count: Int, dx: Float, threshold: Float, velocity: Float = 0f, fling: Float = Float.POSITIVE_INFINITY): Int =
+    if (current >= count - 1 && swipeStep(dx, threshold, velocity, fling) == FORWARD) count
+    else swipedTab(current, count, dx, threshold, velocity, fling)
 
 /**
  * Where a horizontal drag of [dx] pixels takes the diff from file [current] of [count] (rule 93): to the left past
- * [threshold] is the next file and to the right the one before. Left of the last file it returns [count] and right of
- * the first it returns -1, which are the views either side of the files (the Tour and the Overview). A shorter drag
- * returns [current].
+ * [threshold], or thrown that way faster than [fling] (see [swipeStep]), is the next file and to the right the one
+ * before. Left of the last file it returns [count] and right of the first it returns -1, which are the views either
+ * side of the files (the Tour and the Overview). A shorter, slower drag returns [current].
  */
-fun swipedFile(current: Int, count: Int, dx: Float, threshold: Float): Int = when {
-    dx > -threshold && dx < threshold -> current
-    dx < 0f -> if (current + 1 >= count) count else current + 1
-    else -> if (current - 1 < 0) -1 else current - 1
-}
+fun swipedFile(current: Int, count: Int, dx: Float, threshold: Float, velocity: Float = 0f, fling: Float = Float.POSITIVE_INFINITY): Int =
+    (current + swipeStep(dx, threshold, velocity, fling)).coerceIn(-1, count)

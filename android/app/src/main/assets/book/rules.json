@@ -957,5 +957,15 @@
       "review"
     ],
     "text": "When the server has a newer build, a white card floats just above Home's search pill with the canvas shadow: \"Pulls 0.19.0 is ready\", the version's one-sentence summary under it, and an Update pill. A tap on the words opens What's new for the coming version, with Update at its foot. Update downloads and installs in the app, and the card says how far it got (a ring while it downloads, the orb while the system installs) instead of stacking more cards. ✕ hides it until Pulls next starts, and it steps aside while the search has the keyboard. It is never a row inside the list. The phone is also told in a notification when the app is closed, and once the update is installed, What's new opens by itself as a sheet, one time, with every version the phone skipped. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version. The card rises above the search, Update installs it, and after the restart the sheet lists what changed, once."
+  },
+  {
+    "n": 105,
+    "title": "Motion goes the way you went.",
+    "source": "answers",
+    "checkedBy": [
+      "motion",
+      "review"
+    ],
+    "text": "Tavi: \"Most transition animations don't seem to naturally follow the movement you're doing. For instance, when I swipe in the PR home to move between the tabs, the direction of the transition does not go into the tab we're going to.\" Everything moves the way the person moved it. A thing dragged by a finger follows the finger, and when the finger lets go it either settles back where it was or carries on the way the finger went; it never springs back toward the finger's start before going on. The next tab, file, view or page comes in from the right and the one left behind leaves to the left; the previous one comes from the left. Pages sit where the controls show them: tabs in their order, the review's views in the capsule's order (Overview, Changes, Tour), the stack of pages by depth. Back always goes backward, whichever view or page it lands on. A back swipe moves the page with the finger and then carries it on that way, so a swipe from the right edge sends it left. The tab underline and the capsule's pill slide to the new place, and the underline leans toward the next tab while the finger drags. A label that names where you are (the file between ‹ and ›, the Tour's stop) changes the same way: the next file from the right, the next stop rising from below. Commands, pulled down from the top, comes from the top and goes back up; a sheet thrown down carries on down. Nothing that belongs to a page pops while the page slides: it slides with it. A quick throw of 500dp/s counts as a swipe however short it is, and a throw back against the drag cancels it.\n\nCheck: on the Overview drag between tabs slowly and let go short, then far, then throw: the rows and the underline go toward the tab you went to, or back where they were, never the other way first. Swipe between files and past the last one, use ‹ ›, the capsule and Back, back-swipe from each edge, pull Commands down and close it."
   }
 ]

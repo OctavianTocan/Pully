@@ -2,6 +2,7 @@
 // that exists, and a check may only claim a rule that names it back. `review` is a person.
 import * as bans from './bans.mjs'
 import * as book from './book.mjs'
+import * as motion from './motion.mjs'
 import * as rawValues from './raw-values.mjs'
 import { CHECKS, readDesign } from './spec.mjs'
 import * as tokens from './tokens.mjs'
@@ -16,6 +17,7 @@ export const DECLARED = {
   'raw-values': rawValues.RULES,
   'bans': bans.RULES,
   'book': book.RULES,
+  'motion': motion.RULES,
 }
 
 /** Rule numbers run 1, 2, 3 in order, and each has a source and checks that exist. */
