@@ -1,5 +1,7 @@
 // Generates app/src/test/resources/fixtures/cuelume-reference.json: what the real Cuelume sounds
-// like, so `CuelumeFidelityTest` can hold the Kotlin port to it. Each case is rendered by Cuelume's
+// like, so `CuelumeFidelityTest` can hold the Kotlin port to it. The recipes Pulls replaces
+// (`cuelume-pulls.mjs`) are laid over the package's first, as `gen-cuelume.mjs` does, so they are
+// rendered by Cuelume's own engine too. Each case is rendered by Cuelume's
 // own `renderRecipe` and output stage in a spec-compliant Web Audio implementation
 // (node-web-audio-api, offline), with `Math.random` pinned to 0.5 so a play is exactly repeatable,
 // and reduced to its loudness in 20 ms windows. Run from the repo root:
@@ -11,6 +13,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { withPulls } from './cuelume-pulls.mjs'
 
 const CUELUME = '0.2.8'
 const WEB_AUDIO = '2.2.0'
@@ -27,7 +30,7 @@ run('npm', ['install', `node-web-audio-api@${WEB_AUDIO}`, '--silent'])
 
 const load = async path => import(pathToFileURL(join(work, path)).href)
 const { OfflineAudioContext } = await load('node_modules/node-web-audio-api/index.js')
-const { THEMES } = await load('package/dist/sounds/themes.js')
+const { themes: THEMES, replaced } = withPulls((await load('package/dist/sounds/themes.js')).THEMES, await load('package/dist/sounds/layers.js'))
 const { contextFrom, resolveEmphasis, shapeFor } = await load('package/dist/sounds/context.js')
 const { createOutput } = await load('package/dist/audio/output.js')
 const { renderRecipe } = await load('package/dist/audio/render.js')
@@ -96,6 +99,6 @@ for (const c of cases) {
 const lines = dbs.map(c => `  ${JSON.stringify(c)}`)
 writeFileSync(
   join(root, 'android/app/src/test/resources/fixtures/cuelume-reference.json'),
-  `{\n"source": "cuelume ${CUELUME} rendered by node-web-audio-api ${WEB_AUDIO}, Math.random pinned to 0.5, ${WINDOW * 1000} ms RMS windows in dB",\n"cases": [\n${lines.join(',\n')}\n]\n}\n`,
+  `{\n"source": "cuelume ${CUELUME} with Pulls' own ${replaced.join(', ')}, rendered by node-web-audio-api ${WEB_AUDIO}, Math.random pinned to 0.5, ${WINDOW * 1000} ms RMS windows in dB",\n"cases": [\n${lines.join(',\n')}\n]\n}\n`,
 )
 console.log(`Wrote ${dbs.length} cases`)

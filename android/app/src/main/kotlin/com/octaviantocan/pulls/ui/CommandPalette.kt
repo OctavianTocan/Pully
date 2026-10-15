@@ -50,14 +50,14 @@ private const val PER_GROUP = 4
  * Commands: a sheet like the rest of the app. A search pill, then the matching commands in white
  * cards, one for each group, as plain rows with no icons. Until you search, each group shows only
  * its first few and says how many more there are, so the list stays short; Go on the keyboard runs
- * the first match. It opens at its normal height with the keyboard down; a tap on the search, or a
- * drag up to the tall height, brings the keyboard.
+ * the first match. It opens at its tall height and its search takes the keyboard as soon as it rests (J11).
  */
 @Composable
 fun CommandPalette() {
     if (!Commands.paletteOpen) return
     // Pulled down from the Inbox, it comes down from the top with the finger; opened any other way it rises like every sheet.
-    PullsSheet(Commands::close, "Commands", full = true) {
+    // It opens at its tall height with the search taking the keyboard, so typing starts at once (J11).
+    PullsSheet(Commands::close, "Commands", full = true, tall = true) {
         CommandsPage(Commands.scope, onClearScope = { Commands.scope = null }) { command ->
             Commands.close()
             command.run()

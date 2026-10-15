@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.sound
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -50,6 +52,27 @@ fun Modifier.cueClickable(
     role: Role? = null,
     onClick: () -> Unit,
 ): Modifier = clickable(interactionSource, indication, enabled, onClickLabel, role, cued(cue ?: cueFor(role), emphasis, direction, onClick))
+
+/**
+ * `combinedClickable` that sounds and feels the same wherever it is (J20): the tap plays its cue as [cueClickable] does,
+ * and a hold is felt as the app's one hold ([Haptics.hold]), never the system's own buzz, which Settings cannot turn off.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+fun Modifier.cueCombinedClickable(
+    cue: Cue? = null,
+    emphasis: Emphasis = Emphasis.Subtle,
+    enabled: Boolean = true,
+    onClickLabel: String? = null,
+    role: Role? = null,
+    onLongClickLabel: String? = null,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+): Modifier = combinedClickable(
+    enabled = enabled, onClickLabel = onClickLabel, role = role, onLongClickLabel = onLongClickLabel,
+    onLongClick = onLongClick?.let { hold -> { Haptics.hold(); hold() } },
+    hapticFeedbackEnabled = false,
+    onClick = cued(cue ?: cueFor(role), emphasis, onClick = onClick),
+)
 
 /** [onClick] that plays [cue] first, for a callback that is not a `clickable`: a gesture, or one passed down. */
 fun cued(cue: Cue = Cue.Tap, emphasis: Emphasis = Emphasis.Subtle, direction: Direction? = null, onClick: () -> Unit): () -> Unit = {

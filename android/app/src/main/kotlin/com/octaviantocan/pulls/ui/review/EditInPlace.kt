@@ -1,8 +1,10 @@
 package com.octaviantocan.pulls.ui.review
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf
@@ -65,6 +67,21 @@ internal class EditFocus {
 }
 
 internal val LocalEditFocus = staticCompositionLocalOf<EditFocus?> { null }
+
+/**
+ * Takes every touch here before what is under it, and leaves the field being edited when the finger lifts: while a field
+ * is open the rest of the page only puts it away, it does not open, switch or swipe anything (J17).
+ */
+internal suspend fun PointerInputScope.leaveOnTap(leave: () -> Unit) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial).consume()
+        do {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            event.changes.forEach { it.consume() }
+        } while (event.changes.any { it.pressed })
+        leave()
+    }
+}
 
 /** How much of the page stays while something else on it is edited (H35). */
 internal const val EDIT_DIM = 0.28f

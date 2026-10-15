@@ -1,18 +1,19 @@
 {
   "version": "0.2.8",
+  "pulls": ["default.tap"],
   "themes": {
     "default": {
       "tap": {
-        "masterGain": 0.39,
+        "masterGain": 0.3,
         "vary": {"pitch":0.012,"level":0.12},
         "layers": [
+          {"kind":"noise","filterType":"bandpass","filterFrequency":2300,"filterQ":8,"attack":0.001,"decay":0.0055,"peak":0.13},
+          {"kind":"noise","filterType":"bandpass","filterFrequency":1552.5,"filterQ":2,"attack":0.001,"decay":0.0055,"peak":0.065},
+          {"kind":"tone","waveform":"sine","frequency":592,"glideTo":370,"glideTime":0.018,"attack":0.001,"decay":0.024,"peak":0.05},
           {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":4500,"filterQ":1.2,"attack":0.001,"decay":0.00242,"peak":0.03},
-          {"kind":"tone","waveform":"sine","frequency":1174.66,"attack":0.001,"decay":0.18,"peak":0.0135},
-          {"kind":"tone","waveform":"sine","frequency":1180,"attack":0.001,"decay":0.164,"peak":0.008},
-          {"kind":"tone","waveform":"sine","frequency":3242,"attack":0.001,"decay":0.0827,"peak":0.0055},
-          {"kind":"tone","waveform":"sine","frequency":480,"glideTo":300,"glideTime":0.018,"attack":0.001,"decay":0.0261,"peak":0.02,"from":"normal"},
-          {"from":"strong","kind":"tone","waveform":"sine","frequency":587.33,"attack":0.002,"decay":0.246,"peak":0.009},
-          {"kind":"tone","waveform":"sine","frequency":240,"glideTo":150,"glideTime":0.018,"attack":0.001,"decay":0.0489,"peak":0.014,"from":"strong"}
+          {"from":"normal","kind":"noise","filterType":"bandpass","filterFrequency":620,"filterQ":2.5,"attack":0.001,"decay":0.016,"peak":0.12},
+          {"kind":"tone","waveform":"sine","frequency":296,"glideTo":185,"glideTime":0.018,"attack":0.001,"decay":0.036,"peak":0.025,"from":"strong"},
+          {"from":"strong","kind":"noise","filterType":"bandpass","filterFrequency":150,"filterQ":2,"attack":0.002,"decay":0.032,"peak":0.3}
         ]
       },
       "type": {

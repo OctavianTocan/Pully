@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.Commands
+import com.octaviantocan.pulls.ui.home.PullToCommands
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,11 +21,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ScrollState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -68,8 +73,21 @@ import com.octaviantocan.pulls.core.BACKWARD
 import com.octaviantocan.pulls.ui.design.PageBack
 import com.octaviantocan.pulls.ui.design.PageMotion
 
-/** What the Ask sheet opens with: its title, the starter chips, a question to send at once, and what the next question is about. */
-private data class AskRequest(val title: String, val suggestions: List<String>, val initial: String?, val reference: AskReference? = null)
+/**
+ * What the Ask sheet opens with: its title, the starter chips, a question to send at once, and what the next question is
+ * about. [scroll] is where its conversation is, and [returning] that Back brought it back there.
+ */
+private data class AskRequest(
+    val title: String,
+    val suggestions: List<String>,
+    val initial: String?,
+    val reference: AskReference? = null,
+    val scroll: ScrollState = ScrollState(0),
+    val returning: Boolean = false,
+)
+
+/** An Ask sheet a mention was opened from; [over] when that place opened on the page under the sheet, the diff. */
+private class AskBehind(val request: AskRequest, val over: Boolean)
 
 private val PR_SUGGESTIONS = listOf("What changed, in a sentence?", "Anything risky?", "What do the tests cover?")
 private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should I check by hand?", "What is the riskiest part?")
@@ -100,36 +118,60 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
     val pages = remember(session) { mutableStateListOf(if (startOnTour) PrView.Tour else PrView.Overview) }
     val overviewScroll = rememberLazyListState()
+    // The Tour's own state (how far it is scrolled, what is open in it) outlives the page while a place it opened is on
+    // screen, so Back comes back to exactly where the reader was (J35).
+    val kept = rememberSaveableStateHolder()
     var pane by rememberSaveable { mutableIntStateOf(0) }
     var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
     var ask by remember { mutableStateOf<AskRequest?>(null) }
+    // The Ask sheet a mention in an answer was opened from, and where it was scrolled: Back from the place opens it again
+    // there, as Back from a place the tour opened finds the tour (J35).
+    var askBehind by remember { mutableStateOf<AskBehind?>(null) }
     // How the last change of view was made, for the ones the capsule's order cannot tell: Back and a back swipe (rule 105).
     val viewMotion = remember(session) { PageMotion() }
     val opened = session.opened
     // A tour the phone kept opens before the overview or the diff has arrived, named from what the phone knows.
-    val head = prHead(session, data) ?: storedTourHead(target, preview, session.tour).takeIf { pages.last() == PrView.Tour }
+    val head = (prHead(session, data) ?: storedTourHead(target, preview, session.tour).takeIf { pages.last() == PrView.Tour })
+        // The branches come with the Inbox row, so they show with the title rather than when GitHub answers (J13).
+        ?.let { if (it.base.isBlank() && it.head.isBlank() && preview != null) it.copy(base = preview.base, head = preview.head) else it }
 
     SideEffect {
         ui.uncategorizedLabel = messages.t("group.uncategorized")
         ui.uncategorizedSummary = messages.t("group.uncategorizedSummary")
     }
     OverviewEffects(session, top, data)
+    // Leaving the diff by Back goes back to the Ask sheet it was opened from, if it was.
+    fun pop() {
+        if (pages.removeAt(pages.lastIndex) == PrView.Diff) askBehind?.let { ask = it.request }
+        askBehind = null
+    }
     // Back pops a view and the views move backward; a back swipe moves the view with the finger first.
-    PageBack(viewMotion, enabled = pages.size > 1) { pages.removeAt(pages.lastIndex) }
+    PageBack(viewMotion, enabled = pages.size > 1) { pop() }
+    // Asked from the diff, a mention scrolls the same page, so Back opens the sheet again over it instead of leaving it.
+    fun backToAsk(): Boolean {
+        val behind = askBehind?.takeIf { it.over } ?: return false
+        ask = behind.request
+        askBehind = null
+        return true
+    }
+    // motion-ok: no page moves; the sheet rises again from the bottom as every sheet does (rule 108).
+    BackHandler(enabled = askBehind?.over == true) { backToAsk() }
 
     fun orderedFiles() = fileSections(session, ui).flatMap { it.files }
     fun push(page: PrView) { if (pages.last() != page) pages.add(page) }
     fun back() {
+        if (backToAsk()) return
         if (pages.size > 1) {
             viewMotion.next(BACKWARD)
-            pages.removeAt(pages.lastIndex)
+            pop()
         } else {
             nav.back()
         }
     }
     // The tour can be the first page (opened from the Tours tab), so the overview may not be below it.
     fun toOverview() {
+        askBehind = null
         if (PrView.Overview !in pages) pages.add(0, PrView.Overview)
         while (pages.last() != PrView.Overview) pages.removeAt(pages.lastIndex)
     }
@@ -137,6 +179,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     fun switchTo(page: PrView) {
         val here = pages.last()
         if (here == page) return
+        askBehind = null
         if (page == PrView.Overview) { toOverview(); return }
         pages.removeAll { it == page }
         if (here == PrView.Overview) pages.add(page) else pages[pages.lastIndex] = page
@@ -156,6 +199,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         if (session.tour == null && !tourComing(session)) sheet = "tour" else switchTo(PrView.Tour)
     }
     fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
+        askBehind = null
         ask = AskRequest(
             if (forTour) "Ask about this tour" else "Ask about ${head?.label ?: "this pull request"}",
             if (forTour) TOUR_SUGGESTIONS else PR_SUGGESTIONS,
@@ -248,7 +292,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     // The diff is narrowed to a commit: say so, with the way back, where no view can scroll it away (rule 80).
                     CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
                     // The views sit left to right as the capsule shows them, so going to one moves the page that way (rule 105).
-                    BlurSwitch(view, Modifier.weight(1f).fillMaxWidth(), order = { it.ordinal }, motion = viewMotion) { page ->
+                    // Pulling down past the top of any view opens Commands, as on the Inbox (J30).
+                    PullToCommands({ Commands.open() }, Modifier.weight(1f).fillMaxWidth()) {
+                    BlurSwitch(view, Modifier.fillMaxSize(), order = { it.ordinal }, motion = viewMotion) { page ->
                         when (page) {
                             PrView.Overview -> PrOverviewScreen(
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
@@ -265,22 +311,38 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                 onFiles = { sheet = "files" },
                                 onAsk = { reference -> openAsk(forTour = false, reference = reference) },
                             )
-                            PrView.Tour -> PrTourScreen(
-                                session, head,
-                                resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
-                                onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
-                                onChanges = ::toChanges,
-                                onOpenSource = { source -> openSource(session, source, uri::openUri) },
-                                onAsk = { question -> openAsk(forTour = true, initial = question) },
-                            )
+                            PrView.Tour -> kept.SaveableStateProvider(PrView.Tour.name) {
+                                PrTourScreen(
+                                    session, head,
+                                    resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
+                                    onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
+                                    onChanges = ::toChanges,
+                                    onOpenSource = { source -> openSource(session, source, uri::openUri) },
+                                    onAsk = { question -> openAsk(forTour = true, initial = question) },
+                                )
+                            }
                         }
+                    }
+                    }
+                }
+                // An AI review with the lens picked, from the Review sheet or from its page in the pull request's sheet.
+                fun review(lens: String?) {
+                    if (session.taskFor("critique")?.running == true) {
+                        toaster.show("Already reviewing ${head.label}")
+                    } else {
+                        session.runCritique(context, lens)
+                        toaster.show("Reviewing ${head.label}")
                     }
                 }
                 // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
                 when (sheet) {
-                    "more" -> MoreSheet(session, top, data, head, onClose = { sheet = null }, onSheet = { sheet = it })
-                    // Aa on the diff: the code's look, then the file's own actions and one row to the pull request's ⋯.
-                    "tools" -> TextAndToolsSheet(session, ui, orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() }, onClose = { sheet = null }, onActions = { sheet = "more" })
+                    "more" -> PrSheet(session, top, data, head, PrPage.Actions, onClose = { sheet = null }, onReview = ::review)
+                    // Aa on the diff: the code's look, then the file's own actions and one row on to the pull request's ⋯,
+                    // which slides in as a page of the same sheet (J27).
+                    "tools" -> PrSheet(
+                        session, top, data, head, PrPage.Tools, onClose = { sheet = null }, onReview = ::review,
+                        ui = ui, file = orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() },
+                    )
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
                     "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
@@ -288,15 +350,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "tour" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Tour, onTour = { switchTo(PrView.Tour) })
                     "model" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Model)
                     "stack" -> session.stack?.let { stack -> StackSheet(stack, onOpen = { number -> session.pull?.let { nav.openTarget(OpenTarget.Pull(it.owner, it.repo, number, "github.com")) } }) { sheet = null } }
-                    "review" -> ReviewSheet(session, onClose = { sheet = null }) { lens ->
-                        sheet = null
-                        if (session.taskFor("critique")?.running == true) {
-                            toaster.show("Already reviewing ${head.label}")
-                        } else {
-                            session.runCritique(context, lens)
-                            toaster.show("Reviewing ${head.label}")
-                        }
-                    }
+                    "review" -> ReviewSheet(session, onClose = { sheet = null }) { lens -> sheet = null; review(lens) }
                     // A long-press on a file row: "file:" and the file's path.
                     else -> sheet?.takeIf { it.startsWith(FILE_SHEET) }?.let { route ->
                         val path = route.removePrefix(FILE_SHEET)
@@ -310,12 +364,19 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     }
                 }
                 ask?.let { request ->
-                    // A mention in an answer closes the sheet and opens its place, as a tour source does (rule 96).
-                    AskSheet(session, request.title, request.suggestions, request.initial, request.reference, onOpen = { place -> ask = null; openSource(session, TourSource(place.path, place.line, ""), uri::openUri) }) { ask = null }
+                    // A mention in an answer closes the sheet and opens its place, as a tour source does (rule 96), and Back
+                    // brings the sheet back where it was. A file the change does not touch opens on GitHub over the sheet,
+                    // which stays (J35).
+                    AskSheet(session, request.title, request.suggestions, request.initial, request.reference, request.scroll, request.returning, onOpen = { place ->
+                        if (session.opened == null || session.files.any { it.path == place.path }) {
+                            ask = null
+                            // Its question and what it was about are already sent: coming back must not send them again.
+                            askBehind = AskBehind(request.copy(initial = null, reference = null, returning = true), over = pages.last() == PrView.Diff)
+                        }
+                        openSource(session, TourSource(place.path, place.line, ""), uri::openUri)
+                    }) { ask = null }
                 }
-                ReviewProgressSheet(session, top)
                 ReviewSubmitSheet(session, top, canVerdict = head.isOpen)
-                if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)
             }
         }
     }

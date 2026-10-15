@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +19,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.MutableState
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -84,12 +85,53 @@ private fun AnalyzePage.title(): String = when (this) {
  */
 @Composable
 internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: AnalyzePage = AnalyzePage.Main, onTour: () -> Unit = {}) {
+    var page by remember { mutableStateOf(start) }
+    val custom = rememberCustomAnalysis(session)
+    // Opened straight on the model page, that page is the first one: there is no Analyze page behind it. Opened from the
+    // tour icon, the model page goes back to the tour's page.
+    val parent: (AnalyzePage) -> AnalyzePage? = {
+        when {
+            it != AnalyzePage.Model -> it.parent
+            start == AnalyzePage.Model -> null
+            else -> start
+        }
+    }
+    PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = { it.title() }) { current ->
+        AnalyzePageContent(
+            session, current, custom, onPage = { page = it }, onClose = onClose, onTour = onTour,
+            onModelDone = { if (start == AnalyzePage.Model) onClose() else page = parent(AnalyzePage.Model) ?: AnalyzePage.Main },
+        )
+    }
+}
+
+/** The passes a custom analysis runs, kept by the sheet so its page and the Analyze page share them. */
+@Composable
+internal fun rememberCustomAnalysis(session: ReviewSession): MutableState<AnalyzeChoice> {
+    val last = session.settings.analyzeChoice
+    return remember { mutableStateOf(AnalyzeChoice(null, last.tour, last.brief, last.review)) }
+}
+
+/** An Analyze page's title, for a sheet that holds these pages among its own. */
+internal fun analyzePageTitle(page: AnalyzePage): String = page.title()
+
+/**
+ * What one of the Analyze pages holds, for its own sheet and for the pull request's actions sheet, which opens them as
+ * pages of its own (J27). [onPage] goes to another of them, [onModelDone] is where the model page goes once a model is
+ * picked, and [onClose] closes the sheet they are in.
+ */
+@Composable
+internal fun ColumnScope.AnalyzePageContent(
+    session: ReviewSession,
+    current: AnalyzePage,
+    custom: MutableState<AnalyzeChoice>,
+    onPage: (AnalyzePage) -> Unit,
+    onModelDone: () -> Unit,
+    onClose: () -> Unit,
+    onTour: () -> Unit = {},
+) {
     val context = LocalContext.current
     val toaster = LocalToaster.current
     val settings = session.settings
-    val last = settings.analyzeChoice
-    var page by remember { mutableStateOf(start) }
-    var custom by remember { mutableStateOf(AnalyzeChoice(null, last.tour, last.brief, last.review)) }
 
     fun run(choice: AnalyzeChoice) {
         settings.updateAnalyzeChoice(choice)
@@ -102,35 +144,25 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: An
         }
     }
 
-    // Opened straight on the model page, that page is the first one: there is no Analyze page behind it. Opened from the
-    // tour icon, the model page goes back to the tour's page.
-    val parent: (AnalyzePage) -> AnalyzePage? = {
-        when {
-            it != AnalyzePage.Model -> it.parent
-            start == AnalyzePage.Model -> null
-            else -> start
+    when (current) {
+        AnalyzePage.Main -> AnalyzeMain(session, onRun = ::run, onCustom = { onPage(AnalyzePage.Custom) }, onModel = { onPage(AnalyzePage.Model) })
+        AnalyzePage.Tour -> TourStart(session, onModel = { onPage(AnalyzePage.Model) }) {
+            onClose()
+            generateTour(session, context)
+            onTour()
         }
-    }
-    PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = { it.title() }) { current ->
-        when (current) {
-            AnalyzePage.Main -> AnalyzeMain(session, onRun = ::run, onCustom = { page = AnalyzePage.Custom }, onModel = { page = AnalyzePage.Model })
-            AnalyzePage.Tour -> TourStart(session, onModel = { page = AnalyzePage.Model }) {
-                onClose()
-                generateTour(session, context)
-                onTour()
+        AnalyzePage.Custom -> {
+            var choice by custom
+            SheetCard {
+                PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
+                PassRow("Tour", "A walk through the change, section by section.", choice.tour) { choice = choice.copy(tour = it) }
+                PassRow("Brief", "A page made for this change: tables, checks, diagrams.", choice.brief) { choice = choice.copy(brief = it) }
+                PassRow("AI review", "Looks for bugs and risks, line by line.", choice.review) { choice = choice.copy(review = it) }
             }
-            AnalyzePage.Custom -> {
-                SheetCard {
-                    PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
-                    PassRow("Tour", "A walk through the change, section by section.", custom.tour) { custom = custom.copy(tour = it) }
-                    PassRow("Brief", "A page made for this change: tables, checks, diagrams.", custom.brief) { custom = custom.copy(brief = it) }
-                    PassRow("AI review", "Looks for bugs and risks, line by line.", custom.review) { custom = custom.copy(review = it) }
-                }
-                CtaButton("Analyze", { run(custom) }, Modifier.fillMaxWidth().padding(top = 16.dp))
-            }
-            AnalyzePage.Model -> ModelPage(settings, onDone = { if (start == AnalyzePage.Model) onClose() else page = parent(AnalyzePage.Model) ?: AnalyzePage.Main }, onEffort = { page = AnalyzePage.Effort })
-            AnalyzePage.Effort -> EffortPage(settings, onBack = { page = AnalyzePage.Model })
+            CtaButton("Analyze", { run(choice) }, Modifier.fillMaxWidth().padding(top = 16.dp))
         }
+        AnalyzePage.Model -> ModelPage(settings, onDone = onModelDone, onEffort = { onPage(AnalyzePage.Effort) })
+        AnalyzePage.Effort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Model) })
     }
 }
 

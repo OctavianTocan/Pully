@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.offset
@@ -107,7 +108,7 @@ private fun ReviewSession.sendChat(text: String?, retry: Boolean = false) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference?, onOpen: (CodePlace) -> Unit, onDismiss: () -> Unit) {
+internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference?, keptScroll: ScrollState?, returning: Boolean, onOpen: (CodePlace) -> Unit, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
     val task = rememberLiveTask(session, "chat")
@@ -137,8 +138,12 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     val lastAnswer = shown.lastOrNull() as? ChatRow.Assistant
     val nextQuestions = if (lastAnswer != null && !busy && pending == null) session.saved?.suggestions.orEmpty() else emptyList()
     val failed = task?.status == "failed"
-    val scroll = rememberScrollState()
-    LaunchedEffect(rows.size, pending, task?.activities?.size, streaming, written?.length) { scroll.animateScrollTo(scroll.maxValue) }
+    val scroll = keptScroll ?: rememberScrollState()
+    // Each new line brings the end into view; a sheet opened again where it was is left there until something new comes.
+    val stay = remember { booleanArrayOf(returning) }
+    LaunchedEffect(rows.size, pending, task?.activities?.size, streaming, written?.length) {
+        if (stay[0]) stay[0] = false else scroll.animateScrollTo(scroll.maxValue)
+    }
     LaunchedEffect(initial) {
         if (!initial.isNullOrBlank() && !busy) session.sendChat(initial)
     }

@@ -84,6 +84,7 @@ import org.commonmark.node.Text as MdText
 import org.commonmark.node.ThematicBreak
 import org.commonmark.parser.Parser
 import androidx.compose.foundation.layout.Spacer
+import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.PULL_MENTION
 import com.octaviantocan.pulls.core.pullRefOfUrl
 
@@ -116,13 +117,16 @@ val LocalPullMentions = staticCompositionLocalOf<PullMentions?> { null }
 /** Set by AI screens to draw fenced code their own way (the diff's code view, rule 95); the code and its fence language. */
 val LocalCodeBlock = staticCompositionLocalOf<(@Composable (code: String, lang: String) -> Unit)?> { null }
 
-/** The place a link points at when its target is a path in the repository (`src/a.ts#L12`, `src/a.ts:12`, `./a.ts`), or null for a web link. */
+/**
+ * The place a link points at when its target is a path in the repository (`src/a.ts#L12`, `src/a.ts:12`, `./a.ts`,
+ * `.github/ci.yml`), or null for a web link. The path is read from the root by [FileLinks.repoPath], which keeps a
+ * dot-folder's dot: reading `.agents/…` as `./agents/…` sent a tour's link to a page GitHub did not have (J36).
+ */
 fun codePlaceOf(destination: String): CodePlace? {
     val target = destination.trim()
     if (target.isEmpty() || target.startsWith("#") || target.startsWith("//") || Regex("^[A-Za-z][A-Za-z0-9+.-]*:").containsMatchIn(target) && !Regex("^[^/]+:\\d").containsMatchIn(target)) return null
-    val match = Regex("^\\.?/?([^#?\\s:]+?)(?::(\\d+)|#L(\\d+)(?:-L?\\d+)?)?$").find(target) ?: return null
-    val path = match.groupValues[1].trimStart('/')
-    if (path.isEmpty() || path.endsWith("/")) return null
+    val match = Regex("^([^#?\\s:]+?)(?::(\\d+)|#L(\\d+)(?:-L?\\d+)?)?$").find(target) ?: return null
+    val path = FileLinks.repoPath(match.groupValues[1]) ?: return null
     val line = (match.groupValues[2].ifEmpty { match.groupValues[3] }).toIntOrNull() ?: 0
     return CodePlace(path, line)
 }
@@ -321,10 +325,11 @@ private fun Details(summary: String, body: String, style: TextStyle) {
 @Composable
 private fun CodeBlock(code: String) {
     val c = LocalPullsColors.current
+    val scroll = rememberScrollState()
     // On the code paper with no border, at body size (rules 14 and 49); AI text swaps in the diff's code view instead.
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.xl)).background(c.code)
-            .horizontalScroll(rememberScrollState()).padding(12.dp),
+            .sideScrollFade(scroll, color = c.code).horizontalScroll(scroll).padding(12.dp),
     ) {
         Text(code, style = PullsType.sm.copy(fontFamily = PullsType.mono, color = c.text), softWrap = false)
     }

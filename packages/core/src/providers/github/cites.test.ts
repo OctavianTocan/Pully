@@ -16,6 +16,15 @@ describe('githubCiteUrl', () => {
     expect(githubCiteUrl('pages/[id].vue', at)).toBe(`${blob}/pages/%5Bid%5D.vue`)
   })
 
+  it('keeps a dot-folder\'s dot and reads `..` from the root', () => {
+    expect(githubCiteUrl('.agents/skills/ojin-release/SKILL.md', at)).toBe(`${blob}/.agents/skills/ojin-release/SKILL.md`)
+    expect(githubCiteUrl('./.github/workflows/ci.yml#L3', at)).toBe(`${blob}/.github/workflows/ci.yml#L3`)
+    expect(githubCiteUrl('../../.agents/skills/ojin-release/SKILL.md', at)).toBe(`${blob}/.agents/skills/ojin-release/SKILL.md`)
+    expect(githubCiteUrl('docs/runbooks/../b.md', at)).toBe(`${blob}/docs/b.md`)
+    expect(githubCiteUrl('docs/my%20notes.md', at)).toBe(`${blob}/docs/my%20notes.md`)
+    expect(githubCiteUrl('src/..', at)).toBeUndefined()
+  })
+
   it('leaves web links, anchors and folders alone', () => {
     expect(githubCiteUrl('https://example.com/a.ts', at)).toBeUndefined()
     expect(githubCiteUrl('mailto:someone@example.com', at)).toBeUndefined()

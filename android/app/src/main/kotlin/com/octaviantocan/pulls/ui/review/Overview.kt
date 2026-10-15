@@ -2,6 +2,7 @@
 
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.sound.Cue
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.GithubAvatar
+import com.octaviantocan.pulls.ui.design.SoftChip
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.DETAILS_INFO
 import com.octaviantocan.pulls.ui.design.Lu
@@ -752,7 +754,7 @@ private fun CardHeader(collapsed: Boolean, onToggle: () -> Unit, trailing: @Comp
     // Who and what on the left, wrapping when long; when and the chevron always in the same place on the right.
     Row(
         Modifier.fillMaxWidth()
-            .cueClickable(role = Role.Button, onClickLabel = if (collapsed) "Show the comment" else "Hide the comment", onClick = onToggle)
+            .cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (collapsed) "Show the comment" else "Hide the comment", onClick = onToggle)
             .defaultMinSize(minHeight = TOUCH).padding(start = 14.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -790,16 +792,40 @@ private fun FoldedLine(text: String) {
     Text(text, Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp), style = PullsType.sm, color = LocalPullsColors.current.faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
-/** `PrConversation`: the description card, then the timeline (last 30, "Show n earlier"). */
+/** Which part of the conversation shows: all of it, what people wrote, or what bots wrote (J19). */
+internal enum class Talk(val label: String) { All("All"), People("People"), Bots("Bots") }
+
+/** Whether [item] belongs under [talk]: an event (a label, a push of the title) only under All. */
+internal fun inTalk(item: PrTimelineItem, talk: Talk): Boolean = when (talk) {
+    Talk.All -> true
+    Talk.People -> item !is PrTimelineItem.Event && !isBotLogin(item.actor?.login)
+    Talk.Bots -> item !is PrTimelineItem.Event && isBotLogin(item.actor?.login)
+}
+
+/**
+ * `PrConversation`: the description card, then the timeline (last 30, "Show n earlier"). A long one is hard to get
+ * around, most of it bots (J19), so chips over it narrow it to what people wrote or what bots wrote, each with how many.
+ */
 @Composable
 fun Conversation(overview: PrOverview) {
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
     var showAll by rememberSaveable(overview.id) { mutableStateOf(false) }
+    var talk by rememberSaveable(overview.id, "talk") { mutableStateOf(Talk.All) }
     // Pushed commits live in the Commits tab (rule 91); the conversation is what people said and did.
-    val timeline = remember(overview.timeline) { overview.timeline.filter { it !is PrTimelineItem.Commits } }
-    val earlier = if (showAll) 0 else maxOf(0, timeline.size - 30)
+    val everything = remember(overview.timeline) { overview.timeline.filter { it !is PrTimelineItem.Commits } }
+    val counts = remember(everything) { Talk.entries.associateWith { which -> everything.count { inTalk(it, which) } } }
+    val timeline = remember(everything, talk) { everything.filter { inTalk(it, talk) } }
+    val earlier = if (showAll || talk != Talk.All) 0 else maxOf(0, timeline.size - 30)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Only worth having when there is something to narrow: people and bots both spoke.
+        if ((counts[Talk.People] ?: 0) > 0 && (counts[Talk.Bots] ?: 0) > 0) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Talk.entries.forEach { which ->
+                    SoftChip(which.label, talk == which, { talk = which }, count = if (which == Talk.All) null else "${counts[which]}")
+                }
+            }
+        }
         var descriptionOpen by rememberSaveable(overview.id, "description") { mutableStateOf(true) }
         Column(Modifier.timelineCard(c)) {
             CardHeader(

@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 889,
+        "line": 939,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 223,
+        "line": 237,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -71,9 +71,14 @@
             "name": "sound",
             "type": "Boolean",
             "default": "true"
+          },
+          {
+            "name": "position",
+            "type": "(() -> Float)?",
+            "default": "null"
           }
         ],
-        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n    /** False for a picker that sounds its own choice, so a tab does not also make the generic one. */\n    sound: Boolean = true,\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = \"capsule\")\n        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).then(\n                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) }\n                        else Modifier.clickable(role = Role.Tab) { onSelect(index) },\n                    ),\n                    contentAlignment = Alignment.Center,\n                ) {\n                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)\n                    }\n                }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n    /** False for a picker that sounds its own choice, so a tab does not also make the generic one. */\n    sound: Boolean = true,\n    /**\n     * Where the pages under the tabs are, in tabs ([SidePagesState.at]): the pill then sits exactly there, so it moves\n     * with the pages under a finger and as they glide, instead of running its own animation beside them (J15).\n     */\n    position: (() -> Float)? = null,\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = \"capsule\")\n        val pill = if (position != null) {\n            val last = labels.lastIndex.coerceAtLeast(0).toFloat()\n            Modifier.graphicsLayer { translationX = segment.toPx() * position().coerceIn(0f, last) }\n        } else {\n            Modifier.offset(x = x)\n        }\n        Box(pill.width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).then(\n                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) }\n                        else Modifier.clickable(role = Role.Tab) { onSelect(index) },\n                    ),\n                    contentAlignment = Alignment.Center,\n                ) {\n                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (index == selected) c.text else c.muted, maxLines = 1)\n                    }\n                }\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -82,7 +87,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 427,
+        "line": 477,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -119,7 +124,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 458,
+        "line": 508,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -170,7 +175,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 178,
+        "line": 192,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -220,7 +225,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 206,
+        "line": 220,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -285,7 +290,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 906,
+        "line": 956,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -308,7 +313,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 784,
+        "line": 834,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small\ndot instead of the tick, for work that has not run, or did not finish, so a tick never claims\nsomething that was not done. [stop] turns the breathing dot into a small square, because the orb is\nthen the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -346,7 +351,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 900,
+        "line": 950,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -369,7 +374,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 481,
+        "line": 531,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -405,7 +410,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 501,
+        "line": 551,
         "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
         "params": [
           {
@@ -455,7 +460,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 540,
+        "line": 590,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -478,7 +483,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 867,
+        "line": 917,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops, moving to a new count over 400ms.",
         "params": [
           {
@@ -504,7 +509,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 874,
+        "line": 924,
         "doc": "The tour ring filled to [fraction] (0 to 1) as given, for a ring that follows the tour's scroll without jumps (rule 97).",
         "params": [
           {
@@ -531,7 +536,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 687,
+        "line": 737,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -561,8 +566,8 @@
     "declarations": [
       {
         "file": "ui/design/Sheet.kt",
-        "line": 107,
-        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls\nunder the header, which stays put. Every sheet rests at two heights and slides between them (rule 77):\nits normal height, which is its content up to half the screen, and its tall height near the top of the\nscreen, which a short sheet reaches too: the room under its content is the sheet's own paper. [full]\nmakes the body fill the sheet (chat, Commands); its normal height is then half the screen, and its\n[footer] stays on screen at either height. [expandable] off keeps a sheet at its normal height. [back]\nswaps the close X for a back arrow.\n\nThe sheet is the kit's own window, not Material's. It rises from below the screen on a spring with a little bounce\nwhile fading in through a 2px blur, and leaves in 350ms on the smooth-out curve (rule 73, H3). It follows a finger:\ndragged up from its normal height it goes to the tall one, down from the tall height to the normal one, and down\nfrom the normal height it closes, settling on the same spring at the speed it was let go. Only a drag that starts\nwith the content at its top moves the sheet: scrolling the content back up to its top, or a fling that runs into\nit, never takes the sheet down with it (H2). A sheet is always a bottom sheet, wherever it was opened from (H6).\nA field that takes the keyboard lifts it to the tall height, so the field never sits behind the keyboard.",
+        "line": 108,
+        "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls\nunder the header, which stays put. Every sheet rests at two heights and slides between them (rule 77):\nits normal height, which is its content up to half the screen, and its tall height near the top of the\nscreen, which a short sheet reaches too: the room under its content is the sheet's own paper. [full]\nmakes the body fill the sheet (chat, Commands); its normal height is then half the screen, and its\n[footer] stays on screen at either height. [expandable] off keeps a sheet at its normal height. [back]\nswaps the close X for a back arrow. [tall] opens it at its tall height (Commands, whose search takes the keyboard).\n\nThe sheet is the kit's own window, not Material's. It rises from below the screen on a spring with a little bounce\nwhile fading in through a 2px blur, and leaves in 350ms on the smooth-out curve (rule 73, H3). It follows a finger:\ndragged up from its normal height it goes to the tall one, down from the tall height to the normal one, and down\nfrom the normal height it closes, settling on the same spring at the speed it was let go. Only a drag that starts\nwith the content at its top moves the sheet: scrolling the content back up to its top, or a fling that runs into\nit, never takes the sheet down with it (H2). A sheet is always a bottom sheet, wherever it was opened from (H6).\nA field that takes the keyboard lifts it to the tall height, so the field never sits behind the keyboard.",
         "params": [
           {
             "name": "onClose",
@@ -603,15 +608,20 @@
             "default": "null"
           },
           {
+            "name": "tall",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val scrollState = scroll ?: rememberScrollState()\n    SheetHost(onClose, onBack = back) { position, dismiss ->\n        SheetPanel(position, dismiss, full, expandable) {\n            SheetHeader(\n                leading = { if (back != null) FloatIcon(Lu.back, \"Back\", back) else FloatIcon(Lu.close, \"Close\", dismiss) },\n                title = title,\n                trailing = trailing,\n            )\n            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)\n        }\n    }\n}"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: @Composable () -> Unit,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    tall: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) {\n    val scrollState = scroll ?: rememberScrollState()\n    SheetHost(onClose, onBack = back) { position, dismiss ->\n        // Commands opens straight at its tall height, so its search can take the keyboard at once (J11).\n        if (tall) position.openTall()\n        SheetPanel(position, dismiss, full, expandable) {\n            SheetHeader(\n                leading = { if (back != null) FloatIcon(Lu.back, \"Back\", back) else FloatIcon(Lu.close, \"Close\", dismiss) },\n                title = title,\n                trailing = trailing,\n            )\n            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)\n        }\n    }\n}"
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 132,
+        "line": 136,
         "doc": "",
         "params": [
           {
@@ -653,16 +663,21 @@
             "default": "null"
           },
           {
+            "name": "tall",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, content)\n\n/**\n * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\n * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\n * into ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\n * enough to see which way it went: forward from the right, ← to the right (H1). [parent]\n * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\n * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\n * At its normal height the panel grows or shrinks to the next page's height as the body slides.\n */"
+        "source": "@Composable\nfun PullsSheet(\n    onClose: () -> Unit,\n    title: String,\n    full: Boolean = false,\n    back: (() -> Unit)? = null,\n    footer: (@Composable ColumnScope.() -> Unit)? = null,\n    scroll: ScrollState? = null,\n    expandable: Boolean = true,\n    trailing: (@Composable () -> Unit)? = null,\n    tall: Boolean = false,\n    content: @Composable ColumnScope.() -> Unit,\n) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, tall, content)\n\n/**\n * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\n * card, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\n * into ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\n * enough to see which way it went: forward from the right, ← to the right (H1). [parent]\n * names the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\n * owns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\n * At its normal height the panel grows or shrinks to the next page's height as the body slides. [heading] draws a\n * page's title itself where plain text is not enough (the pull request's name and number); [title] is still its name.\n */"
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 154,
-        "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\nenough to see which way it went: forward from the right, ← to the right (H1). [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nAt its normal height the panel grows or shrinks to the next page's height as the body slides.",
+        "line": 160,
+        "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\nenough to see which way it went: forward from the right, ← to the right (H1). [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nAt its normal height the panel grows or shrinks to the next page's height as the body slides. [heading] draws a\npage's title itself where plain text is not enough (the pull request's name and number); [title] is still its name.",
         "params": [
           {
             "name": "onClose",
@@ -695,11 +710,16 @@
             "default": "null"
           },
           {
+            "name": "heading",
+            "type": "(P) -> (@Composable () -> Unit)?",
+            "default": "{ null }"
+          },
+          {
             "name": "content",
             "type": "@Composable ColumnScope.(P) -> Unit"
           }
         ],
-        "source": "@Composable\nfun <P : Any> PullsPagedSheet(\n    onClose: () -> Unit,\n    page: P,\n    parent: (P) -> P?,\n    onPage: (P) -> Unit,\n    title: @Composable (P) -> String,\n    full: Boolean = false,\n    footer: (@Composable ColumnScope.(P) -> Unit)? = null,\n    content: @Composable ColumnScope.(P) -> Unit,\n) {\n    SheetHost(onClose, onBack = parent(page)?.let { up -> { onPage(up) } }) { position, dismiss ->\n        PagedSheetPanel(position, dismiss, full, page, parent, onPage, title, footer, content)\n    }\n}"
+        "source": "@Composable\nfun <P : Any> PullsPagedSheet(\n    onClose: () -> Unit,\n    page: P,\n    parent: (P) -> P?,\n    onPage: (P) -> Unit,\n    title: @Composable (P) -> String,\n    full: Boolean = false,\n    footer: (@Composable ColumnScope.(P) -> Unit)? = null,\n    heading: (P) -> (@Composable () -> Unit)? = { null },\n    content: @Composable ColumnScope.(P) -> Unit,\n) {\n    SheetHost(onClose, onBack = parent(page)?.let { up -> { onPage(up) } }) { position, dismiss ->\n        PagedSheetPanel(position, dismiss, full, page, parent, onPage, title, footer, heading, content)\n    }\n}"
       }
     ]
   },
@@ -708,7 +728,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 548,
+        "line": 598,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper, [gap] below what comes before it.",
         "params": [
           {
@@ -735,7 +755,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 598,
+        "line": 648,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -810,7 +830,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 558,
+        "line": 608,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline. [detail] is a second, muted line under the label.",
         "params": [
           {
@@ -871,7 +891,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 655,
+        "line": 705,
         "doc": "`.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,\nwhite with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over\nit: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.",
         "params": [
           {
@@ -901,7 +921,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 917,
+        "line": 967,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
@@ -937,7 +957,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 264,
+        "line": 289,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -972,7 +992,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 442,
+        "line": 492,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -1007,7 +1027,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 728,
+        "line": 778,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -1029,7 +1049,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 291,
+        "line": 316,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.\n[spread] lays the labels across the whole width, the first at the start and the last at the end with even gaps\nbetween. When they do not fit with 16dp between them the labels step down to body size (15sp), and only when they\nstill do not fit does the row keep a 24dp gap and scroll sideways; a label is never cut.\n\nThe underline is one stroke that slides from tab to tab when the selection changes (250ms smooth-out), and leans\ntoward a neighbour by [pull] (-1 to 1, toward the next tab when positive) while a finger drags the page under it, so\nit moves the way the page does (rule 105).",
         "params": [
           {
@@ -1058,9 +1078,14 @@
             "name": "pull",
             "type": "() -> Float",
             "default": "{ 0f }"
+          },
+          {
+            "name": "position",
+            "type": "(() -> Float)?",
+            "default": "null"
           }
         ],
-        "source": "@Composable\nfun UnderlineTabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier, spread: Boolean = false, pull: () -> Float = { 0f }) {\n    val c = LocalPullsColors.current\n    val hairline = Modifier.drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }\n    val ink = rememberTabInk(selected)\n    val inked = Modifier.onPlaced { ink.host = it }.drawBehind { ink.draw(this, pull(), c.accentTeal) }\n    if (!spread) {\n        Row(modifier.fillMaxWidth().then(hairline).then(inked)) {\n            labels.forEachIndexed { index, label ->\n                UnderlineTab(label, index, selected, onSelect, ink, Modifier.padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp), Alignment.Center)\n            }\n        }\n        return\n    }\n    BoxWithConstraints(modifier.fillMaxWidth().then(hairline)) {\n        val viewport = constraints.maxWidth\n        val last = labels.lastIndex\n        val measurer = rememberTextMeasurer()\n        val density = LocalDensity.current\n        val style = remember(labels, viewport, density) {\n            val base = PullsType.base.copy(fontWeight = FontWeight.Medium)\n            val room = viewport - with(density) { 16.dp.roundToPx() } * last\n            if (labels.sumOf { measurer.measure(it, base, softWrap = false, maxLines = 1).size.width } <= room) base else PullsType.sm.copy(fontWeight = FontWeight.Medium)\n        }\n        Layout(\n            content = {\n                labels.forEachIndexed { index, label ->\n                    val align = when (index) {\n                        0 -> Alignment.CenterStart\n                        last -> Alignment.CenterEnd\n                        else -> Alignment.Center\n                    }\n                    UnderlineTab(label, index, selected, onSelect, ink, Modifier, align, style)\n                }\n            },\n            // The ink is drawn in the scrolled content, so it moves with the labels when they scroll.\n            modifier = Modifier.horizontalScroll(rememberScrollState()).then(inked),\n        ) { measurables, constraints ->\n            val height = 48.dp.roundToPx()\n            val natural = measurables.map { it.maxIntrinsicWidth(height) }\n            val fits = last == 0 || natural.sum() + 16.dp.roundToPx() * last <= viewport\n            val gap = if (fits && last > 0) (viewport - natural.sum()) / last else 24.dp.roundToPx()\n            // Every tab reaches halfway into the gaps beside it, so the whole row is a target.\n            val placeables = measurables.mapIndexed { index, measurable ->\n                val reach = (if (index > 0) gap / 2 else 0) + (if (index < last) gap - gap / 2 else 0)\n                measurable.measure(Constraints.fixed(natural[index] + reach, height))\n            }\n            val width = if (fits) maxOf(viewport, placeables.sumOf { it.width }) else placeables.sumOf { it.width }\n            layout(width.coerceAtLeast(constraints.minWidth), height) {\n                var x = 0\n                placeables.forEach { it.place(x, 0); x += it.width }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun UnderlineTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    spread: Boolean = false,\n    pull: () -> Float = { 0f },\n    /** Where the pages under the tabs are, in tabs ([SidePagesState.at]): the stroke then sits exactly there (J15). */\n    position: (() -> Float)? = null,\n) {\n    val c = LocalPullsColors.current\n    val hairline = Modifier.drawBehind { drawRect(c.borderMute, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }\n    val ink = rememberTabInk(selected)\n    val inked = Modifier.onPlaced { ink.host = it }.drawBehind {\n        if (position != null) ink.drawAt(this, position(), c.accentTeal) else ink.draw(this, pull(), c.accentTeal)\n    }\n    if (!spread) {\n        Row(modifier.fillMaxWidth().then(hairline).then(inked)) {\n            labels.forEachIndexed { index, label ->\n                UnderlineTab(label, index, selected, onSelect, ink, Modifier.padding(start = if (index == 0) 0.dp else 12.dp, end = 12.dp), Alignment.Center)\n            }\n        }\n        return\n    }\n    BoxWithConstraints(modifier.fillMaxWidth().then(hairline)) {\n        val viewport = constraints.maxWidth\n        val last = labels.lastIndex\n        val measurer = rememberTextMeasurer()\n        val density = LocalDensity.current\n        val style = remember(labels, viewport, density) {\n            val base = PullsType.base.copy(fontWeight = FontWeight.Medium)\n            val room = viewport - with(density) { 16.dp.roundToPx() } * last\n            if (labels.sumOf { measurer.measure(it, base, softWrap = false, maxLines = 1).size.width } <= room) base else PullsType.sm.copy(fontWeight = FontWeight.Medium)\n        }\n        Layout(\n            content = {\n                labels.forEachIndexed { index, label ->\n                    val align = when (index) {\n                        0 -> Alignment.CenterStart\n                        last -> Alignment.CenterEnd\n                        else -> Alignment.Center\n                    }\n                    UnderlineTab(label, index, selected, onSelect, ink, Modifier, align, style)\n                }\n            },\n            // The ink is drawn in the scrolled content, so it moves with the labels when they scroll.\n            modifier = Modifier.horizontalScroll(rememberScrollState()).then(inked),\n        ) { measurables, constraints ->\n            val height = 48.dp.roundToPx()\n            val natural = measurables.map { it.maxIntrinsicWidth(height) }\n            val fits = last == 0 || natural.sum() + 16.dp.roundToPx() * last <= viewport\n            val gap = if (fits && last > 0) (viewport - natural.sum()) / last else 24.dp.roundToPx()\n            // Every tab reaches halfway into the gaps beside it, so the whole row is a target.\n            val placeables = measurables.mapIndexed { index, measurable ->\n                val reach = (if (index > 0) gap / 2 else 0) + (if (index < last) gap - gap / 2 else 0)\n                measurable.measure(Constraints.fixed(natural[index] + reach, height))\n            }\n            val width = if (fits) maxOf(viewport, placeables.sumOf { it.width }) else placeables.sumOf { it.width }\n            layout(width.coerceAtLeast(constraints.minWidth), height) {\n                var x = 0\n                placeables.forEach { it.place(x, 0); x += it.width }\n            }\n        }\n    }\n}"
       }
     ]
   }

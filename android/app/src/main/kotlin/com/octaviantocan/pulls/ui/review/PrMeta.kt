@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
@@ -78,7 +79,7 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
  * on showing the branch, because a control that copies keeps its face (rule 83).
  */
 @Composable
-internal fun BranchRow(head: PrHead) {
+internal fun BranchRow(base: String, head: String) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
@@ -95,13 +96,15 @@ internal fun BranchRow(head: PrHead) {
         }
     }
     // Always one line (H31): a long branch runs past the edge and the row scrolls sideways to read it, never wraps and
-    // never cuts the name short.
+    // never cuts the name short. Where it runs past an edge it dissolves into the page (J14).
+    val scroll = rememberScrollState()
     Row(
-        Modifier.fillMaxWidth().padding(top = 10.dp).horizontalScroll(rememberScrollState()),
+        Modifier.fillMaxWidth().padding(top = 10.dp).sideScrollFade(scroll).horizontalScroll(scroll),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        if (head.head.isNotBlank()) Chip(head.head, Modifier)
-        if (head.head.isNotBlank() && head.base.isNotBlank()) LuIcon(Lu.to, tint = c.muted, size = 14.dp)
-        if (head.base.isNotBlank()) Chip(head.base, Modifier)
+        if (head.isNotBlank()) Chip(head, Modifier)
+        if (head.isNotBlank() && base.isNotBlank()) LuIcon(Lu.to, tint = c.muted, size = 14.dp)
+        if (base.isNotBlank()) Chip(base, Modifier)
     }
 }
+

@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.ui.update
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -10,7 +11,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -36,6 +41,7 @@ import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.edgeFade
+import com.octaviantocan.pulls.ui.design.hairlineTop
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.update.UpdatePrefs
 import com.octaviantocan.pulls.update.UpdateStatus
@@ -135,22 +141,61 @@ private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
 }
 
 /**
- * Versions as the changelog writes them: the number in Mona Sans, the summary as the headline, and the bullets
- * at reading size. No card around them: a sheet's body is its list (rule 79).
+ * Versions as the changelog writes them, each its own block as good release notes are (J6): the number in Mona Sans
+ * as a small header, the newest one tagged New, the summary as the headline, then the bullets one to a line with a
+ * dot and room between them, under their `### New` or `### Fixed` heading when the section has those. A hairline
+ * parts one version from the next. No card around them: a sheet's body is its list (rule 79).
  */
 @Composable
 internal fun ChangelogEntries(entries: List<ChangelogEntry>, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
-    Column(modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+    Column(modifier.fillMaxWidth().padding(top = 8.dp)) {
         if (entries.isEmpty()) Text("Nothing is written down for this version.", style = PullsType.read, color = c.muted)
-        entries.forEach { entry ->
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(entry.version, style = PullsType.num, color = c.muted)
-                if (entry.summary.isNotBlank()) Text(plainChangelogText(entry.summary), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
-                if (entry.items.isNotEmpty()) {
-                    Markdown(entry.items.joinToString("\n") { "- $it" }, Modifier.padding(top = 4.dp), style = PullsType.read.copy(color = c.text))
+        entries.forEachIndexed { index, entry ->
+            Column(
+                Modifier.fillMaxWidth()
+                    .then(if (index > 0) Modifier.hairlineTop(c.borderMute).padding(top = 24.dp) else Modifier)
+                    .padding(bottom = 28.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(entry.version, style = PullsType.num, color = c.muted)
+                    if (index == 0) NewTag()
+                }
+                if (entry.summary.isNotBlank()) {
+                    Text(plainChangelogText(entry.summary), Modifier.padding(top = 6.dp), style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)
+                }
+                entry.groups.forEach { group ->
+                    val title = group.title
+                    if (title != null) Text(title, Modifier.padding(top = 18.dp), style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.muted)
+                    Column(Modifier.padding(top = if (title != null) 8.dp else 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        group.items.forEach { ChangelogItem(it) }
+                    }
                 }
             }
         }
+    }
+}
+
+/** The newest version's mark: one word in the accent's wash. */
+@Composable
+private fun NewTag() {
+    val c = LocalPullsColors.current
+    Text(
+        "New", Modifier.clip(CircleShape).background(c.accentWash).padding(horizontal = 8.dp, vertical = 1.dp),
+        style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentWashInk,
+    )
+}
+
+/** One bullet: an accent dot centred on its first line, and the change at reading size beside it. */
+@Composable
+private fun ChangelogItem(markdown: String) {
+    val c = LocalPullsColors.current
+    val style = PullsType.read.copy(color = c.text)
+    val line = with(LocalDensity.current) { style.lineHeight.toDp() }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.height(line), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(6.dp).clip(CircleShape).background(c.accentTeal))
+        }
+        Markdown(markdown, Modifier.weight(1f), style = style)
     }
 }

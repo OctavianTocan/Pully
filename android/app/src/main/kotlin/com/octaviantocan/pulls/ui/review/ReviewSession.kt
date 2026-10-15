@@ -285,17 +285,28 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     fun reloadSaved() { scope.launch { reloadSavedNow() } }
 
     private suspend fun reloadSavedNow() {
-        val key = opened?.key ?: return
+        val fetched = fetchSaved() ?: return
+        saved = fetched.state
+        keepTour(fetched)
+    }
+
+    /** Saved AI work as the server sent it, and whether it is the pull request's own rather than a commit range's. */
+    private class FetchedSaved(val state: SavedState, val own: Boolean)
+
+    /** The AI work saved on the server for [opened]; null when asking failed. */
+    private suspend fun fetchSaved(): FetchedSaved? {
+        val key = opened?.key ?: return null
         val own = selection == null
-        runCatching { repo.savedState(key) }.onSuccess { state ->
-            saved = state
-            // The pull request's own tour is kept on the phone for next time; a commit range's is not.
-            val json = state.tourJson
-            val name = rememberedAs
-            if (own && json != null && name != null && tourStore != null) {
-                withContext(Dispatchers.IO) { tourStore.put(name, json) }
-                state.tour?.let { storedTour = it }
-            }
+        return runCatching { repo.savedState(key) }.getOrNull()?.let { FetchedSaved(it, own) }
+    }
+
+    /** The pull request's own tour is kept on the phone for next time; a commit range's is not. */
+    private suspend fun keepTour(fetched: FetchedSaved) {
+        val json = fetched.state.tourJson
+        val name = rememberedAs
+        if (fetched.own && json != null && name != null && tourStore != null) {
+            withContext(Dispatchers.IO) { tourStore.put(name, json) }
+            fetched.state.tour?.let { storedTour = it }
         }
     }
 
@@ -405,17 +416,20 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     ) {
         val key = key ?: return
         starts[kind] = System.nanoTime()
+        // In the same frame as the tap, not once the coroutine runs: a page opened with it (Generate tour opens the Tour)
+        // shows the work log from its first frame, never the page from before the start (J28).
+        val now = System.currentTimeMillis()
+        val pending = TaskState(id = "pending-${System.nanoTime()}", kind = kind, key = key, then = then, startedAt = now)
+        tasks[pending.id] = pending
         scope.launch {
-            val now = System.currentTimeMillis()
-            val pending = TaskState(id = "pending-${System.nanoTime()}", kind = kind, key = key, then = then, startedAt = now)
-            tasks[pending.id] = pending
             val id = runCatching {
                 repo.startTask(kind, key, effort) {
                     extra()
                     if (then.isNotEmpty()) put("then", JsonArray(then.map(::JsonPrimitive)))
                 }
             }.getOrElse { error ->
-                val failed = TaskState(id = "failed-${System.nanoTime()}", kind = kind, key = key, status = "failed", error = error.message, startedAt = now)
+                // It keeps what it would have started, so a tour asked for with it says why it did not come.
+                val failed = pending.copy(id = "failed-${System.nanoTime()}", status = "failed", error = error.message)
                 tasks[failed.id] = failed
                 tasks.remove(pending.id)
                 onStarted(failed.id)
@@ -442,26 +456,35 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
             val triaged = tasks[id]?.kind in JEV_TASKS
             var rated = false
             if (triaged) loadAttention()
+            var settled: TaskState? = null
             while (true) {
                 val current = tasks[id] ?: break
                 val next = runCatching { repo.waitTask(id, current.rev) }.getOrElse { error ->
-                    tasks[id] = current.copy(status = "failed", error = error.message)
+                    settled = current.copy(status = "failed", error = error.message)
                     break
                 }
-                tasks[id] = if (current.label.isEmpty()) next.asTaskState().let { fresh -> fresh.copy(activities = current.merge(next).activities) } else current.merge(next)
-                if (triaged && !rated && tasks[id]?.activities?.any { it.id == JEV_STEP && it.status != "running" } == true) {
+                val merged = if (current.label.isEmpty()) next.asTaskState().let { fresh -> fresh.copy(activities = current.merge(next).activities) } else current.merge(next)
+                if (triaged && !rated && merged.activities.any { it.id == JEV_STEP && it.status != "running" }) {
                     rated = true
                     loadAttention()
                 }
-                if (tasks[id]?.running != true) break
+                if (merged.running) tasks[id] = merged else {
+                    settled = merged
+                    break
+                }
             }
             if (triaged) loadAttention()
-            reloadSavedNow()
-            if (tasks[id]?.kind == "analyze") {
-                if (hasAiResult) analyzeMode = "ai"
-                // The server starts the tour and the brief itself and lists them before the analysis reads as done.
-                if (tasks[id]?.status == "done") resumeTasks()
-            }
+            // What the task wrote, and after an analysis the tour and the brief the server started (it lists them before
+            // the analysis reads as done), are fetched while the task still reads as running, and land in the same frame
+            // as its end. The work log then gives way straight to the tour, or to the log of the tour that follows; a
+            // settled task with nothing to show yet put the Tour's empty page up for a moment (J34).
+            val state = fetchSaved()
+            val following = settled?.takeIf { it.kind == "analyze" && it.status == "done" }?.let { fetchTasks() }
+            settled?.let { tasks[id] = it }
+            state?.let { saved = it.state }
+            following?.let { adoptTasks(it) }
+            if (tasks[id]?.kind == "analyze" && hasAiResult) analyzeMode = "ai"
+            state?.let { keepTour(it) }
             // A failure is heard when it happens, whatever else is running. Ready waits for the last of a chain
             // (the analysis, then the tour and the brief), so a chain rings once rather than once per task.
             when (tasks[id]?.status) {
@@ -474,12 +497,19 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     /** Picks up tasks already running on the server for this diff (started before a reload, or on the web). */
     private suspend fun resumeTasks() {
-        val key = key ?: return
-        runCatching { repo.tasks(key) }.onSuccess { list ->
-            list.forEach { task ->
-                if (tasks[task.id] == null) tasks[task.id] = task
-                if (task.running) follow(task.id)
-            }
+        fetchTasks()?.let { adoptTasks(it) }
+    }
+
+    /** The server's tasks for this diff, or null when asking failed. */
+    private suspend fun fetchTasks(): List<TaskState>? {
+        val key = key ?: return null
+        return runCatching { repo.tasks(key) }.getOrNull()
+    }
+
+    private fun adoptTasks(list: List<TaskState>) {
+        list.forEach { task ->
+            if (tasks[task.id] == null) tasks[task.id] = task
+            if (task.running) follow(task.id)
         }
     }
 

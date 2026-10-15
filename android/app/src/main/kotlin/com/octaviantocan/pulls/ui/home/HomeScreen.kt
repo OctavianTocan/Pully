@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
+import com.octaviantocan.pulls.sound.cueCombinedClickable
 import kotlinx.coroutines.CoroutineScope
 import com.octaviantocan.pulls.data.PullSizes
 import android.content.Context
@@ -21,9 +23,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import com.octaviantocan.pulls.sound.Haptics
-import com.octaviantocan.pulls.sound.cued
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -128,6 +128,7 @@ import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.GithubAvatar
@@ -339,10 +340,11 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize()) {
-            InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true })
             // The Inbox and Tours sit side by side: a tab or a swipe moves both, and the chips and the activity strip belong
-            // to the Inbox, so they go with it (H20, rule 105).
-            SidePages(ui.tab, listOf(0, 1), { ui.tab = it }, Modifier.weight(1f).fillMaxWidth()) { tab ->
+            // to the Inbox, so they go with it (H20, rule 105). The capsule's pill sits where the pages are (J15).
+            val sides = rememberSidePages(ui.tab, 2, { ui.tab = it })
+            InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true }, position = { sides.at })
+            SidePages(sides, listOf(0, 1), Modifier.weight(1f).fillMaxWidth()) { tab ->
                 if (tab == 0) Column(Modifier.fillMaxSize()) {
                     FilterChips(ui.filter, inbox.counts) { ui.filter = it }
                     ActivityStrip(workTasks, { activityOpen = true })
@@ -355,7 +357,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it },
                     )
-                } else Box(Modifier.fillMaxSize().padding(top = 10.dp)) {
+                } else PullToCommands({ Commands.open() }, Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
                         entries = tours.entries.filter { "${it.owner}/${it.repo}" !in hidden && (needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle)) },
                         pulls = everything.orEmpty(),
@@ -440,14 +442,14 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
 
 /** `.hdr`: settings, the Inbox/Tours capsule, and the profile avatar, floating over the page. */
 @Composable
-internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit) {
+internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit, position: (() -> Float)? = null) {
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FloatIcon(Lu.cog, "Settings", onSettings)
-        CapsuleTabs(listOf("Inbox", "Tours"), tab, onTab, Modifier.weight(1f))
+        CapsuleTabs(listOf("Inbox", "Tours"), tab, onTab, Modifier.weight(1f), position = position)
         Box(
             Modifier.size(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Profile", onClick = onProfile),
             contentAlignment = Alignment.Center,
@@ -460,8 +462,10 @@ internal fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSett
 /** `.chips`: Waiting on you, Authored and All, each with the size of the list it would show. */
 @Composable
 internal fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> Unit) {
+    // Chips that run past the edge dissolve into the page there, as every sideways row does (J14).
+    val scroll = rememberScrollState()
     Row(
-        Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().padding(top = 12.dp).sideScrollFade(scroll).horizontalScroll(scroll).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Triage.inboxFilters.forEach { chip ->
@@ -722,11 +726,8 @@ internal fun SwipeRow(
                     }
                 })
                 .then(
-                    if (onLongClick != null) Modifier.combinedClickable(
-                        role = Role.Button, onClickLabel = label, onClick = cued(onClick = onClick), onLongClickLabel = "More actions",
-                        // The hold is felt through the app's own vibration, which Settings can turn off (H18).
-                        hapticFeedbackEnabled = false, onLongClick = { Haptics.hold(); onLongClick() },
-                    )
+                    // The hold is felt through the app's own vibration, which Settings can turn off (H18).
+                    if (onLongClick != null) Modifier.cueCombinedClickable(role = Role.Button, onClickLabel = label, onLongClickLabel = "More actions", onLongClick = onLongClick, onClick = onClick)
                     else Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick),
                 ),
         ) { content() }

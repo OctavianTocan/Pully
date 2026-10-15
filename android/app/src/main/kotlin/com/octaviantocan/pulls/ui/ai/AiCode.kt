@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
+import com.octaviantocan.pulls.ui.design.sideScrollFade
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -153,10 +154,11 @@ private fun CodeWell(session: ReviewSession, text: AnnotatedString, modifier: Mo
     val c = LocalPullsColors.current
     val zoom = session.settings.codeZoom
     val shape = RoundedCornerShape(PullsRadius.xl)
+    val scroll = rememberScrollState()
     // The outline keeps the well apart from a sheet, which is the same paper as the well.
     Box(
         modifier.fillMaxWidth().clip(shape).background(c.paper).border(1.dp, c.border, shape)
-            .pinchToZoomCode(session.settings).horizontalScroll(rememberScrollState()).padding(12.dp),
+            .pinchToZoomCode(session.settings).sideScrollFade(scroll, color = c.paper).horizontalScroll(scroll).padding(12.dp),
     ) {
         Text(text, style = codeTextStyle(zoom).copy(color = c.text), softWrap = false)
     }
