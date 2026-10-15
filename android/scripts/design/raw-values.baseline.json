@@ -2,7 +2,6 @@
   "hex": {
     "ui/design/Components.kt": 4,
     "ui/design/Kit.kt": 9,
-    "ui/design/Sheet.kt": 1,
     "ui/home/Chrome.kt": 7,
     "ui/review/Header.kt": 2,
     "ui/review/PrOverviewScreen.kt": 2,
@@ -27,7 +26,6 @@
     "data/AppSettings.kt": 1,
     "ui/ai/AiFormat.kt": 1,
     "ui/design/Components.kt": 1,
-    "ui/review/PrDiffScreen.kt": 1,
     "ui/settings/SettingsScreen.kt": 1
   }
 }
