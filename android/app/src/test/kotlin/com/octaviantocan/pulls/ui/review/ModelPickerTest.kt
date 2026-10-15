@@ -67,20 +67,28 @@ class ModelPickerTest {
         assertEquals(listOf("GPT-5.1-Codex-Max", "GPT-5.1"), names(groups.older))
     }
 
-    /** Pi lists several vendors' models side by side, each on its own version line. */
-    @Test fun piKeepsTheNewestOfEachVendorUpTop() {
-        val pi = listOf(
-            model("gemini-3-pro", "Gemini 3 Pro", isDefault = true),
-            model("claude-opus-5-5", "Claude Opus 5.5"),
-            model("claude-sonnet-5-5", "Claude Sonnet 5.5"),
-            model("claude-opus-4-8", "Claude Opus 4.8"),
-            model("gpt-6", "GPT-6"),
-            model("gpt-5.5", "GPT-5.5"),
-            model("gemini-2.5-flash", "Gemini 2.5 Flash"),
+    /** Pi lists several providers' models: a section per provider, in the server's order, and nothing folded (K2, K3). */
+    @Test fun piShowsASectionPerProviderAndNoOlderModels() {
+        fun pi(id: String, name: String, group: String?, isDefault: Boolean = false) = CliModel(id, name, null, emptyList(), null, isDefault, group)
+        val sections = modelSections(
+            listOf(
+                pi("claude-opus-5-5", "Claude Opus 5.5", "Claude", isDefault = true),
+                pi("claude-claude-opus-5", "Claude Opus 5", "Claude"),
+                pi("agy-gemini-3.8-flash", "Gemini 3.8 Flash", "AGY"),
+                pi("codex-gpt-6-sol", "GPT-6 Sol", "Codex"),
+                pi("gpt-5.6-luna", "GPT-5.6 Luna", "Codex"),
+            ),
         )
-        val groups = groupModels(pi, byFamily = true)
-        assertEquals(listOf("Gemini 3 Pro", "Claude Opus 5.5", "Claude Sonnet 5.5", "GPT-6"), names(groups.recent))
-        assertEquals(listOf("Claude Opus 4.8", "GPT-5.5", "Gemini 2.5 Flash"), names(groups.older))
+        assertEquals(listOf("Claude", "AGY", "Codex"), sections.map { it.heading })
+        assertEquals(listOf("Claude Opus 5.5", "Claude Opus 5"), names(sections[0].models))
+        assertEquals(listOf("GPT-6 Sol", "GPT-5.6 Luna"), names(sections[2].models))
+    }
+
+    @Test fun aServerWithoutGroupsGivesOneUnnamedSection() {
+        val sections = modelSections(listOf(model("a", "Alpha 5"), model("b", "Beta 3")))
+        assertEquals(1, sections.size)
+        assertNull(sections[0].heading)
+        assertEquals(2, sections[0].models.size)
     }
 
     @Test fun theDefaultIsNeverFoldedEvenWhenOld() {

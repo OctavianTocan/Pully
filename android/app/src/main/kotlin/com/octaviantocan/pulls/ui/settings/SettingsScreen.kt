@@ -87,8 +87,16 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-/** A model a CLI reports (`CliModel`). */
-data class CliModel(val id: String, val name: String, val description: String?, val efforts: List<String>, val defaultEffort: String?, val isDefault: Boolean)
+/** A model a CLI reports (`CliModel`). [group] is who serves it, on a list that mixes providers (Pi); null for the CLIs. */
+data class CliModel(
+    val id: String,
+    val name: String,
+    val description: String?,
+    val efforts: List<String>,
+    val defaultEffort: String?,
+    val isDefault: Boolean,
+    val group: String? = null,
+)
 
 /** `CliModelCatalog`. */
 data class CliCatalog(val models: List<CliModel>, val account: String?, val version: String?) {
@@ -108,6 +116,7 @@ fun JsonObject.asCatalog(): CliCatalog {
                 efforts = (o["efforts"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull },
                 defaultEffort = o.s("defaultEffort")?.ifBlank { null },
                 isDefault = o.s("isDefault") == "true",
+                group = o.s("group")?.trim()?.ifBlank { null },
             )
         },
         account = s("account"),
