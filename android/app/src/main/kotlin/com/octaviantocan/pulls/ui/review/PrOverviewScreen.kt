@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.showsDescription
+import com.octaviantocan.pulls.core.summaryKey
 import com.octaviantocan.pulls.core.swipedTab
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
@@ -342,7 +343,8 @@ private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOvervi
     val c = LocalPullsColors.current
     val analysis = session.saved?.analysis
     val summary = analysis?.overallSummary?.takeIf { session.hasAiResult && it.isNotBlank() }
-    val description = showsDescription(summary, top.descriptionOver)
+    val shown = summaryKey(analysis?.generatedAt, summary)
+    val description = showsDescription(shown, top.descriptionOver)
     // The summary and the brief name places in the code; each is a link there (rule 96).
     val cite = { place: CodePlace -> onCite(Cite(place.path, place.line)) }
     Column {
@@ -350,7 +352,7 @@ private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOvervi
         if (summary != null) {
             CapsuleTabs(
                 listOf("Summary", "Description"), if (description) 1 else 0,
-                { top.descriptionOver = if (it == 1) summary else null },
+                { top.descriptionOver = if (it == 1) shown else null },
                 Modifier.padding(top = 16.dp).width(SummarySwitchWidth),
             )
         }

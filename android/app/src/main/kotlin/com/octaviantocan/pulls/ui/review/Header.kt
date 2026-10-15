@@ -29,8 +29,8 @@ class ReviewTopUi {
     var reviewVerdict by mutableStateOf("COMMENT")
 
     /**
-     * The AI's summary the person switched away from to read the description in its place. Any other summary, such as
-     * the next analysis, shows again (`showsDescription`).
+     * The AI's summary the person switched away from to read the description in its place, as its `summaryKey`. Any
+     * other summary, such as the next analysis, shows again (`showsDescription`).
      */
     var descriptionOver by mutableStateOf<String?>(null)
 

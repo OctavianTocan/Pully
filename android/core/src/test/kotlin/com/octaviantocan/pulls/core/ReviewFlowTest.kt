@@ -104,4 +104,16 @@ class ReviewFlowTest {
     fun theNextSummaryTakesThePlaceAgain() {
         assertFalse(showsDescription(summary = "What changed now", switchedAwayFrom = "What changed"))
     }
+
+    @Test
+    fun aNewAnalysisInTheSameWordsTakesThePlaceAgain() {
+        val before = summaryKey("2026-10-15T06:00:00Z", "What changed")
+        assertTrue(showsDescription(summaryKey("2026-10-15T06:00:00Z", "What changed"), before))
+        assertFalse(showsDescription(summaryKey("2026-10-15T07:00:00Z", "What changed"), before))
+    }
+
+    @Test
+    fun noSummaryHasNoKey() {
+        assertNull(summaryKey("2026-10-15T06:00:00Z", null))
+    }
 }
