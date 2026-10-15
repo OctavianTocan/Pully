@@ -767,13 +767,23 @@ fun <T> ColumnScope.SearchList(
         Text(empty, Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
         return
     }
-    val runs = if (group == null) listOf(null to found) else found.groupBy(group).toList()
+    val runs = if (group == null) listOf(null to found) else searchRuns(found, group)
     runs.forEach { (label, rows) ->
         if (label != null) Text(label, Modifier.padding(start = 4.dp, top = 18.dp), style = PullsType.sm, color = c.muted)
         SheetCard(gap = if (label != null) 8.dp else 12.dp) {
             rows.forEachIndexed { index, item -> row(item, index == 0) }
         }
     }
+}
+
+/** [items] split where [group] changes, in their order: keys A, B, A make three runs, never A twice over and then B. */
+internal fun <T> searchRuns(items: List<T>, group: (T) -> String?): List<Pair<String?, List<T>>> {
+    val runs = mutableListOf<Pair<String?, MutableList<T>>>()
+    items.forEach { item ->
+        val key = group(item)
+        if (runs.isNotEmpty() && runs.last().first == key) runs.last().second.add(item) else runs.add(key to mutableListOf(item))
+    }
+    return runs
 }
 
 /** `.r-qa button`: a 72dp tile with an icon over a label. */

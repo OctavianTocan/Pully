@@ -17,7 +17,7 @@ export interface ChatSummary {
   id: string
   /** The chat's first question, on one line. */
   title: string
-  /** ISO time of its last message, or of when it was set aside when no message has one. */
+  /** ISO time of its last message, or of when it was set aside when no message has one. The list is ordered by when each was set aside. */
   at: string
   /** How many questions it asked. */
   turns: number
@@ -35,8 +35,8 @@ function asks(messages: AgentMessage[]): AgentMessage[] {
   return messages.filter(message => message.role === 'user')
 }
 
-/** When the chat last moved: its last message's time, else when it was set aside. */
-function recency(chat: ArchivedChat): number {
+/** When the chat was last written: its last message's time, else when it was set aside. */
+function lastWritten(chat: ArchivedChat): number {
   const stamped = chat.messages.findLast(message => typeof (message as { timestamp?: unknown }).timestamp === 'number')
   return (stamped as { timestamp?: number } | undefined)?.timestamp ?? chat.archivedAt
 }
@@ -60,19 +60,21 @@ export function archiveChat(session: LlmSession, now = Date.now()): LlmSession {
   if (!asks(chat).length)
     return kept
   const archived: ArchivedChat = { id: globalThis.crypto.randomUUID(), archivedAt: now, messages: chat, ...(suggestions?.length ? { suggestions } : {}) }
-  const archive = [archived, ...(session.archive ?? [])].sort((a, b) => recency(b) - recency(a)).slice(0, MAX_ARCHIVED_CHATS)
+  // Ordered and capped by when each was set aside, so a chat just reopened and put away again is the most recent one
+  // even when its messages are old.
+  const archive = [archived, ...(session.archive ?? [])].sort((a, b) => b.archivedAt - a.archivedAt).slice(0, MAX_ARCHIVED_CHATS)
   return { ...kept, archive }
 }
 
 /**
- * The diff's earlier chats, most recent first.
+ * The diff's earlier chats, the one set aside last first.
  * @param session - The diff's stored session, if any.
  * @returns One summary per archived chat.
  */
 export function chatHistory(session: LlmSession | undefined): ChatSummary[] {
   return [...session?.archive ?? []]
-    .sort((a, b) => recency(b) - recency(a))
-    .map(chat => ({ id: chat.id, title: chatTitle(chat.messages), at: new Date(recency(chat)).toISOString(), turns: asks(chat.messages).length }))
+    .sort((a, b) => b.archivedAt - a.archivedAt)
+    .map(chat => ({ id: chat.id, title: chatTitle(chat.messages), at: new Date(lastWritten(chat)).toISOString(), turns: asks(chat.messages).length }))
 }
 
 /**

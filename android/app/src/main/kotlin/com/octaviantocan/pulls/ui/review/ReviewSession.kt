@@ -117,6 +117,12 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** A tour source tapped before the diff arrived (a kept tour opens first); it opens once the diff is in. */
     var waitingSource by mutableStateOf<TourSource?>(null)
 
+    /** Whether [waitingSource] was asked for on a sheet over the Tour, so it opens there too. */
+    var waitingInSheet = false
+
+    /** A New chat or a restored chat on its way to the server: a question waits for it, so it lands in the new chat. */
+    var chatChange: kotlinx.coroutines.Job? = null
+
     /** Scroll requests for the diff body; the body consumes and keeps the last one. */
     var focus by mutableStateOf<Focus?>(null)
 

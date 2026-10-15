@@ -43,6 +43,20 @@ describe('archiveChat', () => {
     expect(chatHistory(current).map(entry => entry.title).at(0)).toBe(`Question ${MAX_ARCHIVED_CHATS + 1}`)
     expect(chatHistory(current).map(entry => entry.title).at(-1)).toBe('Question 2')
   })
+
+  it('counts an old chat reopened and set aside again as the most recent, so the cap keeps it', () => {
+    let current = archiveChat(session(chat('Old', 10)), 20)
+    const old = current.archive![0]!.id
+    for (let at = 0; at < MAX_ARCHIVED_CHATS - 1; at++)
+      current = archiveChat({ ...current, messages: [...current.messages, ...chat(`Question ${at}`, 100 + at * 10)] }, 1000 + at)
+    expect(current.archive).toHaveLength(MAX_ARCHIVED_CHATS)
+    // Reopened, then put away again by New chat: it is first, and the next chat set aside pushes out Question 0 instead.
+    current = archiveChat(restoreChat(current, old, 2000), 3000)
+    expect(chatHistory(current).at(0)!.title).toBe('Old')
+    current = archiveChat({ ...current, messages: [...current.messages, ...chat('Newest', 4000)] }, 5000)
+    expect(chatHistory(current).map(entry => entry.title).slice(0, 2)).toEqual(['Newest', 'Old'])
+    expect(chatHistory(current).map(entry => entry.title)).not.toContain('Question 0')
+  })
 })
 
 describe('chatHistory', () => {

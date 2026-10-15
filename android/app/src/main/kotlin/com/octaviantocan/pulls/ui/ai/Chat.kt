@@ -102,6 +102,14 @@ private fun ReviewSession.sendChat(text: String?, retry: Boolean = false) {
     val locale = settings.locale
     ui.chatError = null
     ui.chatPending = text
+    // A question asked right after New chat or a restore waits for it, or the clear would sweep its answer away.
+    val change = chatChange?.takeIf { it.isActive }
+    if (change != null) { scope.launch { change.join(); startChat(text, retry, locale) }; return }
+    startChat(text, retry, locale)
+}
+
+private fun ReviewSession.startChat(text: String?, retry: Boolean, locale: String) {
+    val ui = aiUi(this)
     startAiTask("chat", extra = {
         put("locale", locale)
         if (text != null) put("text", text)
@@ -115,8 +123,8 @@ private fun ReviewSession.sendChat(text: String?, retry: Boolean = false) {
 /**
  * The Ask sheet: your questions on the right in the accent bubble, the answers as plain text with no box (rule 99),
  * starter chips while it is empty, a send pill, and a new-chat button at the top right once there is a conversation.
- * While an answer is on its way the work log shows each step with its icon, the orb and the grey bars under it, never
- * a bubble of dots. It continues the analysis session when there is one and starts from the pull request itself when
+ * While an answer is on its way the work log shows each step like the tour's progress and the send button is the loader,
+ * never grey bars or a bubble of dots. It continues the analysis session when there is one and starts from the pull request itself when
  * there is not, so Ask never waits on Analyze. [initial] is asked on open.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -195,7 +203,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         ui.chatError = null
         // The page empties at once; the server keeps the old chat in the history meanwhile (L35, L36).
         session.saved = session.saved?.copy(chat = emptyList(), suggestions = emptyList())
-        session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
+        session.chatChange = session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
     }
 
     @Composable
@@ -308,7 +316,7 @@ private fun ChatHistorySheet(session: ReviewSession, onClose: () -> Unit, onRest
                 val asked = if (chat.turns == 1) "1 question" else "${chat.turns} questions"
                 SheetRow(chat.title.ifBlank { "Chat" }, {
                     onClose()
-                    session.scope.launch {
+                    session.chatChange = session.scope.launch {
                         runCatching { session.repo.restoreChat(key, chat.id) }.onFailure { ui.chatError = it.message }
                         session.reloadSaved()
                         onRestored()

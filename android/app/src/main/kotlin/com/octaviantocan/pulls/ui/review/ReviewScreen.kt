@@ -185,8 +185,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         if (here == PrView.Overview) pages.add(page) else pages[pages.lastIndex] = page
     }
     fun openDiff(path: String?) {
-        // The changes open once the diff has arrived; until then the Files rows are bars and there is nothing to show.
-        if (session.opened == null) return
+        // Review tapped before the diff came opens the Diff on its bars, and the file is chosen once the diff is in (L5).
+        if (session.opened == null) { diffPath = path; push(PrView.Diff); return }
         val files = orderedFiles()
         diffPath = path ?: files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
         push(PrView.Diff)
@@ -224,10 +224,18 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         diffPath = wanted.path
         push(PrView.Diff)
     }
-    // A source tapped in a kept tour before the diff arrived opens now.
+    // A source tapped in a kept tour before the diff arrived opens now, the way it was asked for (on a sheet from the
+    // Tour); a Diff opened on its bars gets its first file to read.
     LaunchedEffect(opened) {
         if (opened == null) return@LaunchedEffect
-        session.waitingSource?.let { source -> session.waitingSource = null; openSource(session, source, uri::openUri) }
+        session.waitingSource?.let { source ->
+            session.waitingSource = null
+            openSource(session, source, uri::openUri, inSheet = session.waitingInSheet)
+        }
+        if (diffPath == null && pages.last() == PrView.Diff) {
+            val files = orderedFiles()
+            diffPath = files.firstOrNull { it.sha !in session.reviewed }?.path ?: files.firstOrNull()?.path
+        }
     }
     // A refresh or a commit range failed while a diff is already on screen: the full-page error only shows before one is.
     val loadError = session.loadError
@@ -273,7 +281,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
-            waiting -> PrOpening(target, preview, onBack = nav.back)
+            waiting -> PrOpening(target, preview, onBack = nav.back, onReview = { openDiff(null) }, onAsk = { openAsk(false) })
             else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
@@ -396,6 +404,7 @@ internal fun openSource(session: ReviewSession, source: TourSource, openUri: (St
     // A kept tour shows before the diff: the place opens once the diff is in.
     if (session.opened == null) {
         session.waitingSource = source
+        session.waitingInSheet = inSheet
         return
     }
     if (session.files.any { it.path == source.path }) {

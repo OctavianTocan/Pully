@@ -136,9 +136,10 @@ Copying shows the dark toast and leaves the copied control unchanged (rule 83; F
 
 @cc [owner:OctavianTocan,label:product;design] kit-picking-lists-search
 A sheet that picks from a list (themes, earlier chats, models) has a search over it once the
-list is long, and the plain lists are the one `SearchList` component ("most bottom sheets
-that we have actually benefit a lot from search", recording 15 Oct 15:37, 12:26 to 12:36;
-L4, L23, L36).
+list is long. The plain lists (themes, earlier chats) are the one `SearchList` component, and
+its groups keep the list's order; the model list, which folds older models and splits Pi's by
+provider, uses the same `SheetSearch` and matching ("most bottom sheets that we have actually
+benefit a lot from search", recording 15 Oct 15:37, 12:26 to 12:36; L4, L23, L36).
 
 @cc [owner:OctavianTocan,label:design] kit-fold-headings-line-up
 Every fold heading, on a page or a sheet, has its chevron on one line at the right edge
