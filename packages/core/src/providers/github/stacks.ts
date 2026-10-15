@@ -40,7 +40,7 @@ export interface PullRequestStack {
   entries: StackEntry[]
 }
 
-/** How far the inference walks down and up from the pull request, in requests each way. */
+/** How many layers the inference walks down from the pull request, and up above it. */
 const MAX_STEPS = 10
 /** How many layers one fork may hold when walking up. */
 const UP_FANOUT = 5
@@ -180,47 +180,59 @@ async function openPulls(client: StackClient, query: string, owner: string, repo
 
 /**
  * Infers a stack from branch names: down through the open pull request whose head is this one's base,
- * up through every open pull request whose base is this one's head, at most {@link MAX_STEPS} requests
- * each way. Going up, a fork is followed on every side and its layers share a position.
+ * at most {@link MAX_STEPS} layers, then up from the bottom through every open pull request whose base
+ * is a layer's head, to {@link MAX_STEPS} layers above this one. Going up, a fork is followed on every
+ * side and its layers share a position, so a layer on one below this pull request shows as well.
  * @param client Runs the GraphQL requests.
  * @param owner Repository owner.
  * @param repo Repository name.
  * @param current The pull request to start from.
  * @param defaultBranch The repository's default branch: a pull request based on it is the bottom.
- * @returns The stack bottom first, or `null` when no other pull request was found.
+ * @returns The stack bottom first, or `null` when no other pull request was found or the branches loop.
  */
 export async function inferPullRequestStack(client: StackClient, owner: string, repo: string, current: RawStackPull, defaultBranch?: string): Promise<PullRequestStack | null> {
   const seen = new Set([current.number])
   const below: RawStackPull[] = []
   let cursor = current
   for (let step = 0; step < MAX_STEPS && cursor.baseRefName && cursor.baseRefName !== defaultBranch; step++) {
-    const next = (await openPulls(client, STACK_BELOW_QUERY, owner, repo, cursor.baseRefName)).find(pull => !seen.has(pull.number))
-    if (!next)
+    const under = await openPulls(client, STACK_BELOW_QUERY, owner, repo, cursor.baseRefName)
+    const next = under.find(pull => !seen.has(pull.number))
+    if (!next) {
+      // Only layers already walked sit there: the branches loop (A on B on A), which has no bottom and makes no stack.
+      if (under.length > 0)
+        return null
       break
+    }
     seen.add(next.number)
     below.unshift(next)
     cursor = next
   }
 
-  const own = below.length + 1
+  // The layers found going down, bottom first, then this one.
+  const chain = [...below, current]
+  const own = chain.length
   const above: [RawStackPull, number][] = []
-  let level = current.isCrossRepository ? [] : [current]
-  for (let depth = 1; depth <= MAX_STEPS && level.length > 0; depth++) {
-    const found = (await Promise.all(level.map(pull => openPulls(client, STACK_ABOVE_QUERY, owner, repo, pull.headRefName)))).flat()
-    level = found.filter((pull) => {
+  let level = [chain[0]!]
+  for (let position = 2; position <= own + MAX_STEPS && level.length > 0; position++) {
+    // Nothing sits on a fork's branch, and a pull request based on the default branch is a bottom, not a layer on one from it.
+    const bases = level.filter(pull => !pull.isCrossRepository && pull.headRefName !== defaultBranch)
+    const found = (await Promise.all(bases.map(pull => openPulls(client, STACK_ABOVE_QUERY, owner, repo, pull.headRefName)))).flat()
+    const fresh = found.filter((pull) => {
       if (seen.has(pull.number))
         return false
       seen.add(pull.number)
       return true
     })
-    above.push(...level.map((pull): [RawStackPull, number] => [pull, own + depth]))
+    above.push(...fresh.map((pull): [RawStackPull, number] => [pull, position]))
+    // The chain's own layer goes on up with its siblings, even when GitHub's first few did not list it.
+    level = position <= own ? [chain[position - 1]!, ...fresh] : fresh
   }
 
   if (below.length === 0 && above.length === 0)
     return null
   return {
     native: false,
-    base: (below[0] ?? current).baseRefName,
+    base: chain[0]!.baseRefName,
     entries: ordered([
       ...below.map((pull, index) => toStackEntry(pull, index + 1, false)),
       toStackEntry(current, own, true),

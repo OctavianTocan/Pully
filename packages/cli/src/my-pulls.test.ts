@@ -278,6 +278,21 @@ describe('applyStacks', () => {
     ])
   })
 
+  it('sits a pull request on a native layer\'s branch, and leaves the native layers as GitHub has them', () => {
+    const found = [
+      toFoundPull(node('n1', { headRefName: 'a' }), 'authored', 'open'),
+      toFoundPull(node('n2', { headRefName: 'b', baseRefName: 'a' }), 'authored', 'open'),
+      toFoundPull(node('n5', { headRefName: 'z', baseRefName: 'b' }), 'authored', 'open'),
+    ]
+    const native = { n1: { number: 7, size: 2, position: 1 }, n2: { number: 7, size: 2, position: 2 } } as Record<string, { number: number, size: number, position: number }>
+    applyStacks(found, id => native[id] ?? null)
+    expect(found.map(hit => hit.pull.stack)).toEqual([
+      { id: 'native:acme/app:7', position: 1, size: 2, native: true },
+      { id: 'native:acme/app:7', position: 2, size: 2, native: true, below: 1 },
+      { id: 'inferred:acme/app:a', position: 3, size: 3, native: false, below: 2 },
+    ])
+  })
+
   it('reads a native answer only when the pull request is a layer of a real stack', () => {
     expect(toNativeStack({ id: 'n1', stack: { number: 2, size: 3, baseRefName: 'main' }, stackEntry: { position: 2 } })).toEqual({ number: 2, size: 3, position: 2 })
     expect(toNativeStack({ id: 'n1', stack: null, stackEntry: null })).toBeNull()
@@ -296,6 +311,24 @@ describe('stacks in the list', () => {
       [2, 'a', 'b', { id: 'native:acme/app:5', position: 2, size: 2, native: true, below: 1 }],
     ])
     expect(calls.filter(call => call.query.includes('stackEntry')).every(call => !call.query.includes('reviewDecision'))).toBe(true)
+  })
+
+  it('infers instead of keeping a native answer that no longer describes the pull request when asking again fails', async () => {
+    let clock = 0
+    let failing = false
+    const authored = [...stacked]
+    const { graphql: base } = fakeGraphql({ 'author:@me': authored }, enrichNode, id => ({ id, stack: { number: 5, size: 2, baseRefName: 'main' }, stackEntry: { position: id === 'n1' ? 1 : 2 } }))
+    const graphql: GithubGraphql = (query, variables) => failing && query.includes('stackEntry') ? Promise.reject(new Error('502')) : base(query, variables)
+    const service = createMyPullsService({ graphql, now: () => clock })
+    expect((await service.list('open')).map(pull => pull.stack?.id)).toEqual(['native:acme/app:5', 'native:acme/app:5'])
+
+    // #2 gets a new head and leaves the stack, and GitHub cannot be asked about it this time.
+    failing = true
+    authored[1] = node('n2', { headRefName: 'b', baseRefName: 'a', headRefOid: 'sha-new', updatedAt: '2026-10-05T00:00:00Z' })
+    clock = 20_000
+    const pulls = await service.list('open')
+    expect(pulls.find(pull => pull.number === 1)!.stack?.native).toBe(true)
+    expect(pulls.find(pull => pull.number === 2)!.stack).toEqual({ id: 'inferred:acme/app:a', position: 2, size: 2, native: false, below: 1 })
   })
 
   it('infers stacks and keeps every badge when the host has no stack fields, and stops asking', async () => {

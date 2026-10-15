@@ -85,7 +85,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** The stack this pull request is a layer of, bottom first (PRs only); null when it is in none or did not load. */
     var stack by mutableStateOf<PrStack?>(null)
         private set
-    private var stackAsked = false
+    private var stackJob: Job? = null
 
     /** [overview] is still the server's stored copy, which may trail the diff by a push, so it says nothing about staleness. */
     var overviewStored by mutableStateOf(false)
@@ -271,12 +271,14 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         }
     }
 
-    /** Asked once per page, beside the first overview: the stack is a way between layers, not live state, and a failure only leaves its mark off. */
+    /**
+     * Asked beside the overview on every load, so a refresh sees a layer that moved or left the stack; the newest ask
+     * wins. A failure keeps the stack already shown, or leaves its mark off.
+     */
     private fun loadStack() {
         val pull = pull ?: return
-        if (stackAsked) return
-        stackAsked = true
-        scope.launch { runCatching { repo.prStack(pull) }.onSuccess { stack = it } }
+        stackJob?.cancel()
+        stackJob = scope.launch { runCatching { repo.prStack(pull) }.onSuccess { stack = it } }
     }
 
     fun reloadReviews() {
