@@ -149,7 +149,7 @@ const nav = useHomeNavigation({ rows: () => groups.value.flatMap(group => group.
       </div>
 
       <p v-else-if="!groups.length" class="px-8 py-12 text-center text-row font-medium">
-        {{ queue === 'all' ? $t('local.home.empty') : $t('triage.empty') }}
+        {{ search.trim() && !parsed ? $t('local.home.noMatches') : queue === 'all' ? $t('local.home.empty') : $t('triage.empty') }}
       </p>
 
       <section v-for="group in groups" v-else :key="group.name" class="flex flex-col px-4">

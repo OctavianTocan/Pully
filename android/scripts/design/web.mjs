@@ -4,7 +4,7 @@
 // packages/app/src/design as generated files. Strings go the other way: the web's locale files are
 // the source and the phone carries byte-for-byte copies. A generated file that differs from what
 // its source gives fails, and `--update` rewrites it.
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { ASSETS, FONT_FAMILY_NAMES, fontFamilies, luGlyphs, readAndroid, REPO } from './kotlin.mjs'
 import { px, readDesign, stable } from './spec.mjs'
@@ -168,6 +168,17 @@ export function localeProblems(web = WEB_LOCALES, android = ANDROID_LOCALES) {
   return problems
 }
 
+/** Removes the phone's copy of each locale the web no longer has; returns the paths removed. */
+export function pruneLocaleCopies(web = WEB_LOCALES, android = ANDROID_LOCALES) {
+  const list = dir => (existsSync(dir) ? readdirSync(dir).filter(n => n.endsWith('.json')) : [])
+  const keep = new Set(list(web))
+  const removed = list(android).filter(name => !keep.has(name)).map(name => join(android, name))
+  for (const path of removed) {
+    rmSync(path)
+  }
+  return removed
+}
+
 function stale(path, wanted) {
   return !existsSync(path) || readFileSync(path, 'utf8') !== wanted
 }
@@ -208,7 +219,10 @@ export function check({ update = false } = {}) {
       problems.push(`${short(path)} is stale. Run \`pnpm run android:design:update\`.`)
     }
   }
-  if (!update) {
+  if (update) {
+    written.push(...pruneLocaleCopies())
+  }
+  else {
     problems.push(...localeProblems())
   }
   return { name: NAME, problems, written }

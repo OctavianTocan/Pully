@@ -93,7 +93,6 @@ function scrollToGroup(key: string) {
         <KitFloatButton v-if="!isEmbedded" icon="i-lu-back" :to="back" :label="$t('keys.home')" />
         <PrStatusIcon v-else-if="display.state" :state="display.state" />
         <div class="flex-1" />
-        <KitCapsuleTabs v-if="aiResult" v-model="analyzeMode" :options="analyzeOptions" :aria-label="$t('pr.analyzeBy')" class="max-sm:hidden" />
         <DiffReviewThreadsToggle
           v-if="reviews"
           :show-threads="reviews.showThreads"
@@ -134,6 +133,8 @@ function scrollToGroup(key: string) {
       </div>
 
       <div class="flex flex-wrap items-center gap-2 text-sm">
+        <!-- Its own row on every width: once an AI grouping exists it is the only way between the two. -->
+        <KitCapsuleTabs v-if="aiResult" v-model="analyzeMode" :options="analyzeOptions" :aria-label="$t('pr.analyzeBy')" flat class="border border-base" />
         <PrHeaderChips />
         <span v-if="aiResult?.sharedBy && store.analyzeMode !== 'rule-based'" class="h-9 flex items-center gap-1.5 border border-base rounded-full px-3.5" :title="aiResult.model">
           <template v-if="aiResult.sharedBy === ACTIONS_BOT_LOGIN">

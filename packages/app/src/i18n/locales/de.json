@@ -786,6 +786,7 @@
       "failed": "Couldn't load your pull requests",
       "refresh": "Refresh",
       "empty": "No open pull requests here",
+      "noMatches": "Nothing matches",
       "all": "All",
       "draft": "draft",
       "role": {

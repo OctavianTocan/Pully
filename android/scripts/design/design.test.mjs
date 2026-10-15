@@ -13,7 +13,7 @@ import * as rawValues from './raw-values.mjs'
 import { checkChecklist, checkRules } from './rules.mjs'
 import { buildSpec, parseDesign, parseRules } from './spec.mjs'
 import { compareColors, compareScale, compareShadows, compareTypography, neutralDarkProblems } from './tokens.mjs'
-import { componentProblems, localeProblems, webTokens } from './web.mjs'
+import { componentProblems, localeProblems, pruneLocaleCopies, webTokens } from './web.mjs'
 
 const FRONT = {
   typography: { 'xs': { fontSize: '13px' }, 'xs-wide': { fontSize: '12px' }, 'sm': { fontSize: '15px' } },
@@ -542,6 +542,22 @@ describe('web', () => {
     assert.ok(problems.some(p => p.includes('de.json is missing')))
     assert.ok(problems.some(p => p.includes('en.json differs')))
     assert.ok(problems.some(p => p.includes('fr.json has no web locale')))
+  })
+
+  it('removes the phone\'s copy of a locale the web dropped', async () => {
+    const { existsSync, mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const root = mkdtempSync(join(tmpdir(), 'locales-'))
+    mkdirSync(join(root, 'web'))
+    mkdirSync(join(root, 'android'))
+    writeFileSync(join(root, 'web', 'en.json'), '{}\n')
+    writeFileSync(join(root, 'android', 'en.json'), '{}\n')
+    writeFileSync(join(root, 'android', 'fr.json'), '{}\n')
+    assert.deepEqual(pruneLocaleCopies(join(root, 'web'), join(root, 'android')), [join(root, 'android', 'fr.json')])
+    assert.ok(existsSync(join(root, 'android', 'en.json')))
+    assert.ok(!existsSync(join(root, 'android', 'fr.json')))
+    assert.deepEqual(localeProblems(join(root, 'web'), join(root, 'android')), [])
   })
 
   it('compares shadows with PullsShadow both ways', () => {
