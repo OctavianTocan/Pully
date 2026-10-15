@@ -11,6 +11,7 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, p
 import { usePrCommands } from '../../composables/usePrCommands'
 import { autoRefresh } from '../../state/auto-refresh'
 import { showGroupSidebar } from '../../state/group-nav'
+import { keepRepoLinks } from '../ai/ai-format'
 import CommitRangeBanner from '../overview/CommitRangeBanner.vue'
 import { usePrOverview } from '../overview/context'
 import PrOverviewPanel from '../overview/PrOverviewPanel.vue'
@@ -260,7 +261,7 @@ function refreshFromBanner() {
             />
 
             <Suspense v-if="grouped?.overallSummary">
-              <Markdown :value="grouped?.overallSummary" class="border-b border-base px-4 pb-2 text-sm op-fade" />
+              <Markdown :value="grouped?.overallSummary" class="border-b border-base px-4 pb-2 text-sm op-fade" @click="keepRepoLinks" />
             </Suspense>
 
             <DiffGroup

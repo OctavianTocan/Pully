@@ -25,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.directionOf
@@ -59,32 +58,32 @@ fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: M
     val offset = overview?.commitsHidden ?: 0
     val total = commits.size + offset
     val shape = RoundedCornerShape(PullsRadius.card)
-    FlowRow(
-        modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
+    // The count and the commit's name take the whole width, wrapping whole (a name is never cut or squeezed into a
+    // narrow column); the way through the commits and back to all of them sit under them.
+    Column(
+        modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        LuIcon(Lu.commit, tint = c.muted, size = 20.dp)
-        // The headline wraps under the count to two whole lines at most, so the banner stays small over the diff; the
-        // Commits tab has it in full.
-        Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            when {
-                range != null && range.first == range.last -> {
-                    Text("Viewing commit ${range.first + 1 + offset} of $total", style = PullsType.sm, color = c.text)
-                    commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        Row(Modifier.padding(end = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LuIcon(Lu.commit, tint = c.muted, size = 20.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                when {
+                    range != null && range.first == range.last -> {
+                        Text("Viewing commit ${range.first + 1 + offset} of $total", style = PullsType.sm, color = c.text)
+                        commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted) }
+                    }
+                    range != null -> Text(t("overview.selection.viewingRange", "start" to range.first + 1 + offset, "end" to range.last + 1 + offset, "total" to total), style = PullsType.sm, color = c.text)
+                    selection.from == selection.to -> Text(t("overview.selection.viewingSha", "sha" to selection.from.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
+                    else -> Text(t("overview.selection.viewingShaRange", "from" to selection.from.take(7), "to" to selection.to.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
                 }
-                range != null -> Text(t("overview.selection.viewingRange", "start" to range.first + 1 + offset, "end" to range.last + 1 + offset, "total" to total), style = PullsType.sm, color = c.text)
-                selection.from == selection.to -> Text(t("overview.selection.viewingSha", "sha" to selection.from.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
-                else -> Text(t("overview.selection.viewingShaRange", "from" to selection.from.take(7), "to" to selection.to.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
             }
         }
-        Spacer(Modifier.weight(1f))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             FloatIcon(Lu.prev, t("overview.selection.previous"), { session.selectCommits(previous?.pair) }, flat = true, size = 40.dp, enabled = previous != null)
             FloatIcon(Lu.next, t("overview.selection.next"), { session.selectCommits(next?.pair) }, flat = true, size = 40.dp, enabled = next != null)
+            Spacer(Modifier.weight(1f))
+            PillButton("Show all", { session.selectCommits(null) })
         }
-        PillButton("Show all", { session.selectCommits(null) })
     }
 }
 
@@ -99,7 +98,8 @@ fun isStale(session: ReviewSession, overview: PrOverview?): Boolean {
 /**
  * The stale banner from `DiffsPage.vue` (`border-amber:20 bg-amber:10 text-amber-700
  * dark:text-amber-400`): "has new commits", an "Auto refresh next time" checkbox (on by
- * default; Refresh commits it to the setting) and Refresh.
+ * default; Refresh commits it to the setting) and Refresh. Only a reader who switched auto refresh
+ * off sees it; otherwise the page takes new commits by itself.
  */
 @Composable
 fun StaleBanner(session: ReviewSession, onRefresh: () -> Unit, modifier: Modifier = Modifier) {

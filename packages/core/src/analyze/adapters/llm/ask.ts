@@ -5,7 +5,7 @@ import type { CliRunResult } from './cli-stream'
 import type { ResolvedModel } from './model'
 import { isCliEngine, runCli } from './cli-stream'
 import { fileHeading, numberHunkLines, prContextOf, prHeading, renderNumberedHunk, renderNumberedLines, WRITING_RULES } from './critique'
-import { renderFilesAsText } from './prompt'
+import { MENTION_RULE, renderFilesAsText } from './prompt'
 
 const HUNK_CHAR_BUDGET = 24_000
 /** The rest of the diff is quoted only below this; past it the engine reads files through its tools. */
@@ -18,7 +18,9 @@ Answer in under 150 words. No headings; a short code snippet is fine.
 Answer the question that was asked. Reach past the selection when the answer is elsewhere, such as a caller, a definition, a test or an earlier hunk, and name where you found it.
 Say what the code shows. When nothing you can read settles the question, say so in one sentence and name what would.
 
-${WRITING_RULES.replace('No bold, no italics, no emoji, no headings.', 'No emoji, no headings.')}`
+${WRITING_RULES.replace('No bold, no italics, no emoji, no headings.', 'No emoji, no headings.')}
+
+${MENTION_RULE}`
 
 /** Lines of one file the reader selected, numbered on `side`. */
 export interface AskSelection {

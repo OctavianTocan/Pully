@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -8,15 +10,16 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -53,7 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.showsDescription
 import com.octaviantocan.pulls.core.summaryKey
-import com.octaviantocan.pulls.core.swipedTab
+import com.octaviantocan.pulls.core.swipedTabOrNext
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -89,7 +92,6 @@ import com.octaviantocan.pulls.ui.design.UnderlineTabs
 import com.octaviantocan.pulls.ui.design.pageSlide
 import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
@@ -100,7 +102,7 @@ import androidx.compose.foundation.layout.offset
 import com.octaviantocan.pulls.core.pageWay
 
 /**
- * The prototype's PR overview: a floating back button and section capsule over the page, the title,
+ * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
  * who and when, the branches, a four-cell summary line, Summary / Commits / Conversation tabs, the AI's
  * status and the summary (the description until the AI writes one), the file list with its notes, and a
  * bottom bar with Ask, More and the one action that moves the review forward.
@@ -127,8 +129,6 @@ internal fun PrOverviewScreen(
     Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
         // The header with the capsule is the review's, above all three views (rule 93).
         Column(Modifier.fillMaxSize()) {
-            // Narrowed to a commit: the way back stays on screen while the page scrolls (rule 80).
-            CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
             // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
             // own beside the conversation (rule 91). All three are there from the start, so the row never changes shape
             // when the conversation arrives (rule 53).
@@ -136,15 +136,16 @@ internal fun PrOverviewScreen(
             val shown = pane.coerceAtMost(labels.lastIndex)
             val commitAnchor = remember { mutableStateOf<Int?>(null) }
             val slide = rememberPageSlide(shown, order = { it })
-            // A swipe left or right moves between the tabs; the files of the diff are never switched this way.
+            // A swipe left or right moves between the tabs, and left past the last one goes on to the Diff (rule 93).
             var drag by remember { mutableFloatStateOf(0f) }
             val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
             val fling = with(LocalDensity.current) { PullsMotion.Fling.toPx() }
             val range = with(LocalDensity.current) { PullsMotion.FingerRange.toPx() }
-            // The rows follow the finger toward a tab that exists, and stay put against the ends.
+            // The rows follow the finger toward a tab or the Diff, and stay put against the first tab.
             val swipe = rememberDraggableState { delta ->
                 drag += delta
-                slide.follow(delta, range, back = shown > 0, forward = shown < labels.lastIndex)
+                // Back past the first tab goes nowhere; on past the last one goes to the Diff (rule 93).
+                slide.follow(delta, range, back = shown > 0)
             }
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
@@ -153,10 +154,16 @@ internal fun PrOverviewScreen(
                     onDragStarted = { drag = 0f },
                     onDragStopped = { velocity ->
                         // A throw counts as well as a long drag, and the rows go on the way the finger went (rule 105).
-                        val to = swipedTab(shown, labels.size, drag, swipeFrom, velocity, fling)
+                        // Past the last tab the swipe goes on to the Diff, and the rows leave with the whole view.
+                        val to = swipedTabOrNext(shown, labels.size, drag, swipeFrom, velocity, fling)
                         drag = 0f
-                        onPane(to)
-                        slide.release(if (to == shown) 0 else pageWay(shown, to), velocity)
+                        if (to == labels.size) {
+                            onDiff(null)
+                            slide.leave(pageWay(shown, to), velocity)
+                        } else {
+                            onPane(to)
+                            slide.release(if (to == shown) 0 else pageWay(shown, to), velocity)
+                        }
                     },
                 ),
                 state = scroll,
@@ -246,8 +253,9 @@ internal enum class CapsuleCorner(val label: String) { More("More"), TextTools("
 
 /**
  * `.cap` with the page icons: Overview, Changes, Tour (a live dot while it is written), and a corner slot. The
- * three pages wear it alike, so a page of the pull request never loses its way home and the capsule never changes
- * shape. [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour; [corner] is what [onCorner] opens.
+ * review draws it once over its three pages, so it never moves or changes shape between them and a page of the pull
+ * request never loses its way home; the paper pill under the page you are on slides to the next one (rule 67).
+ * [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour; [corner] is what [onCorner] opens.
  */
 @Composable
 internal fun SectionCapsule(
@@ -507,15 +515,16 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
             val state = session.reviewState(file)
             val note = notes[file.path]?.takeIf { it.isNotBlank() }
             val toggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) }
-            // The same gestures as the Inbox rows (rule 56): right marks it reviewed, left opens it, a long-press offers the rest.
+            // The same gestures as the Inbox rows (rule 56): right opens it, as it opens a pull request, left marks it
+            // reviewed (or not), a tap opens it and a long-press offers the rest.
             SwipeRow(
-                file.path, onOpen = toggle, onArchive = { onDiff(file.path) }, archived = false, modifier = rows,
-                startLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", startIcon = Lu.check,
-                endLabel = "Open", endIcon = Lu.arrow,
-                onClick = { onDiff(file.path) }, onLongClick = { onSheet(FILE_SHEET + file.path) },
+                file.path, onOpen = { onDiff(file.path) }, onArchive = toggle, archived = false, modifier = rows,
+                startLabel = "Open", startIcon = Lu.arrow,
+                endLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", endIcon = Lu.check,
+                onLongClick = { onSheet(FILE_SHEET + file.path) },
             ) {
                 // The first row of a list has no line above it, so the heading over it has none under it (rule 75).
-                FileRow(file, state, note, analyzing && note == null, ruled = index > 0, needsLook = session.attention[file.path] == "p0", onToggle = toggle)
+                FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0, needsLook = session.attention[file.path] == "p0", onToggle = toggle)
             }
         }
     }
@@ -527,7 +536,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
  * line with "Needs a look".
  */
 @Composable
-internal fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit, needsLook: Boolean = false) {
+internal fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit, needsLook: Boolean = false) {
     val c = LocalPullsColors.current
     val reviewed = state == ReviewState.Reviewed
     val dir = file.path.substringBeforeLast('/', "")
@@ -556,7 +565,8 @@ internal fun FileRow(file: ReviewFile, state: ReviewState, note: String?, noteLo
             }
             when {
                 state == ReviewState.Changed -> Text("Changed since you reviewed it", style = PullsType.sm, color = c.orange)
-                note != null -> Text(note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.4f), color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // Its mentions are links to their place (rule 96), as in the note over the file's diff.
+                note != null -> com.octaviantocan.pulls.ui.ai.AiMarkdown(session, note, style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.4f, color = c.muted), maxLines = 2)
                 noteLoading -> Skeleton(Modifier.fillMaxWidth(0.78f).padding(vertical = 4.dp))
             }
         }

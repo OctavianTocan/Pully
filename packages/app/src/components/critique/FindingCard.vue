@@ -4,6 +4,7 @@ import type { DiffsStoreCritique } from '../../stores/types'
 import FormCheckbox from '@antfu/design/components/Form/FormCheckbox.vue'
 import { Markdown } from '@comark/vue'
 import { computed } from 'vue'
+import { keepRepoLinks } from '../ai/ai-format'
 import { lineRangeLabel } from '../ask/selection'
 import SeverityBadge from './SeverityBadge.vue'
 
@@ -57,7 +58,7 @@ const location = computed(() => lineRangeLabel({
         </button>
       </div>
       <Suspense>
-        <Markdown :value="finding.body" class="chat-markdown min-w-0 text-sm" />
+        <Markdown :value="finding.body" class="chat-markdown min-w-0 text-sm" @click="keepRepoLinks" />
       </Suspense>
       <div v-if="finding.suggestion !== undefined" class="flex flex-col gap-1">
         <span class="text-xs op-mute">{{ $t('critique.suggestion') }}</span>

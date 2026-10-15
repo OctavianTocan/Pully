@@ -92,3 +92,15 @@ export function lastLine(text: string): string {
 export function verbKey(verb: string, status: AiActivity['status']): string {
   return `ai.verb.${verb}.${status === 'running' ? 'now' : 'past'}`
 }
+
+/**
+ * A click handler for Markdown the AI wrote: it links what it mentions to a path in the repository (rule 96), and
+ * such a link is not a page of this app, so it must not navigate away.
+ * @param event - The click on the rendered Markdown.
+ */
+export function keepRepoLinks(event: MouseEvent): void {
+  const href = (event.target as HTMLElement | null)?.closest('a')?.getAttribute('href')
+  // `key.ts:7` starts like a scheme but is a place.
+  if (href && !/^(?:[a-z][a-z\d+.-]*:(?!\d)|#|\/\/)/i.test(href))
+    event.preventDefault()
+}

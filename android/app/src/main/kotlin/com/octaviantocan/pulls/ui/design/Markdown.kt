@@ -44,6 +44,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -98,7 +99,7 @@ data class CodePlace(val path: String, val line: Int)
  * names (the whole path, or its end), or null; [open] scrolls to a place. A Markdown link to a path
  * in the repository is always a mention; a bare `file.ext:12` is one only when it names a changed file.
  */
-class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit)
+class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit, val repo: String? = null)
 
 /** Set by AI screens: their Markdown turns mentions into links. Elsewhere Markdown links stay links. */
 val LocalMentions = staticCompositionLocalOf<Mentions?> { null }
@@ -126,16 +127,52 @@ fun codePlaceOf(destination: String): CodePlace? {
     return CodePlace(path, line)
 }
 
-/** Every place [markdown] mentions, in order and each once: its repository links and its bare `file.ext:12` that [resolve] knows. */
-fun mentionedPlaces(markdown: String, resolve: (String) -> String?): List<CodePlace> {
+/**
+ * The place a link to a file on GitHub points at (`https://github.com/o/r/blob/<sha>/src/a.ts#L12`), or null. An
+ * analysis shared on the pull request has its mentions written this way, so they still work on GitHub. Given [repo]
+ * (`owner/name`), a link into any other repository is null, so it stays a web link.
+ */
+fun githubPlaceOf(destination: String, repo: String? = null): CodePlace? {
+    val match = GITHUB_BLOB.find(destination.trim()) ?: return null
+    if (repo != null && !"${match.groupValues[1]}/${match.groupValues[2]}".equals(repo, ignoreCase = true)) return null
+    val path = runCatching { java.net.URLDecoder.decode(match.groupValues[3].replace("+", "%2B"), "UTF-8") }.getOrNull() ?: return null
+    return CodePlace(path, match.groupValues[4].toIntOrNull() ?: 0)
+}
+
+private val GITHUB_BLOB = Regex("""^https://github\.com/([^/\s]+)/([^/\s]+)/blob/[^/\s]+/([^#?\s]+?)(?:#L(\d+)(?:-L?\d+)?)?$""")
+
+/**
+ * Where a link in AI text goes in the code: any path in the repository, or a GitHub link to a file this change touches
+ * in this [repo] (a GitHub link to any other file stays a web link). Null for a web link.
+ */
+fun linkPlaceOf(destination: String, resolve: (String) -> String?, repo: String? = null): CodePlace? =
+    codePlaceOf(destination)?.let { it.copy(path = resolve(it.path) ?: it.path) }
+        ?: githubPlaceOf(destination, repo)?.let { place -> resolve(place.path)?.let { place.copy(path = it) } }
+
+/**
+ * The place backticked code names, so `key.ts`, `src/cache/key.ts:42` and `src/a.ts#L12` are mentions too: a file this
+ * change touches (by its whole path or its end, with or without a line), or a path with a folder, an extension and a
+ * line. Anything else (`cacheKey`, `localhost:8080`, `foo.bar()`) is code. Null when it names no place.
+ */
+fun codeSpanPlaceOf(literal: String, resolve: (String) -> String?): CodePlace? {
+    val place = codePlaceOf(literal.trim()) ?: return null
+    resolve(place.path)?.let { return place.copy(path = it) }
+    return place.takeIf { it.line > 0 && '/' in it.path && PATH_WITH_EXTENSION.matches(it.path) }
+}
+
+private val PATH_WITH_EXTENSION = Regex("""[\w./-]+\.[A-Za-z0-9]+""")
+
+/** Every place [markdown] mentions, in order and each once: its links into [repo], and the backticked paths and named files that [resolve] knows. */
+fun mentionedPlaces(markdown: String, resolve: (String) -> String?, repo: String? = null): List<CodePlace> {
     val places = LinkedHashSet<CodePlace>()
     fun walk(node: Node) {
         var child = node.firstChild
         while (child != null) {
             when (child) {
-                is Link -> codePlaceOf(child.destination)?.let { place -> places += place.copy(path = resolve(place.path) ?: place.path) }
-                is MdText -> BARE_CITE.findAll(child.literal).forEach { m -> resolve(m.groupValues[1])?.let { places += CodePlace(it, m.groupValues[2].toInt()) } }
-                is FencedCodeBlock, is IndentedCodeBlock, is Code -> Unit
+                is Link -> linkPlaceOf(child.destination, resolve, repo)?.let { places += it }
+                is MdText -> bareCites(child.literal).forEach { (_, name, line) -> resolve(name)?.let { places += CodePlace(it, line) } }
+                is Code -> codeSpanPlaceOf(child.literal, resolve)?.let { places += it }
+                is FencedCodeBlock, is IndentedCodeBlock -> Unit
                 else -> walk(child)
             }
             child = child.next
@@ -145,8 +182,13 @@ fun mentionedPlaces(markdown: String, resolve: (String) -> String?): List<CodePl
     return places.toList()
 }
 
-/** `file.ext:12` or `[file.ext:12]` in running text, as the analysis notes write it. */
-private val BARE_CITE = Regex("""\[?([\w./-]+\.[A-Za-z0-9]+):(\d+)]?""")
+/** `[file.ext:12]`, `file.ext:12` or a bare `file.ext` in running text, as the analysis notes write it. */
+private val BARE_CITE = Regex("""\[([\w./-]+\.[A-Za-z0-9]+):(\d+)]|(?<![\w./-])([\w./-]+\.[A-Za-z0-9]+)(?::(\d+))?(?![\w/-])""")
+
+/** Where running text names a file: the range of the words, the name as written and its line (0 for none). */
+fun bareCites(text: String): Sequence<Triple<IntRange, String, Int>> = BARE_CITE.findAll(text).map { m ->
+    Triple(m.range, m.groupValues[1].ifEmpty { m.groupValues[3] }, m.groupValues[2].ifEmpty { m.groupValues[4] }.toIntOrNull() ?: 0)
+}
 
 /**
  * GitHub-flavored Markdown as the web renders it with the `chat-markdown` shortcut
@@ -164,6 +206,27 @@ fun Markdown(source: String, modifier: Modifier = Modifier, style: TextStyle = P
             child = child.next
         }
     }
+}
+
+/**
+ * The start of [source] as one text of at most [maxLines] lines, for a row that previews it (a file's note on the
+ * Overview): its blocks run together and its mentions are links as in [Markdown] (rule 96).
+ */
+@Composable
+fun MarkdownPreview(source: String, modifier: Modifier = Modifier, style: TextStyle = PullsType.sm, maxLines: Int = 2) {
+    val c = LocalPullsColors.current
+    val mentions = LocalMentions.current
+    val text = remember(source, c, mentions) {
+        buildAnnotatedString {
+            var block = parser.parse(source).firstChild
+            while (block != null) {
+                if (length > 0) append(' ')
+                appendInline(block, c, mentions)
+                block = block.next
+            }
+        }
+    }
+    Text(text, modifier, style = style.copy(color = style.color.takeOrElse(c.text)), maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -552,21 +615,29 @@ private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors, 
         when (node) {
             is MdText -> if (mentions == null) append(node.literal) else {
                 var at = 0
-                for (match in BARE_CITE.findAll(node.literal)) {
-                    val path = mentions.resolve(match.groupValues[1]) ?: continue
-                    append(node.literal.substring(at, match.range.first))
-                    withMention(CodePlace(path, match.groupValues[2].toInt()), c, mentions) { append("${match.groupValues[1].substringAfterLast('/')}:${match.groupValues[2]}") }
-                    at = match.range.last + 1
+                // A changed file named in the text is a mention, with its line or at its top (rule 96).
+                for ((range, name, line) in bareCites(node.literal)) {
+                    val path = mentions.resolve(name) ?: continue
+                    append(node.literal.substring(at, range.first))
+                    withMention(CodePlace(path, line), c, mentions) { append(if (line > 0) "${name.substringAfterLast('/')}:$line" else name) }
+                    at = range.last + 1
                 }
                 append(node.literal.substring(at))
             }
             is Link -> {
-                val place = if (mentions == null) null else codePlaceOf(node.destination)
-                if (place != null && mentions != null) withMention(place.copy(path = mentions.resolve(place.path) ?: place.path), c, mentions) { appendInline(node, c) }
-                else withLink(LinkAnnotation.Url(node.destination, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) { appendInline(node, c, mentions) }
+                val place = mentions?.let { linkPlaceOf(node.destination, it.resolve, it.repo) }
+                if (place != null && mentions != null) withMention(place, c, mentions) { appendInline(node, c) }
+                // A web link's words are its own: no mention nests inside it.
+                else withLink(LinkAnnotation.Url(node.destination, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline)))) { appendInline(node, c) }
             }
             // `text-[max(0.85em,var(--pr-code-min))] px-1 py-0.5 rounded bg-code` (13px floor on phones).
-            is Code -> withStyle(SpanStyle(fontFamily = PullsType.mono, background = c.code, fontSize = if (PullsType.wide) 0.85.em else 13.sp)) { append("\u2009${node.literal}\u2009") }
+            is Code -> {
+                val code = SpanStyle(fontFamily = PullsType.mono, background = c.code, fontSize = if (PullsType.wide) 0.85.em else 13.sp)
+                val place = mentions?.let { codeSpanPlaceOf(node.literal, it.resolve) }
+                // A path in backticks is a mention too: still code, in the link colour (rule 96).
+                if (place != null && mentions != null) withLink(LinkAnnotation.Clickable("mention", TextLinkStyles(code.copy(color = c.activeText))) { mentions.open(place) }) { append("\u2009${node.literal}\u2009") }
+                else withStyle(code) { append("\u2009${node.literal}\u2009") }
+            }
             is Emphasis -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendInline(node, c, mentions) }
             is StrongEmphasis -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { appendInline(node, c, mentions) }
             is Strikethrough -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) { appendInline(node, c, mentions) }

@@ -34,9 +34,13 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caverock.androidsvg.SVG
+import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.data.TourBlock
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.sound.cueClickable
@@ -49,6 +53,7 @@ import com.octaviantocan.pulls.ui.design.CodePlace
 import com.octaviantocan.pulls.ui.design.LocalCodeBlock
 import com.octaviantocan.pulls.ui.design.LocalMentions
 import com.octaviantocan.pulls.ui.design.Markdown
+import com.octaviantocan.pulls.ui.design.MarkdownPreview
 import com.octaviantocan.pulls.ui.design.Mentions
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -56,6 +61,7 @@ import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import com.octaviantocan.pulls.ui.review.guardedStop
+import com.octaviantocan.pulls.ui.review.openSource
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.serialization.json.put
 
@@ -114,19 +120,41 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
  * Mentions in AI text go to their place: a changed file opens the diff on the line, any other
  * file opens through [open] (rule 96). The resolver takes a whole path or the end of one.
  */
-internal fun mentionsFor(session: ReviewSession, open: (CodePlace) -> Unit): Mentions = Mentions(resolve = { name -> resolveMention(session, name) }, open = open)
+internal fun mentionsFor(session: ReviewSession, open: (CodePlace) -> Unit): Mentions = Mentions(resolve = { name -> resolveMention(session, name) }, open = open, repo = reviewRepo(session))
+
+/** The `owner/name` of the repository under review, or null for a local branch. */
+internal fun reviewRepo(session: ReviewSession): String? = when (val target = session.target) {
+    is OpenTarget.Pull -> "${target.owner}/${target.repo}"
+    is OpenTarget.Compare -> "${target.owner}/${target.repo}"
+    is OpenTarget.Commit -> "${target.owner}/${target.repo}"
+    else -> null
+}
 
 /** The changed file a mention names, by its whole path or the end of it, or null. */
 internal fun resolveMention(session: ReviewSession, name: String): String? =
     session.files.firstOrNull { it.path == name }?.path ?: session.files.firstOrNull { it.path.endsWith("/$name") }?.path
 
-/** What the AI wrote, with its mentions as links and its code as the diff's code view (rules 95 and 96). */
+/** What the AI wrote, with its mentions as links, its code as the diff's code view and its sketches drawn (rules 95 and 96). */
 @Composable
 internal fun ProvideAiText(session: ReviewSession, open: (CodePlace) -> Unit, content: @Composable () -> Unit) {
     val latest by rememberUpdatedState(open)
     val mentions = remember(session) { mentionsFor(session) { place -> latest(place) } }
-    val code = remember(session) { @Composable { body: String, lang: String -> AiCodeView(session, body, lang) } }
+    val code = remember(session) { @Composable { body: String, lang: String -> AiFence(session, body, lang) } }
     CompositionLocalProvider(LocalMentions provides mentions, LocalCodeBlock provides code, content = content)
+}
+
+/**
+ * Markdown the AI wrote, on a page that also shows people's words (the Diff's notes, findings and answers, the
+ * Overview's file notes, the findings sheet): its mentions are links that open their place (rule 96) and its code is
+ * the diff's code view (rule 95), while a reviewer's comment beside it stays as they wrote it. Inside [ProvideAiText]
+ * it is plain [Markdown]. A [maxLines] makes it a preview of that many lines.
+ */
+@Composable
+internal fun AiMarkdown(session: ReviewSession, source: String, modifier: Modifier = Modifier, style: TextStyle = PullsType.sm, maxLines: Int = Int.MAX_VALUE) {
+    val uri = LocalUriHandler.current
+    val text = @Composable { if (maxLines == Int.MAX_VALUE) Markdown(source, modifier, style) else MarkdownPreview(source, modifier, style, maxLines) }
+    if (LocalMentions.current != null) text()
+    else ProvideAiText(session, { place -> openSource(session, TourSource(place.path, place.line, ""), uri::openUri) }, text)
 }
 
 @Composable
@@ -140,10 +168,8 @@ internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
                 Text(SHAPE_LABELS[block.lang] ?: "Sketch", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentTeal)
                 if (block.text.isNotBlank()) Text(block.text, style = PullsType.sm, color = c.muted)
             }
-            // A flow is drawn from its hops; anything else, and a flow that does not read as hops, is the diff's code view (rule 95).
-            val hops = remember(block.lang, block.body) { if (block.lang == "flow") parseFlow(block.body) else null }
-            if (hops != null) FlowView(hops)
-            else AiCodeView(session, block.body, if (block.lang == "code") block.text else "")
+            // A flow is drawn from its hops, a call tree and a file tree as trees, pseudocode and code as the diff's code view (rule 95).
+            AiFence(session, block.body, if (block.lang == "code") block.text else block.lang)
         }
         "diagram" -> Diagram(session, block)
     }
@@ -185,7 +211,7 @@ private fun Diagram(session: ReviewSession, block: TourBlock) {
             }
             result == null -> Skeleton(Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(PullsRadius.xl)))
             // Could not render: the source still says what the diagram meant.
-            else -> TourBlockView(session, TourBlock("shape", "Mermaid source", "flow", block.body))
+            else -> AiCodeView(session, block.body, "")
         }
     }
     ModalReveal(full && svg != null, { full = false }) {
@@ -236,23 +262,28 @@ private fun SvgView(svg: SVG, modifier: Modifier) {
     }
 }
 
-/** Where to check the stop, as tappable `file:line` citations with the reason beside each. */
+/**
+ * Where to check the stop: each a tappable `file:line` on its own line, the reason under it at the full width of the card.
+ * Side by side, a long file name left the reason a column three or four letters wide (F62). The name wraps between its
+ * words, never cut (rule 2).
+ */
 @Composable
 internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
     val c = LocalPullsColors.current
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text("In the code", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         sources.forEach { source ->
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg)).cueClickable(role = Role.Button) { onOpen(source) }.padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg))
+                    .cueClickable(role = Role.Button, onClickLabel = "Open ${source.path}") { onOpen(source) }.padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
-                    source.path.substringAfterLast('/') + if (source.line > 0) ":${source.line}" else "",
+                    softBreaks(source.path.substringAfterLast('/')) + if (source.line > 0) ":${source.line}" else "",
                     style = PullsType.sm.copy(fontFamily = PullsType.display, fontWeight = FontWeight.Medium),
-                    color = c.activeText, maxLines = 1,
+                    color = c.activeText,
                 )
-                Text(source.why, Modifier.weight(1f), style = PullsType.sm, color = c.muted)
+                if (source.why.isNotBlank()) Text(source.why, Modifier.fillMaxWidth(), style = PullsType.sm, color = c.muted)
             }
         }
     }

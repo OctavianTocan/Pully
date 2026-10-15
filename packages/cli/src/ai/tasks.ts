@@ -619,7 +619,8 @@ export function defaultTaskRunners(lens: (name: string) => Promise<string | unde
   return {
     async analyze(diff, resolved, locale, hooks) {
       const core = await llm()
-      return core.runLlmAnalysis(diff, resolved, locale, { signal: hooks.signal, onActivity: hooks.onActivity, context: core.prContextOf(diff), label: hooks.tag })
+      // Read in the app, where every mention is a link (rule 96); sharing it rewrites the links for GitHub.
+      return core.runLlmAnalysis(diff, resolved, locale, { signal: hooks.signal, onActivity: hooks.onActivity, context: core.prContextOf(diff), label: hooks.tag, mentions: true })
     },
     async critique(diff, resolved, critiqueLens, hooks) {
       return (await llm()).runCritique(diff, resolved, { lens: critiqueLens, signal: hooks.signal, onActivity: hooks.onActivity })

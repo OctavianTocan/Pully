@@ -32,6 +32,15 @@ fun swipedTab(current: Int, count: Int, dx: Float, threshold: Float, velocity: F
     if (count <= 1) current else (current + swipeStep(dx, threshold, velocity, fling)).coerceIn(0, count - 1)
 
 /**
+ * Where a horizontal drag of [dx] pixels takes the Overview from tab [current] of [count]: a tab, as [swipedTab] says,
+ * or past the last one the next view, the Diff, which is [count] (rule 93). A throw counts as it does for [swipedTab].
+ * Before the first tab it stays put.
+ */
+fun swipedTabOrNext(current: Int, count: Int, dx: Float, threshold: Float, velocity: Float = 0f, fling: Float = Float.POSITIVE_INFINITY): Int =
+    if (current >= count - 1 && swipeStep(dx, threshold, velocity, fling) == FORWARD) count
+    else swipedTab(current, count, dx, threshold, velocity, fling)
+
+/**
  * Where a horizontal drag of [dx] pixels takes the diff from file [current] of [count] (rule 93): to the left past
  * [threshold], or thrown that way faster than [fling] (see [swipeStep]), is the next file and to the right the one
  * before. Left of the last file it returns [count] and right of the first it returns -1, which are the views either

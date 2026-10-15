@@ -5,6 +5,7 @@ import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import { Markdown } from '@comark/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { keepRepoLinks } from '../ai/ai-format'
 
 const props = defineProps<{
   message: AgentMessage
@@ -33,13 +34,6 @@ const toolError = computed(() => {
   const message = props.message
   return message.role === 'toolResult' && message.isError ? textOf(message.content) : undefined
 })
-
-/** Answers link what they mention to a path in the repository (rule 96): such a link is not a page of this app, so it must not navigate away. */
-function keepRepoLinks(event: MouseEvent) {
-  const href = (event.target as HTMLElement | null)?.closest('a')?.getAttribute('href')
-  if (href && !/^(?:[a-z][a-z\d+.-]*:|#|\/\/)/i.test(href))
-    event.preventDefault()
-}
 
 function toolCallLabel(call: ToolCall) {
   if (call.name === 'read_diffs') {

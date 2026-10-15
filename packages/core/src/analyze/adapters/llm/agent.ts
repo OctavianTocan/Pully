@@ -8,7 +8,7 @@ import type { ResolvedModel } from './model'
 import type { Analysis } from './schema'
 import { runAgentLoop } from '@earendil-works/pi-agent-core'
 import { serializeRef } from '../../../types/source'
-import { AGENT_SYSTEM_PROMPT, buildAnalysisPrompt } from './prompt'
+import { agentSystemPrompt, buildAnalysisPrompt } from './prompt'
 import { createStreamFn } from './runtime'
 import { createLedger, createReadDiffsTool, createSubmitGroupingTool } from './tools'
 
@@ -38,6 +38,11 @@ export interface LlmAnalyzeOptions extends AnalyzeOptions {
   label?: string
   /** Identifies the CLI job, so a run still going on the server is picked up instead of started twice. */
   key?: string
+  /**
+   * Has the summaries and notes link every place in the code they mention (rule 96). For runs read in the app;
+   * text posted on GitHub gets its links rewritten to the head commit (`githubCites`).
+   */
+  mentions?: boolean
 }
 
 export async function runAgent(diff: DiffsPayload, resolved: ResolvedModel, locale: Locale, options?: LlmAnalyzeOptions): Promise<{ analysis: Analysis, transcript: AgentMessage[] }> {
@@ -46,7 +51,7 @@ export async function runAgent(diff: DiffsPayload, resolved: ResolvedModel, loca
   let nudged = false
 
   const context: AgentContext = {
-    messages: [{ role: 'system', content: AGENT_SYSTEM_PROMPT, timestamp: Date.now() }],
+    messages: [{ role: 'system', content: agentSystemPrompt(options?.mentions), timestamp: Date.now() }],
     tools: [createReadDiffsTool(diff, ledger), createSubmitGroupingTool(diff, ledger)],
   }
   const prompt: AgentMessage = { role: 'user', content: buildAnalysisPrompt(diff, locale), timestamp: Date.now() }

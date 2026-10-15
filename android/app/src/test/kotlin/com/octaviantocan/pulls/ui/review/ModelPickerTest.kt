@@ -80,6 +80,28 @@ class ModelPickerTest {
         assertEquals("o3 mini", modelLabel(model("x", "o3-mini")))
     }
 
+    /** Claude Code's own list: aliases named by family, the version at the head of the description. */
+    private val aliases = listOf(
+        model("default", "Default (recommended)", "Sonnet 5.5 · Efficient for routine tasks", isDefault = true),
+        model("sonnet", "Sonnet", "Sonnet 5.5 · Efficient for routine tasks"),
+        model("fable", "Fable", "Fable 5.1 · Most capable for your hardest and longest-running tasks"),
+        model("opus", "Opus", "Opus 5.5 · Best for everyday, complex tasks"),
+        model("haiku", "Haiku", "Haiku 5.5 · Fastest for quick answers"),
+        model("claude-haiku-4-5-20251001", "Haiku 4.5", "Fastest for quick answers"),
+        model("claude-sonnet-5", "Sonnet 5", "Efficient for routine tasks"),
+        model("claude-opus-4-8", "Opus 4.8"),
+    )
+
+    @Test fun anAliasNamedByItsFamilyReadsItsVersionFromTheDescription() {
+        val groups = groupModels(aliases)
+        assertEquals(listOf("Default", "Sonnet 5.5", "Fable 5.1", "Opus 5.5", "Haiku 5.5"), groups.recent.map(::modelLabel))
+        assertEquals(listOf("Haiku 4.5", "Sonnet 5", "Opus 4.8"), groups.older.map(::modelLabel))
+        assertEquals(5 to 5, modelVersion(aliases[3]))
+        // The default's description names the model it stands for, not its own version.
+        assertNull(modelVersion(aliases[0]))
+        assertEquals("Sonnet 5.5", modelNote(aliases[0]))
+    }
+
     @Test fun onlyTheDefaultCarriesALine() {
         assertEquals("Use the default model (currently Opus 5.5)", modelNote(claude[0]))
         assertNull(modelNote(claude[1]))

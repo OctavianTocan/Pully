@@ -178,6 +178,8 @@ export function createClaudeParser(sink: RunSink): StreamParser {
   let message = 0
   let outcome: RunOutcome = {}
   let assistantError: string | undefined
+  /** The model Claude started with: the usage's model when the run ends before reporting one. */
+  let startedModel: string | undefined
   const blocks = new Map<number, Block>()
   const calls = new Map<string, { name: string, input: Json }>()
 
@@ -242,10 +244,14 @@ export function createClaudeParser(sink: RunSink): StreamParser {
   }
 
   function onSystem(event: Json): void {
-    if (event.subtype === 'init')
-      sink.put({ id: 'start', status: 'done', title: `Started Claude${event.model ? ` (${event.model})` : ''}` })
-    else if (event.subtype === 'api_retry')
+    if (event.subtype === 'init') {
+      // The log is for the reader, who does not want the model id in it (F58); the model rides in the usage instead.
+      startedModel = typeof event.model === 'string' ? event.model : undefined
+      sink.put({ id: 'start', status: 'done', title: 'Started' })
+    }
+    else if (event.subtype === 'api_retry') {
       sink.put({ id: `retry:${event.attempt ?? Date.now()}`, kind: 'status', title: retryTitle(event), status: 'done' })
+    }
   }
 
   function onAssistant(event: Json): void {
@@ -276,6 +282,7 @@ export function createClaudeParser(sink: RunSink): StreamParser {
 
   function onResult(event: Json): void {
     const usage = claudeUsage(event)
+    usage.model ??= startedModel
     if (event.is_error || event.subtype !== 'success')
       outcome = { usage, error: assistantError ?? resultError(event) }
     else

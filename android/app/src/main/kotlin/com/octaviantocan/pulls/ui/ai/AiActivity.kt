@@ -93,6 +93,52 @@ fun summarizeTools(activities: List<Activity>): List<Pair<ToolCategory, Int>> {
     return ToolCategory.entries.filter { it in counts }.map { it to counts.getValue(it) }
 }
 
+/**
+ * The title a step shows. A log saved before the server stopped naming the model opens with "Started Claude (<model id>)";
+ * it reads "Started" like a new one, since the reader does not want the model there (F58).
+ */
+fun stepTitle(activity: Activity): String =
+    if (activity.id == "start" && activity.kind == "status" && activity.title.startsWith("Started ")) "Started" else activity.title
+
 /** The server opens every job with a `start` status; a later settled status row is a notice (rate limit, retry). */
 fun isWarning(activity: Activity, index: Int): Boolean =
     activity.kind == "status" && activity.status == "done" && activity.id != "start" && index > 0
+
+/**
+ * The answer as it is being written (rule 99): the text of the newest writing step, as long as no tool or thinking step
+ * came after it (a status line, such as writing the follow-up questions, may). Null while the model reads or thinks,
+ * so an aside it wrote between two tool calls does not stand in for the answer once it moves on.
+ */
+fun answerSoFar(activities: List<Activity>): String? {
+    val last = activities.lastOrNull { it.kind != "status" } ?: return null
+    if (last.kind != "text" || last.status == "failed") return null
+    // The server keeps the end of a long text and marks the cut with an ellipsis.
+    return last.text?.removePrefix("…")?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+/** "Read src/a.ts", "Read src/a.ts (lines 10–40)", "Read the diff of src/a.ts and 2 more files": the file, and the first line read. */
+private val READ_TITLE = Regex("""^Read(?:ing)? (?:the diff of )?(\S+?)(?: and \d+ more files?)?(?: \(lines (\d+)[–-]\d+\))?$""")
+
+/**
+ * The files a log's read steps read, in the order it first read each, with the line its first read started at (0 for
+ * the top): the sources an answer stands on besides the places it names (rule 99). Searches, failed reads and reads
+ * of no single file ("Read the PR description and comments") are left out.
+ */
+fun readFiles(activities: List<Activity>): List<Pair<String, Int>> {
+    val read = LinkedHashMap<String, Int>()
+    for (activity in activities) {
+        if (activity.kind != "tool" || activity.status == "failed" || toolCategory(activity.tool) != ToolCategory.Read) continue
+        val match = READ_TITLE.matchEntire(activity.title.trim()) ?: continue
+        val path = match.groupValues[1].trim('`', '"', '\'').removePrefix("./")
+        if ('#' in path || ('.' !in path && '/' !in path)) continue
+        read.getOrPut(path) { match.groupValues[2].toIntOrNull()?.takeIf { it > 1 } ?: 0 }
+    }
+    return read.map { (path, line) -> path to line }
+}
+
+/** The tools that read one pull request of the inbox, whose step names it: "Read owner/repo#12". */
+private val PULL_READS = setOf("read_pull_request", "read_pull_request_diff")
+
+/** What a log's settled reads of pull requests say they read, one per line, for the inbox to find the pull requests in. */
+fun pullReads(activities: List<Activity>): String =
+    activities.filter { it.kind == "tool" && it.status != "failed" && it.tool in PULL_READS }.joinToString("\n") { it.title }

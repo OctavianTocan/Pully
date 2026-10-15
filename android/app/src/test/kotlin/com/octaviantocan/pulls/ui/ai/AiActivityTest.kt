@@ -21,6 +21,14 @@ class AiActivityTest {
     }
 
     @Test
+    fun theFirstStepNeverNamesTheModelEvenInAnOldLog() {
+        assertEquals("Started", stepTitle(activity("start", kind = "status", title = "Started Claude (some-model)", status = "done")))
+        assertEquals("Started", stepTitle(activity("start", kind = "status", title = "Started", status = "done")))
+        assertEquals("Starting Claude Code…", stepTitle(activity("start", kind = "status", title = "Starting Claude Code…")))
+        assertEquals("Started Codex here", stepTitle(activity("tool:1", title = "Started Codex here")))
+    }
+
+    @Test
     fun upsertIgnoresReplaysOfRevisionsItAlreadyHas() {
         val log = upsertActivities(emptyList(), listOf(activity("a", title = "new") to 5), 10)
         val again = upsertActivities(log, listOf(activity("a", title = "old") to 2), 20)[0]
@@ -102,5 +110,52 @@ class AiActivityTest {
     fun aFailedStepOrANoticeOverridesWhatItDoes() {
         assertEquals(Lu.fail, stepGlyph(activity("a", tool = "bash", status = "failed"), false))
         assertEquals(Lu.refresh, stepGlyph(activity("a", kind = "status", status = "done"), true))
+    }
+
+    private fun step(kind: String, text: String? = null, status: String = "done", title: String = kind, tool: String? = null) =
+        Activity(id = "$kind-$title-$text", kind = kind, title = title, text = text, status = status, tool = tool)
+
+    @Test
+    fun theAnswerSoFarIsTheNewestWritingStep() {
+        assertEquals("The gate waits.", answerSoFar(listOf(step("thinking", "hmm"), step("text", "The gate waits.", status = "running"))))
+        // Writing the follow-up questions comes after the answer and leaves it standing.
+        assertEquals("Done.", answerSoFar(listOf(step("text", "Done."), step("status", title = "Suggesting follow-up questions", status = "running"))))
+        // The server marks a long text it cut with an ellipsis at the front.
+        assertEquals("end of it", answerSoFar(listOf(step("text", "…end of it", status = "running"))))
+    }
+
+    @Test
+    fun anAsideBeforeAToolIsNotTheAnswer() {
+        assertNull(answerSoFar(listOf(step("text", "Let me read the file."), step("tool", title = "Reading a.ts", status = "running", tool = "read_source"))))
+        assertNull(answerSoFar(listOf(step("thinking", "hmm", status = "running"))))
+        assertNull(answerSoFar(listOf(step("text", "", status = "running"))))
+        assertNull(answerSoFar(emptyList()))
+    }
+
+    @Test
+    fun theFilesALogReadAreItsSourcesEachOnce() {
+        val log = listOf(
+            step("tool", title = "Read src/gate.ts (lines 40–120)", tool = "read_source"),
+            step("tool", title = "Read the diff of src/mount.tsx and 2 more files", tool = "read_file_diff"),
+            step("tool", title = "Read src/gate.ts", tool = "read_source"),
+            step("tool", title = "Read lib/a.ts and 1 more file", tool = "cat"),
+            step("tool", title = "Read ./b.ts (lines 1–400)", tool = "read_source"),
+            // Not a single file, not a read, and a read that failed.
+            step("tool", title = "Read the PR description and comments", tool = "read_discussion"),
+            step("tool", title = "Searched the code for `gate` in src", tool = "search_source"),
+            step("tool", title = "Read src/broken.ts", status = "failed", tool = "read_source"),
+        )
+        assertEquals(listOf("src/gate.ts" to 40, "src/mount.tsx" to 0, "lib/a.ts" to 0, "b.ts" to 0), readFiles(log))
+    }
+
+    @Test
+    fun theInboxSourcesAreThePullRequestsItRead() {
+        val log = listOf(
+            step("tool", title = "Read octo/app#12", tool = "read_pull_request"),
+            step("tool", title = "Read the diff of octo/app#14 (src/a.ts)", tool = "read_pull_request_diff"),
+            step("tool", title = "Read octo/app#15", status = "failed", tool = "read_pull_request"),
+            step("thinking", "octo/app#99"),
+        )
+        assertEquals("Read octo/app#12\nRead the diff of octo/app#14 (src/a.ts)", pullReads(log))
     }
 }

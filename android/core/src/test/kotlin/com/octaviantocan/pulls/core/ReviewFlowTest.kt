@@ -86,6 +86,29 @@ class ReviewFlowTest {
     }
 
     @Test
+    fun pastTheLastTabTheOverviewContinuesToTheDiff() {
+        assertEquals(3, swipedTabOrNext(2, 3, -120f, 80f))
+    }
+
+    @Test
+    fun betweenTabsTheOverviewSwipesAsBefore() {
+        assertEquals(2, swipedTabOrNext(1, 3, -120f, 80f))
+        assertEquals(0, swipedTabOrNext(1, 3, 120f, 80f))
+        assertEquals(2, swipedTabOrNext(2, 3, -79f, 80f))
+    }
+
+    @Test
+    fun aThrowPastTheLastTabGoesOnToTheDiff() {
+        assertEquals(3, swipedTabOrNext(2, 3, -20f, 80f, velocity = -1500f, fling = 1000f))
+        assertEquals(2, swipedTabOrNext(2, 3, -20f, 80f, velocity = 1500f, fling = 1000f))
+    }
+
+    @Test
+    fun beforeTheFirstTabTheOverviewStaysPut() {
+        assertEquals(0, swipedTabOrNext(0, 3, 300f, 80f))
+    }
+
+    @Test
     fun theDescriptionIsTheSummaryUntilTheAiWritesOne() {
         assertTrue(showsDescription(summary = null, switchedAwayFrom = null))
     }

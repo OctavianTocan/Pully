@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,12 +25,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.AppSettings
@@ -49,17 +53,17 @@ import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.TourEntry
 import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.ui.home.deviceStore
 import kotlinx.coroutines.delay
-import androidx.compose.foundation.layout.Spacer
+import kotlinx.coroutines.flow.first
 import com.octaviantocan.pulls.core.BACKWARD
 import com.octaviantocan.pulls.ui.design.PageBack
 import com.octaviantocan.pulls.ui.design.PageMotion
-import com.octaviantocan.pulls.ui.design.headerTopPadding
 
 /** What the Ask sheet opens with: its title, the starter chips, a question to send at once, and what the next question is about. */
 private data class AskRequest(val title: String, val suggestions: List<String>, val initial: String?, val reference: AskReference? = null)
@@ -96,7 +100,6 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     var pane by rememberSaveable { mutableIntStateOf(0) }
     var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
-    var tools by remember { mutableStateOf(false) }
     var ask by remember { mutableStateOf<AskRequest?>(null) }
     // How the last change of view was made, for the ones the capsule's order cannot tell: Back and a back swipe (rule 105).
     val viewMotion = remember(session) { PageMotion() }
@@ -110,8 +113,6 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     OverviewEffects(session, top, data)
     // Back pops a view and the views move backward; a back swipe moves the view with the finger first.
     PageBack(viewMotion, enabled = pages.size > 1) { pages.removeAt(pages.lastIndex) }
-    // The text and tools sheet belongs to the Diff: leaving it closes the sheet.
-    LaunchedEffect(pages.last()) { if (pages.last() != PrView.Diff) tools = false }
 
     fun orderedFiles() = fileSections(session, ui).flatMap { it.files }
     fun push(page: PrView) { if (pages.last() != page) pages.add(page) }
@@ -164,6 +165,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             session.focus = null
             return@LaunchedEffect
         }
+        // A sheet that asked for the place (a finding, a mention in the review findings) gets out of its way.
+        sheet = null
         diffPath = wanted.path
         push(PrView.Diff)
     }
@@ -214,18 +217,20 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
             else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
-                    // One header over the three views: the same pixels on each (rule 93), and the capsule's pill slides to the view you go to.
+                    // One header over the three views, drawn once: the same pixels on each while only what is under it slides
+                    // (rule 93), and the capsule's pill slides to the view you go to. Its corner is Aa on the diff and ⋯ elsewhere.
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                         FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
                         Spacer(Modifier.weight(1f))
                         SectionCapsule(
                             selected = view.ordinal, live = tourRunning,
                             onOverview = ::toOverview, onChanges = ::toChanges, onTour = { switchTo(PrView.Tour) },
-                            // The Aa menu is on the diff only: it sets the code size, wrapping and review comments, none of which the other views have.
-                            onCorner = { if (view == PrView.Diff) tools = true else sheet = "more" },
+                            onCorner = { sheet = if (view == PrView.Diff) "tools" else "more" },
                             corner = if (view == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
                         )
                     }
+                    // The diff is narrowed to a commit: say so, with the way back, where no view can scroll it away (rule 80).
+                    CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
                     // The views sit left to right as the capsule shows them, so going to one moves the page that way (rule 105).
                     BlurSwitch(view, Modifier.weight(1f).fillMaxWidth(), order = { it.ordinal }, motion = viewMotion) { page ->
                         when (page) {
@@ -238,12 +243,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                 onOpenRepo = nav.openRepo,
                             )
                             PrView.Diff -> PrDiffScreen(
-                                session, ui, diffPath, data?.overview, { diffPath = it },
+                                session, ui, diffPath, { diffPath = it },
                                 onOverview = ::toOverview,
                                 onTour = { switchTo(PrView.Tour) },
-                                tools = tools,
-                                onTools = { tools = it },
-                                onMore = { sheet = "more" },
                                 onFiles = { sheet = "files" },
                                 onAsk = { reference -> openAsk(forTour = false, reference = reference) },
                             )
@@ -251,6 +253,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                 session, head,
                                 resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                                 onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
+                                onChanges = ::toChanges,
                                 onOpenSource = { source -> openSource(session, source, uri::openUri) },
                                 onAsk = { question -> openAsk(forTour = true, initial = question) },
                             )
@@ -260,6 +263,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                 // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
                 when (sheet) {
                     "more" -> MoreSheet(session, top, data, head, onClose = { sheet = null }, onSheet = { sheet = it })
+                    // Aa on the diff: the code's look, then the file's own actions and one row to the pull request's ⋯.
+                    "tools" -> TextAndToolsSheet(session, ui, orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() }, onClose = { sheet = null }, onActions = { sheet = "more" })
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
                     "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
@@ -309,8 +314,8 @@ private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() 
     }
 }
 
-/** A tour source: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
-private fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
+/** A tour source or a mention: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
+internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
     if (session.files.any { it.path == source.path }) {
         session.focus = Focus(source.path, source.line)
         return
@@ -338,8 +343,11 @@ private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead
 
 /**
  * The overview's side effects: re-fetch while GitHub is still computing mergeability or checks are
- * pending (`revalidateDelay`, at most 20 polls), and pull new commits in at once when the auto-refresh
- * setting is on and the PR head moved (the web's `checkStaleness`).
+ * pending (`revalidateDelay`, at most 20 polls), and again when the app comes back to the front, and pull
+ * new commits in by themselves when the PR head moved (the web's `checkStaleness`), unless the auto-refresh
+ * setting is off. There is no Refresh to press. Taking new commits is quiet and keeps the reader's place:
+ * the diff stays on its file where it was scrolled, a load already on its way finishes first, and while one
+ * commit is viewed the new ones wait until the reader goes back to all of them.
  */
 @Composable
 private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?) {
@@ -351,8 +359,29 @@ private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOv
         session.reloadOverview()
         top.polls++
     }
+    var away by remember { mutableStateOf(false) }
+    var returns by remember { mutableIntStateOf(0) }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { away = true }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        if (away) {
+            away = false
+            top.polls = 0
+            returns++
+            session.reloadOverview()
+        }
+    }
     val stale = isStale(session, overview)
-    LaunchedEffect(stale, session.settings.autoRefresh) {
-        if (stale && session.settings.autoRefresh && !session.loading && session.selection == null) session.refresh()
+    // A reload that fails leaves the page stale, so it is tried a few more times, and again when the app comes back.
+    LaunchedEffect(stale, session.settings.autoRefresh, session.selection, returns) {
+        if (!stale || !session.settings.autoRefresh || session.selection != null) return@LaunchedEffect
+        for (wait in STALE_RETRY_MS) {
+            snapshotFlow { session.loading }.first { !it }
+            if (!isStale(session, overview)) return@LaunchedEffect
+            session.refresh()
+            delay(wait)
+        }
     }
 }
+
+/** How long the page waits after each automatic reload of new commits before it tries again, while they have not loaded. */
+private val STALE_RETRY_MS = listOf(2_000L, 8_000L, 30_000L)

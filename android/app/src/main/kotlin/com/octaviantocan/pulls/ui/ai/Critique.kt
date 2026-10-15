@@ -47,7 +47,6 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsRadius
@@ -234,7 +233,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
 
         if (ui.panelOpen && result != null) {
             if (outdated) Text(t("critique.outdated"), style = PullsType.sm, color = c.amber)
-            if (result.summary.isNotBlank()) Markdown(result.summary, Modifier.fillMaxWidth())
+            if (result.summary.isNotBlank()) AiMarkdown(session, result.summary, Modifier.fillMaxWidth())
             if (result.findings.isEmpty()) Text(t("critique.noFindings"), style = PullsType.sm, color = c.fade)
             else {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, itemVerticalAlignment = Alignment.CenterVertically) {
@@ -346,7 +345,7 @@ private fun FindingCard(session: ReviewSession, finding: CritiqueFinding, posted
                 Modifier.defaultMinSize(minHeight = 32.dp).clip(RoundedCornerShape(PullsRadius.sm)).cueClickable(role = Role.Button, onClickLabel = t("critique.jumpToLine"), onClick = onJump).padding(vertical = 6.dp),
                 style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.activeText, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            Markdown(finding.body, Modifier.fillMaxWidth())
+            AiMarkdown(session, finding.body, Modifier.fillMaxWidth())
             finding.suggestion?.let { suggestion -> FindingSuggestion(session, finding.path, suggestion) }
         }
     }

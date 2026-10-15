@@ -4,9 +4,11 @@ import type { DiffSide } from '../../../types/comment-threads'
 import type { DiffHunk, DiffsPayload, FileChange } from '../../../types/diff'
 import type { ResolvedModel } from './model'
 import picomatch from 'picomatch'
+import { githubCites } from '../../../providers/github/cites'
 import { serializeRef } from '../../../types/source'
 import { GENERATED_PATTERNS } from '../rule-based/rules'
 import { isCliEngine, runCli } from './cli-stream'
+import { MENTION_RULE } from './prompt'
 
 /** Past this the review stops being a review and becomes a wall of comments nobody reads. */
 export const MAX_FINDINGS = 25
@@ -32,7 +34,9 @@ These are not findings: asking for tests in general, asking for a comment, renam
 You never invent code you did not read. If you cannot point at the line where it goes wrong, you do not have a finding.
 Finding nothing is a real answer. A pull request with no defects gets an empty list, not a filled quota.
 
-${WRITING_RULES}`
+${WRITING_RULES}
+
+In the summary and in each finding's body: ${MENTION_RULE}`
 
 /** JSON Schema of the critique answer; optional fields may come back as `null` from engines that require every key. */
 export const CRITIQUE_SCHEMA = {
@@ -332,6 +336,19 @@ export function findingCommentBody(finding: CritiqueFinding): string {
     parts.push(`${fence}suggestion\n${finding.suggestion}\n${fence}`)
   }
   return parts.join('\n\n')
+}
+
+/**
+ * Makes a critique's text right for GitHub: its repository links (rule 96) point at the file at the diff's head there.
+ * @param diff - The reviewed diff.
+ * @returns A rewriter for the review body and each comment; it changes nothing for a diff that is not on GitHub.
+ */
+export function citesOnGithub(diff: DiffsPayload): (markdown: string) => string {
+  const { ref } = diff
+  const sha = diff.head?.sha
+  if ((ref.kind !== 'github-pr' && ref.kind !== 'github-compare' && ref.kind !== 'github-commit') || !sha)
+    return markdown => markdown
+  return markdown => githubCites(markdown, { owner: ref.owner, repo: ref.repo, sha })
 }
 
 /**

@@ -27,7 +27,8 @@ class AppSettings private constructor(private val context: Context) {
     var layout by mutableStateOf(prefs.getString("layout", null)?.lowercase() ?: "split")
         private set
 
-    var autoRefresh by mutableStateOf(prefs.getBoolean("autoRefresh", false))
+    /** A pull request page takes new commits by itself, quietly; switched off, it says they are there and waits for a tap. */
+    var autoRefresh by mutableStateOf(prefs.getBoolean("autoRefresh", true))
         private set
 
     var showThreads by mutableStateOf(prefs.getBoolean("showThreads", true))
@@ -80,8 +81,6 @@ class AppSettings private constructor(private val context: Context) {
         prefs.edit().putFloat("codeZoom", codeZoom).apply()
     }
 
-    /** Moves the code size on screen without writing it down: a pinch calls this every frame and [updateCodeZoom] once at the end. */
-    fun previewCodeZoom(value: Float) { codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM) }
     fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply() }
     fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply() }
     fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply() }

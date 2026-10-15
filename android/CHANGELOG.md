@@ -12,6 +12,25 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.25.0
+
+Everything still missing from your walkthrough video is now in.
+
+- Every sheet rests at two heights. Profile and Commands open at the normal one and pull up to tall, and Commands waits for a tap before the keyboard comes up.
+- Commands opened from Profile slides in inside Profile.
+- There is no Refresh anywhere. Pulls reloads when you come back to it, and new commits on a pull request load by themselves.
+- Dark mode is a neutral grey everywhere, the launch screen included, and Settings shows real code for the diff layouts.
+- Long names wrap instead of being cut short.
+- Selecting lines in the Diff turns the bottom bar into the comment bar, with nothing floating over the lines. Its ⋯ asks about the lines, copies them or copies their GitHub link.
+- Pinch zoom keeps the line under your fingers in place.
+- Swipe from the Tour back to the Diff, or past the last tab of a pull request on to the Diff.
+- File rows open with the same swipe as pull request rows.
+- In a tour, pseudocode is coloured, call trees and file trees are drawn, and "In the code" no longer squeezes its text.
+- While the AI works you see its latest thinking and the answer as it is written, and its sources include the files it read.
+- Every file or line the AI mentions is a link, in notes, findings and answers too, and in what it posts on GitHub.
+- Claude's models show their version, and each one's usual effort is marked Recommended.
+- The Tours tab hides the repositories you chose to hide.
+
 ## 0.24.0
 
 Huge pull requests open at once.

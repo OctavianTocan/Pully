@@ -59,7 +59,7 @@ function step(id: string, at: number, input: Pick<TrackedActivity, 'kind' | 'tit
 }
 
 const askWork: TrackedActivity[] = [
-  step('start', 0, { kind: 'status', title: 'Started Claude (claude-sonnet-5)' }),
+  step('start', 0, { kind: 'status', title: 'Started' }),
   step('read', 3000, { kind: 'tool', tool: 'read_file_diff', title: 'Read app/auth/store.ts (lines 1–120)' }),
   step('search', 7000, { kind: 'tool', tool: 'search_diff', title: 'Searched the diff for `localStorage`' }),
 ]

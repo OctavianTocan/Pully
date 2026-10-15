@@ -34,7 +34,7 @@ const cap = computed(() => props.compact ? 3 : 6)
 const hiddenCount = computed(() => showAll.value ? 0 : Math.max(0, props.activities.length - cap.value))
 const visibleRows = computed(() => props.activities.slice(hiddenCount.value))
 
-// The server opens every job with a `start` status ("Starting Claude Code…" → "Started Claude (model)"); it is no notice.
+// The server opens every job with a `start` status ("Starting Claude Code…" → "Started"); it is no notice.
 function isWarning(activity: TrackedActivity, index: number): boolean {
   return activity.kind === 'status' && activity.status === 'done' && activity.id !== 'start' && index > 0
 }

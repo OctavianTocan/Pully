@@ -163,6 +163,10 @@
     "scrim": {
       "light": "#0E333A61",
       "dark": "#00000099"
+    },
+    "grabber": {
+      "light": "#D9D9D6",
+      "dark": "#3A3A3A"
     }
   },
   "typography": {

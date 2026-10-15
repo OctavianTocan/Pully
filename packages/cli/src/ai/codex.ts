@@ -211,7 +211,8 @@ export function createCodexParser(sink: RunSink, options: { schema?: boolean, mo
   }
 
   const handlers = new Map<string, (event: Json) => void>([
-    ['thread.started', () => sink.put({ id: 'start', status: 'done', title: `Started Codex${options.model ? ` (${options.model})` : ''}` })],
+    // No model id in the log (F58): it is the usage's model.
+    ['thread.started', () => sink.put({ id: 'start', status: 'done', title: 'Started' })],
     ['item.started', event => onItem(event.item ?? {}, false)],
     ['item.updated', event => onItem(event.item ?? {}, false)],
     ['item.completed', event => onItem(event.item ?? {}, true)],

@@ -32,7 +32,7 @@ import com.octaviantocan.pulls.ui.home.compactAge
 /**
  * `.meta`: `dayflow #241 · author · 6h ago`, the repository and number first and the age last (rule 26, Row W). The
  * author and repository are links. A name is never cut with an ellipsis (rule 2): when the parts do not fit one line,
- * the line breaks between them and each stays whole. The page and the opening page draw it alike, so the line does not
+ * the line breaks between them and each stays whole, and a name wider than the whole line wraps instead of being clipped. The page and the opening page draw it alike, so the line does not
  * change shape when the pull request arrives. A repository is only a link when [onOpenRepo] is given.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -50,7 +50,7 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
         if (owner != null && repo != null) {
             Text(
                 repo, if (onOpenRepo != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $repo") { onOpenRepo(owner, repo) } else Modifier,
-                style = PullsType.sm, color = c.muted, softWrap = false,
+                style = PullsType.sm, color = c.muted,
             )
         }
         Text(label, style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1, softWrap = false)
@@ -58,7 +58,7 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
             sep()
             Text(
                 login, Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $login on GitHub") { uri.openUri("https://github.com/${login.removeSuffix("[bot]")}") },
-                style = PullsType.sm, color = c.muted, softWrap = false,
+                style = PullsType.sm, color = c.muted,
             )
         }
         createdAt?.let { iso ->

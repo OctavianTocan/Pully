@@ -72,8 +72,8 @@ import com.octaviantocan.pulls.ui.home.Spinner
  * The diff rows of one file, as the Android prototype draws them: a number column, a sign column
  * and the code on a full-bleed row, tinted teal for additions and rose for deletions, the changed
  * words marked darker, 36dp "unchanged lines" bars between hunks, a 3dp accent bar on lines that
- * carry a thread or a selection, and the annotations (threads, AI notes, the selection's actions)
- * indented under their line. Tapping a line selects it; the screen's bottom bar comments on it.
+ * carry a thread or a selection, and the annotations (threads, AI notes and asks) indented under
+ * their line. Tapping a line selects it; the screen's bottom bar comments on it.
  */
 
 /** The prototype's `.dl`: 12.5 on 20 in the reader's code face (Geist Mono by default), scaled by the phone's code zoom so size and line height move together. */
@@ -127,8 +127,14 @@ internal class HScroll {
     var max = 0f
 }
 
-/** Threads, AI content and the draft at one place in the file. */
-private class Annotations(val threads: MutableList<ReviewThread> = mutableListOf(), val ai: MutableList<AiAnchor> = mutableListOf(), var draft: DraftTarget? = null)
+/** Threads and AI content at one place in the file. Selected lines have nothing under them: the bar comments on them (rule 94). */
+private class Annotations(val threads: MutableList<ReviewThread> = mutableListOf(), val ai: MutableList<AiAnchor> = mutableListOf())
+
+/** How many digits the file's largest line number has, which sets the width of the number column. */
+internal fun lineDigits(ui: DiffUi, file: ReviewFile): Int =
+    (file.patchLines.maxOfOrNull { maxOf(it.newLine ?: 0, it.oldLine ?: 0) } ?: 0)
+        .coerceAtLeast(ui.fullFiles[file.path]?.let { maxOf(it.new?.count { ch -> ch == '\n' } ?: 0, it.old?.count { ch -> ch == '\n' } ?: 0) + 1 } ?: 0)
+        .toString().length
 
 /**
  * One file as the diff screen shows it: a notice for a binary or oversized file, else the rows with
@@ -183,17 +189,13 @@ private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: Re
         session.saved?.analysis?.files?.firstOrNull { it.path == path },
         session.saved?.asks.orEmpty(),
     )
-    val draft = ui.drafts[path]
-    val wanted = threads.map { Anchor(it.side.ifBlank { "additions" }, it.line!!) } + ai.keys + listOfNotNull(draft?.let { Anchor(it.side, it.line) })
+    val wanted = threads.map { Anchor(it.side.ifBlank { "additions" }, it.line!!) } + ai.keys
     val placed = placeAnchors(rowLines, wanted)
     val byRow = HashMap<Int, Annotations>()
     threads.forEach { th -> placed[Anchor(th.side.ifBlank { "additions" }, th.line!!)]?.let { byRow.getOrPut(it) { Annotations() }.threads += th } }
     ai.forEach { (anchor, content) -> placed[anchor]?.let { byRow.getOrPut(it) { Annotations() }.ai += content } }
-    draft?.let { d -> placed[Anchor(d.side, d.line)]?.let { byRow.getOrPut(it) { Annotations() }.draft = d } }
 
-    val digits = (file.patchLines.maxOfOrNull { maxOf(it.newLine ?: 0, it.oldLine ?: 0) } ?: 0)
-        .coerceAtLeast(ui.fullFiles[path]?.let { maxOf(it.new?.count { ch -> ch == '\n' } ?: 0, it.old?.count { ch -> ch == '\n' } ?: 0) + 1 } ?: 0)
-        .toString().length
+    val digits = lineDigits(ui, file)
 
     val count = if (split) splitRows.size else entries.size
     for (i in 0 until count) {
@@ -212,7 +214,7 @@ private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: Re
             }
         }
         byRow[i]?.let { notes ->
-            emit.item("diff:a:$path:$i", "annotation", path) { AnnotationRow(session, ui, file, notes, digits) }
+            emit.item("diff:a:$path:$i", "annotation", path) { AnnotationRow(session, ui, notes, digits) }
         }
     }
 }
@@ -431,9 +433,9 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
     }
 }
 
-/** Threads, AI notes/findings/asks and the selection's actions under one row, indented to the code. */
+/** Threads and AI notes, findings and asks under one row, indented to the code. */
 @Composable
-private fun AnnotationRow(session: ReviewSession, ui: DiffUi, file: ReviewFile, notes: Annotations, digits: Int) {
+private fun AnnotationRow(session: ReviewSession, ui: DiffUi, notes: Annotations, digits: Int) {
     val c = LocalPullsColors.current
     val gutter = gutterWidth(digits, ui.session.settings.codeZoom)
     Column(
@@ -442,6 +444,5 @@ private fun AnnotationRow(session: ReviewSession, ui: DiffUi, file: ReviewFile, 
     ) {
         notes.threads.forEach { ReviewThreadCard(session, it) }
         notes.ai.forEach { AiAnnotationBlock(session, it, ui.mark?.findingId) }
-        notes.draft?.let { draft -> DraftBox(session, draft, file.isBinary) { ui.drafts.remove(file.path) } }
     }
 }

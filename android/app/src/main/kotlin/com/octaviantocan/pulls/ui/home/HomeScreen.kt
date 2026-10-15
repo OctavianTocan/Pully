@@ -228,19 +228,18 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     var profileOpen by remember { mutableStateOf(false) }
     var sortOpen by remember { mutableStateOf(false) }
 
-    // `useHomeNavigation.ts`: refresh, and a "Go to" entry per pull request and repository.
+    // `useHomeNavigation.ts`: a "Go to" entry per pull request and repository. There is no Refresh: the Inbox refreshes itself.
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
     com.octaviantocan.pulls.ui.UseCommands {
         val pullsGroup = messages.t("palette.group.pulls")
         val reposGroup = messages.t("palette.group.repos")
         val all = pulls.orEmpty()
-        listOf(com.octaviantocan.pulls.ui.Command("home.refresh", messages.t("keys.refresh"), pullsGroup) { reload() }) +
-            all.map { pull ->
-                val ref = "${pull.owner}/${pull.repo}#${pull.number}"
-                com.octaviantocan.pulls.ui.Command("jump.pull:$ref", messages.t("palette.goToPull", "ref" to ref, "title" to pull.title), pullsGroup) {
-                    nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
-                }
-            } +
+        all.map { pull ->
+            val ref = "${pull.owner}/${pull.repo}#${pull.number}"
+            com.octaviantocan.pulls.ui.Command("jump.pull:$ref", messages.t("palette.goToPull", "ref" to ref, "title" to pull.title), pullsGroup) {
+                nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
+            }
+        } +
             all.distinctBy { "${it.owner}/${it.repo}" }.map { pull ->
                 com.octaviantocan.pulls.ui.Command("jump.repo:${pull.owner}/${pull.repo}", messages.t("palette.goToRepo", "repo" to "${pull.owner}/${pull.repo}"), reposGroup) {
                     nav.openRepo(pull.owner, pull.repo)
@@ -306,7 +305,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                     )
                 } else Box(Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
-                        entries = tours.entries.filter { needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle) },
+                        entries = tours.entries.filter { "${it.owner}/${it.repo}" !in hidden && (needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle)) },
                         pulls = everything.orEmpty(),
                         tasks = workTasks,
                         onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) },
@@ -576,8 +575,8 @@ internal fun InboxList(
 /**
  * `.sw`: a row that follows the finger. Past 110dp to the right it opens the pull request; to the left
  * it archives it (on the Tours tab: stops or removes the tour). Short of that it springs back. Tapping opens, and
- * both swipes are also offered to screen readers as actions. A file row (rule 56) swipes right to mark it reviewed
- * and left to open it, so it passes its own [onClick], [startIcon] and [onLongClick] for its actions.
+ * both swipes are also offered to screen readers as actions. A file row (rule 56) swipes right to open it, as this row
+ * does, and left to mark it reviewed, so it passes its own labels, icons and [onLongClick] for its actions.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

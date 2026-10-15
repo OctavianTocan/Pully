@@ -68,7 +68,7 @@ internal suspend fun fetchCatalog(repo: Repo, engine: String, refresh: Boolean =
 /** `Opus 5.5 · High`: the model the analysis will use and its effort. */
 internal fun analysisModelLabel(config: ServerConfig, catalog: CliCatalog?, effort: String, messages: Messages): String {
     val model = AiSettingsLogic.current(catalog, config.model)
-    val name = model?.name ?: config.model.ifBlank { "Default" }
+    val name = model?.let(::modelLabel) ?: config.model.ifBlank { "Default" }
     val shown = effort.ifBlank { model?.defaultEffort.orEmpty() }
     return listOf(name, shown.takeIf { it.isNotBlank() }?.let { AiSettingsLogic.effortLabel(it) { key -> messages.t(key) } }).filterNotNull().joinToString(" · ")
 }
@@ -103,7 +103,8 @@ private val AUTO_MERGE_WAITS = setOf("blocked", "checking")
 
 /**
  * `#sheet`: Checks, GitHub and Analyze again as tiles; the analysis model; Approve and Request changes;
- * the merge; draft and close; and the few AI and refresh actions the prototype did not draw.
+ * the merge; draft and close; and the few AI actions the prototype did not draw. There is no Refresh: the page takes
+ * new commits by itself.
  */
 @Composable
 internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?, head: PrHead, onClose: () -> Unit, onSheet: (String) -> Unit) {
@@ -266,7 +267,6 @@ internal fun MoreSheet(session: ReviewSession, top: ReviewTopUi, data: PrOvervie
             SheetRow("Commands", { onClose(); com.octaviantocan.pulls.ui.Commands.open() }, first = first, icon = { LuIcon(Lu.search, tint = c.text, size = 20.dp) }) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
-            SheetRow("Refresh", { onClose(); top.polls = 0; session.refresh() }, icon = { LuIcon(Lu.redo, tint = c.text) })
         }
     }
 }

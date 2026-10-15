@@ -296,17 +296,19 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const result = entry && await session.cache.critiques.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha)
     if (!entry || !result || entry.diff.ref.kind !== 'github-pr' || !entry.diff.head)
       throw new Error('There is no AI review of this pull request to post.')
-    const { critiqueReviewBody, findingCommentBody } = await import('@pulls.review/core/llm')
+    const { citesOnGithub, critiqueReviewBody, findingCommentBody } = await import('@pulls.review/core/llm')
     const chosen = result.findings.filter(finding => ids.has(finding.id))
     const reviews = await prReviews(entry.diff.ref)
     const pending = (await reviews.fetch()).pendingReview
-    const body = typeof args?.body === 'string' ? args.body : critiqueReviewBody(result)
+    // The findings link what they mention (rule 96); on GitHub those links go to the file at the head.
+    const onGithub = citesOnGithub(entry.diff)
+    const body = onGithub(typeof args?.body === 'string' ? args.body : critiqueReviewBody(result))
     await reviews.postReview({
       headSha: entry.diff.head.sha,
       body,
       comments: chosen.map(finding => ({
         target: { path: finding.path, side: finding.side, line: finding.line, ...(finding.startLine !== undefined ? { startLine: finding.startLine, startSide: finding.side } : {}) },
-        body: findingCommentBody(finding),
+        body: onGithub(findingCommentBody(finding)),
       })),
       pendingReview: pending,
     })

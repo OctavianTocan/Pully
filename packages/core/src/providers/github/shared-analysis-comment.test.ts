@@ -31,6 +31,12 @@ describe('renderSharedAnalysisComment', () => {
     expect(parseSharedAnalysisComment(renderSharedAnalysisComment(pr, 'antfu', analysis))).toEqual(analysis)
   })
 
+  it('points the links an app-run analysis wrote at the file on GitHub at the head (rule 96)', () => {
+    const linked = { ...analysis, result: { ...analysis.result, overallSummary: 'Refactors [`track`](packages/reactivity/src/effect.ts#L12).' } }
+    const shared = parseSharedAnalysisComment(renderSharedAnalysisComment(pr, 'antfu', linked))
+    expect(shared?.result.overallSummary).toBe('Refactors [`track`](https://github.com/vuejs/core/blob/abc1234def5678/packages/reactivity/src/effect.ts#L12).')
+  })
+
   it('falls back to an lz-string block when plain JSON would not fit, and still round-trips', () => {
     const large = { ...analysis, result: { ...analysis.result, overallSummary: 'word '.repeat(14_000) } }
     const body = renderSharedAnalysisComment(pr, 'antfu', large)

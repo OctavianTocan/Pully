@@ -1,8 +1,9 @@
 import type { DiffsPayload, FileChange } from '../../../types/diff'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { setCliRunner } from './cli-stream'
-import { buildCritiquePrompt, CRITIQUE_SCHEMA, critiqueReviewBody, findingCommentBody, hunkIndexOf, MAX_FINDINGS, numberHunkLines, prContextOf, resolveFindings, runCritique } from './critique'
+import { buildCritiquePrompt, citesOnGithub, CRITIQUE_SCHEMA, CRITIQUE_SYSTEM_PROMPT, critiqueReviewBody, findingCommentBody, hunkIndexOf, MAX_FINDINGS, numberHunkLines, prContextOf, resolveFindings, runCritique } from './critique'
 import { resolveModel } from './model'
+import { MENTION_RULE } from './prompt'
 import { defaultLlmSettings } from './settings'
 
 // Old lines 10-13, new lines 10-14: line 11 is replaced by two lines, line 12 stays.
@@ -119,6 +120,14 @@ describe('comment bodies', () => {
   it('appends a suggestion block, fenced past any backticks in the code', () => {
     const body = findingCommentBody({ id: 'x', path: 'a.ts', side: 'additions', line: 1, severity: 'bug', title: 'T', body: 'B', suggestion: 'a ``` b' })
     expect(body).toBe('**T**\n\nB\n\n````suggestion\na ``` b\n````')
+  })
+
+  it('links what a finding mentions, and points the links at the head commit on GitHub (rule 96)', () => {
+    expect(CRITIQUE_SYSTEM_PROMPT).toContain(MENTION_RULE)
+    const onGithub = citesOnGithub(diffWith(file('a.ts')))
+    expect(onGithub('[`first`](a.ts#L11) calls [b.ts](src/b.ts) and [docs](https://example.com).'))
+      .toBe('[`first`](https://github.com/o/r/blob/head1/a.ts#L11) calls [b.ts](https://github.com/o/r/blob/head1/src/b.ts) and [docs](https://example.com).')
+    expect(citesOnGithub({ ...diffWith(file('a.ts')), head: undefined })('[a](a.ts#L1)')).toBe('[a](a.ts#L1)')
   })
 
   it('names the engine, model and lens under the summary', () => {

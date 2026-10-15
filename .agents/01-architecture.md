@@ -336,6 +336,12 @@ repos read one. Contract:
   field existed are treated as matching). Sharing a non-English result shows a
   banner recommending English for public projects; the confirm button reads
   `Share anyway`.
+- An analysis run for the app (`mentions` on the run) writes every place it
+  names as a repository-relative Markdown link (`MENTION_RULE`), which the
+  phone turns into a jump to that line. Text posted on GitHub, the shared
+  payload and AI review comments alike, MUST have those links rewritten to
+  `github.com/{owner}/{repo}/blob/{headSha}/…` first (`githubCites`), since a
+  relative link there resolves against the pull request's page.
 
 ## Canonical data structures
 

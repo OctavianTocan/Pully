@@ -1,9 +1,10 @@
 import type { DiffsPayload } from '../../../types/diff'
 import type { CliRunRequest } from './cli-stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { askAboutSelection, buildAskPrompt, selectionContext, selectionLabel } from './ask'
+import { ASK_SYSTEM_PROMPT, askAboutSelection, buildAskPrompt, selectionContext, selectionLabel } from './ask'
 import { setCliRunner } from './cli-stream'
 import { resolveAskModel } from './model'
+import { MENTION_RULE } from './prompt'
 import { defaultLlmSettings } from './settings'
 
 const diff: DiffsPayload = {
@@ -74,5 +75,8 @@ describe('askAboutSelection', () => {
     expect(result.text).toBe('Because.')
     expect(runner).toHaveBeenCalledWith(expect.objectContaining({ engine: 'codex', model: 'gpt-5', label: 'Ask about a.ts:L2', context: expect.objectContaining({ number: 3 }) }), expect.anything())
     expect(runner.mock.calls[0]![0]).not.toHaveProperty('schema')
+    // An answer links what it mentions, so the phone scrolls there (rule 96).
+    expect(runner.mock.calls[0]![0].system).toBe(ASK_SYSTEM_PROMPT)
+    expect(ASK_SYSTEM_PROMPT).toContain(MENTION_RULE)
   })
 })

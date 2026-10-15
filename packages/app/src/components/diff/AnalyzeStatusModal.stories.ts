@@ -30,7 +30,7 @@ function step(id: string, at: number, input: StepInput): TrackedActivity {
 }
 
 const cliWork: TrackedActivity[] = [
-  step('start', 0, { kind: 'status', title: 'Started Claude (claude-opus-5)' }),
+  step('start', 0, { kind: 'status', title: 'Started' }),
   step('think-1', 2000, { kind: 'thinking', title: 'Thought', text: 'The PR touches the auth flow and the session store.\nI should read the session changes before grouping anything.' }),
   step('read-1', 6000, { kind: 'tool', tool: 'read_file_diff', title: 'Read app/auth/session.ts (lines 1–400)' }),
   step('discussion', 9000, { kind: 'tool', tool: 'read_discussion', title: 'Read the PR description and comments' }),
@@ -121,7 +121,7 @@ export const FinishedWithCodex: Story = {
       llmStartedAt: startedAt,
       llmEndedAt: startedAt + 41_000,
       llmActivities: [
-        step('start', 0, { kind: 'status', title: 'Started Codex (gpt-5.6-sol)' }),
+        step('start', 0, { kind: 'status', title: 'Started' }),
         step('cat', 3000, { kind: 'tool', tool: 'cat', title: 'Read app/auth/session.ts' }),
         step('rg', 9000, { kind: 'tool', tool: 'rg', title: 'Searched for `persistToken`' }),
         step('git', 15_000, { kind: 'tool', tool: 'git', title: 'Ran `git log --oneline -5`' }),

@@ -64,13 +64,27 @@ internal data class ModelGroups(val recent: List<CliModel>, val older: List<CliM
 private val VERSION = Regex("""\b(\d+)(?:[.\-_](\d+))?\b""")
 
 /**
- * The version a model's name carries as `major to minor` (`Opus 5.5`, `claude-opus-4-1`), or null for an alias such
- * as "Opus", "Default" or "Opus (1M context)", which stand for whatever is newest. "1M" is not a version.
+ * The version a model's name carries as `major to minor` (`Opus 5.5`, `claude-opus-4-1`), else the version its
+ * description gives the family it is named by ("Opus" with "Opus 5.5 · …"), or null for an alias such as "Default" or
+ * "Opus (1M context)", which stands for whatever is newest. "1M" is not a version.
  */
 internal fun modelVersion(model: CliModel): Pair<Int, Int>? {
-    val found = VERSION.find(model.name) ?: VERSION.find(model.id) ?: return null
+    val found = VERSION.find(model.name) ?: VERSION.find(model.id) ?: describedName(model)?.let { VERSION.find(it) } ?: return null
     return found.groupValues[1].toInt() to (found.groupValues[2].toIntOrNull() ?: 0)
 }
+
+/**
+ * The versioned name a model's description opens with when its own name is the family alone: Claude Code lists its
+ * aliases as "Opus" with "Opus 5.5 · Best for everyday, complex tasks". Null when the name has a version already, or
+ * the description opens with another model (the default's names the model it stands for).
+ */
+private fun describedName(model: CliModel): String? {
+    if (VERSION.containsMatchIn(model.name)) return null
+    val head = model.description?.substringBefore(" · ", "")?.trim().orEmpty()
+    return head.takeIf { DESCRIBED.matches(it) && it.substringBefore(' ').equals(model.name.trim(), ignoreCase = true) }
+}
+
+private val DESCRIBED = Regex("""\S+ \d+(?:\.\d+)?""")
 
 /** What a model is a version of: its first word, so "Opus 4.1" and "Opus 5.5" are one family and "GPT-5.5-Codex" and "GPT-5.5" share a version. */
 private fun family(model: CliModel): String = Regex("[a-z]+").find(model.name.lowercase())?.value.orEmpty()
@@ -106,9 +120,12 @@ private fun tidyHyphens(name: String): String {
     }
 }
 
-/** The name a row shows: the CLI's display name without "(recommended)", which the pill says, and without hyphens between words. */
+/**
+ * The name a row shows: the CLI's display name with its version ("Opus 5.5", from the description when the name is the
+ * family alone), without "(recommended)", which the pill says, and without hyphens between words.
+ */
 internal fun modelLabel(model: CliModel): String =
-    tidyHyphens(model.name.replace(Regex("""\s*\(recommended\)""", RegexOption.IGNORE_CASE), "").trim())
+    tidyHyphens((describedName(model) ?: model.name).replace(Regex("""\s*\(recommended\)""", RegexOption.IGNORE_CASE), "").trim())
 
 /** The one line a row adds under its name, only for the default, whose name alone does not say which model it is. */
 internal fun modelNote(model: CliModel): String? =
@@ -188,9 +205,10 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
     val choice = AiSettingsLogic.current(catalog, config.model)
     if (choice != null && choice.efforts.isNotEmpty()) {
         SheetCard {
+            // The level that will run: the chosen one, else the one the CLI runs by default. Never the word "Default" (F33).
             val effort = settings.effort.ifBlank { choice.defaultEffort.orEmpty() }
             SheetRow("Effort", onEffort, first = true, iconless = true) {
-                Text(if (effort.isBlank()) "Default" else AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
+                if (effort.isNotBlank()) Text(AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
         }
