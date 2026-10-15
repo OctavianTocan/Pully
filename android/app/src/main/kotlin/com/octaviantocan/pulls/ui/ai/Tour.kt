@@ -40,6 +40,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caverock.androidsvg.SVG
+import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.data.TourBlock
@@ -95,10 +96,14 @@ internal fun generateTour(session: ReviewSession, context: Context) {
     }
 }
 
-/** Whether a tour is on its way: its own task runs, it waits for the running analysis, or that analysis writes one. */
+/**
+ * Whether a tour is on its way: its own task runs, it waits for an analysis, or the running analysis writes one. A queued
+ * tour counts until [followQueuedTour] starts it or drops it, so the frame between the analysis ending and the tour
+ * starting still shows the work log, not the empty page.
+ */
 internal fun tourComing(session: ReviewSession): Boolean =
-    session.taskFor("tour")?.running == true ||
-        session.taskFor("analyze")?.let { it.running && (session.tourQueued || "tour" in it.then) } == true
+    session.taskFor("tour")?.running == true || session.tourQueued ||
+        session.taskFor("analyze")?.let { it.running && "tour" in it.then } == true
 
 /** Starts a queued tour once the analysis it waited for is done, and drops it if that analysis did not finish. */
 @Composable
@@ -169,9 +174,11 @@ internal fun reviewRepo(session: ReviewSession): String? = when (val target = se
     else -> null
 }
 
-/** The changed file a mention names, by its whole path or the end of it, or null. */
-internal fun resolveMention(session: ReviewSession, name: String): String? =
-    session.files.firstOrNull { it.path == name }?.path ?: session.files.firstOrNull { it.path.endsWith("/$name") }?.path
+/** The changed file a mention names, by its whole path or the end of it, or null. A `./` or `../` in front is read from the root. */
+internal fun resolveMention(session: ReviewSession, name: String): String? {
+    val path = FileLinks.repoPath(name) ?: return null
+    return session.files.firstOrNull { it.path == path }?.path ?: session.files.firstOrNull { it.path.endsWith("/$path") }?.path
+}
 
 /** What the AI wrote, with its mentions as links, its code as the diff's code view and its sketches drawn (rules 95 and 96). */
 @Composable

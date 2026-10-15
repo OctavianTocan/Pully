@@ -10,13 +10,39 @@ export interface CiteTarget {
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i
 /** `key.ts:12` starts like a scheme but is a place. */
 const NAME_AND_LINE = /^[^/]+:\d/
-const PLACE = /^\.?\/?([^#?\s:]+)(?::(\d+)|#L(\d+)(?:-L?(\d+))?)?$/
+const PLACE = /^([^#?\s:]+)(?::(\d+)|#L(\d+)(?:-L?(\d+))?)?$/
 const LINK_TARGET = /\]\(\s*([^()\s]+)((?:\s+"[^"]*")?\s*)\)/g
 const FENCE = /^ {0,3}(`{3,}|~{3,})/
 
 /**
+ * A link's target as a path from the repository root. A leading `/` or `./` goes and `..` steps up a folder, never
+ * above the root, so `../../.agents/x.md` copied out of `docs/runbooks/` still finds `.agents/x.md`. A folder whose
+ * name starts with a dot (`.agents`, `.github`) keeps its dot: it is a name, not a `./`.
+ * @param link - The path part of a link's target, such as `./src/a.ts` or `.github/ci.yml`.
+ * @returns The path from the root, or `undefined` for a folder.
+ */
+export function repoPath(link: string): string | undefined {
+  let decoded = link
+  try {
+    decoded = decodeURIComponent(link)
+  }
+  catch {}
+  const segments = decoded.split('/')
+  if (['', '.', '..'].includes(segments.at(-1)!))
+    return undefined
+  const path: string[] = []
+  for (const segment of segments) {
+    if (segment === '..')
+      path.pop()
+    else if (segment !== '' && segment !== '.')
+      path.push(segment)
+  }
+  return path.length ? path.join('/') : undefined
+}
+
+/**
  * Where a repository-relative link target points on GitHub.
- * @param target - A Markdown link's target, such as `src/a.ts#L12`, `src/a.ts:12` or `./a.ts`.
+ * @param target - A Markdown link's target, such as `src/a.ts#L12`, `src/a.ts:12`, `./a.ts` or `.github/ci.yml`.
  * @param at - The repository and the commit to read the file at.
  * @returns The file's `github.com` blob URL with its line anchor, or `undefined` for a web link, an anchor or a folder.
  */
@@ -25,8 +51,8 @@ export function githubCiteUrl(target: string, at: CiteTarget): string | undefine
   if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') || (SCHEME.test(trimmed) && !NAME_AND_LINE.test(trimmed)))
     return undefined
   const match = PLACE.exec(trimmed)
-  const path = match?.[1]?.replace(/^\/+/, '')
-  if (!match || !path || path.endsWith('/'))
+  const path = match?.[1] === undefined ? undefined : repoPath(match[1])
+  if (!match || !path)
     return undefined
   const first = match[2] ?? match[3]
   const anchor = first ? `#L${first}${match[4] ? `-L${match[4]}` : ''}` : ''
