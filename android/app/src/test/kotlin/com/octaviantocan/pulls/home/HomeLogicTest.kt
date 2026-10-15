@@ -322,6 +322,10 @@ class AiSettingsLogicTest {
         assertEquals("Pro · 0.159.3", catalog.line)
         assertTrue(catalog.models[0].isDefault)
         assertEquals("low", catalog.models[0].defaultEffort)
+        // The CLIs send no group; Pi's server does (K2).
+        assertNull(catalog.models[0].group)
+        val pi = Json.parseToJsonElement("""{"engine":"pi","models":[{"id":"agy-gemini-3.8-flash","name":"Gemini 3.8 Flash","group":"AGY","efforts":[]}]}""").jsonObject.asCatalog()
+        assertEquals("AGY", pi.models[0].group)
     }
 
     @Test

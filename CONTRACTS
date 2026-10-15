@@ -1,0 +1,63 @@
+@cc [owner:OctavianTocan,label:architecture] contracts-never-weakened
+A contract MUST NOT be deleted, loosened or reworded to make code pass. When behaviour
+changes on purpose, the contract changes in the same pull request, and its prose says
+which decision changed it. A known violation is named in the pull request that finds it
+until the code is fixed. "All these things that I've been saying over all these videos
+have to be in contracts ... so we do not make the same mistakes" (recording 15 Oct 13:54,
+07:13; K15).
+
+@cc [owner:OctavianTocan,label:architecture] contracts-cite-their-source
+A contract written from Tavi's feedback MUST name where it came from in its prose: the
+recording and the time, the point (F, H, J or K numbers of the design notes) or the
+`android/DESIGN.md` rule. A contract with no traceable source is a guess and is not added.
+
+@cc [owner:OctavianTocan,label:architecture] contracts-live-by-their-code
+A rule about one directory's code MUST live in the `CONTRACTS` file of that directory (or
+the nearest one above it); Kotlin and Vue rules always go in a `CONTRACTS` file, since
+`cc-check` does not read those languages. Every `CONTRACTS` file MUST pass
+`pnpm run contracts:check`: a directive per contract, an `owner` and a `label` on each,
+non-empty prose, and an ID used once in its file and in every `CONTRACTS` file above it.
+
+@cc [owner:OctavianTocan,label:product;architecture] contracts-readable-in-app
+Every `CONTRACTS` file in the repository MUST reach the Android app at build time and be
+listed on the UI Book's Contracts page, sorted by area, with nothing left out or edited
+by hand. Adding a `CONTRACTS` file needs no other change for it to show there
+(message 15 Oct, "a section under the UI book for code contracts").
+
+@cc [owner:OctavianTocan,label:security;architecture] phone-api-no-login
+The phone's API (`POST /api/rpc` and `GET /android/*` on the server) has no sign-in, by
+the owner's decision. The phone MUST NOT grow a login screen, account, OAuth flow or user
+token of its own; who may reach the server is decided by the network it sits on and,
+optionally, the Cloudflare Access headers the phone is given in Settings.
+
+@cc [owner:OctavianTocan,label:security] github-token-stays-on-server
+The GitHub token is resolved on the server and used only there. It MUST NOT be sent to
+the phone or the page, written into an answer, an error, a log, an AI prompt or a work
+log, or be readable through any method the phone may call.
+
+@cc [owner:OctavianTocan,label:security] secrets-come-from-the-environment
+Keys for paid services (TypeSafe, the Pi endpoint, model providers) come only from the
+server's environment. A client names an engine and a model, never a URL or a key, and no
+answer, notice or log line MAY echo a key or any part of it.
+
+@cc [owner:OctavianTocan,label:architecture;design] one-look-two-clients
+The web app and the phone app are one product with one look (DESIGN.md rule 106). Colours,
+type, radii, shadows, icons and fonts are defined once, in the front matter of
+`android/DESIGN.md`, `Lu` in `Icons.kt` and `PullsFonts`, and carried to the web by
+`pnpm run android:design:update`; neither side MAY add a value of its own.
+
+@cc [owner:OctavianTocan,label:architecture] strings-from-web-locales
+The phone's strings come from the web's locale files: `android/app/src/main/assets/i18n`
+MUST equal `packages/app/src/i18n/locales` byte for byte (DESIGN.md Enforcement, web). A
+string is added once, at the web's locale, and copied over.
+
+@cc [owner:OctavianTocan,label:security;architecture] agents-act-through-pr-tools
+An AI job reads and acts on a pull request through the server's own tools (the PR tools
+over MCP, `piTools` for Pi). It MUST NOT be given a writable checkout, the server's own
+files, the user's skills or a shell beyond its job folder, "so that they can't really
+like mess anything up" (recording 14 Oct 19:19, 01:10 to 01:35).
+
+@cc [owner:OctavianTocan,label:architecture] analyses-run-side-by-side
+Two analyses of different pull requests MUST be able to run at the same time. No analysis
+switches the branch of a checkout another job reads, and the server MUST NOT make a fresh
+clone of the repository for every run (recording 14 Oct 19:19, 00:29 to 01:05).

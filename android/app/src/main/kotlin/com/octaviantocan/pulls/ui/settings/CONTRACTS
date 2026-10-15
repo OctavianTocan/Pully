@@ -1,0 +1,33 @@
+@cc [owner:OctavianTocan,label:product;design] settings-show-what-you-choose
+Where a setting changes how something looks, the control is the thing itself as a small
+sample: the diff layout is two small diffs, the code size is three sizes over a line of
+code that resizes, and each code font is set in its own face (rule 81; F12).
+
+@cc [owner:OctavianTocan,label:product] settings-more-than-three-is-a-page
+A choice of more than three options (Code font, Model, the button sound) is a row with
+the chosen one on its right that opens a page inside the Settings sheet, with a tick on
+the chosen one (rule 126; J5).
+
+@cc [owner:OctavianTocan,label:product] settings-sound-pick-plays-it
+Picking a button sound plays one cue in it and goes back. Nothing explains the sounds,
+on or off (rule 126; J4).
+
+@cc [owner:OctavianTocan,label:product] settings-vibration-switch
+Settings, Sounds has a Vibration switch, and with it off nothing vibrates (rule 109; H18).
+
+@cc [owner:OctavianTocan,label:product] settings-server-is-advanced
+The server address, the Access token and the UI Book sit under an Advanced row at the
+bottom of Settings, not on its main page (H9).
+
+@cc [owner:OctavianTocan,label:product] settings-model-row-names-the-model
+The Model row shows the chosen model's name and the engine's own mark in colour, never a
+model ID and never a robot icon (rules 48 and 89; H7).
+
+@cc [owner:OctavianTocan,label:product] settings-no-helper-lines
+Settings carries no lines that explain its rows ("Claude Code and Codex run on this
+machine...", "The server uses its own GitHub sign-in...", "Pulls asks your server for a
+new version..."): "These are just unnecessary straight up" (H8).
+
+@cc [owner:OctavianTocan,label:product] settings-is-the-liked-sheet
+Settings is a sheet in the mobile style, with its pages inside it. Tavi called it "much,
+much better than before"; it MUST NOT regress to the old style (rules 49 and 78; F11).

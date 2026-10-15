@@ -81,11 +81,12 @@ internal fun ColumnScope.CommandsPage(scope: PaletteScope?, onClearScope: () -> 
     val first = sections.firstOrNull()?.second?.firstOrNull()
     val expanded = remember { mutableStateListOf<String>() }
     val focus = remember { FocusRequester() }
-    // The keyboard comes with the tall height: lifted there by a drag, the sheet focuses the search once it rests, and a
-    // tap on the search lifts it. With a hardware keyboard nothing pops up over the sheet, so the search takes typing at once.
+    // The keyboard comes with the tall height, and rises with the sheet instead of after it has rested, so Commands is
+    // ready to type the moment it is up (K5). A tap on the search lifts the sheet. With a hardware keyboard nothing pops
+    // up over the sheet, so the search takes typing at once.
     val sheet = LocalSheet.current
     val hardKeys = LocalConfiguration.current.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO
-    val ready = sheet == null || (sheet.settled && (sheet.tall || hardKeys))
+    val ready = sheet == null || sheet.tall || (sheet.settled && hardKeys)
     LaunchedEffect(ready) { if (ready) runCatching { focus.requestFocus() } }
 
     fun run(command: Command?) {

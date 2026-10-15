@@ -304,11 +304,17 @@ private fun DiffUi.tapLine(file: ReviewFile, cell: Cell) {
     drafts[file.path] = DraftTarget(file.path, cell.side, n)
 }
 
-/** Long press: starts a range selection at this line; tap the last line to finish it. */
+/**
+ * Holding a line selects it, or keeps the selected lines it falls in, and opens what they offer: Ask about them, Copy
+ * and Copy GitHub link (K11). A range comes from holding a line number and dragging.
+ */
 private fun DiffUi.onCodeLongPress(file: ReviewFile, cell: Cell) {
     val n = cell.number ?: return
-    drafts.remove(file.path)
-    selectionStart[file.path] = DraftTarget(file.path, cell.side, n)
+    selectionStart.remove(file.path)
+    val draft = drafts[file.path]?.takeIf { it.side == cell.side && n in it.range } ?: DraftTarget(file.path, cell.side, n)
+    mark = null
+    drafts[file.path] = draft
+    lineActions = draft
 }
 
 @Composable

@@ -12,6 +12,36 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.33.0
+
+Colour themes, Commits and Checks as sheets, and a steadier diff.
+
+### New
+
+- Themes: pick one of OpenCode's colour themes in Settings or from Commands.
+- Commits opens a sheet like Files, with "Find a commit" and the commits folded by day. Tapping one shows the changes of that commit alone.
+- Checks opens the same kind of sheet, with "Find a check", short names and passing checks folded away.
+- Hold a line of code to ask about it, copy where it is or copy its GitHub link.
+- Code contracts: Settings, Advanced, UI Book lists every rule the app keeps, by area and kind.
+
+### Changed
+
+- The pull request page keeps its tabs pinned under the buttons when you scroll, and nothing slides over the buttons any more.
+- Summary and Conversation are the only tabs, closer together, and a swipe past the last one goes nowhere.
+- The bar with a file's counts and Reviewed stays still while you swipe between files; only its words change.
+- Swiping past the last file no longer opens the Tour, and a swipe can no longer get stuck between two files.
+- The comment bar is just the field and Send.
+- The AI summary and the description switch with a quiet link instead of a pill.
+- Files lists show added and removed lines side by side, as the Inbox does.
+- The page has its final shape while a pull request opens, so nothing jumps.
+- A pull request someone else opened has no Archive swipe, and its title and description can't be edited.
+- Home's folded projects never stop half hidden under the chips.
+- Pi's model list has each model once, grouped by provider, with no image models.
+- Tours use tables, lists, flows and code where they fit, and their stops come onto the page one after another.
+- The tour's Ask bar works like Home's search, and the page dims behind it.
+- A tour being written shows fewer, calmer steps.
+- Commands is ready to type as soon as it opens.
+
 ## 0.32.0
 
 Pull requests show their kind and risk, and files their rating.

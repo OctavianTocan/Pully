@@ -1,0 +1,19 @@
+@cc [owner:OctavianTocan,label:product;design] theme-light-dark-system
+Appearance is Light, Dark or System, and the whole app follows it: every page, every
+sheet, the window behind them and the launch screen. In dark mode none of them has a
+blue or teal cast (rule 76; F13, audit 15 Oct).
+
+@cc [owner:OctavianTocan,label:product] theme-colour-themes
+The app offers colour themes in the manner of OpenCode's: a Themes row in Settings and a
+Themes command in Commands both open one sheet to pick a theme, and the pick applies at
+once to the whole app (recording 15 Oct 13:54, 08:33 to 09:11; K18).
+
+@cc [owner:OctavianTocan,label:design;architecture] theme-changes-colours-only
+A colour theme replaces colour roles only. Type, shapes, spacing, shadows' geometry,
+motion and components are the same under every theme, and every theme defines every
+colour role for light and for dark, so no screen falls back to a hard-coded colour.
+
+@cc [owner:OctavianTocan,label:design] theme-material-follows-pulls
+The few Material pieces still drawn (menus, dialogs, text selection) read their colours
+from the current Pulls palette, so they never show Material's own purple or a colour
+that differs from the theme around them.

@@ -26,6 +26,9 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Contracts
+        run: pnpm run contracts:check
+
   typecheck:
     runs-on: ubuntu-latest
     steps:

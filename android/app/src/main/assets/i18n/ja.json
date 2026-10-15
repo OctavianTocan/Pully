@@ -39,6 +39,7 @@
     "escape": "Leave the text field or clear the selection",
     "settings": "Open settings",
     "theme": "Toggle dark mode",
+    "colorTheme": "テーマを変更",
     "nextFile": "Next file",
     "prevFile": "Previous file",
     "nextHunk": "Next change",
@@ -635,6 +636,7 @@
     "autoRefresh": "新しいコミットが見つかったら自動更新",
     "language": "言語",
     "theme": "外観",
+    "colorTheme": "テーマ",
     "light": "ライト",
     "dark": "ダーク",
     "token": {

@@ -129,6 +129,8 @@ export interface PrViewerAbilities {
   canReopen: boolean
   /** Edit the PR itself, e.g. toggle draft. */
   canUpdate: boolean
+  /** The viewer wrote the pull request: only then are its title and description offered for editing (K21). */
+  isAuthor: boolean
   canUpdateBranch: boolean
   /** Turn on merging once the checks pass; GitHub says no when the repository does not allow auto-merge. */
   canEnableAutoMerge: boolean
@@ -495,6 +497,7 @@ export function parsePullRequestOverview(data: RawOverviewData): PrOverview | un
       canClose: pr.viewerCanClose,
       canReopen: pr.viewerCanReopen,
       canUpdate: pr.viewerCanUpdate,
+      isAuthor: pr.viewerDidAuthor ?? false,
       canUpdateBranch: pr.viewerCanUpdateBranch,
       canEnableAutoMerge: pr.viewerCanEnableAutoMerge ?? false,
       canDisableAutoMerge: pr.viewerCanDisableAutoMerge ?? false,

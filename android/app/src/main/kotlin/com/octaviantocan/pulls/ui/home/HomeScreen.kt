@@ -355,7 +355,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         sort = sort, groupBy = groupBy, folded = layout.folded, onFold = { section -> layout.toggle(section.key) },
                         onRetry = reload, onCommands = { Commands.open() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
-                        onHold = { held = it },
+                        onHold = { held = it }, viewer = viewer,
                     )
                 } else PullToCommands({ Commands.open() }, Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
@@ -372,26 +372,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                 }
             }
         }
-        // While the search waits for its first letter the list dims a little, and a tap on it puts the keyboard away; once
-        // something is typed the matches are what the search is for, so they are shown at full strength and take taps.
-        // The dim starts with the tap, not when the keyboard is up, and comes in quickly; it goes a little slower than it
-        // came, as the pill settles back down (H12). Putting the keyboard away with Back lifts it too.
-        val imeUp = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-        var imeShown by remember { mutableStateOf(false) }
-        LaunchedEffect(searchFocused) { if (!searchFocused) imeShown = false }
-        SideEffect { if (searchFocused && imeUp) imeShown = true }
-        val waiting = searchFocused && ui.search.isEmpty() && (imeUp || !imeShown)
-        val dim by animateFloatAsState(
-            if (waiting) 1f else 0f,
-            if (waiting) tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut) else tween(PullsMotion.MEDIUM, easing = PullsMotion.InOut),
-            label = "search-dim",
-        )
-        if (dim > 0f) {
-            Box(
-                Modifier.fillMaxSize().graphicsLayer { alpha = dim * SEARCH_DIM }.background(c.scrim)
-                    .then(if (waiting) Modifier.pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } } else Modifier),
-            )
-        }
+        SearchDim(searchFocused, ui.search.isEmpty())
         // `.search`: the list fades into the page under this pill (`edgeFade` on the lists), and nothing else sits behind it.
         Column(
             Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -423,7 +404,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                 pull, archived = Triage.key(pull) in archived,
                 onTour = { nav.openTour(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
                 onRepo = { nav.openRepo(pull.owner, pull.repo) },
-                onArchive = { archivePull(pull) },
+                onArchive = if (canArchive(pull, viewer, Triage.key(pull) in archived)) ({ archivePull(pull) }) else null,
                 onClose = { held = null },
             )
         }
@@ -550,6 +531,8 @@ internal fun InboxList(
     onArchive: (PullRow) -> Unit,
     onHold: (PullRow) -> Unit = {},
     onRepo: (Triage.RepoGroup) -> Unit,
+    /** Who he is on GitHub: only his own rows archive (K20). */
+    viewer: String? = null,
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
@@ -620,7 +603,7 @@ internal fun InboxList(
                             SwipeRow(
                                 label = "#${pull.number} ${pull.title}",
                                 onOpen = { onOpen(pull) },
-                                onArchive = { onArchive(pull) },
+                                onArchive = if (canArchive(pull, viewer, key in archived)) ({ onArchive(pull) }) else null,
                                 archived = key in archived,
                                 modifier = Modifier.animateItem(),
                                 onLongClick = { onHold(pull) },
@@ -635,6 +618,13 @@ internal fun InboxList(
 }
 
 /**
+ * Whether a row offers Archive: only on a pull request he wrote, since one of someone else's is theirs to deal with
+ * (K20). One already archived can always be restored. With no known [viewer] nothing is his, so nothing archives.
+ */
+internal fun canArchive(pull: PullRow, viewer: String?, archived: Boolean): Boolean =
+    archived || (viewer != null && pull.author.equals(viewer, ignoreCase = true))
+
+/**
  * `.sw`: a row that follows the finger. Past 110dp to the right it opens the pull request; to the left
  * it archives it (on the Tours tab: stops or removes the tour). Short of that it springs back. Tapping opens, and
  * both swipes are also offered to screen readers as actions. A file row (rule 56) swipes right to open it, as this row
@@ -645,7 +635,7 @@ internal fun InboxList(
 internal fun SwipeRow(
     label: String,
     onOpen: () -> Unit,
-    onArchive: () -> Unit,
+    onArchive: (() -> Unit)?,
     archived: Boolean,
     modifier: Modifier = Modifier,
     startLabel: String = "Review",
@@ -664,7 +654,8 @@ internal fun SwipeRow(
     val ramp = with(density) { 60.dp.toPx() }
     val drag = rememberDraggableState { delta ->
         val armed = abs(dx) > threshold
-        dx = (dx + delta).coerceIn(-width, width)
+        // With no [onArchive] the row only goes right: there is nothing on its left to reveal (K20).
+        dx = (dx + delta).coerceIn(if (onArchive == null) 0f else -width, width)
         // Felt the moment letting go would act, and again if the finger takes it back (H18).
         if (armed != abs(dx) > threshold) Haptics.threshold()
     }
@@ -673,7 +664,7 @@ internal fun SwipeRow(
         modifier
             .fillMaxWidth()
             .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
-            .semantics { customActions = listOf(CustomAccessibilityAction(startLabel) { onOpen(); true }, CustomAccessibilityAction(endLabel) { onArchive(); true }) },
+            .semantics { customActions = listOfNotNull(CustomAccessibilityAction(startLabel) { onOpen(); true }, onArchive?.let { CustomAccessibilityAction(endLabel) { it(); true } }) },
     ) {
         if (dx > 0f) {
             Row(
@@ -718,7 +709,7 @@ internal fun SwipeRow(
                         }
                         end < -threshold -> {
                             animate(end, -width, animationSpec = tween(200)) { value, _ -> dx = value }
-                            onArchive()
+                            onArchive?.invoke()
                             // Under All the row stays (dimmed): bring it back.
                             animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
                         }
@@ -837,15 +828,51 @@ private fun CheckMark(pull: PullRow) {
     }
 }
 
-/** `.dx`: `+180` in green over a 56dp column, `−32` in red over 40dp, in the mono face. */
 @Composable
 private fun DiffNumbers(pull: PullRow) {
+    DiffCounts(pull.additions ?: return, pull.deletions ?: 0)
+}
+
+/**
+ * `.dx`: `+180` in green over a 56dp column, `−32` in red over 40dp, in the mono face, side by side. Every list that
+ * counts lines (the Inbox, the Files sheet, a summary's files) draws them with this one (K27).
+ */
+@Composable
+internal fun DiffCounts(additions: Int, deletions: Int) {
     val c = LocalPullsColors.current
-    val adds = pull.additions ?: return
     val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium, textAlign = TextAlign.End)
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("+${compactCount(adds)}", Modifier.width(56.dp), style = mono, color = c.success, maxLines = 1, softWrap = false)
-        Text("−${compactCount(pull.deletions ?: 0)}", Modifier.width(40.dp), style = mono, color = c.error, maxLines = 1, softWrap = false)
+        Text("+${compactCount(additions)}", Modifier.width(56.dp), style = mono, color = c.success, maxLines = 1, softWrap = false)
+        Text("−${compactCount(deletions)}", Modifier.width(40.dp), style = mono, color = c.error, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * While a pill's field waits for its first letter the page behind it dims a little, and a tap on it puts the keyboard
+ * away; once something is typed the page is what the field is for, so it is shown at full strength and takes taps.
+ * The dim starts with the tap, not when the keyboard is up, and comes in quickly; it goes a little slower than it came,
+ * as the pill settles back down (H12). Putting the keyboard away with Back lifts it too. Home's search and the Tour's
+ * Ask share it (K12); draw it under the pill.
+ */
+@Composable
+internal fun SearchDim(focused: Boolean, empty: Boolean) {
+    val c = LocalPullsColors.current
+    val focusManager = LocalFocusManager.current
+    val imeUp = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    var imeShown by remember { mutableStateOf(false) }
+    LaunchedEffect(focused) { if (!focused) imeShown = false }
+    SideEffect { if (focused && imeUp) imeShown = true }
+    val waiting = focused && empty && (imeUp || !imeShown)
+    val dim by animateFloatAsState(
+        if (waiting) 1f else 0f,
+        if (waiting) tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut) else tween(PullsMotion.MEDIUM, easing = PullsMotion.InOut),
+        label = "search-dim",
+    )
+    if (dim > 0f) {
+        Box(
+            Modifier.fillMaxSize().graphicsLayer { alpha = dim * SEARCH_DIM }.background(c.scrim)
+                .then(if (waiting) Modifier.pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } } else Modifier),
+        )
     }
 }
 

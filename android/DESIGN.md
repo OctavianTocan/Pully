@@ -353,6 +353,8 @@ Dark mode is derived from the light set (`dark-*`). Every colour has a dark pair
 
 The Kotlin names are the properties of `PullsColors` in `Tokens.kt`. A name here is that property in kebab-case: `border-mute` is `borderMute`, `primary-600` is `primary600`. Alpha is the last pair in this file and the first in Kotlin.
 
+Colour themes (K18). This palette is the theme named Pulls, and the default. Settings, Theme (and Change theme in Commands) offers the others: OpenCode's built-in themes (https://github.com/anomalyco/opencode, MIT), converted by `android/scripts/gen-opencode-themes.mjs` from the theme files vendored beside it into `ui/design/OpenCodeThemes.kt`, one `PullsColors` for each look. Light, Dark and System still pick the look; a theme with one look (Aura, Ayu) keeps it under both. The mapping: `base`, `secondary` (and `paper`, `code`) and `sunken` are OpenCode's background, panel and element; `text` and `muted` its text roles, `faint` the muted one a third of the way into the background; borders its subtle border halfway into the background; `raised` a step above the sheet; `accent-teal` and `active-text` its primary; `primary` its primary darkened until white ink reads on it at 3:1; states and the diff washes from its own. The tokens check and the UI Book's Colors page are about this palette; the Themes page shows every theme. Code colours come from the server's highlighter and do not follow the theme yet.
+
 ## Typography
 
 Geist carries interface text, Mona Sans carries numbers and file names, and Geist Mono carries code and branch names. Sizes come from `PullsType`. `xs` and `sm` step down one notch from 768dp up, so each has a `-wide` twin in the front matter. `xxl` is a page title (26, rule 12), `xl` a section heading, `lg` a sheet title, `row` and `body` a row title and body copy, `read` the reading size of summaries and tour text, `base` inputs, `sm` lists and meta.
@@ -1002,9 +1004,9 @@ Source: overhaul. Checked by: review.
 
 #### 80. A narrowed view always shows the way back.
 
-When a screen shows part of something, such as one commit of six, a bar that stays on screen says so ("Viewing commit 3 of 6") and carries a "Show all" pill. Nobody has to find the way back. The bar is pinned over the Overview and over the Diff, so scrolling never takes it away.
+When a screen shows part of something, such as one commit of six, it says so where the reader already looks, never in a box over the page (K25: "I don't like that box"): the Commits number on the Overview reads just "3" (or "12–15" for a range) in the link colour, so it fits its cell, and the file pill on the Diff reads "Commit 3 of 6" where the folder was. Both lead back: the Commits number opens the Commits sheet, whose first row is "All commits".
 
-Check: pick one commit. The way to see all changes is visible without scrolling or opening a menu.
+Check: pick one commit. The diff says which commit it shows, and the Commits number opens the way back.
 
 Source: overhaul. Checked by: review.
 
@@ -1077,7 +1079,7 @@ Source: overhaul. Checked by: review.
 
 #### 89. A picker shows the short list first.
 
-A list of models or engines shows the few most people want, newest first, and puts the rest below the Effort row under a small "Older models" heading, in a card of their own that is always there to scroll to, never folded (Claude's picker lists them the same way, under "Other models"; he called a fold inside the list "not how it looked in the video"). A row is a name only, with no ID line and no description unless the name alone is not enough. The recommended choice carries a "Recommended" pill (26dp tall, 13sp medium, a neutral grey with dark text, as Claude's is; the teal wash was "the wrong color") and the selected one a plain, larger ✓, never the word "Default" beside a check. The footnote under a list is tiny, as in Claude's (13sp, the one place that goes below rule 14's floor, because he asked for it). There is no custom model ID field. "Newest first" is read from the version in the name: the newest version of each family (Opus, Sonnet, Fable, GPT) from the newest generation, the default and any alias such as "Opus (1M context)"; every other version goes below the Effort row. The model in use is never hidden: it is in one list or the other. A Codex name loses the hyphens between its words ("GPT-5.1 Codex Max"). Claude Code lists its models by family alone ("Opus"), with the version only in the description, so the row takes the version from there ("Opus 5.5") and sorts by it. Claude Code's recommended effort is the CLI's own default for that model, and the Effort row names the level that will run.
+A list of models or engines shows the few most people want, newest first, and puts the rest below the Effort row under a small "Older models" heading, in a card of their own that is always there to scroll to, never folded (Claude's picker lists them the same way, under "Other models"; he called a fold inside the list "not how it looked in the video"). A row is a name only, with no ID line and no description unless the name alone is not enough. The recommended choice carries a "Recommended" pill (26dp tall, 13sp medium, a neutral grey with dark text, as Claude's is; the teal wash was "the wrong color") and the selected one a plain, larger ✓, never the word "Default" beside a check. The footnote under a list is tiny, as in Claude's (13sp, the one place that goes below rule 14's floor, because he asked for it). There is no custom model ID field. "Newest first" is read from the version in the name: the newest version of each family (Opus, Sonnet, Fable, GPT) from the newest generation, the default and any alias such as "Opus (1M context)"; every other version goes below the Effort row. The model in use is never hidden: it is in one list or the other. A Codex name loses the hyphens between its words ("GPT-5.1 Codex Max"). Claude Code lists its models by family alone ("Opus"), with the version only in the description, so the row takes the version from there ("Opus 5.5") and sorts by it. Claude Code's recommended effort is the CLI's own default for that model, and the Effort row names the level that will run. Pi is the exception to "Older models": it serves many providers' models through one endpoint, every one of them a current choice, so its list has no "Older models" and is instead a card per provider under the same small heading, named the way the provider writes itself ("AGY", "Claude", "Codex", "xAI"), the default's provider first and each newest first (`modelSections`). The server takes the route word off each name ("Claude Opus 5", never "Claude Claude Opus 5"), lists a model once per provider and leaves out models that make images, speech or embeddings (K1 to K4).
 F34 stays: tapping Quick, Standard or Deep on the Analyze sheet starts the analysis. (The first digest read this as choosing a model. The recording at 13:17 to 13:41 shows him tapping a preset, finding it started at once, and calling it awesome. Choosing a model only saves it.)
 
 Check: open the model sheet for each engine beside Claude's. The same shape.
@@ -1095,9 +1097,9 @@ Source: overhaul. Checked by: review.
 #### 91. Long threads fold.
 
 Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. "commented" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name, and a long name wraps onto a second line rather than push them or be cut ("align these always").
-Pushed commits are not in the Conversation. They have a tab of their own, Commits, between Summary and Conversation ("Commits should be somewhere else. Maybe a tab"). It lists them oldest first and says so at the top, numbers each one, gives every row room (14dp above and below, a hairline between), and keeps "All commits" as the first row. A tap shows only that commit, a long-press stretches the range from the last one tapped, and the banner of rule 80 says what is shown. The Commits cell on the page opens this tab. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs carry no counts, so they fit a phone: they spread from the first label at the start to the last at the end with even gaps, and when they cannot fit they scroll sideways instead of cutting a label.
+Pushed commits are not in the Conversation, and since K29 they have no tab either: the Commits number opens a sheet built like Files ("just show a bottom sheet like the files"), with "Find a commit", "All commits" first, then the commits oldest first and numbered under a fold heading for each day. A tap opens the diff of that commit alone (K25), a long-press stretches the range from the last one tapped and leaves the sheet open. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs are Summary and Conversation, carry no counts, and sit from the start of the line a word's room apart, not spread over the width (K7).
 
-Check: open a Conversation with ten comments. Every one folds and unfolds, none says "commented", the ages are in one column, and no commit is in it. Open Commits: the order is written, every commit has its number.
+Check: open a Conversation with ten comments. Every one folds and unfolds, none says "commented", the ages are in one column, and no commit is in it. Tap Commits: a sheet with a search, every commit numbered.
 
 Source: overhaul. Checked by: review.
 
@@ -1111,7 +1113,7 @@ Source: overhaul. Checked by: review.
 
 #### 93. Swiping the diff goes to the next file. The header never shifts.
 
-A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the "never switched by horizontal swipe" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the last file, a swipe left continues to the Tour; from the first, a swipe right goes back to the Overview. The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button, the capsule and the bar of rule 80 are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff, and from the Overview's last tab a swipe left goes on to the Diff. A pinch scales the code under the fingers and pans with them; when they lift, the new size is kept and the line that was under them stays there.
+A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the "never switched by horizontal swipe" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the first file a swipe right goes back to the Overview; past the last file there is nothing, so the page stays where it is and never opens the Tour (K26). The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button and the capsule are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff. The Overview's last tab is an end too: a swipe left there goes nowhere (K8). A pinch scales the code under the fingers and pans with them; when they lift, the new size is kept and the line that was under them stays there.
 Aa opens "Text and tools" as a bottom sheet, and every choice in it shows what it does instead of describing it ("why am I not seeing what these do"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with "wider screens"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.
 
 Check: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you.
@@ -1120,7 +1122,7 @@ Source: overhaul. Checked by: review.
 
 #### 94. One way to start a comment, one sheet to write it in.
 
-The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. Selecting lines turns the bar at the bottom into the comment bar: a ✕ to let the lines go, the field (its placeholder is the one place the range is written, "Comment on lines 356–358"), a small toggle for "In review" or "Post now", a ⋯ and the send button; letting the lines go turns it back into ‹ name ›. The ⋯ opens a small sheet: Ask about these lines (the Ask sheet, with the lines attached as a card), Copy file and lines, Copy GitHub link. Someone who cannot comment gets the ✕, the range and the ⋯. A comment thread under the line stays a card in the code (rule 9); an Ask about lines shows under them as the chat shows it, the question in its bubble and the answer as plain text with no box (rule 99). Nothing repeats what is already on screen. Tapping a file note opens Ask with that note attached as a card above the field, which a ✕ leaves out.
+The only way in is selecting lines: a tap on a line number, extended by dragging down the gutter. There is no toolbar floating over the selected lines. Selecting lines turns the bar at the bottom into the comment bar: a ✕ to let the lines go, the field (its placeholder is the one place the range is written, "Comment on lines 356–358") and the send button, nothing else (K11: no "In review" toggle, no ⋯); a comment goes into the pending review. Letting the lines go turns it back into ‹ name ›. Holding a line selects it, or keeps the selection it is in, and opens a small sheet: Ask about these lines (the Ask sheet, with the lines attached as a card), Copy file and lines, Copy GitHub link. Someone who cannot comment gets the ✕ and the range. A comment thread under the line stays a card in the code (rule 9); an Ask about lines shows under them as the chat shows it, the question in its bubble and the answer as plain text with no box (rule 99). Nothing repeats what is already on screen. Tapping a file note opens Ask with that note attached as a card above the field, which a ✕ leaves out.
 This replaces rule 64's "a bar you type into" and the toolbar of rule 49. He chose option B of the target designs, the bar ("I'll live with this option for now"), over the sheet of option A ("I hate this so much").
 
 Check: comment on three lines. One bar, one field, and nothing on the screen says the same thing twice. Let the lines go: the file name is back.
@@ -1137,7 +1139,7 @@ Source: overhaul. Checked by: review.
 
 #### 96. What the AI mentions is a link.
 
-Every mention of a file, line, symbol or dimension, in a note, the summary, a finding, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline. They look like what they are and sit on the text line (rule 39). A file name or `path:line` in backticks is a link when it names a changed file, and a mention of a file the pull request does not change opens it on GitHub. What is posted to GitHub links each cite to the file at the head commit.
+Every mention of a file, line, symbol or dimension, in a note, the summary, a finding, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline, all in the one face of the text around them, whether the AI wrote them in backticks or not (K16: "some are monospace font and some are not"). They look like what they are and sit on the text line (rule 39). A file name or `path:line` in backticks is a link when it names a changed file, and a mention of a file the pull request does not change opens it on GitHub. What is posted to GitHub links each cite to the file at the head commit.
 He called F43 "super, super, super important", so the analysis, tour, Ask and review instructions all say it and a check makes sure.
 
 Check: tap every cite in an analysis, a file note, a finding and an answer on lines. Each scrolls to its place.
@@ -1276,7 +1278,7 @@ Source: walkthrough. Checked by: review.
 
 #### 112. Light and dark wipe in from a corner.
 
-Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes. The wipe plays only when the look on screen changes: choosing System while the phone is already in the look on screen, or going back from it, changes the setting without a wipe (J2).
+Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes. The wipe plays only when the look on screen changes: choosing System while the phone is already in the look on screen, or going back from it, changes the setting without a wipe (J2). Picking a colour theme wipes the same way, from the top right for a theme further down the list and from the top left for one higher up (K18).
 
 Check: in Settings tap Dark, then Light: the new look grows from the top right, then from the top left.
 
@@ -1417,6 +1419,88 @@ Source: walkthrough. Checked by: review.
 Tavi: "They're hard to navigate because sometimes there's a lot of them." When both people and bots spoke, chips over the Conversation narrow it to All, People or Bots, with how many each holds; a narrowed one shows all of its comments, not the last 30 (J19).
 
 Check: open a pull request with bot reviews and tap People: only what people wrote is left.
+
+Source: walkthrough. Checked by: review.
+
+### Rules 130 to 139, from the walkthrough of 0.31.0 on 2026-10-15
+
+#### 130. Nothing scrolls over the buttons.
+
+What scrolls on a page goes under the header, never over it: the back button and the capsule stay sharp and whole however far the page scrolls ("these buttons become semi transparent… hideous", K6). The Overview's head goes up until only its tabs are left, and they stay pinned under the header on the page's colour.
+
+Check: scroll a long Summary. The buttons stay whole, the tabs stay pinned under them, and nothing reaches the status bar.
+
+Source: walkthrough. Checked by: review.
+
+#### 131. What does not change between pages stays still.
+
+A bar that names the page, like the Diff's counts line (+3 −0, threads, Reviewed) and its bottom bar, stays in place while the pages slide under it; only its words change, coming in the way the pages went (K9: "that top part I don't think needs to be transitioned"). A swipe always ends on a page: a gesture cut short still lets go, so no two pages stay side by side (K10).
+
+Check: swipe between files. The counts bar does not move, its numbers change. Swipe and lift a second finger halfway: the files settle.
+
+Source: walkthrough. Checked by: review.
+
+#### 132. Every field pill is Home's search pill.
+
+A pill to type into at the bottom of a page has the Home search pill's size, face and placeholder style, and while it waits for its first letter the page behind it dims, as Home's does (K12: "a convention we use in multiple places").
+
+Check: tap the Tour's Ask bar. It looks like Home's search, and the tour dims behind it until you type.
+
+Source: walkthrough. Checked by: review.
+
+#### 133. Work in progress is calm.
+
+A running log shows its newest three steps, every line in the same grey with its icon centred on the words. A step that failed while the work carries on is a plain line, not red; amber is only for a retry or a rate limit. No line carries "Active 1s ago · 2s elapsed": only a stalled step says how long. Progress the page already shows, like "Wrote 3 of 6 stops", is not repeated in the log (K13: "too many things happening at once").
+
+Check: start a tour. The log shows three quiet lines, nothing red or amber unless the engine is retrying.
+
+Source: walkthrough. Checked by: review.
+
+#### 134. New content arrives, it does not pop.
+
+A tour seen for the first time brings its stops in one after another, each fading in and rising into place; one seen before, or a card scrolled back into view, is simply there (K14: "an animation of the things actually appearing on the page").
+
+Check: open a freshly written tour. The stops come in one by one. Leave and come back: they are already there.
+
+Source: walkthrough. Checked by: review.
+
+#### 135. A pinned heading is never cut.
+
+When a scroll stops with a folded heading cut by the top of the list, the list settles so the heading is whole or gone, never half under the chips (K19).
+
+Check: on Home, fold a project and scroll so its heading is half under the chips; let go. It settles whole or out of view.
+
+Source: walkthrough. Checked by: review.
+
+#### 136. Only the author's actions on the author's pull request.
+
+Archive and editing the title or description are for pull requests the viewer opened: on someone else's there is no Archive swipe or row (K20) and the title and description are plain text (K21). Restoring an archived one is always there.
+
+Check: open a pull request someone else opened. Its title does not edit, and its Inbox row does not swipe to Archive.
+
+Source: walkthrough. Checked by: review.
+
+#### 137. A page opens in its final shape.
+
+While a pull request opens, the page is drawn with its own header, numbers line, tabs and bottom bar in their places, with bars where a number is not known yet; the button counts the files the Inbox knew of. When the page arrives only words fill in: nothing moves, no "0" turns into 50 (K22).
+
+Check: open a pull request from the Inbox. Nothing shifts as it loads.
+
+Source: walkthrough. Checked by: review.
+
+#### 138. Two versions of a text switch with a link.
+
+Where one text has two versions (the AI summary and the description), a quiet line says which is shown and offers the other as a link ("AI summary · Show the description"); the texts fade into each other. No pill switch (K23).
+
+Check: open a summarised pull request. One line names the source and switches it.
+
+Source: walkthrough. Checked by: review.
+
+#### 139. Lists on sheets are one pattern.
+
+Files, Commits and Checks are the same sheet: a search ("Find a file", "Find a commit", "Find a check") that also keeps the first heading clear of the ✕, fold headings with counts, rows in cards whose title takes at most two lines and whose detail one, and added and removed lines side by side as on the Inbox (K24, K27, K28: "we gotta… actually standardize it").
+
+Check: open Files, Commits and Checks. Same search, same headings, no name wraps past two lines.
 
 Source: walkthrough. Checked by: review.
 

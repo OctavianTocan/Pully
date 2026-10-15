@@ -154,9 +154,10 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     val task = tour ?: session.taskFor("analyze") ?: return
     val kind = if (tour != null) "tour" else "analyze"
     val stop = guardedStop(session, listOf(kind), task.running) { session.cancelTask(task.id) }
+    // The newest three steps, and no "Wrote 3 of 6 stops" line: the stops appear on the page as they are written (K13).
     AiActivityLogFull(
-        task.activities, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 },
-        workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop,
+        task.activities.filterNot { it.id == "tour-write" }, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 },
+        compact = true, workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop,
     )
 }
 

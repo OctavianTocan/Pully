@@ -142,8 +142,8 @@ object PullsMotion {
     /** How far a finger can drag the rows of a page, and where they have faded most (rule 88). */
     val FingerRange = 96.dp
 
-    /** The room between two pages that sit side by side, past the screen's own margins (H20, H36). */
-    val PageGap = 32.dp
+    /** The room between two pages that sit side by side, past the screen's own margins (H20, H36), narrowed by K7. */
+    val PageGap = 16.dp
 
     /** A throw faster than this, per second, changes the page however short the drag was (rule 105). */
     val Fling = 500.dp

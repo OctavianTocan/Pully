@@ -1,0 +1,112 @@
+@cc [owner:OctavianTocan,label:product] home-search-or-ask
+The bottom pill on Home reads "Search or ask Pulls" and is the one way to find a pull
+request: typing filters the list at once, a pasted link or a number opens that pull
+request, and other text can be asked with the Ask in the pill. There is no search icon in
+the header and no "Open pull request" field elsewhere (rules 35 and 55; D7).
+
+@cc [owner:OctavianTocan,label:product;motion] home-search-dims-what-is-behind
+While the search waits for its first letter with the keyboard up, the list behind dims to
+half the sheet's scrim and a tap on it puts the keyboard away; the dim starts with the tap
+and lifts more slowly than it came. Once something is typed the matches show at full
+strength and take taps (rule 103; H12).
+
+@cc [owner:OctavianTocan,label:design] home-nothing-behind-the-pill
+Nothing white sits behind the bottom pill: the rows fade into the page under it and the
+pill carries its own shadow, on Home and on a repository's page (rule 74; F3).
+
+@cc [owner:OctavianTocan,label:product;design] home-sort-beside-search
+The Inbox's sort is a round button as tall as the search pill, beside it at the bottom,
+and its label names the order the Inbox is in. The chips over the list are the three
+filters alone (Waiting on you, Authored, All). On Tours the sort button leaves and the
+pill takes the row (rule 114; H19).
+
+@cc [owner:OctavianTocan,label:product] home-one-row-anatomy
+A pull request row is the same in the Inbox, Tours, a repository and search: number,
+title, author, coloured diffstat, checks and age, in fixed columns that do not move when
+a digit or a name's length changes (rules 13, 15 and 36). A context-free count ("7
+sections") never replaces them.
+
+@cc [owner:OctavianTocan,label:design] home-no-avatars-on-rows
+A row carries the author's name in its own column and no avatar or initial. The reader's
+photo lives in the Home header, and the author's on the pull request page (rule 33).
+
+@cc [owner:OctavianTocan,label:design] home-names-are-horizontal
+An author's name on a row takes one line and gives way only at its end; it never wraps or
+stacks a letter to a line. A stacked pull request shows "2/10" with the layers mark under
+its number, not beside the name (rule 111; H15, H16, H28).
+
+@cc [owner:OctavianTocan,label:product;motion] home-swipes-commit
+On the Inbox a swipe right opens the review and a swipe left archives, each as a full
+gesture that commits on release, with the displaced row blurred a little (no more than
+the canvas's 1.3px) and nothing to tap after. A tap opens the pull request (rules 17 and
+32; F6).
+
+@cc [owner:OctavianTocan,label:product;security] home-archive-only-your-own
+A pull request the person did not open has no Archive: no swipe left to archive and no
+Archive in its hold actions (recording 15 Oct 13:54, 09:42 to 09:53; K20).
+
+@cc [owner:OctavianTocan,label:product] home-hold-opens-actions
+Holding a pull request row opens a sheet of its actions (Open on GitHub, Copy link, Start
+a tour, Open repository and, for the person's own, Archive), with the app's one hold
+feel (H17; rule 120).
+
+@cc [owner:OctavianTocan,label:product] home-tours-rows-swipe-like-inbox
+Tours rows take the Inbox's gestures: a swipe each way, a tap that opens, the same row
+anatomy. A finished tour's ring is a filled tick and nothing says "Read" (rules 56 and
+111; H27).
+
+@cc [owner:OctavianTocan,label:design] home-group-heading-lines
+A repository heading has one hairline under it and none above, so the first heading has
+nothing between it and the chips (rule 75; F1).
+
+@cc [owner:OctavianTocan,label:design] home-pinned-headings-stay-whole
+A repository heading pinned at the top of the list, open or folded, is cut at the top of
+the list and never slides over the chips; no pill or row is left half cut under them
+(H13; recording 15 Oct 13:54, 09:17 to 09:37; K19).
+
+@cc [owner:OctavianTocan,label:product] home-heading-name-opens-repository
+A tap on a repository heading folds its rows, and a tap on its name opens the repository:
+from the Inbox on its pull requests, from Tours on its tours (rule 53; H26).
+
+@cc [owner:OctavianTocan,label:product;motion] home-inbox-and-tours-side-by-side
+The Inbox and Tours, and a repository's pull requests and tours, sit side by side: they
+move the whole width with nothing fading, both in view while they move, following a drag
+anywhere nothing else takes it ("It should move like screens side by side", rule 107;
+H20).
+
+@cc [owner:OctavianTocan,label:product] home-pages-keep-their-place
+Swiping from the Inbox to Tours and back leaves each where it was: scroll, folds and what
+is open ("It brings me back to the top. It should keep me where I left off", rule 118;
+J9).
+
+@cc [owner:OctavianTocan,label:product] home-scope-chips-rearrange
+Switching the scope chips rearranges the list in place with motion. Tavi loves it: it
+MUST NOT regress to a plain swap (DESIGN.md Keep as is; walkthrough 14 Oct 12:08, 04:46).
+
+@cc [owner:OctavianTocan,label:product] home-repository-page-shows-at-once
+A repository's page shows its first screenful at once, from the phone's last copy or the
+server's store, never skeletons for seconds (H14; rule 51).
+
+@cc [owner:OctavianTocan,label:product] home-repositories-can-be-hidden
+The person chooses which repositories show. A repository switched off is left out of the
+Inbox, of Tours and of the chip counts (F19; audit 15 Oct).
+
+@cc [owner:OctavianTocan,label:product] home-profile-sheet-is-short
+The profile sheet has no Commands row, no Open GitHub profile row (a tap on the photo or
+name opens the profile), no server address under the name, no Check out a branch and no
+Refresh (H21 to H24; F15, F17). It is the reference for the right style and MUST NOT
+regress (DESIGN.md Keep as is).
+
+@cc [owner:OctavianTocan,label:product] home-jev-asked-only-when-sorted
+The Inbox asks for Jev's kinds and risk (`classify: true`) only while it is sorted
+Riskiest first or grouped by kind; with neither picked nothing is asked (DESIGN.md
+checklist 53; architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;motion] home-pull-for-commands
+Pulling the Inbox down past its top says "Pull for commands", then "Release for commands",
+and letting go opens Commands with no refresh indicator. Tavi is "very in love with
+that" (rules 52 and 117; F4).
+
+@cc [owner:OctavianTocan,label:design] home-pill-clears-the-gesture-bar
+The bottom search pill sits clear of the system gesture bar and rides on top of the
+keyboard when it is up (rules 47 and 55).

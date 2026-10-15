@@ -39,6 +39,7 @@
     "escape": "Leave the text field or clear the selection",
     "settings": "Open settings",
     "theme": "Toggle dark mode",
+    "colorTheme": "Cambiar tema",
     "nextFile": "Next file",
     "prevFile": "Previous file",
     "nextHunk": "Next change",
@@ -635,6 +636,7 @@
     "autoRefresh": "Actualizar automáticamente al encontrar commits nuevos",
     "language": "Idioma",
     "theme": "Apariencia",
+    "colorTheme": "Tema",
     "light": "Claro",
     "dark": "Oscuro",
     "token": {

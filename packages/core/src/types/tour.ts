@@ -41,6 +41,7 @@ export type TourResult = v.InferOutput<typeof TourResultSchema>
 export interface TourPlan {
   title: string
   overview: string
-  stops: { title: string, purpose: string, files: string[], notes: string }[]
+  /** `form` is the shape the planner picked for the stop (a key of `TOUR_FORMS`), so stops written in parallel still vary. */
+  stops: { title: string, purpose: string, files: string[], notes: string, form?: string }[]
   glossary: { term: string, meaning: string }[]
 }

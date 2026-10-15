@@ -1,0 +1,27 @@
+@cc [owner:OctavianTocan,label:security] data-no-user-credentials
+The phone talks to one server, the one set in Settings, with no user sign-in: the only
+credentials it holds are the optional Cloudflare Access client ID and secret, which are
+sent only to that server, stored only on the phone, and never logged or shown back in
+full.
+
+@cc [owner:OctavianTocan,label:architecture] data-server-is-the-source
+The phone reads pull requests, diffs, tours and AI work from its server's API, the same
+actions the web app runs; it never calls GitHub or a model provider itself.
+
+@cc [owner:OctavianTocan,label:product;architecture] data-lite-diffs
+A large pull request opens from a `lite` diff: files past the patch budget arrive with no
+hunks and `patchOmitted`, show skeletons where their code goes, and get their hunks from
+`diff-patches` (rules 51 and 52; architecture, The phone reads the server's store).
+
+@cc [owner:OctavianTocan,label:product] data-tours-are-kept
+Tours the person has opened are stored on the phone, so they open at once the next time
+(CHANGELOG 0.28.0).
+
+@cc [owner:OctavianTocan,label:product;architecture] data-jev-polls-briefly
+While Inbox rows lack Jev's read and the Inbox needs it, the phone reads `my-pulls-cached`
+with `revalidate: false` and `classify: true` every three seconds for two minutes at most,
+and never shows a loading screen for it (architecture, Jev; rule 51).
+
+@cc [owner:OctavianTocan,label:product] data-file-marks-follow-the-head
+The phone drops a diff's file marks when the pull request's head moves, and shows Jev's
+read only for the current head and title (architecture, Jev).

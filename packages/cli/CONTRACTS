@@ -1,0 +1,94 @@
+@cc [owner:OctavianTocan,label:product;architecture] server-ai-work-outlives-the-page
+Every Claude Code, Codex or Pi run a client starts is a server task. Reloading, closing a
+tab or a phone sleeping MUST NOT stop or lose it: `abort()` cancels (Stop), `detach()`
+only stops following. A running task doing the same work is joined, not started twice
+(architecture, AI work outlives the page).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-follow-ups-run-on-the-server
+What follows an analysis (`then`: tour, brief) is started by the server when the analysis
+succeeds, so a phone that is asleep or closed still gets its tour; a tour that is already
+current is not written again (architecture, AI work outlives the page).
+
+@cc [owner:OctavianTocan,label:product] server-chat-needs-no-analysis
+A chat with no saved analysis starts from the pull request itself with the same diff
+tools, so Ask works on a pull request that was never analysed (rule 62; architecture).
+
+@cc [owner:OctavianTocan,label:architecture;security] server-every-cli-through-start-agent
+Every CLI process the server starts, jobs and the model catalog alike, goes through
+`startAgent`, so the runtime (host or Docker) decides for all of them. In Docker a CLI
+sees only its job folder read-write and the checkout and built code read-only, and
+stopping a run kills its container (architecture, Where the CLIs run; recording 14 Oct
+19:19, 01:31).
+
+@cc [owner:OctavianTocan,label:security] server-curated-skills-only
+Review lenses come only from the curated skills. The server MUST NOT offer the skills of
+the account it runs under (architecture, Where the CLIs run).
+
+@cc [owner:OctavianTocan,label:security] server-pi-has-only-pr-tools
+A Pi job gets exactly the PR tools the CLIs get over MCP and nothing more: no shell, files
+or web. Its endpoint and key come only from the environment, and without a base URL every
+Pi job fails with how to set it up (architecture, Pi).
+
+@cc [owner:OctavianTocan,label:security] server-phone-method-allowlist
+The phone may call only the methods in `native-api.ts`'s `ALLOWED` set and the native
+calls next to it. Storage methods and anything that reads the GitHub token stay off the
+list, and any other name answers 404 "That method is not available to the app."
+
+@cc [owner:OctavianTocan,label:security] server-typesafe-key-never-echoed
+The TypeSafe key is read from the environment and sent only to TypeSafe. It MUST NOT be
+echoed in an answer, an error, a notice, a log line, a work log, an AI prompt or a PR
+payload; Jev's ratings reach an AI job through the PR payload, never the key
+(architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-jev-only-when-needed
+Jev is asked only when something needs it: when a review of a whole diff starts, and
+when a client asks `my-pulls-cached` with `classify: true`. Without a key, or once
+TypeSafe refuses it, Jev is off for the run and nothing fails toward a client
+(architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-my-pulls-never-waits-for-jev
+`my-pulls` MUST NOT wait for Jev, and an answer for an older head or title MUST NOT
+replace a newer one (architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-store-answers-first
+Opening a pull request MUST NOT wait on every page of its files. The server keeps the
+open pull requests stored and answers from the store when GitHub's head has not moved; a
+store write MUST NOT replace a head stored after it read, and warming MUST NOT count as a
+view (architecture, The phone reads the server's store; H14).
+
+@cc [owner:OctavianTocan,label:product] server-repositories-warm-ahead
+The server keeps the first page of each repository the Inbox shows most, so a
+repository's page opens at once (H14).
+
+@cc [owner:OctavianTocan,label:product] server-refreshes-by-itself
+The server notices new commits on its own, so an open pull request takes them without a
+Refresh (rule 52; H11).
+
+@cc [owner:OctavianTocan,label:product] server-stacks-from-branches
+A pull request's stack comes from GitHub's own stacks where the host has them, otherwise
+from branches in one repository (A sits on B when A's base is B's head); a fork's branch
+never counts and the default branch is always the bottom (DESIGN.md decision log,
+0.20.0).
+
+@cc [owner:OctavianTocan,label:product] server-ai-writes-links
+The analysis, tour, Ask and review instructions tell the model to write every place it
+names as a repository-relative link, and a check makes sure they do ("super, super,
+super important", rule 96; F43).
+
+@cc [owner:OctavianTocan,label:product;security] server-posted-links-point-at-the-head
+Text posted to GitHub (comments, reviews, shared results) has its links read from the
+repository root and rewritten to `github.com/{owner}/{repo}/blob/{headSha}/...` first,
+dot-folders kept, so no link 404s (rules 96 and 124; J36; architecture, Sharing).
+
+@cc [owner:OctavianTocan,label:product] server-catalog-text-models-only
+The model catalog lists each model once and only models that write text: image and other
+generation models (GPT Image, Grok Imagine Image) are left out, since Pulls never makes
+images (recording 15 Oct 13:54, 00:22 to 00:44; K2, K4).
+
+@cc [owner:OctavianTocan,label:product] server-follow-ups-by-a-small-model
+The follow-up questions under an Ask answer are written each turn by a small, fast model,
+not the one answering (rule 99; F70).
+
+@cc [owner:OctavianTocan,label:architecture] server-serves-the-android-build
+The server serves `/android/latest.json` and `/android/pulls.apk` from its Android folder
+with `Cache-Control: no-store`, and answers 404 when no build has been published.

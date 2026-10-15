@@ -1,0 +1,23 @@
+@cc [owner:OctavianTocan,label:architecture] web-no-style-blocks
+A Vue SFC MUST NOT have a `<style>` block, scoped or not. Elements are styled with UnoCSS
+utilities in the template; markup the template cannot reach gets a shortcut in
+`uno.config.ts` (AGENTS.md).
+
+@cc [owner:OctavianTocan,label:design;architecture] web-wears-the-phone-kit
+The web is drawn from the phone's sources: tokens, `Lu` icons and fonts come from the
+generated files in `src/design`, and `src/components/kit/` holds the phone's pieces.
+The web MAY lay a screen out wider, with a side list from 768px up, but every piece is
+the phone's piece, and it shows no link-out arrows or AI sparkles (rule 106).
+
+@cc [owner:OctavianTocan,label:security;architecture] web-is-static
+The public site builds as a static SPA with no backend: nothing is proxied through a
+server we run, and no secret is kept server-side. GitHub and model access use keys the
+user supplies (architecture, Invariants).
+
+@cc [owner:OctavianTocan,label:architecture] web-strings-through-i18n
+Every user-facing string goes through vue-i18n, and the web locales are the source the
+phone's strings are copied from (architecture, UI conventions).
+
+@cc [owner:OctavianTocan,label:security] web-no-preview-host-in-public-comments
+A link in a comment posted to GitHub uses the hardcoded `https://pulls.review` origin; a
+preview host MUST NOT leak into a public comment (architecture, Sharing).

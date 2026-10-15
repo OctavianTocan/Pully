@@ -92,6 +92,8 @@ class AiActivityTest {
         assertFalse(isWarning(activity("start", kind = "status", status = "done"), 0))
         assertTrue(isWarning(activity("retry-1", kind = "status", status = "done"), 3))
         assertFalse(isWarning(activity("retry-1", kind = "status", status = "running"), 3))
+        // A step of the work is not a notice (K13).
+        assertFalse(isWarning(activity("tour-plan", kind = "status", status = "done"), 3))
     }
 
     @Test

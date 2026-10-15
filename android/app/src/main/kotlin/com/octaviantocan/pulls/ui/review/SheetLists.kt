@@ -39,10 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.ReviewFile
@@ -56,11 +53,16 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
+import com.octaviantocan.pulls.ui.home.DiffCounts
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.design.PullsMotion
@@ -99,6 +101,8 @@ internal fun ListRow(
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
     under: (@Composable () -> Unit)? = null,
+    titleLines: Int = Int.MAX_VALUE,
+    detailLines: Int = Int.MAX_VALUE,
 ) {
     val c = LocalPullsColors.current
     // The rows sit in a card, so the text starts 16dp in and the line between rows starts where the text does, as a
@@ -115,8 +119,8 @@ internal fun ListRow(
     ) {
         if (leading != null) Box(Modifier.width(MARK_WIDTH), contentAlignment = Alignment.Center) { leading() }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = PullsType.row, color = if (selected) c.activeText else c.text)
-            if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)
+            Text(title, style = PullsType.row, color = if (selected) c.activeText else c.text, maxLines = titleLines, overflow = TextOverflow.Ellipsis)
+            if (detail != null) Text(detail, style = PullsType.sm, color = c.muted, maxLines = detailLines, overflow = TextOverflow.Ellipsis)
             under?.invoke()
         }
         if (trailing != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), content = trailing)
@@ -136,21 +140,14 @@ internal fun ListRow(
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) = ListRow(AnnotatedString(title), modifier, detail?.let(::AnnotatedString), first, selected, onClick, onLongClick, leading, trailing)
 
-/** A heading over a run of rows: one word and how many, in the same quiet face as every other heading. */
-@Composable
-private fun ListHeading(text: String, count: Int, first: Boolean) {
-    val c = LocalPullsColors.current
-    Row(Modifier.fillMaxWidth().padding(top = if (first) 4.dp else 18.dp, start = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
-        Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint)
-    }
-}
-
 // --- Checks ---
 
 private val BUCKET_ORDER = listOf("failing" to "Failing", "pending" to "Running", "passing" to "Passing", "skipped" to "Skipped")
 
-/** Every check, failing first, then running, then passing; a row opens the check on GitHub. */
+/**
+ * Every check, failing first, then running, then passing, built as the Files sheet is (K28, K29): "Find a check", a
+ * fold heading over each state, and rows whose name takes at most two lines with the rest on one line under it.
+ */
 @Composable
 internal fun ChecksSheet(overview: PrOverview, onClose: () -> Unit) {
     PullsSheet(onClose, "Checks", expandable = true) { ChecksList(overview.checks, overview.checksSummary.hidden, overview.url) }
@@ -160,33 +157,52 @@ internal fun ChecksSheet(overview: PrOverview, onClose: () -> Unit) {
 internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: String) {
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
+    var query by remember { mutableStateOf("") }
+    val folds = remember { mutableStateMapOf<String, Boolean>() }
+    // The search, or the air in its place, keeps the first heading clear of the sheet's ✕ (K28).
+    if (checks.size > 1) SheetSearch(query, { query = it }, "Find a check", Modifier.padding(top = 8.dp, bottom = 6.dp))
+    else Spacer(Modifier.height(8.dp))
     if (checks.isEmpty()) Text("No checks have run.", Modifier.padding(vertical = 16.dp, horizontal = 4.dp), style = PullsType.row, color = c.muted)
+    val searching = query.isNotBlank()
+    val found = if (searching) checks.filter { matchesSearch(listOfNotNull(it.group, it.name).joinToString(" / "), query) } else checks
+    if (searching && found.isEmpty()) {
+        Text("No check matches “${query.trim()}”.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
+    }
     var first = true
     BUCKET_ORDER.forEach { (bucket, label) ->
-        val group = checks.filter { it.bucket == bucket }
+        val group = found.filter { it.bucket == bucket }
         if (group.isEmpty()) return@forEach
-        ListHeading(label, group.size, first)
-        SheetCard(gap = 6.dp) {
-        group.forEachIndexed { index, check ->
-            ListRow(
-                buildAnnotatedString {
-                    check.group?.let { withStyle(SpanStyle(color = c.muted)) { append("$it / ") } }
-                    append(check.name)
-                },
-                detail = check.summary?.let(::AnnotatedString),
-                first = index == 0,
-                onClick = check.url?.let { link -> { uri.openUri(link) } },
-                leading = { CheckMark(bucket) },
-                trailing = {
-                    if (check.required) Text("Required", style = PullsType.sm, color = c.muted)
-                },
-            )
-        }
-        }
+        // Passing and skipped checks fold away by default once there is something failing or running to look at.
+        val closed = !searching && (folds[bucket] ?: (bucket in QUIET_BUCKETS && found.any { it.bucket !in QUIET_BUCKETS }))
+        FoldHeading(label, group.size, first, closed, onClick = if (searching) null else ({ folds[bucket] = !closed }))
         first = false
+        AnimatedVisibility(
+            visible = !closed,
+            enter = expandVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeIn(tween(PullsMotion.FAST)),
+            exit = shrinkVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeOut(tween(PullsMotion.FAST)),
+        ) {
+            SheetCard(gap = 6.dp) {
+                group.forEachIndexed { index, check ->
+                    // The name on top; where it runs, whether it is required and what it said share one line under it.
+                    val detail = listOfNotNull(check.group, "Required".takeIf { check.required }, check.summary?.takeIf { it.isNotBlank() }).joinToString(" · ")
+                    ListRow(
+                        AnnotatedString(check.name),
+                        detail = detail.ifEmpty { null }?.let(::AnnotatedString),
+                        first = index == 0,
+                        onClick = check.url?.let { link -> { uri.openUri(link) } },
+                        leading = { CheckMark(bucket) },
+                        titleLines = 2,
+                        detailLines = 1,
+                    )
+                }
+            }
+        }
     }
-    if (hidden > 0) SheetCard { ListRow("$hidden more on GitHub", first = true, onClick = { uri.openUri("$url/checks") }) }
+    if (hidden > 0 && !searching) SheetCard(Modifier.padding(top = 12.dp)) { ListRow("$hidden more on GitHub", first = true, onClick = { uri.openUri("$url/checks") }) }
 }
+
+/** States whose checks need nothing from you, folded when others do. */
+private val QUIET_BUCKETS = setOf("passing", "skipped")
 
 /** The state of one check as a mark: a red cross, an amber dot that breathes, a green tick, a grey dash. */
 @Composable
@@ -305,13 +321,8 @@ internal fun ColumnScope.FilesList(
                 selected = file.path == current,
                 onClick = { onOpen(file.path) },
                 leading = { PullsCheck(reviewed, onClick = { onToggle(file, !reviewed) }, label = "Mark ${file.path} reviewed") },
-                trailing = {
-                    Column(horizontalAlignment = Alignment.End) {
-                        val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
-                        Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1, softWrap = false)
-                        Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1, softWrap = false)
-                    }
-                },
+                // Side by side, as the Inbox shows them (K27).
+                trailing = { DiffCounts(file.additions, file.deletions) },
             )
         }
         }

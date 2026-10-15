@@ -1,0 +1,31 @@
+@cc [owner:OctavianTocan,label:architecture] core-is-plain-kotlin
+`android/core` is plain Kotlin with no Android or Compose dependency, so its logic is
+tested on the JVM by `:core:test`. Logic that can be pure (ranking, parsing, paths, ways
+of motion) lives here and the app calls it.
+
+@cc [owner:OctavianTocan,label:motion;architecture] core-page-way
+`pageWay` turns two places into forward or backward from their order, and `swipeStep`
+turns a drag and its release speed into the next or previous page: a throw of 500dp/s
+counts however short, and a throw against the drag cancels it (rule 105).
+
+@cc [owner:OctavianTocan,label:product] core-file-links-from-root
+Links are resolved from the repository root: `./` and `../` never go above it and a
+dot-folder keeps its dot (rule 124; J36).
+
+@cc [owner:OctavianTocan,label:product] core-path-cut-from-the-left
+A shortened path keeps its end and drops whole folders from the front, never cutting a
+name in the middle (rule 90).
+
+@cc [owner:OctavianTocan,label:product] core-search-every-word
+A list search matches a row when every word typed is in it, in any order (rule 101).
+
+@cc [owner:OctavianTocan,label:architecture] core-changelog-reads-old-and-new
+`parseChangelog` reads `## <version>` sections with a summary and bullets, and `###`
+groups inside them; a section with groups still reads as one list of the same bullets on
+a build that does not know groups (rule 127).
+
+@cc [owner:OctavianTocan,label:architecture] core-contracts-follow-the-grammar
+`parseContracts` follows the `@cc` grammar of the code-contracts skill: a directive line,
+optional `[key:value,...]` metadata, an ID token and non-empty prose up to the next
+directive. A malformed directive, empty prose, text before the first directive or a
+repeated ID is reported as a problem, never silently dropped.

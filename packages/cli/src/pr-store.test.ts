@@ -44,7 +44,7 @@ function overviewOf(p: MyPull): PrOverview {
     commitsHidden: 0,
     timeline: [],
     timelineHidden: 0,
-    viewer: { canPush: true, canMergeAsAdmin: false, canClose: true, canReopen: false, canUpdate: true, canUpdateBranch: false, canEnableAutoMerge: false, canDisableAutoMerge: false },
+    viewer: { canPush: true, canMergeAsAdmin: false, canClose: true, canReopen: false, canUpdate: true, isAuthor: true, canUpdateBranch: false, canEnableAutoMerge: false, canDisableAutoMerge: false },
     merge: { methods: ['merge', 'squash'], defaultMethod: 'squash', squashTitle: 'PR_TITLE', squashMessage: 'PR_BODY', mergeTitle: 'MERGE_MESSAGE', mergeMessage: 'PR_TITLE' },
   } as PrOverview
 }

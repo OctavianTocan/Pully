@@ -29,7 +29,7 @@ internal fun PullActionsSheet(
     archived: Boolean,
     onTour: () -> Unit,
     onRepo: () -> Unit,
-    onArchive: () -> Unit,
+    onArchive: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
     val c = LocalPullsColors.current
@@ -46,7 +46,8 @@ internal fun PullActionsSheet(
             SheetRow("Start a tour", then(onTour), icon = { LuIcon(Lu.tour, tint = c.text, size = 20.dp) })
             SheetRow("Open ${pull.repo}", then(onRepo), icon = { LuIcon(Lu.list, tint = c.text, size = 20.dp) })
         }
-        SheetCard {
+        // Only his own pull requests can be archived (K20).
+        if (onArchive != null) SheetCard {
             SheetRow(if (archived) "Restore" else "Archive", then(onArchive), first = true, icon = { LuIcon(Lu.arch, tint = c.text, size = 20.dp) })
         }
     }

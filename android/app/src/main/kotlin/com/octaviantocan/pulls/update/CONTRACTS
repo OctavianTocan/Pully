@@ -1,0 +1,21 @@
+@cc [owner:OctavianTocan,label:security] updater-verifies-before-install
+The updater installs only an APK whose SHA-256 matches `latest.json` and whose
+`versionCode` is higher than the installed one; a mismatch is an error and nothing is
+installed. Installation goes through Android's own installer and its approval.
+
+@cc [owner:OctavianTocan,label:security;architecture] updater-asks-only-its-server
+Updates come only from the configured server's `/android/latest.json` and the APK it
+names, with the same Access headers as every other request. No third-party update
+service or library is in the path.
+
+@cc [owner:OctavianTocan,label:product] updater-remembers-the-offer
+The phone remembers the last offer, so the update screen is there before the server
+answers again, and the offer goes once the server has nothing newer (rule 104).
+
+@cc [owner:OctavianTocan,label:product] updater-notifies-once
+A new version is told in a notification while the app is closed, once per version
+(rule 104).
+
+@cc [owner:OctavianTocan,label:product] updater-update-pulls-command
+Update Pulls in Commands asks the server at once and starts the update, or says this is
+the newest version (rule 104).

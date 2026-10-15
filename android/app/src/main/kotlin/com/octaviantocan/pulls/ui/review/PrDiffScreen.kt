@@ -48,8 +48,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -121,7 +121,9 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -141,16 +143,17 @@ private val COUNTS_AIR = 24.dp
  * one scrolling file, its AI note, then its counts and Reviewed box, which stay pinned at the top while the file is
  * shown and its rows scroll under them. Pinned under it is the bar: ‹, the file you are on and ›, which turns into the
  * comment field while lines are selected (rule 94). The files sit side by side (rule 107): [path] is the file shown,
- * [onPath] moves to another, and a swipe on the file does the same, past the ends into [onOverview] and [onTour].
+ * [onPath] moves to another, and a swipe on the file does the same; past the first file it goes back to [onOverview],
+ * and past the last there is nothing, so the page stays (K26).
  */
 @Composable
 internal fun PrDiffScreen(
     session: ReviewSession,
     ui: DiffUi,
     path: String?,
+    commit: String?,
     onPath: (String) -> Unit,
     onOverview: () -> Unit,
-    onTour: () -> Unit,
     onFiles: () -> Unit,
     onAsk: (AskReference) -> Unit,
 ) {
@@ -165,7 +168,7 @@ internal fun PrDiffScreen(
         if (file == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No files in this change.", style = PullsType.sm, color = c.muted) }
         } else {
-            FilePages(session, ui, files, index, onPath, onOverview, onTour, onFiles, onAsk, Modifier.fillMaxSize().padding(top = 8.dp))
+            FilePages(session, ui, files, index, commit, onPath, onOverview, onFiles, onAsk, Modifier.fillMaxSize().padding(top = 8.dp))
         }
     }
 }
@@ -184,6 +187,10 @@ private class FileSlide(start: String) {
     var way by mutableIntStateOf(FORWARD)
     var at by mutableFloatStateOf(0f)
     var glide: Job? = null
+
+    /** A finger is moving the row, and how many glides are running; with neither, the row must rest on the file shown. */
+    var held by mutableStateOf(false)
+    var gliding by mutableIntStateOf(0)
 
     /** The file a swipe settled on that the screen has yet to take up, and how fast it was thrown, in pages a second. */
     var thrownTo: String? = null
@@ -231,9 +238,9 @@ private fun FilePages(
     ui: DiffUi,
     files: List<ReviewFile>,
     index: Int,
+    commit: String?,
     onPath: (String) -> Unit,
     onOverview: () -> Unit,
-    onTour: () -> Unit,
     onFiles: () -> Unit,
     onAsk: (AskReference) -> Unit,
     modifier: Modifier,
@@ -245,7 +252,7 @@ private fun FilePages(
     val motion = rememberMotionEnabled()
     val latest by rememberUpdatedState(files)
     val order = { p: String -> latest.indexOfFirst { it.path == p } }
-    // Past the first or the last file: the page that leaves with the whole view, toward the Overview or the Tour.
+    // Past the first file: the page that leaves with the whole view, back to the Overview.
     val edge = rememberPageSlide(Unit, order = { 0 }, full = true)
     var width by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -256,7 +263,23 @@ private fun FilePages(
 
     fun glideTo(to: String, speed: Float = 0f) {
         slide.glide?.cancel()
-        slide.glide = scope.launch { slide.settle(to, speed, motion, order) }
+        slide.glide = scope.launch {
+            slide.gliding++
+            try { slide.settle(to, speed, motion, order) } finally { slide.gliding-- }
+        }
+    }
+
+    // The row never stops between two files (K10): whenever no finger holds it and no glide runs, it goes to the file
+    // the bar names, from wherever a cut-off gesture or glide left it.
+    val shownPath by rememberUpdatedState(target.path)
+    LaunchedEffect(slide) {
+        snapshotFlow { !slide.held && slide.gliding == 0 && (slide.at != 0f || slide.other != null || slide.current != shownPath) }
+            .collectLatest { stray ->
+                if (!stray) return@collectLatest
+                // A beat first, so a glide handing over to the next one, or a file change on its way, is not cut short.
+                delay(120)
+                glideTo(shownPath)
+            }
     }
 
     // A new file starts with nothing selected, and the row glides to it, as fast as a swipe that chose it was thrown.
@@ -283,6 +306,7 @@ private fun FilePages(
 
     fun dragBy(delta: Float) {
         if (width <= 0) return
+        slide.held = true
         // A finger stops a glide where it is; one between two files far apart in the list rests on the nearer first.
         if (slide.glide?.isActive == true) {
             slide.glide?.cancel()
@@ -308,17 +332,16 @@ private fun FilePages(
             held < 0f -> { slide.way = BACKWARD; slide.other = files[at - 1].path }
             else -> slide.other = null
         }
-        // Past the first or the last file the page follows the finger alone, toward the view on that side.
+        // Past the first file the page follows the finger alone, back toward the Overview; past the last it stays (K26).
         if (next < 0f && lo == 0f) edge.follow(-next * width, range, back = true, forward = false)
-        if (next > 0f && hi == 0f) edge.follow(-next * width, range, back = false, forward = true)
     }
 
     fun release(velocity: Float) {
+        slide.held = false
         if (edge.finger != 0f) {
             // A throw counts as well as a long drag, and the page goes on the finger's way with the whole view (rule 105).
             when (swipeStep(edge.finger, swipeFrom, velocity, fling)) {
                 BACKWARD -> { onOverview(); scope.launch { edge.leave(BACKWARD, velocity) } }
-                FORWARD -> { onTour(); scope.launch { edge.leave(FORWARD, velocity) } }
                 else -> scope.launch { edge.release(0, velocity) }
             }
             return
@@ -330,7 +353,7 @@ private fun FilePages(
             else -> at.roundToInt().toFloat()
         }.toInt()
         val to = files.getOrNull(order(slide.current) + step)?.path ?: slide.current
-        val speed = if (width > 0) -velocity / width else 0f
+        val speed = if (width > 0) (-velocity / width).takeIf { it.isFinite() } ?: 0f else 0f
         if (to == target.path) {
             glideTo(to, speed)
         } else {
@@ -346,11 +369,15 @@ private fun FilePages(
     val shown = listOfNotNull(slide.current, slide.other).mapNotNull { p -> files.firstOrNull { it.path == p } }.ifEmpty { listOf(target) }
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+    val band = with(density) { PullsMotion.EdgeTop.toPx() }
+    val countsPx = with(density) { COUNTS_HEIGHT.toPx() }
+    val under = { ui.lists[target.path]?.underTop(0, band) ?: 0f }
+
     Box(modifier) {
         Box(
             Modifier.fillMaxSize().clipToBounds().onSizeChanged { width = it.width }.fileSwipe(
                 enabled = { ui.drafts[target.path] == null && ui.dragSel == null && ui.selectionStart[target.path] == null },
-                onCode = { y -> onCodeRow(ui.lists[target.path], y) },
+                onCode = { y -> onCodeRow(ui.lists[target.path], y, countsPx) },
                 codeHasRoom = { dx, across -> !session.settings.codeWrap && codeHasRoom(ui, target, dx, across) },
                 onDrag = ::dragBy,
                 onEnd = ::release,
@@ -360,14 +387,16 @@ private fun FilePages(
                 for (file in shown) {
                     key(file.path) {
                         Box(Modifier.fillMaxSize().graphicsLayer { translationX = slide.place(file.path) * (size.width + PullsMotion.PageGap.toPx()) }) {
-                            FilePage(session, ui, file, files, current = file.path == target.path, onPath, onAsk, tail = BAR_ROOM + bottom)
+                            FilePage(session, ui, file, current = file.path == target.path, onAsk, tail = BAR_ROOM + bottom)
                         }
                     }
                 }
             }
         }
+        // The counts and the one Reviewed box stay put while the files slide under them; only their words change (K9).
+        CountsRow(session, target, index, files, onPath, hairline = { 1f - under() })
         DiffBar(
-            session, ui, target, index, count, onAsk,
+            session, ui, target, index, count, commit, onAsk,
             onPrev = { files.getOrNull(index - 1)?.let { onPath(it.path) } },
             onNext = { files.getOrNull(index + 1)?.let { onPath(it.path) } },
             onFiles = onFiles,
@@ -377,18 +406,16 @@ private fun FilePages(
 }
 
 /**
- * One file's page: its note, its counts line pinned at the top once the note has gone, and its rows. The rows dissolve
- * into the page under the counts line, or under the header before it is pinned, and under the bar at the bottom,
- * instead of being cut by them (rule 74). [current] is the file the bar names, the one a focus request scrolls.
+ * One file's page: its note and its rows, under the counts line that [FilePages] keeps still over them. The rows
+ * dissolve into the page under the counts line and under the bar at the bottom, instead of being cut by them (rule 74).
+ * [current] is the file the bar names, the one a focus request scrolls.
  */
 @Composable
 private fun FilePage(
     session: ReviewSession,
     ui: DiffUi,
     file: ReviewFile,
-    files: List<ReviewFile>,
     current: Boolean,
-    onPath: (String) -> Unit,
     onAsk: (AskReference) -> Unit,
     tail: Dp,
 ) {
@@ -397,19 +424,18 @@ private fun FilePage(
     val listState = remember(file.path) { ui.lists.getOrPut(file.path) { LazyListState() } }
     val note = session.saved?.analysis?.files?.firstOrNull { it.path == file.path }?.summary?.takeIf { it.isNotBlank() }
     if (current) DiffFocus(session, ui, file, listState)
-    val leading = if (note != null) 2 else 1
-    val pinnedAt = leading - 1
+    val leading = if (note != null) 1 else 0
     val band = with(density) { PullsMotion.EdgeTop.toPx() }
     val counts = with(density) { COUNTS_HEIGHT.toPx() }
-    val pinned = { listState.firstVisibleItemIndex >= pinnedAt }
-    val under = { listState.underTop(pinnedAt, band) }
+    val under = { listState.underTop(0, band) }
 
     LazyColumn(
         Modifier.fillMaxSize()
-            .edgeFade(top = PullsMotion.EdgeTop, color = c.base, topStrength = under, topInset = { if (pinned()) counts else 0f })
+            .edgeFade(top = PullsMotion.EdgeTop, color = c.base, topStrength = under, topInset = { counts })
             .edgeFade(bottom = PullsMotion.EdgeBottom, color = c.raised)
             .pinchToZoomCode(session.settings) { end -> keepUnderFingers(listState, ui, file, end, density) },
         state = listState,
+        contentPadding = PaddingValues(top = COUNTS_HEIGHT + COUNTS_AIR),
     ) {
         if (note != null) {
             item(key = "note:${file.path}", contentType = "note") {
@@ -418,27 +444,24 @@ private fun FilePage(
                 }
             }
         }
-        // The counts and the one Reviewed box stay at the top while the file is shown (J22).
-        stickyHeader(key = "counts:${file.path}", contentType = "counts") {
-            CountsRow(session, file, files, onPath, hairline = { if (pinned()) 1f - under() else 1f })
-        }
         fileDiffItems(session, ui, file, leading = leading, tail = tail)
     }
 }
 
-/**
- * How far a file's rows have gone under the top of its page, 0 at rest and 1 once they are a [band] past: under the
- * pinned counts line, item [pinnedAt], once it is pinned, and before that the note under the page's top.
- */
+/** How far a file's rows have gone under the counts line, 0 at rest and 1 once they are a [band] past item [pinnedAt]. */
 private fun LazyListState.underTop(pinnedAt: Int, band: Float): Float =
     if (firstVisibleItemIndex > pinnedAt) 1f else (firstVisibleItemScrollOffset / band).coerceIn(0f, 1f)
 
-/** Is the row under [y] (in the list's own pixels) a line of code, which scrolls sideways itself? The pinned counts line covers the code under it. */
-private fun onCodeRow(state: LazyListState?, y: Float): Boolean {
+/**
+ * Is the row under [y] (in the list's own pixels) a line of code, which scrolls sideways itself? The counts line, the top
+ * [covered] pixels, covers the code under it; below it, code that has scrolled into the air over the first row still counts.
+ */
+private fun onCodeRow(state: LazyListState?, y: Float, covered: Float): Boolean {
     val info = state?.layoutInfo ?: return false
+    if (y < covered) return false
     val at = y - info.beforeContentPadding
     val rows = info.visibleItemsInfo.filter { at >= it.offset && at < it.offset + it.size }
-    return rows.none { it.contentType == "counts" } && rows.any { it.contentType == "line" || it.contentType == "split" }
+    return rows.any { it.contentType == "line" || it.contentType == "split" }
 }
 
 /**
@@ -518,42 +541,49 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
     var dx = 0f
     var dy = 0f
     var taken = false
-    while (true) {
-        val event = awaitPointerEvent(PointerEventPass.Initial)
-        if (event.changes.count { it.pressed } > 1) break
-        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-        if (!change.pressed) break
-        val delta = change.positionChange()
-        tracker.addPosition(change.uptimeMillis, change.position)
-        if (taken) {
-            change.consume()
-            onDrag(delta.x)
-            continue
-        }
-        dx += delta.x
-        dy += delta.y
-        when {
-            // Held still past a long press: that is a selection, not a swipe.
-            change.uptimeMillis - down.uptimeMillis > longPress && abs(dx) <= slop -> return
-            abs(dy) > slop && abs(dy) >= abs(dx) -> return
-            abs(dx) > slop && abs(dx) > abs(dy) -> {
-                if (code && codeHasRoom(dx, down.position.x / size.width.coerceAtLeast(1))) return
-                taken = true
+    try {
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.changes.count { it.pressed } > 1) break
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            if (!change.pressed) break
+            val delta = change.positionChange()
+            tracker.addPosition(change.uptimeMillis, change.position)
+            if (taken) {
                 change.consume()
-                onDrag(dx)
+                onDrag(delta.x)
+                continue
+            }
+            dx += delta.x
+            dy += delta.y
+            when {
+                // Held still past a long press: that is a selection, not a swipe.
+                change.uptimeMillis - down.uptimeMillis > longPress && abs(dx) <= slop -> return
+                abs(dy) > slop && abs(dy) >= abs(dx) -> return
+                abs(dx) > slop && abs(dx) > abs(dy) -> {
+                    if (code && codeHasRoom(dx, down.position.x / size.width.coerceAtLeast(1))) return
+                    taken = true
+                    change.consume()
+                    onDrag(dx)
+                }
             }
         }
+    } catch (cut: CancellationException) {
+        // A gesture cut off mid-drag still lets go of the row, so it never stays between two files (K10).
+        if (taken) onEnd(0f)
+        throw cut
     }
     if (taken) onEnd(tracker.calculateVelocity().x)
 }
 
 /**
  * The file's counts and threads, and the one Reviewed box; reviewing a file moves on to the next one still to review.
- * It is pinned at the top of the file's page, on the page's colour, and the code passes under it. The air under it is
- * see-through so the code fades there (rule 74), and the hairline at its foot gives way to that fade by [hairline], 0 to 1.
+ * It stays at the top of the diff, on the page's colour, while the files slide and scroll under it (K9): a new file's
+ * counts come in the way the files went, as the bar's name does (rule 105). The air under it is see-through so the
+ * code fades there (rule 74), and the hairline at its foot gives way to that fade by [hairline], 0 to 1.
  */
 @Composable
-private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit, hairline: () -> Float) {
+private fun CountsRow(session: ReviewSession, file: ReviewFile, index: Int, files: List<ReviewFile>, onPath: (String) -> Unit, hairline: () -> Float) {
     val c = LocalPullsColors.current
     val scope = rememberCoroutineScope()
     val threads = session.reviewData?.threads.orEmpty().count { it.path == file.path && !it.outdated }
@@ -564,12 +594,15 @@ private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<Revi
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("+${compactCount(file.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1)
-                Text("−${compactCount(file.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1)
+            LabelSwitch(Triple(index, file, threads), Modifier.weight(1f), order = { it.first }, contentAlignment = Alignment.CenterStart) { (_, shown, count) ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("+${compactCount(shown.additions)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1)
+                        Text("−${compactCount(shown.deletions)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1)
+                    }
+                    Text(when (count) { 0 -> "No threads"; 1 -> "1 thread"; else -> "$count threads" }, style = PullsType.sm, color = c.muted, maxLines = 1)
+                }
             }
-            Text(when (threads) { 0 -> "No threads"; 1 -> "1 thread"; else -> "$threads threads" }, style = PullsType.sm, color = c.muted, maxLines = 1)
-            Spacer(Modifier.weight(1f))
             ReviewedBox(session, file) { toggleReviewed(session, file, files, scope, onPath) }
         }
         // The code starts under a hairline, on its own white, with 24dp of air between it and this row (rule 40).
@@ -631,9 +664,9 @@ private fun NoteCard(session: ReviewSession, note: String, modifier: Modifier, o
 
 /**
  * `.dctl`: ‹, the file you are on and ›. While lines are selected the whole bar is the comment bar instead, and it comes
- * back when they are not (rule 94): ✕, the field that names the lines, the "In review" or "Post now" toggle, ⋯ and Send.
- * The field posts into the viewer's pending review; with no write access the bar only names the lines. Nothing floats
- * over the selected lines: what else they offer (Ask, copy where they are) is behind the ⋯.
+ * back when they are not (rule 94): ✕, the field that names the lines, and Send, nothing else (K11). The field posts
+ * into the viewer's pending review; with no write access the bar only names the lines. What else lines offer (Ask,
+ * Copy, Copy GitHub link) opens from holding a line.
  */
 @Composable
 private fun DiffBar(
@@ -642,6 +675,7 @@ private fun DiffBar(
     file: ReviewFile,
     index: Int,
     count: Int,
+    commit: String?,
     onAsk: (AskReference) -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
@@ -655,13 +689,8 @@ private fun DiffBar(
     val selected = ui.drafts[file.path]
     // Tapping another line keeps what was typed (the comment follows the selection); deselecting or posting clears it.
     var text by remember(file.path) { mutableStateOf("") }
-    var actions by remember { mutableStateOf(false) }
-    LaunchedEffect(selected == null) { if (selected == null) { text = ""; actions = false } }
+    LaunchedEffect(selected == null) { if (selected == null) { text = ""; ui.lineActions = null } }
     var busy by remember { mutableStateOf(false) }
-    // With no review pending a comment can be posted at once instead of starting one; the choice sticks for the screen.
-    val hasPending = session.reviewData?.pendingReviewId != null
-    var single by rememberSaveable { mutableStateOf(false) }
-    val post = single && !hasPending
     val canComment = session.canWrite && session.pull != null && !file.isBinary
     // The one place the lines are named while they are selected: in the sentence, or alone when that is too long.
     val lines = selected?.let { s -> linesPhrase(s.startLine ?: s.line, s.line) }
@@ -676,13 +705,13 @@ private fun DiffBar(
         busy = true
         scope.launch {
             runCatching {
-                session.repo.comment(pull, draft.path, draft.side, draft.line, head, body, if (post) "single" else "review", draft.startLine?.takeIf { it < draft.line })
+                session.repo.comment(pull, draft.path, draft.side, draft.line, head, body, "review", draft.startLine?.takeIf { it < draft.line })
             }.onSuccess {
                 text = ""
                 ui.drafts.remove(file.path)
                 focus.clearFocus()
                 session.reloadReviews()
-                toaster.show(if (post) "Comment posted" else "Comment added to your pending review", cue = Cue.Success)
+                toaster.show("Comment added to your pending review", cue = Cue.Success)
             }.onFailure { toaster.show(it.message ?: "Couldn't add the comment", cue = Cue.Error) }
             busy = false
         }
@@ -702,7 +731,7 @@ private fun DiffBar(
             if (!selecting) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FloatIcon(Lu.prev, "Previous file", onPrev, size = 48.dp, enabled = index > 0, iconSize = 22.dp)
-                    FilePill(file, index, count, onFiles, Modifier.weight(1f))
+                    FilePill(file, index, count, commit, onFiles, Modifier.weight(1f))
                     FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, primary = true)
                 }
             } else {
@@ -731,26 +760,16 @@ private fun DiffBar(
                                 }
                             },
                         )
-                        if (!hasPending) {
-                            Box(
-                                Modifier.defaultMinSize(minHeight = 40.dp).clip(CircleShape)
-                                    .cueClickable(role = Role.Switch, onClickLabel = if (single) "Add comments to a review instead" else "Post comments at once instead") { single = !single }
-                                    .padding(horizontal = 8.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(if (single) "Post now" else "In review", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
-                            }
-                        }
                     } else {
                         Box(Modifier.weight(1f)) { if (linesLabel != null) FitText(listOf(linesLabel), PullsType.base, c.muted) }
                     }
-                    FloatIcon(Lu.more, "More for these lines", { actions = true }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
                     if (canComment) SendButton({ send() }, "Send comment", enabled = text.isNotBlank() && !busy, busy = busy)
                 }
             }
         }
     }
-    if (actions && selected != null) LineActionsSheet(session, ui, file, selected, onAsk) { actions = false }
+    val held = ui.lineActions
+    if (held != null && held.path == file.path) LineActionsSheet(session, ui, file, held, onAsk) { ui.lineActions = null }
 }
 
 /** The first of [choices] that fits its room on one line, else the last: a shorter wording instead of a cut one. */
@@ -768,7 +787,7 @@ private fun FitText(choices: List<String>, style: TextStyle, color: Color) {
 }
 
 /**
- * What else selected lines offer, from the ⋯ of the comment bar: Ask about them, which opens Ask with their code
+ * What else selected lines offer, from holding a line (K11): Ask about them, which opens Ask with their code
  * attached as a card over the field (as a file note is), and copying where they are. The bar names the lines, so the
  * sheet is named by the file alone.
  */
@@ -797,10 +816,11 @@ private fun LineActionsSheet(session: ReviewSession, ui: DiffUi, file: ReviewFil
 
 /**
  * The file you are on, between ‹ and ›: its name whole in the code face, and under it the end of its folder (rule 90)
- * and where it sits in the change. A long name takes the room instead of the folder. A tap opens every file, whole.
+ * and where it sits in the change. A long name takes the room instead of the folder. While the diff is narrowed to
+ * [commit], that takes the folder's place in the link colour (K25). A tap opens every file, whole.
  */
 @Composable
-private fun FilePill(file: ReviewFile, index: Int, count: Int, onClick: () -> Unit, modifier: Modifier) {
+private fun FilePill(file: ReviewFile, index: Int, count: Int, commit: String?, onClick: () -> Unit, modifier: Modifier) {
     val c = LocalPullsColors.current
     val mono = PullsType.sm.copy(fontFamily = PullsType.mono)
     Column(
@@ -813,15 +833,17 @@ private fun FilePill(file: ReviewFile, index: Int, count: Int, onClick: () -> Un
         // The next file's name comes in from the right and the previous one's from the left, as the code does (rule 105).
         LabelSwitch(index to file.path, order = { it.first }) { (at, path) ->
             val name = path.substringAfterLast('/')
-            val dir = path.substringBeforeLast('/', "").takeIf { name.length <= SHORT_NAME }.orEmpty()
+            val dir = path.substringBeforeLast('/', "").takeIf { name.length <= SHORT_NAME && commit == null }.orEmpty()
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // The name in the face it has on the file rows, which fits a long one on a line where the code font would break it.
                 // A long name wraps between its words, in lines of even length.
                 Text(softBreaks(name), style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, lineBreak = LineBreak.Heading), color = c.text, maxLines = 3)
-                if (dir.isNotEmpty() || count > 1) {
+                if (dir.isNotEmpty() || count > 1 || commit != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (commit != null) Text(commit, style = PullsType.sm, color = c.activeText, maxLines = 1, softWrap = false)
                         if (dir.isNotEmpty()) PathTail(dir, mono, c.muted, Modifier.weight(1f, fill = false))
-                        if (count > 1) Text("${if (dir.isNotEmpty()) " · " else ""}${at + 1}/$count", style = mono.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
+                        val before = dir.isNotEmpty() || commit != null
+                        if (count > 1) Text("${if (before) " · " else ""}${at + 1}/$count", style = mono.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
                     }
                 }
             }

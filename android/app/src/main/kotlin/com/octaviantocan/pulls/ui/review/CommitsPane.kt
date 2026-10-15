@@ -1,137 +1,158 @@
 package com.octaviantocan.pulls.ui.review
 
-import com.octaviantocan.pulls.sound.cueCombinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetSearch
+import com.octaviantocan.pulls.ui.design.matchesSearch
 import com.octaviantocan.pulls.ui.home.DrawableIcon
 import com.octaviantocan.pulls.ui.home.StatusColors
 
 /**
- * The Commits tab (rule 91): every commit of the pull request, oldest first and numbered, so the order is never a
- * guess. A tap narrows the pull request to that commit, a long-press stretches the range from the last one tapped,
- * and "All commits" goes back to everything; the banner under the capsule says what is shown (rule 80). [anchor] is
- * where a long-press range starts, kept by the screen so it survives the rows scrolling away.
+ * The commits of the pull request on a sheet built as Files is (K29): "Find a commit", the commits under a fold heading
+ * for each day, oldest first and numbered so the order is never a guess (rule 91). A tap opens the diff of that commit
+ * alone (K25, [onOpen]); a long-press stretches the range from the last one tapped and leaves the sheet open; "All
+ * commits" goes back to everything. The range is held by [ui], so it survives the sheet closing.
  */
-internal fun LazyListScope.commitItems(session: ReviewSession, overview: PrOverview, anchor: MutableState<Int?>, rows: Modifier) {
+@Composable
+internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOverview, onOpen: () -> Unit, onClose: () -> Unit) {
+    val c = LocalPullsColors.current
+    val uri = LocalUriHandler.current
     val commits = overview.commits
     val hidden = overview.commitsHidden
-    item(key = "commits-head") {
-        val c = LocalPullsColors.current
-        val total = commits.size + hidden
-        Row(rows.fillMaxWidth().padding(top = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("$total commit${if (total == 1) "" else "s"}", style = PullsType.xl, color = c.text)
-            Text("Oldest first", style = PullsType.sm, color = c.muted)
+    var query by remember { mutableStateOf("") }
+    val folds = remember { mutableStateMapOf<String, Boolean>() }
+    val selection = session.selection?.let { CommitSelection(it.first, it.second) }
+    val range = selection?.let { resolveCommitSelection(commits, it) }
+    PullsSheet(onClose, "Commits", expandable = true) {
+        if (commits.size > 1) SheetSearch(query, { query = it }, "Find a commit", Modifier.padding(top = 8.dp, bottom = 6.dp))
+        else Spacer(Modifier.height(8.dp))
+        val searching = query.isNotBlank()
+        if (!searching) {
+            SheetCard(gap = 6.dp) {
+                ListRow(
+                    "All commits", detail = "Every change in the pull request", first = true, selected = selection == null,
+                    onClick = { ui.commitAnchor = null; session.selectCommits(null); onClose() },
+                    leading = { LuIcon(Lu.commit, tint = if (selection == null) c.activeText else c.muted, size = 20.dp) },
+                )
+                // GitHub sends the newest commits only, so the oldest ones are on GitHub alone; this row says how many.
+                if (hidden > 0) ListRow(
+                    "Commits 1 to $hidden are on GitHub only",
+                    onClick = { uri.openUri("${overview.url}/commits") },
+                    leading = { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.muted, size = 20.dp) },
+                )
+            }
         }
-    }
-    item(key = "commits-all") {
-        val selection = session.selection
-        CommitRow(
-            rows, number = null, title = "All commits", detail = "Every change in the pull request", checks = null, sha = null,
-            selected = selection == null, ruled = false,
-            onClick = { anchor.value = null; session.selectCommits(null) },
-        )
-    }
-    if (hidden > 0) item(key = "commits-hidden") {
-        val c = LocalPullsColors.current
-        val uri = LocalUriHandler.current
-        // GitHub sends the newest commits only, so the oldest ones are on GitHub alone; this row says how many, and opens them there.
-        Row(
-            rows.fillMaxWidth().hairline(c.borderMute).clip(RoundedCornerShape(PullsRadius.lg))
-                .combinedClickableCued(onClick = { uri.openUri("${overview.url}/commits") })
-                .padding(vertical = 14.dp, horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(Modifier.width(NUMBER_WIDTH), contentAlignment = Alignment.Center) { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.muted, size = 20.dp) }
-            Text("Commits 1 to $hidden are on GitHub only", Modifier.weight(1f), style = PullsType.row, color = c.text)
+        val days = commitDays(commits, java.time.LocalDate.now(), java.time.ZoneId.systemDefault())
+            .map { (label, at) -> label to at.filter { i -> !searching || commitMatches(commits[i], query) } }
+            .filter { it.second.isNotEmpty() }
+        if (searching && days.isEmpty()) {
+            Text("No commit matches “${query.trim()}”.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
         }
-    }
-    itemsIndexed(commits, key = { _, commit -> "commit:${commit.oid}" }) { index, commit ->
-        val selection = session.selection?.let { CommitSelection(it.first, it.second) }
-        val range = selection?.let { resolveCommitSelection(commits, it) }
-        CommitRow(
-            rows,
-            number = index + 1 + hidden,
-            title = commit.headline,
-            detail = listOfNotNull(commit.authorLogin ?: commit.authorName, prTimeAgo(commit.committedDate).takeIf { it.isNotEmpty() }).joinToString(" · ").ifEmpty { null },
-            checks = commit.checks,
-            sha = commit.abbreviatedOid,
-            selected = range != null && index in range,
-            ruled = true,
-            onClick = { val next = pickCommit(commits, selection, anchor.value, index, extend = false); anchor.value = index; session.selectCommits(next?.pair) },
-            onLongClick = { session.selectCommits(pickCommit(commits, selection, anchor.value, index, extend = true)?.pair) },
-        )
+        days.forEachIndexed { d, (label, at) ->
+            // Many commits open on their last day; the selected commit's day is always open.
+            val closed = !searching && (folds[label] ?: (commits.size > FOLD_COMMITS && d < days.size - 1 && at.none { range != null && it in range }))
+            FoldHeading(label, at.size, first = searching && d == 0, folded = closed, onClick = if (searching) null else ({ folds[label] = !closed }))
+            AnimatedVisibility(
+                visible = !closed,
+                enter = expandVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeIn(tween(PullsMotion.FAST)),
+                exit = shrinkVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeOut(tween(PullsMotion.FAST)),
+            ) {
+                SheetCard(gap = 6.dp) {
+                    at.forEachIndexed { row, index ->
+                        val commit = commits[index]
+                        val picked = range != null && index in range
+                        ListRow(
+                            AnnotatedString(commit.headline),
+                            detail = listOfNotNull(commit.authorLogin ?: commit.authorName, prTimeAgo(commit.committedDate).takeIf { it.isNotEmpty() })
+                                .joinToString(" · ").ifEmpty { null }?.let(::AnnotatedString),
+                            first = row == 0,
+                            selected = picked,
+                            onClick = {
+                                ui.commitAnchor = index
+                                session.selectCommits(pickCommit(commits, selection, null, index, extend = false)?.pair ?: (commit.oid to commit.oid))
+                                onClose()
+                                onOpen()
+                            },
+                            onLongClick = { session.selectCommits(pickCommit(commits, selection, ui.commitAnchor, index, extend = true)?.pair) },
+                            leading = { Text("${index + 1 + hidden}", style = PullsType.row.copy(fontFeatureSettings = "tnum"), color = if (picked) c.activeText else c.faint, textAlign = TextAlign.Center) },
+                            trailing = {
+                                commitTint(commit.checks)?.let { Box(Modifier.size(8.dp).clip(CircleShape).background(it)) }
+                                Text(commit.abbreviatedOid, style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.faint, maxLines = 1, softWrap = false)
+                            },
+                            titleLines = 2,
+                            detailLines = 1,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
-private val NUMBER_WIDTH = 28.dp
+/** Above this many commits, the days before the last start folded. */
+private const val FOLD_COMMITS = 20
 
-/** One commit: its place in the order, the headline whole, who and when under it, and its short sha with a dot for its checks. */
-@Composable
-private fun CommitRow(
-    modifier: Modifier,
-    number: Int?,
-    title: String,
-    detail: String?,
-    checks: String?,
-    sha: String?,
-    selected: Boolean,
-    ruled: Boolean,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
-) {
-    val c = LocalPullsColors.current
-    Row(
-        modifier.fillMaxWidth().then(if (ruled) Modifier.hairline(c.borderMute) else Modifier)
-            .clip(RoundedCornerShape(PullsRadius.lg)).background(if (selected) c.active else Color.Transparent)
-            .combinedClickableCued(onClick = onClick, onLongClick = onLongClick)
-            .padding(vertical = 14.dp, horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Box(Modifier.width(NUMBER_WIDTH), contentAlignment = Alignment.TopCenter) {
-            if (number != null) Text("$number", style = PullsType.row.copy(fontFeatureSettings = "tnum"), color = if (selected) c.activeText else c.faint, textAlign = TextAlign.Center)
-            else LuIcon(Lu.commit, tint = if (selected) c.activeText else c.muted, size = 20.dp, modifier = Modifier.padding(top = 2.dp))
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = if (selected) c.activeText else c.text)
-            if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)
-        }
-        if (sha != null) Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            commitTint(checks)?.let { Box(Modifier.size(8.dp).clip(CircleShape).background(it)) }
-            Text(sha, style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.faint)
-        }
+/** Does [commit] match a search: its headline, its sha or who wrote it. */
+internal fun commitMatches(commit: PrCommit, query: String): Boolean =
+    matchesSearch(listOfNotNull(commit.headline, commit.abbreviatedOid, commit.oid, commit.authorLogin, commit.authorName).joinToString(" "), query)
+
+/**
+ * The commits by the day they were committed, oldest first, as (heading, indexes into [commits]): "Today",
+ * "Yesterday", the weekday within a week, else the date. Commits with no date go with the day before them.
+ */
+internal fun commitDays(commits: List<PrCommit>, today: java.time.LocalDate, zone: java.time.ZoneId): List<Pair<String, List<Int>>> {
+    val days = mutableListOf<Pair<String, MutableList<Int>>>()
+    commits.forEachIndexed { index, commit ->
+        val day = prIsoMillis(commit.committedDate)?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate() }
+        val label = day?.let { dayLabel(it, today) } ?: days.lastOrNull()?.first ?: "Undated"
+        if (days.lastOrNull()?.first == label) days.last().second.add(index) else days.add(label to mutableListOf(index))
+    }
+    return days
+}
+
+private fun dayLabel(day: java.time.LocalDate, today: java.time.LocalDate): String {
+    val ago = java.time.temporal.ChronoUnit.DAYS.between(day, today)
+    val locale = java.util.Locale.ENGLISH
+    return when {
+        ago == 0L -> "Today"
+        ago == 1L -> "Yesterday"
+        ago in 2..6 -> day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, locale)
+        day.year == today.year -> day.format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", locale))
+        else -> day.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", locale))
     }
 }
 
@@ -146,10 +167,3 @@ private fun commitTint(checks: String?): Color? {
         else -> null
     }
 }
-
-/** A row that only tints while it is held (rule 82), with the tap's sound. */
-@OptIn(ExperimentalFoundationApi::class)
-private fun Modifier.combinedClickableCued(onClick: () -> Unit, onLongClick: (() -> Unit)? = null): Modifier =
-    cueCombinedClickable(role = Role.Button, onLongClick = onLongClick, onClick = onClick)
-
-private fun Modifier.hairline(color: Color): Modifier = drawBehind { drawRect(color, Offset.Zero, Size(size.width, 1.dp.toPx())) }

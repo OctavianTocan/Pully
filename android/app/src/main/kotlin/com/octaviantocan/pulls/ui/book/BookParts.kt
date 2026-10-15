@@ -30,8 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.ui.design.DarkPullsColors
-import com.octaviantocan.pulls.ui.design.LightPullsColors
+import com.octaviantocan.pulls.ui.design.LocalColorTheme
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsSpace
@@ -123,12 +122,12 @@ internal enum class ThemeMode(val label: String) {
 }
 
 /**
- * A frame that forces the light or the dark palette for what is inside it, so a component is seen
- * in both at once without touching the app's theme. [label] names the state on the frame.
+ * A frame that forces the light or the dark palette of the colour theme in use for what is inside it, so a component
+ * is seen in both at once without touching the app's look. [label] names the state on the frame.
  */
 @Composable
 internal fun Frame(dark: Boolean, label: String, content: @Composable () -> Unit) {
-    val colors = if (dark) DarkPullsColors else LightPullsColors
+    val colors = LocalColorTheme.current.colors(dark)
     val shape = RoundedCornerShape(PullsRadius.card)
     CompositionLocalProvider(LocalPullsColors provides colors) {
         Column(

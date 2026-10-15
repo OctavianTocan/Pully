@@ -95,6 +95,11 @@ export interface CliModel {
   defaultEffort?: string
   /** The model the CLI runs when none is passed. */
   isDefault?: boolean
+  /**
+   * Who serves the model, for a list that mixes providers (Pi behind CLIProxyAPI): the route its id names (`AGY`,
+   * `Claude`, `Codex`), else its maker (`DeepSeek`, `xAI`). Unset for the CLIs, which serve their own models only.
+   */
+  group?: string
 }
 
 export interface CliModelCatalog {
