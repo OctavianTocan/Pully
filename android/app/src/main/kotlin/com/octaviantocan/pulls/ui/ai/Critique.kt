@@ -184,7 +184,7 @@ private fun ChoiceSkeleton() {
 }
 
 /** A stable identity for a critique result, so a new one resets the selection (`show`). */
-private fun identity(critique: Critique): String = "${critique.generatedAt}|${critique.headSha}|${critique.lens}|${critique.findings.size}"
+private fun identity(critique: Critique): String = "${critique.variant}|${critique.revision}|${critique.generatedAt}|${critique.headSha}"
 
 /** Port of `CritiquePanel.vue` with its `FindingCard`s. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -220,7 +220,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
     val allSelected = selectable.isNotEmpty() && selectable.all { it.id in ui.selected }
     val toPost = visible.filter { it.id in ui.selected && it.id !in ui.posted }
     val canWrite = session.pull != null
-    val canPost = canWrite && toPost.isNotEmpty() && !ui.posting && result?.headSha == headSha
+    val canPost = canWrite && toPost.isNotEmpty() && !ui.posting && result?.headSha == headSha && result?.variant != null && result.revision != null
 
     Column(
         modifier.bringIntoViewRequester(requester).fillMaxWidth().floatShadow(RoundedCornerShape(PullsRadius.card), PullsShadow.Note).clip(RoundedCornerShape(PullsRadius.card)).background(c.raised)
@@ -304,7 +304,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
                             Spacer(Modifier.weight(1f))
                         }
                         CtaButton(
-                            tc("critique.post", toPost.size), { postCritique(session, toPost.map { it.id }) },
+                            tc("critique.post", toPost.size), { result?.let { postCritique(session, it, toPost.map { finding -> finding.id }) } },
                             enabled = canPost, leading = { if (ui.posting) Orb(size = 18.dp) },
                         )
                     }
@@ -314,7 +314,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
     }
 }
 
-private fun postCritique(session: ReviewSession, ids: List<String>) {
+private fun postCritique(session: ReviewSession, critique: Critique, ids: List<String>) {
     val ui = aiUi(session)
     val key = session.key ?: return
     if (ids.isEmpty() || ui.posting) return
@@ -322,8 +322,9 @@ private fun postCritique(session: ReviewSession, ids: List<String>) {
     ui.postError = null
     val body = ui.postBody
     session.scope.launch {
-        runCatching { session.repo.postCritique(key, ids, body) }
+        runCatching { session.repo.postCritique(key, critique, ids, body) }
             .onSuccess { posted ->
+                if (ui.critiqueFor != identity(critique)) return@onSuccess
                 ui.posted = ui.posted + posted
                 ui.selected = ui.selected - posted.toSet()
                 session.reloadReviews()

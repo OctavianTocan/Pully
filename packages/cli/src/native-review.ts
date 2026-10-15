@@ -1,9 +1,10 @@
 import type { LlmSession } from '@pulls.review/core/cache'
 import type { GithubClient, MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
-import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
+import type { CritiqueResult, DiffSource, ReviewVerdict } from '@pulls.review/core/types'
 import type { PatchReader } from './stored-diff'
+import { createHash } from 'node:crypto'
 import process from 'node:process'
-import { archiveChat, chatHistory, restoreChat } from '@pulls.review/core/cache'
+import { chatHistory } from '@pulls.review/core/cache'
 import {
   cancelAutoMerge,
   changePullRequestState,
@@ -125,6 +126,11 @@ function mergeMethodOf(args: Args, what: string): MergeMethod {
   if (!MERGE_METHODS.includes(method))
     throw new Error(`${what} needs a method: merge, squash or rebase.`)
   return method
+}
+
+/** The immutable content identity sent with the exact critique the phone displays. */
+export function critiqueRevision(result: CritiqueResult): string {
+  return createHash('sha256').update(JSON.stringify(result)).digest('hex')
 }
 
 export const NATIVE_REVIEW: Record<string, Handler> = {
@@ -302,17 +308,26 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   /** Posts the chosen findings of the saved AI review as one COMMENT review, like `critique.post`. */
   'critique-post': async function (cwd, args) {
     const key = text(args?.key)
-    const ids = new Set(Array.isArray(args?.ids) ? args.ids.filter((id): id is string => typeof id === 'string') : [])
-    if (!key || ids.size === 0)
-      throw new Error('Posting needs the diff and at least one finding.')
+    if (!Array.isArray(args?.ids) || !args.ids.every((id): id is string => typeof id === 'string' && id.length > 0))
+      throw new Error('Posting needs selected finding IDs.')
+    const ids = new Set(args.ids)
+    const variant = text(args?.variant)
+    const revision = text(args?.revision)
+    const expectedHead = text(args?.headSha)
+    if (!key || ids.size === 0 || !variant || !revision || !expectedHead)
+      throw new Error('Posting needs the displayed review, its head and at least one finding.')
     const session = await serverSession(cwd)
     const entry = await session.cache.diffs.get(key)
     const { serializeRef } = await import('@pulls.review/core/types')
-    const result = entry && await session.cache.critiques.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha)
+    const result = entry && await session.cache.critiques.get(serializeRef(entry.diff.ref), variant)
     if (!entry || !result || entry.diff.ref.kind !== 'github-pr' || !entry.diff.head)
       throw new Error('There is no AI review of this pull request to post.')
+    if (entry.diff.head.sha !== expectedHead || result.headSha !== expectedHead || critiqueRevision(result) !== revision)
+      throw new Error('That review changed. Reopen the findings before posting.')
     const { citesOnGithub, critiqueReviewBody, findingCommentBody } = await import('@pulls.review/core/llm')
     const chosen = result.findings.filter(finding => ids.has(finding.id))
+    if (chosen.length !== ids.size)
+      throw new Error('Some selected findings are no longer in that review.')
     const reviews = await prReviews(entry.diff.ref)
     const pending = (await reviews.fetch()).pendingReview
     // The findings link what they mention (rule 96); on GitHub those links go to the file at the head.
@@ -420,13 +435,9 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
    */
   'chat-clear': async function (cwd, args) {
     const key = text(args?.key)
-    const session = await serverSession(cwd)
-    const entry = key ? await session.cache.diffs.get(key) : undefined
-    const stored = entry?.llmSession as LlmSession | undefined
-    if (!stored)
-      return { cleared: 0 }
-    await session.cache.diffs.setLlmSession(key, archiveChat(stored))
-    return { cleared: stored.messages.length - stored.chatStartIndex }
+    if (!key)
+      throw new Error('That needs the diff key.')
+    return (await serverSession(cwd)).tasks.clearChat(key)
   },
 
   /** The diff's earlier chats for the history sheet, most recent first: `{ chats: [{ id, title, at, turns }] }`. */
@@ -444,12 +455,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const id = text(args?.id)
     if (!key || !id)
       throw new Error('That needs the diff key and the chat.')
-    const session = await serverSession(cwd)
-    const stored = (await session.cache.diffs.get(key))?.llmSession as LlmSession | undefined
-    if (!stored)
-      throw new Error('That chat is not in this pull request\'s history.')
-    await session.cache.diffs.setLlmSession(key, restoreChat(stored, id))
-    return { restored: true }
+    return (await serverSession(cwd)).tasks.restoreChat(key, id)
   },
 
   /**

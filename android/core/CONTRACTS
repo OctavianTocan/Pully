@@ -29,3 +29,8 @@ a build that does not know groups (rule 127).
 optional `[key:value,...]` metadata, an ID token and non-empty prose up to the next
 directive. A malformed directive, empty prose, text before the first directive or a
 repeated ID is reported as a problem, never silently dropped.
+
+@cc [owner:OctavianTocan,label:security] core-updates-confine-access-headers
+Update URLs and every redirect MUST match the configured server's scheme, host and
+effective port before any request is opened or Access headers attached. Automatic
+redirects MUST stay disabled (repository review 15 Oct 2026, finding 7).

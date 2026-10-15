@@ -162,8 +162,15 @@ class Repo(private val context: Context) {
     /** `ai-models` for an engine: `{ models: [{ id, name, description, efforts, defaultEffort, isDefault }], account, version }`. */
     suspend fun models(engine: String, refresh: Boolean = false): JsonObject = call("ai-models") { put("engine", engine); put("refresh", refresh) }.jsonObject
 
-    suspend fun postCritique(key: String, ids: List<String>, body: String?): List<String> =
-        call("critique-post") { put("key", key); put("ids", JsonArray(ids.map { JsonPrimitive(it) })); body?.let { put("body", it) } }.jsonObject.strings("posted")
+    suspend fun postCritique(key: String, critique: Critique, ids: List<String>, body: String?): List<String> =
+        call("critique-post") {
+            put("key", key)
+            put("variant", requireNotNull(critique.variant))
+            put("revision", requireNotNull(critique.revision))
+            put("headSha", requireNotNull(critique.headSha))
+            put("ids", JsonArray(ids.map { JsonPrimitive(it) }))
+            body?.let { put("body", it) }
+        }.jsonObject.strings("posted")
 
     /** Returns the shared comment's URL. */
     suspend fun share(key: String): String = call("share-analysis") { put("key", key) }.jsonObject.s("url")

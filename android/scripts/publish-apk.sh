@@ -11,10 +11,12 @@
 # builds the version this one replaces, so the Past versions slider in Settings stays complete. That runs after
 # the update is out, and a failure there does not fail the publish.
 #
-#   android/scripts/publish-apk.sh [public-base-url] [notes]
+#   android/scripts/publish-apk.sh <public-base-url> [notes]
 set -euo pipefail
 cd "$(dirname "$0")/.."
-base="${1:-https://prs.octaviantocan.com}"
+# Keep an absolute URL for installed versions whose updater predates relative URLs.
+# Require the publishing server explicitly: a default host could receive another server's Access token.
+base="${1:?Pass the public URL of the server publishing this APK}"
 notes="${2:-}"
 out="${PULLS_REVIEW_ANDROID_DIR:-$HOME/.local/share/pulls-review/android}"
 

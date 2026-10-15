@@ -129,7 +129,8 @@ describe('runLlmAnalysis', () => {
   it('steers once the read budget is exhausted', async () => {
     const big = 'x'.repeat(41_000)
     const paths = ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts']
-    faux.setResponses([...paths.slice(0, 5).map(path => read(path)), submit(oneGroup(...paths))])
+    // Responses now include continuation notices within the 40k cap, so six reads cross 200k.
+    faux.setResponses([...paths.map(path => read(path)), submit(oneGroup(...paths))])
 
     const { transcript } = await analyze(diffWithFiles(...paths.map(path => file(path, big))))
 

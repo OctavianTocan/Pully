@@ -1,6 +1,8 @@
 import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import type { LlmSession } from '@pulls.review/core/cache'
+import type { AiTaskSnapshot } from '@pulls.review/core/local-rpc'
 import type { DiffsPayload } from '@pulls.review/core/types'
+import type { LocalRpc } from '../local/connection'
 import { fauxAssistantMessage } from '@earendil-works/pi-ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref, shallowRef } from 'vue'
@@ -11,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   resolveAskModel: vi.fn(),
   reply: undefined as AgentMessage | undefined,
   createChatSession: vi.fn(),
+  startAiTask: vi.fn(),
+  followAiTask: vi.fn(),
+  cancelAiTask: vi.fn(),
 }))
 
 vi.mock('@pulls.review/core/analyze', async importOriginal => ({
@@ -19,6 +24,11 @@ vi.mock('@pulls.review/core/analyze', async importOriginal => ({
 }))
 
 vi.mock('@pulls.review/core/llm', () => ({ createChatSession: mocks.createChatSession }))
+vi.mock('../local/ai-tasks', () => ({
+  startAiTask: mocks.startAiTask,
+  followAiTask: mocks.followAiTask,
+  cancelAiTask: mocks.cancelAiTask,
+}))
 
 function fakeAgent({ messages }: { messages: AgentMessage[] }) {
   const state = { messages: [...messages], streamingMessage: undefined as AgentMessage | undefined }
@@ -52,6 +62,110 @@ beforeEach(() => {
   mocks.resolveAskModel.mockReset().mockReturnValue({ model: {}, apiKey: 'key' })
   mocks.createChatSession.mockReset().mockImplementation(fakeAgent)
   mocks.reply = fauxAssistantMessage('Because.')
+  mocks.startAiTask.mockReset().mockResolvedValue('task')
+  mocks.followAiTask.mockReset().mockResolvedValue({ status: 'done' })
+  mocks.cancelAiTask.mockReset().mockResolvedValue(undefined)
+})
+
+describe('server chat startup', () => {
+  function setupServer() {
+    const rpc: LocalRpc = { call: vi.fn() } as any
+    const reload = vi.fn(async () => {})
+    const chat = useLlmChat({
+      diff: ref(diff),
+      session: shallowRef({ messages: transcript, chatStartIndex: transcript.length }),
+      onSessionChange: vi.fn(),
+      onGroupingUpdate: vi.fn(),
+      server: { target: () => ({ rpc, key: 'github:o/r#1', model: { engine: 'codex' } }), reload },
+    })
+    return { chat, rpc, reload }
+  }
+
+  it('is busy before startup resolves and submits only the first question', async () => {
+    const start = Promise.withResolvers<string>()
+    const done = Promise.withResolvers<AiTaskSnapshot>()
+    mocks.startAiTask.mockReturnValueOnce(start.promise)
+    mocks.followAiTask.mockReturnValueOnce(done.promise)
+    const { chat, reload } = setupServer()
+
+    const first = chat.send('first question')
+    expect(chat.isStreaming.value).toBe(true)
+    await chat.send('second question')
+    expect(mocks.startAiTask).toHaveBeenCalledOnce()
+
+    start.resolve('task')
+    await Promise.resolve()
+    expect(chat.isStreaming.value).toBe(true)
+    expect(chat.messages.value).toMatchObject([{ role: 'user', content: 'first question' }])
+    done.resolve({ status: 'done' } as AiTaskSnapshot)
+    await first
+    expect(reload).toHaveBeenCalledOnce()
+    expect(chat.isStreaming.value).toBe(false)
+  })
+
+  it('releases startup failures for another send', async () => {
+    mocks.startAiTask.mockRejectedValueOnce(new Error('start failed'))
+    const { chat } = setupServer()
+
+    await chat.send('question')
+    expect(chat.error.value?.message).toBe('start failed')
+    expect(chat.isStreaming.value).toBe(false)
+    await chat.send('try again')
+    expect(mocks.startAiTask).toHaveBeenCalledTimes(2)
+    expect(mocks.followAiTask).toHaveBeenCalledOnce()
+    expect(chat.error.value).toBeUndefined()
+  })
+
+  it('does not follow or cancel a start that resolves after detaching', async () => {
+    const start = Promise.withResolvers<string>()
+    mocks.startAiTask.mockReturnValueOnce(start.promise)
+    const { chat, reload } = setupServer()
+
+    const sending = chat.send('question')
+    chat.detach()
+    start.resolve('detached-task')
+    await sending
+
+    expect(chat.isStreaming.value).toBe(false)
+    expect(mocks.followAiTask).not.toHaveBeenCalled()
+    expect(mocks.cancelAiTask).not.toHaveBeenCalled()
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('cancels a start stopped before the task id arrives without following it', async () => {
+    const start = Promise.withResolvers<string>()
+    mocks.startAiTask.mockReturnValueOnce(start.promise)
+    const { chat, rpc } = setupServer()
+
+    const sending = chat.send('question')
+    chat.stop()
+    start.resolve('stopped-task')
+    await sending
+
+    expect(mocks.cancelAiTask).toHaveBeenCalledWith(rpc, 'stopped-task')
+    expect(mocks.followAiTask).not.toHaveBeenCalled()
+    expect(chat.isStreaming.value).toBe(false)
+  })
+
+  it('ignores an old startup failure while a new start is pending', async () => {
+    const oldStart = Promise.withResolvers<string>()
+    const newStart = Promise.withResolvers<string>()
+    mocks.startAiTask.mockReturnValueOnce(oldStart.promise).mockReturnValueOnce(newStart.promise)
+    const { chat } = setupServer()
+
+    const oldSending = chat.send('old question')
+    chat.detach()
+    const newSending = chat.send('new question')
+    oldStart.reject(new Error('detached start failed'))
+    await oldSending
+    expect(chat.isStreaming.value).toBe(true)
+    expect(chat.error.value).toBeUndefined()
+
+    newStart.resolve('new-task')
+    await newSending
+    expect(mocks.followAiTask).toHaveBeenCalledOnce()
+    expect(mocks.followAiTask.mock.calls[0]![1]).toBe('new-task')
+  })
 })
 
 describe('useLlmChat', () => {

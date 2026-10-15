@@ -83,6 +83,37 @@ describe('createPreanalyzer', () => {
     expect((await cache.diffs.get(KEY))?.analyzedBy.llm).toBeDefined()
   })
 
+  it.each([false, true])('does not replace a newer head or its chat when preanalysis finishes late (cached: %s)', async (alreadyCached) => {
+    let complete!: () => void
+    const analyze = vi.fn<PreanalyzerDeps['analyze']>(() => new Promise(resolve => complete = () => resolve({ result, transcript: [{ role: 'user', content: 'Old analysis', timestamp: 0 }] })))
+    const { cache, preanalyzer } = setup([pull()], { analyze })
+    if (alreadyCached)
+      await cache.diffs.putDiff(KEY, diff('h2'), 'h2', { viewed: false })
+    const round = preanalyzer.round()
+    await vi.waitFor(() => expect(analyze).toHaveBeenCalledOnce())
+    await cache.diffs.putDiff(KEY, diff('h3'), 'h3', { viewed: false })
+    const session = { messages: [{ role: 'user' as const, content: 'New head question', timestamp: 3 }], chatStartIndex: 0 }
+    await cache.diffs.setLlmSession(KEY, session)
+    complete()
+    await round
+    const entry = await cache.diffs.get(KEY)
+    expect(entry?.headSha).toBe('h3')
+    expect(entry?.analyzedBy.llm).toBeUndefined()
+    expect(entry?.llmSession).toEqual(session)
+    expect(entry?.lastViewedAt).toBe(0)
+  })
+
+  it('keeps background preanalysis out of recent views and archives the current chat atomically', async () => {
+    const { cache, preanalyzer } = setup([pull()])
+    await cache.diffs.putDiff(KEY, diff('h1'), 'h1', { viewed: false })
+    await cache.diffs.setLlmSession(KEY, { messages: [{ role: 'user', content: 'Prior question', timestamp: 1 }], chatStartIndex: 0 })
+    await preanalyzer.round()
+    const entry = await cache.diffs.get(KEY)
+    expect(entry?.lastViewedAt).toBe(0)
+    expect(entry?.llmSession?.archive?.[0]?.messages).toEqual([{ role: 'user', content: 'Prior question', timestamp: 1 }])
+    expect(await cache.diffs.listRecent(10)).toEqual([])
+  })
+
   it('tries a failing head commit once, then again after a new push', async () => {
     const analyze = vi.fn<PreanalyzerDeps['analyze']>(async () => {
       throw new Error('AI jobs are not available on this server.')

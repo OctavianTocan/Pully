@@ -35,6 +35,9 @@ export function serializeRef(ref: SourceRef): string {
 /** Secrets a source may need, read on every use so a token saved later applies at once. */
 export interface Credentials {
   githubToken: () => Promise<string | undefined>
+  /** Local clients delegate GitHub HTTP operations without receiving the server credential. */
+  githubRequest?: (path: string, options?: { method?: string, body?: object, accept?: string }) => Promise<Response>
+  githubAuthenticated?: () => Promise<boolean>
 }
 
 export function staticCredentials(githubToken?: string): Credentials {

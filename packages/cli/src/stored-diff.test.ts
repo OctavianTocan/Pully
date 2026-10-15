@@ -155,6 +155,21 @@ describe('openStoredDiff', () => {
     expect((await diffs.get(KEY))!.diff.title).toBe('Renamed')
   })
 
+  it.each(['cold', 'fresh', 'changed'] as const)('keeps the winning head when a %s fetch finishes late', async (mode) => {
+    const diffs = cache()
+    if (mode !== 'cold')
+      await diffs.putDiff(KEY, diff('h1'), 'h1')
+    let complete!: (value: DiffsPayload) => void
+    const fetch = vi.fn(() => new Promise<DiffsPayload>(resolve => complete = resolve))
+    const opened = openStoredDiff({ key: KEY, source: { fetch, fingerprint: async () => 'h2' }, diffs, fresh: mode === 'fresh' })
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    await diffs.putDiff(KEY, diff('h3'), 'h3', { viewed: false })
+    complete(diff('h2'))
+    expect(await opened).toEqual({ diff: diff('h3') })
+    expect((await diffs.get(KEY))?.headSha).toBe('h3')
+    expect((await diffs.getMeta(KEY))?.lastViewedAt).toBeGreaterThan(0)
+  })
+
   it('with fresh, fails when GitHub does', async () => {
     const diffs = cache()
     await diffs.putDiff(KEY, diff('h1'), 'h1')

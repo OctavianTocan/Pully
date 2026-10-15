@@ -13,7 +13,7 @@ import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
 import { resolveGithubToken } from './credentials'
 import { highlightLines, pierreTheme } from './highlight'
-import { NATIVE_REVIEW, sessionPatches } from './native-review'
+import { critiqueRevision, NATIVE_REVIEW, sessionPatches } from './native-review'
 import { serverFunctions, serverSession } from './server-session'
 import { openStoredDiff, trimPatches } from './stored-diff'
 
@@ -134,13 +134,36 @@ export async function handleNativeRequest(request: NativeRequest, cwd: string): 
   if (!fn)
     return Response.json({ error: 'That method is not available to the app.' }, { status: 404 })
   try {
-    const result = await (fn.handler as (input?: unknown) => Promise<unknown>)(body?.args)
+    const result = await invokeValidatedRpc(fn, [body?.args])
     return Response.json({ result })
   }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return Response.json({ error: message }, { status: 400 })
   }
+}
+
+/**
+ * @cc [owner:OctavianTocan,label:security] native-rpc-honors-declared-schemas
+ * Native calls MUST validate every declared argument before invoking its handler and
+ * pass the validator's transformed value. Declared return schemas MUST also be checked
+ * before sending a result (repository review 15 Oct 2026, finding 20).
+ */
+export async function invokeValidatedRpc(definition: Awaited<ReturnType<typeof serverFunctions>>[number], inputs: unknown[]): Promise<unknown> {
+  const args = [...inputs]
+  for (const [index, schema] of (definition.args ?? []).entries()) {
+    const parsed = await schema['~standard'].validate(args[index])
+    if (parsed.issues)
+      throw new Error('That method received invalid arguments.')
+    args[index] = parsed.value
+  }
+  const result = await (definition.handler as (...args: unknown[]) => unknown)(...args)
+  if (!definition.returns)
+    return result
+  const parsed = await definition.returns['~standard'].validate(result)
+  if (parsed.issues)
+    throw new Error('That method returned an invalid result.')
+  return parsed.value
 }
 
 function textOf(value: unknown): string {
@@ -393,13 +416,16 @@ async function reviewState(cwd: string, args: unknown): Promise<Response> {
   const entry = await session.cache.diffs.get(key)
   const threadsFn = session.functions.find(fn => fn.name === LOCAL_RPC.askThreads)
   const threads = await (threadsFn!.handler as (input: unknown) => Promise<unknown>)({ key })
-  const critique = entry
-    ? await session.cache.critiques.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha)
+  const savedCritique = entry
+    ? await session.cache.critiques.latestEntry(serializeRef(entry.diff.ref), entry.diff.head?.sha)
+    : undefined
+  const critique = savedCritique
+    ? { ...savedCritique.result, variant: savedCritique.variant, revision: critiqueRevision(savedCritique.result) }
     : undefined
   const stored = entry?.llmSession
   const chat = (stored?.messages ?? []).slice(stored?.chatStartIndex ?? 0).map(message => ({
     role: message.role,
-    text: messageText(message.content).slice(0, 4000),
+    text: messageText(message.content),
   })).filter(message => message.text)
   const llm = entry?.analyzedBy?.llm
   // Nested groups flatten to the web's two levels: a parent row, then its children.

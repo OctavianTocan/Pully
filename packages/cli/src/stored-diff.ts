@@ -47,7 +47,7 @@ export interface OpenStoredOptions {
   /** The diff's cache key, `serializeRef` of its ref. */
   key: string
   source: Pick<DiffSource, 'fetch' | 'fingerprint'>
-  diffs: Pick<DiffCache, 'get' | 'getMeta' | 'putDiff' | 'touch'>
+  diffs: Pick<DiffCache, 'get' | 'getMeta' | 'updateDiff' | 'touch'>
   /** Fetch from the source even when the stored copy is current. */
   fresh?: boolean
   headTimeoutMs?: number
@@ -76,14 +76,30 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * @param options The key, the source, the cache, and whether to skip the stored copy.
  * @returns The diff to show and whether it may be out of date.
  */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] stored-opening-keeps-newer-heads
+ * A fetch MUST NOT replace a head stored since this opening observed the cache, including
+ * fresh and cold opens; it MUST return the winning stored diff instead
+ * (server-store-answers-first; review finding 22, 15 Oct 2026).
+ */
 export async function openStoredDiff(options: OpenStoredOptions): Promise<OpenedDiff> {
   const { key, source, diffs, fresh = false, headTimeoutMs = HEAD_TIMEOUT_MS } = options
+  const before = await diffs.getMeta(key)
   async function fetchAndStore(): Promise<DiffsPayload> {
     const diff = await source.fetch()
-    await diffs.putDiff(key, diff, diff.head?.sha ?? '')
-    return diff
+    const written = await diffs.updateDiff(key, existing => !existing || existing.headSha === before?.headSha
+      ? { diff, headSha: diff.head?.sha ?? '' }
+      : undefined)
+    if (written)
+      return written.diff
+    // A later head won while this fetch was pending. Open that entry instead of the stale response.
+    const winner = await diffs.get(key)
+    if (!winner)
+      throw new Error('The stored diff changed while opening it; open it again.')
+    await diffs.touch(key)
+    return winner.diff
   }
-  if (fresh || !source.fingerprint || !await diffs.getMeta(key))
+  if (fresh || !source.fingerprint || !before)
     return { diff: await fetchAndStore() }
 
   // The head request and the disk read run together; neither waits on the other.

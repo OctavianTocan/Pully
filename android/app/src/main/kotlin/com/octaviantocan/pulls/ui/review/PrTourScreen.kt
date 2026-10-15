@@ -259,10 +259,12 @@ internal fun PrTourScreen(
                 }
             }
             // The Ask pill is Home's search pill: the same face and size, and the page dims behind it while it waits (K12).
-            var askText by remember { mutableStateOf("") }
-            var askFocused by remember { mutableStateOf(false) }
-            SearchDim(askFocused, askText.isEmpty())
-            AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
+            if (tour != null) {
+                var askText by remember { mutableStateOf("") }
+                var askFocused by remember { mutableStateOf(false) }
+                SearchDim(askFocused, askText.isEmpty())
+                AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
+            }
         }
     }
 

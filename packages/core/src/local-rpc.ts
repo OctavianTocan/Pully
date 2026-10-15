@@ -1,3 +1,5 @@
+import * as v from 'valibot'
+
 /**
  * The contract between the `pulls.review` devframe server (`packages/cli`) and the
  * `PR_LOCAL` app build: the devframe id, where it mounts, and its RPC function names.
@@ -21,7 +23,9 @@ export const LOCAL_RPC = {
   storageSetItem: 'storage-set-item',
   storageRemoveItem: 'storage-remove-item',
   storageGetKeys: 'storage-get-keys',
-  githubToken: 'github-token',
+  cacheDiff: 'cache-diff',
+  githubRequest: 'github-request',
+  githubAuthenticated: 'github-authenticated',
   /** The signed-in user's pull requests, fetched fresh unless the server's copy is seconds old. */
   myPulls: 'my-pulls',
   /** One prompt through the server's Claude Code or Codex CLI. */
@@ -378,40 +382,62 @@ export interface AiTaskSnapshot {
   then?: AiFollowUp[]
 }
 
-/** One saved question of a thread and its answer. */
-export interface AiAskTurn {
-  question: string
-  answer?: string
-  error?: string
-  usage?: AiUsage
-  activities?: AiActivity[]
-  startedAt?: number
-  /** Unset while the answer is coming. */
-  outcome?: 'done' | 'failed' | 'stopped'
-  /** The server task answering it. */
-  taskId?: string
-  /** An inbox answer: the listed pull requests it names, in the order it names them. */
-  pulls?: AiPullRef[]
-}
+/** Token counts and timing persisted with a question's answer. */
+const StoredAiUsageSchema = v.object({
+  inputTokens: v.optional(v.number()),
+  outputTokens: v.optional(v.number()),
+  cacheReadTokens: v.optional(v.number()),
+  cacheWriteTokens: v.optional(v.number()),
+  reasoningTokens: v.optional(v.number()),
+  costUsd: v.optional(v.number()),
+  durationMs: v.optional(v.number()),
+  model: v.optional(v.string()),
+})
+
+const StoredAiActivitySchema = v.object({
+  id: v.string(),
+  kind: v.picklist(AI_ACTIVITY_KINDS),
+  title: v.string(),
+  text: v.optional(v.string()),
+  tool: v.optional(v.string()),
+  status: v.picklist(['running', 'done', 'failed']),
+  startedAt: v.number(),
+  endedAt: v.optional(v.number()),
+  rev: v.number(),
+})
 
 /** A pull request by name. */
-export interface AiPullRef {
-  owner: string
-  repo: string
-  number: number
-}
+export const AiPullRefSchema = v.object({ owner: v.string(), repo: v.string(), number: v.number() })
+export type AiPullRef = v.InferOutput<typeof AiPullRefSchema>
 
-/** The conversation about the inbox: its turns, oldest first, and the questions offered under the last answer. */
-export interface AiInboxChat {
-  turns: AiAskTurn[]
-  suggestions?: string[]
-}
+/** One saved question of a thread and its answer. */
+export const AiAskTurnSchema = v.object({
+  question: v.string(),
+  answer: v.optional(v.string()),
+  error: v.optional(v.string()),
+  usage: v.optional(StoredAiUsageSchema),
+  activities: v.optional(v.array(StoredAiActivitySchema)),
+  startedAt: v.optional(v.number()),
+  /** Unset while the answer is coming. */
+  outcome: v.optional(v.picklist(['done', 'failed', 'stopped'])),
+  taskId: v.optional(v.string()),
+  pulls: v.optional(v.array(AiPullRefSchema)),
+})
+export type AiAskTurn = v.InferOutput<typeof AiAskTurnSchema>
+
+/** The conversation about the inbox: oldest turns first, then suggestions under its last answer. */
+export const AiInboxChatSchema = v.object({
+  turns: v.array(AiAskTurnSchema),
+  suggestions: v.optional(v.array(v.string())),
+})
+export type AiInboxChat = v.InferOutput<typeof AiInboxChatSchema>
 
 /** Questions about one selection of lines, saved on the server per diff. */
-export interface AiAskThread {
-  id: string
-  selection: AiTaskSelection
+export const AiAskThreadSchema = v.object({
+  id: v.string(),
+  selection: v.object({ path: v.string(), side: v.picklist(['additions', 'deletions']), startLine: v.number(), endLine: v.number() }),
   /** The selection as `path:L10-L20`. */
-  label: string
-  turns: AiAskTurn[]
-}
+  label: v.string(),
+  turns: v.array(AiAskTurnSchema),
+})
+export type AiAskThread = v.InferOutput<typeof AiAskThreadSchema>

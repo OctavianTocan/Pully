@@ -7,10 +7,11 @@ import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResu
 import type { Storage } from 'unstorage'
 import { randomUUID } from 'node:crypto'
 import { defaultLlmSettings, ENGINE_SETTINGS, resolveModel } from '@pulls.review/core/analyze'
-import { archiveChat } from '@pulls.review/core/cache'
-import { AI_FOLLOW_UPS } from '@pulls.review/core/local-rpc'
+import { archiveChat, restoreChat as restoreArchivedChat } from '@pulls.review/core/cache'
+import { AI_FOLLOW_UPS, AiAskThreadSchema, AiAskTurnSchema, AiInboxChatSchema } from '@pulls.review/core/local-rpc'
 import { DEFAULT_LOCALE, isLocale } from '@pulls.review/core/locales'
 import { serializeRef } from '@pulls.review/core/types'
+import * as v from 'valibot'
 import { prepareJev } from '../jev-review'
 import { listMyPulls } from '../my-pulls'
 import { listAiJobs, runAiJob } from './jobs'
@@ -99,6 +100,46 @@ export interface TaskManager {
   inboxChat: () => Promise<AiInboxChat>
   /** Starts the inbox conversation afresh and stops an answer still coming. */
   clearInboxChat: () => Promise<void>
+  /** Stops an active reply and archives the current conversation before another chat may write. */
+  clearChat: (key: string) => Promise<{ cleared: number }>
+  /** Stops an active reply and restores an archived conversation under the same session lock. */
+  restoreChat: (key: string, id: string) => Promise<{ restored: true }>
+}
+
+/** Salvages only independently valid turns from an old or malformed storage record. */
+function storedTurns(value: unknown): AiAskTurn[] {
+  if (!Array.isArray(value))
+    return []
+  return value.flatMap((turn) => {
+    const parsed = v.safeParse(AiAskTurnSchema, turn)
+    return parsed.success ? [parsed.output] : []
+  })
+}
+
+/**
+ * @cc [owner:OctavianTocan,label:architecture] task-conversations-validate-storage
+ * Persisted question threads and inbox turns MUST be runtime-validated before use;
+ * malformed nested entries MUST NOT prevent valid conversation history from loading
+ * (engine-shapes-are-schemas; review finding 19, 15 Oct 2026).
+ */
+function storedThreads(value: unknown): AiAskThread[] {
+  if (!value || typeof value !== 'object' || !('threads' in value) || !Array.isArray(value.threads))
+    return []
+  return value.threads.flatMap((thread: unknown) => {
+    if (!thread || typeof thread !== 'object' || !('turns' in thread))
+      return []
+    const parsed = v.safeParse(AiAskThreadSchema, { ...thread, turns: storedTurns(thread.turns) })
+    return parsed.success ? [parsed.output] : []
+  })
+}
+
+function storedInbox(value: unknown): AiInboxChat {
+  if (!value || typeof value !== 'object')
+    return { turns: [] }
+  const turns = storedTurns('turns' in value ? value.turns : undefined)
+  const parsed = v.safeParse(AiInboxChatSchema, { ...value, turns })
+  // Invalid suggestions do not discard a valid conversation.
+  return parsed.success ? parsed.output : { turns }
 }
 
 function messageOf(error: unknown): string {
@@ -227,8 +268,7 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
   // Thread writes for one diff run one at a time, so a question and an answer never drop each other.
   function withThreads<T>(key: string, change: (threads: AiAskThread[]) => T): Promise<T> {
     const run = (threadLocks.get(key) ?? Promise.resolve()).then(async () => {
-      const stored = await storage.getItem<{ threads?: AiAskThread[] }>(`${THREADS_PREFIX}${key}`)
-      const threads = Array.isArray(stored?.threads) ? stored.threads : []
+      const threads = storedThreads(await storage.getItem<unknown>(`${THREADS_PREFIX}${key}`))
       const result = change(threads)
       await storage.setItem(`${THREADS_PREFIX}${key}`, { threads })
       return result
@@ -240,8 +280,7 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
   // Writes to the inbox conversation run one at a time, like a diff's threads.
   function withInbox<T>(change: (chat: AiInboxChat) => T): Promise<T> {
     const run = inboxLock.then(async () => {
-      const stored = await storage.getItem<AiInboxChat>(INBOX_CHAT)
-      const chat: AiInboxChat = { turns: Array.isArray(stored?.turns) ? stored.turns : [], suggestions: stored?.suggestions }
+      const chat = storedInbox(await storage.getItem<unknown>(INBOX_CHAT))
       const result = change(chat)
       await storage.setItem(INBOX_CHAT, chat)
       return result
@@ -597,7 +636,48 @@ export function createTaskManager({ cache, storage, runners }: { cache: CacheRep
     })
   }
 
-  return { start, wait, cancel, list, listAll, threads, closeThread, inboxChat, clearInboxChat }
+  // Cancellation is synchronous and the session turn is reserved before yielding. A chat already
+  // writing finishes before the archive mutation; a later start reads the newly selected session.
+  /**
+   * @cc [owner:OctavianTocan,label:architecture] task-chat-history-serializes-writers
+   * Clearing or restoring a chat MUST cancel active replies and wait for their session
+   * writes before selecting the conversation; later chats MUST read the selected session
+   * (recording 15 Oct 2026 15:37, L36; review finding 28).
+   */
+  function changeChat<T>(key: string, change: (session: LlmSession | undefined) => { session?: LlmSession, result: T }): Promise<T> {
+    for (const task of tasks.values()) {
+      if (task.info.key === key && task.info.kind === 'chat' && task.status === 'running')
+        cancel(task.info.id)
+    }
+    return withSession(key, async () => {
+      let result!: T
+      // Preanalysis and browser writes share the cache transaction even when they do not
+      // hold the task session lock. Read and transform their latest session atomically.
+      await cache.diffs.updateDiff(key, (entry) => {
+        const next = change(entry?.llmSession as LlmSession | undefined)
+        result = next.result
+        return entry && next.session ? { diff: entry.diff, headSha: entry.headSha, llmSession: next.session } : undefined
+      }, { viewed: false })
+      return result
+    })
+  }
+
+  function clearChat(key: string): Promise<{ cleared: number }> {
+    return changeChat(key, session => ({
+      session: session && archiveChat(session),
+      result: { cleared: session ? Math.max(0, session.messages.length - session.chatStartIndex) : 0 },
+    }))
+  }
+
+  function restoreChat(key: string, id: string): Promise<{ restored: true }> {
+    return changeChat(key, (session) => {
+      if (!session)
+        throw new Error('That chat is not in this pull request\'s history.')
+      return { session: restoreArchivedChat(session, id), result: { restored: true } }
+    })
+  }
+
+  return { start, wait, cancel, list, listAll, threads, closeThread, inboxChat, clearInboxChat, clearChat, restoreChat }
 }
 
 const USAGE_COUNTS = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'costUsd', 'durationMs'] as const

@@ -2,6 +2,7 @@ import type { Storage } from 'unstorage'
 import type { CritiqueResult } from '../types/analyze'
 import * as v from 'valibot'
 import { CritiqueResultSchema } from '../types/analyze'
+import { storageTransaction } from './transaction'
 
 const CRITIQUE_KEY_PREFIX = 'critique:'
 /** Critiques kept per diff; older ones are dropped as new ones are saved. */
@@ -17,6 +18,8 @@ export interface CritiqueCache {
   get: (scope: string, variant: string) => Promise<CritiqueResult | undefined>
   /** The newest critique saved for `scope`, optionally only among those of commit `headSha`. */
   latest: (scope: string, headSha?: string) => Promise<CritiqueResult | undefined>
+  /** The newest saved variant and its result, optionally limited to one head commit. */
+  latestEntry: (scope: string, headSha?: string) => Promise<{ variant: string, result: CritiqueResult } | undefined>
   /** Saves `result` under `variant`, replacing what that variant held. */
   set: (scope: string, variant: string, result: CritiqueResult) => Promise<void>
 }
@@ -44,10 +47,15 @@ export function createCritiqueCache(storage: Storage): CritiqueCache {
     async latest(scope, headSha) {
       return (await read(scope)).find(entry => headSha === undefined || entry.result.headSha === headSha)?.result
     },
-    async set(scope, variant, result) {
-      const entries = (await read(scope)).filter(entry => entry.variant !== variant)
-      const stored: StoredCritiques = { entries: [{ variant, result }, ...entries].slice(0, CRITIQUES_PER_DIFF) }
-      await storage.setItem(critiqueKey(scope), stored)
+    async latestEntry(scope, headSha) {
+      return (await read(scope)).find(entry => headSha === undefined || entry.result.headSha === headSha)
+    },
+    set(scope, variant, result) {
+      return storageTransaction(storage, critiqueKey(scope), async () => {
+        const entries = (await read(scope)).filter(entry => entry.variant !== variant)
+        const stored: StoredCritiques = { entries: [{ variant, result }, ...entries].slice(0, CRITIQUES_PER_DIFF) }
+        await storage.setItem(critiqueKey(scope), stored)
+      })
     },
   }
 }

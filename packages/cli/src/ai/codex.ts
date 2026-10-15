@@ -19,7 +19,7 @@ const STATE_DIR = join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 
  * @param server - The PR tool server Codex may call, if any.
  * @param options - How the run differs in a container.
  * @param options.stateDir - Where Codex keeps its logs database; a folder of the server's own by default.
- * @param options.shell - Whether Codex may run shell commands (read-only); on unless turned off.
+ * @param options.shell - Whether built-in filesystem tools may run; disabled for server jobs that use only PR tools.
  * @returns The argument list for `codex`.
  */
 export function codexArgs(request: AiJobRequest, answerPath: string, schemaPath?: string, server?: McpServerSpec, options: { stateDir?: string, shell?: boolean } = {}): string[] {
@@ -41,10 +41,10 @@ export function codexArgs(request: AiJobRequest, answerPath: string, schemaPath?
     '-c',
     `sqlite_home=${JSON.stringify(options.stateDir ?? STATE_DIR)}`,
   ]
-  // Codex's read-only sandbox cannot start inside a container (bubblewrap gets no namespaces there), so a
-  // shell command would only fail; without a shell, Codex works through the tool server as Claude does.
+  // Host read-only shells can still read server secrets; view_image also reads arbitrary local paths.
+  // Server jobs use their scoped MCP tools instead. This also avoids bubblewrap inside Docker.
   if (options.shell === false)
-    args.push('-c', 'features.shell_tool=false', '-c', 'features.unified_exec=false')
+    args.push('-c', 'features.shell_tool=false', '-c', 'features.unified_exec=false', '-c', 'features.view_image=false')
   if (request.model)
     args.push('--model', request.model)
   if (request.effort)

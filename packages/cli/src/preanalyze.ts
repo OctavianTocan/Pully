@@ -4,16 +4,15 @@ import type { AiPrContext, MyPull } from '@pulls.review/core/local-rpc'
 import type { DiffsPayload, GroupedResult } from '@pulls.review/core/types'
 import process from 'node:process'
 import { defaultLlmSettings, ENGINE_SETTINGS, resolveModel } from '@pulls.review/core/analyze'
-import { archiveChat, createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
+import { archiveChat } from '@pulls.review/core/cache'
 import { createGithubPullRequestSource } from '@pulls.review/core/github'
 import { DEFAULT_LOCALE } from '@pulls.review/core/locales'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
-import { createStorage } from 'unstorage'
 import { runAiJob } from './ai/jobs'
 import { resolveGithubToken } from './credentials'
 import { prepareJev } from './jev-review'
-import { listMyPulls, offerMyPullsStore } from './my-pulls'
-import { createRepoCacheDriver } from './storage'
+import { listMyPulls } from './my-pulls'
+import { serverSession } from './server-session'
 
 export const PREANALYZE_ENGINES = ['claude-code', 'codex', 'pi'] as const
 export type PreanalyzeEngine = typeof PREANALYZE_ENGINES[number]
@@ -79,6 +78,12 @@ export interface Preanalyzer {
  * @param deps Where pull requests, diffs and analyses come from, and the cache to fill.
  * @returns A pre-analyzer whose rounds the caller schedules.
  */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] preanalysis-commits-observed-head
+ * Preanalysis MUST save its diff, analysis and transcript only when the stored head has
+ * not changed since the run began. Its writes MUST NOT count as views
+ * (server-store-answers-first; review finding 4, 15 Oct 2026).
+ */
 export function createPreanalyzer(deps: PreanalyzerDeps): Preanalyzer {
   const { listPulls, cache, fetchDiff, analyze, log } = deps
   const controller = new AbortController()
@@ -91,13 +96,21 @@ export function createPreanalyzer(deps: PreanalyzerDeps): Preanalyzer {
     const { result, transcript } = await analyze(diff, pull, controller.signal)
     if (controller.signal.aborted)
       return
-    // Cached only once analyzed, so failed runs never push the user's own pages out of the LRU.
-    if (!reused)
-      await cache.diffs.putDiff(key, diff, diff.head?.sha ?? pull.headSha ?? '')
-    await cache.diffs.setAnalyzedResult(key, 'llm', result)
-    // A chat asked before any analysis goes to the diff's chat history rather than away (L36).
-    const previous = (await cache.diffs.get(key))?.llmSession as LlmSession | undefined
-    await cache.diffs.setLlmSession(key, { messages: transcript, chatStartIndex: transcript.length, archive: previous && archiveChat(previous).archive })
+    // Commit the diff, analysis and transcript together against the head observed before the run.
+    // A later head keeps its own analysis and conversation; stale output is never attached to it.
+    const saved = await cache.diffs.updateDiff(key, (existing) => {
+      if (existing && existing.headSha !== cached?.headSha)
+        return undefined
+      const previous = existing?.llmSession as LlmSession | undefined
+      return {
+        diff,
+        headSha: diff.head?.sha ?? pull.headSha ?? '',
+        analyzedBy: { ...existing?.analyzedBy, llm: result },
+        llmSession: { messages: transcript, chatStartIndex: transcript.length, archive: previous && archiveChat(previous).archive },
+      }
+    }, { viewed: false })
+    if (!saved)
+      return
     log(`pre-analyzed ${key}`)
   }
 
@@ -185,10 +198,7 @@ export async function startPreanalyze(options: PreanalyzeOptions): Promise<() =>
   // The CLI engines need no API key, so a model always resolves.
   const resolved = resolveModel(settings)!
 
-  const storage = createStorage({ driver: await createRepoCacheDriver(cwd) })
-  const cache = createCacheRepositories(storage, SERVER_CACHE_BUDGET)
-  // With `--no-warm` no client may have connected yet, so Jev's sorting would otherwise be kept in memory only.
-  offerMyPullsStore({ storage, diffs: cache.diffs })
+  const { storage, cache } = await serverSession(cwd)
   const preanalyzer = createPreanalyzer({
     listPulls: () => listMyPulls('open'),
     cache,

@@ -1,9 +1,11 @@
 import type { Commit, DiffsPayload } from '../types/diff'
 import type { DiffSource } from '../types/source'
 import type { LocalTarget } from './target'
-import { copyFile, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { copyFile, lstat, mkdtemp, open, realpath, rm } from 'node:fs/promises'
 import { devNull, tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
+import process from 'node:process'
 import { computeContentHash, parsePatch } from '../patch-parser'
 import { serializeRef } from '../types/source'
 import { git, tryGit } from './git'
@@ -101,6 +103,49 @@ function truncateLargeChunks(text: string): { text: string, truncated: Map<numbe
   return { text: kept.join(''), truncated }
 }
 
+/** The repository-only boundary also applies after symlinks have been resolved. */
+function isInside(root: string, path: string): boolean {
+  const inside = relative(root, path)
+  return !!inside && inside !== '..' && !inside.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !isAbsolute(inside)
+}
+
+async function readWorktreeFile(root: string, path: string): Promise<string | undefined> {
+  try {
+    const canonicalRoot = await realpath(root)
+    const requested = resolve(canonicalRoot, path)
+    if (!isInside(canonicalRoot, requested))
+      return undefined
+    const target = await realpath(requested)
+    if (!isInside(canonicalRoot, target))
+      return undefined
+    // Opening the resolved target with NOFOLLOW prevents a final symlink swap.
+    const file = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW)
+    try {
+      const stat = await file.stat()
+      if (!stat.isFile())
+        return undefined
+      if (process.platform === 'linux') {
+        // Check the opened descriptor, not the name: an ancestor can change between realpath and open.
+        if (!isInside(canonicalRoot, await realpath(`/proc/self/fd/${file.fd}`)))
+          return undefined
+      }
+      else {
+        // Portable fallback: require the resolved name still to identify the opened regular file.
+        const current = await lstat(target)
+        if (await realpath(target) !== target || !current.isFile() || current.dev !== stat.dev || current.ino !== stat.ino)
+          return undefined
+      }
+      return await file.readFile('utf8')
+    }
+    finally {
+      await file.close()
+    }
+  }
+  catch {
+    return undefined
+  }
+}
+
 export interface LocalSourceOptions {
   /** Any directory inside the repository. */
   cwd: string
@@ -155,13 +200,8 @@ export function createLocalSource({ cwd, target }: LocalSourceOptions): LocalSou
     },
     async loadFile(path, sha) {
       const repo = await root
-      if (sha.startsWith(WORKTREE_PREFIX)) {
-        // `path` may come from a browser over RPC: never read outside the repository.
-        const inside = relative(repo, resolve(repo, path))
-        if (!inside || inside.startsWith('..') || isAbsolute(inside))
-          return undefined
-        return readFile(join(repo, path), 'utf8').catch(() => undefined)
-      }
+      if (sha.startsWith(WORKTREE_PREFIX))
+        return readWorktreeFile(repo, path)
       if (await tryGit(repo, ['cat-file', '-e', `${sha}:${path}`]) === undefined)
         return undefined
       return git(repo, ['cat-file', 'blob', `${sha}:${path}`])

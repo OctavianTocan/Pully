@@ -1,3 +1,4 @@
+import type { LlmSession } from '@pulls.review/core/cache'
 import type { AiTaskSnapshot, MyPull } from '@pulls.review/core/local-rpc'
 import type { TaskRunners } from './tasks'
 import { createCacheRepositories } from '@pulls.review/core/cache'
@@ -94,6 +95,82 @@ describe('ai tasks', () => {
     const id = await tasks.start({ kind: 'tour', key: KEY, model, locale: 'en' })
     await settled(tasks.wait, id)
     expect((await tasks.wait(id, 0)).activities.find(activity => activity.id === 'tour-stop:0')?.text).toBe(stop)
+  })
+
+  it('salvages valid question turns and rejects malformed nested storage before preparing a task', async () => {
+    const { storage, cache, runners } = await setup()
+    const selection = { path: 'a.ts', side: 'additions' as const, startLine: 1, endLine: 1 }
+    await storage.setItem(`ask-threads:${KEY}`, { threads: [null, { id: 'broken', turns: [] }, {
+      id: 't',
+      label: 'a.ts:L1',
+      selection,
+      turns: [null, { question: 4 }, { question: 'Bad usage', usage: { costUsd: 'oops' } }, { question: 'Old', answer: 'Saved', outcome: 'done' }, { question: 'Interrupted', taskId: 'old-task' }],
+    }] })
+    const tasks = createTaskManager({ cache, storage, runners })
+    expect((await tasks.threads(KEY))[0]?.turns).toEqual([
+      { question: 'Old', answer: 'Saved', outcome: 'done' },
+      { question: 'Interrupted', taskId: 'old-task', outcome: 'failed', error: 'The server restarted before answering.' },
+    ])
+    await settled(tasks.wait, await tasks.start({ kind: 'ask', key: KEY, model, threadId: 't', selection, question: 'New' }))
+    expect(vi.mocked(runners.ask).mock.calls[0]?.[2].history).toEqual([{ question: 'Old', answer: 'Saved' }])
+    expect((await tasks.threads(KEY))[0]?.turns).toHaveLength(3)
+  })
+
+  it('salvages valid inbox turns through malformed nested storage and restart recovery', async () => {
+    const { storage, cache, runners } = await setup()
+    await storage.setItem('inbox-chat', { turns: [null, { question: 'Invalid pulls', pulls: [null] }, { question: 'Old', answer: 'Saved', outcome: 'done' }, { question: 'Interrupted', taskId: 'gone' }], suggestions: [8] })
+    const tasks = createTaskManager({ cache, storage, runners })
+    expect(await tasks.inboxChat()).toEqual({ turns: [
+      { question: 'Old', answer: 'Saved', outcome: 'done' },
+      { question: 'Interrupted', taskId: 'gone', outcome: 'failed', error: 'The server restarted before answering.' },
+    ] })
+    await settled(tasks.wait, await tasks.start({ kind: 'inbox', key: 'inbox', model, locale: 'en', question: 'New' }))
+    expect(vi.mocked(runners.inbox).mock.calls[0]?.[3].history).toEqual([{ question: 'Old', answer: 'Saved' }])
+  })
+
+  it('waits for a cancelled reply before clearing, then lets a new chat read the cleared session', async () => {
+    const pending = deferred<LlmSession>()
+    const chat = vi.fn<TaskRunners['chat']>().mockImplementationOnce(() => pending.promise).mockImplementation(async (_diff, _resolved, _locale, session) => ({ ...session!, messages: [...session!.messages, { role: 'user', content: 'After clear', timestamp: 4 }] }))
+    const { cache, tasks } = await setup({ chat })
+    await cache.diffs.setLlmSession(KEY, { messages: [{ role: 'user', content: 'Analysis', timestamp: 0 }, { role: 'user', content: 'Current', timestamp: 1 }], chatStartIndex: 1 })
+    const id = await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Slow' })
+    await vi.waitFor(() => expect(chat).toHaveBeenCalledOnce())
+    let cleared = false
+    const clearing = tasks.clearChat(KEY).then((result) => {
+      cleared = true
+      return result
+    })
+    const later = await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'After clear' })
+    expect(cleared).toBe(false)
+    pending.resolve({ messages: [{ role: 'user', content: 'Late reply', timestamp: 2 }], chatStartIndex: 0 })
+    expect(await clearing).toEqual({ cleared: 1 })
+    expect(await settled(tasks.wait, id)).toMatchObject({ status: 'cancelled' })
+    await settled(tasks.wait, later)
+    expect(chat.mock.calls[1]?.[3]?.messages).toEqual([{ role: 'user', content: 'Analysis', timestamp: 0 }])
+    expect((await cache.diffs.get(KEY))?.llmSession?.messages.map(message => message.content)).toEqual(['Analysis', 'After clear'])
+    expect((await cache.diffs.get(KEY))?.llmSession?.archive?.[0]?.messages).toEqual([{ role: 'user', content: 'Current', timestamp: 1 }])
+  })
+
+  it('waits for in-flight suggestions before restoring and never resurrects the outgoing conversation', async () => {
+    const pending = deferred<string[]>()
+    const suggest = vi.fn<TaskRunners['suggest']>(() => pending.promise)
+    const { cache, tasks } = await setup({ suggest })
+    await cache.diffs.setLlmSession(KEY, {
+      messages: [{ role: 'user', content: 'Analysis', timestamp: 0 }, { role: 'user', content: 'Outgoing', timestamp: 1 }],
+      chatStartIndex: 1,
+      archive: [{ id: 'saved', archivedAt: 2, messages: [{ role: 'user', content: 'Restored', timestamp: 2 }] }],
+    })
+    await tasks.start({ kind: 'chat', key: KEY, model, locale: 'en', text: 'Why?' })
+    await vi.waitFor(() => expect(suggest).toHaveBeenCalledOnce())
+    const restoring = tasks.restoreChat(KEY, 'saved')
+    pending.resolve(['Late question'])
+    expect(await restoring).toEqual({ restored: true })
+    const session = (await cache.diffs.get(KEY))?.llmSession
+    expect(session?.messages.map(message => message.content)).toEqual(['Analysis', 'Restored'])
+    expect(session?.suggestions).toBeUndefined()
+    expect(session?.archive).toHaveLength(1)
+    expect(session?.archive?.[0]?.messages.map(message => message.content)).toEqual(['Outgoing', 'Why?'])
+    await expect(tasks.restoreChat(KEY, 'missing')).rejects.toThrow('That chat is not in this pull request')
   })
 
   it('has Jev read the diff before a review of the whole of it, and not before a question', async () => {

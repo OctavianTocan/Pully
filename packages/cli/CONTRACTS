@@ -115,3 +115,26 @@ shown as "(High)") MUST offer that effort alone, as its default, and a run on it
 send a reasoning effort beside the id ("just assume that that's the reasoning effort, and
 when I select them, the only reasoning effort they have is that one", recording 15 Oct
 2026 15:37, L24).
+
+@cc [owner:OctavianTocan,label:security;product] server-posts-exact-critique
+Posting AI findings MUST retrieve the displayed variant and match its immutable
+content revision and expected head. Every selected ID MUST resolve before contacting
+GitHub; another result MUST NOT silently replace the selected review (repository
+review 15 Oct 2026, finding 8).
+
+@cc [owner:OctavianTocan,label:product] server-chat-state-is-complete
+The native saved chat response MUST return complete message text without silent
+truncation, including after clearing and restoring a conversation (repository review
+15 Oct 2026, finding 21; ask-streams-and-cites).
+
+@cc [owner:OctavianTocan,label:security] web-github-operations-stay-server-side
+The local web client MUST receive GitHub operation results, never the server's raw GitHub
+credential. Its GitHub transport MUST restrict requests to the GitHub API origin and MUST
+NOT follow redirects with server credentials (Tavi, 15 October 2026, fix the full-review
+findings, issue 5; github-token-stays-on-server).
+
+@cc [owner:OctavianTocan,label:architecture] web-cache-writes-preserve-server-state
+Local web diff mutations MUST execute through the shared server diff repository; raw
+browser writes MUST NOT replace its split metadata or body documents. Other browser
+cache writes MUST reject a changed last-observed value (Tavi, 15 October 2026, fix the
+full-review findings, issue 6; server-store-answers-first).

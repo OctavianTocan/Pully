@@ -87,7 +87,7 @@ describe('codex invocation', () => {
 
   it('in a container, keeps its state in the container\'s home and runs no shell', () => {
     const args = codexArgs({ engine: 'codex', system: 'S', prompt: 'P' }, '/tmp/answer.txt', undefined, undefined, { stateDir: '/home/agent/.cache/pulls-review/codex', shell: false })
-    expect(args).toEqual(expect.arrayContaining(['sqlite_home="/home/agent/.cache/pulls-review/codex"', 'features.shell_tool=false', 'features.unified_exec=false']))
+    expect(args).toEqual(expect.arrayContaining(['sqlite_home="/home/agent/.cache/pulls-review/codex"', 'features.shell_tool=false', 'features.unified_exec=false', 'features.view_image=false']))
     expect(args.at(-1)).toBe('-')
   })
 })

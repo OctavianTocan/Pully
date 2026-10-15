@@ -23,6 +23,7 @@ export interface GithubRequestOptions {
 export interface GithubClient {
   /** The token requests are sent with; `undefined` means anonymous. */
   token: () => Promise<string | undefined>
+  authenticated?: () => Promise<boolean>
   /** `path` is relative to the API root (`/repos/...`). Throws `GithubApiError` on a non-ok response. */
   request: (path: string, options?: GithubRequestOptions) => Promise<Response>
   /** Every item across the `per_page=100` pages, in order. */
@@ -57,6 +58,8 @@ export function createGithubClient(credentials?: Credentials): GithubClient {
   const token = async () => credentials?.githubToken()
 
   async function request(path: string, options: GithubRequestOptions = {}): Promise<Response> {
+    if (credentials?.githubRequest)
+      return credentials.githubRequest(path, options)
     const auth = await token()
     const headers: Record<string, string> = {
       'Accept': options.accept ?? 'application/vnd.github+json',
@@ -87,6 +90,7 @@ export function createGithubClient(credentials?: Credentials): GithubClient {
 
   return {
     token,
+    authenticated: () => credentials?.githubAuthenticated?.() ?? token().then(Boolean),
     request,
     async paginate<T>(path: string) {
       const separator = path.includes('?') ? '&' : '?'

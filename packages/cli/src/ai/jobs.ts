@@ -58,6 +58,8 @@ interface Job {
   error?: string
   usage?: AiUsage
   startedAt: number
+  /** Execution time excludes waiting for a concurrency slot. */
+  executionStartedAt?: number
   endedAt?: number
   stop?: (signal: NodeJS.Signals) => void
   settled: Promise<void>
@@ -231,6 +233,11 @@ interface Launch {
   answerPath: string
 }
 
+/**
+ * @cc [owner:OctavianTocan,label:security] jobs-codex-pr-tools-only
+ * Host and Docker Codex jobs MUST disable shell_tool, unified_exec and view_image; repository reads
+ * go through the PR MCP tools (agents-act-through-pr-tools; review finding 2, 15 Oct 2026).
+ */
 async function prepare(job: Job, dir: string, runtime: AgentRuntime): Promise<Launch> {
   const { request } = job
   const docker = runtime.kind === 'docker'
@@ -264,7 +271,7 @@ async function prepare(job: Job, dir: string, runtime: AgentRuntime): Promise<La
     await writeFile(schemaPath, JSON.stringify(strictSchema(request.schema)))
   const model = request.model ?? await defaultCodexModel()
   return {
-    args: codexArgs({ ...request, model }, answerPath, schemaPath, server, docker ? { stateDir: CONTAINER_CODEX_STATE, shell: false } : {}),
+    args: codexArgs({ ...request, model }, answerPath, schemaPath, server, { shell: false, ...(docker ? { stateDir: CONTAINER_CODEX_STATE } : {}) }),
     mounts,
     input: `${system}\n\n${request.prompt}`,
     parser: createCodexParser(sink, { schema: request.schema !== undefined, model }),
@@ -291,7 +298,7 @@ function overdue(job: Job, lastLine: number): string | undefined {
   const idle = Date.now() - lastLine
   if (idle > IDLE_LIMIT_MS[engine])
     return `${ENGINE_NAME[engine]} stopped responding (no activity for ${Math.round(idle / 60_000)}m).`
-  if (Date.now() - job.startedAt > TOTAL_LIMIT_MS)
+  if (job.executionStartedAt !== undefined && Date.now() - job.executionStartedAt > TOTAL_LIMIT_MS)
     return `${ENGINE_NAME[engine]} did not finish within ${TOTAL_LIMIT_MS / 60_000}m.`
 }
 
@@ -400,13 +407,21 @@ async function executePi(job: Job): Promise<Ending> {
   }
 }
 
+/**
+ * @cc [owner:OctavianTocan,label:architecture] jobs-release-acquired-slots
+ * A job that acquired a concurrency slot MUST release it and settle even if temporary
+ * directory creation fails. Its execution timeout MUST exclude queue time
+ * (review findings 3 and 18, 15 Oct 2026).
+ */
 async function execute(job: Job): Promise<void> {
   const { engine } = job.request
   const release = await acquire()
   if (job.status !== 'running')
     return release()
-  const dir = await mkdtemp(join(tmpdir(), 'pulls-review-ai-'))
+  job.executionStartedAt = Date.now()
+  let dir: string | undefined
   try {
+    dir = await mkdtemp(join(tmpdir(), 'pulls-review-ai-'))
     put(job, { id: 'start', title: `Starting ${ENGINE_NAME[engine]}…` })
     const ending = engine === 'pi' ? await executePi(job) : await executeCli(job, engine, dir)
     if (ending)
@@ -418,7 +433,8 @@ async function execute(job: Job): Promise<void> {
   finally {
     job.stop = undefined
     release()
-    await rm(dir, { recursive: true, force: true }).catch(() => {})
+    if (dir)
+      await rm(dir, { recursive: true, force: true }).catch(() => {})
   }
 }
 

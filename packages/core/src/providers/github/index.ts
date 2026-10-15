@@ -1,7 +1,7 @@
 import type { Credentials, DiffSource, SourceRef } from '../../types/source'
 import type { GithubTokenMeta } from './token-meta'
 import { serializeRef } from '../../types/source'
-import { fetchDiffText, fetchFileContentAtRef, fetchFileContentWithin, fetchPullRequest, fetchPullRequestCommits, fetchPullRequestFiles } from './api'
+import { fetchCompare, fetchDiffText, fetchFileContentAtRef, fetchFileContentWithin, fetchPullRequest, fetchPullRequestCommits, fetchPullRequestFiles } from './api'
 import { createGithubClient } from './client'
 import { normalizePullRequest } from './normalize'
 import { createGithubCommitSource, createGithubCompareSource } from './refs'
@@ -33,14 +33,23 @@ export function createGithubPullRequestSource({ owner, repo, number }: { owner: 
         fetchPullRequestFiles(client, owner, repo, number),
         fetchPullRequestCommits(client, owner, repo, number),
       ])
-      return normalizePullRequest(owner, repo, number, pr, files, commits, {
-        loadDiffText: () => fetchDiffText(client, `/repos/${owner}/${repo}/pulls/${number}`),
+      const comparison = await fetchCompare(client, owner, repo, pr.base.sha, pr.head.sha)
+      return normalizePullRequest(owner, repo, number, pr, comparison.merge_base_commit.sha, files, commits, {
+        loadDiffText: () => fetchDiffText(client, `/repos/${owner}/${repo}/compare/${pr.base.sha}...${pr.head.sha}`),
         loadFileContent: (path, ref, maxBytes) => fetchFileContentWithin(client, owner, repo, path, ref, maxBytes),
       })
     },
     fingerprint: async () => (await fetchPullRequest(client, owner, repo, number)).head.sha,
     loadFile: (path, sha) => fetchFileContentAtRef(client, owner, repo, path, sha),
     async viewer() {
+      if (credentials?.githubRequest) {
+        if (!await credentials.githubAuthenticated?.())
+          return undefined
+        const response = await client.request('/user')
+        const user = await response.json() as { login: string }
+        const scopes = (response.headers.get('x-oauth-scopes') ?? '').split(',').map(scope => scope.trim()).filter(Boolean)
+        return { login: user.login, canWrite: scopesAllowWrite(scopes) }
+      }
       const token = await client.token()
       const meta = token ? await tokenMeta(token) : undefined
       return meta && { login: meta.login, canWrite: scopesAllowWrite(meta.scopes) }

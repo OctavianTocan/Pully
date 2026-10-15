@@ -147,7 +147,7 @@ object Updates {
                     withContext(Dispatchers.Main) { available = manifest }
                     UpdatePrefs.saveOffer(app, manifest)
                     var shown = -1
-                    val apk = updater.download(manifest, config.headers()) { read, total ->
+                    val apk = updater.download(config.url, manifest, config.headers()) { read, total ->
                         // The ring moves in whole percents, so the main thread is not asked to redraw for every buffer.
                         val percent = if (total > 0) (read * 100 / total).toInt() else -1
                         if (percent != shown) {

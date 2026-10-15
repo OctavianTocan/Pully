@@ -24,6 +24,7 @@ export * from './cache/pull-request-list-cache'
 export * from './cache/review-marks'
 export * from './cache/schema'
 export * from './cache/tour-cache'
+export * from './cache/transaction'
 
 export interface CacheRepositories {
   diffs: DiffCache
@@ -41,7 +42,7 @@ export interface CacheRepositories {
  * each one enforces its own budget, so one built with the browser-sized default would evict
  * the server's entries and prune their review marks.
  */
-export const SERVER_CACHE_BUDGET: CacheBudget = { maxBytes: 1024 * 1024 * 1024, maxEntries: 400 }
+export const SERVER_CACHE_BUDGET: CacheBudget = { maxBytes: 1024 * 1024 * 1024, maxEntries: 400, fileContentMaxBytes: 256 * 1024 * 1024 }
 
 /** Every collection shares one storage by key prefix (`pr-meta:*`, `review:*`, ...). */
 export function createCacheRepositories(storage: Storage, budget?: CacheBudget): CacheRepositories {
@@ -49,7 +50,7 @@ export function createCacheRepositories(storage: Storage, budget?: CacheBudget):
   return {
     diffs: createDiffCache(storage, reviewMarks, budget),
     reviewMarks,
-    fileContents: createFileContentCache(storage),
+    fileContents: createFileContentCache(storage, { maxBytes: budget?.fileContentMaxBytes }),
     pullRequestLists: createPullRequestListCache(storage),
     critiques: createCritiqueCache(storage),
     tours: createTourCache(storage),

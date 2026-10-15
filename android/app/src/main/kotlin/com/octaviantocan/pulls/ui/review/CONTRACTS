@@ -401,3 +401,13 @@ to 14:33 and 15:35 to 15:48; L27, L30).
 @cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
 A file or line the Tour names opens that one file's diff on a sheet over the Tour, at the
 line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28).
+
+@cc [owner:OctavianTocan,label:product] diff-highlight-respects-server-batches
+Highlight requests MUST contain at most 400 lines, matching the server limit. Missing
+response rows MUST remain uncached so later attempts can color them (repository review
+15 Oct 2026, finding 12).
+
+@cc [owner:OctavianTocan,label:design] pr-metadata-stays-one-line
+The repository, number, author and age MUST remain on one line. Variable names MUST
+yield at their ends while number and age retain their width (DESIGN.md rule 26;
+repository review 15 Oct 2026, finding 13).

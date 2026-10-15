@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -158,5 +158,34 @@ describe('local source', () => {
     const sha = commit('init')
     expect(await createLocalSource({ cwd: repo, target: '' }).loadFile!('missing.ts', sha)).toBeUndefined()
     expect(readFileSync(join(repo, 'a.ts'), 'utf8')).toBe('one\n')
+  })
+})
+
+describe('worktree source containment', () => {
+  it('rejects escaping file and directory symlinks, including an arbitrary worktree fingerprint', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'pulls-review-outside-'))
+    try {
+      writeFileSync(join(outside, 'secret.txt'), 'private outside content')
+      symlinkSync(join(outside, 'secret.txt'), join(repo, 'escape.txt'))
+      symlinkSync(outside, join(repo, 'escape-dir'), 'dir')
+      const source = createLocalSource({ cwd: repo, target: '' })
+      expect(await source.loadFile('escape.txt', 'worktree:anything')).toBeUndefined()
+      expect(await source.loadFile('escape-dir/secret.txt', 'worktree:anything')).toBeUndefined()
+      expect(await source.loadFile(join(outside, 'secret.txt'), 'worktree:anything')).toBeUndefined()
+    }
+    finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('reads ordinary files and symlinks whose canonical targets stay inside the checkout', async () => {
+    write('dir/file.txt', 'inside')
+    write('..allowed.txt', 'also inside')
+    symlinkSync('dir/file.txt', join(repo, 'link.txt'))
+    symlinkSync('dir', join(repo, 'link-dir'), 'dir')
+    const source = createLocalSource({ cwd: repo, target: '' })
+    for (const path of ['dir/file.txt', 'link.txt', 'link-dir/file.txt'])
+      expect(await source.loadFile(path, 'worktree:anything')).toBe('inside')
+    expect(await source.loadFile('..allowed.txt', 'worktree:anything')).toBe('also inside')
   })
 })

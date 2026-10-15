@@ -69,3 +69,44 @@ The chat instructions MUST offer answers the same native forms a tour stop has, 
 same fence syntax word for word (`NATIVE_FORMS`), prose first and at most two visuals in
 one answer ("so it can build interfaces that are as clean as it wants right here too to
 reply to me", recording 15 Oct 2026 15:37, L34).
+
+@cc [owner:OctavianTocan,label:security] engine-worktree-reads-stay-in-repository
+Working-tree reads MUST resolve the repository and target before checking containment,
+reject escaping file or directory symlinks, and check the opened descriptor where the OS
+supports it (requested review fixes, 15 Oct 2026, finding #9).
+
+@cc [owner:OctavianTocan,label:architecture] engine-pr-old-side-is-merge-base
+A GitHub PR payload's base SHA and missing-patch reconstruction MUST use the merge base
+of the captured base and head commits. Raw fallback diffs MUST use that same captured
+comparison; the base branch name stays separate (requested review fixes, 15 Oct 2026, #10).
+
+@cc [owner:OctavianTocan,label:product] engine-restoring-chat-preserves-capacity
+Restoring an archived chat MUST remove it from the archive before archiving the current
+chat and applying the capacity limit, preserving every unrelated chat that fits in the
+final archive (requested review fixes, 15 Oct 2026, #23).
+
+@cc [owner:OctavianTocan,label:architecture] engine-critique-writes-are-serialized
+Concurrent critique writes for one diff scope MUST serialize their entire read, variant
+replacement and write across repositories sharing storage, so distinct variants survive
+(requested review fixes, 15 Oct 2026, #24).
+
+@cc [owner:OctavianTocan,label:architecture] engine-posix-headers-respect-hunks
+Plain unified diffs MUST recognize paired file headers only outside declared hunk line
+counts; deletion lines beginning with three hyphens remain source text (requested review
+fixes, 15 Oct 2026, #25).
+
+@cc [owner:OctavianTocan,label:architecture] engine-fallback-diffs-parse-once
+One GitHub files listing MUST share one lazily parsed raw fallback diff and path lookup
+between all files missing patches. An unavailable raw diff still permits bounded self-diff
+fallback (requested review fixes, 15 Oct 2026, #26).
+
+@cc [owner:OctavianTocan,label:product] engine-large-diff-reads-have-continuations
+A bounded read_diffs response MUST provide a usable continuation for omitted file text
+and MUST NOT mark a path completely read until all its rendered ranges were returned.
+Context compaction MUST reset both completed paths and partial ranges (requested review
+fixes, 15 Oct 2026, #29).
+
+@cc [owner:OctavianTocan,label:architecture] engine-file-content-cache-is-bounded
+Full-file contents MUST have a separate bounded byte and entry-count LRU budget, and a
+diff eviction MUST remove all of that diff's contents. Optional content-cache quota write
+failures MUST NOT fail a successful source load (requested review fixes, 15 Oct 2026, #30).

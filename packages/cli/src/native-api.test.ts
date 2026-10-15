@@ -1,10 +1,13 @@
-import type { DiffsPayload, FileChange } from '@pulls.review/core/types'
+import type { CritiqueResult, DiffsPayload, FileChange } from '@pulls.review/core/types'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
+import { serializeRef } from '@pulls.review/core/types'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { handleNativeRequest } from './native-api'
+import { handleNativeRequest, invokeValidatedRpc } from './native-api'
+import { critiqueRevision } from './native-review'
 import { storeOverview } from './pr-store'
 import { serverSession } from './server-session'
 import { FILE_PATCH_BUDGET } from './stored-diff'
@@ -164,5 +167,103 @@ describe('past versions', () => {
     finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe('native RPC validation', () => {
+  it('rejects invalid task arguments before invoking the handler and preserves schema transforms', async () => {
+    const definition = (await serverSession(repo)).functions.find(fn => fn.name === LOCAL_RPC.aiTaskStart)!
+    const handler = vi.spyOn(definition, 'handler').mockResolvedValue('validated-task')
+    const base = { kind: 'inbox', key: 'inbox', model: { engine: 'codex' }, locale: 'en', question: 'Why?' }
+    try {
+      for (const args of [
+        { ...base, model: { engine: 'not-an-engine' } },
+        { ...base, key: KEY },
+        { ...base, question: 'x'.repeat(4001) },
+        { ...base, kind: 'ask', key: KEY, threadId: 't1', selection: { path: 'a.ts', side: 'additions', startLine: 1, endLine: 1 }, question: '   ' },
+      ]) {
+        expect((await call(LOCAL_RPC.aiTaskStart, args)).status).toBe(400)
+      }
+      expect(handler).not.toHaveBeenCalled()
+      const args = { ...base, kind: 'ask', key: KEY, threadId: 't1', selection: { path: 'a.ts', side: 'additions', startLine: 1, endLine: 1 }, question: '  Why this line?  ' }
+      expect(await call(LOCAL_RPC.aiTaskStart, args)).toEqual({ status: 200, body: { result: 'validated-task' } })
+      expect(handler).toHaveBeenCalledWith({ kind: 'ask', key: KEY, threadId: 't1', model: args.model, selection: args.selection, question: 'Why this line?' })
+    }
+    finally {
+      handler.mockRestore()
+    }
+  })
+
+  it('checks declared return values as well', async () => {
+    const definition = (await serverSession(repo)).functions.find(fn => fn.name === LOCAL_RPC.aiTaskStart)!
+    const handler = vi.spyOn(definition, 'handler').mockResolvedValue(123 as never)
+    try {
+      await expect(invokeValidatedRpc(definition, [{ kind: 'chat', key: KEY, model: { engine: 'codex' }, locale: 'en', text: 'hi' }])).rejects.toThrow('invalid result')
+    }
+    finally {
+      handler.mockRestore()
+    }
+  })
+})
+
+describe('complete saved chat', () => {
+  it('returns an answer beyond 4,000 characters, including after archive and restore', async () => {
+    const diffs = (await serverSession(repo)).cache.diffs
+    const answer = `Full answer\n${'x'.repeat(6000)}\nTail marker and closing fence: \`\`\``
+    await diffs.setLlmSession(KEY, { messages: [{ role: 'user', content: 'Explain it', timestamp: 101 }, { role: 'assistant', content: [{ type: 'text', text: answer }], timestamp: 102 }], chatStartIndex: 0 } as never)
+    expect((await call('review-state', { key: KEY })).body.result.chat[1].text).toBe(answer)
+    await call('chat-clear', { key: KEY })
+    const history = (await call('chat-history', { key: KEY })).body.result.chats
+    await call('chat-restore', { key: KEY, id: history[0].id })
+    expect((await call('review-state', { key: KEY })).body.result.chat[1].text).toBe(answer)
+  })
+})
+
+describe('posting an exact critique', () => {
+  const first: CritiqueResult = { summary: 'Original summary', findings: [{ id: 'anchor', path: 'src/small.ts', side: 'additions', line: 1, severity: 'bug', title: 'Original', body: 'Original finding' }], dropped: 0, headSha: 'h1', engine: 'codex', generatedAt: '2026-10-15T10:00:00Z' }
+  const scope = serializeRef(DIFF.ref)
+  const selected = { key: KEY, variant: 'first', headSha: 'h1', revision: critiqueRevision(first), ids: ['anchor'] }
+
+  beforeEach(async () => {
+    const cache = (await serverSession(repo)).cache
+    await cache.diffs.putDiff(KEY, DIFF, 'h1')
+    await cache.critiques.set(scope, 'first', first)
+  })
+
+  it('returns the variant and content revision with saved state', async () => {
+    expect((await call('review-state', { key: KEY })).body.result.critique).toMatchObject({ ...first, variant: 'first', revision: selected.revision })
+  })
+
+  it('posts the selected variant even when a newer lens has the same finding ID', async () => {
+    const newer = { ...first, summary: 'New summary', findings: [{ ...first.findings[0]!, body: 'Replacement finding' }] }
+    await (await serverSession(repo)).cache.critiques.set(scope, 'second', newer)
+    github.mockImplementation(async (url, init) => {
+      if (String(url).endsWith('/graphql'))
+        return Response.json({ data: { repository: null } })
+      if (init?.method === 'POST')
+        return Response.json({ id: 10 })
+      return Response.json([])
+    })
+    expect(await call('critique-post', selected)).toEqual({ status: 200, body: { result: { posted: ['anchor'] } } })
+    const posted = github.mock.calls.find(([url, init]) => String(url).includes('/reviews') && init?.method === 'POST')
+    const body = JSON.parse(String(posted?.[1]?.body))
+    expect(body.commit_id).toBe('h1')
+    expect(body.comments[0].body).toContain('Original finding')
+    expect(body.comments[0].body).not.toContain('Replacement finding')
+  })
+
+  it('rejects a replaced revision before any GitHub call', async () => {
+    await (await serverSession(repo)).cache.critiques.set(scope, 'first', { ...first, findings: [{ ...first.findings[0]!, body: 'Changed after display' }] })
+    expect((await call('critique-post', selected)).status).toBe(400)
+    expect(github).not.toHaveBeenCalled()
+  })
+
+  it('rejects a changed head, missing variant, missing identity or unmatched selection before GitHub', async () => {
+    for (const args of [{ ...selected, headSha: 'new-head' }, { ...selected, variant: 'missing' }, { key: KEY, ids: ['anchor'] }, { ...selected, ids: ['anchor', 'missing'] }]) {
+      expect((await call('critique-post', args)).status).toBe(400)
+    }
+    await (await serverSession(repo)).cache.diffs.putDiff(KEY, { ...DIFF, head: { sha: 'new-head', ref: 'feature' } }, 'new-head')
+    expect((await call('critique-post', selected)).status).toBe(400)
+    expect(github).not.toHaveBeenCalled()
   })
 })

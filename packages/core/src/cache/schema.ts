@@ -25,7 +25,7 @@ const ArchivedChatSchema = v.object({
   suggestions: v.optional(v.array(v.string())),
 })
 
-const LlmSessionSchema = v.object({
+export const LlmSessionSchema = v.object({
   messages: v.array(v.looseObject({ role: v.string() })),
   chatStartIndex: v.number(),
   suggestions: v.optional(v.array(v.string())),

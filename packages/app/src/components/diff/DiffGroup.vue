@@ -58,6 +58,7 @@ const labelFontSize = useFitText(labelBox, labelText, () => props.group.label, 1
 const isChapter = computed(() => !props.parentLabel && props.group.children.length > 0)
 
 const childEls = new Map<string, Element>()
+const groupEl = ref<HTMLElement>()
 function setChildEl(key: string, instance: ComponentPublicInstance | null) {
   if (instance)
     childEls.set(key, instance.$el)
@@ -68,9 +69,14 @@ function scrollToChild(key: string) {
   childEls.get(key)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+function scrollToElement(id: string) {
+  const root = groupEl.value?.getRootNode() as Document | ShadowRoot | undefined
+  root?.getElementById?.(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 function navigateToParent() {
   if (props.parentKey)
-    document.getElementById(`group-${props.parentKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollToElement(`group-${props.parentKey}`)
 }
 
 const progress = computed(() => totalFiles.value === 0 ? 1 : reviewedCount.value / totalFiles.value)
@@ -88,13 +94,13 @@ function setFileDiffRef(sha: string, el: InstanceType<typeof FileDiff> | null) {
 function navigateToFile(sha: string) {
   fileDiffRefs.get(sha)?.expand()
   nextTick(() => {
-    document.getElementById(`file-${sha}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    scrollToElement(`file-${sha}`)
   })
 }
 </script>
 
 <template>
-  <section :id="`group-${group.key}`" class="scroll-mt-[var(--diffs-header-height)]">
+  <section :id="`group-${group.key}`" ref="groupEl" class="scroll-mt-[var(--diffs-header-height)]">
     <header v-if="isChapter" class="flex flex-col gap-2 p-3">
       <div class="w-full flex items-center">
         <button

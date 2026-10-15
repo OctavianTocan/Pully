@@ -76,7 +76,7 @@ object PastVersions {
     suspend fun refresh(context: Context): List<PastVersion>? = withContext(Dispatchers.IO) {
         runCatching {
             val config = ServerStore.load(context)
-            val text = AppUpdater(context).get("${config.url.trimEnd('/')}/android/past/index.json", config.headers())
+            val text = AppUpdater(context).get(config.url, "android/past/index.json", config.headers())
             parsePastVersions(text, AppVersion.code(context)).also { prefs(context).edit().putString("index", text).apply() }
         }.onFailure { Log.w("pulls", "past versions list failed", it) }.getOrNull()
     }
@@ -133,7 +133,7 @@ object PastVersions {
                     val updater = AppUpdater(app)
                     val url = "${config.url.trimEnd('/')}/android/past/${version.versionName}.apk"
                     var shown = -1
-                    val apk = updater.download(url, version.sha256, config.headers(), File(app.cacheDir, "pulls-past.apk")) { read, total ->
+                    val apk = updater.download(config.url, url, version.sha256, config.headers(), File(app.cacheDir, "pulls-past.apk")) { read, total ->
                         val percent = if (total > 0) (read * 100 / total).toInt() else -1
                         if (percent != shown) {
                             shown = percent
