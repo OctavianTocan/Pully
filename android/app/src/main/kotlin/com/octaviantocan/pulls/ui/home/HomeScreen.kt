@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.home
 
+import kotlinx.coroutines.CoroutineScope
 import com.octaviantocan.pulls.data.PullSizes
 import android.content.Context
 import androidx.compose.animation.core.LinearEasing
@@ -121,6 +122,7 @@ import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.Toaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
@@ -347,21 +349,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onRepo = { owner, name -> nav.openRepoTours(owner, name) },
                         folded = if (needle.isEmpty()) layout.folded else emptySet(),
                         onFold = if (needle.isEmpty()) layout::toggle else null,
-                        onDismiss = { entry ->
-                            // A tour still being written is stopped; a finished one leaves the list (it stays saved on the server).
-                            val serverKey = pullKey(entry.owner, entry.repo, entry.number)
-                            val running = runningTaskId(workTasks, serverKey, "tour")
-                            val taskIds = workTasks.filter { it.kind == "tour" && it.key == serverKey }.map { it.id }
-                            if (running != null) {
-                                scope.launch { repo.cancelTask(running) }
-                                // A tour stopped before it had a stop has nothing to list; one that had keeps its row.
-                                if (entry.stops > 0) tours.upsert(entry.copy(writing = false)) else tours.dismiss(entry.key, taskIds)
-                                toaster.show("Stopped the tour for #${entry.number}")
-                            } else {
-                                tours.dismiss(entry.key, taskIds)
-                                toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
-                            }
-                        },
+                        onDismiss = { entry -> dismissTour(entry, workTasks, tours, repo, scope, toaster) },
                     )
                 }
             }
@@ -952,6 +940,25 @@ internal fun ToursList(
             }
         }
     }
+    }
+}
+
+/**
+ * A swipe left on a tour: one still being written is stopped, a finished one leaves the list (it stays saved on the
+ * server). Its tasks are recorded as dismissed, so the server's task list does not bring the row back.
+ */
+internal fun dismissTour(entry: TourEntry, workTasks: List<WorkTask>, tours: TourIndex, repo: Repo, scope: CoroutineScope, toaster: Toaster) {
+    val serverKey = pullKey(entry.owner, entry.repo, entry.number)
+    val running = runningTaskId(workTasks, serverKey, "tour")
+    val taskIds = workTasks.filter { it.kind == "tour" && it.key == serverKey }.map { it.id }
+    if (running != null) {
+        scope.launch { repo.cancelTask(running) }
+        // A tour stopped before it had a stop has nothing to list; one that had keeps its row.
+        if (entry.stops > 0) tours.upsert(entry.copy(writing = false)) else tours.dismiss(entry.key, taskIds)
+        toaster.show("Stopped the tour for #${entry.number}")
+    } else {
+        tours.dismiss(entry.key, taskIds)
+        toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
     }
 }
 

@@ -184,8 +184,9 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       returns: v.unknown(),
       handler: async ({ state, revalidate }) => {
         const snapshot = cachedMyPulls(state, revalidate)
-        // The repositories in the Inbox are the ones the phone opens next, so their lists are fetched ahead (H14).
-        if (snapshot && state === 'open')
+        // The repositories in the Inbox are the ones the phone opens next, so their lists are fetched ahead (H14). A read
+        // that must not reach GitHub (`revalidate: false`) does not start that either.
+        if (snapshot && state === 'open' && revalidate !== false)
           warmRepoPulls(snapshot.pulls)
         return snapshot
       },

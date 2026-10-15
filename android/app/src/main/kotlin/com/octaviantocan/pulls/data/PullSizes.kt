@@ -14,9 +14,10 @@ object PullSizes {
 
     private fun key(owner: String, repo: String, number: Int) = "$owner/$repo#$number".lowercase()
 
+    /** A list that does not know the size forgets the old one, which may be an earlier revision's. */
     fun put(owner: String, repo: String, number: Int, additions: Int?, deletions: Int?, files: Int?) {
-        if (additions == null || deletions == null) return
-        sizes[key(owner, repo, number)] = Size(additions, deletions, files)
+        val key = key(owner, repo, number)
+        if (additions == null || deletions == null) sizes.remove(key) else sizes[key] = Size(additions, deletions, files)
     }
 
     fun get(owner: String, repo: String, number: Int): Size? = sizes[key(owner, repo, number)]

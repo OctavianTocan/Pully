@@ -177,6 +177,11 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
         if (items.isEmpty()) FirstPages.read(dir, owner, name)?.let { kept -> if (items.isEmpty()) { items = kept.items; totalCount = kept.totalCount; next = kept.next } }
         if (items.isEmpty()) isLoading = true
         try { fetchFirstPage() } finally { isLoading = false }
+        followOldAnswer()
+    }
+
+    /** The server answered from a copy older than a minute: ask again for GitHub's own, quietly. */
+    private suspend fun followOldAnswer() {
         if (answeredOld && error == null) {
             fetchFirstPage(fresh = true)
             refreshes++
@@ -191,6 +196,7 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
     suspend fun refresh() {
         fetchFirstPage()
         refreshes++
+        followOldAnswer()
     }
 
     suspend fun loadMore() {
@@ -236,6 +242,9 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
     var tab by rememberSaveable { mutableIntStateOf(if (startOnTours) 1 else 0) }
     val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
     val toaster = LocalToaster.current
+    // The server's tasks, so removing a tour here records them as dismissed and stops one still being written.
+    val server = remember { Repo(context) }
+    val workTasks = rememberWork(server)
     LaunchedEffect(store) { store.load() }
     // Refreshing is the page's own job and quiet: on open, and again when the app comes back to the front.
     var away by remember { mutableStateOf(false) }
@@ -289,8 +298,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                         (query.isBlank() || "${it.prTitle} #${it.number}".lowercase().contains(query.trim().lowercase()))
                 }
                 RepoTours(mine, now, onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) }) { entry ->
-                    tours.dismiss(entry.key, emptyList())
-                    toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
+                    dismissTour(entry, workTasks, tours, server, scope, toaster)
                 }
                 return@SidePages
             }
