@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 internal fun BookRoute(id: String, book: BookData) {
     when (id) {
         "foundations/colors" -> ColorsPage(book)
+        "foundations/themes" -> ThemesPage()
         "foundations/typography" -> TypographyPage(book)
         "foundations/shapes" -> ShapesPage(book)
         "foundations/spacing" -> SpacingPage(book)

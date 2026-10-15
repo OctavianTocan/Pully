@@ -142,6 +142,7 @@ internal class EngineModels(context: Context) {
 /** The pages of the Settings sheet. Each but the first slides in inside the same sheet and goes back to its [parent] (rule 78). */
 internal enum class SettingsPage(val parent: SettingsPage?) {
     Main(null),
+    Theme(Main),
     Language(Main),
     Advanced(Main),
     Server(Advanced),
@@ -155,6 +156,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
 @Composable
 internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Main -> t("common.settings")
+    SettingsPage.Theme -> t("settings.colorTheme")
     SettingsPage.Language -> t("settings.language")
     SettingsPage.Advanced -> "Advanced"
     SettingsPage.Server -> "Server"
@@ -167,7 +169,7 @@ internal fun SettingsPage.title(): String = when (this) {
 
 /**
  * Settings, as a sheet like the rest of the app: grouped white cards on paper, one row for each choice.
- * Language, the code font, the sound, the model, its effort and Advanced (the server and the UI Book) are pages inside this one
+ * The colour theme, language, the code font, the sound, the model, its effort and Advanced (the server and the UI Book) are pages inside this one
  * sheet (rule 78). Rows carry no explanations under them: a row says what it is, and its page says the rest (H8).
  * A setting that changes how something looks shows the result (rule 81): the diff layout as two small diffs,
  * the code size and font as a sample line.
@@ -186,6 +188,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
     val settings = AppSettings.get(LocalContext.current)
     when (page) {
         SettingsPage.Main -> MainPage(nav, settings, open = onPage)
+        SettingsPage.Theme -> ColorThemePage(settings)
         SettingsPage.Language -> LanguagePage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Advanced -> AdvancedPage(nav, open = onPage)
         SettingsPage.Server -> ServerPage()
@@ -236,7 +239,6 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     val language = Messages.LOCALES.firstOrNull { it.first == settings.locale }?.second ?: settings.locale
     val scope = rememberCoroutineScope()
     val moving = rememberMotionEnabled()
-    val dark = c.dark
     val systemDark = isSystemInDarkTheme()
     val zoomIndex = ZOOMS.indexOfFirst { kotlin.math.abs(settings.codeZoom - it.second) < 0.04f }.coerceAtLeast(0)
 
@@ -250,13 +252,20 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
                     // The new look wipes in from the top corner on the side of the choice: Dark from the right (H5). System
                     // while the phone is already in the look on screen changes nothing, so nothing wipes (J2).
                     val next = when (themes[picked]) { "dark" -> true; "light" -> false; else -> systemDark }
-                    scope.launch { ThemeWipe.run(fromRight = picked == 2, motion = moving, changes = next != dark) { settings.updateTheme(themes[picked]) } }
+                    // A theme with one look keeps it either way, so only a palette that differs wipes.
+                    val changes = com.octaviantocan.pulls.ui.design.ColorThemes.of(settings.colorTheme).colors(next) != c
+                    scope.launch { ThemeWipe.run(fromRight = picked == 2, motion = moving, changes = changes) { settings.updateTheme(themes[picked]) } }
                 },
                 Modifier.fillMaxWidth(),
             )
         }
         SheetCard {
-            SheetRow(t("settings.language"), { open(SettingsPage.Language) }, first = true, iconless = true) {
+            // The colour theme (K18): its name, and its page lists every theme with a preview.
+            SheetRow(t("settings.colorTheme"), { open(SettingsPage.Theme) }, first = true, iconless = true) {
+                Text(com.octaviantocan.pulls.ui.design.ColorThemes.of(settings.colorTheme).name, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            SheetRow(t("settings.language"), { open(SettingsPage.Language) }, iconless = true) {
                 Text(language, style = PullsType.sm, color = c.muted)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }

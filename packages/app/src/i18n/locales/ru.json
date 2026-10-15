@@ -39,6 +39,7 @@
     "escape": "Leave the text field or clear the selection",
     "settings": "Open settings",
     "theme": "Toggle dark mode",
+    "colorTheme": "Сменить тему",
     "nextFile": "Next file",
     "prevFile": "Previous file",
     "nextHunk": "Next change",
@@ -635,6 +636,7 @@
     "autoRefresh": "Автоматически обновлять при обнаружении новых коммитов",
     "language": "Язык",
     "theme": "Оформление",
+    "colorTheme": "Тема",
     "light": "Светлая",
     "dark": "Тёмная",
     "token": {

@@ -4,8 +4,7 @@
     "ui/design/Kit.kt": 9,
     "ui/home/Chrome.kt": 7,
     "ui/review/Header.kt": 2,
-    "ui/review/PrOverviewScreen.kt": 2,
-    "ui/theme/Theme.kt": 3
+    "ui/review/PrOverviewScreen.kt": 2
   },
   "radius": {
     "ui/ai/AiParts.kt": 4,

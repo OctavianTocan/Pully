@@ -6,6 +6,11 @@
       "group": "Foundations"
     },
     {
+      "id": "foundations/themes",
+      "title": "Themes",
+      "group": "Foundations"
+    },
+    {
       "id": "foundations/typography",
       "title": "Typography",
       "group": "Foundations"

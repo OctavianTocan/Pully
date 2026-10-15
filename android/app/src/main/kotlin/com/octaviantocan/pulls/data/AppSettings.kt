@@ -19,6 +19,10 @@ class AppSettings private constructor(private val context: Context) {
     var theme by mutableStateOf(prefs.getString("theme", "system") ?: "system")
         private set
 
+    /** The colour theme by its `ColorTheme.id` (K18): `pulls`, the app's own palette, until Settings picks another. */
+    var colorTheme by mutableStateOf(prefs.getString("colorTheme", null) ?: "pulls")
+        private set
+
     /** A code from [Messages.LOCALES]. */
     var locale by mutableStateOf(prefs.getString("locale", null) ?: Messages.detect())
         private set
@@ -74,6 +78,7 @@ class AppSettings private constructor(private val context: Context) {
         private set
 
     fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply() }
+    fun updateColorTheme(value: String) { colorTheme = value; prefs.edit().putString("colorTheme", value).apply() }
     fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply() }
     fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply() }
     fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply() }
