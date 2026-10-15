@@ -38,6 +38,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -147,8 +148,13 @@ internal fun PrTourScreen(
     LaunchedEffect(current, n) {
         if (n > 0 && current in 1..n) onReached(current, n, stops[current - 1].title)
     }
-    // Pick up where the reader left off.
+    // Pick up where the reader left off, once for each tour. Coming back from a place the tour opened (a file, GitHub)
+    // finds the list where it was, kept by the review's saveable state, and must not be moved to the top of its stop (J35).
+    var resumedFor by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(tour?.generatedAt) {
+        val at = tour?.generatedAt ?: return@LaunchedEffect
+        if (resumedFor == at) return@LaunchedEffect
+        resumedFor = at
         if (n > 1 && resumeAt in 2..n) listState.scrollToItem(resumeAt)
     }
 

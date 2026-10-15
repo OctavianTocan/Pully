@@ -16,6 +16,26 @@ class MentionsTest {
     }
 
     @Test
+    fun aDotFolderKeepsItsDot() {
+        // J36: `.agents/…` was read as `./agents/…`, and GitHub had no such path.
+        assertEquals(CodePlace(".agents/skills/ojin-release/SKILL.md", 0), codePlaceOf(".agents/skills/ojin-release/SKILL.md"))
+        assertEquals(CodePlace(".agents/skills/ojin-release/SKILL.md", 0), codePlaceOf("../../.agents/skills/ojin-release/SKILL.md"))
+        assertEquals(CodePlace(".github/workflows/ci.yml", 12), codePlaceOf("./.github/workflows/ci.yml#L12"))
+        assertEquals(CodePlace(".ci/pr-deploy.sh", 3), codePlaceOf(".ci/pr-deploy.sh:3"))
+        assertEquals(CodePlace("docs/b.md", 0), codePlaceOf("docs/runbooks/../b.md"))
+    }
+
+    @Test
+    fun aDotFolderFileInTheChangeIsTheChangedFile() {
+        // The changed file's own path is what opens it in the app rather than on GitHub (`openSource`).
+        val changed = listOf(".agents/skills/ojin-release/SKILL.md", "docs/runbooks/web-releases.md")
+        val resolve = { name: String -> changed.firstOrNull { it == name || it.endsWith("/$name") } }
+        assertEquals(CodePlace(".agents/skills/ojin-release/SKILL.md", 0), linkPlaceOf("../../.agents/skills/ojin-release/SKILL.md", resolve))
+        assertEquals(CodePlace(".agents/skills/ojin-release/SKILL.md", 0), linkPlaceOf("https://github.com/o/r/blob/abc/.agents/skills/ojin-release/SKILL.md", resolve, "o/r"))
+        assertEquals(listOf(CodePlace(".agents/skills/ojin-release/SKILL.md", 0)), mentionedPlaces("The [ojin-release skill](.agents/skills/ojin-release/SKILL.md) cuts it.", resolve))
+    }
+
+    @Test
     fun webLinksAndAnchorsAreNotPlaces() {
         assertNull(codePlaceOf("https://example.com/a.ts"))
         assertNull(codePlaceOf("mailto:someone@example.com"))
