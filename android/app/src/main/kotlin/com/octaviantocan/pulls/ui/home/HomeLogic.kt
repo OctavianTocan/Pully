@@ -222,6 +222,14 @@ fun PullRow.toJson(): JsonObject = buildJsonObject {
     changedFiles?.let { put("changedFiles", it) }
     put("commentsCount", commentsCount); put("url", url); put("state", state); put("merged", merged); put("headSha", headSha)
     put("reviewRequests", JsonArray(reviewRequests.map { JsonPrimitive(it) }))
+    if (baseRef.isNotEmpty()) put("baseRef", baseRef)
+    if (headRef.isNotEmpty()) put("headRef", headRef)
+    stack?.let { stack ->
+        put("stack", buildJsonObject {
+            put("id", stack.id); put("position", stack.position); put("size", stack.size); put("native", stack.native)
+            stack.below?.let { put("below", it) }
+        })
+    }
 }
 
 // ---------------------------------------------------------------------------------------

@@ -251,6 +251,7 @@ private val GLYPHS: List<Pair<String, LuGlyph>> = listOf(
     "search" to Lu.search,
     "sort" to Lu.sort,
     "branch" to Lu.branch,
+    "layers" to Lu.layers,
     "copy" to Lu.copy,
     "stop" to Lu.stop,
     "refresh" to Lu.refresh,

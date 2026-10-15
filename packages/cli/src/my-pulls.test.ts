@@ -1,6 +1,6 @@
-import type { EnrichNode, GithubGraphql, SearchNode } from './my-pulls'
+import type { EnrichNode, GithubGraphql, NativeStackNode, SearchNode, StackCandidate } from './my-pulls'
 import { describe, expect, it, vi } from 'vitest'
-import { checksFromRollup, createMyPullsService, mergeRoleBatches, searchQueries, toEnrichment, toFoundPull } from './my-pulls'
+import { applyStacks, checksFromRollup, createMyPullsService, inferStacks, mergeRoleBatches, searchQueries, toEnrichment, toFoundPull, toNativeStack } from './my-pulls'
 
 function node(id: string, overrides: Partial<SearchNode> = {}): SearchNode {
   return {
@@ -13,7 +13,10 @@ function node(id: string, overrides: Partial<SearchNode> = {}): SearchNode {
     updatedAt: '2026-10-01T00:00:00Z',
     mergedAt: null,
     headRefOid: `sha-${id}`,
-    repository: { nameWithOwner: 'acme/app' },
+    baseRefName: 'main',
+    headRefName: `branch-${id}`,
+    isCrossRepository: false,
+    repository: { nameWithOwner: 'acme/app', defaultBranchRef: { name: 'main' } },
     author: { login: 'octo' },
     comments: { totalCount: 2 },
     labels: { nodes: [{ name: 'bug' }] },
@@ -35,8 +38,8 @@ function enrichNode(id: string, overrides: Partial<EnrichNode> = {}): EnrichNode
   }
 }
 
-/** A GitHub stand-in answering each search with the given nodes. */
-function fakeGraphql(searches: Record<string, SearchNode[]>, enrich: (id: string) => EnrichNode = enrichNode) {
+/** A GitHub stand-in answering each search with the given nodes, and with no native stacks unless [stack] says. */
+function fakeGraphql(searches: Record<string, SearchNode[]>, enrich: (id: string) => EnrichNode = enrichNode, stack: (id: string) => NativeStackNode = id => ({ id, stack: null, stackEntry: null })) {
   const calls: { query: string, variables: Record<string, unknown> }[] = []
   const graphql: GithubGraphql = async (query, variables) => {
     calls.push({ query, variables })
@@ -47,10 +50,14 @@ function fakeGraphql(searches: Record<string, SearchNode[]>, enrich: (id: string
       const role = Object.keys(searches).find(key => q.includes(key))
       return { search: { nodes: role ? searches[role] : [] } } as never
     }
+    if (query.includes('stackEntry'))
+      return { nodes: (variables.ids as string[]).map(id => stack(id)) } as never
     return { nodes: (variables.ids as string[]).map(id => enrich(id)) } as never
   }
   return { graphql, calls }
 }
+
+const isEnrichment = (call: { query: string }) => call.query.includes('nodes(ids') && !call.query.includes('stackEntry')
 
 describe('searchQueries', () => {
   it('builds one search per role and ORs the owners', () => {
@@ -68,6 +75,8 @@ describe('normalization', () => {
   it('maps a search hit to a list entry', () => {
     expect(toFoundPull(node('n7', { author: null, labels: null, mergedAt: '2026-10-02T00:00:00Z' }), 'owned', 'closed')).toEqual({
       id: 'n7',
+      crossRepository: false,
+      defaultBranch: 'main',
       pull: {
         owner: 'acme',
         repo: 'app',
@@ -85,6 +94,8 @@ describe('normalization', () => {
         closedAt: '2026-10-02T00:00:00Z',
         headSha: 'sha-n7',
         requestedFromMe: false,
+        baseRef: 'main',
+        headRef: 'branch-n7',
       },
     })
   })
@@ -151,6 +162,7 @@ describe('createMyPullsService', () => {
     expect(pull).toMatchObject({ state: 'closed', merged: true, closedAt: '2026-10-02T00:00:00Z' })
     expect(pull.checks).toBeUndefined()
     expect(calls.some(call => call.query.includes('nodes(ids'))).toBe(false)
+    expect(pull.stack).toBeUndefined()
   })
 
   it('reuses enrichment for unchanged pull requests and refetches changed ones', async () => {
@@ -158,7 +170,7 @@ describe('createMyPullsService', () => {
     const authored = [node('n1'), node('n2')]
     const { graphql, calls } = fakeGraphql({ 'author:@me': authored })
     const service = createMyPullsService({ graphql, now: () => clock })
-    const enrichedIds = () => calls.filter(call => call.query.includes('nodes(ids')).flatMap(call => call.variables.ids as string[])
+    const enrichedIds = () => calls.filter(isEnrichment).flatMap(call => call.variables.ids as string[])
 
     await service.list('open')
     expect(enrichedIds()).toEqual(['n1', 'n2'])
@@ -171,7 +183,7 @@ describe('createMyPullsService', () => {
 
   it('still lists pull requests when enrichment fails', async () => {
     const { graphql: base } = fakeGraphql({ 'author:@me': [node('n1')] })
-    const graphql: GithubGraphql = (query, variables) => query.includes('nodes(ids') ? Promise.reject(new Error('502')) : base(query, variables)
+    const graphql: GithubGraphql = (query, variables) => isEnrichment({ query }) ? Promise.reject(new Error('502')) : base(query, variables)
     const [pull] = await createMyPullsService({ graphql }).list('open')
     expect(pull.number).toBe(1)
     expect(pull.checks).toBeUndefined()
@@ -204,5 +216,104 @@ describe('createMyPullsService', () => {
     expect(snapshot!.pulls).toHaveLength(1)
     await vi.waitFor(() => expect(service.cached('open')?.fetchedAt).toBe(60_000))
     expect(searches()).toBe(firstRound * 2)
+  })
+})
+
+function candidate(number: number, headRef: string, baseRef: string, overrides: Partial<StackCandidate> = {}): StackCandidate {
+  return { owner: 'acme', repo: 'app', number, headRef, baseRef, defaultBranch: 'main', ...overrides }
+}
+
+describe('inferStacks', () => {
+  it('numbers a chain from the bottom and points each layer at the one under it', () => {
+    const stacks = inferStacks([candidate(3, 'c', 'b'), candidate(1, 'a', 'main'), candidate(2, 'b', 'a')])
+    expect(Object.fromEntries(stacks)).toEqual({
+      'acme/app#1': { id: 'inferred:acme/app:a', position: 1, size: 3, native: false, below: undefined },
+      'acme/app#2': { id: 'inferred:acme/app:a', position: 2, size: 3, native: false, below: 1 },
+      'acme/app#3': { id: 'inferred:acme/app:a', position: 3, size: 3, native: false, below: 2 },
+    })
+  })
+
+  it('gives two pull requests on one the same position in one stack', () => {
+    const stacks = inferStacks([candidate(1, 'a', 'main'), candidate(2, 'b', 'a'), candidate(3, 'c', 'a'), candidate(4, 'd', 'c')])
+    expect([...stacks.values()].map(stack => [stack.position, stack.size, stack.below])).toEqual([[1, 4, undefined], [2, 4, 1], [2, 4, 1], [3, 4, 3]])
+    expect(new Set([...stacks.values()].map(stack => stack.id))).toEqual(new Set(['inferred:acme/app:a']))
+  })
+
+  it('keeps repositories apart even when their branch names match', () => {
+    const stacks = inferStacks([candidate(1, 'a', 'main'), candidate(2, 'b', 'a', { repo: 'other' }), candidate(3, 'b', 'a', { owner: 'someone' })])
+    expect(stacks.size).toBe(0)
+  })
+
+  it('puts nothing under a pull request based on the default branch', () => {
+    // A release pull request from `main` would otherwise look like the bottom of every pull request into `main`.
+    const stacks = inferStacks([candidate(1, 'main', 'release'), candidate(2, 'feature', 'main'), candidate(3, 'lonely', 'main')])
+    expect(stacks.size).toBe(0)
+  })
+
+  it('never sits a pull request on a fork\'s branch, and makes no stack of a loop', () => {
+    expect(inferStacks([candidate(1, 'patch', 'dev', { crossRepository: true }), candidate(2, 'x', 'patch')]).size).toBe(0)
+    expect(inferStacks([candidate(1, 'a', 'b'), candidate(2, 'b', 'a')]).size).toBe(0)
+  })
+})
+
+describe('applyStacks', () => {
+  it('takes GitHub\'s own stack first and infers among the rest', () => {
+    const found = [
+      toFoundPull(node('n1', { headRefName: 'a' }), 'authored', 'open'),
+      toFoundPull(node('n2', { headRefName: 'b', baseRefName: 'a' }), 'authored', 'open'),
+      toFoundPull(node('n3', { headRefName: 'x' }), 'authored', 'open'),
+      toFoundPull(node('n4', { headRefName: 'y', baseRefName: 'x' }), 'authored', 'open'),
+    ]
+    const native = { n1: { number: 7, size: 3, position: 1 }, n2: { number: 7, size: 3, position: 2 } } as Record<string, { number: number, size: number, position: number }>
+    applyStacks(found, id => native[id] ?? null)
+    expect(found.map(hit => hit.pull.stack)).toEqual([
+      { id: 'native:acme/app:7', position: 1, size: 3, native: true },
+      { id: 'native:acme/app:7', position: 2, size: 3, native: true, below: 1 },
+      { id: 'inferred:acme/app:x', position: 1, size: 2, native: false, below: undefined },
+      { id: 'inferred:acme/app:x', position: 2, size: 2, native: false, below: 3 },
+    ])
+  })
+
+  it('reads a native answer only when the pull request is a layer of a real stack', () => {
+    expect(toNativeStack({ id: 'n1', stack: { number: 2, size: 3, baseRefName: 'main' }, stackEntry: { position: 2 } })).toEqual({ number: 2, size: 3, position: 2 })
+    expect(toNativeStack({ id: 'n1', stack: null, stackEntry: null })).toBeNull()
+    expect(toNativeStack({ id: 'n1', stack: { number: 2, size: 1, baseRefName: 'main' }, stackEntry: { position: 1 } })).toBeNull()
+  })
+})
+
+describe('stacks in the list', () => {
+  const stacked = [node('n1', { headRefName: 'a' }), node('n2', { headRefName: 'b', baseRefName: 'a' })]
+
+  it('asks for native stacks in a request of its own and keeps the branches', async () => {
+    const { graphql, calls } = fakeGraphql({ 'author:@me': stacked }, enrichNode, id => ({ id, stack: { number: 5, size: 2, baseRefName: 'main' }, stackEntry: { position: id === 'n1' ? 1 : 2 } }))
+    const pulls = await createMyPullsService({ graphql }).list('open')
+    expect(pulls.map(pull => [pull.number, pull.baseRef, pull.headRef, pull.stack])).toEqual([
+      [1, 'main', 'a', { id: 'native:acme/app:5', position: 1, size: 2, native: true }],
+      [2, 'a', 'b', { id: 'native:acme/app:5', position: 2, size: 2, native: true, below: 1 }],
+    ])
+    expect(calls.filter(call => call.query.includes('stackEntry')).every(call => !call.query.includes('reviewDecision'))).toBe(true)
+  })
+
+  it('infers stacks and keeps every badge when the host has no stack fields, and stops asking', async () => {
+    let clock = 0
+    let refused = 0
+    const authored = [...stacked]
+    const { graphql: base } = fakeGraphql({ 'author:@me': authored })
+    const graphql: GithubGraphql = (query, variables) => {
+      if (!query.includes('stackEntry'))
+        return base(query, variables)
+      refused++
+      return Promise.reject(new Error('GitHub GraphQL request failed (200): Field \'stack\' doesn\'t exist on type \'PullRequest\''))
+    }
+    const service = createMyPullsService({ graphql, now: () => clock })
+    const pulls = await service.list('open')
+    expect(pulls.map(pull => [pull.checks, pull.stack?.id, pull.stack?.position])).toEqual([['success', 'inferred:acme/app:a', 1], ['success', 'inferred:acme/app:a', 2]])
+    expect(refused).toBe(1)
+
+    // Fresh search results, so nothing is reused: only the unsupported field keeps the request away.
+    authored[0] = node('n1', { headRefName: 'a', updatedAt: '2026-10-05T00:00:00Z' })
+    clock = 20_000
+    expect((await service.list('open'))[1]!.stack?.below).toBe(1)
+    expect(refused).toBe(1)
   })
 })

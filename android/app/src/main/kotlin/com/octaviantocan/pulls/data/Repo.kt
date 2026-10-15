@@ -70,6 +70,9 @@ class Repo(private val context: Context) {
 
     suspend fun overview(target: OpenTarget.Pull): JsonObject = call("pr-overview") { pull(target) }.jsonObject
 
+    /** The stack the pull request is a layer of, bottom first; null when it is in none. */
+    suspend fun prStack(target: OpenTarget.Pull): PrStack? = (call("pr-stack") { pull(target) } as? JsonObject)?.get("stack")?.asPrStack()
+
     /** `action`: merge, update-branch, close, reopen, ready, draft. */
     suspend fun prAction(id: String, action: String, method: String? = null, title: String? = null, body: String? = null, expectedHeadOid: String? = null) {
         call("pr-action") {

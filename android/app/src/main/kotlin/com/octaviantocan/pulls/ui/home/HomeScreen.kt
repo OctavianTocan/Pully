@@ -669,6 +669,7 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
                     if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
                     // A name wraps whole inside its column rather than being cut (rule 90).
                     Text(pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+                    StackTag(pull)
                     WorkMark(work)
                 }
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) { CheckMark(pull) }
@@ -676,6 +677,20 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
                 Text(compactAge(pull.updatedAtMs, now), Modifier.width(34.dp), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, textAlign = TextAlign.End, maxLines = 1)
             }
         }
+    }
+}
+
+/**
+ * A stacked pull request's place in its stack, after the author: the layers glyph, then "on #241" for the layer it
+ * sits on. The bottom layer shows the glyph alone. The PR page's mark and Stack sheet show the whole stack.
+ */
+@Composable
+private fun StackTag(pull: PullRow) {
+    val stack = pull.stack ?: return
+    val c = LocalPullsColors.current
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        LuIcon(Lu.layers, tint = c.muted, size = 15.dp, contentDescription = if (stack.below == null) "Bottom of a stack" else null)
+        stack.below?.let { Text("on #$it", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1) }
     }
 }
 
