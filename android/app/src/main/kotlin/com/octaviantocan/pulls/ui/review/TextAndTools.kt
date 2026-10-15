@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -25,7 +21,6 @@ import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.PullsPagedSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
@@ -36,29 +31,12 @@ import com.octaviantocan.pulls.ui.settings.Group
 import com.octaviantocan.pulls.ui.settings.LayoutChoices
 import com.octaviantocan.pulls.ui.settings.ZOOMS
 
-/** The pages of [TextAndToolsSheet]: the tools, and the code font opened from them. */
-private enum class ToolsPage(val parent: ToolsPage?) { Main(null), Font(Main) }
-
 /**
- * What the Aa button in the capsule opens (rule 93): the diff's own text and tools as a bottom sheet. Each choice that
- * changes how code looks shows the result in a sample under it (rule 81), the layout of the diff is the first of
- * them, and the actions of this file and of the pull request follow. [onActions] opens the pull request's ⋯ sheet,
- * which the Diff's capsule has no corner left for.
+ * What the Aa button in the capsule opens (rule 93), the first page of the pull request's sheet: the diff's own text and
+ * tools. Each choice that changes how code looks shows the result in a sample under it (rule 81), the layout of the diff
+ * is the first of them, and the actions of this file follow. [onActions] goes on to the pull request's actions, a page
+ * further into the same sheet (J27), since the Diff's capsule has no corner left for ⋯.
  */
-@Composable
-internal fun TextAndToolsSheet(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onClose: () -> Unit, onActions: () -> Unit) {
-    var page by remember { mutableStateOf(ToolsPage.Main) }
-    PullsPagedSheet(
-        onClose, page, parent = { it.parent }, onPage = { page = it },
-        title = { if (it == ToolsPage.Font) "Code font" else "Text and tools" },
-    ) { current ->
-        when (current) {
-            ToolsPage.Main -> ToolsMain(session, ui, file, onFont = { page = ToolsPage.Font }, onClose = onClose, onActions = onActions)
-            ToolsPage.Font -> CodeFontPage(session.settings, onDone = { page = ToolsPage.Main })
-        }
-    }
-}
-
 @Composable
 internal fun ColumnScope.ToolsMain(session: ReviewSession, ui: DiffUi, file: ReviewFile?, onFont: () -> Unit, onClose: () -> Unit, onActions: () -> Unit) {
     val c = LocalPullsColors.current
@@ -106,7 +84,7 @@ internal fun ColumnScope.ToolsMain(session: ReviewSession, ui: DiffUi, file: Rev
         }
     }
     SheetCard(Modifier.padding(top = 12.dp)) {
-        SheetRow("Pull request actions", { onClose(); onActions() }, first = true, icon = { LuIcon(Lu.more, tint = c.text, size = 20.dp) }) {
+        SheetRow("Pull request actions", onActions, first = true, icon = { LuIcon(Lu.more, tint = c.text, size = 20.dp) }) {
             LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
         }
     }

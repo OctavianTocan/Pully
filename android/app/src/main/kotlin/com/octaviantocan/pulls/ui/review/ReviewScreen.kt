@@ -319,10 +319,23 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     }
                 }
                 // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
+                // An AI review with the lens picked, from the Review sheet or from its page in the pull request's sheet.
+                fun review(lens: String?) {
+                    if (session.taskFor("critique")?.running == true) {
+                        toaster.show("Already reviewing ${head.label}")
+                    } else {
+                        session.runCritique(context, lens)
+                        toaster.show("Reviewing ${head.label}")
+                    }
+                }
                 when (sheet) {
-                    "more" -> MoreSheet(session, top, data, head, onClose = { sheet = null }, onSheet = { sheet = it })
-                    // Aa on the diff: the code's look, then the file's own actions and one row to the pull request's ⋯.
-                    "tools" -> TextAndToolsSheet(session, ui, orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() }, onClose = { sheet = null }, onActions = { sheet = "more" })
+                    "more" -> PrSheet(session, top, data, head, PrPage.Actions, onClose = { sheet = null }, onReview = ::review)
+                    // Aa on the diff: the code's look, then the file's own actions and one row on to the pull request's ⋯,
+                    // which slides in as a page of the same sheet (J27).
+                    "tools" -> PrSheet(
+                        session, top, data, head, PrPage.Tools, onClose = { sheet = null }, onReview = ::review,
+                        ui = ui, file = orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() },
+                    )
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
                     "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
@@ -330,15 +343,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "tour" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Tour, onTour = { switchTo(PrView.Tour) })
                     "model" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Model)
                     "stack" -> session.stack?.let { stack -> StackSheet(stack, onOpen = { number -> session.pull?.let { nav.openTarget(OpenTarget.Pull(it.owner, it.repo, number, "github.com")) } }) { sheet = null } }
-                    "review" -> ReviewSheet(session, onClose = { sheet = null }) { lens ->
-                        sheet = null
-                        if (session.taskFor("critique")?.running == true) {
-                            toaster.show("Already reviewing ${head.label}")
-                        } else {
-                            session.runCritique(context, lens)
-                            toaster.show("Reviewing ${head.label}")
-                        }
-                    }
+                    "review" -> ReviewSheet(session, onClose = { sheet = null }) { lens -> sheet = null; review(lens) }
                     // A long-press on a file row: "file:" and the file's path.
                     else -> sheet?.takeIf { it.startsWith(FILE_SHEET) }?.let { route ->
                         val path = route.removePrefix(FILE_SHEET)
@@ -364,9 +369,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         openSource(session, TourSource(place.path, place.line, ""), uri::openUri)
                     }) { ask = null }
                 }
-                ReviewProgressSheet(session, top)
                 ReviewSubmitSheet(session, top, canVerdict = head.isOpen)
-                if (data != null && data.mergeability.allowed) MergeSheet(session, top, data)
             }
         }
     }
