@@ -3,6 +3,7 @@ package com.octaviantocan.pulls.data
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -79,6 +80,8 @@ data class ReviewFile(
     val isBinary: Boolean = false,
     val truncated: Boolean = false,
     val hunks: List<Hunk> = emptyList(),
+    /** The server left this file's patch out of a large diff; [Repo.diffPatches] brings it when the file is shown. */
+    val patchOmitted: Boolean = false,
 )
 
 /**
@@ -127,6 +130,8 @@ data class OpenedReview(
     val commits: List<CommitInfo> = emptyList(),
     /** `github-pr`, `github-compare`, `github-commit`, `local` or `paste`. */
     val refKind: String = "",
+    /** The server's stored copy, sent because GitHub could not be asked whether it is current. */
+    val stale: Boolean = false,
 )
 
 data class Finding(
@@ -258,7 +263,18 @@ fun JsonElement.asOpened(): OpenedReview {
         description = diff.str("description"),
         commits = diff["commits"]?.jsonArray.orEmpty().map { CommitInfo(it.jsonObject.str("sha"), it.jsonObject.str("message")) },
         refKind = (diff["ref"] as? JsonObject)?.str("kind").orEmpty(),
+        stale = obj["stale"]?.jsonPrimitive?.booleanOrNull == true,
     )
+}
+
+/** `diff-patches`: each path's hunks, in the diff's own JSON shape. */
+fun JsonElement.asPatches(): Map<String, JsonArray> =
+    (this as? JsonObject)?.get("files")?.jsonObject.orEmpty().mapNotNull { (path, file) -> (file as? JsonObject)?.get("hunks")?.jsonArray?.let { path to it } }.toMap()
+
+/** This file with the patch [hunks] the server sent later, parsed as [asFile] parses a whole diff. */
+fun ReviewFile.withHunks(hunks: JsonArray): ReviewFile {
+    val (lines, parsed) = parseHunks(hunks)
+    return copy(patchLines = lines, hunks = parsed, patchOmitted = false)
 }
 
 /** A `{ key, label, summary, category, filePaths, children }` group from the server. */
@@ -271,13 +287,13 @@ fun JsonObject.asGroup(): FileGroup = FileGroup(
     children = this["children"]?.jsonArray.orEmpty().map { it.jsonObject.asGroup() },
 )
 
-private fun JsonObject.asFile(): ReviewFile {
+private fun parseHunks(json: List<JsonElement>): Pair<List<DiffLine>, List<Hunk>> {
     val lines = mutableListOf<DiffLine>()
     val hunks = mutableListOf<Hunk>()
     // Unmodified lines between hunks, counted on the old side (the new side for an added file).
     var nextOld = 1
     var nextNew = 1
-    this["hunks"]?.jsonArray.orEmpty().forEachIndexed { index, element ->
+    json.forEachIndexed { index, element ->
         val hunk = element.jsonObject
         val oldStart = hunk["oldStart"]?.jsonPrimitive?.intOrNull ?: 1
         val newStart = hunk["newStart"]?.jsonPrimitive?.intOrNull ?: 1
@@ -300,6 +316,11 @@ private fun JsonObject.asFile(): ReviewFile {
         nextOld = old
         nextNew = new
     }
+    return lines to hunks
+}
+
+private fun JsonObject.asFile(): ReviewFile {
+    val (lines, hunks) = parseHunks(this["hunks"]?.jsonArray.orEmpty())
     return ReviewFile(
         path = str("path"),
         status = str("status"),
@@ -311,6 +332,7 @@ private fun JsonObject.asFile(): ReviewFile {
         isBinary = this["isBinary"]?.jsonPrimitive?.contentOrNull == "true",
         truncated = this["truncated"]?.jsonPrimitive?.contentOrNull == "true",
         hunks = hunks,
+        patchOmitted = this["patchOmitted"]?.jsonPrimitive?.booleanOrNull == true,
     )
 }
 

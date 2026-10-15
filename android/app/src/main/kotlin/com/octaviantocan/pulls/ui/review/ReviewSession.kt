@@ -16,6 +16,7 @@ import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.SavedState
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.data.asTaskState
+import com.octaviantocan.pulls.data.withHunks
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Sounds
@@ -85,6 +86,10 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         private set
     private var stackAsked = false
 
+    /** [overview] is still the server's stored copy, which may trail the diff by a push, so it says nothing about staleness. */
+    var overviewStored by mutableStateOf(false)
+        private set
+
     /** Phone-only: `diff` (the review page) or `tour` (the AI walkthrough). */
     var pageTab by mutableStateOf("diff")
 
@@ -138,11 +143,11 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     val visibleFindings: List<CritiqueFinding>
         get() = saved?.critique?.findings.orEmpty().filter { finding -> findingSeverities?.contains(finding.severity) ?: true }
 
-    fun load() {
+    fun load(fresh: Boolean = false) {
         scope.launch {
             loading = true
             loadError = null
-            runCatching { repo.open(target) }
+            runCatching { repo.open(target, fresh) }
                 .onSuccess {
                     prOpened = it
                     if (selection == null) { opened = it; shownSelection = null }
@@ -159,7 +164,33 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** Refetches the diff, the overview and the reviews; AI results stay. A commit selection is dropped. */
     fun refresh() {
         selection = null
-        load()
+        load(fresh = true)
+    }
+
+    /** Paths whose left-out patches were asked for, so a file scrolled past twice asks once. */
+    private val patchesAsked = HashSet<String>()
+
+    /**
+     * Brings the patches the server left out of a large diff ([ReviewFile.patchOmitted]) for [paths], and puts them
+     * into the diff on screen and the PR's own. A failure lets the next showing of the file ask again.
+     */
+    fun loadPatches(paths: List<String>) {
+        val key = opened?.key ?: return
+        val wanted = paths.filter { patchesAsked.add(it) }
+        if (wanted.isEmpty()) return
+        scope.launch {
+            runCatching { repo.diffPatches(key, wanted) }
+                .onSuccess { patches ->
+                    fun fill(review: OpenedReview?): OpenedReview? = review?.takeIf { it.key == key }
+                        ?.let { it.copy(files = it.files.map { file -> patches[file.path]?.let(file::withHunks) ?: file }) } ?: review
+                    val before = prOpened
+                    prOpened = fill(prOpened)
+                    opened = if (opened === before) prOpened else fill(opened)
+                    rememberedAs?.let { name -> recent[name]?.let { kept -> prOpened?.let { recent[name] = kept.copy(opened = it) } } }
+                    patchesAsked.removeAll(wanted.filterNot { it in patches }.toSet())
+                }
+                .onFailure { patchesAsked.removeAll(wanted.toSet()) }
+        }
     }
 
     private suspend fun afterOpen() {
@@ -202,9 +233,16 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
 
     fun reloadOverview() {
         val pull = pull ?: return
+        // Nothing on screen yet: the copy the server stored as it refreshed shows at once, until GitHub's own arrives.
+        if (overview == null) scope.launch {
+            runCatching { repo.storedOverview(pull) }.getOrNull()?.let { stored ->
+                if (overview == null) { overview = stored; overviewStored = true }
+            }
+        }
         scope.launch {
             runCatching { repo.overview(pull) }.onSuccess {
                 overview = it
+                overviewStored = false
                 overviewError = null
                 rememberedAs?.let { name -> recent[name]?.let { before -> recent[name] = before.copy(overview = it) } }
             }.onFailure { overviewError = it.message }

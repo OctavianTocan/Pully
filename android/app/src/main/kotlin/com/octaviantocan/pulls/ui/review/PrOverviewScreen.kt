@@ -214,6 +214,19 @@ private fun LazyListScope.waitingItem(session: ReviewSession, rows: Modifier) {
     if (session.overviewError == null) item(key = "waiting") { RowsSkeleton(rows.padding(top = 14.dp), rows = 5) }
 }
 
+/** The diff did not load although the overview did: say why under Files, and offer to try again. */
+@Composable
+private fun FilesError(message: String, onRetry: () -> Unit) {
+    val c = LocalPullsColors.current
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Couldn't load the changes", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            Text(message, style = PullsType.sm, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        FloatIcon(Lu.redo, "Load again", onRetry, flat = true, iconSize = 22.dp, tint = c.muted)
+    }
+}
+
 /** The conversation, checks and merge state did not load: say why, and offer to try again. */
 @Composable
 private fun OverviewError(message: String, onRetry: () -> Unit) {
@@ -300,7 +313,10 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
         Modifier.fillMaxWidth().padding(top = 12.dp).drawBehind { drawRect(c.borderMute, Offset.Zero, Size(size.width, 1.dp.toPx())) }.padding(vertical = 9.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // Before the diff arrives the sizes are bars; the rest of the line is the overview's (rule 51).
+        val sized = session.opened != null
         Cell("Changes", Modifier.width(104.dp)) {
+            if (!sized) { Skeleton(Modifier.padding(vertical = 4.dp).width(72.dp)); return@Cell }
             Text("+${compactCount(adds)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.green(c.dark), maxLines = 1)
             Text("−${compactCount(dels)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.red(c.dark), maxLines = 1)
         }
@@ -308,6 +324,7 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
             Text("$commits", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
         Cell("Files", Modifier.width(52.dp), onClick = if (session.files.isNotEmpty()) ({ onSheet("files") }) else null) {
+            if (!sized) { Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp)); return@Cell }
             Text("${session.files.size}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
         val checks = overview?.checksSummary
@@ -472,6 +489,14 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
         // The heading is the word alone: the ticks on the rows already say what is reviewed (rules 14 and 42).
         Text("Files", rows.fillMaxWidth().padding(top = 18.dp).hairlineTop(c.borderMute).padding(top = 14.dp, bottom = 2.dp), style = PullsType.xl, color = c.text)
     }
+    // The overview came first: the files are bars until the diff arrives, or say why it did not.
+    if (session.opened == null) {
+        item(key = "files-waiting") {
+            val error = session.loadError
+            if (error == null) RowsSkeleton(rows.padding(top = 8.dp), rows = 4) else FilesError(error) { session.load() }
+        }
+        return
+    }
     sections.forEachIndexed { index, section ->
         val label = section.label
         val folded = label != null && ui.isFolded(label, total)
@@ -603,14 +628,18 @@ private fun BottomBar(
             FloatIcon(Lu.more, "More actions", onMore, flat = true, size = 44.dp)
         }
         val done = left == 0 && session.files.isNotEmpty()
+        // The overview came before the diff: the button waits, dimmed, until there are files to count and open.
+        val arrived = session.opened != null
         CtaButton(
             text = when {
+                !arrived -> "Review changes"
                 done && canApprove -> "Approve"
                 done -> "Open changes"
                 else -> "Review $left file${if (left == 1) "" else "s"}"
             },
             onClick = { if (done && canApprove) onApprove() else onDiff(null) },
             modifier = Modifier.weight(1f),
+            enabled = arrived,
             container = c.primary,
             contentColor = Color.White,
             trailing = { IconSwap(if (done && canApprove) Lu.check else Lu.arrow) { LuIcon(it, tint = Color.White, size = 20.dp) } },
