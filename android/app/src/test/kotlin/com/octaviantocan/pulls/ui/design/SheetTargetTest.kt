@@ -41,4 +41,22 @@ class SheetTargetTest {
         assertEquals(0f, sheetTarget(300f, -400f, speed, listOf(0f, 1000f), gone))
         assertEquals(1000f, sheetTarget(700f, 400f, speed, listOf(0f, 1000f), gone))
     }
+
+    @Test fun aShortSheetSlidesBetweenItsNormalAndTallHeights() {
+        // A 600px sheet on a 2000px panel: tall is 0, normal is 1400, and 30% of what shows (180px) below normal closes it.
+        val rests = listOf(0f, 1400f)
+        assertEquals(0f, sheetTarget(1400f, -1500f, speed, rests, gone))
+        assertEquals(1400f, sheetTarget(0f, 1500f, speed, rests, gone))
+        assertEquals(gone, sheetTarget(1400f, 1500f, speed, rests, gone))
+        assertEquals(0f, sheetTarget(600f, 0f, speed, rests, gone))
+        assertEquals(1400f, sheetTarget(900f, 0f, speed, rests, gone))
+        assertEquals(1400f, sheetTarget(1550f, 0f, speed, rests, gone))
+        assertEquals(gone, sheetTarget(1600f, 0f, speed, rests, gone))
+    }
+
+    @Test fun aThrowUpPastTheOnlyRestStaysAtIt() {
+        // A sheet with no tall height rests at its content only; a throw up from below goes back to that rest.
+        assertEquals(1400f, sheetTarget(1500f, -1500f, speed, listOf(1400f), gone))
+        assertEquals(1400f, sheetTarget(1400f, -1500f, speed, listOf(1400f), gone))
+    }
 }

@@ -26,7 +26,7 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.sound.cueClickable
-import com.octaviantocan.pulls.ui.Commands
+import com.octaviantocan.pulls.ui.CommandsPage
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
@@ -40,16 +40,18 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 
-/** The pages of the profile sheet; Repositories slides in inside the same sheet (rule 78). */
+/** The pages of the profile sheet; Repositories and Commands slide in inside the same sheet (rule 78). */
 internal enum class ProfilePage(val parent: ProfilePage?) {
     Main(null),
     Repos(Main),
+    Commands(Main),
 }
 
 /**
  * The profile sheet: who you are and where to find you (the GitHub profile, the website the server lives
- * at), which repositories the Inbox shows, closed pull requests, and Commands. The Inbox refreshes itself,
- * so there is no Refresh here, and the rest of the app has no use for checking out a branch.
+ * at), which repositories the Inbox and Tours show, closed pull requests, and Commands, a page inside the
+ * sheet rather than a second sheet. The Inbox refreshes itself, so there is no Refresh here, and the rest
+ * of the app has no use for checking out a branch.
  */
 @Composable
 internal fun ProfileSheet(
@@ -65,7 +67,11 @@ internal fun ProfileSheet(
     }
 }
 
-internal fun ProfilePage.title(): String = if (this == ProfilePage.Main) "Profile" else "Repositories"
+internal fun ProfilePage.title(): String = when (this) {
+    ProfilePage.Main -> "Profile"
+    ProfilePage.Repos -> "Repositories"
+    ProfilePage.Commands -> "Commands"
+}
 
 /** What one page of the profile sheet holds. */
 @Composable
@@ -80,13 +86,15 @@ internal fun ColumnScope.ProfilePageContent(
 ) {
     val settings = AppSettings.get(LocalContext.current)
     when (page) {
-        ProfilePage.Main -> ProfileMain(viewer, showClosed, onShowClosed, choices = repoChoices(pulls, settings.hiddenRepos), onRepos = { onPage(ProfilePage.Repos) }, onClose = onClose)
+        ProfilePage.Main -> ProfileMain(viewer, showClosed, onShowClosed, choices = repoChoices(pulls, settings.hiddenRepos), onRepos = { onPage(ProfilePage.Repos) }, onCommands = { onPage(ProfilePage.Commands) })
         ProfilePage.Repos -> ReposPage(pulls, settings)
+        // A command can open a page or another sheet, so the profile sheet goes before it runs.
+        ProfilePage.Commands -> CommandsPage(scope = null, onClearScope = {}) { command -> onClose(); command.run() }
     }
 }
 
 @Composable
-private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShowClosed: (Boolean) -> Unit, choices: List<RepoChoice>, onRepos: () -> Unit, onClose: () -> Unit) {
+private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShowClosed: (Boolean) -> Unit, choices: List<RepoChoice>, onRepos: () -> Unit, onCommands: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val uri = LocalUriHandler.current
@@ -119,11 +127,11 @@ private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShow
         SheetRow("Closed pull requests", { onShowClosed(!showClosed) }, iconless = true) {
             PullsSwitch(showClosed, onShowClosed, "Show closed pull requests")
         }
-        SheetRow("Commands", { onClose(); Commands.open() }, iconless = true) { LuIcon(Lu.chev, tint = c.faint, size = 18.dp) }
+        SheetRow("Commands", onCommands, iconless = true) { LuIcon(Lu.chev, tint = c.faint, size = 18.dp) }
     }
 }
 
-/** Every repository your pull requests are in, a switch each: one switched off is left out of the Inbox and of the numbers on its chips. */
+/** Every repository your pull requests are in, a switch each: one switched off is left out of the Inbox, of Tours and of the numbers on the chips. */
 @Composable
 private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
     val c = LocalPullsColors.current
@@ -147,7 +155,7 @@ private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
         }
         // What the switches do, under the list rather than between the field and the list (rule 1).
         Text(
-            "A repository that is switched off is left out of the Inbox and of the numbers on its chips.",
+            "A repository that is switched off is left out of the Inbox, of Tours and of the numbers on the chips.",
             Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
         )
     }
