@@ -9,6 +9,7 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.FileGroup
 import com.octaviantocan.pulls.data.OpenedReview
+import com.octaviantocan.pulls.data.PrStack
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ReviewData
 import com.octaviantocan.pulls.data.ReviewFile
@@ -68,6 +69,11 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** The `pr-overview` answer: `{ overview, mergeability, defaultCommits }` (PRs only). */
     var overview by mutableStateOf<JsonObject?>(null)
     var overviewError by mutableStateOf<String?>(null)
+
+    /** The stack this pull request is a layer of, bottom first (PRs only); null when it is in none or did not load. */
+    var stack by mutableStateOf<PrStack?>(null)
+        private set
+    private var stackAsked = false
 
     /** Phone-only: `diff` (the review page) or `tour` (the AI walkthrough). */
     var pageTab by mutableStateOf("diff")
@@ -137,7 +143,7 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 .onFailure { loadError = it.message ?: it.toString() }
             loading = false
         }
-        pull?.let { reloadOverview(); reloadReviews() }
+        pull?.let { reloadOverview(); reloadReviews(); loadStack() }
     }
 
     /** Refetches the diff, the overview and the reviews; AI results stay. A commit selection is dropped. */
@@ -170,6 +176,14 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
                 rememberedAs?.let { name -> recent[name]?.let { before -> recent[name] = before.copy(overview = it) } }
             }.onFailure { overviewError = it.message }
         }
+    }
+
+    /** Asked once per page, beside the first overview: the stack is a way between layers, not live state, and a failure only leaves its mark off. */
+    private fun loadStack() {
+        val pull = pull ?: return
+        if (stackAsked) return
+        stackAsked = true
+        scope.launch { runCatching { repo.prStack(pull) }.onSuccess { stack = it } }
     }
 
     fun reloadReviews() {

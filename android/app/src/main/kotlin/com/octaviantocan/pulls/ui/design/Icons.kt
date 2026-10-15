@@ -93,6 +93,8 @@ internal object Lu {
     val draft = LuGlyph(1.8f, LuPath("M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"))
     val shut = LuGlyph(1.8f, LuPath("M3,12a9,9 0 1,0 18,0a9,9 0 1,0 -18,0"), LuPath("m15 9-6 6M9 9l6 6"))
     val branch = LuGlyph(1.8f, LuPath("M6 3v12"), LuPath("M15,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M18 9a9 9 0 0 1-9 9"))
+    /** Lucide `layers`: a pull request stack. */
+    val layers = LuGlyph(1.8f, LuPath("M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"), LuPath("M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"), LuPath("M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"))
     val search = LuGlyph(2f, LuPath("M4,11a7,7 0 1,0 14,0a7,7 0 1,0 -14,0"), LuPath("m20 20-3.5-3.5"))
     /** Lucide `arrow-up-down`: the Inbox sort. */
     val sort = LuGlyph(2f, LuPath("m21 16-4 4-4-4"), LuPath("M17 20V4"), LuPath("m3 8 4-4 4 4"), LuPath("M7 4v16"))
