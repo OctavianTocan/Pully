@@ -400,7 +400,8 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
             Text("−${compactCount(dels)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.red(c.dark), maxLines = 1)
         }
         // Narrowed to some commits, the cell says which, in the link colour, and opens the sheet that goes back (K25).
-        val narrowed = commitLabel(session.selection, overview)?.removePrefix("Commits ")?.removePrefix("Commit ")
+        // Only the numbers, "3" or "12–15", so a range fits the cell; the Diff's pill says "of 50".
+        val narrowed = commitLabel(session.selection, overview)?.removePrefix("Commits ")?.removePrefix("Commit ")?.substringBefore(" of ")
         Cell("Commits", Modifier.width(76.dp), onClick = if (overview != null && (commits ?: 0) > 0) onCommits else null) {
             // A bar until the number is known, not a 0 that turns into 50 (K22).
             if (commits == null) Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp))

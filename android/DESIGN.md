@@ -1004,7 +1004,7 @@ Source: overhaul. Checked by: review.
 
 #### 80. A narrowed view always shows the way back.
 
-When a screen shows part of something, such as one commit of six, it says so where the reader already looks, never in a box over the page (K25: "I don't like that box"): the Commits number on the Overview reads "3 of 6" in the link colour, and the file pill on the Diff reads "Commit 3 of 6" where the folder was. Both lead back: the Commits number opens the Commits sheet, whose first row is "All commits".
+When a screen shows part of something, such as one commit of six, it says so where the reader already looks, never in a box over the page (K25: "I don't like that box"): the Commits number on the Overview reads just "3" (or "12–15" for a range) in the link colour, so it fits its cell, and the file pill on the Diff reads "Commit 3 of 6" where the folder was. Both lead back: the Commits number opens the Commits sheet, whose first row is "All commits".
 
 Check: pick one commit. The diff says which commit it shows, and the Commits number opens the way back.
 

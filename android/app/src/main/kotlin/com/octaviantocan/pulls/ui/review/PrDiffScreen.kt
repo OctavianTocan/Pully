@@ -370,13 +370,14 @@ private fun FilePages(
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     val band = with(density) { PullsMotion.EdgeTop.toPx() }
+    val countsPx = with(density) { COUNTS_HEIGHT.toPx() }
     val under = { ui.lists[target.path]?.underTop(0, band) ?: 0f }
 
     Box(modifier) {
         Box(
             Modifier.fillMaxSize().clipToBounds().onSizeChanged { width = it.width }.fileSwipe(
                 enabled = { ui.drafts[target.path] == null && ui.dragSel == null && ui.selectionStart[target.path] == null },
-                onCode = { y -> onCodeRow(ui.lists[target.path], y) },
+                onCode = { y -> onCodeRow(ui.lists[target.path], y, countsPx) },
                 codeHasRoom = { dx, across -> !session.settings.codeWrap && codeHasRoom(ui, target, dx, across) },
                 onDrag = ::dragBy,
                 onEnd = ::release,
@@ -451,10 +452,13 @@ private fun FilePage(
 private fun LazyListState.underTop(pinnedAt: Int, band: Float): Float =
     if (firstVisibleItemIndex > pinnedAt) 1f else (firstVisibleItemScrollOffset / band).coerceIn(0f, 1f)
 
-/** Is the row under [y] (in the list's own pixels) a line of code, which scrolls sideways itself? The counts line covers the code under it. */
-private fun onCodeRow(state: LazyListState?, y: Float): Boolean {
+/**
+ * Is the row under [y] (in the list's own pixels) a line of code, which scrolls sideways itself? The counts line, the top
+ * [covered] pixels, covers the code under it; below it, code that has scrolled into the air over the first row still counts.
+ */
+private fun onCodeRow(state: LazyListState?, y: Float, covered: Float): Boolean {
     val info = state?.layoutInfo ?: return false
-    if (y < info.beforeContentPadding) return false
+    if (y < covered) return false
     val at = y - info.beforeContentPadding
     val rows = info.visibleItemsInfo.filter { at >= it.offset && at < it.offset + it.size }
     return rows.any { it.contentType == "line" || it.contentType == "split" }

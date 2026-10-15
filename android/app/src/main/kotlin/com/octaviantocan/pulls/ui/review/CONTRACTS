@@ -67,8 +67,8 @@ NOT put a "Viewing commit N of M" box on top of the Overview (recording 15 Oct 1
 @cc [owner:OctavianTocan,label:product] pr-narrowed-view-shows-the-way-back
 When the Diff shows part of the pull request (one commit, a range), it says so where the
 reader already looks, with no box over the page: the Diff's file pill names the commit and
-the Overview's Commits number reads "3 of 6", which opens the Commits sheet whose first row
-"All commits" goes back (rule 80; F26). Tavi's K25 replaced the pinned "Viewing commit" bar
+the Overview's Commits number reads just "3" (or "12–15") so it fits its cell, and opens the
+Commits sheet whose first row "All commits" goes back (rule 80; F26). Tavi's K25 replaced the pinned "Viewing commit" bar
 (recording 15 Oct 13:54, 10:48 to 11:18).
 
 @cc [owner:OctavianTocan,label:design] pr-tabs-are-light
