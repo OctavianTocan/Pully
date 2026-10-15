@@ -12,6 +12,34 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.31.0
+
+Sheets open into pages, risky actions ask first, Commands anywhere.
+
+### New
+
+- Pull down on any page for Commands. Commands opens ready to type.
+- In a pull request's ⋯ sheet, everything you open slides in as a page with Back, and the phone's Back goes back a page.
+- Approve, request changes, merge, close and draft sit one page in, under Approve, merge or close, and each asks before it acts.
+- Summary, Commits and Conversation sit side by side: swipe anywhere on the page, even the title, and the tab marker moves with you.
+- Swiping between pages keeps your place, so the Inbox is still where you left it after a look at Tours.
+- Changes: files sit side by side as you move between them, the counts line stays at the top, and colours show sooner.
+- Conversation: chips show only what people wrote, or only the bots.
+- Sound is now a page in Settings, and What's new reads like a proper changelog.
+
+### Fixed
+
+- Sheets bounce a little less, rise smoothly when the keyboard opens, and you feel them arrive.
+- Moving between Inbox and Tours no longer snaps at the end.
+- The ringing tap sound is gone; buttons click.
+- Light and Dark only sweep when the look actually changes.
+- The branch names and your profile photo show at once.
+- Folding sections looks and moves the same everywhere, and the Files and Checks sheets use cards.
+- Holding, folding and swiping feel the same on every page.
+- Starting a tour shows its progress right away, it never flashes the start page at the end, and Back from a linked file returns to the same place.
+- Links to files in hidden folders like .agents open the file instead of a missing page.
+- Rows that scroll sideways fade at their edges.
+
 ## 0.30.0
 
 Tours start from the tour icon, and sort sits next to search.

@@ -422,7 +422,7 @@ Pressing tints the pressed thing flat (`active`, through `PullsIndication`, in 8
 
 Rule 73 gives the numbers motion is moving to, taken from transitions.dev: 150ms for closes and text swaps, 250ms for opens and tabs, 400ms for panels, one smooth-out curve `cubic-bezier(0.22, 1, 0.36, 1)`, 2px of blur on small things. Menus (`MenuReveal`), tab and page switches (`BlurSwitch`), the capsule's sliding pill, the toast and the thinking line (`ThinkingSwap`) use them, and so now do icon swaps (`IconSwap`: 250ms, the old glyph shrinks to a quarter and blurs 2px away as the new one grows in), the dialog (`ModalReveal`: 250ms in from 0.96, 150ms out), the checkbox (the box fills in 150ms, then the tick is drawn in 350ms) and the pages of the app (`BlurSwitch` over the screen stack: a page that opens slides in 8dp through a 3px blur, the one under it slides away, and back slides the other way), the rows under the Summary, Commits and Conversation tabs (`PageSlide`: the rows leave in 150ms and the next ones arrive in 250ms, because a lazy list cannot sit inside an `AnimatedContent`), and the bottom sheet (`PullsSheet`, our own window since 0.7.3: it slides up in 400ms and down in 350ms while it fades through a 2px blur, follows a drag with its scrim, and a pull or flick down past a third of the way, or a fast throw, closes it; a sheet that opens half way lifts to full height when dragged or flicked up, and scrolling its content raises it first). Looping effects, the menus, tab and page switches, the thinking line, icon swaps, the dialog and the sheet hold still when the system setting "Remove animations" is on (`rememberMotionEnabled`); the older tweens (chips, switches, tab ink, the capsule's pill, the toast, the checkbox and the progress ring) do not check it themselves.
 
-Every change moves the way the person went (rule 105). The kit decides the way, never a screen: `pageWay` in `core/PageWay.kt` turns two places into forward (the new page from the right, the old one leaving left) or backward, and `swipeStep` turns a drag and its release speed into the next or the previous page. `BlurSwitch`, `LabelSwitch` and `rememberPageSlide` each take an `order` that ranks their pages left to right and work the way out from it; a `PageMotion` tells a `BlurSwitch` when Back or a back swipe made the change, and `PageBack` moves the page with a back swipe (up to 96dp, fading to 40%) and carries it on that way when the swipe completes. Rows dragged between tabs (`PageSlide`) follow the finger and, on release, carry on the way it went at the speed it was thrown (a throw of 500dp/s counts however short), or settle back where they were; they never spring back toward the old tab first. The tab underline is one ink that slides between labels in 250ms and leans toward the next tab as the finger drags, the review's capsule pill slides the same way, the file name between ‹ and › and the Tour's stop title change with `LabelSwitch` (sideways for files, up for reading on), and Commands, pulled down from the Inbox, rises from the bottom like every sheet (H6). Pages that sit side by side (the Inbox and Tours, the Overview's tabs, the Diff's files) slide the whole width with nothing fading (`SidePages`, and `rememberPageSlide` with `full`), a sheet's own pages travel a third of its width, and sheets settle on a spring that overshoots a little (`PullsMotion.SheetSpring`, rule 108).
+Every change moves the way the person went (rule 105). The kit decides the way, never a screen: `pageWay` in `core/PageWay.kt` turns two places into forward (the new page from the right, the old one leaving left) or backward, and `swipeStep` turns a drag and its release speed into the next or the previous page. `BlurSwitch`, `LabelSwitch` and `rememberPageSlide` each take an `order` that ranks their pages left to right and work the way out from it; a `PageMotion` tells a `BlurSwitch` when Back or a back swipe made the change, and `PageBack` moves the page with a back swipe (up to 96dp, fading to 40%) and carries it on that way when the swipe completes. Rows dragged between tabs (`PageSlide`) follow the finger and, on release, carry on the way it went at the speed it was thrown (a throw of 500dp/s counts however short), or settle back where they were; they never spring back toward the old tab first. The tab underline is one ink that slides between labels in 250ms and leans toward the next tab as the finger drags, the review's capsule pill slides the same way, the file name between ‹ and › and the Tour's stop title change with `LabelSwitch` (sideways for files, up for reading on), and Commands, pulled down from the Inbox, rises from the bottom like every sheet (H6). Pages that sit side by side (the Inbox and Tours, the Overview's tabs, the Diff's files) slide the whole width with nothing fading, both in view while they move, and settle on `PullsMotion.PageSpring`, critically damped with a threshold fine enough that nothing snaps at the end (`SidePages` with a hoisted `SidePagesState` so a header and tabs can follow and drag the pages, and the Diff's `FilePages`); a sheet's own pages travel a third of its width, and sheets settle on a spring that overshoots a little (`PullsMotion.SheetSpring`, damping 0.74, rule 108), the same spring that lifts one to its tall height when a field takes the keyboard.
 
 ## Rules
 
@@ -841,7 +841,7 @@ Source: walkthrough. Checked by: review.
 - The current one is in the wrong style. Make a new design in the same style as everything else, and make it nice.
 - It may hold too many things. "Review with AI" and "Review through lens" need a decision.
 - Tentative, not a rule yet: open it on pull down.
-- Open: how Commands relates to rule 29's ⋯ sheet. Today "Commands ›" is a row in the ⋯ sheet and in the profile sheet, and tapping it closes the sheet and opens the palette with the keyboard up. Whether it stays a row in the ⋯ sheet is Tavi's call.
+- Settled (J30): the ⋯ sheet has no Commands row, since a pull down opens Commands on every page (rule 117). The profile sheet keeps its Commands page.
 
 Source: walkthrough. Checked by: review.
 
@@ -950,10 +950,10 @@ The 73 points of Tavi's second walk through build 0.7.3 became rules 74 to 99. F
 
 #### 74. Fixed edges fade. They never cut or smear.
 
-Anything pinned at the edge of something that scrolls has an edge fade on the content that passes under it: the chips and header on Home, a sheet's header, the Tour strip, the bottom search pill. The content goes to the page colour over about 32dp at the top (longer at a tall pill, about 130dp at the bottom of Home) with a blur that grows toward the pinned edge. The blur is made from content that continues past the edge, so a row at the edge is softened and faded, never stretched or sliced. The fade stops at the pinned thing. It never blurs a chip, a button or a header. Nothing white sits behind a floating pill: the rows fade into the page and the pill carries its own shadow.
+Anything pinned at the edge of something that scrolls has an edge fade on the content that passes under it: the chips and header on Home, a sheet's header, the Tour strip, the bottom search pill. The content goes to the page colour over about 32dp at the top (longer at a tall pill, about 130dp at the bottom of Home) with a blur that grows toward the pinned edge. The blur is made from content that continues past the edge, so a row at the edge is softened and faded, never stretched or sliced. The fade stops at the pinned thing. It never blurs a chip, a button or a header. Nothing white sits behind a floating pill: the rows fade into the page and the pill carries its own shadow. Anything that scrolls sideways (the branch row, the chips, a code block) fades the same way at an edge it can still scroll toward, and stays sharp at an edge with nothing past it (`sideScrollFade`, J14, J23).
 This is rule 46's first bullet, made exact.
 
-Check: scroll a list slowly and fast under each pinned header and pill. No row ends in a hard line, no text is stretched into blocks, the chips and buttons stay sharp, and nothing white sits under a pill.
+Check: scroll a list slowly and fast under each pinned header and pill. No row ends in a hard line, no text is stretched into blocks, the chips and buttons stay sharp, and nothing white sits under a pill. On the Diff, the code fades and blurs under the pinned counts line and under the bottom bar. Scroll the branch row and the Inbox chips sideways: what runs past an edge dissolves there.
 
 Source: overhaul. Checked by: review.
 
@@ -976,7 +976,7 @@ Source: overhaul. Checked by: tokens, review.
 
 #### 77. Sheets rest at two heights.
 
-Every sheet rests at its normal height (its content, at most half the screen) or at the tall height near the top, and slides between them. A sheet whose content is short, the profile sheet included, can still be lifted to the tall height: the room under its content is the sheet's paper. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text. A sheet with a field (Commands, the chat) opens at its normal height too, with no keyboard ("it goes into this text mode immediately" was jarring). Tapping the field, or lifting the sheet, brings the keyboard up and the sheet to the tall height; lowering it puts the keyboard away.
+Every sheet rests at its normal height (its content, at most half the screen) or at the tall height near the top, and slides between them. A sheet whose content is short, the profile sheet included, can still be lifted to the tall height: the room under its content is the sheet's paper. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text. The chat opens at its normal height too, with no keyboard ("it goes into this text mode immediately" was jarring). Commands is the exception: it opens at its tall height and its search takes the keyboard as soon as it rests, so a command can be typed at once (J11, as it used to). Tapping a field, or lifting the sheet, brings the keyboard up and moves the sheet to the tall height on the same spring as a sheet let go, never popping there (J10); lowering it puts the keyboard away.
 It replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.
 
 Check: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it.
@@ -994,9 +994,9 @@ Source: overhaul. Checked by: review.
 
 #### 79. A sheet's body is its list.
 
-Commits, Files and Checks are plain lists in a sheet, with no panel inside the panel. Rows are bigger (at least 60dp) with whole titles that wrap, as rows are everywhere else. No instruction names a key a phone does not have ("shift-click"). Checks lists failed first, then running, then passed, and a row taps through to the check.
+Commits are a plain list in a sheet. Files and Checks sit in the raised cards every other sheet uses, one card under each heading (J24, which replaced "no panel inside the panel" for those two). Rows are bigger (at least 60dp) with whole titles that wrap, as rows are everywhere else. No instruction names a key a phone does not have ("shift-click"). Checks lists failed first, then running, then passed, and a row taps through to the check.
 
-Check: open each of the three sheets. A list on the sheet's own paper, whole titles, rows as big as in the Inbox.
+Check: open each of the three sheets. Whole titles and rows as big as in the Inbox; Files and Checks in cards under their headings.
 
 Source: overhaul. Checked by: review.
 
@@ -1103,7 +1103,7 @@ Source: overhaul. Checked by: review.
 
 #### 92. The top of a code screen is short. The code gets the screen.
 
-The header of the Diff is the back button and the capsule, nothing else. The file's name sits at the bottom between the ‹ › buttons ("put it between the arrows"), centred in a round pill, in the face it has on the file rows (the code font would break a long name), whole, on up to three lines; under a short name the end of its folder (rule 90) and "3 of 12". A tap on it opens the Files sheet, the one place a file is picked (rule 101). The note about the file and the line with its counts and the Reviewed box are part of the scrolling content and scroll away with the code, so pinned chrome is no more than a fifth of the screen. The file ends where the code ends: nothing scrolls into empty space, only room to clear the bar.
+The header of the Diff is the back button and the capsule, nothing else. The file's name sits at the bottom between the ‹ › buttons ("put it between the arrows"), centred in a round pill, in the face it has on the file rows (the code font would break a long name), whole, on up to three lines; under a short name the end of its folder (rule 90) and "3 of 12". A tap on it opens the Files sheet, the one place a file is picked (rule 101). The note about the file scrolls away with the code. The line with its counts, threads and Reviewed box then stays pinned at the top of the file while that file is shown, and the code passes under it through the edge fade of rule 74. There is one Reviewed box per file, in that line; there is none at the end of the file (J22). Pinned chrome is no more than a fifth of the screen. The file ends where the code ends: nothing scrolls into empty space, only room to clear the bar.
 
 Check: open a file with a long path and a long note. Pinned chrome is no more than a fifth of the screen. The name is whole at the bottom between the arrows. Scroll to the end: the last line is the last thing.
 
@@ -1236,15 +1236,15 @@ Source: answers. Checked by: web, review.
 
 #### 107. Pages that sit side by side slide whole.
 
-Tavi, on Inbox and Tours: "It should move like screens side by side", as Grok's Ask, Imagine and Build do, and on Summary and Commits: "pages next to each other just slide, no fade." Screens that sit beside each other (the Inbox and Tours, a repository's pull requests and its tours, the Overview's tabs, the Diff's files) move the whole width of the screen with a gap between them, and nothing fades or blurs. The Inbox and Tours follow a drag anywhere a row does not take it, and settle on the nearer screen or go on the way a throw went (`SidePages`). The Overview's rows and the Diff's file leave the whole width gathering speed and the next arrives from the other edge (`rememberPageSlide(..., full = true)`). A sheet's own pages (Settings to What's new, Code font, Language) travel a third of the sheet's width in 350ms and blur, so the way they go is plain (H1, H4). Only the content under the Overview's tabs swipes between them: a sideways drag on the title, the branch or the numbers does nothing (H32).
+Tavi, on Inbox and Tours: "It should move like screens side by side", as Grok's Ask, Imagine and Build do, and on Summary and Commits: "pages next to each other just slide, no fade." Screens that sit beside each other (the Inbox and Tours, a repository's pull requests and its tours, the Overview's tabs, the Diff's files) move the whole width of the screen with a gap between them, and nothing fades or blurs. The Inbox and Tours, a repository's two lists and the Overview's three tabs follow a drag anywhere nothing else takes it, and settle on the nearer screen or go on the way a throw went (`SidePages`); both screens are in view during the move, and the tab marker moves with them, frame for frame (J15). On the Overview that includes the title, the meta, the branch row and the numbers, which sit over the three tabs as one head (J21, which replaced H32's "a sideways drag on the title does nothing"); only the branch row's own sideways scroll and a file row's swipe keep their drags. The Diff's files sit side by side the same way: during a swipe, an arrow or a pick from the Files sheet, the file on screen and the one it goes to are both in view, moving together, and a file picked from far away still arrives from beside the current one, never through a blank page (J25). The glide settles on a critically damped spring with no snap at the end (J7). A sheet's own pages (Settings to What's new, Code font, Language) travel a third of the sheet's width in 350ms and blur, so the way they go is plain (H1, H4).
 
-Check: tap Tours and drag back to the Inbox from the chips; swipe Summary to Commits and back; open Settings, go to What's new and back. The screens move whole, nothing fades, and Back goes right.
+Check: tap Tours and drag back to the Inbox from the chips; swipe Summary to Commits and back, once on the rows and once on the title; swipe between files; open Settings, go to What's new and back. The screens move whole side by side, nothing fades, the tab marker keeps up, and Back goes right.
 
 Source: walkthrough. Checked by: review.
 
 #### 108. Sheets rise from the bottom, bounce a little, and close only when pulled.
 
-Every sheet, Commands included, comes up from the bottom and settles on a spring that goes a little past its place and comes back (H3, H6). Scrolling a sheet's content down and back up never moves the sheet: only a drag that starts with the content at its top, or on the grabber and header, pulls it down (H2).
+Every sheet, Commands included, comes up from the bottom and settles on a spring that goes a little past its place and comes back (H3, H6), a fifth less than it first did (J1). Scrolling a sheet's content down and back up never moves the sheet: only a drag that starts with the content at its top, or on the grabber and header, pulls it down (H2).
 
 Check: open Settings, scroll the content down and back up fast: the sheet stays. Pull it down from the header: it follows and closes. Pull the Inbox down for Commands: it rises from the bottom.
 
@@ -1276,7 +1276,7 @@ Source: walkthrough. Checked by: review.
 
 #### 112. Light and dark wipe in from a corner.
 
-Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes.
+Switching Light and Dark (Settings, or Commands) spreads the new look in a circle from the top corner on the side of the chosen option over the old one, in 650ms, across the page and any sheet over it (`ThemeWipe`). Without system animations the theme simply changes. The wipe plays only when the look on screen changes: choosing System while the phone is already in the look on screen, or going back from it, changes the setting without a wipe (J2).
 
 Check: in Settings tap Dark, then Light: the new look grows from the top right, then from the top left.
 
@@ -1300,6 +1300,126 @@ Check: open the Inbox: sort is the round button right of the search pill and the
 
 Source: answers. Checked by: review.
 
+#### 115. A sheet opened from a sheet is a page of it.
+
+Tavi: "A sheet opened from a sheet should slide in as a page with Back to the first, not close it." Nothing in a sheet closes it to open another: Text and tools goes on to Pull request actions, and the actions go on to the model, Analyze options, Checks, Review with AI, Review progress and the decisions (rule 116), each a page of the same sheet with ← back (`PrSheet`, rule 78). The phone's Back goes to the page before, and closes the sheet only from its first page (J27, J32, J33).
+
+Check: on the Diff tap Aa, then Pull request actions, then Analyze options: each slides in, and ← and the phone's Back walk back one page at a time.
+
+Source: walkthrough. Checked by: review.
+
+#### 116. Decisions sit a page in and ask first.
+
+Tavi: "Be careful with these dangerous actions... they should all be in a sub menu... and even then you should double check that I actually meant to use that." Approve, Request changes, the merge, Merge when checks pass, Update branch, Convert to draft, Ready for review, Close and Reopen sit on one page, "Approve, merge or close", a row in the ⋯ sheet. Each one opens a page that says what will happen, with the one button that does it: the review with its verdict and Submit, the merge with its method and Merge, or a line and a button for the rest (Close's button in the error colour). Leave a comment stays in the ⋯ sheet. Turning off Merge when checks pass only stops something from happening, so it does not ask (J29).
+
+Check: open ⋯. No decision is one tap away. Open Approve, merge or close, tap Close: a page says it closes without merging, and only its button closes it.
+
+Source: walkthrough. Checked by: review.
+
+#### 117. Pull down for Commands on every page.
+
+Tavi: "I should be able to pull for commands on any page. Again, consistency." Pulling any page's list down past its top opens Commands the way the Inbox does: the Inbox, Tours, a repository's lists, and the Overview, Diff and Tour of a pull request (J30).
+
+Check: on the Tour, the Diff and a repository, pull down from the top: "Pull for commands", then "Release for commands", and Commands opens.
+
+Source: walkthrough. Checked by: review.
+
+#### 118. Side by side pages keep their place.
+
+Tavi, on swiping from the Inbox to Tours and back: "It brings me back to the top. It should keep me where I left off." Pages that sit side by side keep their scroll and what is open while the other is on screen: the Inbox and Tours, a repository's lists, the Overview's tabs, and each file of the Diff (J9). The Overview's head lifts with whichever tab is in view and the other tabs follow it, so a tab never opens with the head half gone.
+
+Check: scroll the Inbox down, swipe to Tours and back: the Inbox is where it was. Do the same on Summary and Commits.
+
+Source: walkthrough. Checked by: review.
+
+#### 119. One fold heading, everywhere.
+
+Tavi: "Collapsible sections differ... one component, used everywhere." A heading that folds rows away is the Inbox's (`GroupHeading`) wherever it is: the name, the count, the chevron that turns as it folds, a line under it while folded, and the rows leaving and coming back with motion. The Overview's file sections and the Files sheet use it; on a sheet the rows sit in a card under it, which folds away (J18).
+
+Check: fold a repository on the Inbox, a section on the Overview and one in the Files sheet: the same heading, the same turn and the same motion.
+
+Source: walkthrough. Checked by: review.
+
+#### 120. The same thing sounds and feels the same everywhere.
+
+Tavi: "You cannot use a different vibration and sound for the same element on different pages." The kit gives each kind of control its cue and its vibration, and no screen chooses its own: a tap plays its role's cue, every fold toggles, every hold is the app's one hold (`cueCombinedClickable`, never the system's buzz), and every page that changes under the finger ticks, the Diff's files included. A sheet is felt as it arrives, as it reaches another height, and as a pull down crosses the point where letting go closes it (J12, J20).
+
+Check: hold an Inbox row, a file row, a commit and a line of code: one feel. Open a sheet: it is felt as it lands. Fold a comment and a file section: the same sound.
+
+Source: walkthrough. Checked by: review.
+
+#### 121. Work shows from the tap.
+
+Tavi: "It did not give me any feedback for quite a while." Anything that starts AI work shows its running work log, the first line and its clock, in the same frame as the tap, before the server answers. A page opened by that tap (Generate tour opens the Tour) never shows its "nothing yet" state first (J28, J31).
+
+Check: tap Generate tour: the Tour page opens on "Reading the change" with its clock running.
+
+Source: walkthrough. Checked by: review.
+
+#### 122. One state to the next with nothing between.
+
+When AI work ends, the page goes straight from the work log to what the work made. When one pass leads to another (the first analysis to the tour), it goes straight to the next pass's log. Neither the empty page nor the start page shows in between (J34).
+
+Check: generate a tour and watch the end: the log turns into the tour, with no "Take a tour" page between.
+
+Source: walkthrough. Checked by: review.
+
+#### 123. Back returns to the exact place.
+
+Tavi: "Back always returns to the exact place." After following a link out of a page (a tour's source, a mention, a file), Back returns to that page scrolled exactly where it was, with what was open still open. For a mention in an Ask answer, that place is the Ask sheet itself, at the same scroll (J35). This extends rules 66 and 78 beyond sheets.
+
+Check: scroll a tour halfway, tap a file it names, then Back: the tour is where it was.
+
+Source: walkthrough. Checked by: review.
+
+#### 124. Links in AI text are read from the repository root.
+
+`./` and `../` are resolved without going above the root, and a folder whose name starts with a dot (`.agents`, `.github`) keeps its dot. A link to a file the pull request changes opens in the app; any other file opens on GitHub at the head commit (J36).
+
+Check: a tour that links `.agents/skills/…/SKILL.md` opens that file, never a 404.
+
+Source: walkthrough. Checked by: review.
+
+#### 125. No control rings.
+
+Tavi, on the Code font row and the gear: "This sound, I hate it... never use that sound for anything." No control plays a ringing or pitched glass tone. Default's tap, select and toggle are a click and a short knock, gone in a few hundredths of a second at every emphasis; ringing tones are kept for outcomes such as success and ready (J3, J16).
+
+Check: tap the gear and the Code font row with sounds on: a dry click, nothing that rings.
+
+Source: walkthrough. Checked by: review.
+
+#### 126. A choice of more than three is a page.
+
+A choice of more than three options is a row that opens a page inside the sheet, like Code font and Model, with a tick on the chosen one: the sound (Default, Mech, Bubble, Press) is one. Choosing a sound plays one cue in it, then goes back. Nothing explains the sounds under them, on or off (J4, J5).
+
+Check: in Settings, Sound is a row with the chosen one on the right; it opens a page, and picking one plays it and comes back.
+
+Source: walkthrough. Checked by: review.
+
+#### 127. What's new reads like a changelog.
+
+Tavi: "Think of how good professional changelogs look." Each version is its own block: the version as a small header, a New tag on the newest, the summary as a bold headline, then one bullet per line with an accent dot and room between them, and a hairline between versions. A version may sort its bullets under `### New` and `### Fixed` (J6).
+
+Check: open What's new: each version stands apart, the newest tagged New.
+
+Source: walkthrough. Checked by: review.
+
+#### 128. What the phone already has shows at once.
+
+What one screen has already loaded is never fetched again before another shows it: the profile photo in the profile sheet is the one the header drew (J8), and a pull request opened from the Inbox shows its branches from the Inbox row, with the title and the size, before GitHub answers (J13).
+
+Check: open the profile sheet: the photo is there with it. Open a pull request: the branch row is there in the first frame.
+
+Source: walkthrough. Checked by: review.
+
+#### 129. A long conversation can be narrowed.
+
+Tavi: "They're hard to navigate because sometimes there's a lot of them." When both people and bots spoke, chips over the Conversation narrow it to All, People or Bots, with how many each holds; a narrowed one shows all of its comments, not the last 30 (J19).
+
+Check: open a pull request with bot reviews and tap People: only what people wrote is left.
+
+Source: walkthrough. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -1310,7 +1430,7 @@ These were liked in the walkthrough and must not regress:
 - The Files list on the Overview. A separator under the "Files" heading may be tried: in the not-analyzed state nothing divides it from the Analyze card above.
 - The description on the Overview.
 - The Diff screen.
-- Pull down for Commands, and its search.
+- Pull down for Commands, and its search, now on every page (rule 117).
 - The Settings sheet.
 - Tapping Quick, Standard or Deep on the Analyze sheet starts the analysis.
 - The Analyze button, the Analyzing card's look and the "Look for problems" row.
@@ -1455,3 +1575,4 @@ Every difference between this file and the rendered app, and how it was settled.
 - **2026-10-15, updates are required and tours are kept (0.28.0, rule 104). Asked by Tavi.** He wanted Update in the command palette, the changelog shown and the update made mandatory when he opens an old version, and the tours he has gone through stored so they load quickly. The floating update card and its ✕ are gone: while the server offers a newer build, a full-screen update screen covers the app with the changelog and Update, and only installing it ends it. The last offer is kept on the phone, so the screen shows from the first frame; the background check keeps it too. Commands has Update Pulls (asks the server now, however recently it was asked) and What's new. Tours: the server already kept every tour on disk, and the phone kept only the Tours list and your place in each; the tour itself was fetched after the whole diff on every open. Now the phone keeps each tour it has shown (the newest 200), opens it before the diff or the overview arrives, and replaces it with the server's answer; Home fetches the tours on the Tours list the phone lacks. My readings: Back on the update screen leaves the app rather than doing nothing; a tour's sources and mentions open once the diff has arrived. Open edges: checked by compiling and unit tests, not on a phone.
 - **2026-10-15, the walkthrough of 0.24.0 (rules 107 to 112, 0.29.0). Asked by Tavi.** His recording of 0.24.0 named 36 points, written down with their times in `/mnt/project-files/design/feedback-2026-10-15-0.24.0.md` and checked against the frames. Pages that sit side by side now slide whole with no fade (`SidePages` for the Inbox and Tours and a repository's two pages, `rememberPageSlide(full = true)` for the Overview's tabs and the Diff's files); a sheet's pages travel a third of its width. Sheets settle on a spring, Commands rises from the bottom like every sheet (the old "drops from the top" of rule 105 is gone), and a sheet only closes when its content is at the top and the drag starts there. Every cue also vibrates, with a Vibration switch. Light and Dark wipe in from a corner. The server keeps each repository's first page of pull requests and fetches the Inbox's busiest twelve ahead, and the phone keeps the last page it saw, so the repository page opens with rows. The Overview takes a pull request's size from the list it was opened from until its diff counts it. Two points wait on Tavi's pick from design options: the Analyze card and where sort sits at the top of Home. Kept as he asked: auto refresh, and Closed pull requests in Profile for now. Already fixed before this walkthrough: the squeezed "Viewing commit 2 of 7" bar (0.25.0). The feel of the swipes, the spring and the vibrations was not tried on a phone.
 - **2026-10-15, the tour from its icon and sort beside search (rules 113 and 114, 0.30.0). Picked by Tavi.** He turned down the first round of options for the Analyze card and the top of Home ("I don't like any of the options"), which only restyled the same card and chip. From the second round he took sort beside the search (A) and, for Analyze, asked for his own variant of the top-bar icon (D): no Analyze card on the Overview at all, and the tour icon opening a "No tour yet" sheet with the model and Generate tour whenever there is no tour (`AnalyzePage.Tour` in `AnalyzeSheet`, `generateTour`). The Analyze card's code (`AnalysisBlock`, `AnalyzeStatusCard`, `AnalyzeSplitButton`, the log sheet and core's `analyzeCard`) is gone; the Tour page shows the analysis's own work log until the tour's starts (`tourComing`). My readings: the sheet's title is "No tour yet" and its button "Generate tour", from his words; the empty Tour page that a Tours row or a link can still open offers the same Generate tour. Open edges: checked by compiling, unit tests and the design checks, not on a phone.
+- **2026-10-15, the walkthrough of 0.29.0 (rules 115 to 129, and 61, 74, 77, 79, 92, 107, 108 and 112, 0.31.0). Asked by Tavi.** His two recordings of 0.29.0 named 36 points, written down with their times in `/mnt/project-files/design/feedback-2026-10-15-0.29.0.md` and checked against the frames. The Overview's three tabs are one `SidePages` under one head that both drags them and lifts with the tab in view, which reverses H32; every side by side pair keeps its scroll; the page glide is critically damped with a fine threshold, so it no longer snaps; the sheet spring overshoots a fifth less. Sheets opened from sheets are pages of one `PrSheet`, the decisions sit a page in with a page that asks first, and the Commands row is gone from ⋯ since pulling down works on every page. Commands opens tall with the keyboard; a field lifts its sheet on the sheet spring; sheets are felt when they land. One fold heading, Files and Checks in cards, People and Bots chips on a long conversation, branches from the Inbox row, sideways rows that fade at their edges, one hold feel (`cueCombinedClickable`). The diff pins its counts line and slides files side by side and fetches colours ahead; tours show work from the tap, end straight on the tour, keep the place on Back and keep dot-folders in links; Default's tap is a dry click, Sound is a page, What's new reads like a changelog and the profile photo shares the header's image. My readings: "Approve, merge or close" names the decisions page; turning Merge when checks pass off does not ask, since it only stops a merge; the Conversation chips show only when both people and bots spoke. Open edges: checked by compiling, unit tests and the design checks, not on a phone, so the feel of the swipes, the spring, the keyboard lift and the vibrations needs a hand on the phone; the first file opened from the Overview still waits one round trip for its colours.
