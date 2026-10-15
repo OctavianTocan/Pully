@@ -42,6 +42,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
+import kotlinx.coroutines.delay
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.focus.onFocusChanged
+import com.octaviantocan.pulls.ui.home.SearchDim
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
@@ -158,6 +165,12 @@ internal fun PrTourScreen(
         if (n > 1 && resumeAt in 2..n) listState.scrollToItem(resumeAt)
     }
 
+    // A tour seen for the first time brings its stops onto the page one after another, rising into place (K14); one
+    // already seen, or a card scrolled back into view, is simply there.
+    var arrivedFor by rememberSaveable { mutableStateOf<String?>(null) }
+    val arriving = tour != null && tour.generatedAt != arrivedFor
+    LaunchedEffect(tour?.generatedAt) { if (tour != null) { delay(PullsMotion.SLOW.toLong()); arrivedFor = tour.generatedAt } }
+
     // A swipe to the right takes the cards back to the Diff, following the finger as the Diff's files do. The Tour is
     // the last page, so a swipe to the left goes nowhere and the cards stay put. A swipe on code in a card scrolls the code.
     val slide = rememberPageSlide(Unit, order = { 0 })
@@ -222,13 +235,19 @@ internal fun PrTourScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         item(key = "intro") { Intro(session, head, tour, running) }
-                        itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop -> StopCard(session, stop, onOpenSource) }
+                        itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop ->
+                            Box(Modifier.arrive(index, play = arriving)) { StopCard(session, stop, onOpenSource) }
+                        }
                         // The tour ends with its last card: no closing line and no button back (rule 97); the header or a swipe leaves it.
                         if (tour != null && tour.glossary.isNotEmpty()) item(key = "glossary") { Card { Glossary(tour.glossary, Modifier) } }
                     }
                 }
             }
-            AskPill(Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
+            // The Ask pill is Home's search pill: the same face and size, and the page dims behind it while it waits (K12).
+            var askText by remember { mutableStateOf("") }
+            var askFocused by remember { mutableStateOf(false) }
+            SearchDim(askFocused, askText.isEmpty())
+            AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
         }
     }
 
@@ -351,36 +370,35 @@ internal fun SectionsSheet(stops: List<TourStop>, current: Int, onPick: (Int) ->
     }
 }
 
-/** `.tourask`: a 54dp pill; sending opens the Ask sheet on the question. */
+/** `.tourask`: Home's 54dp search pill with Send in place of the clear button; sending opens the Ask sheet on the question. */
 @Composable
-private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
+private fun AskPill(text: String, onText: (String) -> Unit, onFocus: (Boolean) -> Unit, modifier: Modifier, onAsk: (String?) -> Unit) {
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
-    var text by remember { mutableStateOf("") }
     fun send() {
         val question = text.trim()
         if (question.isEmpty()) return
-        text = ""
+        onText("")
         focus.clearFocus()
         onAsk(question)
     }
     Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = 6.dp),
+        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         BasicTextField(
             value = text,
-            onValueChange = { text = it },
+            onValueChange = onText,
             singleLine = true,
-            textStyle = PullsType.base.copy(color = c.text),
+            textStyle = PullsType.lg.copy(color = c.text),
             cursorBrush = SolidColor(c.accentTeal),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { send() }),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
             decorationBox = { inner ->
                 Box(contentAlignment = Alignment.CenterStart) {
-                    if (text.isEmpty()) Text("Ask about this tour…", style = PullsType.base, color = c.muted, maxLines = 1)
+                    if (text.isEmpty()) Text("Ask about this tour", style = PullsType.lg, color = c.muted, maxLines = 1)
                     inner()
                 }
             },
@@ -389,3 +407,20 @@ private fun AskPill(modifier: Modifier, onAsk: (String?) -> Unit) {
         SendButton({ send() }, "Send", enabled = text.isNotBlank())
     }
 }
+
+/** Fades a stop in and lifts it into place, [order] steps after the first, when [play] is set on its first showing (K14). */
+@Composable
+private fun Modifier.arrive(order: Int, play: Boolean): Modifier {
+    val motion = rememberMotionEnabled()
+    val shown = remember { Animatable(if (play && motion) 0f else 1f) }
+    LaunchedEffect(Unit) {
+        if (shown.value >= 1f) return@LaunchedEffect
+        delay(order.coerceAtMost(ARRIVE_STEPS) * PullsMotion.STAGGER * 2L)
+        shown.animateTo(1f, tween(PullsMotion.MEDIUM, easing = PullsMotion.SmoothOut))
+    }
+    val rise = with(LocalDensity.current) { PullsMotion.SlideDistance.toPx() } * 2f
+    return graphicsLayer { alpha = shown.value; translationY = (1f - shown.value) * rise }
+}
+
+/** After this many stops the rest arrive together, so a long tour is not a slow parade. */
+private const val ARRIVE_STEPS = 6

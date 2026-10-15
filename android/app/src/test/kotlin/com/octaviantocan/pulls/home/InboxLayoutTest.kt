@@ -9,6 +9,7 @@ import com.octaviantocan.pulls.ui.home.Pinned
 import com.octaviantocan.pulls.ui.home.groupKey
 import com.octaviantocan.pulls.ui.home.groupOfKey
 import com.octaviantocan.pulls.ui.home.pinnedGroup
+import com.octaviantocan.pulls.ui.home.cutFoldedHeading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -84,6 +85,20 @@ class InboxLayoutTest {
 
     private val groups = mapOf("acme/app#1" to "acme/app", "acme/app#2" to "acme/app", "acme/web#3" to "acme/web")
     private fun pinned(vararg visible: Pair<Any, Int>, height: Int = 40) = pinnedGroup(visible.toList(), height) { groups[it] }
+
+    @Test fun aFoldedHeadingCutByTheTopSettlesWholeOrGone() {
+        // Less than half hidden: scroll back so it shows whole; more: scroll on so it goes under the edge (K19).
+        assertEquals(-10, cutFoldedHeading(listOf(Triple(groupKey("a"), -10, 40), Triple(groupKey("b"), 30, 40))))
+        assertEquals(10, cutFoldedHeading(listOf(Triple(groupKey("a"), -30, 40), Triple(groupKey("b"), 10, 40))))
+        assertEquals(10, cutFoldedHeading(listOf(Triple(groupKey("a"), -30, 40))))
+    }
+
+    @Test fun anOpenOrWholeHeadingIsLeftWhereItIs() {
+        assertNull(cutFoldedHeading(listOf(Triple(groupKey("a"), -10, 40), Triple("a#1", 30, 60))))
+        assertNull(cutFoldedHeading(listOf(Triple(groupKey("a"), 0, 40), Triple(groupKey("b"), 40, 40))))
+        assertNull(cutFoldedHeading(listOf(Triple("a#1", -10, 60), Triple(groupKey("b"), 50, 40))))
+        assertNull(cutFoldedHeading(emptyList()))
+    }
 
     @Test fun nothingIsPinnedWhileAHeadingIsInView() {
         assertNull(pinned(groupKey("acme/app") to 0, "acme/app#1" to 40))

@@ -32,6 +32,7 @@ query PullRequestOverview($owner: String!, $repo: String!, $number: Int!) {
       mergeStateStatus
       reviewDecision
       viewerCanUpdate
+      viewerDidAuthor
       viewerCanUpdateBranch
       viewerCanClose
       viewerCanReopen
@@ -228,6 +229,8 @@ export interface RawPullRequest {
   mergeStateStatus: string
   reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null
   viewerCanUpdate: boolean
+  /** Absent from answers cached before it was asked for. */
+  viewerDidAuthor?: boolean
   viewerCanUpdateBranch: boolean
   viewerCanClose: boolean
   viewerCanReopen: boolean

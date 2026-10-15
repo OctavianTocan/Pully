@@ -42,48 +42,22 @@ import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 
 /**
- * What the changes are narrowed to ("Viewing commit 2 of 5" and its headline, a range, or bare shas), previous / next
- * commit, and a "Show all" pill. It stays on screen over the Overview and the Diff, so nobody has to look for the way
- * back (rule 80).
+ * What the changes are narrowed to, in a few words ("Commit 2 of 5", "Commits 2–4 of 5", or short shas), or null when
+ * they show the whole pull request. It replaces the box that sat over the pages (K25): the Commits number on the
+ * Overview and the file pill on the Diff say it, and the Commits sheet's "All commits" goes back.
  */
-@Composable
-fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: Modifier = Modifier) {
-    val picked = session.selection ?: return
-    val c = LocalPullsColors.current
-    val selection = CommitSelection(picked.first, picked.second)
+fun commitLabel(selection: Pair<String, String>?, overview: PrOverview?): String? {
+    val picked = selection ?: return null
     val commits = overview?.commits.orEmpty()
-    val range = resolveCommitSelection(commits, selection)
-    val (previous, next) = adjacentCommits(commits, selection)
+    val range = resolveCommitSelection(commits, CommitSelection(picked.first, picked.second))
     // Commits GitHub did not return are the oldest ones, so they shift every position.
     val offset = overview?.commitsHidden ?: 0
     val total = commits.size + offset
-    val shape = RoundedCornerShape(PullsRadius.card)
-    // The count and the commit's name take the whole width, wrapping whole (a name is never cut or squeezed into a
-    // narrow column); the way through the commits and back to all of them sit under them.
-    Column(
-        modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Row(Modifier.padding(end = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LuIcon(Lu.commit, tint = c.muted, size = 20.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                when {
-                    range != null && range.first == range.last -> {
-                        Text("Viewing commit ${range.first + 1 + offset} of $total", style = PullsType.sm, color = c.text)
-                        commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted) }
-                    }
-                    range != null -> Text(t("overview.selection.viewingRange", "start" to range.first + 1 + offset, "end" to range.last + 1 + offset, "total" to total), style = PullsType.sm, color = c.text)
-                    selection.from == selection.to -> Text(t("overview.selection.viewingSha", "sha" to selection.from.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
-                    else -> Text(t("overview.selection.viewingShaRange", "from" to selection.from.take(7), "to" to selection.to.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
-                }
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            FloatIcon(Lu.prev, t("overview.selection.previous"), { session.selectCommits(previous?.pair) }, flat = true, size = 40.dp, enabled = previous != null)
-            FloatIcon(Lu.next, t("overview.selection.next"), { session.selectCommits(next?.pair) }, flat = true, size = 40.dp, enabled = next != null)
-            Spacer(Modifier.weight(1f))
-            PillButton("Show all", { session.selectCommits(null) })
-        }
+    return when {
+        range != null && range.first == range.last -> "Commit ${range.first + 1 + offset} of $total"
+        range != null -> "Commits ${range.first + 1 + offset}–${range.last + 1 + offset} of $total"
+        picked.first == picked.second -> "Commit ${picked.first.take(7)}"
+        else -> "${picked.first.take(7)} to ${picked.second.take(7)}"
     }
 }
 

@@ -67,6 +67,12 @@ class DiffUi(val session: ReviewSession) {
     /** A drag selection in progress (long-press a line number, then drag): highlighted, not yet a draft. */
     var dragSel by mutableStateOf<DraftTarget?>(null)
 
+    /** The lines a long press is holding, whose sheet (Ask, Copy, Copy GitHub link) is open over the diff (K11). */
+    var lineActions by mutableStateOf<DraftTarget?>(null)
+
+    /** Where a long-press range of commits starts on the Commits sheet: the last commit tapped. */
+    var commitAnchor: Int? = null
+
     /** The line on [side] of [path] whose gutter centre is nearest [y]. */
     internal fun lineAt(path: String, side: String, y: Float): Int? {
         val prefix = "$path|$side|"

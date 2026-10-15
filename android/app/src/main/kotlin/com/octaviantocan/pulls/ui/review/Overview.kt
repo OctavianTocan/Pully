@@ -183,7 +183,12 @@ data class PrViewer(
     val canUpdateBranch: Boolean,
     val canEnableAutoMerge: Boolean = false,
     val canDisableAutoMerge: Boolean = false,
-)
+    /** He wrote it. Only then are its title and description his to edit (K21). */
+    val isAuthor: Boolean = false,
+) {
+    /** The title and the description are editable on his own pull requests alone, however much GitHub allows (K21). */
+    val canEditText: Boolean get() = canUpdate && isAuthor
+}
 
 /** `PrMergeSettings` (the commit title/message settings stay on the server: it sends `defaultCommits`). */
 data class PrMergeSettings(val methods: List<String>, val defaultMethod: String)
@@ -303,7 +308,7 @@ fun parsePrOverview(o: JsonObject): PrOverview? {
         viewer = PrViewer(
             viewer.strOrNull("permission"), viewer.bool("canPush"), viewer.bool("canMergeAsAdmin"), viewer.bool("canClose"),
             viewer.bool("canReopen"), viewer.bool("canUpdate"), viewer.bool("canUpdateBranch"),
-            viewer.bool("canEnableAutoMerge"), viewer.bool("canDisableAutoMerge"),
+            viewer.bool("canEnableAutoMerge"), viewer.bool("canDisableAutoMerge"), viewer.bool("isAuthor"),
         ),
         merge = PrMergeSettings(methods, merge.str("defaultMethod").takeIf { it in methods } ?: methods.firstOrNull() ?: "merge"),
         autoMergeMethod = o.objOrNull("autoMerge")?.strOrNull("method"),

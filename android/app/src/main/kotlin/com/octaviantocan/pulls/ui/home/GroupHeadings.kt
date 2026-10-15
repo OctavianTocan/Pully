@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -14,6 +15,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.gestures.animateScrollBy
+import kotlinx.coroutines.flow.filter
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,6 +38,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.Cue
@@ -70,6 +76,19 @@ internal fun pinnedGroup(visible: List<Pair<Any, Int>>, headingHeight: Int, grou
 }
 
 /**
+ * How far to scroll (px, either way) so a folded heading cut by the top of the list is shown whole or hidden whole, from
+ * the items on screen in order as key, offset and size. Null when the first item is not a heading cut by the edge, or is
+ * an open one (a row of its own follows it, and the pinned copy covers it).
+ */
+internal fun cutFoldedHeading(visible: List<Triple<Any, Int, Int>>): Int? {
+    val (key, offset, size) = visible.firstOrNull() ?: return null
+    if (groupOfKey(key) == null || offset >= 0 || -offset >= size) return null
+    val next = visible.getOrNull(1)?.first
+    if (next != null && groupOfKey(next) == null) return null
+    return if (-offset * 2 > size) size + offset else offset
+}
+
+/**
  * A list grouped by repository whose heading stays pinned at the top while its rows scroll under it (Tavi, 14 Oct: "I
  * need the project row to stay sticky as you scroll down"), the next heading pushing it away as it arrives. The rows
  * fade out just below the pinned heading, as under any pinned edge (rule 74). [list] is the LazyColumn, given the
@@ -89,6 +108,14 @@ internal fun PinnedHeadings(
         derivedStateOf { pinnedGroup(state.layoutInfo.visibleItemsInfo.map { it.key to it.offset }, height, groups) }
     }
     val band = with(LocalDensity.current) { PullsMotion.EdgeTop.toPx() }
+    // A folded heading has no rows to pin it over, so when the list comes to rest with one cut by the top edge, the list
+    // settles onto the nearer edge of it: shown whole, or gone under the edge, never half a pill (K19).
+    LaunchedEffect(state) {
+        snapshotFlow { state.isScrollInProgress }.filter { !it }.collect {
+            val cut = cutFoldedHeading(state.layoutInfo.visibleItemsInfo.map { item -> Triple(item.key, item.offset, item.size) }) ?: return@collect
+            state.animateScrollBy(cut.toFloat(), tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut))
+        }
+    }
     Box(Modifier.fillMaxSize().clipToBounds()) {
         list(
             Modifier.edgeFade(
@@ -142,13 +169,17 @@ internal fun GroupHeading(
         // sits 18dp under the rows above and 6dp over its own, as the heading did before it folded.
         Text(
             label,
-            Modifier.clip(RoundedCornerShape(PullsRadius.md))
+            Modifier.weight(1f, fill = false).clip(RoundedCornerShape(PullsRadius.md))
                 .then(if (onOpen != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen) else Modifier)
                 .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
             style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
             color = c.muted,
+            // A long name ends in … on its one line; the count and the chevron never wrap or get cut (K24).
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        Text("$count", Modifier.weight(1f), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint)
+        Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint, maxLines = 1, softWrap = false)
+        Spacer(Modifier.weight(1f))
         if (onFold != null) LuIcon(Lu.chevd, Modifier.rotate(turn), tint = c.faint, size = 18.dp)
     }
 }

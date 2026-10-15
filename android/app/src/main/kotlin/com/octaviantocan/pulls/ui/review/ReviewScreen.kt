@@ -289,8 +289,6 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                             corner = if (view == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
                         )
                     }
-                    // The diff is narrowed to a commit: say so, with the way back, where no view can scroll it away (rule 80).
-                    CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
                     // The views sit left to right as the capsule shows them, so going to one moves the page that way (rule 105).
                     // Pulling down past the top of any view opens Commands, as on the Inbox (J30).
                     PullToCommands({ Commands.open() }, Modifier.weight(1f).fillMaxWidth()) {
@@ -305,9 +303,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                 onOpenRepo = nav.openRepo,
                             )
                             PrView.Diff -> PrDiffScreen(
-                                session, ui, diffPath, { diffPath = it },
+                                session, ui, diffPath, commitLabel(session.selection, data?.overview), { diffPath = it },
                                 onOverview = ::toOverview,
-                                onTour = ::openTour,
                                 onFiles = { sheet = "files" },
                                 onAsk = { reference -> openAsk(forTour = false, reference = reference) },
                             )
@@ -344,6 +341,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                         ui = ui, file = orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() },
                     )
                     "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
+                    "commits" -> data?.overview?.let { CommitsSheet(session, ui, it, onOpen = ::toChanges) { sheet = null } }
                     "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }
                     "analyze" -> AnalyzeSheet(session, onClose = { sheet = null })

@@ -102,7 +102,13 @@ fun stepTitle(activity: Activity): String =
 
 /** The server opens every job with a `start` status; a later settled status row is a notice (rate limit, retry). */
 fun isWarning(activity: Activity, index: Int): Boolean =
-    activity.kind == "status" && activity.status == "done" && activity.id != "start" && index > 0
+    activity.kind == "status" && activity.status == "done" && index > 0 && WARNING_IDS.any { activity.id.startsWith(it) }
+
+/**
+ * The status lines that are notices: a retry, a rate limit, an error the engine reported. A step of the work itself,
+ * such as "Planned 6 stops", is a plain line, never amber (K13).
+ */
+private val WARNING_IDS = listOf("retry", "rate-limit", "status:")
 
 /**
  * The answer as it is being written (rule 99): the text of the newest writing step, as long as no tool or thinking step

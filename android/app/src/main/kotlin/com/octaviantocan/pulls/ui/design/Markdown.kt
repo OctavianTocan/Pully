@@ -639,8 +639,9 @@ private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors, 
             is Code -> {
                 val code = SpanStyle(fontFamily = PullsType.mono, background = c.code, fontSize = if (PullsType.wide) 0.85.em else 13.sp)
                 val place = mentions?.let { codeSpanPlaceOf(node.literal, it.resolve) }
-                // A path in backticks is a mention too: still code, in the link colour (rule 96).
-                if (place != null && mentions != null) withLink(LinkAnnotation.Clickable("mention", TextLinkStyles(code.copy(color = c.activeText))) { mentions.open(place) }) { append("\u2009${node.literal}\u2009") }
+                // A path in backticks is a mention too, and reads like every other link: one face, not code for some and
+                // sans for the rest (K16).
+                if (place != null && mentions != null) withMention(place, c, mentions) { append(node.literal) }
                 else withStyle(code) { append("\u2009${node.literal}\u2009") }
             }
             is Emphasis -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { appendInline(node, c, mentions) }

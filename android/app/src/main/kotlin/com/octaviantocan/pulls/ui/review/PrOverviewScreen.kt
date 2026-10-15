@@ -59,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -154,39 +155,41 @@ internal fun PrOverviewScreen(
     // opens, switches or swipes (J17, rule 83).
     fun Modifier.holdUnless(field: String) = then(if (editing != null && editing != field) Modifier.pointerInput(editing) { leaveOnTap { focusManager.clearFocus() } } else Modifier)
     CompositionLocalProvider(LocalEditFocus provides editFocus) {
-    Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
-        // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
-        // own beside the conversation (rule 91). All three are there from the start, so the row never changes shape
-        // when the conversation arrives (rule 53).
-        val labels = listOf("Summary", "Commits", "Conversation")
+    Box(Modifier.fillMaxSize().clipToBounds().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
+        // The description is the summary until the AI writes one, so they share a tab; the commits open on a sheet from
+        // their number (K29). Both tabs are there from the start, so the row never changes shape when the conversation
+        // arrives (rule 53).
+        val labels = OVERVIEW_TABS
         val shown = pane.coerceAtMost(labels.lastIndex)
-        val commitAnchor = remember { mutableStateOf<Int?>(null) }
-        // The three tabs are pages side by side under one head (J15): a swipe anywhere that has no sideways swipe of its
-        // own moves them with the finger, the head's included (J21), the tab stroke sits where the pages are, and on past
-        // the last tab the swipe goes on to the Diff (rule 93).
-        val sides = rememberSidePages(shown, labels.size, onPane, onPastEnd = { onDiff(null) })
+        // The tabs are pages side by side under one head (J15): a swipe anywhere that has no sideways swipe of its own
+        // moves them with the finger, the head's included (J21), and the tab stroke sits where the pages are. Past the
+        // last tab there is nothing, so the page stays where it is (K8).
+        val sides = rememberSidePages(shown, labels.size, onPane)
         // Each tab keeps its own list and where it was scrolled (J9); the Summary's is the review's, so coming back from
         // the Diff finds it where it was.
         val others = remember { List(labels.size - 1) { LazyListState() } }
         val lists = remember(scroll) { listOf(scroll) + others }
         var headHeight by remember { mutableIntStateOf(0) }
+        var tabsHeight by remember { mutableIntStateOf(0) }
         val density = LocalDensity.current
+        // The head goes up until only its tabs are left, and they stay pinned at the top on the page's colour (K6).
+        val maxLift = (headHeight - tabsHeight).coerceAtLeast(0)
         // How far the head has gone up with the tab in view: as far as that tab's list has scrolled past it.
-        fun lifted(list: LazyListState) = if (list.firstVisibleItemIndex > 0) headHeight else minOf(list.firstVisibleItemScrollOffset, headHeight)
+        fun lifted(list: LazyListState) = if (list.firstVisibleItemIndex > 0) maxLift else minOf(list.firstVisibleItemScrollOffset, maxLift)
         val front by remember { derivedStateOf { lists[sides.at.roundToInt().coerceIn(0, labels.lastIndex)] } }
         // The tabs beside the one in view sit at the same height under the head, so a swipe brings them in level with it:
         // the head where it is, and each tab where it was left once the head has gone (J9).
-        LaunchedEffect(lists, headHeight) {
+        LaunchedEffect(lists, maxLift) {
             snapshotFlow { lifted(front) }.collect { up ->
                 lists.forEach { list ->
                     if (list === front) return@forEach
                     val theirs = lifted(list)
-                    if (up < headHeight && theirs != up) list.requestScrollToItem(0, up)
-                    else if (up >= headHeight && theirs < headHeight) list.requestScrollToItem(1, 0)
+                    if (up < maxLift && theirs != up) list.requestScrollToItem(0, up)
+                    else if (up >= maxLift && theirs < maxLift) list.requestScrollToItem(0, maxLift)
                 }
             }
         }
-        SidePages(sides, labels.indices.toList(), Modifier.fillMaxSize().holdUnless("description")) { tab ->
+        SidePages(sides, labels.indices.toList(), Modifier.fillMaxSize().clipToBounds().holdUnless("description")) { tab ->
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -202,24 +205,25 @@ internal fun PrOverviewScreen(
                         item(key = "summary") { Box(rows) { SummaryPane(session, top, data, onCite, onSheet) } }
                         filesItems(session, ui, onDiff, onSheet, rows)
                     }
-                    COMMITS_TAB -> if (data != null) commitItems(session, data.overview, commitAnchor, rows) else waitingItem(session, rows)
                     else -> if (data != null) item(key = "conversation") { Box(rows.padding(top = 14.dp)) { Conversation(data.overview) } } else waitingItem(session, rows)
                 }
             }
         }
         // The head: the title, who and when, the branch, the numbers and the tabs. It goes up with the tab in view and
         // scrolls it when dragged, and a sideways drag on it moves the tabs' pages like one on them (J21).
+        // Nothing of it is drawn above the page, so it never covers the buttons over it or reaches the status bar (K6).
         Column(
             Modifier.fillMaxWidth()
                 .onSizeChanged { headHeight = it.height }
                 .graphicsLayer { translationY = -lifted(front).toFloat() }
+                .background(c.base)
                 .padding(start = 16.dp, end = 16.dp, top = 12.dp)
                 .scrollable(front, Orientation.Vertical, reverseDirection = true)
                 .sideSwipe(sides),
         ) {
             val overview = data?.overview
             EditableText(
-                head.title, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.xxl, saved = "Title updated",
+                head.title, canEdit = overview?.viewer?.canEditText == true, textStyle = PullsType.xxl, saved = "Title updated",
                 onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
                 modifier = Modifier.backUnless("title").holdUnless("title"),
             ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
@@ -234,9 +238,10 @@ internal fun PrOverviewScreen(
                 SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
                 val overviewError = session.overviewError
                 if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
-                StatsLine(session, data, onSheet, onCommits = { onPane(COMMITS_TAB) })
-                // The stroke sits where the pages are, so the tab and the page under it move as one (J15).
-                UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), spread = true, position = { sides.at })
+                StatsLine(session, data, onSheet, onCommits = { onSheet("commits") })
+                // The stroke sits where the pages are, so the tab and the page under it move as one (J15). The tabs sit
+                // side by side from the left, a word's room apart, not spread over the width (K7).
+                UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp).onSizeChanged { tabsHeight = it.height + with(density) { 2.dp.roundToPx() } }, position = { sides.at })
             }
         }
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(112.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.7f to c.base, 1f to c.base)))
@@ -273,8 +278,8 @@ internal fun JevLine(jev: PullJev?, attention: Map<String, String>) {
     Text(words, Modifier.padding(top = 8.dp), style = PullsType.sm, color = c.muted)
 }
 
-/** Where the Commits tab sits among the tabs, for the Commits cell that opens it. */
-private const val COMMITS_TAB = 1
+/** The Overview's tabs; the opening page draws the same row, so nothing moves when the page arrives (K22). */
+internal val OVERVIEW_TABS = listOf("Summary", "Conversation")
 
 /**
  * A tab whose rows come with the conversation, before it has arrived: bars where the rows will be, and no loading
@@ -382,7 +387,7 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
     val diffed = session.opened != null
     val adds = if (diffed) session.files.sumOf { it.additions } else known?.additions ?: 0
     val dels = if (diffed) session.files.sumOf { it.deletions } else known?.deletions ?: 0
-    val commits = overview?.let { it.commits.size + it.commitsHidden } ?: (session.prOpened ?: session.opened)?.commits?.size ?: 0
+    val commits = overview?.let { it.commits.size + it.commitsHidden } ?: (session.prOpened ?: session.opened)?.commits?.size
     Row(
         Modifier.fillMaxWidth().padding(top = 12.dp).drawBehind { drawRect(c.borderMute, Offset.Zero, Size(size.width, 1.dp.toPx())) }.padding(vertical = 9.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -394,8 +399,13 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
             Text("+${compactCount(adds)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.green(c.dark), maxLines = 1)
             Text("−${compactCount(dels)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.red(c.dark), maxLines = 1)
         }
-        Cell("Commits", Modifier.width(76.dp), onClick = if (overview != null && commits > 0) onCommits else null) {
-            Text("$commits", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+        // Narrowed to some commits, the cell says which, in the link colour, and opens the sheet that goes back (K25).
+        val narrowed = commitLabel(session.selection, overview)?.removePrefix("Commits ")?.removePrefix("Commit ")
+        Cell("Commits", Modifier.width(76.dp), onClick = if (overview != null && (commits ?: 0) > 0) onCommits else null) {
+            // A bar until the number is known, not a 0 that turns into 50 (K22).
+            if (commits == null) Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp))
+            else if (narrowed != null) Text(narrowed, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText, maxLines = 1, softWrap = false)
+            else Text("$commits", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
         }
         Cell("Files", Modifier.width(52.dp), onClick = if (session.files.isNotEmpty()) ({ onSheet("files") }) else null) {
             val files = if (diffed) session.files.size else known?.files
@@ -405,6 +415,7 @@ private fun StatsLine(session: ReviewSession, data: PrOverviewData?, onSheet: (S
         val checks = overview?.checksSummary
         Cell("Checks", Modifier.weight(1f), onClick = if (checks != null && checks.total > 0) ({ onSheet("checks") }) else null) {
             when {
+                checks == null && session.overviewError == null -> Skeleton(Modifier.padding(vertical = 4.dp).width(56.dp))
                 checks == null || checks.total == 0 -> Text("None", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
                 checks.failing > 0 -> {
                     LuIcon(Lu.xc, tint = StatusColors.red(c.dark), size = 18.dp)
@@ -437,8 +448,23 @@ private fun Cell(label: String, modifier: Modifier, onClick: (() -> Unit)? = nul
 
 // --- Summary ---
 
-/** Wide enough for "Description" in each half, and no wider: the capsule belongs to the text under it. */
-private val SummarySwitchWidth = 240.dp
+/**
+ * The line over the summary: what the text under it is ("AI summary" or "Description", muted) and a link to the other,
+ * in the link colour, as a translated text offers its original. The words swap in place as the texts do (K23).
+ */
+@Composable
+private fun SourceLine(description: Boolean, onSwitch: () -> Unit) {
+    val c = LocalPullsColors.current
+    Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(if (description) "Description" else "AI summary", style = PullsType.sm, color = c.muted)
+        Text(" · ", style = PullsType.sm, color = c.faint)
+        Text(
+            if (description) "Show the AI summary" else "Show the description",
+            Modifier.clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(role = Role.Button, onClick = onSwitch),
+            style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
+        )
+    }
+}
 
 /**
  * What the pull request is and what the AI made of it: the summary, the brief and what needs a human.
@@ -457,13 +483,10 @@ private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOvervi
     val cite = { place: CodePlace -> onCite(Cite(place.path, place.line)) }
     Column {
         if (summary != null) {
-            CapsuleTabs(
-                listOf("Summary", "Description"), if (description) 1 else 0,
-                { top.descriptionOver = if (it == 1) shown else null },
-                Modifier.padding(top = 16.dp).width(SummarySwitchWidth),
-            )
+            // Which text this is, and a quiet link to the other: no pill switch over the text (K23).
+            SourceLine(description) { top.descriptionOver = if (description) null else shown }
         }
-        // The capsule's pill slides and the other text fades in beside it, like a tab (rule 67); the capsule stays put.
+        // The other text fades in where this one was (rule 67); the line over it stays put.
         BlurSwitch(description, order = { if (it) 1 else 0 }) { showDescription ->
             if (showDescription) DescriptionText(session, data, Modifier.padding(top = 12.dp))
             else if (summary != null) ProvideAiText(session, cite) {
@@ -663,14 +686,14 @@ private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modif
     val html = overview?.bodyHTML.orEmpty()
     val source = overview?.body ?: (session.prOpened ?: session.opened)?.description.orEmpty()
     EditableText(
-        source, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.read, saved = "Description updated",
+        source, canEdit = overview?.viewer?.canEditText == true, textStyle = PullsType.read, saved = "Description updated",
         onSave = { body -> session.repo.prAction(overview!!.id, "edit", body = body); session.reloadOverview() },
         modifier = modifier, multiline = true, allowBlank = true, placeholder = "Describe the change in Markdown",
     ) { text ->
         // GitHub's own rendering while the text is the one it holds; the typed Markdown for the moment after a save.
         val markdown = remember(text, html, overview?.body) { if (html.isNotBlank() && text == overview?.body) htmlToMarkdown(html) else text }
         if (markdown.isNotBlank()) Markdown(markdown, style = PullsType.read.copy(color = c.text))
-        else Text(if (overview?.viewer?.canUpdate == true) "Add a description" else "No description.", style = PullsType.read, color = c.muted)
+        else Text(if (overview?.viewer?.canEditText == true) "Add a description" else "No description.", style = PullsType.read, color = c.muted)
     }
 }
 
@@ -687,9 +710,36 @@ private fun BottomBar(
     onDiff: (String?) -> Unit,
     onApprove: () -> Unit,
 ) {
-    val c = LocalPullsColors.current
     val left = session.files.count { it.sha !in session.reviewed }
     val canApprove = session.pull != null && session.canWrite && head.isOpen
+    val done = left == 0 && session.files.isNotEmpty()
+    // The overview came before the diff: the button waits, dimmed, until there are files to count and open. It already
+    // counts the files the Inbox knew of, so its words do not change when they arrive (K22).
+    val arrived = session.opened != null
+    val known = (session.target as? OpenTarget.Pull)?.let { PullSizes.get(it.owner, it.repo, it.number) }?.files
+    ReviewBar(
+        text = when {
+            !arrived -> reviewFilesLabel(known)
+            done && canApprove -> "Approve"
+            done -> "Open changes"
+            else -> reviewFilesLabel(left)
+        },
+        approve = done && canApprove,
+        enabled = arrived,
+        modifier = modifier,
+        onAsk = onAsk,
+        onMore = onMore,
+        onClick = { if (done && canApprove) onApprove() else onDiff(null) },
+    )
+}
+
+/** "Review 12 files", or "Review changes" while nobody knows how many. */
+internal fun reviewFilesLabel(files: Int?): String = if (files == null) "Review changes" else "Review $files file${if (files == 1) "" else "s"}"
+
+/** The bar's shape, which the opening page draws too, so it is in place before the pull request arrives (K22). */
+@Composable
+internal fun ReviewBar(text: String, approve: Boolean, enabled: Boolean, modifier: Modifier, onAsk: () -> Unit, onMore: () -> Unit, onClick: () -> Unit) {
+    val c = LocalPullsColors.current
     Row(
         modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -710,22 +760,39 @@ private fun BottomBar(
             Box(Modifier.width(1.dp).height(22.dp).background(c.border))
             FloatIcon(Lu.more, "More actions", onMore, flat = true, size = 44.dp)
         }
-        val done = left == 0 && session.files.isNotEmpty()
-        // The overview came before the diff: the button waits, dimmed, until there are files to count and open.
-        val arrived = session.opened != null
         CtaButton(
-            text = when {
-                !arrived -> "Review changes"
-                done && canApprove -> "Approve"
-                done -> "Open changes"
-                else -> "Review $left file${if (left == 1) "" else "s"}"
-            },
-            onClick = { if (done && canApprove) onApprove() else onDiff(null) },
+            text = text,
+            onClick = onClick,
             modifier = Modifier.weight(1f),
-            enabled = arrived,
+            enabled = enabled,
             container = c.primary,
             contentColor = Color.White,
-            trailing = { IconSwap(if (done && canApprove) Lu.check else Lu.arrow) { LuIcon(it, tint = Color.White, size = 20.dp) } },
+            trailing = { IconSwap(if (approve) Lu.check else Lu.arrow) { LuIcon(it, tint = Color.White, size = 20.dp) } },
         )
+    }
+}
+
+/**
+ * The numbers line as the opening page draws it, from what the Inbox row knew: the same four cells in the same places,
+ * with bars where a number is not known yet, so the page arriving changes words and not shape (K22).
+ */
+@Composable
+internal fun OpeningStats(additions: Int?, deletions: Int?, files: Int?) {
+    val c = LocalPullsColors.current
+    Row(
+        Modifier.fillMaxWidth().padding(top = 12.dp).drawBehind { drawRect(c.borderMute, Offset.Zero, Size(size.width, 1.dp.toPx())) }.padding(vertical = 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Cell("Changes", Modifier.width(104.dp)) {
+            if (additions == null || deletions == null) { Skeleton(Modifier.padding(vertical = 4.dp).width(72.dp)); return@Cell }
+            Text("+${compactCount(additions)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.green(c.dark), maxLines = 1)
+            Text("−${compactCount(deletions)}", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = StatusColors.red(c.dark), maxLines = 1)
+        }
+        Cell("Commits", Modifier.width(76.dp)) { Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp)) }
+        Cell("Files", Modifier.width(52.dp)) {
+            if (files == null) Skeleton(Modifier.padding(vertical = 4.dp).width(28.dp))
+            else Text("$files", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+        }
+        Cell("Checks", Modifier.weight(1f)) { Skeleton(Modifier.padding(vertical = 4.dp).width(56.dp)) }
     }
 }

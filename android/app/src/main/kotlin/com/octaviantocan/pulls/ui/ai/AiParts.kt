@@ -54,6 +54,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -218,10 +219,15 @@ internal fun stepGlyph(activity: Activity, warning: Boolean): LuGlyph = when {
     }
 }
 
-/** The icon in front of a step line: 16dp, centred on the first line of text, its centre 10dp in (rule 72). */
+/**
+ * The icon in front of a step line: 16dp, centred on the first line of text, its centre 10dp in (rule 72). The line's
+ * height is measured from the text itself, so the icon sits on the words' middle whatever the font does (K13).
+ */
 @Composable
 private fun StepIcon(glyph: LuGlyph, color: Color, style: TextStyle) {
-    val lineHeight = with(LocalDensity.current) { (if (style.lineHeight.isSpecified) style.lineHeight else style.fontSize * 1.4f).toDp() }
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val lineHeight = remember(style, density) { with(density) { measurer.measure("Ag", style, maxLines = 1).size.height.toDp() } }
     Box(Modifier.width(STEP_INDENT).height(maxOf(lineHeight, 16.dp)), contentAlignment = Alignment.CenterStart) {
         LuIcon(glyph, Modifier.padding(start = 2.dp), tint = color, size = 16.dp)
     }
@@ -277,19 +283,22 @@ private fun AiWorkedFor(label: String, summary: String, failed: Boolean, expanda
 
 /** `AiActivityRow`: the icon of what the step did, the step as one sentence (shimmering while it runs), timing, unfoldable text. Never italic (rule 72). */
 @Composable
-private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean, compact: Boolean, style: TextStyle) {
+private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean, compact: Boolean, style: TextStyle, live: Boolean = false) {
     val c = LocalPullsColors.current
     val messages = LocalMessages.current
     val activity = tracked.activity
     var expanded by remember(activity.id) { mutableStateOf(false) }
     val running = activity.status == "running"
-    val failed = activity.status == "failed"
+    // A step that failed while the work goes on (one stop of a tour, retried or left out) is a plain line, not red: the
+    // work has not failed (K13). Once the work has settled, a failed step says so.
+    val failed = activity.status == "failed" && !live
     val prose = activity.kind == "thinking" || activity.kind == "text"
     val fullText = activity.text?.trim().orEmpty()
     val preview = if (prose && !failed) lastLine(fullText) else ""
     val expandable = prose && !failed && fullText.isNotEmpty() && fullText != preview
     val timing = activityTiming(tracked, now)
-    val timingLabel = timing?.takeIf { !(compact && it.state != TimingState.Idle) }?.let {
+    // Only a stalled step says how long: "Active 1s ago · 2s elapsed" on every line is noise (K13).
+    val timingLabel = timing?.takeIf { it.state == TimingState.Idle }?.let {
         val liveness = when (it.state) {
             TimingState.Idle -> messages.t("ai.idleFor", "since" to it.since)
             TimingState.Now -> messages.t("ai.activeNow")
@@ -297,10 +306,10 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
         }
         if (compact) liveness else "$liveness · ${messages.t("ai.elapsed", "elapsed" to it.elapsed)}"
     }
+    // Status lines read like the others, not a step greyer (K13).
     val tone = when {
         failed -> c.error
         warning -> c.amber
-        activity.kind == "status" -> c.mute
         else -> c.muted
     }
     val ink = when {
@@ -315,7 +324,7 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
             contentAlignment = Alignment.CenterStart,
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                StepIcon(stepGlyph(activity, warning), ink, style)
+                StepIcon(stepGlyph(activity.copy(status = if (activity.status == "failed" && live) "done" else activity.status), warning), ink, style)
                 Row(Modifier.weight(1f)) {
                     // Phones: two lines (`max-md:line-clamp-2`).
                     if (running) Shimmer(stepTitle(activity), style, tone, maxLines = 2)
@@ -446,7 +455,7 @@ internal fun AiActivityLogFull(
                 )
             }
             tracked.drop(hidden).forEachIndexed { index, row ->
-                key(row.id) { AiActivityRow(row, now, isWarning(row.activity, index + hidden), compact, style) }
+                key(row.id) { AiActivityRow(row, now, isWarning(row.activity, index + hidden), compact, style, live = true) }
             }
         } else if (activities.isNotEmpty() || startedAt != null) {
             val label = when (outcome) {
