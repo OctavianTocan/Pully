@@ -31,3 +31,25 @@ Posting findings MUST send the displayed critique's variant, immutable revision 
 head SHA with its selected IDs. A newer displayed result MUST reset selection, and a
 late post of an older result MUST NOT mark the new result posted (repository review
 15 Oct 2026, finding 8).
+
+@cc [owner:OctavianTocan,label:product;architecture] data-analytics-queue-on-disk
+Every usage event the phone tracks MUST be written to `filesDir/analytics/queue.ndjson`
+as well as kept in memory, so no network and a killed app lose nothing: a crash's own
+event is written to that file on the crashing thread, and what is left goes up on the
+next start or with a WorkManager job that waits for a network. The queue keeps at most
+5,000 events, dropping the oldest, and sends them to `POST /api/events` on the server set
+in Settings, with the same Access headers as `/api/rpc`, at most 200 a call. It MUST NOT
+use any analytics, crash or telemetry package (message 15 Oct 20:58, "We will track them
+directly on our server. No need for fancy packages", and 21:12, "doit"; plan "Pulls
+analytics on our own server").
+
+@cc [owner:OctavianTocan,label:security] data-analytics-counts-not-content
+An event's props MUST carry only counts, timings, fixed choices, on or off values and a
+pull request's repository and number. The phone MUST NOT send a file's name or path (a
+file is its extension only), search or Ask text, a diff, code, a comment, an AI answer, a
+title, a server address or any credential, and it drops every prop key the server would
+drop (`AnalyticsRules.cleanProps`) before the event is queued. A screen is one of a fixed
+set of lowercase words and a server call is its RPC name only, never its arguments. A
+crash or a failed load carries only the error's class, its own message cut short, the top
+frames of its stack and the screen (plan "Pulls analytics on our own server",
+Guardrails; message 15 Oct 20:58).

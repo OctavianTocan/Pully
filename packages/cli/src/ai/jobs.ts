@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { track } from '../analytics'
 import { triageFor } from '../jev-review'
 import { listCliModels } from './catalog'
 import { claudeArgs, claudeInput, createClaudeParser } from './claude'
@@ -146,6 +147,43 @@ function settle(job: Job, status: Exclude<AiJobStatus, 'running'>, fields: { res
   job.endedAt = Date.now()
   flush(job, true)
   job.resolveSettled()
+  trackRun(job)
+}
+
+function runtimeKind(): string {
+  try {
+    return agentRuntime().kind
+  }
+  catch {
+    return 'unknown'
+  }
+}
+
+/** What a job was for, from its label: `Analyze acme/app#7` is `analyze`. Never the PR or the question. */
+function taskOf(request: AiJobRequest): string {
+  const word = request.label?.split(' ')[0]?.toLowerCase() ?? ''
+  return /^[a-z]{2,16}$/.test(word) ? word : 'other'
+}
+
+/** `ai.run`: one Claude Code, Codex or Pi run as analytics sees it, with what it cost. */
+function trackRun(job: Job): void {
+  const usage = job.usage
+  track('ai.run', {
+    task: taskOf(job.request),
+    engine: job.request.engine,
+    model: usage?.model ?? job.request.model ?? 'default',
+    effort: job.request.effort,
+    runtime: job.request.engine === 'pi' ? 'server' : runtimeKind(),
+    status: job.status,
+    ms: (job.endedAt ?? Date.now()) - job.startedAt,
+    tokensIn: usage?.inputTokens,
+    tokensOut: usage?.outputTokens,
+    cacheRead: usage?.cacheReadTokens,
+    cacheWrite: usage?.cacheWriteTokens,
+    reasoning: usage?.reasoningTokens,
+    costUsd: usage?.costUsd,
+    message: job.status === 'failed' ? job.error : undefined,
+  })
 }
 
 function acquire(): Promise<() => void> {
@@ -485,6 +523,7 @@ export function startAiJob(request: AiJobRequest): string {
     resolveSettled: () => resolveSettled(),
   }
   jobs.set(job.id, job)
+  track('ai.start', { task: taskOf(request), engine: request.engine, model: request.model ?? 'default', effort: request.effort, queued: running >= MAX_RUNNING })
   apply(job, { id: 'start', kind: 'status', title: running < MAX_RUNNING ? `Starting ${ENGINE_NAME[request.engine]}…` : 'Waiting for another run to finish…' })
   void execute(job)
   return job.id

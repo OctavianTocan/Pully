@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { staticCredentials } from '../../types/source'
-import { createGithubClient, GithubApiError } from './client'
+import { createGithubClient, GithubApiError, githubRoute, observeGithubCalls } from './client'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status })
@@ -66,5 +66,26 @@ describe('createGithubClient', () => {
 
     expect(failure).toBeInstanceOf(GithubApiError)
     expect(failure).toMatchObject({ status: 403, message: 'Resource not accessible' })
+  })
+})
+
+describe('observeGithubCalls', () => {
+  afterEach(() => observeGithubCalls(undefined))
+
+  it('reports the route shape, status and rate limit, never the repo', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'x-ratelimit-remaining': '4321' } })))
+    const calls: unknown[] = []
+    observeGithubCalls(call => calls.push(call))
+    await createGithubClient().request('/repos/acme/app/pulls/7/files?page=2').catch(() => {})
+    expect(calls).toEqual([{ route: 'pulls/:n/files', method: 'GET', status: 404, ms: expect.any(Number), rateLeft: 4321 }])
+  })
+
+  it('names routes without owners, numbers or SHAs', () => {
+    expect(githubRoute('/repos/acme/app/commits/0123abc4567')).toBe('commits/:n')
+    expect(githubRoute('/repos/acme/app')).toBe('repo')
+    expect(githubRoute('/graphql')).toBe('graphql')
+    expect(githubRoute('/search/issues?q=x')).toBe('search/issues')
+    expect(githubRoute('/repos/acme/app/contents/src/secret.ts?ref=main')).toBe('contents/:n/:n')
+    expect(githubRoute('/users/someone/repos')).toBe('users/:n/:n')
   })
 })

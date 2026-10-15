@@ -41,6 +41,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.TourSource
@@ -99,7 +100,7 @@ private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should 
  * asks for a [Focus], and this opens the diff on it.
  */
 @Composable
-fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
+fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other") {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val uri = LocalUriHandler.current
@@ -107,7 +108,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
     val messages = LocalMessages.current
     val c = LocalPullsColors.current
     val session = remember(target) {
-        ReviewSession(target, Repo(context), scope, AppSettings.get(context), TourStore.get(context)).also { it.load() }
+        ReviewSession(target, Repo(context), scope, AppSettings.get(context), TourStore.get(context), openedFrom).also { it.load() }
     }
     DisposableEffect(session) { onDispose { session.detach() } }
     // The title and number the phone already knows, for the page to show while the rest loads.
@@ -306,7 +307,10 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
                                 onDiff = { path -> if (path == null) toChanges() else openDiff(path) },
                                 onAsk = { openAsk(forTour = false) },
-                                onSheet = { sheet = it },
+                                onSheet = { name ->
+                                    if (name == "stack") session.stack?.let { Analytics.track("stack.open", "size" to it.entries.size) }
+                                    sheet = name
+                                },
                                 onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, ""), uri::openUri) },
                                 onOpenRepo = nav.openRepo,
                             )
@@ -357,7 +361,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
                     "analyze" -> AnalyzeSheet(session, onClose = { sheet = null })
                     "tour" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Tour, onTour = { switchTo(PrView.Tour) })
                     "model" -> AnalyzeSheet(session, onClose = { sheet = null }, start = AnalyzePage.Model)
-                    "stack" -> session.stack?.let { stack -> StackSheet(stack, onOpen = { number -> session.pull?.let { nav.openTarget(OpenTarget.Pull(it.owner, it.repo, number, "github.com")) } }) { sheet = null } }
+                    "stack" -> session.stack?.let { stack -> StackSheet(stack, onOpen = { number -> session.pull?.let { nav.openFrom(OpenTarget.Pull(it.owner, it.repo, number, "github.com"), "stack", false) } }) { sheet = null } }
                     "review" -> ReviewSheet(session, onClose = { sheet = null }) { lens -> sheet = null; review(lens) }
                     // A long-press on a file row: "file:" and the file's path.
                     else -> sheet?.takeIf { it.startsWith(FILE_SHEET) }?.let { route ->

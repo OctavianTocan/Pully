@@ -1,6 +1,7 @@
 import type { DiffCache } from '@pulls.review/core/cache'
 import type { DiffSource, ReviewDraftTarget } from '@pulls.review/core/types'
 import type { OpenedDiff } from './stored-diff'
+import { Buffer } from 'node:buffer'
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -11,6 +12,7 @@ import { createRuleBasedAdapter } from '@pulls.review/core/analyze'
 import { createGithubSource } from '@pulls.review/core/github'
 import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
+import { ingestAnalytics, track } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { highlightLines, pierreTheme } from './highlight'
 import { critiqueRevision, NATIVE_REVIEW, sessionPatches } from './native-review'
@@ -38,12 +40,46 @@ const ALLOWED = new Set<string>([
   LOCAL_RPC.askThreadClose,
   LOCAL_RPC.inboxChat,
   LOCAL_RPC.inboxChatClear,
+  LOCAL_RPC.analyticsSummary,
 ])
 
 export interface NativeRequest {
   url: URL
   method: string
   json: () => Promise<unknown>
+  /** The raw body, so a route can stop reading past a size limit. */
+  body?: ReadableStream<Uint8Array> | null
+}
+
+/** The most `POST /api/events` reads: a full batch of the largest events, with room for the envelope. */
+export const EVENTS_BODY_LIMIT = 2 * 1024 * 1024
+
+const TOO_LARGE = Symbol('too large')
+
+/** The body as JSON, `undefined` when it is not JSON, or `TOO_LARGE` past `limit` bytes (reading stops there). */
+async function readJsonUpTo(request: NativeRequest, limit: number): Promise<unknown> {
+  if (!request.body)
+    return request.json().catch(() => undefined)
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done)
+      break
+    size += value.byteLength
+    if (size > limit) {
+      await reader.cancel().catch(() => {})
+      return TOO_LARGE
+    }
+    chunks.push(value)
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+  }
+  catch {
+    return undefined
+  }
 }
 
 function androidDir(): string {
@@ -115,17 +151,44 @@ function androidRoute(path: string): Promise<Response> | undefined {
   return past ? androidFile(`past/${past[1]}.apk`, APK) : undefined
 }
 
+/**
+ * `POST /api/events`: a client's batch of analytics events, cleaned and appended to the
+ * day files (`analytics.ts`). Answers 204 without waiting for the write.
+ */
+async function analyticsEvents(request: NativeRequest): Promise<Response> {
+  const body = await readJsonUpTo(request, EVENTS_BODY_LIMIT).catch(() => undefined)
+  if (body === TOO_LARGE)
+    return new Response(null, { status: 413 })
+  ingestAnalytics(body)
+  return new Response(null, { status: 204 })
+}
+
+/** Notes a failed call in analytics as `error.server`, with the message the client got. */
+async function noteFailure(name: string, response: Response): Promise<Response> {
+  if (response.ok)
+    return response
+  const message = await response.clone().json().then(body => (body as { error?: unknown }).error).catch(() => undefined)
+  track('error.server', { route: 'rpc', method: name.slice(0, 64), status: response.status, message: typeof message === 'string' ? message : undefined })
+  return response
+}
+
 export async function handleNativeRequest(request: NativeRequest, cwd: string): Promise<Response | undefined> {
   const path = request.url.pathname
   const android = request.method === 'GET' ? androidRoute(path) : undefined
   if (android)
     return android
+  if (request.method === 'POST' && path === '/api/events')
+    return analyticsEvents(request)
   if (request.method !== 'POST' || path !== '/api/rpc')
     return undefined
 
   const body = await request.json().catch(() => undefined) as { name?: unknown, args?: unknown } | undefined
   const name = typeof body?.name === 'string' ? body.name : ''
-  const native = nativeCall(name, cwd, body?.args)
+  return noteFailure(name, await rpcCall(name, body?.args, cwd))
+}
+
+async function rpcCall(name: string, args: unknown, cwd: string): Promise<Response> {
+  const native = nativeCall(name, cwd, args)
   if (native)
     return native
   if (!ALLOWED.has(name))
@@ -134,7 +197,7 @@ export async function handleNativeRequest(request: NativeRequest, cwd: string): 
   if (!fn)
     return Response.json({ error: 'That method is not available to the app.' }, { status: 404 })
   try {
-    const result = await invokeValidatedRpc(fn, [body?.args])
+    const result = await invokeValidatedRpc(fn, [args])
     return Response.json({ result })
   }
   catch (error) {

@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.toArgb
+import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.PullsApp
@@ -24,6 +25,7 @@ import com.octaviantocan.pulls.update.Updates
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Analytics.activityCreated(restored = savedInstanceState != null)
         enableEdgeToEdge()
         val settings = AppSettings.get(this)
         // A newer build the phone already heard of is asked for from the first frame, before the server answers again.
@@ -54,6 +56,17 @@ class MainActivity : ComponentActivity() {
                 PullsApp(initialTarget = readTarget(intent))
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Analytics.foreground()
+    }
+
+    /** Leaving the front sends what is queued; a rotation or a recreate is not leaving. */
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) Analytics.background()
     }
 
     /** The window's own background, behind the first frame and any gap in the layout: the theme's `base`. */

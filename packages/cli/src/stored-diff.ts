@@ -1,5 +1,6 @@
 import type { DiffCache } from '@pulls.review/core/cache'
 import type { DiffHunk, DiffSource, DiffsPayload, FileChange } from '@pulls.review/core/types'
+import { track } from './analytics'
 
 /** Patch characters a lite answer carries in all; the files past it go out without hunks. */
 export const PATCH_BUDGET = 600_000
@@ -99,29 +100,41 @@ export async function openStoredDiff(options: OpenStoredOptions): Promise<Opened
     await diffs.touch(key)
     return winner.diff
   }
-  if (fresh || !source.fingerprint || !before)
-    return { diff: await fetchAndStore() }
+  const started = Date.now()
+  const note = (outcome: 'fetch' | 'hit' | 'refetch' | 'stale') => track('cache.diff', { outcome, fresh, ms: Date.now() - started })
+  if (fresh || !source.fingerprint || !before) {
+    const diff = await fetchAndStore()
+    note('fetch')
+    return { diff }
+  }
 
   // The head request and the disk read run together; neither waits on the other.
   const [stored, head] = await Promise.all([
     diffs.get(key),
     withTimeout(source.fingerprint(), headTimeoutMs).then(sha => ({ sha }), () => undefined),
   ])
-  if (!stored)
-    return { diff: await fetchAndStore() }
+  if (!stored) {
+    const diff = await fetchAndStore()
+    note('fetch')
+    return { diff }
+  }
   if (head?.sha === stored.headSha) {
     await diffs.touch(key)
+    note('hit')
     return { diff: stored.diff }
   }
   if (head) {
     try {
-      return { diff: await fetchAndStore() }
+      const diff = await fetchAndStore()
+      note('refetch')
+      return { diff }
     }
     catch {
       // GitHub answered the head but not the diff: the older copy beats an error page.
     }
   }
   await diffs.touch(key)
+  note('stale')
   return { diff: stored.diff, stale: true }
 }
 

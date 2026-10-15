@@ -34,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -158,6 +159,11 @@ internal fun PrTourScreen(
     LaunchedEffect(current, n) {
         if (n > 0 && current in 1..n) onReached(current, n, stops[current - 1].title)
     }
+    // `tour.event`: started on the first stop shown, next as the reader reads on, finished at the last, skipped when the
+    // page goes before then. Only stop numbers, never what a stop says.
+    val reading = remember(tour?.generatedAt) { TourReading() }
+    LaunchedEffect(current, n) { if (n > 0 && current in 1..n) reading.at(current, n) }
+    DisposableEffect(reading) { onDispose { reading.leave() } }
     // Pick up where the reader left off, once for each tour. Coming back from a place the tour opened (a file, GitHub)
     // finds the list where it was, kept by the review's saveable state, and must not be moved to the top of its stop (J35).
     var resumedFor by rememberSaveable { mutableStateOf<String?>(null) }
@@ -447,6 +453,26 @@ private fun AskPill(text: String, onText: (String) -> Unit, onFocus: (Boolean) -
         )
         // Grey and inert until there is a question to send (rule 84).
         SendButton({ send() }, "Send", enabled = text.isNotBlank())
+    }
+}
+
+/** How far the reader got through one tour on one visit, for `tour.event`. */
+private class TourReading {
+    private var furthest = 0
+    private var finished = false
+
+    fun at(stop: Int, total: Int) {
+        if (furthest == 0) com.octaviantocan.pulls.data.Analytics.track("tour.event", "step" to "started", "index" to stop, "stops" to total)
+        else if (stop > furthest && !finished) com.octaviantocan.pulls.data.Analytics.track("tour.event", "step" to "next", "index" to stop, "stops" to total)
+        if (stop > furthest) furthest = stop
+        if (stop == total && !finished) {
+            finished = true
+            com.octaviantocan.pulls.data.Analytics.track("tour.event", "step" to "finished", "index" to stop, "stops" to total)
+        }
+    }
+
+    fun leave() {
+        if (furthest > 0 && !finished) com.octaviantocan.pulls.data.Analytics.track("tour.event", "step" to "skipped", "index" to furthest)
     }
 }
 

@@ -1,3 +1,4 @@
+import type { AnalyticsSummary } from '@pulls.review/core/analytics'
 import type { CacheRepositories, LlmSession } from '@pulls.review/core/cache'
 import type { Env } from '@pulls.review/core/env'
 import type { AiAskThread, AiInboxChat, AiJobSnapshot, AiTaskRequest, AiTaskSnapshot, CliModelCatalog, MyPull } from '@pulls.review/core/local-rpc'
@@ -13,6 +14,7 @@ import * as v from 'valibot'
 import { listCliModels } from './ai/catalog'
 import { cancelAiJob, listAiJobs, runAiJob, startAiJob, waitAiJob } from './ai/jobs'
 import { createTaskManager, defaultTaskRunners } from './ai/tasks'
+import { analyticsRange, summarizeAnalytics } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { getLens, listLenses } from './lenses'
 import { cachedMyPulls, classifyMyPulls, listMyPulls } from './my-pulls'
@@ -304,6 +306,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks, storage
     defineRpcFunction({ name: LOCAL_RPC.askThreads, type: 'query', args: [diffKey], returns: trusted<AiAskThread[]>(), handler: ({ key }) => tasks.threads(key) }),
     defineRpcFunction({ name: LOCAL_RPC.inboxChat, type: 'query', args: [v.object({})], returns: trusted<AiInboxChat>(), handler: () => tasks.inboxChat() }),
     defineRpcFunction({ name: LOCAL_RPC.inboxChatClear, type: 'action', args: [v.object({})], returns: v.void(), handler: () => tasks.clearInboxChat() }),
+    defineRpcFunction({ name: LOCAL_RPC.analyticsSummary, type: 'query', args: [v.object({ from: v.optional(v.string()), to: v.optional(v.string()), days: v.optional(v.number()) })], returns: trusted<AnalyticsSummary>(), handler: input => summarizeAnalytics(analyticsRange(input), env) }),
     defineRpcFunction({
       name: LOCAL_RPC.askThreadClose,
       type: 'action',

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -34,11 +35,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
@@ -161,7 +165,11 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Model(Main),
     Effort(Model),
     WhatsNew(Main),
+    Stats(Main),
 }
+
+/** The page's name in usage stats: `settings` for the main page, `settings-<page>` for one inside it. */
+internal val SettingsPage.analyticsName: String get() = if (this == SettingsPage.Main) "settings" else "settings-${name.lowercase()}"
 
 @Composable
 internal fun SettingsPage.title(): String = when (this) {
@@ -176,6 +184,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Model -> "Select model"
     SettingsPage.Effort -> "Effort"
     SettingsPage.WhatsNew -> "What's new"
+    SettingsPage.Stats -> t("stats.title")
 }
 
 /**
@@ -188,6 +197,7 @@ internal fun SettingsPage.title(): String = when (this) {
 @Composable
 fun SettingsScreen(nav: Nav) {
     var page by remember { mutableStateOf(SettingsPage.Main) }
+    LaunchedEffect(page) { Analytics.showScreen(page.analyticsName) }
     PullsPagedSheet(nav.back, page, parent = { it.parent }, onPage = { page = it }, title = { it.title() }) { current ->
         SettingsPageContent(nav, current, onPage = { page = it })
     }
@@ -212,6 +222,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
             val context = LocalContext.current
             ChangelogEntries(remember { WhatsNew.all(context) })
         }
+        SettingsPage.Stats -> StatsPage(settings)
     }
 }
 
@@ -318,6 +329,20 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
             // Taps, swipes and outcomes are felt as well (H18); turning it on answers with a click.
             SheetRow("Vibration", { toggleHaptics(settings, !settings.haptics) }, iconless = true) {
                 PullsSwitch(settings.haptics, { toggleHaptics(settings, it) }, "Vibration")
+            }
+        }
+    }
+    // Usage stats, on until turned off; off drops what is queued (root CONTRACTS, analytics-can-be-turned-off). What it
+    // counts is said to a screen reader, not in a line under the row (settings-no-helper-lines).
+    Group(t("stats.title")) {
+        SheetCard {
+            val usage = t("stats.usage")
+            val hint = t("stats.usageHint")
+            SheetRow(usage, { settings.updateUsageStats(!settings.usageStats) }, Modifier.semantics { stateDescription = hint }, first = true, iconless = true) {
+                PullsSwitch(settings.usageStats, { settings.updateUsageStats(it) }, usage)
+            }
+            SheetRow(t("stats.title"), { open(SettingsPage.Stats) }, iconless = true) {
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
         }
     }

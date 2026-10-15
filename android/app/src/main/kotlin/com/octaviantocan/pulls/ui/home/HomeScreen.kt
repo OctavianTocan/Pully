@@ -239,7 +239,10 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val reload: () -> Unit = { scope.launch { sync.reload() } }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         val last = sync.fetchedAt
-        if (last != null && System.currentTimeMillis() - last > 30_000) reload()
+        if (last != null && System.currentTimeMillis() - last > 30_000) {
+            com.octaviantocan.pulls.data.Analytics.track("inbox.action", "action" to "refresh", "value" to "resume")
+            reload()
+        }
     }
 
     val now = rememberNow(60_000)
@@ -275,6 +278,10 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     // An archived pull request whose head commit moved since comes back, so only the still-current entries count.
     val archived = remember(pulls, archive.entries) { archive.active(pulls.orEmpty()) }
     val inbox = remember(pulls, ui.filter, archived, needle) { Triage.inbox(pulls.orEmpty(), ui.filter, archived, needle) }
+    com.octaviantocan.pulls.ui.TrackSearch(
+        "home", needle,
+        if (ui.tab == 0) inbox.pulls.size else tours.entries.count { "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle) },
+    )
     // Kind and Riskiest first need Jev; while the server has none the saved choice waits and the default stands in.
     val sort = layout.sortWhen(sync.jev)
     val groupBy = layout.groupByWhen(sync.jev)
@@ -304,7 +311,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             }
     }
 
-    fun openPull(pull: PullRow) = nav.openTarget(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
+    fun openPull(pull: PullRow) = nav.openFrom(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"), if (needle.isEmpty()) "inbox" else "search", false)
     // A pasted link, or a number only one listed pull request has, opens straight from the search pill.
     val listed = remember(pulls, tours.entries) {
         pulls.orEmpty().map { ListedPull(it.owner, it.repo, it.number) } + tours.entries.map { ListedPull(it.owner, it.repo, it.number) }
@@ -312,7 +319,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val searchLink = remember(ui.search, listed) { HomeLinks.fromSearch(ui.search, listed) }
     fun openSearch() {
         when (val link = searchLink) {
-            is HomeLink.Target -> { ui.search = ""; nav.openTarget(link.target) }
+            is HomeLink.Target -> { ui.search = ""; nav.openFrom(link.target, "search", false) }
             is HomeLink.Repo -> { ui.search = ""; nav.openRepo(link.owner, link.repo) }
             null -> {}
         }
@@ -369,7 +376,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         entries = tours.entries.filter { "${it.owner}/${it.repo}" !in hidden && (needle.isEmpty() || "${it.owner}/${it.repo} ${it.prTitle} #${it.number}".lowercase().contains(needle)) },
                         pulls = everything.orEmpty(),
                         tasks = workTasks,
-                        onOpen = { entry -> nav.openTour(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com")) },
+                        onOpen = { entry -> nav.openFrom(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"), if (needle.isEmpty()) "inbox" else "search", true) },
                         // From Tours a repository's heading opens its tours, not its pull requests (H26).
                         onRepo = { owner, name -> nav.openRepoTours(owner, name) },
                         folded = if (needle.isEmpty()) layout.folded else emptySet(),
@@ -409,7 +416,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         held?.let { pull ->
             PullActionsSheet(
                 pull, archived = Triage.key(pull) in archived,
-                onTour = { nav.openTour(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
+                onTour = { nav.openFrom(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"), "inbox", true) },
                 onRepo = { nav.openRepo(pull.owner, pull.repo) },
                 onArchive = if (canArchive(pull, viewer, Triage.key(pull) in archived)) ({ archivePull(pull) }) else null,
                 onClose = { held = null },

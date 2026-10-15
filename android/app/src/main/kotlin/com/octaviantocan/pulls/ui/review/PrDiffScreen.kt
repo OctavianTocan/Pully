@@ -164,6 +164,9 @@ internal fun PrDiffScreen(
     val file = files.getOrNull(index)
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
+    // Each file the diff rests on counts once per visit, by its extension only, once its lines are in (`file.view`).
+    val shown = file?.takeIf { !it.patchOmitted }
+    LaunchedEffect(shown?.path) { shown?.let(session::fileShown) }
 
     Box(Modifier.fillMaxSize().background(c.base)) {
         if (file == null && session.opened == null && session.loadError == null) {

@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util'
 import { createDevServer } from 'devframe/adapters/dev'
 import { H3 } from 'h3'
 import { agentRuntime } from './ai/runtime'
+import { startAnalytics } from './analytics'
 import devframe from './devframe'
 import { handleNativeRequest } from './native-api'
 import { pageFor } from './page'
@@ -68,6 +69,12 @@ Environment:
                  CLIProxyAPI (http://127.0.0.1:8317/v1). The key and the
                  default model are optional. Without a base URL Pi stays off
                  and Claude Code and Codex run as before
+  PULLS_REVIEW_ANALYTICS=off
+                 stop keeping usage analytics. By default the phone, the web
+                 app and the server's own work are counted in one file per
+                 day in ~/.local/share/pulls-review/analytics (or
+                 PULLS_REVIEW_ANALYTICS_DIR), kept 365 days and shown on the
+                 Stats page; nothing leaves this machine
 
 To review a GitHub pull request in CI, use @pulls.review/actions.
 `
@@ -86,6 +93,7 @@ function createAppWithRefRoutes(): H3 {
       url: event.url,
       method: event.req.method,
       json: () => event.req.json(),
+      body: event.req.body,
     }, process.cwd())
     if (native)
       return native
@@ -143,6 +151,7 @@ async function main() {
       process.stdout.write(`pulls.review is serving ${origin}${page}\n`)
     },
   })
+  startAnalytics()
   if (!flags['no-warm'])
     await startPrStore({ cwd: process.cwd(), env: process.env })
   if (flags.preanalyze && isPreanalyzeEngine(preanalyzeEngine))

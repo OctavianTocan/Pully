@@ -43,3 +43,8 @@ Shared-analysis discovery MUST check the current AI result after comments arrive
 offer a candidate instead of replacing a locally generated result. Dismissed or
 superseded discovery MUST NOT apply results or repopulate candidates
 (repository review 15 Oct 2026, finding #17).
+
+@cc [owner:OctavianTocan,label:security;product] web-public-site-untracked
+Only the build our server serves (`PR_LOCAL`) tracks usage, through `src/local/analytics.ts`
+and `POST /api/events`. The public pulls.review site MUST NOT send analytics anywhere until
+Tavi decides it should (plan "Pulls analytics on our own server", Open questions).
