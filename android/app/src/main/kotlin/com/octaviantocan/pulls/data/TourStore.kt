@@ -15,21 +15,20 @@ class TourStore(private val dir: File) {
     /** Parsed tours by pull request, so a tour opened twice in a run is read from disk once. */
     private val parsed = HashMap<String, Tour>()
 
-    /** The tour kept for [pull], or null when there is none or it cannot be read. */
+    /** The tour kept for [pull], or null when there is none. A file that cannot be read is removed, so it is fetched again. */
     @Synchronized
     fun get(pull: String): Tour? {
         parsed[pull]?.let { return it }
         val file = fileOf(pull)
         if (!file.isFile) return null
-        return runCatching { (Json.parseToJsonElement(file.readText()) as JsonObject).asTour() }
-            .getOrNull()
-            ?.takeIf { it.stops.isNotEmpty() }
-            ?.also { parsed[pull] = it }
+        val tour = runCatching { (Json.parseToJsonElement(file.readText()) as JsonObject).asTour() }.getOrNull()?.takeIf { it.stops.isNotEmpty() }
+        if (tour == null) file.delete() else parsed[pull] = tour
+        return tour
     }
 
-    /** Whether a tour is kept for [pull], without reading it. */
+    /** Whether a readable tour is kept for [pull]. */
     @Synchronized
-    fun has(pull: String): Boolean = parsed.containsKey(pull) || fileOf(pull).isFile
+    fun has(pull: String): Boolean = get(pull) != null
 
     /**
      * Keeps [json], a `TourResult` as the server sent it, as the tour of [pull]. A tour with no stops is not kept, and the

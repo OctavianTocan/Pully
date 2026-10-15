@@ -68,17 +68,20 @@ object Updates {
 
     private var checkedAt = 0L
 
-    private var restored = false
-
     /** The shortest time between two checks while the app is open. */
     private const val CHECK_GAP_MS = 5 * 60_000L
 
-    /** Picks up the offer the phone last heard of, if it is still newer than this build. Once per process. */
+    /**
+     * Picks up the offer the phone last heard of, if it is still newer than this build: on start, and each time Pulls comes
+     * back to the front, since the background check may have heard of a build while the app sat in the background.
+     */
     fun restore(context: Context) {
-        if (restored) return
-        restored = true
         val offer = UpdatePrefs.offer(context)
-        if (offer != null && offer.versionCode > AppVersion.code(context)) available = offer else UpdatePrefs.saveOffer(context, null)
+        if (offer == null || offer.versionCode <= AppVersion.code(context)) {
+            if (offer != null) UpdatePrefs.saveOffer(context, null)
+            return
+        }
+        if (offer.versionCode > (available?.versionCode ?: 0)) available = offer
     }
 
     /**

@@ -152,9 +152,6 @@ internal fun deviceStore(context: Context, name: String = "pulls-home"): KeyValu
     }
 }
 
-/** How many missing tours Home fetches for the phone each time the Tours list changes. */
-private const val TOURS_FETCHED_AT_ONCE = 8
-
 /** Keeps the tour in [state], the saved state of the server's pull request [key] (`github:owner/repo#n`), on the phone. */
 private suspend fun keepTour(store: TourStore, key: String, state: SavedState) {
     val ref = parsePullKey(key) ?: return
@@ -224,11 +221,11 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         }
     }
     // Every tour on the Tours list is kept on the phone, so it opens at once; one the phone lacks (listed before tours
-    // were kept, or written on the web) is fetched here once per run, a few at a time.
+    // were kept, or written on the web) is fetched here, one at a time, once per run.
     val tourAsked = remember { HashSet<String>() }
     LaunchedEffect(tours.entries) {
         val missing = tours.entries.filter { !it.writing && it.stops > 0 && it.key !in tourAsked && !withContext(Dispatchers.IO) { tourStore.has(it.key) } }
-        for (entry in missing.take(TOURS_FETCHED_AT_ONCE)) {
+        for (entry in missing) {
             tourAsked += entry.key
             val key = "github:${entry.owner}/${entry.repo}#${entry.number}"
             try { keepTour(tourStore, key, repo.savedState(key)) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) {}

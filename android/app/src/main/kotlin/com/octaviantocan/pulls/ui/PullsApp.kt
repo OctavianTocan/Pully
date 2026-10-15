@@ -81,6 +81,7 @@ fun PullsApp(initialTarget: String?) {
     // waiting on "Install unknown apps" carries on once that is allowed.
     val scope = rememberCoroutineScope()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        Updates.restore(context)
         Updates.resume(context)
         scope.launch { Updates.check(context) }
     }

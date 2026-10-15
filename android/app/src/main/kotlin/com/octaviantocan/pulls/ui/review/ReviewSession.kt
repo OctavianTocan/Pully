@@ -16,6 +16,7 @@ import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.SavedState
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.data.Tour
+import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.data.TourStore
 import com.octaviantocan.pulls.data.asTaskState
 import com.octaviantocan.pulls.data.matches
@@ -105,6 +106,9 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
     /** Commit picker selection, `from`..`to` shas (inclusive); null is all commits. */
     var selection by mutableStateOf<Pair<String, String>?>(null)
         private set
+
+    /** A tour source tapped before the diff arrived (a kept tour opens first); it opens once the diff is in. */
+    var waitingSource by mutableStateOf<TourSource?>(null)
 
     /** Scroll requests for the diff body; the body consumes and keeps the last one. */
     var focus by mutableStateOf<Focus?>(null)

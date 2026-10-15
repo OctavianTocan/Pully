@@ -172,6 +172,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false) {
         diffPath = wanted.path
         push(PrView.Diff)
     }
+    // A source tapped in a kept tour before the diff arrived opens now.
+    LaunchedEffect(opened) {
+        if (opened == null) return@LaunchedEffect
+        session.waitingSource?.let { source -> session.waitingSource = null; openSource(session, source, uri::openUri) }
+    }
     // A refresh or a commit range failed while a diff is already on screen: the full-page error only shows before one is.
     val loadError = session.loadError
     LaunchedEffect(loadError) {
@@ -319,6 +324,11 @@ private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() 
 
 /** A tour source or a mention: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
 internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit) {
+    // A kept tour shows before the diff: the place opens once the diff is in.
+    if (session.opened == null) {
+        session.waitingSource = source
+        return
+    }
     if (session.files.any { it.path == source.path }) {
         session.focus = Focus(source.path, source.line)
         return

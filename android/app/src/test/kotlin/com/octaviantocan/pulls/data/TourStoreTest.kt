@@ -51,7 +51,11 @@ class TourStoreTest {
         val store = TourStore(dir)
         store.put("o/r#4", tour("2026-10-15T08:00:00Z"))
         dir.listFiles()!!.forEach { it.writeText("{not json") }
-        assertNull(TourStore(dir).get("o/r#4"))
+        val again = TourStore(dir)
+        assertFalse(again.has("o/r#4"))
+        assertNull(again.get("o/r#4"))
+        // The damaged file is gone, so Home fetches the tour again.
+        assertEquals(0, dir.listFiles()!!.size)
     }
 
     @Test
