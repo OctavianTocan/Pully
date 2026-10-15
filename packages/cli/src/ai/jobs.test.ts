@@ -1,6 +1,7 @@
 import type { AiActivity, AiJobRequest, AiJobSnapshot } from '@pulls.review/core/local-rpc'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -194,6 +195,75 @@ describe('ai jobs', () => {
       await until(() => calls().some(call => call[0] === 'kill' && call.at(-1) === name))
       expect(calls().find(call => call[0] === 'kill')).toEqual(['kill', '--signal', 'SIGTERM', name])
       await until(() => !alive(pid))
+    })
+  })
+
+  describe('on pi, against an OpenAI-compatible endpoint', () => {
+    const requests: { auth?: string, body: any }[] = []
+    let server: ReturnType<typeof createServer>
+    let baseUrl = ''
+    const chunk = (delta: object, finish: string | null = null, usage?: object) => `data: ${JSON.stringify({ id: 'c', object: 'chat.completion.chunk', model: 'gpt-6', choices: [{ index: 0, delta, finish_reason: finish }], ...(usage ? { usage } : {}) })}\n\n`
+
+    beforeAll(async () => {
+      server = createServer((req, res) => {
+        let raw = ''
+        req.on('data', part => raw += part)
+        req.on('end', () => {
+          if (req.url === '/v1/models') {
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            return res.end(JSON.stringify({ object: 'list', data: [{ id: 'gpt-6', object: 'model' }] }))
+          }
+          const body = JSON.parse(raw)
+          requests.push({ auth: req.headers.authorization, body })
+          res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+          const submit = body.tools?.some((tool: any) => tool.function.name === 'submit_answer')
+          if (submit) {
+            res.write(chunk({ role: 'assistant', tool_calls: [{ index: 0, id: 'call_1', type: 'function', function: { name: 'submit_answer', arguments: '{"questions":["Why?"],"note":null}' } }] }))
+            res.write(chunk({}, 'tool_calls', { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 }))
+          }
+          else {
+            res.write(chunk({ role: 'assistant', content: 'Hello ' }))
+            res.write(chunk({ content: 'from Pi' }))
+            res.write(chunk({}, 'stop', { prompt_tokens: 5, completion_tokens: 2, total_tokens: 7 }))
+          }
+          res.end('data: [DONE]\n\n')
+        })
+      })
+      await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+      const address = server.address() as { port: number }
+      baseUrl = `http://127.0.0.1:${address.port}/v1`
+    })
+    afterEach(() => {
+      requests.length = 0
+      delete process.env.PULLS_REVIEW_PI_BASE_URL
+      delete process.env.PULLS_REVIEW_PI_API_KEY
+    })
+    afterAll(() => server.close())
+
+    it('says how to set it up while the server has no endpoint', async () => {
+      const { last } = await follow(startAiJob(ask('ok', { engine: 'pi' })))
+      expect(last).toMatchObject({ status: 'failed', error: expect.stringContaining('PULLS_REVIEW_PI_BASE_URL') })
+    })
+
+    it('runs the endpoint\'s default model with its key, streaming the answer into the work log', async () => {
+      process.env.PULLS_REVIEW_PI_BASE_URL = baseUrl
+      process.env.PULLS_REVIEW_PI_API_KEY = 'secret'
+      const { last, log } = await follow(startAiJob(ask('ok', { engine: 'pi', effort: 'high' })))
+      expect(last).toMatchObject({ status: 'done', result: 'Hello from Pi', usage: { inputTokens: 5, outputTokens: 2, model: 'gpt-6' } })
+      expect(log.get('start')).toMatchObject({ title: 'Started', status: 'done' })
+      expect([...log.values()]).toContainEqual(expect.objectContaining({ kind: 'text', title: 'Wrote', text: 'Hello from Pi', status: 'done' }))
+      const [request] = requests
+      expect(request!.auth).toBe('Bearer secret')
+      expect(request!.body).toMatchObject({ model: 'gpt-6', stream: true, reasoning_effort: 'high', messages: [{ role: 'system', content: 'S' }, { role: 'user' }] })
+    })
+
+    it('answers a schema through submit_answer, without the nulls', async () => {
+      process.env.PULLS_REVIEW_PI_BASE_URL = baseUrl
+      const schema = { type: 'object', properties: { questions: { type: 'array', items: { type: 'string' } }, note: { type: ['string', 'null'] } }, required: ['questions'] }
+      const result = await runAiJob(ask('ok', { engine: 'pi', model: 'gpt-6', schema }))
+      expect(JSON.parse(result.text)).toEqual({ questions: ['Why?'] })
+      // An endpoint that takes no key gets a placeholder it ignores.
+      expect(requests[0]!.auth).toBe('Bearer none')
     })
   })
 

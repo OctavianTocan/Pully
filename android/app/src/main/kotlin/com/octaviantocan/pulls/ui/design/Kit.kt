@@ -844,18 +844,22 @@ private fun RunningOrb(size: Dp, finishing: Boolean, stop: Boolean, onTurnDone: 
 }
 
 /**
- * The mark of an AI engine, in its own colour: Claude Code's orange or Codex's ink. It is the only AI
+ * The mark of an AI engine, in its own colour: Claude Code's orange, Codex's ink, or Pi's π in ink. It is the only AI
  * artwork the app keeps, and it names the engine a row or a setting is using (rule 48).
  */
 @Composable
 fun EngineMark(engine: String, modifier: Modifier = Modifier, size: Dp = 20.dp) {
     val c = LocalPullsColors.current
-    val claude = engine != "codex"
+    val (art, name) = when (engine) {
+        "codex" -> R.drawable.ic_si_openai to "Codex"
+        "pi" -> R.drawable.ic_ph_pi_bold to "Pi"
+        else -> R.drawable.ic_si_claude to "Claude Code"
+    }
     Image(
-        painterResource(if (claude) R.drawable.ic_si_claude else R.drawable.ic_si_openai),
-        if (claude) "Claude Code" else "Codex",
+        painterResource(art),
+        name,
         modifier.size(size),
-        colorFilter = ColorFilter.tint(if (claude) Color(0xFFD97757) else c.text), // raw-value-ok: the brand colour of the Claude mark
+        colorFilter = ColorFilter.tint(if (art == R.drawable.ic_si_claude) Color(0xFFD97757) else c.text), // raw-value-ok: the brand colour of the Claude mark
     )
 }
 

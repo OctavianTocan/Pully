@@ -67,6 +67,22 @@ class ModelPickerTest {
         assertEquals(listOf("GPT-5.1-Codex-Max", "GPT-5.1"), names(groups.older))
     }
 
+    /** Pi lists several vendors' models side by side, each on its own version line. */
+    @Test fun piKeepsTheNewestOfEachVendorUpTop() {
+        val pi = listOf(
+            model("gemini-3-pro", "Gemini 3 Pro", isDefault = true),
+            model("claude-opus-5-5", "Claude Opus 5.5"),
+            model("claude-sonnet-5-5", "Claude Sonnet 5.5"),
+            model("claude-opus-4-8", "Claude Opus 4.8"),
+            model("gpt-6", "GPT-6"),
+            model("gpt-5.5", "GPT-5.5"),
+            model("gemini-2.5-flash", "Gemini 2.5 Flash"),
+        )
+        val groups = groupModels(pi, byFamily = true)
+        assertEquals(listOf("Gemini 3 Pro", "Claude Opus 5.5", "Claude Sonnet 5.5", "GPT-6"), names(groups.recent))
+        assertEquals(listOf("Claude Opus 4.8", "GPT-5.5", "Gemini 2.5 Flash"), names(groups.older))
+    }
+
     @Test fun theDefaultIsNeverFoldedEvenWhenOld() {
         val groups = groupModels(listOf(model("a", "Alpha 5.5"), model("b", "Beta 3.1", isDefault = true)))
         assertEquals(listOf("Alpha 5.5", "Beta 3.1"), names(groups.recent))

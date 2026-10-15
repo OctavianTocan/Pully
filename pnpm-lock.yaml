@@ -588,6 +588,12 @@ importers:
 
   packages/cli:
     dependencies:
+      '@earendil-works/pi-agent-core':
+        specifier: catalog:frontend
+        version: 0.87.1(ws@8.22.0)(zod@4.6.5)
+      '@earendil-works/pi-ai':
+        specifier: catalog:frontend
+        version: 0.87.1(ws@8.22.0)(zod@4.6.5)
       '@pulls.review/core':
         specifier: workspace:^
         version: link:../core

@@ -43,7 +43,7 @@ Options:
   --preanalyze   every 10 minutes, group the open pull requests that request
                  your review with AI, so they open already analyzed; runs on
                  your Claude Code or Codex plan, off by default
-  --preanalyze-engine <claude-code|codex>
+  --preanalyze-engine <claude-code|codex|pi>
                  the CLI --preanalyze runs (default claude-code)
   --preanalyze-model <model>
                  the model --preanalyze asks for (default: the engine's own)
@@ -62,6 +62,12 @@ Environment:
                  the phone app then gets open pull requests sorted by kind and
                  risk, and each diff's files by how much review they need.
                  Without a key Jev stays off and nothing else changes
+  PULLS_REVIEW_PI_BASE_URL, PULLS_REVIEW_PI_API_KEY, PULLS_REVIEW_PI_MODEL
+                 turn on the Pi engine: the server's own agent loop calling
+                 any model behind an OpenAI-compatible endpoint, such as
+                 CLIProxyAPI (http://127.0.0.1:8317/v1). The key and the
+                 default model are optional. Without a base URL Pi stays off
+                 and Claude Code and Codex run as before
 
 To review a GitHub pull request in CI, use @pulls.review/actions.
 `

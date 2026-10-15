@@ -10,10 +10,11 @@ import { fencedContent, prHeading } from './critique'
  * written after every turn by a small, quick model rather than the one that answered.
  */
 
-/** A small, quick model per engine: Haiku for Claude Code, Codex's own default at low effort. */
+/** A small, quick model per engine: Haiku for Claude Code, Codex's own default at low effort, Pi's default model. */
 export const SUGGESTION_MODELS: Record<CliEngine, { model?: string, effort?: string }> = {
   'claude-code': { model: 'haiku' },
   'codex': { effort: 'low' },
+  'pi': {},
 }
 
 export const MAX_SUGGESTIONS = 3
