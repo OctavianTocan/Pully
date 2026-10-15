@@ -215,6 +215,16 @@ class DiffModelTest {
     }
 
     @Test
+    fun selectedLinesCarryTheirCodeOnTheirSide() {
+        val entries = diffEntries(tenLines)
+        // Lines 4 to 5 of the new side: the context line and the added one, not the removed one.
+        assertEquals("l4\nnew5", selectedCode(entries, "additions", 4..5))
+        // Line 5 of the old side is the removed line.
+        assertEquals("old5", selectedCode(entries, "deletions", 5..5))
+        assertEquals("", selectedCode(entries, "additions", 40..41))
+    }
+
+    @Test
     fun timeAgoMatchesTheWebFormat() {
         val now = 1_000_000_000_000L
         assertEquals("just now", timeAgo(now, now))

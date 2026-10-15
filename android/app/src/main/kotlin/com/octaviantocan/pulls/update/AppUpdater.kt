@@ -12,6 +12,9 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
+/** The downloaded APK is not the one the manifest names: cut short, or replaced on the way. */
+class DigestMismatch(message: String) : IllegalStateException(message)
+
 /**
  * Checks `{server}/android/latest.json`, downloads the APK, checks the SHA-256, and
  * hands the bytes to the platform installer. There is no updater library in this path.
@@ -42,7 +45,7 @@ class AppUpdater(private val context: Context) {
         val actual = sha256Hex(file.readBytes())
         if (!actual.equals(manifest.sha256, ignoreCase = true)) {
             file.delete()
-            error("Downloaded APK digest $actual does not match ${manifest.sha256}")
+            throw DigestMismatch("Downloaded APK digest $actual does not match ${manifest.sha256}")
         }
         return file
     }

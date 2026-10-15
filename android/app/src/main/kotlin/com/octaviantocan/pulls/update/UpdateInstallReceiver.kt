@@ -5,9 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 
 /**
  * The system reports the install we committed. An app that is not the device owner always gets
@@ -21,16 +18,17 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                 val confirm = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
                 else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
                 if (confirm == null) {
-                    UpdateBus.publish(InstallResult.Failed("The installer did not ask for confirmation."))
+                    Updates.installed(InstallResult.Failed("The installer did not ask for confirmation."))
                     return
                 }
-                UpdateBus.publish(InstallResult.Confirming)
+                Updates.installed(InstallResult.Confirming)
                 context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            PackageInstaller.STATUS_SUCCESS -> UpdateBus.publish(InstallResult.Installed)
+            PackageInstaller.STATUS_SUCCESS -> Updates.installed(InstallResult.Installed)
+            PackageInstaller.STATUS_FAILURE_ABORTED -> Updates.installed(InstallResult.Cancelled)
             else -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-                UpdateBus.publish(InstallResult.Failed(message ?: "Install failed (status $status)"))
+                Updates.installed(InstallResult.Failed(message ?: "Install failed (status $status)"))
             }
         }
     }
@@ -39,15 +37,8 @@ class UpdateInstallReceiver : BroadcastReceiver() {
 sealed class InstallResult {
     data object Confirming : InstallResult()
     data object Installed : InstallResult()
+
+    /** The reader said no in the system dialog. */
+    data object Cancelled : InstallResult()
     data class Failed(val message: String) : InstallResult()
-}
-
-/** The last install result, as Compose state so the update banner shows it. */
-object UpdateBus {
-    var last by mutableStateOf<InstallResult?>(null)
-        private set
-
-    fun publish(result: InstallResult) {
-        last = result
-    }
 }

@@ -14,8 +14,9 @@ import com.octaviantocan.pulls.ui.design.LocalMessages
 
 /**
  * Port of `usePrCommands.ts` for the palette: step through the files, mark the current one, copy or
- * open its links, jump to any file, refresh, analyze, and the view toggles. [currentPath] is the file
- * the diff page shows (the first one when none is open yet); [onGo] opens the diff on a file.
+ * open its links, jump to any file, analyze, and the view toggles. There is no refresh: the page takes
+ * new commits by itself. [currentPath] is the file the diff page shows (the first one when none is open
+ * yet); [onGo] opens the diff on a file.
  */
 @Composable
 fun PrCommands(session: ReviewSession, files: List<ReviewFile>, currentPath: String?, onGo: (String) -> Unit, onAnalyze: () -> Unit) {
@@ -47,7 +48,6 @@ fun PrCommands(session: ReviewSession, files: List<ReviewFile>, currentPath: Str
             Command("pr.findFile", m.t("keys.findFile"), pr) {
                 Commands.open(PaletteScope("jump.file:", m.t("palette.group.files")))
             },
-            Command("pr.refresh", m.t("keys.refresh"), pr) { session.refresh() },
             Command("pr.layout", m.t("keys.layout"), view) {
                 session.settings.updateLayout(if (session.settings.layout == "split") "unified" else "split")
             },

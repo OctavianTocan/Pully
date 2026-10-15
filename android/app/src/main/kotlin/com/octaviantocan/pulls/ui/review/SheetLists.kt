@@ -222,7 +222,7 @@ internal fun FileActionsSheet(session: ReviewSession, file: ReviewFile, onOpen: 
     val toaster = LocalToaster.current
     val reviewed = session.reviewState(file) == ReviewState.Reviewed
     val name = file.path.substringAfterLast('/')
-    PullsSheet(onClose, name, expandable = false) {
+    PullsSheet(onClose, name) {
         Text(file.path, Modifier.padding(start = 4.dp, end = 4.dp, top = 2.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
         SheetCard {
             // The four are words; a speech bubble on Ask carried no fact, and one glyph short of a column looks broken (rule 48).

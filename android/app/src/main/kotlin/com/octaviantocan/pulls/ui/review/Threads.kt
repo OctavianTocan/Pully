@@ -218,15 +218,6 @@ fun ReviewCommentCard(comment: ThreadComment, isViewer: Boolean, busy: Boolean, 
     }
 }
 
-/** The actions under the selected lines (ask AI, copy the location and link). Commenting is the bottom bar's job. */
-@Composable
-fun DraftBox(session: ReviewSession, draft: DraftTarget, binary: Boolean, onDone: () -> Unit) {
-    if (binary) return
-    CardBox {
-        com.octaviantocan.pulls.ui.ai.SelectionActions(session, draft.path, draft.side, draft.startLine ?: draft.line, draft.line, onDone)
-    }
-}
-
 /** A finding pinned under its line of the diff, as the kit's white card (rule 49): severity, title, body, suggestion; a tap jumps to it. The one in focus sits on the active fill. */
 @Composable
 fun InlineFinding(session: ReviewSession, finding: CritiqueFinding, highlighted: Boolean) {

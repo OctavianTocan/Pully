@@ -256,3 +256,57 @@ private fun JsonObject.toEntry(): TourEntry? {
         at = int("at") ?: 0,
     )
 }
+
+/** How the Inbox orders its rows. The repositories then follow their first row, so a sort orders them too. */
+enum class InboxSort(val id: String, val label: String) {
+    Updated("updated", "Recently updated"),
+    LeastUpdated("least-updated", "Least recently updated"),
+    Number("number", "PR number"),
+    Size("size", "Largest change"),
+    ;
+
+    /** [pulls] in this order. Sorting is stable, so rows that tie keep the order the server sent. */
+    fun apply(pulls: List<PullRow>): List<PullRow> = when (this) {
+        Updated -> pulls.sortedByDescending { it.updatedAtMs ?: Long.MIN_VALUE }
+        LeastUpdated -> pulls.sortedBy { it.updatedAtMs ?: Long.MAX_VALUE }
+        Number -> pulls.sortedByDescending { it.number }
+        Size -> pulls.sortedByDescending { (it.additions ?: 0) + (it.deletions ?: 0) }
+    }
+
+    companion object {
+        fun of(id: String?): InboxSort = entries.firstOrNull { it.id == id } ?: Updated
+    }
+}
+
+/**
+ * How the Inbox is laid out, kept on this phone: the sort, and the repositories whose rows are folded away under their
+ * heading. A folded repository stays folded in Inbox and Tours alike, until a tap on its heading opens it again.
+ */
+class InboxLayout(private val storage: KeyValueStore?) {
+    var sort: InboxSort by mutableStateOf(InboxSort.of(runCatching { storage?.get(SORT_KEY) }.getOrNull()))
+        private set
+
+    /** `owner/repo` of every folded repository. */
+    var folded: Set<String> by mutableStateOf(readFolded())
+        private set
+
+    fun updateSort(value: InboxSort) {
+        sort = value
+        runCatching { storage?.set(SORT_KEY, value.id) }
+    }
+
+    fun isFolded(repo: String): Boolean = repo in folded
+
+    fun toggle(repo: String) {
+        folded = if (repo in folded) folded - repo else folded + repo
+        runCatching { storage?.set(FOLDED_KEY, folded.joinToString("\n")) }
+    }
+
+    private fun readFolded(): Set<String> =
+        runCatching { storage?.get(FOLDED_KEY)?.split('\n')?.filter { it.isNotBlank() }?.toSet() }.getOrNull().orEmpty()
+
+    companion object {
+        const val SORT_KEY = "pulls-review:inbox-sort:v1"
+        const val FOLDED_KEY = "pulls-review:inbox-folded:v1"
+    }
+}

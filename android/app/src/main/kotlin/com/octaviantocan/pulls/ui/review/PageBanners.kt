@@ -25,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.directionOf
@@ -66,13 +65,12 @@ fun CommitRangeBanner(session: ReviewSession, overview: PrOverview?, modifier: M
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         LuIcon(Lu.commit, tint = c.muted, size = 20.dp)
-        // The headline wraps under the count to two whole lines at most, so the banner stays small over the diff; the
-        // Commits tab has it in full.
+        // The headline wraps under the count, whole: a commit's name is never cut.
         Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             when {
                 range != null && range.first == range.last -> {
                     Text("Viewing commit ${range.first + 1 + offset} of $total", style = PullsType.sm, color = c.text)
-                    commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                    commits.getOrNull(range.first)?.headline?.let { Text(it, style = PullsType.sm, color = c.muted) }
                 }
                 range != null -> Text(t("overview.selection.viewingRange", "start" to range.first + 1 + offset, "end" to range.last + 1 + offset, "total" to total), style = PullsType.sm, color = c.text)
                 selection.from == selection.to -> Text(t("overview.selection.viewingSha", "sha" to selection.from.take(7)), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
@@ -98,7 +96,8 @@ fun isStale(session: ReviewSession, overview: PrOverview?): Boolean {
 /**
  * The stale banner from `DiffsPage.vue` (`border-amber:20 bg-amber:10 text-amber-700
  * dark:text-amber-400`): "has new commits", an "Auto refresh next time" checkbox (on by
- * default; Refresh commits it to the setting) and Refresh.
+ * default; Refresh commits it to the setting) and Refresh. Only a reader who switched auto refresh
+ * off sees it; otherwise the page takes new commits by itself.
  */
 @Composable
 fun StaleBanner(session: ReviewSession, onRefresh: () -> Unit, modifier: Modifier = Modifier) {

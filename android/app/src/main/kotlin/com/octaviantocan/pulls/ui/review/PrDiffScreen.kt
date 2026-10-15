@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -51,70 +52,86 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
-import com.octaviantocan.pulls.core.softBreaks
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.core.FileLinks
+import com.octaviantocan.pulls.core.codeScrollAfterZoom
 import com.octaviantocan.pulls.core.nextUnreviewed
+import com.octaviantocan.pulls.core.rowTopAfterZoom
+import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.core.swipedFile
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.ai.AskReference
+import com.octaviantocan.pulls.ui.ai.askSelectionOf
+import com.octaviantocan.pulls.ui.ai.githubBlobUrl
+import com.octaviantocan.pulls.ui.ai.lineRangeLabel
+import com.octaviantocan.pulls.ui.ai.linesPhrase
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.PageSlide
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsShadow
+import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.SendButton
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.hairlineTop
 import com.octaviantocan.pulls.ui.design.pageSlide
 import com.octaviantocan.pulls.ui.design.rememberPageSlide
+import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 /** What the code keeps clear under its last line: the bar's 52dp pill and the space around it (rule 92). */
 private val BAR_ROOM = 84.dp
 
 /**
- * The prototype's diff: the page capsule (with Aa in its corner, rule 93), then one scrolling file: the AI's note about
- * it, its counts and Reviewed box, and its rows. Pinned under it is the bar: ‹, the file you are on and ›, which turns
- * into the comment field while lines are selected (rule 94). [path] is the file shown; [onPath] moves to another, and a
- * swipe on the file does the same, past the ends into [onOverview] and [onTour].
+ * The prototype's diff under the review's header (the back button and the capsule, with Aa in its corner, rule 93):
+ * one scrolling file, its AI note, its counts and Reviewed box, its rows and a Reviewed box again at its end. Pinned
+ * under it is the bar: ‹, the file you are on and ›, which turns into the comment field while lines are selected
+ * (rule 94). [path] is the file shown; [onPath] moves to another, and a swipe on the file does the same, past the ends
+ * into [onOverview] and [onTour].
  */
 @Composable
 internal fun PrDiffScreen(
     session: ReviewSession,
     ui: DiffUi,
     path: String?,
-    overview: PrOverview?,
     onPath: (String) -> Unit,
-    onBack: () -> Unit,
-    tourLive: Boolean,
     onOverview: () -> Unit,
     onTour: () -> Unit,
-    onMore: () -> Unit,
     onFiles: () -> Unit,
     onAsk: (AskReference) -> Unit,
 ) {
@@ -122,7 +139,6 @@ internal fun PrDiffScreen(
     val files = fileSections(session, ui).flatMap { it.files }
     val index = files.indexOfFirst { it.path == path }.let { if (it < 0) 0 else it }
     val file = files.getOrNull(index)
-    var tools by remember { mutableStateOf(false) }
     val width = LocalConfiguration.current.screenWidthDp
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
     // Another file arrives as a page (rule 88): for a beat the rows still hold the one that is leaving.
@@ -130,27 +146,14 @@ internal fun PrDiffScreen(
     val shown = files.firstOrNull { it.path == slide.shown } ?: file
 
     Box(Modifier.fillMaxSize().background(c.base)) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                Spacer(Modifier.weight(1f))
-                SectionCapsule(
-                    selected = 1, live = tourLive, onOverview = onOverview, onChanges = {}, onTour = onTour,
-                    onCorner = { tools = true }, corner = CapsuleCorner.TextTools,
-                )
-            }
-            // The diff is narrowed to a commit: say so, with the way back, where the page cannot scroll it away (rule 80).
-            CommitRangeBanner(session, overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
-            if (file == null || shown == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No files in this change.", style = PullsType.sm, color = c.muted) }
-            } else {
-                FileBody(
-                    session, ui, shown, file, files, index, slide, onPath, onOverview, onTour, onFiles, onAsk,
-                    Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp),
-                )
-            }
+        if (file == null || shown == null) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No files in this change.", style = PullsType.sm, color = c.muted) }
+        } else {
+            FileBody(
+                session, ui, shown, file, files, index, slide, onPath, onOverview, onTour, onFiles, onAsk,
+                Modifier.fillMaxSize().padding(top = 8.dp),
+            )
         }
-        if (tools) TextAndToolsSheet(session, ui, file, onClose = { tools = false }, onActions = onMore)
     }
 }
 
@@ -222,7 +225,10 @@ private fun FileBody(
                 },
             ),
         ) {
-            LazyColumn(Modifier.fillMaxSize().pageSlide(slide).pinchToZoomCode(session.settings), state = listState) {
+            LazyColumn(
+                Modifier.fillMaxSize().pageSlide(slide).pinchToZoomCode(session.settings) { end -> keepUnderFingers(listState, ui, file, end, density) },
+                state = listState,
+            ) {
                 if (note != null) {
                     item(key = "note:${file.path}", contentType = "note") {
                         NoteCard(session, note, Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 4.dp)) {
@@ -231,11 +237,12 @@ private fun FileBody(
                     }
                 }
                 item(key = "counts:${file.path}", contentType = "counts") { CountsRow(session, file, files, onPath) }
-                fileDiffItems(session, ui, file, leading = leading, tail = BAR_ROOM + bottom)
+                // The Reviewed box again under the last line, so finishing a file moves on without scrolling back up.
+                fileDiffItems(session, ui, file, leading = leading, tail = BAR_ROOM + bottom) { EndRow(session, file, files, onPath) }
             }
         }
         DiffBar(
-            session, ui, file, target, index, count,
+            session, ui, file, target, index, count, onAsk,
             onPrev = { files.getOrNull(index - 1)?.let { onPath(it.path) } },
             onNext = { files.getOrNull(index + 1)?.let { onPath(it.path) } },
             onFiles = onFiles,
@@ -261,6 +268,33 @@ private fun codeHasRoom(ui: DiffUi, file: ReviewFile, dx: Float, across: Float):
     val column = if (!effectiveSplit(ui.session.settings.layout, file, ui.widthDp)) 0 else if (across < 0.5f) 1 else 2
     val scroll = ui.scrolls[file.path to column] ?: return false
     return if (dx < 0f) scroll.offset < scroll.max - 1f else scroll.offset > 1f
+}
+
+/**
+ * A pinch has laid the code out at its new size: scroll the list so the row that was under the fingers is under them
+ * again, at the same point of it, and scroll the code sideways so the same character is too (rule 93's pinch). A row of
+ * code grows with the zoom; a note or a thread keeps its size. Wrapped code has no sideways scroll to fix.
+ */
+private fun keepUnderFingers(state: LazyListState, ui: DiffUi, file: ReviewFile, end: PinchEnd, density: Density) {
+    val info = state.layoutInfo
+    val before = info.beforeContentPadding
+    val at = end.content.y - before
+    info.visibleItemsInfo.firstOrNull { at >= it.offset && at < it.offset + it.size }?.let { row ->
+        val grows = row.contentType == "line" || row.contentType == "split"
+        val top = rowTopAfterZoom(end.screen.y - before, at - row.offset, end.scale, grows)
+        state.requestScrollToItem(row.index, -top.roundToInt())
+    }
+    if (ui.session.settings.codeWrap || file.isBinary || end.from == end.to) return
+    // In split view each half scrolls on its own and the right one starts past the 2dp between them.
+    val width = info.viewportSize.width.toFloat()
+    val split = effectiveSplit(ui.session.settings.layout, file, ui.widthDp)
+    val right = split && end.content.x >= width / 2f
+    val scroll = ui.scrolls[file.path to if (!split) 0 else if (right) 2 else 1] ?: return
+    val digits = lineDigits(ui, file)
+    val half = with(density) { 2.dp.toPx() }
+    val cellStart = if (right) (width - half) / 2f + half else 0f
+    fun codeStart(zoom: Float) = cellStart + with(density) { (gutterWidth(digits, zoom) + 2.dp).toPx() }
+    scroll.offset = codeScrollAfterZoom(scroll.offset, codeStart(end.from), codeStart(end.to), end.content.x, end.screen.x, end.scale)
 }
 
 /**
@@ -333,7 +367,6 @@ private suspend fun androidx.compose.ui.input.pointer.AwaitPointerEventScope.swi
 private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit) {
     val c = LocalPullsColors.current
     val scope = rememberCoroutineScope()
-    val reviewed = session.reviewState(file) == ReviewState.Reviewed
     val threads = session.reviewData?.threads.orEmpty().count { it.path == file.path && !it.outdated }
     // The code starts under a hairline, on its own white, with 24dp of air between it and this row (rule 40).
     Row(
@@ -349,25 +382,48 @@ private fun CountsRow(session: ReviewSession, file: ReviewFile, files: List<Revi
         }
         Text(when (threads) { 0 -> "No threads"; 1 -> "1 thread"; else -> "$threads threads" }, style = PullsType.sm, color = c.muted, maxLines = 1)
         Spacer(Modifier.weight(1f))
-        Row(
-            Modifier.height(36.dp).clip(RoundedCornerShape(8.dp)).cueClickable(role = Role.Checkbox, onClickLabel = "Reviewed") {
-                session.setReviewed(listOf(file.sha), !reviewed)
-                if (!reviewed) {
-                    // No "2 of 4" toast (rule 42): the last file of the change gets the success sound and nothing on screen.
-                    if (files.all { it.sha in session.reviewed || it.path == file.path }) Sounds.play(Cue.Success)
-                    // Reviewing a file moves on to the next one still to review, after a beat to see the tick land.
-                    val shaOf = files.associate { it.path to it.sha }
-                    nextUnreviewed(files.map { it.path }, file.path) { path -> shaOf[path] in session.reviewed }?.let { next ->
-                        scope.launch { delay(220); onPath(next) }
-                    }
-                }
-            },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
-        ) {
-            PullsCheck(reviewed, size = 20.dp)
-            Text("Reviewed", style = PullsType.sm, color = c.text)
-        }
+        ReviewedBox(session, file) { toggleReviewed(session, file, files, scope, onPath) }
+    }
+}
+
+/** Under the last line, under a hairline: the same Reviewed box as at the top, at the same place on the right. */
+@Composable
+private fun EndRow(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, onPath: (String) -> Unit) {
+    val c = LocalPullsColors.current
+    val scope = rememberCoroutineScope()
+    Row(
+        Modifier.fillMaxWidth().hairlineTop(c.borderMute).padding(start = 16.dp, end = 16.dp, top = 12.dp).height(44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+    ) {
+        ReviewedBox(session, file) { toggleReviewed(session, file, files, scope, onPath) }
+    }
+}
+
+/** The box and the word, one target that ticks or unticks the file. */
+@Composable
+private fun ReviewedBox(session: ReviewSession, file: ReviewFile, onClick: () -> Unit) {
+    val c = LocalPullsColors.current
+    Row(
+        Modifier.height(36.dp).clip(RoundedCornerShape(8.dp)).cueClickable(role = Role.Checkbox, onClickLabel = "Reviewed", onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        PullsCheck(session.reviewState(file) == ReviewState.Reviewed, size = 20.dp)
+        Text("Reviewed", style = PullsType.sm, color = c.text)
+    }
+}
+
+/** Ticks [file] or unticks it. Ticking moves on to the next file still to review, after a beat to see the tick land. */
+private fun toggleReviewed(session: ReviewSession, file: ReviewFile, files: List<ReviewFile>, scope: CoroutineScope, onPath: (String) -> Unit) {
+    val reviewed = session.reviewState(file) == ReviewState.Reviewed
+    session.setReviewed(listOf(file.sha), !reviewed)
+    if (reviewed) return
+    // No "2 of 4" toast (rule 42): the last file of the change gets the success sound and nothing on screen.
+    if (files.all { it.sha in session.reviewed || it.path == file.path }) Sounds.play(Cue.Success)
+    val shaOf = files.associate { it.path to it.sha }
+    nextUnreviewed(files.map { it.path }, file.path) { path -> shaOf[path] in session.reviewed }?.let { next ->
+        scope.launch { delay(220); onPath(next) }
     }
 }
 
@@ -393,9 +449,10 @@ private fun NoteCard(session: ReviewSession, note: String, modifier: Modifier, o
 }
 
 /**
- * `.dctl`: ‹, the file you are on and ›. While lines are selected the whole bar is the comment field instead, and it
- * comes back when they are not (rule 94): the field posts into the viewer's pending review, and with no write access
- * it only names the selection.
+ * `.dctl`: ‹, the file you are on and ›. While lines are selected the whole bar is the comment bar instead, and it comes
+ * back when they are not (rule 94): ✕, the field that names the lines, the "In review" or "Post now" toggle, ⋯ and Send.
+ * The field posts into the viewer's pending review; with no write access the bar only names the lines. Nothing floats
+ * over the selected lines: what else they offer (Ask, copy where they are) is behind the ⋯.
  */
 @Composable
 private fun DiffBar(
@@ -405,6 +462,7 @@ private fun DiffBar(
     target: ReviewFile,
     index: Int,
     count: Int,
+    onAsk: (AskReference) -> Unit,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onFiles: () -> Unit,
@@ -417,17 +475,17 @@ private fun DiffBar(
     val selected = ui.drafts[file.path]
     // Tapping another line keeps what was typed (the comment follows the selection); deselecting or posting clears it.
     var text by remember(file.path) { mutableStateOf("") }
-    LaunchedEffect(selected == null) { if (selected == null) text = "" }
+    var actions by remember { mutableStateOf(false) }
+    LaunchedEffect(selected == null) { if (selected == null) { text = ""; actions = false } }
     var busy by remember { mutableStateOf(false) }
     // With no review pending a comment can be posted at once instead of starting one; the choice sticks for the screen.
     val hasPending = session.reviewData?.pendingReviewId != null
     var single by rememberSaveable { mutableStateOf(false) }
     val post = single && !hasPending
     val canComment = session.canWrite && session.pull != null && !file.isBinary
-    val label = selected?.let { s ->
-        val first = s.startLine?.takeIf { it < s.line } ?: s.line
-        if (first == s.line) "line ${s.line}" else "lines $first–${s.line}"
-    }
+    // The one place the lines are named while they are selected: in the sentence, or alone when that is too long.
+    val lines = selected?.let { s -> linesPhrase(s.startLine ?: s.line, s.line) }
+    val linesLabel = selected?.let { s -> linesPhrase(s.startLine ?: s.line, s.line, label = true) }
 
     fun send() {
         val draft = selected ?: return
@@ -468,13 +526,13 @@ private fun DiffBar(
                     FloatIcon(Lu.next, "Next file", onNext, size = 48.dp, enabled = index < count - 1, iconSize = 22.dp, primary = true)
                 }
             } else {
-                // A line is selected: the bar is one pill you type straight into, with everything it needs built in.
+                // Lines are selected: the bar is one pill you type straight into, with everything it needs built in.
                 Row(
                     Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(start = 4.dp, end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    FloatIcon(Lu.close, "Deselect line", { ui.drafts.remove(file.path); ui.selectionStart.remove(file.path) }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
+                    FloatIcon(Lu.close, "Deselect the lines", { ui.drafts.remove(file.path); ui.selectionStart.remove(file.path) }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
                     if (canComment) {
                         BasicTextField(
                             value = text,
@@ -488,7 +546,7 @@ private fun DiffBar(
                             modifier = Modifier.weight(1f),
                             decorationBox = { inner ->
                                 Box(contentAlignment = Alignment.CenterStart) {
-                                    if (text.isEmpty()) Text("Comment on ${label ?: "a line"}", style = PullsType.base, color = c.muted, maxLines = 1)
+                                    if (text.isEmpty() && lines != null && linesLabel != null) FitText(listOf("Comment on $lines", linesLabel), PullsType.base, c.muted)
                                     inner()
                                 }
                             },
@@ -503,12 +561,56 @@ private fun DiffBar(
                                 Text(if (single) "Post now" else "In review", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (single) c.activeText else c.muted, maxLines = 1)
                             }
                         }
-                        SendButton({ send() }, "Send comment", enabled = text.isNotBlank() && !busy, busy = busy)
                     } else {
-                        Text(label?.let { it.take(1).uppercase() + it.drop(1) } ?: "", Modifier.weight(1f), style = PullsType.base, color = c.muted, maxLines = 1)
+                        Box(Modifier.weight(1f)) { if (linesLabel != null) FitText(listOf(linesLabel), PullsType.base, c.muted) }
                     }
+                    FloatIcon(Lu.more, "More for these lines", { actions = true }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
+                    if (canComment) SendButton({ send() }, "Send comment", enabled = text.isNotBlank() && !busy, busy = busy)
                 }
             }
+        }
+    }
+    if (actions && selected != null) LineActionsSheet(session, ui, file, selected, onAsk) { actions = false }
+}
+
+/** The first of [choices] that fits its room on one line, else the last: a shorter wording instead of a cut one. */
+@Composable
+private fun FitText(choices: List<String>, style: TextStyle, color: Color) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints {
+        val width = constraints.maxWidth
+        val shown = remember(choices, width, style) {
+            if (width == Constraints.Infinity) choices.first()
+            else choices.firstOrNull { measurer.measure(it, style, softWrap = false, maxLines = 1).size.width <= width } ?: choices.last()
+        }
+        Text(shown, style = style, color = color, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * What else selected lines offer, from the ⋯ of the comment bar: Ask about them, which opens Ask with their code
+ * attached as a card over the field (as a file note is), and copying where they are. The bar names the lines, so the
+ * sheet is named by the file alone.
+ */
+@Composable
+private fun LineActionsSheet(session: ReviewSession, ui: DiffUi, file: ReviewFile, lines: DraftTarget, onAsk: (AskReference) -> Unit, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val toaster = LocalToaster.current
+    val selection = askSelectionOf(file.path, lines.side, lines.line, lines.startLine)
+    val opened = session.opened
+    val repo = FileLinks.repoOf(session.target)
+    val link = opened?.let { githubBlobUrl(repo?.first, repo?.second, it.refKind, it.headSha, it.baseSha, file.path, file.previousPath, selection) }
+    val one = selection.startLine == selection.endLine
+    PullsSheet(onClose, file.path.substringAfterLast('/'), expandable = false) {
+        SheetCard(Modifier.padding(bottom = 16.dp)) {
+            SheetRow(if (one) "Ask about this line" else "Ask about these lines", {
+                onClose()
+                // The code itself, or where it is when the lines are not loaded.
+                val code = selectedCode(ui.entries(file), selection.side, selection.startLine..selection.endLine).ifEmpty { lineRangeLabel(selection) }
+                onAsk(AskReference("${linesPhrase(selection.startLine, selection.endLine)} of ${file.path}", code))
+            }, first = true, iconless = true)
+            SheetRow(t("ask.copyLocation"), { copyText(context, lineRangeLabel(selection)); toaster.show("Location copied", cue = Cue.Success); onClose() }, iconless = true)
+            if (link != null) SheetRow(t("ask.copyLink"), { copyText(context, link); toaster.show("Link copied", cue = Cue.Success); onClose() }, iconless = true)
         }
     }
 }

@@ -52,7 +52,7 @@ private val SPECIMENS = listOf(
     Specimen("float-button") { FloatIcon(Lu.cog, "Settings", {}) },
     Specimen("capsule-tabs") { CapsuleTabs(listOf("Inbox", "Tours", "Done"), 0, {}) },
     Specimen("soft-chip") { SoftChip("Needs review", false, {}) },
-    Specimen("underline-tabs") { UnderlineTabs(listOf("Summary", "Description"), 0, {}) },
+    Specimen("underline-tabs") { UnderlineTabs(listOf("Summary", "Commits", "Conversation"), 0, {}) },
     Specimen("check") { PullsCheck(false) },
     Specimen("switch") { PullsSwitch(false, {}, "Auto refresh") },
     Specimen("cta-button") { CtaButton("Approve", {}) },

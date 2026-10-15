@@ -28,6 +28,12 @@ class ReviewTopUi {
     /** The verdict the submit sheet opens on: `COMMENT`, `APPROVE` or `REQUEST_CHANGES`. */
     var reviewVerdict by mutableStateOf("COMMENT")
 
+    /**
+     * The AI's summary the person switched away from to read the description in its place, as its `summaryKey`. Any
+     * other summary, such as the next analysis, shows again (`showsDescription`).
+     */
+    var descriptionOver by mutableStateOf<String?>(null)
+
     /** Overview polls since the last refresh (`MAX_POLLS` 20 in `pr-overview-store.ts`). */
     var polls by mutableIntStateOf(0)
 

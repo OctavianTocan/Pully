@@ -15,12 +15,18 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.PullsApp
 import com.octaviantocan.pulls.ui.theme.PullsTheme
+import com.octaviantocan.pulls.update.UpdateNotice
+import com.octaviantocan.pulls.update.Updates
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val settings = AppSettings.get(this)
+        // The process can outlive the screen, so a fresh start shows a hidden update card again; a rotation does not.
+        if (savedInstanceState == null) Updates.hidden = false
+        // Only a fresh launch from the notification acts on it: not a rotation, and not a reopen from Recents.
+        if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) UpdateNotice.handle(this, intent)
         // Paint the window in the chosen theme before the first frame, so a dark phone does not flash paper.
         val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         paintWindow(when (settings.theme) { "dark" -> true; "light" -> false; else -> night })
@@ -60,13 +66,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // The update notification brings Pulls to the front where the reader left it; only a link opens a new page.
+        if (UpdateNotice.handle(this, intent)) return
         setIntent(intent)
         recreate()
     }
 
     private companion object {
         const val LIGHT_BASE = 0xFFFDFCF9.toInt()
-        const val DARK_BASE = 0xFF0C1B1F.toInt()
+        const val DARK_BASE = 0xFF161616.toInt()
     }
 
     private fun readTarget(intent: Intent?): String? {

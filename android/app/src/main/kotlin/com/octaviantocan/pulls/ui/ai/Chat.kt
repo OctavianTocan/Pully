@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.data.Activity
 import com.octaviantocan.pulls.data.ChatMessage
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -118,17 +120,25 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     // The question shows at once; the server saves it with the reply when the turn ends.
     val pending = ui.chatPending?.takeIf { text -> (rows.lastOrNull() as? ChatRow.User)?.text != text }
     val lastQuestion = rows.indexOfLast { it is ChatRow.User }
+    // The answer as it is written (rule 99): the newest writing step's text, held once the turn settles until the saved
+    // reply takes its place, so the words stay where they are when it swaps. A new question or a new saved reply lets it go.
+    val held = remember(rows, ui.chatPending) { arrayOf<String?>(null) }
+    val writing = task?.takeIf { streaming }?.let { answerSoFar(it.activities) }
+    if (writing != null) held[0] = writing
+    val written = writing ?: held[0]?.takeIf { task?.status == "done" }
+    // A reply on its way, or written and not yet saved.
+    val answering = streaming || written != null
     // Redo answers the last question again (a turn with no text of its own): its old answer steps aside meanwhile.
-    val redoing = streaming && task?.text.isNullOrEmpty() && pending == null && lastQuestion >= 0
+    val redoing = answering && task?.text.isNullOrEmpty() && pending == null && lastQuestion >= 0
     val shown = if (redoing) rows.take(lastQuestion + 1) else rows
     // Where the turn's own log and orb go in the rows: after all of them while it runs, after its question once saved.
-    val turnAt = if (streaming || pending != null) shown.size else lastQuestion + 1
+    val turnAt = if (answering || pending != null) shown.size else lastQuestion + 1
     // Under the last answer: redo and the questions a small model wrote for it (rule 99).
     val lastAnswer = shown.lastOrNull() as? ChatRow.Assistant
     val nextQuestions = if (lastAnswer != null && !busy && pending == null) session.saved?.suggestions.orEmpty() else emptyList()
     val failed = task?.status == "failed"
     val scroll = rememberScrollState()
-    LaunchedEffect(rows.size, pending, task?.activities?.size, streaming) { scroll.animateScrollTo(scroll.maxValue) }
+    LaunchedEffect(rows.size, pending, task?.activities?.size, streaming, written?.length) { scroll.animateScrollTo(scroll.maxValue) }
     LaunchedEffect(initial) {
         if (!initial.isNullOrBlank() && !busy) session.sendChat(initial)
     }
@@ -149,6 +159,8 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         ChatRowView(row)
         if (row is ChatRow.Assistant) AnswerExtras(
             session, row.text, onOpen,
+            // The files the turn read are known for the last answer only: the steps of older turns are not kept.
+            read = if (row === lastAnswer && !busy) task?.takeIf { it.status == "done" }?.activities.orEmpty() else emptyList(),
             onRedo = if (row === lastAnswer && !busy) ({ session.sendChat(null, retry = true) }) else null,
             next = if (row === lastAnswer) nextQuestions else emptyList(),
             onAsk = ::ask,
@@ -188,18 +200,22 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                 // place in the code, so the orb that ran is the one that settles, where the log was.
                 shown.take(turnAt).forEach { RowView(it) }
                 if (pending != null) UserBubble(pending)
-                // From the moment the question is sent: "Thinking" and the time, then each step with its icon (rule 72).
+                // From the moment the question is sent: "Thinking" and the time, then each step with its icon (rule 72). When the
+                // reply is in, the same log folds to "Worked for…" under the question that asked for it, so what is under it
+                // glides up instead of jumping (rule 69).
                 val working = streaming || ui.chatPending != null
                 val sentAt = remember(ui.chatPending) { System.currentTimeMillis() }
-                if (working) {
-                    val live = task?.takeIf { streaming }
-                    AiActivityLogFull(live?.activities.orEmpty(), true, startedAt = live?.startedAt?.takeIf { it > 0 } ?: sentAt, compact = true, mark = false)
+                val turnTask = task?.takeIf { answering } ?: task?.takeIf { !working && lastQuestion >= 0 && it.activities.isNotEmpty() }
+                if (working || turnTask != null) key(turnTask?.id) {
+                    AiActivityLogFull(
+                        turnTask?.activities.orEmpty(), working, startedAt = turnTask?.startedAt?.takeIf { it > 0 } ?: sentAt,
+                        endedAt = turnTask?.endedAt, outcome = outcomeOf(turnTask), compact = true, mark = false,
+                    )
                 }
-                // The last reply's work log folds in under the question that asked for it.
-                if (!streaming && pending == null && lastQuestion >= 0 && task != null && task.activities.isNotEmpty()) {
-                    AiActivityLogFull(task.activities, false, startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), compact = true)
-                }
-                AiLiveMark(working, hint = true)
+                // The grey bars hint where the answer will arrive until its first words do (rule 71).
+                AiLiveMark(working, hint = written == null)
+                // The answer as it is written, in the place the saved reply takes: plain text, never a bubble (rule 99).
+                if (written != null) Answer(written)
                 shown.drop(turnAt).forEach { RowView(it) }
                 if (!streaming && failed && ui.chatPending == null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -245,10 +261,17 @@ internal fun Answer(text: String) {
     Markdown(text, Modifier.fillMaxWidth(), style = PullsType.read.copy(color = c.text))
 }
 
-/** Under a PR answer: the places in the diff it mentions, then what every answer has under it. */
+/**
+ * Under a PR answer: the places in the diff it mentions, then the files it [read] that it does not mention (rule 99), each
+ * once, then what every answer has under it.
+ */
 @Composable
-private fun AnswerExtras(session: ReviewSession, text: String, onOpen: (CodePlace) -> Unit, onRedo: (() -> Unit)?, next: List<String>, onAsk: (String) -> Unit) {
-    val places = remember(text, session.files) { mentionedPlaces(text) { name -> resolveMention(session, name) } }
+private fun AnswerExtras(session: ReviewSession, text: String, onOpen: (CodePlace) -> Unit, read: List<Activity>, onRedo: (() -> Unit)?, next: List<String>, onAsk: (String) -> Unit) {
+    val places = remember(text, read, session.files) {
+        val named = mentionedPlaces(text) { name -> resolveMention(session, name) }
+        val opened = readFiles(read).map { (path, line) -> CodePlace(resolveMention(session, path) ?: path, line) }
+        named + opened.filter { place -> named.none { it.path == place.path } }.distinctBy { it.path }
+    }
     val sources = places.map { place ->
         AnswerSource(place.path.substringAfterLast('/') + if (place.line > 0) ":${place.line}" else "", "Open ${place.path}") { onOpen(place) }
     }

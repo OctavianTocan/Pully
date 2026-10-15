@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyItemScope
@@ -53,7 +54,7 @@ class DiffUi(val session: ReviewSession) {
     /** Gap ids opened per path once the full file is in; a null value opens every gap ("Load full file content"). */
     val expandedGaps = mutableStateMapOf<String, Set<Int>?>()
 
-    /** The open draft (comment composer + selection actions) per file. */
+    /** The selected lines per file, which the bar at the bottom comments on (rule 94). */
     val drafts = mutableStateMapOf<String, DraftTarget>()
 
     /** Gutter centres on screen, `path|side|line` -> y in root px, for drag selection. */
@@ -219,13 +220,19 @@ internal class Emitter(private val scope: LazyListScope, leading: Int = 0) {
 
 /**
  * Emits the rows of one [file] into this list and records where each item and line landed, so
- * [PrDiffScreen] can scroll to a line. [leading] is how many items the screen put above the rows, and
- * [tail] the room under the last row, so the file ends where its code ends and only the bar is cleared (rule 92).
+ * [PrDiffScreen] can scroll to a line. [leading] is how many items the screen put above the rows, [end]
+ * what follows the last row (the Reviewed box), and [tail] the room under it, so the file ends where its
+ * code ends and only the bar is cleared (rule 92).
  */
-internal fun LazyListScope.fileDiffItems(session: ReviewSession, ui: DiffUi, file: ReviewFile, leading: Int = 0, tail: Dp = 140.dp) {
+internal fun LazyListScope.fileDiffItems(session: ReviewSession, ui: DiffUi, file: ReviewFile, leading: Int = 0, tail: Dp = 140.dp, end: (@Composable () -> Unit)? = null) {
     val emit = Emitter(this, leading)
     fileBodyItems(emit, session, ui, file)
-    emit.item("diff:end:${file.path}", "end") { Box(Modifier.fillMaxWidth().height(tail).background(LocalPullsColors.current.raised)) }
+    emit.item("diff:end:${file.path}", "end") {
+        Column(Modifier.fillMaxWidth().background(LocalPullsColors.current.raised)) {
+            end?.invoke()
+            Box(Modifier.fillMaxWidth().height(tail))
+        }
+    }
     ui.indexOf = emit.index
     ui.pathOfKey = emit.paths
     ui.lineKey = emit.lines

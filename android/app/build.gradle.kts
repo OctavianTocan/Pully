@@ -15,8 +15,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 30
-        versionName = "0.16.0"
+        versionCode = 33
+        versionName = "0.19.0"
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
@@ -46,6 +46,30 @@ kotlin {
     jvmToolchain(21)
 }
 
+/** Copies `android/CHANGELOG.md` into the app's assets, where the What's new sheet reads it. */
+abstract class ChangelogAsset : DefaultTask() {
+    @get:InputFile
+    abstract val source: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val output: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        source.get().asFile.copyTo(output.get().file("changelog.md").asFile, overwrite = true)
+    }
+}
+
+val changelogAsset = tasks.register<ChangelogAsset>("changelogAsset") {
+    source.set(rootProject.layout.projectDirectory.file("CHANGELOG.md"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(changelogAsset, ChangelogAsset::output)
+    }
+}
+
 dependencies {
     implementation(project(":core"))
     val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
@@ -58,6 +82,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.10.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
+    implementation("androidx.work:work-runtime:2.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")

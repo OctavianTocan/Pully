@@ -235,8 +235,7 @@
       "summary": "Checks: {passing} passing, {failing} failing, {pending} pending"
     },
     "commitList": {
-      "view": "View only this commit's changes",
-      "hint": "Click a commit to view only its changes. Shift-click to select a range."
+      "view": "View only this commit's changes"
     },
     "selection": {
       "all": "All commits",

@@ -11,6 +11,19 @@ fun nextUnreviewed(order: List<String>, current: String, isReviewed: (String) ->
 }
 
 /**
+ * Whether the Summary tab shows the author's description: always while the AI has written no [summary], and over one
+ * only when the person switched to the description while that same summary was on screen ([switchedAwayFrom]). A
+ * summary written after that takes the description's place again. Both are [summaryKey]s.
+ */
+fun showsDescription(summary: String?, switchedAwayFrom: String?): Boolean = summary == null || summary == switchedAwayFrom
+
+/**
+ * What tells one written summary from another: when its analysis was written and its [text], so a new analysis that
+ * happens to say the same words is still new. Null without a summary.
+ */
+fun summaryKey(generatedAt: String?, text: String?): String? = text?.let { "${generatedAt.orEmpty()}\n$it" }
+
+/**
  * The tab a horizontal drag lands on. A drag of [dx] pixels to the left past [threshold] shows the next tab, one to the
  * right shows the previous one, and the first and last tabs stay put. A shorter drag changes nothing.
  */
@@ -19,6 +32,13 @@ fun swipedTab(current: Int, count: Int, dx: Float, threshold: Float): Int = when
     dx < 0f -> (current + 1).coerceAtMost(count - 1)
     else -> (current - 1).coerceAtLeast(0)
 }
+
+/**
+ * Where a horizontal drag of [dx] pixels takes the Overview from tab [current] of [count]: a tab, as [swipedTab] says,
+ * or past the last one the next view, the Diff, which is [count] (rule 93). Before the first tab it stays put.
+ */
+fun swipedTabOrNext(current: Int, count: Int, dx: Float, threshold: Float): Int =
+    if (current >= count - 1 && dx <= -threshold) count else swipedTab(current, count, dx, threshold)
 
 /**
  * Where a horizontal drag of [dx] pixels takes the diff from file [current] of [count] (rule 93): to the left past

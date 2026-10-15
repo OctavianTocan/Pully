@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -29,6 +28,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.sound.cueClickable
 import kotlinx.serialization.json.put
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +46,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -97,7 +97,6 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
     var totalCount by mutableStateOf(seen?.totalCount)
     var next by mutableStateOf(seen?.next)
     var isLoading by mutableStateOf(false)
-    var isRefreshing by mutableStateOf(false)
     var isLoadingMore by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
     private var generation = 0
@@ -132,16 +131,14 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
         }
     }
 
+    /** The first page: the rows last seen stay on screen while it comes, and only a list with none shows the skeleton. */
     suspend fun load() {
-        val cached = items.isNotEmpty()
-        if (cached) isRefreshing = true else isLoading = true
-        try { fetchFirstPage() } finally { isLoading = false; isRefreshing = false }
+        if (items.isEmpty()) isLoading = true
+        try { fetchFirstPage() } finally { isLoading = false }
     }
 
-    suspend fun refresh() {
-        isRefreshing = true
-        try { fetchFirstPage() } finally { isRefreshing = false }
-    }
+    /** The first page again, quietly, over the rows on screen. */
+    suspend fun refresh() = fetchFirstPage()
 
     suspend fun loadMore() {
         val cursor = next ?: return
@@ -179,6 +176,15 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
     // Matches the order pages arrive in, so an unfinished load never looks mis-sorted.
     var sort by rememberSaveable { mutableStateOf("recently-updated") }
     LaunchedEffect(store) { store.load() }
+    // Refreshing is the page's own job and quiet: on open, and again when the app comes back to the front.
+    var away by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { away = true }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        if (away) {
+            away = false
+            scope.launch { store.refresh() }
+        }
+    }
     // Independent of the network, like the web: viewed PRs decorate rows whenever they arrive.
     LaunchedEffect(store) { store.loadViewed() }
     // A client-side search is only trustworthy over the full set: typing drains the remaining pages.
@@ -201,8 +207,6 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", nav.back, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
-                FloatIcon(Lu.refresh, t("common.refresh"), { scope.launch { store.refresh() } }, enabled = !store.isRefreshing && !store.isLoading)
-                Spacer(Modifier.width(10.dp))
                 // The GitHub mark says where it goes; no arrow-out icon is ever used for that (rule 100).
                 FloatButton({ uri.openUri("https://github.com/$owner/$repo/pulls") }, "Open on GitHub") { DrawableIcon(R.drawable.ic_carbon_logo_github, size = 22.dp) }
             }
@@ -256,8 +260,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav) {
                 }
             }
         }
-        // `.fade` and `.search`: the list dissolves into the page under a floating search pill, as in the Inbox.
-        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(140.dp).background(Brush.verticalGradient(0f to Color.Transparent, 0.6f to c.base, 1f to c.base)))
+        // `.search`: the list fades into the page under a floating search pill (its own `edgeFade`), as in the Inbox, and
+        // nothing else sits behind the pill: it floats on its own shadow (rule 74).
         SearchPill(
             query, { query = it }, t("pulls.search"), null, {},
             Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),

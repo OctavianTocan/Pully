@@ -165,7 +165,7 @@ fun <S> BlurSwitch(target: S, modifier: Modifier = Modifier, order: (S) -> Int =
 }
 
 /**
- * A page change inside a scrolling list (Summary, Description and Conversation under their tabs). The rows of a lazy list
+ * A page change inside a scrolling list (Summary, Commits and Conversation under their tabs). The rows of a lazy list
  * cannot sit inside an [AnimatedContent], so the page is changed in two beats instead: the rows on screen fade out
  * blurring and slide 8dp away (150ms), the next page's rows take their place and fade in sharpening from 8dp the
  * other side (250ms), both on the smooth-out curve like [BlurSwitch]. [shown] is the page the list holds right now, and
@@ -313,7 +313,8 @@ fun headerTopPadding(): Dp = max(WindowInsets.statusBars.asPaddingValues().calcu
  * one that was not clipped would smear the header above it.
  *
  * [topStrength] and [bottomStrength] (0 to 1) are read in the draw phase, so a list at rest at the
- * top stays sharp. Below Android 12 there is no blur and the fade alone is drawn.
+ * top stays sharp. [topInset] (px, also read while drawing) starts the top band lower, under something pinned over the
+ * top of the content, such as a list's sticky heading. Below Android 12 there is no blur and the fade alone is drawn.
  */
 @Composable
 fun Modifier.edgeFade(
@@ -323,6 +324,7 @@ fun Modifier.edgeFade(
     blur: Dp = PullsMotion.EdgeBlur,
     topStrength: () -> Float = { 1f },
     bottomStrength: () -> Float = { 1f },
+    topInset: () -> Float = { 0f },
 ): Modifier {
     if (top <= 0.dp && bottom <= 0.dp) return this
     val source = rememberGraphicsLayer()
@@ -331,7 +333,7 @@ fun Modifier.edgeFade(
     return this.drawWithContent {
         source.record { this@drawWithContent.drawContent() }
         drawLayer(source)
-        if (top > 0.dp) fadeBand(source, topLayers, color, 0f, top.toPx(), true, blur.toPx(), topStrength())
+        if (top > 0.dp) fadeBand(source, topLayers, color, topInset(), top.toPx(), true, blur.toPx(), topStrength())
         if (bottom > 0.dp) fadeBand(source, bottomLayers, color, size.height - bottom.toPx(), bottom.toPx(), false, blur.toPx(), bottomStrength())
     }
 }

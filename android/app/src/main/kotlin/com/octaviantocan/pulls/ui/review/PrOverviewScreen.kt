@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -8,15 +10,16 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,7 +54,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.core.swipedTab
+import com.octaviantocan.pulls.core.showsDescription
+import com.octaviantocan.pulls.core.summaryKey
+import com.octaviantocan.pulls.core.swipedTabOrNext
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -62,7 +67,10 @@ import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.rememberLiveTask
 import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.ai.shimmer
+import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.BreathingDot
+import com.octaviantocan.pulls.ui.design.CapsuleTabs
+import com.octaviantocan.pulls.ui.design.CodePlace
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.IconSwap
@@ -77,23 +85,23 @@ import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.UnderlineTabs
 import com.octaviantocan.pulls.ui.design.pageSlide
 import com.octaviantocan.pulls.ui.design.rememberPageSlide
 import com.octaviantocan.pulls.ui.design.floatShadow
-import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.SwipeRow
 import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.design.hairlineTop
 
 /**
- * The prototype's PR overview: a floating back button and section capsule over the page, the title,
- * who and when, the branches, a four-cell summary line, Summary / Description (/ Commits / Conversation) tabs,
- * the AI's status and summary, the file list with its notes, and a bottom bar with Ask, More and the
- * one action that moves the review forward.
+ * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
+ * who and when, the branches, a four-cell summary line, Summary / Commits / Conversation tabs, the AI's
+ * status and the summary (the description until the AI writes one), the file list with its notes, and a
+ * bottom bar with Ask, More and the one action that moves the review forward.
  */
 @Composable
 internal fun PrOverviewScreen(
@@ -105,54 +113,44 @@ internal fun PrOverviewScreen(
     scroll: LazyListState,
     pane: Int,
     onPane: (Int) -> Unit,
-    onBack: () -> Unit,
     onDiff: (path: String?) -> Unit,
-    onTour: () -> Unit,
     onAsk: () -> Unit,
     onSheet: (String) -> Unit,
     onCite: (Cite) -> Unit,
     onOpenRepo: (owner: String, repo: String) -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val tourRunning = session.taskFor("tour")?.running == true
     val focusManager = LocalFocusManager.current
     // A tap on the empty page leaves a field the person was editing in place, which saves it (rule 83).
     Box(Modifier.fillMaxSize().background(c.base).pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
-                Spacer(Modifier.weight(1f))
-                SectionCapsule(selected = 0, live = tourRunning, onOverview = {}, onChanges = { onDiff(null) }, onTour = onTour, onCorner = { onSheet("more") })
-            }
-            // Narrowed to a commit: the way back stays on screen while the page scrolls (rule 80).
-            CommitRangeBanner(session, data?.overview, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
-            // The commits have a tab of their own beside the conversation (rule 91); a label never carries a count, so four fit a phone.
-            val labels = buildList {
-                add("Summary")
-                add("Description")
-                if (data != null) {
-                    add("Commits")
-                    add("Conversation")
-                }
-            }
+            // The description is the summary until the AI writes one, so they share a tab. The commits have a tab of their
+            // own beside the conversation (rule 91). All three are there from the start, so the row never changes shape
+            // when the conversation arrives (rule 53).
+            val labels = listOf("Summary", "Commits", "Conversation")
             val shown = pane.coerceAtMost(labels.lastIndex)
             val commitAnchor = remember { mutableStateOf<Int?>(null) }
             val slide = rememberPageSlide(shown, order = { it })
-            // A swipe left or right moves between the tabs; the files of the diff are never switched this way.
+            // A swipe left or right moves between the tabs, and left past the last one goes on to the Diff (rule 93).
             var drag by remember { mutableFloatStateOf(0f) }
             val swipeFrom = with(LocalDensity.current) { 64.dp.toPx() }
             val range = with(LocalDensity.current) { PullsMotion.FingerRange.toPx() }
-            // The rows follow the finger toward a tab that exists, and stay put against the ends.
+            // The rows follow the finger toward a tab or the Diff, and stay put against the first tab.
             val swipe = rememberDraggableState { delta ->
                 drag += delta
-                if ((delta < 0 && shown < labels.lastIndex) || (delta > 0 && shown > 0)) slide.follow(delta, range)
+                slide.follow(if (shown == 0) minOf(delta, -slide.finger) else delta, range)
             }
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth().draggable(
                     swipe, Orientation.Horizontal,
                     onDragStarted = { drag = 0f },
-                    onDragStopped = { onPane(swipedTab(shown, labels.size, drag, swipeFrom)); drag = 0f; slide.release() },
+                    onDragStopped = {
+                        val to = swipedTabOrNext(shown, labels.size, drag, swipeFrom)
+                        if (to == labels.size) onDiff(null) else onPane(to)
+                        drag = 0f
+                        slide.release()
+                    },
                 ),
                 state = scroll,
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 120.dp),
@@ -180,14 +178,11 @@ internal fun PrOverviewScreen(
                 val rows = Modifier.pageSlide(slide)
                 when (slide.shown.coerceAtMost(labels.lastIndex)) {
                     0 -> {
-                        item(key = "summary") { Box(rows) { SummaryPane(session, onCite, onSheet) } }
+                        item(key = "summary") { Box(rows) { SummaryPane(session, top, data, onCite, onSheet) } }
                         filesItems(session, ui, onDiff, onSheet, rows)
                     }
-                    1 -> item(key = "description") { Box(rows) { DescriptionPane(session, data) } }
-                    2 -> data?.let { commitItems(session, it.overview, commitAnchor, rows) }
-                    else -> item(key = "conversation") {
-                        data?.let { Box(rows.padding(top = 14.dp)) { Conversation(it.overview) } }
-                    }
+                    COMMITS_TAB -> if (data != null) commitItems(session, data.overview, commitAnchor, rows) else waitingItem(session, rows)
+                    else -> if (data != null) item(key = "conversation") { Box(rows.padding(top = 14.dp)) { Conversation(data.overview) } } else waitingItem(session, rows)
                 }
             }
         }
@@ -200,7 +195,15 @@ internal fun PrOverviewScreen(
 }
 
 /** Where the Commits tab sits among the tabs, for the Commits cell that opens it. */
-private const val COMMITS_TAB = 2
+private const val COMMITS_TAB = 1
+
+/**
+ * A tab whose rows come with the conversation, before it has arrived: bars where the rows will be, and no loading
+ * screen (rule 51). When it could not load, the line under the title already says so and offers to try again.
+ */
+private fun LazyListScope.waitingItem(session: ReviewSession, rows: Modifier) {
+    if (session.overviewError == null) item(key = "waiting") { RowsSkeleton(rows.padding(top = 14.dp), rows = 5) }
+}
 
 /** The conversation, checks and merge state did not load: say why, and offer to try again. */
 @Composable
@@ -221,8 +224,9 @@ internal enum class CapsuleCorner(val label: String) { More("More"), TextTools("
 
 /**
  * `.cap` with the page icons: Overview, Changes, Tour (a live dot while it is written), and a corner slot. The
- * three pages wear it alike, so a page of the pull request never loses its way home and the capsule never changes
- * shape. [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour; [corner] is what [onCorner] opens.
+ * review draws it once over its three pages, so it never moves or changes shape between them and a page of the pull
+ * request never loses its way home; the paper pill under the page you are on slides to the next one (rule 67).
+ * [selected] is 0 for the Overview, 1 for Changes and 2 for the Tour; [corner] is what [onCorner] opens.
  */
 @Composable
 internal fun SectionCapsule(
@@ -235,31 +239,36 @@ internal fun SectionCapsule(
     corner: CapsuleCorner = CapsuleCorner.More,
 ) {
     val c = LocalPullsColors.current
-    Row(
-        Modifier.width(212.dp).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Segment("Overview", selected = selected == 0, onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
-        Segment("Changes", selected = selected == 1, onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
-        Segment("Tour", selected = selected == 2, onClick = if (selected == 2) null else onTour) {
-            LuIcon(Lu.tour, tint = c.text)
-            if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
-        }
-        Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).width(1.dp).fillMaxHeight().background(c.border))
-        Segment(corner.label, selected = false, onClick = onCorner) {
-            when (corner) {
-                CapsuleCorner.More -> LuIcon(Lu.more, tint = c.text)
-                CapsuleCorner.TextTools -> Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+    BoxWithConstraints(Modifier.width(212.dp).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(2.dp)) {
+        // Four equal segments either side of the divider's 5dp.
+        val segment = (maxWidth - DIVIDER) / 4
+        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "section-capsule")
+        Box(Modifier.offset(x = x).width(segment).fillMaxHeight().clip(CircleShape).background(c.paper2))
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            Segment("Overview", onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
+            Segment("Changes", onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
+            Segment("Tour", onClick = if (selected == 2) null else onTour) {
+                LuIcon(Lu.tour, tint = c.text)
+                if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
+            }
+            Box(Modifier.padding(horizontal = 2.dp, vertical = 8.dp).width(1.dp).fillMaxHeight().background(c.border))
+            Segment(corner.label, onClick = onCorner) {
+                when (corner) {
+                    CapsuleCorner.More -> LuIcon(Lu.more, tint = c.text)
+                    CapsuleCorner.TextTools -> Text("Aa", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+                }
             }
         }
     }
 }
 
+/** The capsule's divider and the room either side of it. */
+private val DIVIDER = 5.dp
+
 @Composable
-private fun RowScope.Segment(label: String, selected: Boolean, onClick: (() -> Unit)?, content: @Composable BoxScope.() -> Unit) {
-    val c = LocalPullsColors.current
+private fun RowScope.Segment(label: String, onClick: (() -> Unit)?, content: @Composable BoxScope.() -> Unit) {
     Box(
-        Modifier.weight(1f).fillMaxHeight().clip(CircleShape).background(if (selected) c.paper2 else Color.Transparent)
+        Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
             .then(if (onClick != null) Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
         content = content,
@@ -323,22 +332,42 @@ private fun Cell(label: String, modifier: Modifier, onClick: (() -> Unit)? = nul
 
 // --- Summary ---
 
-/** What the AI made of the pull request: its progress, the summary and what needs a human. The files follow as list rows. */
+/** Wide enough for "Description" in each half, and no wider: the capsule belongs to the text under it. */
+private val SummarySwitchWidth = 240.dp
+
+/**
+ * What the pull request is and what the AI made of it: its progress, the summary, the brief and what needs a human.
+ * The files follow as list rows. The summary is the author's description until the AI writes one, which then takes
+ * its place; a two-way capsule over it switches between the two, and the next summary the AI writes takes the place
+ * again.
+ */
 @Composable
-private fun SummaryPane(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: (String) -> Unit) {
+private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?, onCite: (Cite) -> Unit, onSheet: (String) -> Unit) {
     val c = LocalPullsColors.current
     val analysis = session.saved?.analysis
     val summary = analysis?.overallSummary?.takeIf { session.hasAiResult && it.isNotBlank() }
+    val shown = summaryKey(analysis?.generatedAt, summary)
+    val description = showsDescription(shown, top.descriptionOver)
+    // The summary and the brief name places in the code; each is a link there (rule 96).
+    val cite = { place: CodePlace -> onCite(Cite(place.path, place.line)) }
     Column {
         AnalysisBlock(session, onSheet)
-        // The summary and the brief name places in the code; each is a link there (rule 96).
-        ProvideAiText(session, { place -> onCite(Cite(place.path, place.line)) }) {
-            if (summary != null) {
-                Box(Modifier.padding(top = 12.dp)) {
-                    Markdown(summary, style = PullsType.read.copy(color = c.text))
-                }
+        if (summary != null) {
+            CapsuleTabs(
+                listOf("Summary", "Description"), if (description) 1 else 0,
+                { top.descriptionOver = if (it == 1) shown else null },
+                Modifier.padding(top = 16.dp).width(SummarySwitchWidth),
+            )
+        }
+        // The capsule's pill slides and the other text fades in beside it, like a tab (rule 67); the capsule stays put.
+        BlurSwitch(description, order = { if (it) 1 else 0 }) { showDescription ->
+            if (showDescription) DescriptionText(session, data, Modifier.padding(top = 12.dp))
+            else if (summary != null) ProvideAiText(session, cite) {
+                Box(Modifier.fillMaxWidth().padding(top = 12.dp)) { Markdown(summary, style = PullsType.read.copy(color = c.text)) }
             }
-            session.saved?.brief?.let { brief ->
+        }
+        session.saved?.brief?.let { brief ->
+            ProvideAiText(session, cite) {
                 BriefSection(session, brief, onOpen = { target -> onCite(Cite(target.path, target.line ?: 0)) }, modifier = Modifier.padding(top = 16.dp))
             }
         }
@@ -440,12 +469,13 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
             val state = session.reviewState(file)
             val note = notes[file.path]?.takeIf { it.isNotBlank() }
             val toggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) }
-            // The same gestures as the Inbox rows (rule 56): right marks it reviewed, left opens it, a long-press offers the rest.
+            // The same gestures as the Inbox rows (rule 56): right opens it, as it opens a pull request, left marks it
+            // reviewed (or not), a tap opens it and a long-press offers the rest.
             SwipeRow(
-                file.path, onOpen = toggle, onArchive = { onDiff(file.path) }, archived = false, modifier = rows,
-                startLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", startIcon = Lu.check,
-                endLabel = "Open", endIcon = Lu.arrow,
-                onClick = { onDiff(file.path) }, onLongClick = { onSheet(FILE_SHEET + file.path) },
+                file.path, onOpen = { onDiff(file.path) }, onArchive = toggle, archived = false, modifier = rows,
+                startLabel = "Open", startIcon = Lu.arrow,
+                endLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", endIcon = Lu.check,
+                onLongClick = { onSheet(FILE_SHEET + file.path) },
             ) {
                 // The first row of a list has no line above it, so the heading over it has none under it (rule 75).
                 FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0, onToggle = toggle)
@@ -496,14 +526,13 @@ private fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState
     }
 }
 
-// --- Description ---
-
 /**
- * The description. When the viewer may change this pull request (their own, or one they maintain) a tap turns it into a
- * field holding GitHub's Markdown and leaving it saves (rule 83); the page then shows GitHub's own rendering again.
+ * The description, in the summary's place. When the viewer may change this pull request (their own, or one they
+ * maintain) a tap turns it into a field holding GitHub's Markdown and leaving it saves (rule 83); the page then shows
+ * GitHub's own rendering again.
  */
 @Composable
-private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
+private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modifier: Modifier) {
     val c = LocalPullsColors.current
     val overview = data?.overview
     val html = overview?.bodyHTML.orEmpty()
@@ -511,7 +540,7 @@ private fun DescriptionPane(session: ReviewSession, data: PrOverviewData?) {
     EditableText(
         source, canEdit = overview?.viewer?.canUpdate == true, textStyle = PullsType.read, saved = "Description updated",
         onSave = { body -> session.repo.prAction(overview!!.id, "edit", body = body); session.reloadOverview() },
-        modifier = Modifier.padding(top = 8.dp), multiline = true, allowBlank = true, placeholder = "Describe the change in Markdown",
+        modifier = modifier, multiline = true, allowBlank = true, placeholder = "Describe the change in Markdown",
     ) { text ->
         // GitHub's own rendering while the text is the one it holds; the typed Markdown for the moment after a save.
         val markdown = remember(text, html, overview?.body) { if (html.isNotBlank() && text == overview?.body) htmlToMarkdown(html) else text }
