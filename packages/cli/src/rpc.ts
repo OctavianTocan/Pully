@@ -179,9 +179,9 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
     defineRpcFunction({
       name: LOCAL_RPC.myPullsCached,
       type: 'query',
-      args: [v.object({ state: v.picklist(MY_PULL_STATES) })],
+      args: [v.object({ state: v.picklist(MY_PULL_STATES), revalidate: v.optional(v.boolean()) })],
       returns: v.unknown(),
-      handler: async ({ state }) => cachedMyPulls(state),
+      handler: async ({ state, revalidate }) => cachedMyPulls(state, revalidate),
     }),
     defineRpcFunction({ name: LOCAL_RPC.aiTaskStart, type: 'action', args: [aiTaskRequest], returns: v.string(), handler: request => tasks.start(request as AiTaskRequest) }),
     defineRpcFunction({

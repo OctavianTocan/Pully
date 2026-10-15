@@ -9,6 +9,9 @@ export type AgentRuntime = { kind: 'host' } | { kind: 'docker', image: string }
 
 export const AGENT_RUNTIMES = ['host', 'docker'] as const
 
+/** How long after a stopped client exits its container is removed by name once more. */
+export const REMOVE_AGAIN_MS = 10_000
+
 /** The image `docker/agents/setup.sh build` tags. */
 export const DEFAULT_AGENT_IMAGE = 'pulls-review-agents'
 /** The volume that keeps the CLIs' logins (and nothing of the host's) between runs. */
@@ -118,14 +121,22 @@ export function startAgent(launch: AgentLaunch, options: { onLine?: (line: strin
 
   const name = `pulls-agent-${randomUUID()}`
   const client = startCli('docker', dockerRunArgs(runtime.image, name, launch), { onLine: options.onLine })
-  let done = false
-  client.exited.then(() => done = true, () => done = true)
+  const docker = (...args: string[]) => execFile('docker', args, () => {})
+  let stopping = false
   return {
     ...client,
     kill(signal: NodeJS.Signals = 'SIGTERM') {
-      if (done)
-        return
-      execFile('docker', ['kill', '--signal', signal, name], () => {})
+      // The daemon makes the container after the client asks, so a stop can find none to kill yet and the
+      // client can exit before it appears. Once the client is gone it is removed by name, and again later.
+      if (!stopping) {
+        stopping = true
+        const remove = () => docker('rm', '--force', name)
+        void client.exited.catch(() => {}).then(() => {
+          remove()
+          setTimeout(remove, REMOVE_AGAIN_MS).unref()
+        })
+      }
+      docker('kill', '--signal', signal, name)
       client.kill(signal)
     },
   }

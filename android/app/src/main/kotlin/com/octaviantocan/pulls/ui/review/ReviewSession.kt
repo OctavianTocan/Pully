@@ -79,13 +79,14 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      */
     var attention by mutableStateOf<Map<String, String>>(emptyMap())
         private set
-    private var attentionKey: String? = null
+    /** The diff and head the marks are for: a pull request keeps its key across pushes, so the head counts too. */
+    private var attentionFor: String? = null
     private var attentionJob: Job? = null
 
     /** The stack this pull request is a layer of, bottom first (PRs only); null when it is in none or did not load. */
     var stack by mutableStateOf<PrStack?>(null)
         private set
-    private var stackAsked = false
+    private var stackJob: Job? = null
 
     /** [overview] is still the server's stored copy, which may trail the diff by a push, so it says nothing about staleness. */
     var overviewStored by mutableStateOf(false)
@@ -185,10 +186,17 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      */
     fun loadPatches(paths: List<String>) {
         val key = opened?.key ?: return
+        // A pull request keeps its key across pushes, so the head tells an answer for this diff from one for the last.
+        val head = opened?.headSha
         val wanted = paths.filter { it !in patchProblems && patchesAsked.add(it) }
         if (wanted.isEmpty()) return
         scope.launch {
-            runCatching { repo.diffPatches(key, wanted) }
+            val answer = runCatching { repo.diffPatches(key, wanted) }
+            if (opened?.key != key || opened?.headSha != head) {
+                patchesAsked.removeAll(wanted.toSet())
+                return@launch
+            }
+            answer
                 .onSuccess { patches ->
                     val byPath = opened?.takeIf { it.key == key }?.files.orEmpty().associateBy { it.path }
                     val fitting = patches.filter { (path, patch) -> byPath[path]?.matches(patch) == true }
@@ -230,15 +238,17 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
      * a hint, not part of the review.
      */
     private fun loadAttention() {
-        val key = opened?.key ?: return
-        if (key != attentionKey) attention = emptyMap()
-        attentionKey = key
+        val opened = opened ?: return
+        val key = opened.key
+        val version = "$key@${opened.headSha}"
+        if (version != attentionFor) attention = emptyMap()
+        attentionFor = version
         attentionJob?.cancel()
         attentionJob = scope.launch {
             val until = System.currentTimeMillis() + ATTENTION_FOR_MS
             while (true) {
                 val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
-                if (!answer.enabled || attentionKey != key) break
+                if (!answer.enabled || attentionFor != version) break
                 attention = answer.files
                 if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
                 delay(ATTENTION_EVERY_MS)
@@ -271,12 +281,14 @@ class ReviewSession(val target: OpenTarget, val repo: Repo, val scope: Coroutine
         }
     }
 
-    /** Asked once per page, beside the first overview: the stack is a way between layers, not live state, and a failure only leaves its mark off. */
+    /**
+     * Asked beside the overview on every load, so a refresh sees a layer that moved or left the stack; the newest ask
+     * wins. A failure keeps the stack already shown, or leaves its mark off.
+     */
     private fun loadStack() {
         val pull = pull ?: return
-        if (stackAsked) return
-        stackAsked = true
-        scope.launch { runCatching { repo.prStack(pull) }.onSuccess { stack = it } }
+        stackJob?.cancel()
+        stackJob = scope.launch { runCatching { repo.prStack(pull) }.onSuccess { stack = it } }
     }
 
     fun reloadReviews() {

@@ -1,4 +1,5 @@
 import type { ReviewLens } from '@pulls.review/core/local-rpc'
+import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -8,10 +9,18 @@ import { REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
 const MAX_INSTRUCTIONS = 30_000
 
 /**
- * The skills curated in the repository, the same ones the agents image is built with. This module runs
- * from `src/` in tests and from the bundle in `dist/` when served; both sit two folders under the root.
+ * The skills curated in the repository, the same ones the agents image is built with. Run from a checkout's
+ * `src/` or `dist/`, they are read where they live, so an edit shows at once and matches the image. An
+ * installed CLI has no checkout around it and reads the copy its build put in `dist/skills/`.
+ * @param moduleUrl - Where this module runs from.
+ * @returns The checkout's folder when there is one, else the bundled copy.
  */
-const CURATED_SKILLS_DIR = fileURLToPath(new URL('../../../docker/agents/skills/', import.meta.url))
+export function curatedSkillsDir(moduleUrl: string | URL = import.meta.url): string {
+  const checkout = fileURLToPath(new URL('../../../docker/agents/skills/', moduleUrl))
+  return existsSync(checkout) ? checkout : fileURLToPath(new URL('./skills/', moduleUrl))
+}
+
+let curated: string | undefined
 
 export interface LensSourceOptions {
   /** A folder of skill folders, each holding a `SKILL.md`; else `PULLS_REVIEW_SKILLS_DIR`, else the curated set. */
@@ -19,7 +28,7 @@ export interface LensSourceOptions {
 }
 
 function skillsDirOf(options: LensSourceOptions): string {
-  return options.skillsDir ?? (process.env.PULLS_REVIEW_SKILLS_DIR || CURATED_SKILLS_DIR)
+  return options.skillsDir ?? (process.env.PULLS_REVIEW_SKILLS_DIR || (curated ??= curatedSkillsDir()))
 }
 
 /**

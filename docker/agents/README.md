@@ -70,7 +70,8 @@ Leave the variable out to run the CLIs on the server again; nothing else changes
 2. Run `docker/agents/setup.sh build`. The next run in the container has exactly the new set.
 
 The server reads the same folder for the phone's list straight away; restart it only if you also
-changed its code. To offer skills from another folder, set `PULLS_REVIEW_SKILLS_DIR` to it.
+changed its code. A CLI installed from npm has no checkout, so it reads the copy its build put in
+`dist/skills`. To offer skills from another folder, set `PULLS_REVIEW_SKILLS_DIR` to it.
 
 ## Other commands
 

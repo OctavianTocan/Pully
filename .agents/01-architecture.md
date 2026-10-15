@@ -82,10 +82,13 @@ The Claude Code and Codex processes run on the server itself, or, with
   folder), the server's built code and the checkout with its git folders (read-only),
   each at the same path as on the host, and the `pulls-review-agents-home` volume that
   keeps its sign-ins. The tool server is started with the image's `node`.
-- Stopping a run MUST stop its container (`docker kill`), not only the `docker` client.
-- Review lenses come only from the curated skills (`docker/agents/skills`, or
-  `PULLS_REVIEW_SKILLS_DIR`). The server MUST NOT offer the skills of the account it
-  runs under, and the image replaces its skill folders with the same set on every start.
+- Stopping a run MUST stop its container (`docker kill`), not only the `docker` client. A
+  stop can come before the daemon has made the container, so once the client exits the
+  container is also removed by name (`docker rm --force`), then once more a little later.
+- Review lenses come only from the curated skills (`docker/agents/skills`, the copy an
+  installed CLI ships in `dist/skills`, or `PULLS_REVIEW_SKILLS_DIR`). The server MUST NOT
+  offer the skills of the account it runs under, and the image replaces its skill folders
+  with the same set on every start.
 
 ## The phone reads the server's store (`packages/cli/src/pr-store.ts`, `stored-diff.ts`)
 
@@ -95,10 +98,12 @@ Opening a pull request on the phone MUST NOT wait on every page of its files. Co
   over the server's storage MUST pass it - the session, the task manager, `--preanalyze`, and
   the `PR_LOCAL` page's RPC driver - since each enforces its own budget and evicts the rest.
 - Unless `--no-warm`, the server stores the open pull requests (`my-pulls`, newest first)
-  every few minutes: a diff when its head moved, an overview when its `updatedAt` did. These
-  writes use `putDiff(..., { viewed: false })` and MUST NOT count as views: they keep the
-  entry's `lastViewedAt` (`0` when new), and `listRecent` and the viewed marks on a
-  repository's list (`repo-viewed`, `loadViewed`) leave never-viewed entries out.
+  every few minutes: a diff when its head moved, an overview when its `updatedAt` did or it is
+  30 minutes old, and a new overview's title, description and state go into the stored diff.
+  These writes use `updateDiff(..., { viewed: false })`, which decides inside the key's write
+  queue, so they MUST NOT replace a head stored after they read it. They MUST NOT count as
+  views: they keep the entry's `lastViewedAt` (`0` when new), and `listRecent` and the viewed
+  marks on a repository's list (`repo-viewed`, `loadViewed`) leave never-viewed entries out.
 - `github-pr` answers the stored diff when GitHub's head (one request) matches it, and the
   stored diff marked `stale` when GitHub can't be asked; `fresh` fetches anyway. The store
   always holds the full diff. `lite` trims only the answer: files past the patch budget go
@@ -137,15 +142,19 @@ Contract:
   asked, nothing fails toward a client, `jev-files` answers `{ enabled: false, files: {}, pending: 0 }`.
 - `my-pulls` MUST NOT wait for Jev. Open pull requests without a classification of their
   current head sha and title are classified in the background (`kind`, `risk`); every
-  list answer copies what is done into `MyPull.jev`, and `MyPullsSnapshot.classifier` is
-  `'jev'` while Jev is on. The plain `my-pulls` answer stays an array.
+  list answer copies what is done into `MyPull.jev` of open pull requests, and
+  `MyPullsSnapshot.classifier` is `'jev'` while Jev is on. The plain `my-pulls` answer
+  stays an array. An answer for an older head or title MUST NOT replace a newer one.
+  While rows lack `jev` the phone reads `my-pulls-cached` with `revalidate: false`, which
+  answers the copy and never asks GitHub, every three seconds for two minutes at most.
 - `jev-files` classifies an opened diff's files (non-binary, at most 300) as `p0`/`p1`/`p2`;
   an answer under 0.5 confidence counts as `p0`. The first call starts the work, later
   calls return more until `pending` is 0.
 - Results live in memory and in the server's storage (`jev-pr:<owner>/<repo>#<number>`,
-  `jev-file:<sha256 of blob sha and path>`), so a restart does not ask again. One client
+  `jev-file:<sha256 of the blob sha and what Jev is shown of the change>`), so a restart
+  does not ask again; the same blob reached from another base is another change. One client
   per process keeps 8 requests in flight, paces under TypeSafe's rate limits and retries
-  429/529 up to three attempts.
+  429/529 up to three attempts. The phone drops a diff's file marks when its head moves.
 
 ## Invariants
 
