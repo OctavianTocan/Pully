@@ -64,6 +64,11 @@ if not notes:
 json.dump({"versionCode": int(code), "versionName": name, "sha256": sha, "apkUrl": url, "notes": notes, "changelog": changelog}, open(path, "w"), indent=2)
 EOF
 echo "published $name ($code) sha256=$sha -> $out"
-if [ -d "$out/past" ]; then
-  PULLS_REVIEW_ANDROID_DIR="$out" python3 scripts/build-past-ui.py || echo "warning: some past versions did not build; see above" >&2
-fi
+# Past versions (Settings, Advanced): every publish builds the versions not built yet, newest first, in the background
+# so the publish is not held up; the slider fills in as each one lands. Only one such run at a time (flock), and its
+# log is past/build.log. Before this ran on every publish, past/ was never made and the page said "The server did not
+# answer" (recording 16 Oct 09:50, 01:09 to 01:14; M3).
+mkdir -p "$out/past"
+PULLS_REVIEW_ANDROID_DIR="$out" python3 scripts/build-past-ui.py --index >/dev/null
+nohup flock -n "$out/past/.lock" env PULLS_REVIEW_ANDROID_DIR="$out" nice python3 scripts/build-past-ui.py > "$out/past/build.log" 2>&1 &
+echo "building past versions in the background; log: $out/past/build.log"

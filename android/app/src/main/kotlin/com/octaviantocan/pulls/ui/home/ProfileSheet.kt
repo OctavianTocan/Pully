@@ -97,10 +97,13 @@ private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShow
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (viewer != null) GithubAvatar(viewer, size = 52.dp) else ProfileDot(size = 52.dp)
-        Text(viewer ?: "Pulls", style = PullsType.xl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
+        if (viewer != null) GithubAvatar(viewer, size = 64.dp) else ProfileDot(size = 64.dp)
+        Text(viewer ?: "Pulls", style = PullsType.xxl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
     }
-    // The card sits close under you (H21).
+    // Your year on GitHub, between you and the settings: the sheet is a profile, not only switches (M5).
+    if (viewer != null) ProfileStats()
+    // The card sits close under you (H21), or under its heading once the numbers are above it.
+    if (viewer != null) com.octaviantocan.pulls.ui.design.SheetHeading("Inbox")
     SheetCard(gap = 6.dp) {
         SheetRow("Repositories", onRepos, first = true, iconless = true) {
             val on = choices.count { it.shown }
@@ -119,7 +122,7 @@ private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
     val c = LocalPullsColors.current
     var query by remember { mutableStateOf("") }
     val choices = repoChoices(pulls, settings.hiddenRepos, query)
-    SheetSearch(query, { query = it }, "Find a repository", Modifier.padding(top = 14.dp))
+    SheetSearch(query, { query = it }, "Find a repository", Modifier.padding(top = com.octaviantocan.pulls.ui.design.SheetTopGap))
     if (choices.isEmpty()) {
         Text(
             if (query.isBlank()) "No repositories yet. They appear once you have a pull request." else "No repository matches “${query.trim()}”.",

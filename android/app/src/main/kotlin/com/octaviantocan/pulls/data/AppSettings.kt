@@ -92,6 +92,12 @@ class AppSettings private constructor(private val context: Context) {
     fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply(); changed("showThreads", value) }
     fun updateAnalyzeChoice(value: AnalyzeChoice) { analyzeChoice = value; prefs.edit().putString("analyzeChoice", value.encode()).apply() }
     fun updateEffort(value: String) { effort = value; prefs.edit().putString("effort", value).apply(); changed("effort", value.ifBlank { "default" }) }
+    /**
+     * Changes the code size on screen without saving it: a pinch calls this as the fingers move, so the code is laid
+     * out again at each size, and [updateCodeZoom] once when they lift (M9).
+     */
+    fun previewCodeZoom(value: Float) { codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM) }
+
     fun updateCodeZoom(value: Float) {
         codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM)
         prefs.edit().putFloat("codeZoom", codeZoom).apply()

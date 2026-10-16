@@ -117,8 +117,9 @@ internal fun ColumnScope.PastVersionsPage() {
             when {
                 stops.size > 1 -> "This is the version you're running."
                 !asked -> ""
-                answered -> "The server has no past versions yet."
-                else -> "The server did not answer."
+                // Every publish builds them on the server, newest first, so an empty list fills in over time (M3).
+                answered -> "No past versions are built yet. The server builds them after each update, newest first; check back in a little while."
+                else -> "Couldn't reach the server for the past versions."
             },
         )
         mine && PastVersions.busy -> Row(

@@ -115,3 +115,16 @@ shown as "(High)") MUST offer that effort alone, as its default, and a run on it
 send a reasoning effort beside the id ("just assume that that's the reasoning effort, and
 when I select them, the only reasoning effort they have is that one", recording 15 Oct
 2026 15:37, L24).
+
+@cc [owner:OctavianTocan,label:product] server-past-versions-answer-empty
+`GET /android/past/index.json` answers `{ "versions": [] }` while no past version is built,
+never a 404, so the phone says none are built yet rather than that the server did not
+answer. `publish-apk.sh` writes the index at once and builds the past versions in the
+background, newest first, adding each to the index as it is built (recording 16 Oct 2026
+09:50, 01:09 to 01:14; M3).
+
+@cc [owner:OctavianTocan,label:security;product] server-github-stats-counts-only
+`github-stats` answers the signed-in user's last year on GitHub as counts only (totals,
+contributions per day, streaks, followers and repositories), reused for a few minutes and
+fetched with the server's own GitHub token; no repository name, title or text is in it
+(recording 16 Oct 2026 09:50, 02:06 to 02:16; M5).

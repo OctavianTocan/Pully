@@ -857,7 +857,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the first file a swipe right goes back to the Overview; past the last file there is nothing, so the page stays where it is and never opens the Tour (K26). The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button and the capsule are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff. The Overview's last tab is an end too: a swipe left there goes nowhere (K8). A pinch scales the code under the fingers and pans with them; when they lift, the new size is kept and the line that was under them stays there.\nAa opens \"Text and tools\" as a bottom sheet, and every choice in it shows what it does instead of describing it (\"why am I not seeing what these do\"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with \"wider screens\"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.\n\nCheck: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you."
+    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the first file a swipe right goes back to the Overview; past the last file there is nothing, so the page stays where it is and never opens the Tour (K26). The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button and the capsule are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff. The Overview's last tab is an end too: a swipe left there goes nowhere (K8). A pinch makes the code's text bigger or smaller as the fingers move: the code is laid out again at each size and still fills the page, never a picture of it scaled into a corner (M9). The line under the fingers stays there while they move and after they lift, and the page does not pan with them (L17).\nAa opens \"Text and tools\" as a bottom sheet, and every choice in it shows what it does instead of describing it (\"why am I not seeing what these do\"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with \"wider screens\"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.\n\nCheck: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you."
   },
   {
     "n": 94,
@@ -986,7 +986,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tavi, on Inbox and Tours: \"It should move like screens side by side\", as Grok's Ask, Imagine and Build do, and on Summary and Commits: \"pages next to each other just slide, no fade.\" Screens that sit beside each other (the Inbox and Tours, a repository's pull requests and its tours, the Overview's tabs, the Diff's files) move the whole width of the screen with a gap between them, and nothing fades or blurs. The Inbox and Tours, a repository's two lists and the Overview's three tabs follow a drag anywhere nothing else takes it, and settle on the nearer screen or go on the way a throw went (`SidePages`); both screens are in view during the move, and the tab marker moves with them, frame for frame (J15). On the Overview that includes the title, the meta, the branch row and the numbers, which sit over the three tabs as one head (J21, which replaced H32's \"a sideways drag on the title does nothing\"); only the branch row's own sideways scroll and a file row's swipe keep their drags. The Diff's files sit side by side the same way: during a swipe, an arrow or a pick from the Files sheet, the file on screen and the one it goes to are both in view, moving together, and a file picked from far away still arrives from beside the current one, never through a blank page (J25). The glide settles on a critically damped spring with no snap at the end (J7). A sheet's own pages (Settings to What's new, Code font, Language) travel a third of the sheet's width in 350ms and blur, so the way they go is plain (H1, H4).\n\nCheck: tap Tours and drag back to the Inbox from the chips; swipe Summary to Commits and back, once on the rows and once on the title; swipe between files; open Settings, go to What's new and back. The screens move whole side by side, nothing fades, the tab marker keeps up, and Back goes right."
+    "text": "Tavi, on Inbox and Tours: \"It should move like screens side by side\", as Grok's Ask, Imagine and Build do, and on Summary and Commits: \"pages next to each other just slide, no fade.\" Screens that sit beside each other (the Inbox and Tours, a repository's pull requests and its tours, the Overview's tabs, the Diff's files) move the whole width of the screen with a gap between them, and nothing fades or blurs. The Diff's files have no gap: they touch, edge to edge, so a swipe between them is one smooth sheet of code (M10). The Overview's tabs are drawn before the first drag, so the first swipe from Summary to Conversation moves as smoothly as the way back (M8). The Inbox and Tours, a repository's two lists and the Overview's three tabs follow a drag anywhere nothing else takes it, and settle on the nearer screen or go on the way a throw went (`SidePages`); both screens are in view during the move, and the tab marker moves with them, frame for frame (J15). On the Overview that includes the title, the meta, the branch row and the numbers, which sit over the three tabs as one head (J21, which replaced H32's \"a sideways drag on the title does nothing\"); only the branch row's own sideways scroll and a file row's swipe keep their drags. The Diff's files sit side by side the same way: during a swipe, an arrow or a pick from the Files sheet, the file on screen and the one it goes to are both in view, moving together, and a file picked from far away still arrives from beside the current one, never through a blank page (J25). The glide settles on a critically damped spring with no snap at the end (J7). A sheet's own pages (Settings to What's new, Code font, Language) travel a third of the sheet's width in 350ms and blur, so the way they go is plain (H1, H4).\n\nCheck: tap Tours and drag back to the Inbox from the chips; swipe Summary to Commits and back, once on the rows and once on the title; swipe between files; open Settings, go to What's new and back. The screens move whole side by side, nothing fades, the tab marker keeps up, and Back goes right."
   },
   {
     "n": 108,
@@ -1265,7 +1265,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Where one text has two versions (the AI summary and the description), a quiet line says which is shown and offers the other as a link (\"AI summary · Show the description\"); the texts fade into each other. No pill switch (K23).\n\nCheck: open a summarised pull request. One line names the source and switches it."
+    "text": "Where one text has two versions (the AI summary and the description), a quiet link offers the other (\"Show the description\", \"Show the AI summary\") with no word before it naming the one shown (M6); the texts fade into each other. No pill switch (K23).\n\nCheck: open a summarised pull request. One link switches the text, and nothing names it."
   },
   {
     "n": 139,
@@ -1274,6 +1274,60 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Files, Commits and Checks are the same sheet: a search (\"Find a file\", \"Find a commit\", \"Find a check\") that also keeps the first heading clear of the ✕, fold headings with counts, rows in cards whose title takes at most two lines and whose detail one, and added and removed lines side by side as on the Inbox (K24, K27, K28: \"we gotta… actually standardize it\").\n\nCheck: open Files, Commits and Checks. Same search, same headings, no name wraps past two lines."
+    "text": "Files, Commits and Checks are the same sheet: a search (\"Find a file\", \"Find a commit\", \"Find a check\") that also keeps the first heading clear of the ✕, the sheets' plain headings (rule 141), rows in cards whose title takes at most two lines and whose detail one, and added and removed lines side by side as on the Inbox (K24, K27, K28: \"we gotta… actually standardize it\").\n\nCheck: open Files, Commits and Checks. Same search, same headings, no name wraps past two lines."
+  },
+  {
+    "n": 140,
+    "title": "Jev stays out of the rows until it is asked for.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "An Inbox row shows nothing from Jev unless the list is sorted Riskiest first or grouped by kind, and then only one short risk word under the number, in its column, so the row is no taller than without it. There is no kind and risk line under the title (M1: \"do not run it by default\", rows \"way too tall\"). This replaces the third line of the Jev entry in the decision log.\n\nCheck: open the Inbox on Recently updated: no row says Feature, Fix or a risk. Sort Riskiest first: a risk word sits under each number and the rows keep their height."
+  },
+  {
+    "n": 141,
+    "title": "Sheet headings are plain.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Every bottom sheet heads its sections the way the Settings sheet does: a small muted heading with no line under it, no count and no chevron, and nothing on a sheet folds. Checks, Commits, Files, the model list and every other sheet use the one heading. A sheet's first field (a search) sits clearly further under the ✕ than before (M7: \"it has to be the same logic everywhere\"). This replaces the fold headings of rule 139 and L12 on sheets; pages keep their fold headings.\n\nCheck: open Checks, Commits, Files and the model sheet. Their headings look like Settings' headings, with no lines, numbers or chevrons, and the search has air under the ✕."
+  },
+  {
+    "n": 142,
+    "title": "Effort is a row of its own under Model.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Wherever a model is chosen (Settings, the Analyze sheet, the \"No tour yet\" sheet) the effort is its own row right under Model, and the model list ends with the models, so nobody scrolls past every model to set it (M2).\n\nCheck: open Settings. Effort sits under Model; open Model and scroll to the end: there is no effort there."
+  },
+  {
+    "n": 143,
+    "title": "A row swipes one way; the other way moves the page.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "No row archives on a swipe; Archive is only in a row's hold actions (M4: \"I don't think we need archive at all\"). On the Inbox a swipe right opens the review and a swipe left moves on to Tours. On Tours it is the mirror: a swipe left opens the tour, from the right edge, and a swipe right moves back to the Inbox; holding a tour row opens its actions.\n\nCheck: swipe an Inbox row left: Tours comes in. Swipe a Tours row right: the Inbox comes back. Swipe a Tours row left: the tour opens."
+  },
+  {
+    "n": 144,
+    "title": "The sheet that started the work shows the work.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Generate tour keeps its sheet open and shows the work log there, with the Tour page behind it; the sheet can be closed, and the tour icon or the one quiet line on the Tour opens it again. The page shows no work log of its own, so nothing on it moves while the tour is written, and it has no Ask bar until there is a tour. The sheet closes when the tour is there. A tap that comes before the pull request has loaded waits for it, so a button never looks dead (M11, M12).\n\nCheck: tap Generate tour: the sheet stays and the log starts in it. Close it and tap the tour icon: it comes back on the log. The Tour behind has one \"Writing the tour\" line and no Ask bar."
+  },
+  {
+    "n": 145,
+    "title": "The profile shows your year on GitHub.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The profile sheet is a profile, not only switches: under a bigger photo and name it shows the last year on GitHub, the contributions as a big number over a grid of the last half year's days, then commits, pull requests, reviews and the day streak, and the year as monthly bars. The numbers show at once from the last answer, never behind a loading screen (M5).\n\nCheck: open Profile: the numbers and both graphs are there; open it again: they are there at once."
   }
 ]

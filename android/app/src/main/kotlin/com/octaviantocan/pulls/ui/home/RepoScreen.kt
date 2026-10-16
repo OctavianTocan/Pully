@@ -436,6 +436,8 @@ data class Viewed(val additions: Int, val deletions: Int, val groups: Int, val h
 /** A repository's tours, as rows of the Tours tab without the headings: tap or swipe right to read, swipe left to remove. */
 @Composable
 private fun RepoTours(entries: List<TourEntry>, now: Long, onOpen: (TourEntry) -> Unit, onRemove: (TourEntry) -> Unit) {
+    var held by remember { mutableStateOf<TourEntry?>(null) }
+    held?.let { entry -> TourActionsSheet(entry, stoppable = false, onOpen = { onOpen(entry) }, onDismiss = { onRemove(entry) }, onClose = { held = null }) }
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
     if (entries.isEmpty()) {
@@ -448,8 +450,9 @@ private fun RepoTours(entries: List<TourEntry>, now: Long, onOpen: (TourEntry) -
     LazyColumn(Modifier.fillMaxSize().padding(top = 10.dp).edgeFade(bottom = PullsMotion.EdgeBottom), contentPadding = PaddingValues(bottom = bottom)) {
         items(entries, key = { it.key }) { entry ->
             SwipeRow(
-                label = entry.prTitle, onOpen = { onOpen(entry) }, onArchive = { onRemove(entry) }, archived = false,
-                modifier = Modifier.animateItem(), endLabel = "Remove", endIcon = Lu.close,
+                // As on Home's Tours: a swipe left opens, a swipe right goes back to Pull requests, and Remove is on hold (M4).
+                label = entry.prTitle, onOpen = { onOpen(entry) }, onArchive = null, archived = false,
+                modifier = Modifier.animateItem(), opensLeft = true, onLongClick = { held = entry },
             ) { TourRowContent(entry, null, now) }
         }
     }

@@ -64,7 +64,7 @@ import com.octaviantocan.pulls.ui.design.FloatIcon
 
 // --- Which models to show first ---
 
-/** The models a picker shows first, and the ones it lists below the Effort row under "Older models" (rule 89). */
+/** The models a picker shows first, and the ones it lists below them under "Older models" (rule 89). */
 internal data class ModelGroups(val recent: List<CliModel>, val older: List<CliModel>)
 
 private val VERSION = Regex("""\b(\d+)(?:[.\-_](\d+))?\b""")
@@ -192,14 +192,14 @@ internal fun modelNote(model: CliModel): String? =
 // --- The pages ---
 
 /**
- * The engine tabs, the newest models, a row to the effort and below it the older models under a small heading, as
+ * The engine tabs, the newest models and below them the older models under a small heading, as
  * Claude's picker has them (rule 89). A row is a name, with no id line and no description, a "Recommended" pill on the
  * CLI's own pick and a plain ✓ on the one in use. Pi, which lists many providers' models, shows them instead in a
  * card per provider under its name, with no "Older models" (K2, K3). Switching engine swaps the lists where they stand.
  * [onDone] runs once a model is chosen.
  */
 @Composable
-internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, onEffort: () -> Unit) {
+internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
@@ -265,7 +265,7 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
         )
     }
     if ((catalog?.models?.size ?: 0) > MODEL_SEARCH_FROM) {
-        SheetSearch(query, { query = it }, "Find a model", Modifier.padding(top = 12.dp))
+        SheetSearch(query, { query = it }, "Find a model", Modifier.padding(top = com.octaviantocan.pulls.ui.design.SheetTopGap))
     }
     if (searching && shownModels.isNullOrEmpty()) {
         Text("No model matches “${query.trim()}”.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
@@ -287,18 +287,8 @@ internal fun ColumnScope.ModelPage(settings: AppSettings, onDone: () -> Unit, on
             else -> groups.recent.forEachIndexed { index, model -> ModelRow(model, model.id == inUse, first = index == 0) { choose(model) } }
         }
     }
-    val choice = AiSettingsLogic.current(catalog, config.model)
-    if (choice != null && choice.efforts.isNotEmpty()) {
-        SheetCard {
-            // The level that will run: the chosen one, else the one the CLI runs by default. Never the word "Default" (F33).
-            val effort = settings.effort.ifBlank { choice.defaultEffort.orEmpty() }
-            SheetRow("Effort", onEffort, first = true, iconless = true) {
-                if (effort.isNotBlank()) Text(AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
-        }
-    }
-    // The rest sit below the Effort row under a small heading, as in Claude's picker, and are always there to scroll to.
+    // The rest sit under a small heading, as in Claude's picker, and are always there to scroll to. The effort is not
+    // here: it is a row under Model wherever the model is shown (M2).
     if (groups != null && groups.older.isNotEmpty()) {
         ModelHeading("Older models")
         SheetCard {
@@ -312,9 +302,7 @@ private const val MODEL_SEARCH_FROM = 8
 
 /** The small heading over a card of models: "Older models" on the CLIs' lists, a provider on Pi's. */
 @Composable
-private fun ModelHeading(text: String, first: Boolean = false) {
-    Text(text, Modifier.padding(start = 16.dp, top = if (first) 14.dp else 20.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = LocalPullsColors.current.muted)
-}
+private fun ModelHeading(text: String, first: Boolean = false) = com.octaviantocan.pulls.ui.design.SheetHeading(text, first = first)
 
 /** Where the model rows will be while the list is on its way: bars the length of names, not a spinner. */
 @Composable

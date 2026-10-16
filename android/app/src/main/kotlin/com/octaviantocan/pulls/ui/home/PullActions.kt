@@ -52,3 +52,28 @@ internal fun PullActionsSheet(
         }
     }
 }
+
+/**
+ * What holding a tour row opens: the tour, and stopping it while it is written or taking it off the list once it is
+ * done. Tours rows have no swipe for that any more, since a swipe right goes back to the Inbox (M4).
+ */
+@Composable
+internal fun TourActionsSheet(
+    entry: TourEntry,
+    stoppable: Boolean,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val c = LocalPullsColors.current
+    fun then(action: () -> Unit): () -> Unit = { action(); onClose() }
+    PullsSheet(onClose, "#${entry.number}") {
+        Text(entry.prTitle, style = PullsType.row, color = c.muted, maxLines = 2)
+        SheetCard {
+            SheetRow("Open the tour", then(onOpen), first = true, icon = { LuIcon(Lu.tour, tint = c.text, size = 20.dp) })
+        }
+        SheetCard {
+            SheetRow(if (stoppable) "Stop the tour" else "Remove from Tours", then(onDismiss), first = true, icon = { LuIcon(Lu.close, tint = c.text, size = 20.dp) })
+        }
+    }
+}

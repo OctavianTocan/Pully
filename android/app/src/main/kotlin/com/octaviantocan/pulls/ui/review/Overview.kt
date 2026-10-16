@@ -844,7 +844,7 @@ fun Conversation(overview: PrOverview) {
             if (descriptionOpen) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) {
                 if (overview.bodyHTML.isNotBlank()) PrHtml(overview.bodyHTML)
                 else Text(t("overview.noDescription"), style = PullsType.sm.copy(fontStyle = FontStyle.Italic), color = c.fade)
-            } else FoldedLine(commentPreview(overview.bodyHTML))
+            } else FoldedLine(remember(overview.bodyHTML) { commentPreview(overview.bodyHTML) })
         }
         if (overview.timelineHidden > 0) LinkText(t("overview.moreOnGithub", "n" to overview.timelineHidden)) { uri.openUri(overview.url) }
         if (earlier > 0) LinkText(t("overview.earlier", "n" to earlier)) { showAll = true }
@@ -936,7 +936,7 @@ private fun CommentCard(item: PrTimelineItem) {
             )
         }
         if (body.isNotBlank() && !collapsed) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) { PrHtml(body) }
-        if (collapsed && body.isNotBlank()) FoldedLine(commentPreview(body))
+        if (collapsed && body.isNotBlank()) FoldedLine(remember(body) { commentPreview(body) })
         if (review != null && review.commentCount > 0 && !collapsed) {
             Column(Modifier.fillMaxWidth().topBorder(c.borderMute).padding(start = 14.dp, end = 12.dp, top = 2.dp, bottom = 8.dp)) {
                 Row(

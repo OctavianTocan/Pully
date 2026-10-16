@@ -165,4 +165,18 @@ describe('past versions', () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  it('answers an empty list while no past version is built, so the phone does not read it as the server failing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pulls-review-android-'))
+    vi.stubEnv('PULLS_REVIEW_ANDROID_DIR', dir)
+    try {
+      const index = await get('/android/past/index.json')
+      expect(index?.status).toBe(200)
+      expect(await index?.json()).toEqual({ versions: [] })
+      expect((await get('/android/latest.json'))?.status).toBe(404)
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

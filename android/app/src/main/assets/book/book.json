@@ -107,6 +107,12 @@
       "component": "sheet-search"
     },
     {
+      "id": "components/sheet-heading",
+      "title": "Sheet heading",
+      "group": "Components",
+      "component": "sheet-heading"
+    },
+    {
       "id": "components/search-list",
       "title": "Search list",
       "group": "Components",
@@ -443,6 +449,25 @@
       "rules": [
         70,
         74
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        }
+      ]
+    },
+    "sheet-heading": {
+      "composable": "SheetHeading",
+      "summary": "The heading over a section of a sheet, as on the Settings sheet: small, muted, no line under it, no count and no chevron.",
+      "usage": [
+        "Use it for every section of every bottom sheet: Checks, Commits, Files, the model list, Settings.",
+        "Nothing on a sheet folds; a page's fold headings are a different component.",
+        "The first one sits closer to the top; extra content such as a file section's + and − numbers goes at its right."
+      ],
+      "rules": [
+        141
       ],
       "variants": [
         {

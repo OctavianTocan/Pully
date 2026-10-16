@@ -205,7 +205,7 @@ internal fun PrOverviewScreen(
             },
             topInset = { (headHeight - lifted(front)).coerceAtLeast(0).toFloat() },
         )
-        SidePages(sides, labels.indices.toList(), Modifier.fillMaxSize().clipToBounds().then(fades).holdUnless("description")) { tab ->
+        SidePages(sides, labels.indices.toList(), Modifier.fillMaxSize().clipToBounds().then(fades).holdUnless("description"), warm = true) { tab ->
             // Lazy, so a pull request with thousands of files only composes the rows on screen.
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -465,15 +465,14 @@ private fun Cell(label: String, modifier: Modifier, onClick: (() -> Unit)? = nul
 // --- Summary ---
 
 /**
- * The line over the summary: what the text under it is ("AI summary" or "Description", muted) and a link to the other,
- * in the link colour, as a translated text offers its original. The words swap in place as the texts do (K23).
+ * The line over the summary: one link to the other text, in the link colour, as a translated text offers its original.
+ * The link alone says what is shown, so no word names the text in front of it ("if you have that, then you don't need
+ * this": recording 16 Oct 09:50, 02:42 to 02:55; M6). The words swap in place as the texts do (K23).
  */
 @Composable
 private fun SourceLine(description: Boolean, onSwitch: () -> Unit) {
     val c = LocalPullsColors.current
     Row(Modifier.padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(if (description) "Description" else "AI summary", style = PullsType.sm, color = c.muted)
-        Text(" · ", style = PullsType.sm, color = c.faint)
         Text(
             if (description) "Show the AI summary" else "Show the description",
             Modifier.clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(role = Role.Button, onClick = onSwitch),

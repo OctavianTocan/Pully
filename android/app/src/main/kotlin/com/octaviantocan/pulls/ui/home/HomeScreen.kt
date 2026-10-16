@@ -122,7 +122,6 @@ import com.octaviantocan.pulls.core.runningTaskId
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.JEV_RISK_WORDS
-import com.octaviantocan.pulls.data.kindWords
 import com.octaviantocan.pulls.data.riskLevel
 import com.octaviantocan.pulls.data.riskWords
 import com.octaviantocan.pulls.data.PullRow
@@ -350,6 +349,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
 
     // The pull request whose row is held: its actions are open (H17).
     var held by remember { mutableStateOf<PullRow?>(null) }
+    var heldTour by remember { mutableStateOf<Pair<TourEntry, Boolean>?>(null) }
     var searchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
@@ -381,7 +381,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onRepo = { owner, name -> nav.openRepoTours(owner, name) },
                         folded = if (needle.isEmpty()) layout.folded else emptySet(),
                         onFold = if (needle.isEmpty()) layout::toggle else null,
-                        onDismiss = { entry -> dismissTour(entry, workTasks, tours, repo, scope, toaster) },
+                        onHold = { entry, stoppable -> heldTour = entry to stoppable },
                     )
                 }
             }
@@ -412,6 +412,14 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         }
         if (activityOpen) {
             ActivitySheet(workTasks, onOpen = { ref -> nav.openTarget(OpenTarget.Pull(ref.owner, ref.repo, ref.number, "github.com")) }, onClose = { activityOpen = false })
+        }
+        heldTour?.let { (entry, stoppable) ->
+            TourActionsSheet(
+                entry, stoppable,
+                onOpen = { nav.openFrom(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"), "inbox", true) },
+                onDismiss = { dismissTour(entry, workTasks, tours, repo, scope, toaster) },
+                onClose = { heldTour = null },
+            )
         }
         held?.let { pull ->
             PullActionsSheet(
@@ -554,6 +562,8 @@ internal fun InboxList(
     val scope = rememberCoroutineScope()
     // A search shows every heading it found something in, folded or not (rule 101).
     fun isFolded(section: InboxSection) = !searching && section.key in folded
+    // Jev's read shows on a row only while he sorted by risk or grouped by kind, the only times Jev is asked (M1).
+    val jevAsked = sort.needsJev || groupBy.needsJev
     val sectionOfRow = remember(sections) { sections.flatMap { section -> section.pulls.map { Triage.key(it) to section.key } }.toMap() }
     // A new sort or grouping starts the list from its top, where the order begins.
     var laidOut by remember { mutableStateOf(sort to groupBy) }
@@ -617,11 +627,13 @@ internal fun InboxList(
                             SwipeRow(
                                 label = "#${pull.number} ${pull.title}",
                                 onOpen = { onOpen(pull) },
-                                onArchive = if (canArchive(pull, viewer, key in archived)) ({ onArchive(pull) }) else null,
+                                // No Archive swipe: a left swipe always goes on to Tours, and Archive is in the hold
+                                // actions (recording 16 Oct 09:50, 01:18 to 02:04; M4).
+                                onArchive = null,
                                 archived = key in archived,
                                 modifier = Modifier.animateItem(),
                                 onLongClick = { onHold(pull) },
-                            ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)], repo = rowRepos["${pull.owner}/${pull.repo}"]) }
+                            ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)], repo = rowRepos["${pull.owner}/${pull.repo}"], risk = jevAsked) }
                         }
                     }
                 }
@@ -639,10 +651,13 @@ internal fun canArchive(pull: PullRow, viewer: String?, archived: Boolean): Bool
     archived || (viewer != null && pull.author.equals(viewer, ignoreCase = true))
 
 /**
- * `.sw`: a row that follows the finger. Past 110dp to the right it opens the pull request; to the left
- * it archives it (on the Tours tab: stops or removes the tour). Short of that it springs back. Tapping opens, and
- * both swipes are also offered to screen readers as actions. A file row (rule 56) swipes right to open it, as this row
- * does, and left to mark it reviewed, so it passes its own labels, icons and [onLongClick] for its actions.
+ * `.sw`: a row that follows the finger. Past 110dp to the right it opens the pull request; to the left it runs
+ * [onArchive] when there is one. Short of that it springs back. Tapping opens, and both swipes are also offered to
+ * screen readers as actions. A file row (rule 56) swipes right to open it, as this row does, and left to mark it
+ * reviewed, so it passes its own labels, icons and [onLongClick] for its actions.
+ *
+ * [opensLeft] puts the open on a swipe to the left instead, for a page whose neighbour is on its left (Tours): the
+ * swipe right is then left to the pages, so it goes back to the Inbox (recording 16 Oct 09:50, 01:18 to 02:04; M4).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -658,6 +673,7 @@ internal fun SwipeRow(
     startIcon: LuGlyph = Lu.arrow,
     onClick: () -> Unit = onOpen,
     onLongClick: (() -> Unit)? = null,
+    opensLeft: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val c = LocalPullsColors.current
@@ -668,8 +684,12 @@ internal fun SwipeRow(
     val ramp = with(density) { 60.dp.toPx() }
     val drag = rememberDraggableState { delta ->
         val armed = abs(dx) > threshold
-        // With no [onArchive] the row only goes right: there is nothing on its left to reveal (K20).
-        dx = (dx + delta).coerceIn(if (onArchive == null) 0f else -width, width)
+        // With no [onArchive] the row only goes the way it opens: there is nothing on the other side to reveal (K20).
+        dx = when {
+            opensLeft -> (dx + delta).coerceIn(-width, 0f)
+            onArchive == null -> (dx + delta).coerceIn(0f, width)
+            else -> (dx + delta).coerceIn(-width, width)
+        }
         // Felt the moment letting go would act, and again if the finger takes it back (H18).
         if (armed != abs(dx) > threshold) Haptics.threshold()
     }
@@ -691,7 +711,18 @@ internal fun SwipeRow(
                 Text(startLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = ink)
             }
         }
-        if (dx < 0f) {
+        if (dx < 0f && opensLeft) {
+            Row(
+                Modifier.matchParentSize().background(c.primary).alpha((-dx / ramp).coerceIn(0f, 1f)).padding(end = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                val ink = Color.White // raw-value-ok: ink on the primary fill is white in both themes, like the send button
+                Text(startLabel, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = ink)
+                LuIcon(startIcon, Modifier.graphicsLayer { scaleX = -1f }, tint = ink, size = 20.dp)
+            }
+        }
+        if (dx < 0f && !opensLeft) {
             Row(
                 Modifier.matchParentSize().background(c.cta).alpha((-dx / ramp).coerceIn(0f, 1f)).padding(end = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -724,12 +755,18 @@ internal fun SwipeRow(
                 .rowSwipe(
                     // A row with nothing on its left leaves a left swipe to the pages beside it, so the Inbox goes on
                     // to Tours from anywhere, a pull request row too (recording 15 Oct 15:37, 01:28 to 01:50; L1).
-                    leftFree = onArchive == null,
+                    leftFree = onArchive == null && !opensLeft,
+                    rightFree = opensLeft,
                     offset = { dx },
                     onDelta = { delta -> drag.dispatchRawDelta(delta) },
                     onStop = {
                         val end = dx
                         when {
+                            opensLeft && end < -threshold -> {
+                                animate(end, with(density) { -72.dp.toPx() }, animationSpec = tween(120)) { value, _ -> dx = value }
+                                onOpen()
+                                animate(dx, 0f, animationSpec = tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) { value, _ -> dx = value }
+                            }
                             end > threshold -> {
                                 animate(end, with(density) { 72.dp.toPx() }, animationSpec = tween(120)) { value, _ -> dx = value }
                                 onOpen()
@@ -752,18 +789,19 @@ internal fun SwipeRow(
 /**
  * A row's sideways drag: it takes the gesture once the finger passes the touch slop sideways and feeds [onDelta] until
  * it lifts, then runs [onStop]. With [leftFree], a drag that starts to the left while the row is at rest ([offset] 0)
- * is not taken, so the pages around the list get it instead.
+ * is not taken, so the pages around the list get it instead; [rightFree] does the same for a drag to the right.
  */
-private fun Modifier.rowSwipe(leftFree: Boolean, offset: () -> Float, onDelta: (Float) -> Unit, onStop: suspend CoroutineScope.() -> Unit): Modifier = composed {
+private fun Modifier.rowSwipe(leftFree: Boolean, rightFree: Boolean = false, offset: () -> Float, onDelta: (Float) -> Unit, onStop: suspend CoroutineScope.() -> Unit): Modifier = composed {
     val scope = rememberCoroutineScope()
     val stop by rememberUpdatedState(onStop)
     val delta by rememberUpdatedState(onDelta)
-    pointerInput(leftFree) {
+    pointerInput(leftFree, rightFree) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             var taken = false
             val start = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
                 if (leftFree && over < 0f && offset() <= 0f) return@awaitHorizontalTouchSlopOrCancellation
+                if (rightFree && over > 0f && offset() >= 0f) return@awaitHorizontalTouchSlopOrCancellation
                 change.consume()
                 taken = true
                 delta(over)
@@ -791,7 +829,7 @@ private val SWIPE_BLUR = 1.3.dp
  * room for the name: one line, always across (H15), cut only when it cannot fit at all.
  */
 @Composable
-internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?, repo: String? = null) {
+internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?, repo: String? = null, risk: Boolean = false) {
     val c = LocalPullsColors.current
     val title = buildAnnotatedString {
         // The draft mark is muted at the title's own size, not a smaller run (rule 14).
@@ -810,6 +848,7 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
         Column(Modifier.width(52.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("#${pull.number}", style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
             StackTag(pull)
+            if (risk) RiskTag(pull)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(title, style = PullsType.row, color = c.text)
@@ -824,28 +863,29 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
                 Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) { DiffNumbers(pull) }
                 Text(compactAge(pull.updatedAtMs, now), Modifier.width(34.dp), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, textAlign = TextAlign.End, maxLines = 1)
             }
-            // Under a kind's heading the kind is the heading's word, so the row says only the risk.
-            JevWords(pull, kind = repo == null)
         }
     }
 }
 
 /**
- * What Jev made of the pull request, on a line of its own under the meta line once it has said: its kind, with how
- * sure it is in words ("Fix", "Likely a fix"), and its risk, "High risk" in the amber the app gives warnings. The meta
- * line has no room left for them (H15), and a row Jev never read has no such line.
+ * Jev's risk for the pull request, under its number where the column has room, so the row is no taller for it: one
+ * word ("Low", "High"), "High" in the amber the app gives warnings. Shown only while the Inbox is sorted by risk or
+ * grouped by kind, so a row says nothing of Jev unless he asked for it ("do not run it by default", "we are making the
+ * rows way too tall": recording 16 Oct 09:50, 00:08 to 00:37; M1). Under a kind's heading the kind is the heading.
  */
 @Composable
-private fun JevWords(pull: PullRow, kind: Boolean) {
+private fun RiskTag(pull: PullRow) {
     val jev = pull.jev ?: return
     val c = LocalPullsColors.current
     val high = jev.riskLevel == JEV_RISK_WORDS.lastIndex
-    val words = buildAnnotatedString {
-        jev.kindWords?.takeIf { kind }?.let { append(it); withStyle(SpanStyle(color = c.faint)) { append(" · ") } }
-        withStyle(SpanStyle(color = if (high) c.amber else c.muted)) { append(jev.riskWords) }
-    }
-    Text(words, style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(
+        JEV_RISK_SHORT[jev.riskLevel], Modifier.semantics { contentDescription = jev.riskWords },
+        style = PullsType.sm, color = if (high) c.amber else c.muted, maxLines = 1, softWrap = false,
+    )
 }
+
+/** [JEV_RISK_WORDS] in one word each, for the narrow column under a row's number. */
+private val JEV_RISK_SHORT = listOf("Trivial", "Low", "Medium", "High")
 
 /**
  * A stacked pull request's place in its stack, under its number: the layers glyph and "2/10", its layer and how many
@@ -995,7 +1035,7 @@ internal fun ToursList(
     onRepo: (owner: String, repo: String) -> Unit,
     folded: Set<String>,
     onFold: ((String) -> Unit)?,
-    onDismiss: (TourEntry) -> Unit,
+    onHold: (TourEntry, stoppable: Boolean) -> Unit,
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
@@ -1049,11 +1089,13 @@ internal fun ToursList(
                 SwipeRow(
                     label = entry.prTitle,
                     onOpen = { onOpen(entry) },
-                    onArchive = { onDismiss(entry) },
+                    // Tours sits right of the Inbox, so its rows open on a swipe to the left and a swipe right goes back
+                    // to the Inbox. No Remove swipe; holding the row offers it (recording 16 Oct 09:50, 01:18 to 02:04; M4).
+                    onArchive = null,
                     archived = false,
                     modifier = Modifier.animateItem(),
-                    endLabel = if (stoppable) "Stop" else "Remove",
-                    endIcon = Lu.close,
+                    opensLeft = true,
+                    onLongClick = { onHold(entry, stoppable) },
                 ) { TourRowContent(entry, byKey[entry.key], now) }
             }
         }

@@ -3,20 +3,13 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import com.octaviantocan.pulls.core.PinchFrame
 import com.octaviantocan.pulls.data.AppSettings
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /*
@@ -30,13 +23,16 @@ private const val STEP = 0.1f
 fun AppSettings.zoomBy(steps: Int) = updateCodeZoom(((codeZoom + steps * STEP) * 10).roundToInt() / 10f)
 
 /**
- * Where a pinch ended: the code size it went [from] and [to], the point between the fingers when they lifted ([screen],
- * in the view's pixels) and the point of the code that was drawn there ([content], as the view was laid out before the
- * pinch). The view scrolls so that point stays under the fingers.
+ * Keeps the code under the fingers while a pinch resizes it: [begin] reads what is under them as the pinch starts, and
+ * [step] scrolls after each new size, always reckoned from that start.
  */
-class PinchEnd(val from: Float, val to: Float, val screen: Offset, val content: Offset) {
-    val scale: Float get() = to / from
+interface PinchKeeper {
+    fun begin(at: Offset)
+    fun step(from: Float, to: Float)
 }
+
+/** A size change smaller than this waits for the next, so finger jitter does not lay the code out again. */
+private const val ZOOM_QUANTUM = 0.01f
 
 /**
  * One event of a pinch, read from the fingers that were down before it and still are, so a finger landing or lifting
@@ -54,63 +50,47 @@ private fun pinchStep(event: PointerEvent): Triple<Offset, Offset, Float>? {
 }
 
 /**
- * Two fingers pinch the code: while they are down the code is drawn bigger or smaller around the point where they met,
- * so nothing is laid out again, and it does not pan with them (L17); when they lift, the new code size is written
- * once and [onEnd] scrolls the view so the line under them stays where it was. One finger is left alone, so the list
- * still scrolls: events are read on the initial pass and taken only while two pointers are down. The size stays within
+ * Two fingers pinch the code: as they spread or close, the code's own font size and line height change and it is laid
+ * out again across the full width, wrapping where wrap is on, never a smaller or bigger picture of the page ("it was
+ * just scaling the actual font ... and that was really good. And now it somehow breaks the entire thing": recording
+ * 16 Oct 09:50, 04:11 to 04:26; M9). [keep] holds the line under the point where the fingers met, and the code never
+ * pans with them (L17). The size is saved once, when they lift. One finger is left alone, so the list still scrolls:
+ * events are read on the initial pass and taken only while two pointers are down. The size stays within
  * [AppSettings.MIN_ZOOM] and [AppSettings.MAX_ZOOM].
  */
-@Composable
-fun Modifier.pinchToZoomCode(settings: AppSettings, onEnd: ((PinchEnd) -> Unit)? = null): Modifier {
-    val frame = remember { mutableStateOf(PinchFrame()) }
-    val ended = rememberUpdatedState(onEnd)
-    return this
-        .pointerInput(settings) {
-            awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                var start = settings.codeZoom
-                var last = Offset.Unspecified
-                var pivot = Offset.Unspecified
-                var moved = false
-                while (true) {
-                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                    val pressed = event.changes.count { it.pressed }
-                    if (pressed >= 2) {
-                        val step = pinchStep(event)
-                        if (step != null) {
-                            val (from, _, zoom) = step
-                            if (!pivot.isSpecified) pivot = from
-                            frame.value = frame.value.zoomAbout(zoom, pivot.x, pivot.y, AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
-                            last = pivot
-                            moved = true
-                        }
-                        event.changes.forEach { it.consume() }
-                    } else {
-                        // The fingers lifted: lay the code out once at its new size, then put the drawing back.
-                        if (moved) {
-                            val drawn = frame.value
-                            val to = (start * drawn.scale).coerceIn(AppSettings.MIN_ZOOM, AppSettings.MAX_ZOOM)
-                            val end = PinchEnd(start, to, last, Offset(drawn.contentX(last.x), drawn.contentY(last.y)))
-                            if (to != settings.codeZoom) settings.updateCodeZoom(to)
-                            ended.value?.invoke(end)
-                            frame.value = PinchFrame()
-                            pivot = Offset.Unspecified
-                            moved = false
-                        }
-                        if (pressed == 0) break
+fun Modifier.pinchToZoomCode(settings: AppSettings, keep: PinchKeeper? = null): Modifier = pointerInput(settings, keep) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        var start = settings.codeZoom
+        var scale = 1f
+        var pivot = Offset.Unspecified
+        var moved = false
+        while (true) {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            val pressed = event.changes.count { it.pressed }
+            if (pressed >= 2) {
+                pinchStep(event)?.let { (from, _, spread) ->
+                    if (!pivot.isSpecified) {
+                        pivot = from
                         start = settings.codeZoom
+                        scale = 1f
+                        keep?.begin(pivot)
+                    }
+                    scale = (scale * spread).coerceIn(AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
+                    val to = start * scale
+                    if (abs(to - settings.codeZoom) >= ZOOM_QUANTUM) {
+                        settings.previewCodeZoom(to)
+                        keep?.step(start, settings.codeZoom)
+                        moved = true
                     }
                 }
+                event.changes.forEach { it.consume() }
+            } else {
+                if (moved) settings.updateCodeZoom(settings.codeZoom)
+                moved = false
+                pivot = Offset.Unspecified
+                if (pressed == 0) break
             }
         }
-        // Drawn inside the view's own bounds, so code pinched bigger never spills over the header or the bar.
-        .clipToBounds()
-        .graphicsLayer {
-            val drawn = frame.value
-            transformOrigin = TransformOrigin(0f, 0f)
-            scaleX = drawn.scale
-            scaleY = drawn.scale
-            translationX = drawn.x
-            translationY = drawn.y
-        }
+    }
 }

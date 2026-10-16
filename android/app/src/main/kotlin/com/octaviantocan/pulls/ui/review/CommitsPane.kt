@@ -38,11 +38,13 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetSearch
 import com.octaviantocan.pulls.ui.design.matchesSearch
+import com.octaviantocan.pulls.ui.design.SheetHeading
+import com.octaviantocan.pulls.ui.design.SheetTopGap
 import com.octaviantocan.pulls.ui.home.DrawableIcon
 import com.octaviantocan.pulls.ui.home.StatusColors
 
 /**
- * The commits of the pull request on a sheet built as Files is (K29): "Find a commit", the commits under a fold heading
+ * The commits of the pull request on a sheet built as Files is (K29): "Find a commit", the commits under a plain heading
  * for each day, oldest first and numbered so the order is never a guess (rule 91). A tap opens the diff of that commit
  * alone (K25, [onOpen]); a long-press stretches the range from the last one tapped and leaves the sheet open; "All
  * commits" goes back to everything. The range is held by [ui], so it survives the sheet closing.
@@ -54,12 +56,11 @@ internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOvervi
     val commits = overview.commits
     val hidden = overview.commitsHidden
     var query by remember { mutableStateOf("") }
-    val folds = remember { mutableStateMapOf<String, Boolean>() }
     val selection = session.selection?.let { CommitSelection(it.first, it.second) }
     val range = selection?.let { resolveCommitSelection(commits, it) }
     PullsSheet(onClose, "Commits", expandable = true) {
-        if (commits.size > 1) SheetSearch(query, { query = it }, "Find a commit", Modifier.padding(top = 8.dp, bottom = 6.dp))
-        else Spacer(Modifier.height(8.dp))
+        if (commits.size > 1) SheetSearch(query, { query = it }, "Find a commit", Modifier.padding(top = SheetTopGap, bottom = 6.dp))
+        else Spacer(Modifier.height(SheetTopGap))
         val searching = query.isNotBlank()
         // A range held on the sheet is named at the top with the way to see it, since the rows alone barely showed it
         // ("Commits four to six ... I wish I could, like, see them", 06:51 to 07:03; L11).
@@ -97,14 +98,9 @@ internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOvervi
             Text("No commit matches “${query.trim()}”.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
         }
         days.forEachIndexed { d, (label, at) ->
-            // Many commits open on their last day; the selected commit's day is always open.
-            val closed = !searching && (folds[label] ?: (commits.size > FOLD_COMMITS && d < days.size - 1 && at.none { range != null && it in range }))
-            FoldHeading(label, at.size, first = searching && d == 0, folded = closed, onClick = if (searching) null else ({ folds[label] = !closed }))
-            AnimatedVisibility(
-                visible = !closed,
-                enter = expandVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeIn(tween(PullsMotion.FAST)),
-                exit = shrinkVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeOut(tween(PullsMotion.FAST)),
-            ) {
+            // A plain heading per day, every day open: a sheet's heading folds nothing and counts nothing (M7).
+            SheetHeading(label, first = searching && d == 0)
+            run {
                 SheetCard(gap = 6.dp) {
                     at.forEachIndexed { row, index ->
                         val commit = commits[index]
@@ -141,8 +137,6 @@ internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOvervi
     }
 }
 
-/** Above this many commits, the days before the last start folded. */
-private const val FOLD_COMMITS = 20
 
 /** Does [commit] match a search: its headline, its sha or who wrote it. */
 internal fun commitMatches(commit: PrCommit, query: String): Boolean =

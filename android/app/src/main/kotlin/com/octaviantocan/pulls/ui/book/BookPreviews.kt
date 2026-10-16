@@ -51,6 +51,7 @@ import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetSearch
+import com.octaviantocan.pulls.ui.design.SheetHeading
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.SoftChip
@@ -82,6 +83,7 @@ internal fun bookPreviews(id: String): List<BookVariant> = when (id) {
     "sheet-card" -> sheetCardVariants()
     "sheet-field" -> sheetFieldVariants()
     "sheet-search" -> sheetSearchVariants()
+    "sheet-heading" -> sheetHeadingVariants()
     "search-list" -> searchListVariants()
     "sheet-row" -> sheetRowVariants()
     "quick-action" -> quickActionVariants()
@@ -306,6 +308,13 @@ private fun sheetVariants() = listOf(
 
 private fun sheetCardVariants() = listOf(
     BookVariant("default", listOf(BookState("Card of rows") { OnPaper { DemoRows() } })),
+)
+
+private fun sheetHeadingVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(BookState("Over a card") { OnPaper { Column { SheetHeading("Failing", first = true); DemoRows() } } }),
+    ),
 )
 
 private fun sheetSearchVariants() = listOf(
