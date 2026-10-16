@@ -22,7 +22,7 @@ query PullRequestOverview($owner: String!, $repo: String!, $number: Int!) {
       bodyHTML
       createdAt
       updatedAt
-      author { login avatarUrl }
+      author { __typename login avatarUrl }
       state
       isDraft
       merged
@@ -49,7 +49,7 @@ query PullRequestOverview($owner: String!, $repo: String!, $number: Int!) {
         nodes { requestedReviewer { __typename ... on User { login } ... on Team { name } ... on Bot { login } ... on Mannequin { login } } }
       }
       latestOpinionatedReviews(first: 20) {
-        nodes { state author { login avatarUrl } }
+        nodes { state author { __typename login avatarUrl } }
       }
       headCommit: commits(last: 1) {
         nodes {
@@ -108,25 +108,25 @@ query PullRequestOverview($owner: String!, $repo: String!, $number: Int!) {
         totalCount
         nodes {
           __typename
-          ... on IssueComment { id url createdAt bodyHTML isMinimized minimizedReason author { login avatarUrl } }
+          ... on IssueComment { id url createdAt bodyHTML isMinimized minimizedReason author { __typename login avatarUrl } }
           ... on PullRequestReview {
-            id url state submittedAt createdAt bodyHTML author { login avatarUrl }
-            comments(first: 20) { totalCount nodes { id url path line originalLine outdated bodyHTML author { login avatarUrl } } }
+            id url state submittedAt createdAt bodyHTML author { __typename login avatarUrl }
+            comments(first: 20) { totalCount nodes { id url path line originalLine outdated bodyHTML author { __typename login avatarUrl } } }
           }
           ... on PullRequestCommit { id url commit { oid abbreviatedOid messageHeadline committedDate author { name avatarUrl user { login } } } }
-          ... on LabeledEvent { id createdAt actor { login avatarUrl } label { name color } }
-          ... on UnlabeledEvent { id createdAt actor { login avatarUrl } label { name color } }
-          ... on AssignedEvent { id createdAt actor { login avatarUrl } assignee { ... on Actor { login } } }
-          ... on UnassignedEvent { id createdAt actor { login avatarUrl } assignee { ... on Actor { login } } }
-          ... on ReadyForReviewEvent { id createdAt actor { login avatarUrl } }
-          ... on ConvertToDraftEvent { id createdAt actor { login avatarUrl } }
-          ... on ClosedEvent { id createdAt actor { login avatarUrl } }
-          ... on ReopenedEvent { id createdAt actor { login avatarUrl } }
-          ... on MergedEvent { id createdAt actor { login avatarUrl } commit { oid abbreviatedOid } mergeRefName }
-          ... on HeadRefForcePushedEvent { id createdAt actor { login avatarUrl } beforeCommit { abbreviatedOid } afterCommit { abbreviatedOid } }
-          ... on ReviewRequestedEvent { id createdAt actor { login avatarUrl } requestedReviewer { __typename ... on User { login } ... on Team { name } ... on Bot { login } ... on Mannequin { login } } }
-          ... on ReviewDismissedEvent { id createdAt actor { login avatarUrl } dismissalMessage review { author { login } } }
-          ... on RenamedTitleEvent { id createdAt actor { login avatarUrl } previousTitle currentTitle }
+          ... on LabeledEvent { id createdAt actor { __typename login avatarUrl } label { name color } }
+          ... on UnlabeledEvent { id createdAt actor { __typename login avatarUrl } label { name color } }
+          ... on AssignedEvent { id createdAt actor { __typename login avatarUrl } assignee { ... on Actor { login } } }
+          ... on UnassignedEvent { id createdAt actor { __typename login avatarUrl } assignee { ... on Actor { login } } }
+          ... on ReadyForReviewEvent { id createdAt actor { __typename login avatarUrl } }
+          ... on ConvertToDraftEvent { id createdAt actor { __typename login avatarUrl } }
+          ... on ClosedEvent { id createdAt actor { __typename login avatarUrl } }
+          ... on ReopenedEvent { id createdAt actor { __typename login avatarUrl } }
+          ... on MergedEvent { id createdAt actor { __typename login avatarUrl } commit { oid abbreviatedOid } mergeRefName }
+          ... on HeadRefForcePushedEvent { id createdAt actor { __typename login avatarUrl } beforeCommit { abbreviatedOid } afterCommit { abbreviatedOid } }
+          ... on ReviewRequestedEvent { id createdAt actor { __typename login avatarUrl } requestedReviewer { __typename ... on User { login } ... on Team { name } ... on Bot { login } ... on Mannequin { login } } }
+          ... on ReviewDismissedEvent { id createdAt actor { __typename login avatarUrl } dismissalMessage review { author { login } } }
+          ... on RenamedTitleEvent { id createdAt actor { __typename login avatarUrl } previousTitle currentTitle }
         }
       }
     }
@@ -134,6 +134,8 @@ query PullRequestOverview($owner: String!, $repo: String!, $number: Int!) {
 }`
 
 export interface RawActor {
+  /** GraphQL's type for the account: `User`, `Bot` (a GitHub App), `Mannequin`, `Organization`. Absent from answers stored before it was asked for. */
+  __typename?: string
   login: string
   avatarUrl?: string
 }
