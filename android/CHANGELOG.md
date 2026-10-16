@@ -10,7 +10,45 @@ Write for the person holding the phone: what they will see or can now do, in pla
 rule numbers, file names or component names. A pull request that bumps the version adds its
 section here; `pnpm run android:design` fails when the version has none. The app bundles this
 file, and android/scripts/publish-apk.sh puts it in latest.json.
+
+From 0.40.0 on every section shows what changed in pictures, a short GIF where it moves:
+`![what it shows](changelog/<version>/<name>.png)` on its own unindented line under the bullet
+it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
+
+## 0.40.0
+
+New rows, one Ask bar and a tour that reads like code.
+
+### New
+
+- Pull request rows start with a tile in the colour of their state, so a draft, a merged and a closed one tell apart at a glance. The number, author, checks, changes and age sit on one line, in columns.
+![Inbox rows with their state tiles, numbers in columns and the heading's count beside its name](changelog/0.40.0/inbox-rows.png)
+- The search has no Ask button: end your text with a question mark and the ✕ turns into Send.
+![Typing a question mark turns the search's ✕ into Send](changelog/0.40.0/search-asks.gif)
+- The Tour and the Overview ask through one bar. Empty, it opens your earlier chats; once you type, it sends and carries on your last conversation. The Overview's review button is a round arrow beside it.
+![The Ask bar empty, with a question typed, and on the Overview beside the review button](changelog/0.40.0/ask-bars.png)
+- Flows in a tour are numbered steps on a rail with arrows between them, call trees put each step on its own line, and pseudocode looks like code with its own Copy button.
+![A flow drawn as numbered steps joined by arrows](changelog/0.40.0/tour-flow.png)
+- Settings has a Fonts section: pick the app's font as well as the code font.
+- Tour stops fold to their titles, and Commands starts with what you can do on the page you are on.
+- File and code names in a tour open the code, even when the AI did not link them, and code links open in Pulls at the line instead of on GitHub.
+- The Tour's ⋯ holds the tour's own things: the model, Analyze options and Regenerate.
+
+### Changed
+
+- Headings read "Name (4)" with the arrow right after the count, and numbers in a list line up in one column.
+- Every search and Ask field has the same height, corners and text, and words that scroll out of a field fade at its edge.
+- The Ask sheet opens tall, stays where you are while an answer streams, and shows the chat through under its field.
+- The Overview keeps its title, numbers and tabs pinned as you scroll, and long lists show a few rows and "Show more".
+- Conversation starts with what people said, and bots are told from people by what GitHub says.
+- File groups that start the same are named once, AI review findings are one plain list with All, Bug, Risk and Nit, and the pull request's ⋯ is shorter.
+- Codex's newest Sol, Astra and Luna all sit at the top of the model list.
+
+### Fixed
+
+- The dim behind the Ask bar covers the top bar too.
+- The Tour's ⋯ opens at once.
 
 ## 0.39.0
 
