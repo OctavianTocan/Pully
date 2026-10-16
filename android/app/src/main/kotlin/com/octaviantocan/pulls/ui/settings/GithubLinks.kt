@@ -137,13 +137,13 @@ internal fun ColumnScope.GithubLinksPage() {
     }
     Text(
         "On Android's page, turn on Open supported links, then Supported web addresses, and every address in it.",
-        Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp), style = PullsType.read, color = c.muted,
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.read, color = c.muted,
     )
     CtaButton("Open Android's page", { GithubLinks.openSettings(context) }, Modifier.fillMaxWidth().padding(top = 16.dp))
     if (githubApp) Group("The GitHub app") {
         Text(
             "The GitHub app is on this phone and can take github.com links first. Android moves an address to Pulls when you turn it on here; if links still open in the GitHub app, turn Open supported links off on its page.",
-            Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp), style = PullsType.read, color = c.muted,
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), style = PullsType.read, color = c.muted,
         )
         SheetCard {
             SheetRow("Open the GitHub app's page", { GithubLinks.openGithubAppSettings(context) }, first = true, iconless = true) {
@@ -154,7 +154,7 @@ internal fun ColumnScope.GithubLinksPage() {
     Group("In a browser") {
         Text(
             "A link tapped inside Chrome or another browser stays in the browser: Android hands a link to Pulls only when it is opened from another app, such as WhatsApp or Slack. In a browser, share the page to Pulls instead.",
-            Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp), style = PullsType.read, color = c.muted,
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), style = PullsType.read, color = c.muted,
         )
     }
 }
