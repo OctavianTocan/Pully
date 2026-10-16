@@ -8,7 +8,8 @@ description: Post a diff to Pully and hand the person a link that shows it like 
 Pully shows a diff the way it shows a pull request: files grouped by what they do, a guided
 tour, review findings on the lines, and Ask. Pages that are not real pull requests leave out
 what they do not have (branches, checks, commits). You post the diff, Pully answers a link,
-and you give the person that link. Only the account's owner can open it; they sign in.
+and you give the person that link. It opens in the Pully app on their phone, signed in to the account; a browser
+only says to open it there.
 
 ## What you need
 

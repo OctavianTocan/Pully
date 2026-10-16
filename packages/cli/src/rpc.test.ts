@@ -1,3 +1,4 @@
+import type { AiTaskSnapshot } from '@pulls.review/core/local-rpc'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -6,6 +7,7 @@ import { createCacheRepositories } from '@pulls.review/core/cache'
 import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { createStorage } from 'unstorage'
 import memoryDriver from 'unstorage/drivers/memory'
+import * as v from 'valibot'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createAccounts } from './account'
 import { createPostedStore } from './posted'
@@ -86,7 +88,7 @@ describe('local RPC', () => {
     await expect(call(functions, LOCAL_RPC.storageRemoveItem, { key: 'account:anything' })).rejects.toThrow('not the page')
   })
 
-  it('opens a posted diff for the page at /-/<id>, and only one the account has', async () => {
+  it('never opens a posted diff, nor reads, lists or runs anything on one: they open only in the app', async () => {
     const driver = memoryDriver()
     const env = { PULLY_ACCOUNT_EMAIL: 'tavi@example.com', PULLY_ACCOUNT_PASSWORD: 'correct horse' }
     const storage = createStorage({ driver })
@@ -95,15 +97,35 @@ describe('local RPC', () => {
       accountId: account!.id,
       keyName: 'Laptop',
       patch: 'diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-one\n+two\n',
-      fields: { title: 'Two' },
+      fields: { title: 'Two', tour: { title: 'Tour', stops: [] } },
     })
     const functions = localRpcFunctions({ cwd: repo, driver, env })
+    const key = `posted:${meta.id}`
 
-    const diff = await call(functions, LOCAL_RPC.sourceFetch, { target: `posted:${meta.id}` }) as { title: string, head?: unknown, files: { path: string }[] }
-    expect(diff).toMatchObject({ title: 'Two', files: [{ path: 'a.ts' }] })
-    expect(diff.head).toBeUndefined()
-    expect(await call(functions, LOCAL_RPC.sourceKey, { target: `posted:${meta.id}` })).toBe(`posted:${meta.id}`)
-    expect(await call(functions, LOCAL_RPC.sourceFingerprint, { target: `posted:${meta.id}` })).toMatch(/^v1\.\d+$/)
-    await expect(call(functions, LOCAL_RPC.sourceFetch, { target: 'posted:nothinghere' })).rejects.toThrow('no posted diff')
+    for (const name of [LOCAL_RPC.sourceFetch, LOCAL_RPC.sourceKey, LOCAL_RPC.sourceFingerprint])
+      await expect((async () => call(functions, name, { target: key }))()).rejects.toThrow('only in the Pully app')
+    expect(await call(functions, LOCAL_RPC.storageGetKeys, { base: '' })).toEqual([])
+    expect(await call(functions, LOCAL_RPC.storageGetItem, { key: `tour:${key}` })).toBeNull()
+    expect(await call(functions, LOCAL_RPC.storageGetItems, { keys: [`pr-meta:${key}`] })).toEqual([null])
+    await expect(call(functions, LOCAL_RPC.storageSetItem, { key: `tour:${key}`, value: '{}' })).rejects.toThrow('not the page')
+    // The calls that take a diff's key refuse a posted one before their handler runs.
+    const argsOf = (name: string): v.GenericSchema => functions.find(candidate => candidate.name === name)!.args![0]
+    expect(v.safeParse(argsOf(LOCAL_RPC.aiTaskList), { key }).success).toBe(false)
+    expect(v.safeParse(argsOf(LOCAL_RPC.askThreads), { key }).success).toBe(false)
+    expect(v.safeParse(argsOf(LOCAL_RPC.aiTaskStart), { kind: 'tour', key, model: { engine: 'claude-code' }, locale: 'en' }).success).toBe(false)
+    expect(v.safeParse(argsOf(LOCAL_RPC.aiTaskList), { key: 'github-pr:a/b/1' }).success).toBe(true)
+  })
+
+  it('leaves out of the page\'s task listings and waits the work the phone runs on a posted diff', async () => {
+    type Tasks = NonNullable<Parameters<typeof localRpcFunctions>[0]['tasks']>
+    const posted = { id: 't1', key: 'posted:k3T9xQ2mLp0a', title: 'Secret plans' } as AiTaskSnapshot
+    const pull = { id: 't2', key: 'github-pr:a/b/1', title: 'Fix it' } as AiTaskSnapshot
+    const fake: Pick<Tasks, 'listAll' | 'wait'> = { listAll: () => [posted, pull], wait: async id => id === 't1' ? posted : pull }
+    const tasks = fake as Tasks
+    const functions = localRpcFunctions({ cwd: repo, driver: memoryDriver(), env: {}, tasks })
+
+    expect(await call(functions, LOCAL_RPC.aiTaskListAll, {})).toEqual([pull])
+    expect(await call(functions, LOCAL_RPC.aiTaskWait, { id: 't2', after: 0 })).toBe(pull)
+    await expect(call(functions, LOCAL_RPC.aiTaskWait, { id: 't1', after: 0 })).rejects.toThrow('only in the Pully app')
   })
 })

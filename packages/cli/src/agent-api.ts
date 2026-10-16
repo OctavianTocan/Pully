@@ -185,8 +185,9 @@ function agentRoute(request: NativeRequest, route: string, caller: Caller, poste
  * @param env - The account and the public address.
  */
 export async function handleAgentRequest(request: NativeRequest, host: ServerHost, env: AccountEnvironment): Promise<Response | undefined> {
-  const path = request.url.pathname
-  if (path !== '/api/v1' && !path.startsWith('/api/v1/'))
+  // Any spelling of `/api/v1` (`/API/v1`, `//api//v1`) is the API's, so it never falls through to the app behind Access.
+  const path = request.url.pathname.replace(/\/{2,}/g, '/')
+  if (!/^\/api\/v1(?:\/|$)/i.test(path))
     return undefined
   const { accounts, posted } = await accountServices(host, env)
   const bearer = request.headers?.get('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1]

@@ -9,8 +9,6 @@ export type LocalPage
     | { kind: 'branch', branch: string }
     | { kind: 'worktree' }
     | { kind: 'commit', sha: string }
-    /** A diff an agent posted with the account's key (plan 13): only its patch, so no branches or commits. */
-    | { kind: 'posted', id: string }
 
 export const RepoInfoSchema = v.object({
   currentBranch: v.optional(v.string()),
@@ -35,8 +33,6 @@ export function routeForPage(page: LocalPage): string {
       return '/worktree'
     case 'commit':
       return `/commit/${page.sha}`
-    case 'posted':
-      return `/-/${page.id}`
   }
 }
 
@@ -55,19 +51,18 @@ export async function targetFor(page: LocalPage, rpc: LocalRpc): Promise<string>
       return ''
     case 'commit':
       return page.sha
-    case 'posted':
-      return `posted:${page.id}`
   }
 }
 
 /** Each local page as a route; the page component receives it as the `page` prop. */
-export function localRoutes(component: () => Promise<RouteComponent>): RouteRecordRaw[] {
+export function localRoutes(component: () => Promise<RouteComponent>, posted: () => Promise<RouteComponent>): RouteRecordRaw[] {
   const param = (route: RouteLocation, name: string) => String(route.params[name])
   return [
     { path: '/compare/:range(.+)', component, props: route => ({ page: { kind: 'compare', range: param(route, 'range') } satisfies LocalPage }) },
     { path: '/branch/:branch(.+)', component, props: route => ({ page: { kind: 'branch', branch: param(route, 'branch') } satisfies LocalPage }) },
     { path: '/worktree', component, props: { page: { kind: 'worktree' } satisfies LocalPage } },
     { path: '/commit/:sha', component, props: route => ({ page: { kind: 'commit', sha: param(route, 'sha') } satisfies LocalPage }) },
-    { path: '/-/:id([0-9A-Za-z]{6,32})', component, props: route => ({ page: { kind: 'posted', id: param(route, 'id') } satisfies LocalPage }) },
+    // A diff an agent posted (plan 13) opens only in the phone app: its link here says so and reads nothing.
+    { path: '/-/:id([0-9A-Za-z]{6,32})', component: posted },
   ]
 }

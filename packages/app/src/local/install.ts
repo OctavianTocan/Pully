@@ -73,7 +73,7 @@ export async function installLocal(app: App, router: Router): Promise<void> {
   setAiRpc(rpc)
   setLensSource(createRpcLenses(rpc))
 
-  for (const route of localRoutes(() => import('../pages-local/diff.vue')))
+  for (const route of localRoutes(() => import('../pages-local/diff.vue'), () => import('../pages-local/posted.vue')))
     router.addRoute(route)
   // Your open pull requests, grouped by repository, replace the site's landing page;
   // the checkout's own ref picker moves to `/checkout`.

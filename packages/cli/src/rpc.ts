@@ -7,12 +7,10 @@ import type { TaskManager } from './ai/tasks'
 import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { createLocalSource, readRepoInfo } from '@pulls.review/core/local'
 import { AI_FOLLOW_UPS, INBOX_KEY, LLM_ENGINES, LOCAL_RPC, MY_PULL_STATES, REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
-import { postedRevision } from '@pulls.review/core/paste'
-import { DiffsPayloadSchema, serializeRef } from '@pulls.review/core/types'
+import { DiffsPayloadSchema } from '@pulls.review/core/types'
 import { defineRpcFunction } from 'devframe'
 import { createStorage } from 'unstorage'
 import * as v from 'valibot'
-import { createAccounts } from './account'
 import { listCliModels } from './ai/catalog'
 import { cancelAiJob, listAiJobs, runAiJob, startAiJob, waitAiJob } from './ai/jobs'
 import { createTaskManager, defaultTaskRunners } from './ai/tasks'
@@ -22,7 +20,6 @@ import { checkoutOf } from './host'
 import { getLens, listLenses } from './lenses'
 import { cachedMyPulls, classifyMyPulls, listMyPulls } from './my-pulls'
 import { warmRepoPulls } from './native-review'
-import { createPostedStore } from './posted'
 
 export interface LocalRpcOptions {
   /** Any directory inside the repository under review; without one, every local route answers `NO_CHECKOUT`. */
@@ -38,9 +35,24 @@ const target = v.object({ target: v.string() })
 
 /**
  * The account's records and what agents posted (plan 13) live in the same store as the page's cache, but the page's
- * storage calls never read, list, write or remove them: they are reached only through the account and posted calls.
+ * storage calls never read, list, write or remove them: they are reached only through the phone's account and posted
+ * calls. That covers a posted diff's own cache entries too (`pr-meta:posted:<id>`, `tour:posted:<id>`, …).
  */
-const PRIVATE_KEY = /^(?:account[:-]|agent-key:|posted-(?:diff|agent|patch):)/
+const PRIVATE_KEY = /^(?:account[:-]|agent-key:|posted-(?:diff|agent|patch):)|(?:^|:)posted:/i
+
+/** A posted diff's key or target; the web page reaches none of them (Tavi, 16 Oct 14:17: "just block access for everyone"). */
+const POSTED_KEY = /^posted:/i
+const ONLY_IN_THE_APP = 'Posted diffs open only in the Pully app.'
+
+/** [item] when it is not about a posted diff; one the phone started on a posted diff refuses. */
+function notPosted<T extends { key?: string }>(item: T): T {
+  if (item.key && POSTED_KEY.test(item.key))
+    throw new Error(ONLY_IN_THE_APP)
+  return item
+}
+
+/** A diff key the page may name: any but a posted diff's. */
+const pageKey = v.pipe(v.string(), v.check(key => !POSTED_KEY.test(key), ONLY_IN_THE_APP))
 
 /** [key] when the page may write it; a private record refuses. */
 function shared(key: string): string {
@@ -49,11 +61,8 @@ function shared(key: string): string {
   return key
 }
 
-/** What a page's diff is served by: a git target's or a posted diff's source, which both read files and fingerprint. */
+/** What a page's diff is served by: a git target's source, which reads files and fingerprints. */
 type ServedSource = DiffSource & Required<Pick<DiffSource, 'fingerprint' | 'loadFile'>>
-
-/** A posted diff's target: `posted:` and the id in its `/-/<id>` link. */
-const POSTED_TARGET = /^posted:([0-9A-Z]{6,32})$/i
 
 /** A return schema for values the server builds itself, so only their type needs declaring. */
 function trusted<T>() {
@@ -68,7 +77,7 @@ const aiJobRequest = v.object({
   prompt: v.string(),
   schema: v.optional(v.unknown()),
   label: v.optional(v.string()),
-  key: v.optional(v.string()),
+  key: v.optional(pageKey),
   context: v.optional(v.object({
     owner: v.pipe(v.string(), v.regex(/^[\w.-]+$/)),
     repo: v.pipe(v.string(), v.regex(/^[\w.-]+$/)),
@@ -87,7 +96,7 @@ const aiJobRequest = v.object({
 
 const taskModel = v.object({ engine: v.picklist(LLM_ENGINES), model: v.optional(v.string()), effort: v.optional(v.string()) })
 const taskSelection = v.object({ path: v.string(), side: v.picklist(['additions', 'deletions']), startLine: v.number(), endLine: v.number() })
-const taskBase = { key: v.pipe(v.string(), v.minLength(1)), model: taskModel }
+const taskBase = { key: v.pipe(pageKey, v.minLength(1)), model: taskModel }
 const aiTaskRequest = v.variant('kind', [
   v.object({ kind: v.literal('analyze'), ...taskBase, locale: v.string(), then: v.optional(v.array(v.picklist(AI_FOLLOW_UPS))) }),
   v.object({ kind: v.literal('critique'), ...taskBase, variant: v.string(), lens: v.optional(v.pipe(v.string(), v.regex(REVIEW_LENS_NAME))) }),
@@ -105,7 +114,7 @@ const aiTaskRequest = v.variant('kind', [
     skip: v.optional(v.array(v.string())),
   }),
 ])
-const diffKey = v.object({ key: v.string() })
+const diffKey = v.object({ key: pageKey })
 
 /**
  * Every function the `PR_LOCAL` SPA calls. Only a client devframe has trusted
@@ -115,32 +124,10 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
   const storage = createStorage({ driver })
   const cache = createCacheRepositories(storage, SERVER_CACHE_BUDGET)
   const tasks = givenTasks ?? createTaskManager({ cache, storage, runners: defaultTaskRunners(getLens) })
-  // `posted:<id>` is a diff an agent posted (plan 13), opened by the page at `/-/<id>`; anything else is a git target.
-  const posted = createPostedStore(storage, cache)
-  let account: Promise<string | undefined> | undefined
-  const accountId = () => account ??= createAccounts(storage).seed(env).then(found => found?.id)
-  const postedSource = (id: string): ServedSource => {
-    const meta = async () => {
-      const owner = await accountId()
-      const found = owner && await posted.meta(owner, id)
-      if (!owner || !found)
-        throw new Error('There is no posted diff with that id.')
-      return { owner, found }
-    }
-    return {
-      key: async () => serializeRef({ kind: 'posted', id }),
-      fetch: async () => {
-        const { owner } = await meta()
-        return (await posted.open(owner, id))!.diff
-      },
-      fingerprint: async () => postedRevision((await meta()).found),
-      // Only the patch was posted: there are no whole files to read.
-      loadFile: async () => undefined,
-    }
-  }
   const source = (text: string): ServedSource => {
-    const id = text.match(POSTED_TARGET)?.[1]
-    return id ? postedSource(id) : createLocalSource({ cwd: checkoutOf({ cwd }), target: text })
+    if (POSTED_KEY.test(text))
+      throw new Error(ONLY_IN_THE_APP)
+    return createLocalSource({ cwd: checkoutOf({ cwd }), target: text })
   }
   return [
     defineRpcFunction({ name: LOCAL_RPC.repoInfo, type: 'query', handler: () => readRepoInfo(checkoutOf({ cwd })) }),
@@ -226,10 +213,10 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       type: 'query',
       args: [v.object({ id: v.string(), after: v.number() })],
       returns: trusted<AiJobSnapshot>(),
-      handler: ({ id, after }) => waitAiJob(id, after),
+      handler: async ({ id, after }) => notPosted(await waitAiJob(id, after)),
     }),
     defineRpcFunction({ name: LOCAL_RPC.aiJobCancel, type: 'action', args: [v.object({ id: v.string() })], returns: v.boolean(), handler: ({ id }) => cancelAiJob(id) }),
-    defineRpcFunction({ name: LOCAL_RPC.aiJobList, type: 'query', handler: () => listAiJobs() }),
+    defineRpcFunction({ name: LOCAL_RPC.aiJobList, type: 'query', handler: () => listAiJobs().filter(job => !POSTED_KEY.test(job.key ?? '')) }),
     defineRpcFunction({
       name: LOCAL_RPC.myPullsCached,
       type: 'query',
@@ -254,11 +241,11 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       type: 'query',
       args: [v.object({ id: v.string(), after: v.number() })],
       returns: trusted<AiTaskSnapshot>(),
-      handler: ({ id, after }) => tasks.wait(id, after),
+      handler: async ({ id, after }) => notPosted(await tasks.wait(id, after)),
     }),
     defineRpcFunction({ name: LOCAL_RPC.aiTaskCancel, type: 'action', args: [v.object({ id: v.string() })], returns: v.boolean(), handler: ({ id }) => tasks.cancel(id) }),
     defineRpcFunction({ name: LOCAL_RPC.aiTaskList, type: 'query', args: [diffKey], returns: trusted<AiTaskSnapshot[]>(), handler: ({ key }) => tasks.list(key) }),
-    defineRpcFunction({ name: LOCAL_RPC.aiTaskListAll, type: 'query', args: [v.object({})], returns: trusted<AiTaskSnapshot[]>(), handler: () => tasks.listAll() }),
+    defineRpcFunction({ name: LOCAL_RPC.aiTaskListAll, type: 'query', args: [v.object({})], returns: trusted<AiTaskSnapshot[]>(), handler: () => tasks.listAll().filter(task => !POSTED_KEY.test(task.key)) }),
     defineRpcFunction({ name: LOCAL_RPC.askThreads, type: 'query', args: [diffKey], returns: trusted<AiAskThread[]>(), handler: ({ key }) => tasks.threads(key) }),
     defineRpcFunction({ name: LOCAL_RPC.inboxChat, type: 'query', args: [v.object({})], returns: trusted<AiInboxChat>(), handler: () => tasks.inboxChat() }),
     defineRpcFunction({ name: LOCAL_RPC.inboxChatClear, type: 'action', args: [v.object({})], returns: v.void(), handler: () => tasks.clearInboxChat() }),
@@ -266,7 +253,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
     defineRpcFunction({
       name: LOCAL_RPC.askThreadClose,
       type: 'action',
-      args: [v.object({ key: v.string(), threadId: v.string() })],
+      args: [v.object({ key: pageKey, threadId: v.string() })],
       returns: v.void(),
       handler: ({ key, threadId }) => tasks.closeThread(key, threadId),
     }),

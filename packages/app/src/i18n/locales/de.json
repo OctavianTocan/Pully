@@ -808,6 +808,7 @@
     },
     "loading": "Lokale Änderungen werden geladen…",
     "loadFailed": "Diese Änderungen konnten nicht geladen werden",
+    "posted": { "title": "Dieser Diff öffnet sich in der Pully-App", "hint": "Diffs, die Agenten posten, öffnen sich nur auf deinem Telefon, angemeldet beim Konto." },
     "auth": {
       "title": "Code aus dem Terminal eingeben",
       "hint": "pulls.review hat im Terminal, in dem es läuft, einen 6-stelligen Code ausgegeben.",

@@ -808,6 +808,7 @@
     },
     "loading": "Memuat perubahan lokal…",
     "loadFailed": "Tidak dapat memuat perubahan ini",
+    "posted": { "title": "Diff ini terbuka di aplikasi Pully", "hint": "Diff yang dikirim agen hanya terbuka di ponselmu, setelah masuk ke akun." },
     "auth": {
       "title": "Masukkan kode dari terminal Anda",
       "hint": "pulls.review menampilkan kode 6 digit di terminal tempat ia berjalan.",

@@ -808,6 +808,7 @@
     },
     "loading": "正在載入本機變更…",
     "loadFailed": "無法載入這些變更",
+    "posted": { "title": "此差異在 Pully App 中開啟", "hint": "代理發布的差異只能在已登入帳戶的手機上開啟。" },
     "auth": {
       "title": "輸入終端機中顯示的代碼",
       "hint": "pulls.review 已在其執行的終端機中印出一組 6 位數代碼。",

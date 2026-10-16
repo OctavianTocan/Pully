@@ -754,6 +754,7 @@
     },
     "loading": "Loading local changes…",
     "loadFailed": "Couldn't load these changes",
+    "posted": { "title": "This diff opens in the Pully app", "hint": "Diffs that agents post open only on your phone, signed in to the account." },
     "auth": {
       "title": "Enter the code from your terminal",
       "hint": "pulls.review printed a 6-digit code in the terminal it runs in.",

@@ -808,6 +808,7 @@
     },
     "loading": "Chargement des modifications locales…",
     "loadFailed": "Impossible de charger ces modifications",
+    "posted": { "title": "Ce diff s'ouvre dans l'app Pully", "hint": "Les diffs publiés par les agents ne s'ouvrent que sur ton téléphone, connecté au compte." },
     "auth": {
       "title": "Saisissez le code affiché dans votre terminal",
       "hint": "pulls.review a affiché un code à 6 chiffres dans le terminal où il s'exécute.",

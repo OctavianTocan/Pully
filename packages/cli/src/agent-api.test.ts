@@ -138,6 +138,13 @@ describe('the agent API', () => {
     expect((await request('/api/v1/diffs'))!.status).toBe(401)
   })
 
+  it('takes every spelling of /api/v1 as the API, so none reaches the app without a key', async () => {
+    for (const path of ['/API/v1/diffs', '/Api/V1', '//api/v1/diffs', '/api//v1/me', '/api/v1//diffs'])
+      expect((await request(path))?.status, path).toBe(401)
+    const key = await newKey(await signIn())
+    expect((await request('//api/v1//me', { headers: { Authorization: `Bearer ${key}` } }))!.status).toBe(200)
+  })
+
   it('takes a raw patch and answers a link on the public address', async () => {
     const key = await newKey(await signIn())
     const response = await request('/api/v1/diffs', { method: 'POST', body: PATCH, headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'text/x-diff', 'X-Pully-Title': encodeURIComponent('Retry GitHub calls') } })

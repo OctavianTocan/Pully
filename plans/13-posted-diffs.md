@@ -7,8 +7,8 @@ present." Revised the same day with his decisions (12:40 and 12:47), which are q
 
 What the build leaves out of this plan, for later: the agent's read-only line `notes` (its `review` findings take
 that place), a key that may start AI runs (`then`), and `GET /api/v1/skill` (the skill is
-`skills/post-diff-to-pully/SKILL.md` in the repo). The web page at `/-/<id>` is the server's own web build, behind
-Access like the rest of it.
+`skills/post-diff-to-pully/SKILL.md` in the repo). Posted diffs do not open on the web at all (Tavi, 16 Oct 14:17): `/-/<id>` in a browser
+only says to open it in the Pully app.
 
 ## What it is
 
@@ -25,8 +25,8 @@ git diff main... | curl -sS "$PULLY_URL/api/v1/diffs" \
 # {"id":"k3T9xQ2mLp0a","url":"https://prs.octaviantocan.com/-/k3T9xQ2mLp0a"}
 ```
 
-The link opens the Pully pull request page for that diff, but only for someone signed in
-to the account that owns it. The diff also shows up in that account's list of pull
+The link opens the Pully pull request page for that diff in the phone app, signed in to the
+account that owns it; on the web it only says to open it in the app. The diff also shows up in that account's list of pull
 requests, marked as posted. It stays until someone deletes it.
 
 ## Decisions (Tavi, 16 Oct 12:40)
