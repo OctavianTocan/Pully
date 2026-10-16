@@ -1,16 +1,21 @@
 import type { DiffsPayload, FileChange } from '@pulls.review/core/types'
+import type { ServerHost } from './host'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import memoryDriver from 'unstorage/drivers/memory'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { NO_CHECKOUT } from './host'
 import { handleNativeRequest } from './native-api'
+import { checkoutHost } from './node-host'
 import { storeOverview } from './pr-store'
 import { serverSession } from './server-session'
 import { FILE_PATCH_BUDGET } from './stored-diff'
 
 const KEY = 'github:acme/app#7'
 let repo: string
+let host: ServerHost
 
 function file(path: string, patchChars: number): FileChange {
   return { path, status: 'modified', additions: 1, deletions: 1, isBinary: false, sha: `sha-${path}`, hunks: [{ header: '@@ -1 +1 @@', oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, patch: 'x'.repeat(patchChars) }] }
@@ -25,7 +30,7 @@ const DIFF: DiffsPayload = {
 }
 
 async function call(name: string, args: unknown): Promise<{ status: number, body: any }> {
-  const response = await handleNativeRequest({ url: new URL('http://localhost/api/rpc'), method: 'POST', json: async () => ({ name, args }) }, repo)
+  const response = await handleNativeRequest({ url: new URL('http://localhost/api/rpc'), method: 'POST', json: async () => ({ name, args }) }, host)
   return { status: response!.status, body: await response!.json() }
 }
 
@@ -34,7 +39,8 @@ const github = vi.fn<typeof fetch>()
 beforeAll(async () => {
   repo = mkdtempSync(join(tmpdir(), 'pulls-review-native-'))
   execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repo })
-  await (await serverSession(repo)).cache.diffs.putDiff(KEY, DIFF, 'h1', { viewed: false })
+  host = await checkoutHost(repo)
+  await (await serverSession(host)).cache.diffs.putDiff(KEY, DIFF, 'h1', { viewed: false })
 })
 
 beforeEach(() => {
@@ -98,7 +104,7 @@ describe('pr-overview cached', () => {
     expect(await call('pr-overview', { owner: 'acme', repo: 'app', number: 9, cached: true })).toEqual({ status: 200, body: { result: null } })
 
     const overview = { id: 'PR_9', number: 9, title: 'T', body: '', state: 'open', mergeable: 'mergeable', mergeStateStatus: 'clean', updatedAt: 'u1', head: { oid: 'h9', ref: 'feature' }, base: { oid: 'b9', ref: 'main' }, commits: [], commitsHidden: 0, viewer: { canPush: true }, merge: { methods: ['merge'], defaultMethod: 'merge', mergeTitle: 'PR_TITLE', mergeMessage: 'PR_BODY', squashTitle: 'PR_TITLE', squashMessage: 'PR_BODY' } }
-    await storeOverview((await serverSession(repo)).storage, { owner: 'acme', repo: 'app', number: 9 }, overview as never, 4242)
+    await storeOverview((await serverSession(host)).storage, { owner: 'acme', repo: 'app', number: 9 }, overview as never, 4242)
     const { body } = await call('pr-overview', { owner: 'acme', repo: 'app', number: 9, cached: true })
     expect(body.result).toMatchObject({ overview: { id: 'PR_9' }, mergeability: { allowed: true }, defaultCommits: { merge: {} }, storedAt: 4242 })
     expect(github).not.toHaveBeenCalled()
@@ -113,7 +119,7 @@ describe('chat history', () => {
   ]
 
   it('sets a cleared chat aside, lists it, and puts it back, leaving the analysis transcript alone (L36)', async () => {
-    const diffs = (await serverSession(repo)).cache.diffs
+    const diffs = (await serverSession(host)).cache.diffs
     await diffs.setLlmSession(KEY, { messages: [...analysis, ...turn('Why the cache?', 10)], chatStartIndex: 2 } as never)
 
     expect((await call('chat-clear', { key: KEY })).body.result).toEqual({ cleared: 2 })
@@ -140,7 +146,7 @@ describe('chat history', () => {
 
 describe('past versions', () => {
   async function get(path: string): Promise<Response | undefined> {
-    return handleNativeRequest({ url: new URL(`http://localhost${path}`), method: 'GET', json: async () => undefined }, repo)
+    return handleNativeRequest({ url: new URL(`http://localhost${path}`), method: 'GET', json: async () => undefined }, host)
   }
 
   it('serves the index and the APKs build-past-ui.py wrote, and nothing else from the folder', async () => {
@@ -178,5 +184,37 @@ describe('past versions', () => {
     finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+})
+
+describe('a host with no checkout', () => {
+  // What a hosted server is (plans/12-hosted-server.md): a store and nothing on disk.
+  const hosted: ServerHost = { storage: memoryDriver() }
+  const hostedKey = 'github:acme/app#11'
+
+  async function hostedCall(name: string, args: unknown): Promise<{ status: number, body: any }> {
+    const response = await handleNativeRequest({ url: new URL('http://localhost/api/rpc'), method: 'POST', json: async () => ({ name, args }) }, hosted)
+    return { status: response!.status, body: await response!.json() }
+  }
+
+  it('opens a stored pull request and keeps reviewed marks in its own store', async () => {
+    await (await serverSession(hosted)).cache.diffs.putDiff(hostedKey, { ...DIFF, ref: { ...DIFF.ref, number: '11' } as DiffsPayload['ref'] }, 'h1', { viewed: false })
+    github.mockImplementation(async () => Response.json({ head: { sha: 'h1' } }))
+
+    const opened = await hostedCall('github-pr', { owner: 'acme', repo: 'app', number: 11 })
+    expect(opened.status).toBe(200)
+    expect(opened.body.result).toMatchObject({ key: hostedKey, diff: { title: 'Stored' } })
+
+    expect((await hostedCall('reviewed-set', { key: hostedKey, shas: ['sha-src/small.ts'], reviewed: true })).body.result).toBe(true)
+    expect((await hostedCall('reviewed-get', { key: hostedKey })).body.result.reviewed).toEqual(['sha-src/small.ts'])
+    // The checkout's store never saw it.
+    expect((await call('reviewed-get', { shas: ['sha-src/small.ts'] })).body.result.reviewed).toEqual([])
+  })
+
+  it('refuses local diffs and repository info, and has no Android files', async () => {
+    expect(await hostedCall('local-diff', { target: 'main' })).toEqual({ status: 404, body: { error: NO_CHECKOUT } })
+    expect(await hostedCall('repo-info', {})).toEqual({ status: 400, body: { error: NO_CHECKOUT } })
+    const apk = await handleNativeRequest({ url: new URL('http://localhost/android/latest.json'), method: 'GET', json: async () => undefined }, hosted)
+    expect(apk?.status).toBe(404)
   })
 })

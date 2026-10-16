@@ -15,13 +15,14 @@ import { cancelAiJob, listAiJobs, runAiJob, startAiJob, waitAiJob } from './ai/j
 import { createTaskManager, defaultTaskRunners } from './ai/tasks'
 import { analyticsRange, summarizeAnalytics } from './analytics'
 import { resolveGithubToken } from './credentials'
+import { checkoutOf } from './host'
 import { getLens, listLenses } from './lenses'
 import { cachedMyPulls, classifyMyPulls, listMyPulls } from './my-pulls'
 import { warmRepoPulls } from './native-review'
 
 export interface LocalRpcOptions {
-  /** Any directory inside the repository under review. */
-  cwd: string
+  /** Any directory inside the repository under review; without one, every local route answers `NO_CHECKOUT`. */
+  cwd?: string
   /** Where the browser's cache lives (see `createRepoCacheDriver`). */
   driver: Driver
   env: Env
@@ -88,11 +89,11 @@ const diffKey = v.object({ key: v.string() })
  * reaches them; inputs are still validated, since they decide what `git` runs.
  */
 export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: LocalRpcOptions) {
-  const source = (text: string) => createLocalSource({ cwd, target: text })
+  const source = (text: string) => createLocalSource({ cwd: checkoutOf({ cwd }), target: text })
   const storage = createStorage({ driver })
   const tasks = givenTasks ?? createTaskManager({ cache: createCacheRepositories(storage, SERVER_CACHE_BUDGET), storage, runners: defaultTaskRunners(getLens) })
   return [
-    defineRpcFunction({ name: LOCAL_RPC.repoInfo, type: 'query', handler: () => readRepoInfo(cwd) }),
+    defineRpcFunction({ name: LOCAL_RPC.repoInfo, type: 'query', handler: () => readRepoInfo(checkoutOf({ cwd })) }),
     defineRpcFunction({ name: LOCAL_RPC.sourceKey, type: 'query', args: [target], returns: v.string(), handler: ({ target }) => source(target).key() }),
     defineRpcFunction({ name: LOCAL_RPC.sourceFetch, type: 'query', args: [target], returns: DiffsPayloadSchema, handler: ({ target }) => source(target).fetch() }),
     defineRpcFunction({ name: LOCAL_RPC.sourceFingerprint, type: 'query', args: [target], returns: v.string(), handler: ({ target }) => source(target).fingerprint() }),

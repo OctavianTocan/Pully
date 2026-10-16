@@ -107,6 +107,22 @@ CLIProxyAPI. Contract:
   every task and client treats the three engines alike. `startAgent` and the Docker
   runtime do not apply: there is no process to start.
 
+## Where the server runs (`packages/cli/src/host.ts`, `plans/12-hosted-server.md`)
+
+The server runs on Tavi's computer today and moves to Cloudflare (a Worker and a Durable
+Object) step by step. Contract:
+
+- The phone API (`handleNativeRequest`), the server session, the review routes and the PR
+  store reach the machine only through a `ServerHost`: its store (an unstorage driver), an
+  optional checkout and the Android updater's files. The CLI builds one per process
+  (`nodeHost`, over `<git-common-dir>/pulls-review`); a test or a hosted server passes its
+  own. `serverSession(host)` is one session per host, but a process serves one host: the
+  my-pulls store, Jev's classifier and its file ratings are still process-wide.
+- `host.ts` MUST NOT import a Node builtin.
+- A host without a checkout opens GitHub sources only. Every local route (`local-diff`,
+  `repo-info`, the `source-*` methods, whole files of a local diff) answers `NO_CHECKOUT`;
+  none of them falls back to the server's working directory.
+
 ## The phone reads the server's store (`packages/cli/src/pr-store.ts`, `stored-diff.ts`)
 
 Opening a pull request on the phone MUST NOT wait on every page of its files. Contract:
