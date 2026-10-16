@@ -759,10 +759,12 @@ mod tests {
     use super::*;
     fn fixture_run(kind: &str) -> Arc<Run> {
         Arc::new(Run {
-            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0}))
+                .into(),
+            publication: Default::default(),
             request: json!({"kind":kind}),
             task: true,
-            notify: tokio::sync::Notify::new(),
+            notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
         })
     }
@@ -881,10 +883,12 @@ mod tests {
     #[test]
     fn parallel_provider_invocations_keep_separate_activity_rows() {
         let run = Arc::new(Run {
-            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0}))
+                .into(),
+            publication: Default::default(),
             request: json!({}),
             task: false,
-            notify: tokio::sync::Notify::new(),
+            notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
         });
         let first = Activity::new(&run);

@@ -184,13 +184,18 @@ pub async fn bridge_mcp(state: &AppState, token: &str, request: Value) -> Option
     }
 }
 pub(super) struct Run {
-    pub snapshot: Mutex<Value>,
+    pub snapshot: Arc<Mutex<Value>>,
+    publication: Arc<Mutex<ActivityPublication>>,
     pub request: Value,
     pub task: bool,
-    pub notify: Notify,
+    pub notify: Arc<Notify>,
     pub cancel: watch::Sender<bool>,
 }
 impl Jobs {
+    #[cfg(test)]
+    pub(crate) fn hold_session_for_test(&self, key: &str) -> Arc<tokio::sync::Mutex<()>> {
+        self.session(key)
+    }
     fn session(&self, key: &str) -> Arc<tokio::sync::Mutex<()>> {
         self.sessions
             .lock()
@@ -220,39 +225,151 @@ pub(super) fn record(
     }
     record_patch(run, entry)
 }
-/// Apply a streamed activity patch without losing its original start time or tool name.
+const TEXT_FLUSH_DELAY: Duration = Duration::from_millis(250);
+#[derive(Default)]
+struct ActivityPublication {
+    pending: std::collections::BTreeMap<usize, Value>,
+    timer: Option<tokio::task::JoinHandle<()>>,
+    timer_generation: u64,
+}
+impl ActivityPublication {
+    fn stop_timer(&mut self) {
+        if let Some(timer) = self.timer.take() {
+            self.timer_generation = self.timer_generation.wrapping_add(1);
+            timer.abort();
+        }
+    }
+    fn flush_timer(&mut self, snapshot: &mut Value, generation: u64) -> bool {
+        // An aborted timer may already be executing and waiting for this mutex.
+        // It must not take or publish the next text window's timer and patches.
+        if self.timer_generation != generation || self.timer.is_none() {
+            return false;
+        }
+        self.timer.take();
+        snapshot["status"] == "running" && self.flush(snapshot)
+    }
+    fn flush(&mut self, snapshot: &mut Value) -> bool {
+        self.stop_timer();
+        if self.pending.is_empty() {
+            return false;
+        }
+        let rev = snapshot["rev"].as_u64().unwrap_or(0) + 1;
+        self.publish(snapshot, rev);
+        snapshot["rev"] = json!(rev);
+        true
+    }
+    fn publish(&mut self, snapshot: &mut Value, rev: u64) {
+        for (index, mut entry) in std::mem::take(&mut self.pending) {
+            entry["rev"] = json!(rev);
+            snapshot["activities"][index] = entry;
+        }
+    }
+}
+impl Drop for ActivityPublication {
+    fn drop(&mut self) {
+        self.stop_timer();
+    }
+}
+/// @cc [owner:OctavianTocan,label:architecture] rust-activity-publications-coalesce-text
+/// Unchanged activity patches MUST NOT publish. Text-only deltas MUST coalesce for
+/// approximately 250 ms without advancing public revisions. Structural and terminal
+/// updates MUST publish immediately, including pending text; settling MUST stop the
+/// timer and preserve the final text (R15 finding 4, 16 Oct 2026; former jobs.ts flush).
 pub(super) fn record_patch(run: &Run, patch: Value) {
     let Some(id) = patch["id"].as_str().filter(|id| !id.is_empty()) else {
         return;
     };
+    let id = sanitize(id);
+    // Both timer and terminal publication use this lock order. Pending entries are
+    // separate from the snapshot: even an uncursored reader sees only published data.
+    let mut publication = run.publication.lock().unwrap();
     let mut s = run.snapshot.lock().unwrap();
     if s["status"] != "running" {
         return;
     }
-    let rev = s["rev"].as_u64().unwrap_or(0) + 1;
-    s["rev"] = json!(rev);
     let entries = s["activities"].as_array_mut().unwrap();
-    let index = if let Some(index) = entries.iter().position(|v| v["id"] == id) {
-        index
-    } else {
-        if entries.len() >= 4096 {
-            return;
-        }
-        entries.push(json!({"id":sanitize(id),"kind":"status","title":"Working","status":"running","startedAt":now_ms()}));
-        entries.len() - 1
-    };
-    let entry = &mut entries[index];
+    let existing = entries.iter().position(|entry| entry["id"] == id);
+    let index = existing.unwrap_or(entries.len());
+    if existing.is_none() && entries.len() >= 4096 {
+        return;
+    }
+    let previous = publication
+        .pending
+        .get(&index)
+        .or_else(|| entries.get(index));
+    let mut entry = previous.cloned().unwrap_or_else(|| {
+        json!({"id":id,"kind":"status","title":"Working","status":"running","startedAt":now_ms()})
+    });
+    let mut structural = existing.is_none();
+    let mut changed = structural;
     for field in ["kind", "title", "text", "tool", "status"] {
         if let Some(value) = patch[field].as_str() {
-            entry[field] = json!(sanitize(value));
+            let value = json!(sanitize(value));
+            if entry.get(field) != Some(&value) {
+                entry[field] = value;
+                changed = true;
+                structural |= field != "text";
+            }
         }
     }
-    entry["rev"] = json!(rev);
-    if entry["status"] != "running" {
+    if !changed {
+        return;
+    }
+    if entry["status"] != "running" && entry.get("endedAt").is_none() {
         entry["endedAt"] = json!(now_ms());
     }
-    drop(s);
-    run.notify.notify_waiters()
+    let immediate = structural || entry["status"] != "running";
+    if existing.is_none() {
+        entries.push(Value::Null);
+    }
+    if entries[index] == entry {
+        publication.pending.remove(&index);
+        if publication.pending.is_empty() {
+            publication.stop_timer();
+        }
+        return;
+    }
+    publication.pending.insert(index, entry);
+    if immediate {
+        publication.flush(&mut s);
+        drop(s);
+        drop(publication);
+        run.notify.notify_waiters();
+    } else if publication.timer.is_none() {
+        let pending = Arc::downgrade(&run.publication);
+        let snapshot = Arc::downgrade(&run.snapshot);
+        let notify = Arc::downgrade(&run.notify);
+        let deadline = tokio::time::Instant::now() + TEXT_FLUSH_DELAY;
+        let generation = publication.timer_generation;
+        publication.timer = Some(tokio::spawn(async move {
+            tokio::time::sleep_until(deadline).await;
+            let (Some(pending), Some(snapshot), Some(notify)) =
+                (pending.upgrade(), snapshot.upgrade(), notify.upgrade())
+            else {
+                return;
+            };
+            let mut pending = pending.lock().unwrap();
+            let mut snapshot = snapshot.lock().unwrap();
+            if !pending.flush_timer(&mut snapshot, generation) {
+                return;
+            }
+            drop(snapshot);
+            drop(pending);
+            notify.notify_waiters();
+        }));
+    }
+}
+
+// Persisted turn activities must see the same final text as terminal task observers.
+fn flush_activity_updates(run: &Run) {
+    let mut publication = run.publication.lock().unwrap();
+    let mut snapshot = run.snapshot.lock().unwrap();
+    let published = snapshot["status"] == "running" && publication.flush(&mut snapshot);
+    drop(snapshot);
+    drop(publication);
+    if published {
+        run.notify.notify_waiters();
+    }
 }
 
 fn settle(
@@ -262,11 +379,15 @@ fn settle(
     usage: Option<Value>,
     error: Option<String>,
 ) {
+    let mut publication = run.publication.lock().unwrap();
     let mut s = run.snapshot.lock().unwrap();
     if s["status"] != "running" {
         return;
     }
-    s["rev"] = json!(s["rev"].as_u64().unwrap_or(0) + 1);
+    publication.stop_timer();
+    let next_rev = s["rev"].as_u64().unwrap_or(0) + 1;
+    publication.publish(&mut s, next_rev);
+    s["rev"] = json!(next_rev);
     s["status"] = json!(status);
     s["endedAt"] = json!(now_ms());
     if let Some(r) = result {
@@ -287,6 +408,7 @@ fn settle(
         }
     }
     drop(s);
+    drop(publication);
     run.notify.notify_waiters()
 }
 // JavaScript RPC cursors are numbers, not integer-only indices. Preserve their
@@ -528,10 +650,11 @@ fn start(
     }
     let (tx, _) = watch::channel(false);
     let run = Arc::new(Run {
-        snapshot: Mutex::new(snap),
+        snapshot: Mutex::new(snap).into(),
+        publication: Default::default(),
         request: req.clone(),
         task,
-        notify: Notify::new(),
+        notify: Notify::new().into(),
         cancel: tx,
     });
     // Serialize follow-up registration with Stop, but never hold this guard over I/O.
@@ -582,7 +705,7 @@ fn start(
         // Keep the large provider/task state machine out of this poll frame.
         // Tokio's outer task boxing does not shrink nested inline polling frames.
         let work: futures_util::future::BoxFuture<'_, _> = if task {
-            Box::pin(tasks::perform(&state, &run))
+            tasks::perform(&state, &run)
         } else {
             Box::pin(provider::run(&state, &run, &run.request))
         };
@@ -999,5 +1122,7 @@ pub(super) fn validate_schema(schema: &Value, value: &Value) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
+mod publication_tests;
 #[cfg(test)]
 mod tests;

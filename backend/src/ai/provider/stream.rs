@@ -373,10 +373,12 @@ mod tests {
             "tool_calls",
         );
         let run = std::sync::Arc::new(super::super::Run {
-            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0}))
+                .into(),
+            publication: Default::default(),
             request: json!({}),
             task: false,
-            notify: tokio::sync::Notify::new(),
+            notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
         });
         stream.record(&Activity::new(&run), 0, true);
@@ -421,10 +423,12 @@ mod tests {
             .collect();
         let stream = streamed_turn(&deltas, "stop");
         let run = std::sync::Arc::new(super::super::Run {
-            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0}))
+                .into(),
+            publication: Default::default(),
             request: json!({}),
             task: false,
-            notify: tokio::sync::Notify::new(),
+            notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
         });
         let activity = Activity::new(&run);

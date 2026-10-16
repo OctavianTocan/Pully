@@ -262,3 +262,54 @@ it('rejects malformed write replies and never installs a corrupt conflict winner
   call.mockRejectedValueOnce(new Error('The cached diff changed. Reload before saving.')).mockResolvedValueOnce(malformed)
   await expect(cache.putDiff(fresh.key, fresh.diff, fresh.headSha, { expectedRevision: null })).rejects.toThrow('The cached diff changed')
 })
+
+it.each(['updated entry', 'conflict winner'])('clears the session returned by a deferred refresh %s without another read', async (replyKind) => {
+  const initial = { ...cacheEntry(), llmSession: { messages: [], chatStartIndex: 0 } }
+  let stored: PrCacheEntry = initial
+  const started = deferred()
+  const finish = deferred()
+  const call = vi.fn(async (method: string, args: any) => {
+    expect(method).toBe(LOCAL_RPC.cacheDiff)
+    if (args.method === 'get')
+      return structuredClone(stored)
+    if (args.method === 'putDiff') {
+      started.resolve()
+      await finish.promise
+      if (args.values[2] === stored.revision)
+        stored = { ...stored, diff: args.values[0], headSha: args.values[1], revision: 'refreshed' }
+      return structuredClone(stored)
+    }
+    if (args.method === 'setLlmSession') {
+      if (args.values[1] !== JSON.stringify(stored.llmSession ?? null))
+        throw new Error('The chat changed on the server. Reload before saving.')
+      stored = { ...stored, llmSession: args.values[0] }
+      return null
+    }
+    throw new Error(`Unexpected cache method: ${args.method}`)
+  })
+  const cache = rpcCache(call)
+  const observed = await cache.get(initial.key)
+  const refresh = cache.putDiff(initial.key, { ...initial.diff, title: 'Refreshed diff' }, initial.headSha, { expectedRevision: observed!.revision })
+  await started.promise
+  const completedSession = {
+    messages: [
+      { role: 'user', content: 'Why?', timestamp: 1 },
+      { role: 'assistant', content: [{ type: 'text', text: 'Finished on the server.' }], timestamp: 2 },
+    ],
+    chatStartIndex: 0,
+  }
+  stored = {
+    ...stored,
+    revision: replyKind === 'conflict winner' ? 'concurrent-diff' : stored.revision,
+    llmSession: completedSession,
+  }
+  finish.resolve()
+  const displayed = await refresh
+  expect(displayed.llmSession).toEqual(completedSession)
+  expect(displayed.revision).toBe(replyKind === 'conflict winner' ? 'concurrent-diff' : 'refreshed')
+
+  await cache.setLlmSession(initial.key, undefined)
+  expect(stored.llmSession).toBeUndefined()
+  expect(call.mock.calls.map(([, args]) => args.method)).toEqual(['get', 'putDiff', 'setLlmSession'])
+  expect(call.mock.calls[2][1].values[1]).toBe(JSON.stringify(displayed.llmSession))
+})

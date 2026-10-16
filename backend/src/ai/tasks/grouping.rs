@@ -1,8 +1,6 @@
 //! Grouping generation, reconciliation and the chat-bound persistence capability.
 use super::{add_usage, array, iso, locale, obj, string, strings, update_diff, update_diff_async};
-use crate::ai::{
-    check, prepare_structured_answer, provider, record, Run, StructuredAnswerPreparation,
-};
+use crate::ai::{check, prepare_structured_answer, record, Run, StructuredAnswerPreparation};
 use crate::{now_ms, required, text, AppState};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
@@ -30,13 +28,14 @@ pub(super) async fn analyze(
     mut job: Value,
     entry: &Value,
     heading: &str,
+    invoke_provider: super::TaskProvider,
 ) -> Result<(String, Value)> {
     let r = &run.request;
     let diff = &entry["diff"];
     job["schema"] = grouping_schema();
     job["prompt"] = json!(format!("{heading}\nRead the diff. Group files by intent, with at most one child level. Every changed path must appear exactly once. Labels must be at most four words and distinct at a glance: no two groups, and no two children, start with the same words. A child label must never repeat its parent label, since the phone shows Parent › Child and cuts long labels. Explain the change overall and summarize each file."));
     let (mut answer, mut usage) =
-        provider::run_prepared(state, run, &job, StructuredAnswerPreparation::Grouping).await?;
+        invoke_provider(state, run, &job, StructuredAnswerPreparation::Grouping).await?;
     check(run)?;
     let first = grouping_arguments(&serde_json::from_str::<Value>(&answer)?);
     if let Some(error) = coverage_error(diff, &first) {
@@ -51,8 +50,7 @@ pub(super) async fn analyze(
         let mut repair = job.clone();
         repair["prompt"] = json!(format!("{}\nPrevious grouping: {}\n{}\nSubmit the complete corrected grouping, with every changed path exactly once.",text(&job,"prompt"),first,error));
         let (repaired, spent) =
-            provider::run_prepared(state, run, &repair, StructuredAnswerPreparation::Grouping)
-                .await?;
+            invoke_provider(state, run, &repair, StructuredAnswerPreparation::Grouping).await?;
         check(run)?;
         answer = repaired;
         add_usage(&mut usage, &spent);
@@ -427,9 +425,11 @@ mod tests {
         let (cancel, _) = watch::channel(false);
         let run = Run {
             request: json!({"kind":"chat","key":"test","locale":"en","model":{"engine":"pi","model":"test"}}),
-            snapshot: Mutex::new(json!({"id":"chat","status":"running","rev":0,"activities":[]})),
+            snapshot: Mutex::new(json!({"id":"chat","status":"running","rev":0,"activities":[]}))
+                .into(),
+            publication: Default::default(),
             task: true,
-            notify: Notify::new(),
+            notify: Notify::new().into(),
             cancel,
         };
         let mut ctx = context(&diff);

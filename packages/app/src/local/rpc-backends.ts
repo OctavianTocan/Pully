@@ -133,6 +133,12 @@ export function createRpcSource(rpc: Pick<LocalRpc, 'call'>, pending: Promise<st
  * or malformed read results MUST become cache misses, while malformed putDiff
  * replies MUST fail instead of installing invalid data (R14 finding 4, 16 Oct 2026).
  */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] rpc-session-cas-follows-returned-entries
+ * Every accepted full cache entry, including a putDiff conflict winner, MUST update
+ * the observed chat session used by the next session write (R15 finding 9,
+ * 16 Oct 2026; web-cache-writes-preserve-server-state).
+ */
 export function createRpcDiffCache(rpc: Pick<LocalRpc, 'call'>, fallback: DiffCache): DiffCache {
   const sessions = new Map<string, string>()
   const call = (method: string, key: string, ...values: unknown[]) => rpc.call(LOCAL_RPC.cacheDiff, { method, key, values })
@@ -152,7 +158,9 @@ export function createRpcDiffCache(rpc: Pick<LocalRpc, 'call'>, fallback: DiffCa
       if (options?.expectedRevision === undefined)
         throw new Error('A diff write needs the revision observed before fetching.')
       try {
-        return v.parse(PrCacheEntrySchema, await call('putDiff', key, diff, headSha, options.expectedRevision, options))
+        const entry = v.parse(PrCacheEntrySchema, await call('putDiff', key, diff, headSha, options.expectedRevision, options))
+        sessions.set(key, JSON.stringify(entry.llmSession ?? null))
+        return entry
       }
       catch (error) {
         if (error instanceof Error && error.message === 'The cached diff changed. Reload before saving.') {

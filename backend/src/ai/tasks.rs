@@ -233,6 +233,7 @@ fn patch_turn(state: &AppState, run: &Run, patch: Value) -> Result<()> {
 }
 pub(super) fn failed(state: &AppState, run: &Run, error: &str, stopped: bool) -> Result<()> {
     if ["ask", "inbox"].contains(&text(&run.request, "kind")) {
+        flush_activity_updates(run);
         let activities = run.snapshot.lock().unwrap()["activities"].clone();
         patch_turn(
             state,
@@ -449,6 +450,42 @@ fn update_diff(
     state.host.storage.update(&format!("diff:{key}"),|old|{check(run)?;let mut old=old.context("This diff is no longer cached; open it again.")?;if &old["headSha"]!=head{bail!("The pull request changed while the model was working. Run again on the current head.")};f(&mut old)?;old["sizeBytes"]=json!(serde_json::to_vec(&old)?.len());Ok(old)})?;
     Ok(())
 }
+const COMMIT_PROMPT_LIMIT: usize = 16 * 1024;
+/// @cc [owner:OctavianTocan,label:product] rust-prompts-keep-multi-commit-context
+/// Analysis and chat MUST share the canonical oldest-first commit SHA and first-line
+/// message context for multi-commit diffs. That context MUST be bounded and explicitly
+/// indicate omitted commits (R15 finding 5, 16 Oct 2026; former buildPrContextParts).
+fn commit_heading(diff: &Value) -> String {
+    let Some(commits) = diff["commits"]
+        .as_array()
+        .filter(|commits| commits.len() > 1)
+    else {
+        return String::new();
+    };
+    let mut heading = format!("\n---COMMITS--- ({}, oldest first)\n", commits.len());
+    let mut included = 0;
+    for commit in commits.iter().take(128) {
+        let sha: String = text(commit, "sha").chars().take(7).collect();
+        let subject = text(commit, "message").lines().next().unwrap_or("");
+        let mut chars = subject.chars();
+        let short: String = chars.by_ref().take(256).collect();
+        let clipped = if chars.next().is_some() { "…" } else { "" };
+        let line = format!("{sha} {short}{clipped}\n");
+        // Reserve room for the omission marker, including the count.
+        if heading.len() + line.len() + 80 > COMMIT_PROMPT_LIMIT {
+            break;
+        }
+        heading.push_str(&line);
+        included += 1;
+    }
+    if included < commits.len() {
+        heading.push_str(&format!(
+            "[{} more commits omitted]\n",
+            commits.len() - included
+        ));
+    }
+    heading
+}
 /// @cc [owner:OctavianTocan,label:product] rust-agent-manifest-keeps-rename-origin
 /// Every shared task manifest MUST retain previousPath when present, including pure
 /// renames with no textual hunks (R14 review #8, 16 Oct 2026).
@@ -461,13 +498,46 @@ fn prompt_heading(diff: &Value) -> Result<String> {
         entry
     }).collect();
     Ok(format!(
-        "Title: {}\nDescription: {}\nFiles: {}",
+        "Title: {}\nDescription: {}{}\nFiles: {}",
         text(diff, "title"),
         text(diff, "description"),
+        commit_heading(diff),
         serde_json::to_string(&manifest)?
     ))
 }
-pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(String, Value)> {
+pub(super) fn perform<'a>(
+    state: &'a Arc<AppState>,
+    run: &'a Arc<Run>,
+) -> futures_util::future::BoxFuture<'a, Result<(String, Value)>> {
+    perform_with_provider(state, run, |state, run, job, preparation| {
+        Box::pin(provider::run_prepared(state, run, job, preparation))
+    })
+}
+type TaskProvider = for<'a> fn(
+    &'a Arc<AppState>,
+    &'a Arc<Run>,
+    &'a Value,
+    StructuredAnswerPreparation,
+) -> futures_util::future::BoxFuture<'a, Result<(String, Value)>>;
+/// @cc [owner:OctavianTocan,label:architecture] rust-chat-dispatch-keeps-default-stack
+/// Ordinary chat turns MUST work on Tokio's default thread stack without enlarged
+/// stack settings. The task dispatch boundary MUST keep its large async state out of
+/// caller futures (R15 failure/retry fixture verification, 16 Oct 2026).
+fn perform_with_provider<'a>(
+    state: &'a Arc<AppState>,
+    run: &'a Arc<Run>,
+    invoke_provider: TaskProvider,
+) -> futures_util::future::BoxFuture<'a, Result<(String, Value)>> {
+    // Boxing only at tokio::spawn is too late for nested callers: constructing and
+    // polling inline dispatch futures inflated each caller's frame by 120+ KiB.
+    Box::pin(perform_task(state, run, invoke_provider))
+}
+// Request-local injection exercises the full task path without network or Docker.
+async fn perform_task(
+    state: &Arc<AppState>,
+    run: &Arc<Run>,
+    invoke_provider: TaskProvider,
+) -> Result<(String, Value)> {
     let r = &run.request;
     let kind = text(r, "kind");
     let key = text(r, "key");
@@ -515,7 +585,9 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
         .cloned()
         .unwrap_or(json!({"messages":[],"chatStartIndex":0}));
     match kind {
-        "analyze" => return grouping::analyze(state, run, job, &entry, &heading).await,
+        "analyze" => {
+            return grouping::analyze(state, run, job, &entry, &heading, invoke_provider).await
+        }
         "critique" => {
             job["schema"] = critique_schema();
             let lens = if !text(r, "lens").is_empty() {
@@ -603,7 +675,20 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
         }
         _ => bail!("Unsupported task"),
     }
-    let (answer, usage) = provider::run(state, run, &job).await?;
+    let (answer, usage) =
+        match invoke_provider(state, run, &job, StructuredAnswerPreparation::Strict).await {
+            Ok(answer) => answer,
+            Err(error) => {
+                if kind == "chat" && check(run).is_ok() {
+                    session["messages"].as_array_mut().unwrap().push(json!({
+                        "role":"assistant", "content":[], "stopReason":"error",
+                        "errorMessage":sanitize(&error.to_string()), "timestamp":now_ms()
+                    }));
+                    save_chat_session(state, run, &entry, session).await?;
+                }
+                return Err(error);
+            }
+        };
     check(run)?;
     match kind {
         "critique" => {
@@ -639,26 +724,20 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
                 }
             }
             session["messages"].as_array_mut().unwrap().push(json!({"role":"assistant","content":[{"type":"text","text":answer}],"timestamp":now_ms()}));
-            let expected_session = entry.get("llmSession").cloned();
-            let saved_session = session.clone();
-            update_diff_async(state, run, &entry["headSha"], move |e| {
-                if e.get("llmSession") != expected_session.as_ref() {
-                    bail!("The conversation changed while the answer was being written. Retry on the current conversation.")
-                }
-                e["llmSession"] = saved_session;
-                Ok(())
-            }).await?;
+            save_chat_session(state, run, &entry, session.clone()).await?;
             suggest(
                 state,
                 run,
                 &job,
                 &answer,
                 Some((&entry["headSha"], session)),
+                invoke_provider,
             )
             .await;
             Ok((answer, usage))
         }
         "ask" | "inbox" => {
+            flush_activity_updates(run);
             let activities = run.snapshot.lock().unwrap()["activities"].clone();
             let mut patch =
                 json!({"answer":answer,"usage":usage,"outcome":"done","activities":activities});
@@ -667,13 +746,35 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
             }
             patch_turn_async(state, run, patch).await?;
             if kind == "inbox" {
-                suggest(state, run, &job, &answer, None).await
+                suggest(state, run, &job, &answer, None, invoke_provider).await
             }
             Ok((answer, usage))
         }
         _ => unreachable!(),
     }
 }
+/// @cc [owner:OctavianTocan,label:product;architecture] rust-chat-failures-preserve-retry-turns
+/// A non-cancelled provider failure MUST save the prepared user question and an empty
+/// assistant with stopReason=error and a sanitized errorMessage before failing the
+/// task. Success and failure saves MUST both enforce the observed head and session;
+/// cancelled or stale work MUST NOT overwrite a newer conversation (R15 finding 6,
+/// 16 Oct 2026; existing web chat retry and task-chat-history-serializes-writers).
+async fn save_chat_session(
+    state: &AppState,
+    run: &Arc<Run>,
+    entry: &Value,
+    session: Value,
+) -> Result<()> {
+    let expected_session = entry.get("llmSession").cloned();
+    update_diff_async(state, run, &entry["headSha"], move |e| {
+        if e.get("llmSession") != expected_session.as_ref() {
+            bail!("The conversation changed while the answer was being written. Retry on the current conversation.")
+        }
+        e["llmSession"] = session;
+        Ok(())
+    }).await
+}
+
 fn add_usage(total: &mut Value, usage: &Value) {
     for key in [
         "inputTokens",
@@ -828,6 +929,7 @@ async fn suggest(
     job: &Value,
     answer: &str,
     session: Option<(&Value, Value)>,
+    invoke_provider: TaskProvider,
 ) {
     let engine = text(job, "engine");
     let mut req = json!({"engine":engine,"effort":"low","system":"Write up to three short useful follow-up questions in the conversation language, each under 80 characters and ending with a question mark. Never repeat the current question. Return only JSON matching the schema.","prompt":format!("Question: {}\nAnswer: {}",run.request.get("question").or(run.request.get("text")).and_then(Value::as_str).unwrap_or("Explain this pull request"),answer.chars().take(6000).collect::<String>()),"schema":obj(json!({"questions":strings()}),&["questions"])});
@@ -851,8 +953,11 @@ async fn suggest(
             }
         }
     }
-    let Ok(Ok((text, _))) =
-        tokio::time::timeout(Duration::from_secs(20), provider::run(state, run, &req)).await
+    let Ok(Ok((text, _))) = tokio::time::timeout(
+        Duration::from_secs(20),
+        invoke_provider(state, run, &req, StructuredAnswerPreparation::Strict),
+    )
+    .await
     else {
         return;
     };
@@ -1126,5 +1231,7 @@ fn validate_brief_refs(value: &Value, diff: &Value) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
+mod chat_tests;
 #[cfg(test)]
 mod tests;

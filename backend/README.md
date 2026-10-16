@@ -104,6 +104,14 @@ working directory, not `--cwd`; absolute paths avoid service ambiguity.
 `--cwd` directory and an explicit `--data-dir`, a GitHub-only server can start
 without a local Git repository; local review endpoints still require one.
 
+Secure working-tree file reads and search require Unix. On Windows and other
+non-Unix platforms, a working-tree snapshot that needs to read an untracked file
+fails, and working-tree full-file expansion and content search are unsupported. These
+operations fail closed because descriptor containment is not implemented there.
+Committed Git sources, including commit and `A..B` / `A...B` range reviews and
+their committed file contents, remain available; no checkout or index switch is
+needed.
+
 For a small, read-only connectivity check after a successful build:
 
 ```sh

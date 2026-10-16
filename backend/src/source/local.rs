@@ -1200,3 +1200,8 @@ async fn search_blobs(
 
 #[cfg(all(test, target_os = "linux"))]
 mod search_tests;
+
+#[cfg(test)]
+mod snapshot_tests;
+#[cfg(test)]
+mod test_support;

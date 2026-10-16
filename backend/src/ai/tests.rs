@@ -9,10 +9,12 @@ fn activity_tail_preserves_unicode_and_boundary() {
 fn run() -> Arc<Run> {
     let (tx, _) = watch::channel(false);
     Arc::new(Run {
-        snapshot: Mutex::new(json!({"id":"test","status":"running","rev":0,"activities":[]})),
+        snapshot: Mutex::new(json!({"id":"test","status":"running","rev":0,"activities":[]}))
+            .into(),
+        publication: Default::default(),
         request: json!({}),
         task: true,
-        notify: Notify::new(),
+        notify: Notify::new().into(),
         cancel: tx,
     })
 }

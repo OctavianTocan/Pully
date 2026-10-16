@@ -1,11 +1,13 @@
 use super::*;
 
-fn preparation_run(request: Value) -> Run {
+pub(super) fn preparation_run(request: Value) -> Run {
     Run {
-        snapshot: Mutex::new(json!({"id":"prepared","status":"running","activities":[],"rev":0})),
+        snapshot: Mutex::new(json!({"id":"prepared","status":"running","activities":[],"rev":0}))
+            .into(),
+        publication: Default::default(),
         request,
         task: true,
-        notify: Notify::new(),
+        notify: Notify::new().into(),
         cancel: watch::channel(false).0,
     }
 }
@@ -102,10 +104,11 @@ fn inbox_retry_replaces_only_the_matching_latest_question() {
 #[test]
 fn tour_stop_previews_include_only_successes() {
     let run = Run {
-        snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+        snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})).into(),
+        publication: Default::default(),
         request: json!({}),
         task: true,
-        notify: tokio::sync::Notify::new(),
+        notify: tokio::sync::Notify::new().into(),
         cancel: tokio::sync::watch::channel(false).0,
     };
     let plan = json!({"title":"Planned","purpose":"Explain","files":["a.rs"]});
@@ -360,10 +363,11 @@ fn answered_history_borrows_but_keeps_last_eight_pairs_in_order() {
 #[test]
 fn tour_plan_and_stop_json_survive_task_snapshots_whole() {
     let run = Run {
-        snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+        snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})).into(),
+        publication: Default::default(),
         request: json!({}),
         task: true,
-        notify: tokio::sync::Notify::new(),
+        notify: tokio::sync::Notify::new().into(),
         cancel: tokio::sync::watch::channel(false).0,
     };
     let long = "A useful description. ".repeat(1000);

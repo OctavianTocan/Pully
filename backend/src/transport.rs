@@ -804,28 +804,33 @@ fn posted_reference(value: &Value) -> Option<String> {
     }
     None
 }
+/// @cc [owner:OctavianTocan,label:security] rust-task-ownership-follows-task-id
+/// Wait and cancel authorization MUST resolve only the stored task's key and its
+/// posted provenance, never caller-supplied key, target or values fields (root
+/// phone-api-one-account; R15 finding 2, 16 Oct 2026).
 async fn requested_key(app: &AppState, name: &str, args: &Value) -> Result<String> {
     let args = if args.is_array() { &args[0] } else { args };
-    for field in ["key", "target"] {
-        if is_posted(text(args, field)) {
-            return Ok(text(args, field).replace(['/', '\\'], ":"));
-        }
-    }
-    if let Some(scope) = posted_reference(&args["values"][0]) {
-        return Ok(scope);
-    }
-    let mut keys: Vec<String> = ["key", "target"]
-        .into_iter()
-        .map(|field| text(args, field))
-        .filter(|key| !key.is_empty())
-        .map(str::to_owned)
-        .collect();
-    if matches!(
+    let keys: Vec<String> = if matches!(
         name,
         "ai-task-wait" | "ai-task-cancel" | "ai-job-wait" | "ai-job-cancel"
     ) {
-        keys.push(crate::ai::task_key(app, text(args, "id"))?);
-    }
+        vec![crate::ai::task_key(app, text(args, "id"))?]
+    } else {
+        for field in ["key", "target"] {
+            if is_posted(text(args, field)) {
+                return Ok(text(args, field).replace(['/', '\\'], ":"));
+            }
+        }
+        if let Some(scope) = posted_reference(&args["values"][0]) {
+            return Ok(scope);
+        }
+        ["key", "target"]
+            .into_iter()
+            .map(|field| text(args, field))
+            .filter(|key| !key.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
     for key in keys {
         if is_posted(&key) {
             return Ok(key.replace(['/', '\\'], ":"));
@@ -1050,6 +1055,201 @@ mod privacy_tests {
                 );
             }
         }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test]
+    async fn posted_task_ids_override_decoys_for_wait_cancel_and_job_aliases() {
+        let root =
+            std::env::temp_dir().join(format!("posted-task-owners-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        app.account_seed.set(true).unwrap();
+        let mut sessions = Vec::new();
+        for (account_id, posted_id) in [("caller", "ownref"), ("owner", "victim")] {
+            app.host
+                .storage
+                .set(
+                    &format!("account:{account_id}"),
+                    &json!({
+                        "id":account_id,"email":format!("{account_id}@example.invalid"),
+                        "createdAt":"2026-10-16T00:00:00Z",
+                        "password":{"salt":"","hash":"","iterations":1}
+                    }),
+                )
+                .unwrap();
+            let session = format!("{account_id}-session");
+            app.host
+                .storage
+                .set(
+                    &format!("account-session:{}", crate::account::sha256(&session)),
+                    &json!({"accountId":account_id}),
+                )
+                .unwrap();
+            app.host
+                .storage
+                .set(
+                    &format!("posted-diff:{posted_id}"),
+                    &json!({"id":posted_id,"accountId":account_id}),
+                )
+                .unwrap();
+            let mut headers = HeaderMap::new();
+            headers.insert("x-pully-session", session.parse().unwrap());
+            sessions.push(headers);
+        }
+        let http = HttpState::new(app.clone(), "127.0.0.1", 1234, vec![], true, None).unwrap();
+        let verify_ownership = async {
+            // Both normalized key aliases and persisted public-key aliases must
+            // authorize the task's actual posted provenance.
+            for key in [
+                "posted:victim",
+                "posted/victim",
+                "posted\\victim",
+                "paste:alias",
+            ] {
+                app.host.storage.set(&format!("diff:{key}"), &json!({
+                    "key":key,"diff":{"ref":{"kind":"posted","id":"victim"},"title":"Private","files":[]}
+                })).unwrap();
+                let held_session = app.jobs.hold_session_for_test(key).lock_owned().await;
+                for (wait, cancel) in [
+                    ("ai-task-wait", "ai-task-cancel"),
+                    ("ai-job-wait", "ai-job-cancel"),
+                ] {
+                    // Hold the chat lock before admission so no provider runs.
+                    let id = crate::dispatch(&app, "ai-task-start", json!({
+                        "kind":"chat","key":key,"locale":"en","text":"Private question","model":{"engine":"pi"}
+                    })).await.unwrap();
+                    for decoy in [
+                        json!({"key":"posted:ownref"}),
+                        json!({"target":"posted/ownref"}),
+                        json!({"values":[{"ref":{"kind":"posted","id":"ownref"}}]}),
+                        json!({"values":[{"diff":{"ref":{"kind":"posted","id":"ownref"}}}]}),
+                        json!({"key":"posted\\ownref","target":"posted:ownref","values":[{"ref":{"kind":"posted","id":"ownref"}}]}),
+                    ] {
+                        // Prove the decoy really is owned by the caller.
+                        assert!(account::authorize_posted(
+                            &app,
+                            &sessions[0],
+                            "review-state",
+                            &decoy
+                        )
+                        .await
+                        .is_ok());
+                        let mut args = decoy;
+                        args["id"] = id.clone();
+                        args["after"] = json!(-1);
+                        for name in [wait, cancel] {
+                            assert_eq!(
+                                requested_key(&app, name, &args).await.unwrap(),
+                                "posted:victim",
+                                "{name}: {key}"
+                            );
+                            assert_eq!(
+                                account::authorize_posted(&app, &sessions[0], name, &args)
+                                    .await
+                                    .unwrap_err()
+                                    .status(),
+                                StatusCode::NOT_FOUND,
+                                "{name}: {key}"
+                            );
+                            assert!(
+                                web_dispatch(&app, name, args.clone()).await.is_err(),
+                                "{name}: {key}"
+                            );
+                            if name.starts_with("ai-task-") {
+                                let response = native(
+                                    State(http.clone()),
+                                    sessions[0].clone(),
+                                    Json(Rpc {
+                                        name: name.into(),
+                                        args: args.clone(),
+                                    }),
+                                )
+                                .await;
+                                assert_eq!(
+                                    response.status(),
+                                    StatusCode::NOT_FOUND,
+                                    "{name}: {key}"
+                                );
+                            }
+                            // An owning account still succeeds even with the
+                            // other account's decoy fields present.
+                            assert!(account::authorize_posted(&app, &sessions[1], name, &args)
+                                .await
+                                .is_ok());
+                        }
+                        let snapshot = if wait == "ai-task-wait" {
+                            let response = native(
+                                State(http.clone()),
+                                sessions[1].clone(),
+                                Json(Rpc {
+                                    name: wait.into(),
+                                    args,
+                                }),
+                            )
+                            .await;
+                            assert_eq!(response.status(), StatusCode::OK);
+                            let bytes = axum::body::to_bytes(response.into_body(), 16 * 1024)
+                                .await
+                                .unwrap();
+                            serde_json::from_slice::<Value>(&bytes).unwrap()["result"].clone()
+                        } else {
+                            crate::dispatch(&app, wait, args).await.unwrap()
+                        };
+                        assert_eq!(snapshot["id"], id);
+                        assert_eq!(
+                            snapshot["status"], "running",
+                            "denied cancellation changed the victim task"
+                        );
+                        assert_eq!(snapshot["text"], "Private question");
+                    }
+                    let args = json!({"id":id,"key":"posted:ownref"});
+                    assert!(account::authorize_posted(&app, &sessions[1], cancel, &args)
+                        .await
+                        .is_ok());
+                    if cancel == "ai-task-cancel" {
+                        let response = native(
+                            State(http.clone()),
+                            sessions[1].clone(),
+                            Json(Rpc {
+                                name: cancel.into(),
+                                args,
+                            }),
+                        )
+                        .await;
+                        assert_eq!(response.status(), StatusCode::OK);
+                        let bytes = axum::body::to_bytes(response.into_body(), 1024)
+                            .await
+                            .unwrap();
+                        assert_eq!(
+                            serde_json::from_slice::<Value>(&bytes).unwrap(),
+                            json!({"result":true})
+                        );
+                    } else {
+                        assert_eq!(crate::dispatch(&app, cancel, args).await.unwrap(), true);
+                    }
+                    let snapshot = crate::dispatch(&app, wait, json!({"id":id,"after":-1}))
+                        .await
+                        .unwrap();
+                    assert_eq!(snapshot["status"], "cancelled");
+                }
+                drop(held_session);
+            }
+            for name in [
+                "ai-task-wait",
+                "ai-task-cancel",
+                "ai-job-wait",
+                "ai-job-cancel",
+            ] {
+                assert!(
+                    requested_key(&app, name, &json!({"id":"missing","key":"posted:ownref"}))
+                        .await
+                        .is_err()
+                );
+            }
+            crate::ai::shutdown(&app).await;
+        };
+        tokio::time::timeout(Duration::from_secs(10), verify_ownership)
+            .await
+            .expect("bounded posted-task authorization fixture");
         std::fs::remove_dir_all(root).unwrap();
     }
     #[tokio::test]

@@ -140,6 +140,12 @@ async fn raw_inner(
             && url.username().is_empty(),
         "Unsupported GitHub origin"
     );
+    // Offline fixtures keep the same origin validation and execute the complete
+    // source loader, without exposing an alternate production API origin.
+    #[cfg(test)]
+    if let Some(response) = snapshot_tests::response(&method, path, body.as_ref(), accept) {
+        return response;
+    }
     let mut req = state
         .http
         .request(method, url)
@@ -756,3 +762,6 @@ mod credential_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod snapshot_tests;

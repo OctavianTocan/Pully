@@ -1,46 +1,7 @@
+use super::test_support::Fixture;
 use super::*;
-struct Fixture {
-    dir: std::path::PathBuf,
-    state: Arc<AppState>,
-}
+
 impl Fixture {
-    async fn new() -> Self {
-        let dir = std::env::temp_dir().join(format!("pulls-batch-search-{}", uuid::Uuid::new_v4()));
-        let root = dir.join("repo");
-        std::fs::create_dir_all(&root).unwrap();
-        git(&root, &["init", "-q"]).await.unwrap();
-        let state = AppState::new(root.clone(), root.join("private-cache")).unwrap();
-        Self { dir, state }
-    }
-    fn write(&self, path: &str, bytes: impl AsRef<[u8]>) {
-        let path = self.state.host.cwd.as_ref().unwrap().join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, bytes).unwrap();
-    }
-    async fn commit(&self) -> String {
-        git(&self.state.host.cwd.as_ref().unwrap(), &["add", "--all"])
-            .await
-            .unwrap();
-        git(
-            &self.state.host.cwd.as_ref().unwrap(),
-            &[
-                "-c",
-                "user.name=Fixture",
-                "-c",
-                "user.email=fixture@example.invalid",
-                "-c",
-                "commit.gpgsign=false",
-                "commit",
-                "-qm",
-                "fixture",
-            ],
-        )
-        .await
-        .unwrap();
-        rev(&self.state.host.cwd.as_ref().unwrap(), "HEAD")
-            .await
-            .unwrap()
-    }
     fn private_links(&self) {
         self.write("private-cache/chat.rs", "call_target private state");
         std::fs::write(self.dir.join("secret"), "call_target outside").unwrap();
@@ -63,11 +24,6 @@ impl Fixture {
             std::os::unix::fs::symlink(target, self.state.host.cwd.as_ref().unwrap().join(name))
                 .unwrap();
         }
-    }
-}
-impl Drop for Fixture {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
 #[tokio::test]
