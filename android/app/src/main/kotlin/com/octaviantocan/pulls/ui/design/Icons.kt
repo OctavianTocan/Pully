@@ -95,6 +95,14 @@ internal object Lu {
     val branch = LuGlyph(1.8f, LuPath("M6 3v12"), LuPath("M15,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M18 9a9 9 0 0 1-9 9"))
     /** Lucide `layers`: a pull request stack. */
     val layers = LuGlyph(1.8f, LuPath("M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"), LuPath("M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"), LuPath("M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"))
+    /** Lucide `git-pull-request`: an open pull request, on its row's tile (N4). */
+    val prOpen = LuGlyph(1.8f, LuPath("M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M13 6h3a2 2 0 0 1 2 2v7"), LuPath("M6 9v12"))
+    /** Lucide `git-pull-request-draft`: a draft, the open mark with its line still dashed. */
+    val prDraft = LuGlyph(1.8f, LuPath("M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M18 6V5"), LuPath("M18 11v-1"), LuPath("M6 9v12"))
+    /** Lucide `git-merge`: a merged pull request. */
+    val prMerged = LuGlyph(1.8f, LuPath("M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M6 21V9a9 9 0 0 0 9 9"))
+    /** Lucide `git-pull-request-closed`: a pull request closed without merging. */
+    val prClosed = LuGlyph(1.8f, LuPath("M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M6 9v12"), LuPath("m21 3-6 6"), LuPath("m21 9-6-6"), LuPath("M18 11.5V15"), LuPath("M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"))
     val search = LuGlyph(2f, LuPath("M4,11a7,7 0 1,0 14,0a7,7 0 1,0 -14,0"), LuPath("m20 20-3.5-3.5"))
     /** Lucide `arrow-up-down`: the Inbox sort. */
     val sort = LuGlyph(2f, LuPath("m21 16-4 4-4-4"), LuPath("M17 20V4"), LuPath("m3 8 4-4 4 4"), LuPath("M7 4v16"))

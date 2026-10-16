@@ -242,11 +242,31 @@ class OverviewFormatTest {
 
     @Test
     fun botsAreToolsNotPeople() {
-        assertTrue(isBotLogin("coderabbitai"))
-        assertTrue(isBotLogin("CodeRabbitAI"))
-        assertTrue(isBotLogin("some-app[bot]"))
-        assertFalse(isBotLogin("OctavianTocan"))
-        assertFalse(isBotLogin(null))
+        // GitHub's word decides: the server marks an app's account, and a "[bot]" login is one (N31).
+        assertTrue(isBot(PrActor("chatgpt-codex-connector", bot = true)))
+        assertTrue(isBot(PrActor("devin-ai-integration", bot = true)))
+        assertTrue(isBot(PrActor("github-actions", bot = true)))
+        assertTrue(isBot(PrActor("some-app[bot]")))
+        assertTrue(isBot(PrActor("Some-App[BOT]")))
+        assertFalse(isBot(PrActor("OctavianTocan")))
+        assertFalse(isBot(null))
+        // No list of names: an account GitHub does not mark is a person, whatever it is called.
+        assertFalse(isBot(PrActor("coderabbitai")))
+        assertFalse(isBot(PrActor("github-actions")))
+    }
+
+    @Test
+    fun peopleAndBotsSplitOnTheServersMark() {
+        val answer = """{"overview":{"id":"PR_1","number":1,"timeline":[
+            {"kind":"comment","id":"a","createdAt":"2026-10-16T06:00:00Z","url":"u","bodyHTML":"<p>hi</p>","actor":{"login":"chatgpt-codex-connector","bot":true}},
+            {"kind":"comment","id":"b","createdAt":"2026-10-16T06:01:00Z","url":"u","bodyHTML":"<p>hi</p>","actor":{"login":"OctavianTocan"}},
+            {"kind":"review","id":"c","createdAt":"2026-10-16T06:02:00Z","url":"u","state":"commented","bodyHTML":"<p>ok</p>","comments":[],"commentCount":0,"actor":{"login":"devin-ai-integration","bot":true}},
+            {"kind":"event","id":"d","createdAt":"2026-10-16T06:03:00Z","event":"labeled","actor":{"login":"github-actions","bot":true}}
+        ]}}"""
+        val timeline = parsePrOverviewData(Json.parseToJsonElement(answer))!!.overview.timeline
+        assertEquals(listOf("b"), timeline.filter { inTalk(it, Talk.People) }.map { it.id })
+        assertEquals(listOf("a", "c"), timeline.filter { inTalk(it, Talk.Bots) }.map { it.id })
+        assertEquals(4, timeline.count { inTalk(it, Talk.All) })
     }
 
     @Test

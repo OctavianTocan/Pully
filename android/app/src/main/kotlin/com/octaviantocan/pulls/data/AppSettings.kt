@@ -53,6 +53,10 @@ class AppSettings private constructor(private val context: Context) {
     /** Phone-only: wrap long code lines instead of scrolling them sideways. */
     var codeWrap by mutableStateOf(prefs.getBoolean("codeWrap", false))
 
+    /** The face the app's words are set in, by its `AppFont.id`: Geist until the reader picks another (N10). */
+    var appFont by mutableStateOf(prefs.getString("appFont", null) ?: "geist")
+        private set
+
     /** The face code is set in, by its `CodeFont.id`: Geist Mono until the reader picks another. */
     var codeFont by mutableStateOf(prefs.getString("codeFont", null) ?: "geist-mono")
         private set
@@ -121,6 +125,8 @@ class AppSettings private constructor(private val context: Context) {
         hiddenRepos = if (shown) hiddenRepos - repo else hiddenRepos + repo
         prefs.edit().putStringSet("hiddenRepos", hiddenRepos).apply()
     }
+
+    fun updateAppFont(value: String) { appFont = value; prefs.edit().putString("appFont", value).apply(); changed("appFont", value) }
 
     fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply(); changed("codeFont", value) }
 

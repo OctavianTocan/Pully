@@ -14,6 +14,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -37,7 +41,7 @@ import com.octaviantocan.pulls.ui.home.compactCount
  * have the page's own shapes and places, so when the page replaces it nothing moves; only words fill in (K22).
  */
 @Composable
-internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit, onReview: () -> Unit, onAsk: () -> Unit) {
+internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit, onReview: () -> Unit, onAsk: (question: String) -> Unit) {
     val c = LocalPullsColors.current
     val pull = target as? OpenTarget.Pull
     val known = pull?.let { PullSizes.get(it.owner, it.repo, it.number) }
@@ -69,6 +73,11 @@ internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> 
                 RowsSkeleton(Modifier.padding(top = 14.dp), rows = 5)
             }
         }
-        ReviewBar(reviewFilesLabel(files), approve = false, enabled = true, modifier = Modifier.align(Alignment.BottomCenter), onAsk = onAsk, onMore = {}, onClick = onReview)
+        // The page's own bottom row, the Ask field included, so a question can be asked before the rest arrives (N32).
+        var askText by remember { mutableStateOf("") }
+        ReviewBar(
+            reviewFilesLabel(files), approve = false, enabled = true, modifier = Modifier.align(Alignment.BottomCenter),
+            text = askText, onText = { askText = it }, onFocus = {}, onAsk = onAsk, onClick = onReview,
+        )
     }
 }

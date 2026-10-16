@@ -17,7 +17,9 @@ half transparent over the numbers and tabs, and nothing sits under the status ba
 
 @cc [owner:OctavianTocan,label:design] pr-title-is-whole
 The title is a plain 26sp heading that wraps whole, never cut and never in a bubble
-(rules 2 and 12).
+(rules 2 and 12). The one exception is the Overview's pinned head: once the page scrolls,
+the title folds to one line and MAY end in an ellipsis, and it is whole again at rest
+("ellipsis allowed", recording of 16 Oct 12:10, 20:34 to 21:03; N38, Tavi's decision).
 
 @cc [owner:OctavianTocan,label:product] pr-edit-in-place
 On a pull request the person may edit, a tap on the title turns it into a field with the
@@ -47,8 +49,9 @@ scrolls sideways, fading at the edge it can scroll toward; "…" is the last res
 
 @cc [owner:OctavianTocan,label:product] pr-no-analyze-card
 The Overview is the pull request: no Analyze card and nothing that asks for an analysis.
-A tour starts from the tour icon, and the other passes sit in ⋯ under Analyze options
-(rule 113; H30).
+A tour starts from the tour icon, and Analyze in ⋯ runs the analysis again (rule 113;
+H30). The pull request's ⋯ no longer holds the model or Analyze options (recording of
+16 Oct 12:10, 21:11 to 21:38, N39, Tavi's decision).
 
 @cc [owner:OctavianTocan,label:design;product] pr-summary-switch-is-not-a-pill
 The author's description and the AI's summary are not switched by a pill ("I don't like
@@ -114,13 +117,26 @@ reviewed (or not), a tap opens it and a hold opens its actions. Its checkbox sit
 first line of text (rule 102; F44, F46).
 
 @cc [owner:OctavianTocan,label:product] pr-conversation-folds
-Every comment in Conversation folds; the first starts open and bot comments start folded.
+Every comment in Conversation folds; a person's starts open and a bot's starts folded.
 "commented" is never written, and the age and chevron line up at the right of every
 header (rule 91; F72).
 
 @cc [owner:OctavianTocan,label:product] pr-conversation-narrows
 When both people and bots spoke, chips narrow the Conversation to All, People or Bots
 with their counts, and a narrowed list shows all of its comments (rule 129; J19).
+
+@cc [owner:OctavianTocan,label:product] pr-conversation-skips-the-description
+Conversation MUST NOT show the pull request's description as its first comment: Summary
+already shows it, so the tab starts with what was said after it, and one muted line says
+so when nobody has commented ("the first comment is just the PR's description", recording
+of 16 Oct 12:10, 15:44 to 16:01, N30, Tavi's decision).
+
+@cc [owner:OctavianTocan,label:product] pr-bots-are-githubs-word
+People and Bots split on GitHub's own data: an author is a bot when the server marks it
+(`bot`, from its GraphQL type `Bot`) or its login ends in "[bot]". The app MUST NOT keep a
+list of bot names, so chatgpt-codex-connector, devin-ai-integration and github-actions are
+bots and a person is never one for their name ("without banning names", recording of
+16 Oct 12:10, 16:02 to 16:21, N31).
 
 @cc [owner:OctavianTocan,label:product;design] pr-checks-read-cleanly
 Checks lists failed first, then running, then passed; a row taps through to the check.
@@ -133,9 +149,15 @@ one card under each heading, rows at least 60dp with whole titles (rule 79; J24,
 
 @cc [owner:OctavianTocan,label:product;motion] pr-sheet-opens-pages-not-sheets
 Nothing in a pull request sheet closes it to open another: Text and tools, the ⋯
-actions and everything they open (model, Analyze options, Checks, Review with AI, the
-decisions) are pages of the same `PrSheet` with ← back, and the phone's Back walks back a
-page, closing only from the first (rule 115; J27, J32, J33).
+actions and everything they open (Leave a comment, Review with AI, the decisions) are
+pages of the same `PrSheet` with ← back, and the phone's Back walks back a page, closing
+only from the first (rule 115; J27, J32, J33).
+
+@cc [owner:OctavianTocan,label:product] pr-more-sheet-is-short
+The pull request's ⋯ sheet holds GitHub and Analyze as tiles, then Leave a comment,
+"Approve, merge or close" and Review with AI. It MUST NOT offer the model, Analyze options
+("confusing"), Review progress ("fully") or a Checks tile, since the checks are pinned on
+the Overview's head (recording of 16 Oct 12:10, 21:11 to 21:38, N39, Tavi's decision).
 
 @cc [owner:OctavianTocan,label:product;security] pr-decisions-sit-a-page-in
 Approve, Request changes, the merge, Merge when checks pass, Update branch, Convert to
@@ -145,7 +167,9 @@ in the error colour). Leave a comment stays in the ⋯ sheet (rule 116; J29).
 
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-on-every-view
 The ⋯ sheet is reachable from the Overview, the Diff and the Tour of a pull request, and
-it holds no Commands row (rules 29 and 61; J30).
+it holds no Commands row (rules 29 and 61; J30). On the Tour, ⋯ opens the tour's own
+sheet and the pull request's sheet is its last row, by Tavi's change ("the pull request's
+sheet is not needed there", recording of 16 Oct 12:10, 10:49 to 11:24, N23).
 
 @cc [owner:OctavianTocan,label:design;motion] pr-header-never-shifts
 The header of the three views is drawn once: the back button and a capsule of three view
@@ -277,7 +301,22 @@ stops as a sheet with the read ones ticked. No "2 of 4" (rules 42 and 97; F60, F
 
 @cc [owner:OctavianTocan,label:product;design] tour-ask-bar-is-home-search
 The "Ask about this tour" bar is the same component as Home's search pill and behaves the
-same: focusing it dims the page behind it (recording 15 Oct 13:54, 05:42 to 05:58; K12).
+same: focusing it dims the page behind it, the review's header included (recording 15 Oct
+13:54, 05:42 to 05:58; K12; "the top bar stays bright", recording of 16 Oct 12:10, 14:15
+to 14:26, N29).
+
+@cc [owner:OctavianTocan,label:product] tour-ask-bar-continues-the-chat
+Empty, the Tour's Ask bar shows the Ask sheet's earlier-chats button; once something is
+typed it shows Send. Sending continues the last conversation and opens the Ask sheet on
+it, and a tap on the empty bar when a conversation exists opens the sheet on it. The bar
+is one component (`AskBar`) any page that asks reuses (recording of 16 Oct 12:10, 13:25 to
+14:15, N28). It never shows an empty white circle (11:27 to 11:33, N24).
+
+@cc [owner:OctavianTocan,label:product;motion] tour-stops-fold
+A tap on a stop's title or its chevron folds the stop to its title alone, and a tap again
+opens it; the folds of a tour are kept in memory for the session, and a stop picked from
+the sections or reached with Next stop opens (recording of 16 Oct 12:10, 09:07 to 09:16,
+N15).
 
 @cc [owner:OctavianTocan,label:product] tour-ask-needs-a-tour
 While there is no tour yet, and while the first one is written, the Tour page offers no
@@ -314,6 +353,15 @@ The Pi list has no "Older models" section; it is grouped by provider ("this list
 sense to have a older models", recording 15 Oct 13:54, 00:29; K3). Claude Code and Codex
 keep the short list first and the rest under "Older models" of rule 89.
 
+@cc [owner:OctavianTocan,label:product] models-older-by-tier
+A model goes under "Older models" only when a newer version of its own tier is listed, or
+it is from an older generation than the newest on the list: the tier is the model's name
+less its maker and version ("GPT-6 Sol" is Sol, "Opus 4.1" is Opus). Codex's GPT-6.1 Sol,
+GPT-6 Astra and GPT-6 Luna are all current; GPT-6 Sol and the GPT-5.6 models are older. The
+default and aliases are never older (`modelTier`, `groupModels`). Tavi decided this in the
+recording of 16 Oct 12:10, 04:13 to 04:31 (the lineup is Sol, Astra and Luna; N7),
+replacing one newest model per maker's family.
+
 @cc [owner:OctavianTocan,label:product;design] models-recommended-and-tick
 The recommended choice carries the grey "Recommended" pill and the selected one a plain,
 larger ✓; "Default" is never written beside a check. There is no custom model ID field
@@ -347,9 +395,14 @@ Reviewed is a checkbox and a word, with no pill, chip or border around it (rule 
 Branches are squarish pills, head → base, and a tap copies one (rule 21).
 
 @cc [owner:OctavianTocan,label:product] pr-review-is-the-bottom-action
-The bottom of the Overview carries the reviewing action ("Review 4 files") beside a
-quiet "Ask | ⋯" capsule; there is never a second Ask inside a comment card (rules 7 and
-30).
+The bottom of the Overview, and of the page while it opens, is an Ask field ("Ask about
+this pull request"), the Tour's Ask pill, and beside it one round button with no words
+that moves the review forward: an arrow to the review, a tick when it approves. The ⋯
+lives only in the header's capsule, so the bottom row MUST NOT carry a menu, and there is
+never a second Ask inside a comment card (rules 7 and 30; recording of 16 Oct 12:10, 16:40
+to 17:05; N32). Tavi decided this in place of the "Review 4 files" button beside a quiet
+"Ask | ⋯" capsule. Sending a question opens the Ask sheet on it, and the field dims the
+page behind it as the Tour's does.
 
 @cc [owner:OctavianTocan,label:product] pr-stack-is-a-sheet
 A pull request in a stack says so under its title ("Stacked on #241"), and a tap opens
@@ -404,10 +457,49 @@ tour" line, in the places the stops will take, and the page is never scrolled fo
 recording 15 Oct 15:37, 13:47 to 14:05; L26).
 
 @cc [owner:OctavianTocan,label:design] tour-sketches-read-cleanly
-Pseudocode reads as plain steps that wrap under their indent, never as coloured code cut at
-both edges, and a code block has no "Code" or "text" label (recording 15 Oct 15:37, 14:31
-to 14:33 and 15:35 to 15:48; L27, L30).
+Pseudocode is a code block like the Tour's code: the code face in the code well with its
+copy button, the steering words lightly emphasised and a guide line down each level of
+indent. Its lines wrap under their indent and are never cut at either edge, and a code
+block has no "Code" or "text" label. Tavi changed the plain grey steps of L27 to this ("I
+still don't like the pseudo code", recording of 16 Oct 12:10, 08:16 to 08:20, N13, and
+09:51 to 09:55, N18; recording 15 Oct 15:37, 14:31 to 14:33 and 15:35 to 15:48; L27, L30).
 
 @cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
 A file or line the Tour names opens that one file's diff on a sheet over the Tour, at the
 line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28).
+
+@cc [owner:OctavianTocan,label:product;design] pr-head-pins-title-numbers-tabs
+While the Overview scrolls, only the lines under the title (the repository and author,
+the branches, the stack and Jev lines) go up under it. The title, folded to one line, the
+Changes, Commits, Files and Checks row and the tabs MUST stay pinned at the top ("only
+the branch line scrolls away", recording of 16 Oct 12:10, 20:34 to 21:03; N38).
+
+@cc [owner:OctavianTocan,label:product;design] pr-long-lists-show-more
+A long list on the Overview (the file groups, a group's files, what needs a human) shows
+its first few rows, then a hairline and "Show N more" with a down chevron, which opens the
+rest in place. It is not a fold: nothing closes again, and the findings keep "Open the
+review" under them (Claude's lists, recording of 16 Oct 12:10, 02:14 to 02:36; N5). A cut
+MUST NOT separate groups that share a heading.
+
+@cc [owner:OctavianTocan,label:product;design] pr-groups-say-a-shared-start-once
+File groups in a row named "Prefix › Something" with the same Prefix are listed under one
+line saying the Prefix, and each group's row says only the rest. Two group rows on the
+Overview MUST NOT start with the same words ("Wayland capture producer" four times,
+recording of 16 Oct 12:10, 17:41 to 18:02; N34). A group keeps its fold under its whole
+name.
+
+@cc [owner:OctavianTocan,label:design] pr-texts-never-stand-in-columns
+Two texts MUST NOT sit side by side where one wraps into a narrow column beside the other.
+A file row's whole path runs on after "Worth a look ·" and wraps under it, as one paragraph
+("almost a rule I personally have", recording of 16 Oct 12:10, 19:49 to 20:16; N37).
+
+line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28). A
+file the pull request does not change opens on the same sheet, read at the head commit
+through the path "Load the whole file" uses, scrolled to the line (recording of 16 Oct
+12:10, 10:01 to 10:07, N20).
+
+@cc [owner:OctavianTocan,label:product] diff-focus-lands-whole
+A place opened in the diff or its sheet lands with its line near the top and the code
+scrolled back to its left edge, never at the top of the file or cut off on the left; a
+line the rows do not hold lands on the nearest one (recording of 16 Oct 12:10, 10:11 to
+10:13, N21).

@@ -29,9 +29,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -51,15 +48,11 @@ import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
-import androidx.compose.ui.focus.onFocusChanged
 import com.octaviantocan.pulls.ui.home.SearchDim
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Tour
@@ -83,7 +76,6 @@ import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.PullsShadow
@@ -96,12 +88,27 @@ import kotlinx.coroutines.launch
 import com.octaviantocan.pulls.ui.design.LabelSwitch
 import com.octaviantocan.pulls.core.BACKWARD
 import com.octaviantocan.pulls.core.swipeStep
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.draw.rotate
+import com.octaviantocan.pulls.ui.Command
+import com.octaviantocan.pulls.ui.UseCommands
 
 /**
  * The tour, under the review's header: a calm strip (the ring, the stop you are on, a chevron) that opens the sections
- * as a sheet, one white card per stop, and an Ask pill at the bottom (rule 97). A swipe to the right goes back to the
+ * as a sheet, one white card per stop, and an Ask bar at the bottom (rule 97). A swipe to the right goes back to the
  * Diff ([onChanges]), the page before it. [onReached] reports the furthest stop the reader has scrolled to, which the
- * Tours tab shows as progress.
+ * Tours tab shows as progress. The Ask bar sends a question to [onAsk], which continues the conversation in the Ask
+ * sheet; [onOpenAsk] opens that sheet on the conversation as it is, and [onAskHistory] on its earlier chats (N28).
+ * [onAskDim] says when the bar is focused and empty, for the header the page does not draw to dim with it (N29).
  */
 @Composable
 internal fun PrTourScreen(
@@ -111,7 +118,10 @@ internal fun PrTourScreen(
     onReached: (stop: Int, total: Int, title: String) -> Unit,
     onChanges: () -> Unit,
     onOpenSource: (TourSource) -> Unit,
-    onAsk: (String?) -> Unit,
+    onAsk: (String) -> Unit,
+    onOpenAsk: () -> Unit,
+    onAskHistory: () -> Unit,
+    onAskDim: (focused: Boolean, empty: Boolean) -> Unit = { _, _ -> },
     onProgress: () -> Unit = {},
 ) {
     val c = LocalPullsColors.current
@@ -158,6 +168,30 @@ internal fun PrTourScreen(
     }
     LaunchedEffect(current, n) {
         if (n > 0 && current in 1..n) onReached(current, n, stops[current - 1].title)
+    }
+    // The stops folded to their titles, per tour, kept for the session (N15).
+    val folds = remember(session.target, tour?.generatedAt) { TourFolds.of("${session.target}|${tour?.generatedAt}") }
+    // Commands on the Tour lead with the tour's own actions (N14).
+    UseCommands {
+        if (tour == null) return@UseCommands emptyList()
+        val group = "Tour"
+        listOf(
+            Command("tour.ask", "Ask about this tour", group, keywords = "question chat ai", suggested = true) { onOpenAsk() },
+            Command("tour.diff", "Switch to the diff", group, keywords = "changes files code", suggested = true) { onChanges() },
+            Command("tour.regenerate", "Regenerate tour", group, keywords = "rewrite again new", suggested = true) { startTour(session) },
+            Command("tour.next", "Next stop", group, keywords = "section forward", suggested = true) {
+                val next = (current + 1).coerceAtMost(n)
+                folds.unfold(next - 1)
+                scope.launch { listState.animateScrollToItem(next) }
+            },
+            Command("tour.previous", "Previous stop", group, keywords = "section back", suggested = true) {
+                val previous = (current - 1).coerceAtLeast(1)
+                folds.unfold(previous - 1)
+                scope.launch { listState.animateScrollToItem(previous) }
+            },
+            Command("tour.fold", "Fold every stop", group, keywords = "collapse titles") { folds.foldAll(n) },
+            Command("tour.unfold", "Unfold every stop", group, keywords = "expand open") { folds.unfoldAll() },
+        )
     }
     // `tour.event`: started on the first stop shown, next as the reader reads on, finished at the last, skipped when the
     // page goes before then. Only stop numbers, never what a stop says.
@@ -253,28 +287,40 @@ internal fun PrTourScreen(
                         item(key = "intro") { Intro(session, head, tour, running, preview, onProgress) }
                         if (preview != null) itemsIndexed(preview.planned, key = { index, _ -> "stop:$index" }) { index, (title, purpose) ->
                             val written = preview.written[index]
-                            if (written != null) StopCard(session, written, onOpenSource)
+                            if (written != null) StopCard(session, written, onOpenSource, folded = folds.folded(index), onFold = { folds.toggle(index) })
                             else PlannedStop(title, purpose, next = (0 until index).all { it in preview.written })
                         }
                         itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop ->
-                            Box(Modifier.arrive(index, play = arriving)) { StopCard(session, stop, onOpenSource) }
+                            Box(Modifier.arrive(index, play = arriving)) { StopCard(session, stop, onOpenSource, folded = folds.folded(index), onFold = { folds.toggle(index) }) }
                         }
                         // The tour ends with its last card: no closing line and no button back (rule 97); the header or a swipe leaves it.
                         if (tour != null && tour.glossary.isNotEmpty()) item(key = "glossary") { Card { Glossary(tour.glossary, Modifier) } }
                     }
                 }
             }
-            // The Ask pill is Home's search pill: the same face and size, and the page dims behind it while it waits (K12).
-            // There is nothing to ask about before the tour is written, so there is no pill until then (M12).
+            // The Ask bar is Home's search pill: the same face and size, and the page dims behind it while it waits (K12),
+            // the review's header too (N29). There is nothing to ask about before the tour is written, so there is no
+            // bar until then (M12). Empty, its button is the earlier chats, and a tap on it opens the conversation there
+            // is; a question sent continues that conversation in the Ask sheet (N28).
             var askText by remember { mutableStateOf("") }
             var askFocused by remember { mutableStateOf(false) }
+            LaunchedEffect(askFocused, askText.isEmpty(), tour != null) { onAskDim(tour != null && askFocused, askText.isEmpty()) }
+            DisposableEffect(Unit) { onDispose { onAskDim(false, true) } }
             if (tour != null) SearchDim(askFocused, askText.isEmpty())
-            if (tour != null) AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
+            if (tour != null) AskBar(
+                askText, { askText = it }, "Ask about this tour", onSend = onAsk,
+                modifier = Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                onFocus = { askFocused = it },
+                onOpenHistory = if (session.key != null) onAskHistory else null,
+                onTapEmpty = if (session.saved?.chat.isNullOrEmpty()) null else onOpenAsk,
+            )
         }
     }
 
     if (sections) SectionsSheet(stops, current, onPick = { index ->
         sections = false
+        // A folded stop picked from the sections opens, so the reader lands on what they asked for (N15).
+        folds.unfold(index)
         scope.launch { listState.animateScrollToItem(index + 1) }
     }) { sections = false }
 }
@@ -383,24 +429,66 @@ private fun PlannedStop(title: String, purpose: String, next: Boolean) {
     }
 }
 
-/** One stop: its title, why it matters, its blocks, the takeaway and where to look. */
+/**
+ * One stop: its title, why it matters, its blocks, the takeaway and where to look. A tap on the title or its chevron
+ * folds the stop to the title alone, so a long tour scrolls past what was read ("Tour cards fold to their titles",
+ * recording of 16 Oct 12:10, 09:07 to 09:16, N15); a tap again opens it.
+ */
 @Composable
-private fun StopCard(session: ReviewSession, stop: TourStop, onOpenSource: (TourSource) -> Unit) {
+private fun StopCard(session: ReviewSession, stop: TourStop, onOpenSource: (TourSource) -> Unit, folded: Boolean = false, onFold: () -> Unit = {}) {
     val c = LocalPullsColors.current
+    val motion = rememberMotionEnabled()
+    val turn by animateFloatAsState(if (folded) -90f else 0f, if (motion) tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut) else snap(), label = "stop-fold")
     Card {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(stop.title, style = PullsType.xxl, color = c.text)
-            if (stop.purpose.isNotBlank()) Text(stop.purpose, Modifier.padding(top = 0.dp), style = PullsType.read, color = c.text)
-            if (stop.error != null) com.octaviantocan.pulls.ui.ai.ErrorBox("This section could not be written", stop.error)
-            stop.blocks.forEach { block -> TourBlockView(session, block) }
-            if (stop.takeaway.isNotBlank()) Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.accentWash).padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Column {
+            Row(
+                Modifier.fillMaxWidth().cueClickable(role = Role.Button, onClickLabel = if (folded) "Open ${stop.title}" else "Fold ${stop.title}", onClick = onFold),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(stop.takeaway, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentWashInk)
+                Text(stop.title, Modifier.weight(1f), style = PullsType.xxl, color = c.text)
+                LuIcon(Lu.chevd, Modifier.padding(top = 7.dp).rotate(turn), tint = c.muted, size = 20.dp)
             }
-            if (stop.sources.isNotEmpty()) Sources(stop.sources, onOpenSource)
+            AnimatedVisibility(
+                !folded,
+                enter = if (motion) fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + expandVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) else EnterTransition.None,
+                exit = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkVertically(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None,
+            ) {
+                Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (stop.purpose.isNotBlank()) Text(stop.purpose, style = PullsType.read, color = c.text)
+                    if (stop.error != null) com.octaviantocan.pulls.ui.ai.ErrorBox("This section could not be written", stop.error)
+                    stop.blocks.forEach { block -> TourBlockView(session, block) }
+                    if (stop.takeaway.isNotBlank()) Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(c.accentWash).padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(stop.takeaway, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentWashInk)
+                    }
+                    if (stop.sources.isNotEmpty()) Sources(stop.sources, onOpenSource)
+                }
+            }
         }
+    }
+}
+
+/**
+ * Which stops of each tour are folded to their titles, for as long as the app runs: in memory, never saved, so a tour
+ * opened again in the same session finds its stops as they were left (N15). Keyed by the tour, so a new tour of the
+ * same pull request starts open.
+ */
+internal class TourFolds private constructor() {
+    private val folded = mutableStateMapOf<Int, Boolean>()
+
+    fun folded(index: Int): Boolean = folded[index] == true
+    fun toggle(index: Int) { folded[index] = !folded(index) }
+    fun unfold(index: Int) { folded.remove(index) }
+    fun foldAll(count: Int) { for (i in 0 until count) folded[i] = true }
+    fun unfoldAll() = folded.clear()
+
+    companion object {
+        private val tours = HashMap<String, TourFolds>()
+
+        /** The folds of the tour [key] names, made the first time it is asked for. */
+        fun of(key: String): TourFolds = tours.getOrPut(key) { TourFolds() }
     }
 }
 
@@ -424,44 +512,6 @@ internal fun SectionsSheet(stops: List<TourStop>, current: Int, onPick: (Int) ->
                 })
             }
         }
-    }
-}
-
-/** `.tourask`: Home's 54dp search pill with Send in place of the clear button; sending opens the Ask sheet on the question. */
-@Composable
-private fun AskPill(text: String, onText: (String) -> Unit, onFocus: (Boolean) -> Unit, modifier: Modifier, onAsk: (String?) -> Unit) {
-    val c = LocalPullsColors.current
-    val focus = LocalFocusManager.current
-    fun send() {
-        val question = text.trim()
-        if (question.isEmpty()) return
-        onText("")
-        focus.clearFocus()
-        onAsk(question)
-    }
-    Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        BasicTextField(
-            value = text,
-            onValueChange = onText,
-            singleLine = true,
-            textStyle = PullsType.lg.copy(color = c.text),
-            cursorBrush = SolidColor(c.accentTeal),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { send() }),
-            modifier = Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (text.isEmpty()) Text("Ask about this tour", style = PullsType.lg, color = c.muted, maxLines = 1)
-                    inner()
-                }
-            },
-        )
-        // Grey and inert until there is a question to send (rule 84).
-        SendButton({ send() }, "Send", enabled = text.isNotBlank())
     }
 }
 

@@ -7,8 +7,9 @@ the way (rule 105; motion check).
 @cc [owner:OctavianTocan,label:motion] kit-drags-carry-on-or-settle
 A page, row or sheet let go after a drag settles back where it was or carries on the way
 the finger went, at the speed it was thrown; it never springs toward the start first. A
-throw of 500dp/s counts as a swipe however short, and a throw back against the drag
-cancels it (rule 105).
+throw of 500dp/s counts as a swipe once the finger has taken the page part of the way, so
+a nudge never turns a page by itself (L6, `kit-side-pages-slide-whole`), and a throw back
+against the drag cancels it (rule 105).
 
 @cc [owner:OctavianTocan,label:motion] kit-side-pages-slide-whole
 `SidePages` and `FilePages` move pages that sit side by side the whole width with
@@ -144,9 +145,15 @@ provider, uses the same `SheetSearch` and matching ("most bottom sheets that we 
 benefit a lot from search", recording 15 Oct 15:37, 12:26 to 12:36; L4, L23, L36).
 
 @cc [owner:OctavianTocan,label:design] kit-fold-headings-line-up
-Every fold heading on a page has its chevron on one line at the right edge whatever its
-name's length, and the hairline under it ("these chevrons are not aligned", recording
-15 Oct 15:37, 08:05 to 08:21; L3, L12). Sheets have no fold headings (kit-sheet-headings).
+Every fold heading on a page reads "Name (count) ⌄": the count in parentheses right after
+the name and the chevron right after the count, on the name's line whatever its length (a
+long name gives way at its end), and the hairline under it ("these chevrons are not
+aligned", recording 15 Oct 15:37, 08:05 to 08:21; L3, L12). Anything else a heading
+carries, such as a section's + and −, sits at its right edge in the same fixed columns as
+the rows' numbers, so the numbers of a list line up. Tavi decided this in the recording of
+16 Oct 12:10, 00:08 to 00:47, 14:57 and 18:03 to 18:21 ("those two are rules"; N1, N35),
+replacing the count and chevron at the right edge. Sheets have no fold headings
+(kit-sheet-headings).
 
 @cc [owner:OctavianTocan,label:design] kit-sheet-headings
 Every bottom sheet heads its sections with the one `SheetHeading`, the small muted heading
@@ -165,3 +172,27 @@ for it ends in an ellipsis and never wraps out of sight (recording 15 Oct 15:37,
 A picture in Markdown is drawn from a load at the screen's density, as sharp as on GitHub,
 and a tap on it opens its link, or the picture itself, never what is under the text
 (recording 15 Oct 15:37, 09:10 to 09:28; L14, L15).
+
+@cc [owner:OctavianTocan,label:design;architecture] kit-one-text-field
+Every place that takes typing is built on the kit's one field, `FieldText`, and a framed
+one on `FieldFrame`: one height, one inner padding, one text style, the placeholder in the
+muted ink in that same style, and the teal cursor. A field at the bottom of a page is the
+pill; a search on a sheet has the cards' corner and shadow and sits `SheetTopGap` under
+the ✕ (Commands too). The ✕ that clears a field sits the same distance from its end
+everywhere. No screen calls Compose's `BasicTextField` or `TextField` itself; the bans check
+holds the remaining ones to a baseline that only shrinks. Tavi asked for this in the
+recording of 16 Oct 12:10, 03:23 to 04:03 and 15:10 to 15:36 ("go through the entire
+project and standardize this stuff"; N6).
+
+@cc [owner:OctavianTocan,label:design] kit-fields-fade-where-text-hides
+Where a field's text has scrolled out of sight, it fades into the field at that edge: at
+the start or end of a one-line field, at the top or bottom of one that scrolls through
+lines. An edge with nothing hidden past it has no fade, and the fade grows with how far the
+text has scrolled. Tavi asked for this in the recording of 16 Oct 12:10, 05:47 to 06:00
+(fade both ways, sideways and up and down; N9).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-footer-floats
+A full sheet's footer floats over its body: the body runs on under the footer and
+dissolves into the paper there, as a page does under its floating bar, and its end clears
+the footer so the last line can be scrolled above it. A full sheet never ends on a solid
+band of paper behind its footer (recording of 16 Oct 12:10, 13:06 to 13:16, N27).

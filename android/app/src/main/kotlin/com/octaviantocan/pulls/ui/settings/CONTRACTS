@@ -62,3 +62,10 @@ links in Pulls, that shows whether Android sends tapped github.com links to Pull
 MUST read Android's own answer each time Pulls comes back, and tapping it opens Pulls'
 Open by default page, since only the reader can allow it (Tavi, 16 Oct; Android 12 link
 handling).
+
+@cc [owner:OctavianTocan,label:product;design] settings-fonts-section
+Settings has a "Fonts" section of its own with two rows, "App font" and "Code font", each a
+page of faces drawn in themselves. The app font sets every role of the type scale but the
+numbers' Mona Sans and the code face; the code font sets the code face alone. Geist stays
+the default. Tavi asked for this in the recording of 16 Oct 12:10, 06:29 to 06:42 (a font
+for the app as well as for code; N10), moving Code font out of the Code section.

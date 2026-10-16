@@ -39,12 +39,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.SoftChip
@@ -97,10 +95,10 @@ private fun JsonObject.objOrNull(key: String): JsonObject? = this[key] as? JsonO
 private fun JsonObject.objects(key: String): List<JsonObject> = (this[key] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
 private fun JsonObject.texts(key: String): List<String> = (this[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
 
-/** `PrActor`. */
-data class PrActor(val login: String, val avatarUrl: String? = null)
+/** `PrActor`. [bot] is GitHub's word that the account is an app or a bot, not a person (`isBotActor` on the server, N31). */
+data class PrActor(val login: String, val avatarUrl: String? = null, val bot: Boolean = false)
 
-private fun JsonObject?.actor(): PrActor? = this?.strOrNull("login")?.let { PrActor(it, strOrNull("avatarUrl")) }
+private fun JsonObject?.actor(): PrActor? = this?.strOrNull("login")?.let { PrActor(it, strOrNull("avatarUrl"), bool("bot")) }
 
 /** `PrCheck`. `bucket`: failing, pending, passing, skipped. */
 data class PrCheck(
@@ -770,13 +768,13 @@ private fun CardHeader(collapsed: Boolean, onToggle: () -> Unit, trailing: @Comp
     }
 }
 
-/** Accounts that are tools, not people: GitHub apps ("name[bot]") and the usual review and CI bots. Their comments start folded (rule 91). */
-internal fun isBotLogin(login: String?): Boolean {
-    val name = login?.lowercase() ?: return false
-    return name.endsWith("[bot]") || name in KNOWN_BOTS
-}
-
-private val KNOWN_BOTS = setOf("coderabbitai", "github-actions", "dependabot", "renovate", "vercel", "netlify", "codecov", "sonarqubecloud", "socket-security", "copilot")
+/**
+ * An account that is a tool, not a person, as GitHub says it: the server marks an app's account ([PrActor.bot], from its
+ * GraphQL type), and a login ending in "[bot]" is one too. No name is ever looked up in a list, so a new app is a bot
+ * from its first comment and nobody is one for their name ("without banning names", recording of 16 Oct 12:10, 16:02 to
+ * 16:21; N31). A bot's comments start folded (rule 91).
+ */
+internal fun isBot(actor: PrActor?): Boolean = actor != null && (actor.bot || actor.login.endsWith("[bot]", ignoreCase = true))
 
 /** The first line of a comment as plain words, for the dimmed line under a folded comment: no Markdown marks, links as their text. */
 internal fun commentPreview(html: String): String =
@@ -803,13 +801,15 @@ internal enum class Talk(val label: String) { All("All"), People("People"), Bots
 /** Whether [item] belongs under [talk]: an event (a label, a push of the title) only under All. */
 internal fun inTalk(item: PrTimelineItem, talk: Talk): Boolean = when (talk) {
     Talk.All -> true
-    Talk.People -> item !is PrTimelineItem.Event && !isBotLogin(item.actor?.login)
-    Talk.Bots -> item !is PrTimelineItem.Event && isBotLogin(item.actor?.login)
+    Talk.People -> item !is PrTimelineItem.Event && !isBot(item.actor)
+    Talk.Bots -> item !is PrTimelineItem.Event && isBot(item.actor)
 }
 
 /**
- * `PrConversation`: the description card, then the timeline (last 30, "Show n earlier"). A long one is hard to get
- * around, most of it bots (J19), so chips over it narrow it to what people wrote or what bots wrote, each with how many.
+ * `PrConversation`: the timeline (last 30, "Show n earlier"), without the description: Summary already shows it, so it
+ * is not repeated as the first comment ("the first comment is just the PR's description", recording of 16 Oct 12:10,
+ * 15:44 to 16:01; N30). A long one is hard to get around, most of it bots (J19), so chips over it narrow it to what
+ * people wrote or what bots wrote, each with how many.
  */
 @Composable
 fun Conversation(overview: PrOverview) {
@@ -831,21 +831,8 @@ fun Conversation(overview: PrOverview) {
                 }
             }
         }
-        var descriptionOpen by rememberSaveable(overview.id, "description") { mutableStateOf(true) }
-        Column(Modifier.timelineCard(c)) {
-            CardHeader(
-                collapsed = !descriptionOpen, onToggle = { descriptionOpen = !descriptionOpen },
-                trailing = { Text(prTimeAgo(overview.createdAt), style = PullsType.sm, color = c.muted, maxLines = 1) },
-            ) {
-                overview.author?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
-                // A long name wraps whole in its column; the age stays at the right edge (rules 2 and 91).
-                Text(overview.author?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-            }
-            if (descriptionOpen) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) {
-                if (overview.bodyHTML.isNotBlank()) PrHtml(overview.bodyHTML)
-                else Text(t("overview.noDescription"), style = PullsType.sm.copy(fontStyle = FontStyle.Italic), color = c.fade)
-            } else FoldedLine(remember(overview.bodyHTML) { commentPreview(overview.bodyHTML) })
-        }
+        // With the description gone (N30), a pull request nobody has spoken on says so instead of showing an empty tab.
+        if (everything.isEmpty() && overview.timelineHidden == 0) Text("Nobody has commented yet.", Modifier.padding(horizontal = 4.dp), style = PullsType.sm, color = c.muted)
         if (overview.timelineHidden > 0) LinkText(t("overview.moreOnGithub", "n" to overview.timelineHidden)) { uri.openUri(overview.url) }
         if (earlier > 0) LinkText(t("overview.earlier", "n" to earlier)) { showAll = true }
         timeline.drop(earlier).forEach { item -> TimelineEntry(item) }
@@ -904,7 +891,7 @@ private fun CommentCard(item: PrTimelineItem) {
     val body = comment?.bodyHTML ?: review?.bodyHTML.orEmpty()
     val minimized = comment?.minimizedReason
     // A comment GitHub hid, or one a bot wrote, starts folded up; any other starts open (rule 91). Either folds and opens with a tap on its header.
-    var open by rememberSaveable(item.id, "open") { mutableStateOf(minimized == null && !isBotLogin(item.actor?.login)) }
+    var open by rememberSaveable(item.id, "open") { mutableStateOf(minimized == null && !isBot(item.actor)) }
     val collapsed = !open
     Column(Modifier.timelineCard(c)) {
         CardHeader(
@@ -923,17 +910,14 @@ private fun CommentCard(item: PrTimelineItem) {
                 else -> t("overview.timeline.reviewed") to c.muted
             }
             val hidden = minimized?.let { t("overview.timeline.hidden", "reason" to it) }
-            // The name, the decision and a hidden note read as one line that wraps whole, so none of them is ever cut; the
-            // age stays at the right edge (rules 2 and 91).
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = c.text)) { append(softBreaks(item.actor?.login ?: "ghost")) }
-                    verb?.let { (words, color) -> append("  "); withStyle(SpanStyle(color = color)) { append(words) } }
-                    hidden?.let { append("  "); withStyle(SpanStyle(color = c.muted)) { append(it) } }
-                },
-                Modifier.weight(1f, fill = false),
-                style = PullsType.sm,
-            )
+            // The name, the decision and a hidden note read as one line. When they run long the decision moves under the
+            // name; the name keeps to one line and gives way only at its end, and the age stays at the right edge
+            // (rules 91 and 111).
+            FlowRow(Modifier.weight(1f, fill = false), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(item.actor?.login ?: "ghost", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                verb?.let { (words, color) -> Text(words, style = PullsType.sm, color = color) }
+                hidden?.let { Text(it, style = PullsType.sm, color = c.muted) }
+            }
         }
         if (body.isNotBlank() && !collapsed) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) { PrHtml(body) }
         if (collapsed && body.isNotBlank()) FoldedLine(remember(body) { commentPreview(body) })

@@ -75,9 +75,13 @@ private val VERSION = Regex("""\b(\d+)(?:[.\-_](\d+))?\b""")
  * "Opus (1M context)", which stands for whatever is newest. "1M" is not a version.
  */
 internal fun modelVersion(model: CliModel): Pair<Int, Int>? {
-    val found = VERSION.find(model.name) ?: VERSION.find(model.id) ?: describedName(model)?.let { VERSION.find(it) } ?: return null
+    val found = versioned(model)?.second ?: return null
     return found.groupValues[1].toInt() to (found.groupValues[2].toIntOrNull() ?: 0)
 }
+
+/** The words a model's version is read from (its name, else its id, else its description's head) and the version in them. */
+private fun versioned(model: CliModel): Pair<String, MatchResult>? =
+    listOfNotNull(model.name, model.id, describedName(model)).firstNotNullOfOrNull { text -> VERSION.find(text)?.let { text to it } }
 
 /**
  * The versioned name a model's description opens with when its own name is the family alone: Claude Code lists its
@@ -92,24 +96,41 @@ private fun describedName(model: CliModel): String? {
 
 private val DESCRIBED = Regex("""\S+ \d+(?:\.\d+)?""")
 
-/** What a model is a version of: its first word, so "Opus 4.1" and "Opus 5.5" are one family and "GPT-5.5-Codex" and "GPT-5.5" share a version. */
-private fun family(model: CliModel): String = Regex("[a-z]+").find(model.name.lowercase())?.value.orEmpty()
+/** Words that name who makes a model, not which model it is: "GPT-6 Sol" is the Sol tier, "claude-opus-4-1" the Opus one. */
+private val MAKERS = setOf("gpt", "claude")
+
+private val WORD = Regex("[a-z][a-z0-9]*")
 
 /**
- * Splits a CLI's model list the way Claude's own picker does: the newest version of each family from the newest generation
- * (for Claude Code the 5.5 models and Fable), the default, and the aliases come first; every other version goes
- * under "Older models". The CLI's own order is kept inside each group. A list with nothing older is all recent.
+ * The tier a model is a version of, the line a newer version replaces: the words before its version less the maker's
+ * name, with the first word after it. "Opus 4.1" and "Opus 5.5" are the tier "opus"; "GPT-6.1 Sol" and "GPT-6 Sol" the
+ * tier "sol", which "GPT-6 Astra" and "GPT-6 Luna" are not, so a lineup of tiers that share a version number keeps each
+ * tier's newest (recording 16 Oct 12:10, 04:13 to 04:31; N7). "GPT-5.5-Codex" is "codex" and "GPT-5.5" has none.
+ */
+internal fun modelTier(model: CliModel): String {
+    val (text, version) = versioned(model) ?: return ""
+    val lower = text.lowercase()
+    val before = WORD.findAll(lower.substring(0, version.range.first)).map { it.value }.filter { it !in MAKERS }
+    val after = WORD.find(lower, version.range.last + 1)?.value
+    return (before + listOfNotNull(after)).joinToString(" ")
+}
+
+/**
+ * Splits a CLI's model list the way Claude's own picker does: the newest version of each tier ([modelTier]) from the
+ * newest generation (for Claude Code the 5.5 models and Fable; for Codex GPT-6.1 Sol, GPT-6 Astra and GPT-6 Luna, N7),
+ * the default, and the aliases come first; every other version goes under "Older models". The CLI's own order is kept
+ * inside each group. A list with nothing older is all recent.
  */
 internal fun groupModels(models: List<CliModel>): ModelGroups {
     val versions = models.associateWith { modelVersion(it) }
     val newestMajor = versions.values.filterNotNull().maxOfOrNull { it.first } ?: return ModelGroups(models, emptyList())
     val newestOfFamily = models.filter { versions[it] != null }
-        .groupBy { family(it) }
+        .groupBy { modelTier(it) }
         .mapValues { (_, members) -> members.maxOf { versions.getValue(it)!!.let { (major, minor) -> major * 1000 + minor } } }
     val (recent, older) = models.partition { model ->
         val version = versions[model]
         version == null || model.isDefault ||
-            (version.first == newestMajor && version.first * 1000 + version.second == newestOfFamily[family(model)])
+            (version.first == newestMajor && version.first * 1000 + version.second == newestOfFamily[modelTier(model)])
     }
     return ModelGroups(recent, older)
 }

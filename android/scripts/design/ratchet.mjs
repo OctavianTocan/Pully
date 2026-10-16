@@ -41,7 +41,7 @@ export function compare(hits, baseline, kinds, script) {
       const lines = hits[kind]?.[file] ?? []
       const base = baseline[kind]?.[file] ?? 0
       if (lines.length > base) {
-        problems.push(`${file}: ${lines.length} ${info.label}, baseline ${base}. Lines ${[...new Set(lines)].join(', ')}. ${info.advice} (rule ${info.rules.join(', ')})`)
+        problems.push(`${file}: ${lines.length} ${info.label}, baseline ${base}. Lines ${[...new Set(lines)].join(', ')}. ${info.advice}${info.rules.length > 0 ? ` (rule ${info.rules.join(', ')})` : ''}`)
       }
       else if (lines.length < base) {
         problems.push(`${file}: ${info.label} fell from ${base} to ${lines.length}. Run \`${script}\` to lock the gain in.`)

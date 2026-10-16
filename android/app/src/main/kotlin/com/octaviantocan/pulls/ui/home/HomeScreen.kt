@@ -63,7 +63,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -90,7 +89,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -139,6 +137,14 @@ import com.octaviantocan.pulls.ui.design.SidePages
 import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.FloatIcon
+import com.octaviantocan.pulls.ui.design.FieldFrame
+import com.octaviantocan.pulls.ui.design.FieldHeight
+import com.octaviantocan.pulls.ui.design.FieldPlace
+import com.octaviantocan.pulls.ui.design.FieldText
+import com.octaviantocan.pulls.ui.design.FloatButton
+import com.octaviantocan.pulls.ui.design.IconSwap
+import com.octaviantocan.pulls.sound.Emphasis
+import androidx.compose.animation.animateColorAsState
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -501,7 +507,7 @@ internal fun SortButton(shown: Boolean, sort: InboxSort, onClick: () -> Unit) {
         enter = if (!motion) EnterTransition.None else fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + expandHorizontally(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)),
         exit = if (!motion) ExitTransition.None else fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkHorizontally(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)),
     ) {
-        FloatIcon(Lu.sort, "Sort, now ${sort.label}", onClick, Modifier.padding(start = 10.dp), size = 54.dp, iconSize = 22.dp)
+        FloatIcon(Lu.sort, "Sort, now ${sort.label}", onClick, Modifier.padding(start = 10.dp), size = FieldHeight, iconSize = 22.dp)
     }
 }
 
@@ -844,130 +850,6 @@ private const val SEARCH_DIM = 0.5f
 private val SWIPE_BLUR = 1.3.dp
 
 /**
- * `.pr`: number and title on top; author, checks, diff size and age on a second line. Under a kind's heading, rows from
- * several repositories mix, so the second line starts with the [repo] name, muted like the author it comes before. A
- * stacked pull request says where it sits under its number, "2/10" as GitHub counts it (H16), so the second line has
- * room for the name: one line, always across (H15), cut only when it cannot fit at all.
- */
-@Composable
-internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?, repo: String? = null, risk: Boolean = false) {
-    val c = LocalPullsColors.current
-    val title = buildAnnotatedString {
-        // The draft mark is muted at the title's own size, not a smaller run (rule 14).
-        if (pull.isDraft) withStyle(SpanStyle(color = c.muted)) { append("[${t("local.home.draft")}] ") }
-        append(pull.title)
-    }
-    val requested = pull.requestedFromMe ?: (pull.role == "review-requested")
-    val inset = with(LocalDensity.current) { 16.dp.toPx() }
-    Row(
-        Modifier.fillMaxWidth()
-            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
-            .alpha(if (dimmed) 0.55f else 1f)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Column(Modifier.width(52.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("#${pull.number}", style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
-            // A stacked row's column already holds its place in the stack, and a third line would make it taller, so
-            // there the risk is the stack mark turning amber when it is high.
-            StackTag(pull, risk = risk)
-            if (risk && pull.stack == null) RiskTag(pull)
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(title, style = PullsType.row, color = c.text)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
-                    // One line, across (H15): a name never stacks its letters in a narrow column.
-                    Text(if (repo != null) "$repo · ${pull.author}" else pull.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                    WorkMark(work)
-                }
-                Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) { CheckMark(pull) }
-                Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) { DiffNumbers(pull) }
-                Text(compactAge(pull.updatedAtMs, now), Modifier.width(34.dp), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, textAlign = TextAlign.End, maxLines = 1)
-            }
-        }
-    }
-}
-
-/**
- * Jev's risk for the pull request, under its number where the column has room, so the row is no taller for it: one
- * word ("Low", "High"), "High" in the amber the app gives warnings. Shown only while the Inbox is sorted by risk or
- * grouped by kind, so a row says nothing of Jev unless he asked for it ("do not run it by default", "we are making the
- * rows way too tall": recording 16 Oct 09:50, 00:08 to 00:37; M1). Under a kind's heading the kind is the heading.
- */
-@Composable
-private fun RiskTag(pull: PullRow) {
-    val jev = pull.jev ?: return
-    val c = LocalPullsColors.current
-    val high = jev.riskLevel == JEV_RISK_WORDS.lastIndex
-    Text(
-        JEV_RISK_SHORT[jev.riskLevel], Modifier.semantics { contentDescription = jev.riskWords },
-        style = PullsType.sm, color = if (high) c.amber else c.muted, maxLines = 1, softWrap = false,
-    )
-}
-
-/** [JEV_RISK_WORDS] in one word each, for the narrow column under a row's number. */
-private val JEV_RISK_SHORT = listOf("Trivial", "Low", "Medium", "High")
-
-/**
- * A stacked pull request's place in its stack, under its number: the layers glyph and "2/10", its layer and how many
- * there are, counted from the bottom as GitHub does (H16). The PR page's mark and Stack sheet show the whole stack.
- */
-@Composable
-private fun StackTag(pull: PullRow, risk: Boolean = false) {
-    val stack = pull.stack ?: return
-    val c = LocalPullsColors.current
-    val place = stackPlace(stack)
-    val jev = pull.jev?.takeIf { risk }
-    val high = jev != null && jev.riskLevel == JEV_RISK_WORDS.lastIndex
-    Row(
-        Modifier.semantics(mergeDescendants = true) {
-            contentDescription = (place?.let { "Layer ${stack.position} of ${stack.size} in a stack" } ?: "In a stack") + (jev?.let { ", ${it.riskWords}" } ?: "")
-        },
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        LuIcon(Lu.layers, tint = if (high) c.amber else c.muted, size = 14.dp)
-        place?.let { Text(it, style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false) }
-    }
-}
-
-/** "2/10": a layer's place in its stack, or null when the size is not known. */
-internal fun stackPlace(stack: com.octaviantocan.pulls.data.PullStack): String? =
-    if (stack.size >= stack.position && stack.size > 1 && stack.position > 0) "${stack.position}/${stack.size}" else null
-
-/** The CI mark: a red cross when checks fail or the branch conflicts, a green tick when they pass, an amber dot while they run. */
-@Composable
-private fun CheckMark(pull: PullRow) {
-    val c = LocalPullsColors.current
-    when {
-        pull.checks == "failure" || pull.mergeable == "conflicting" ->
-            LuIcon(Lu.xc, tint = c.error, size = 18.dp, contentDescription = if (pull.checks == "failure") t("pulls.checks.failure") else t("triage.conflict"))
-        pull.checks == "success" -> LuIcon(Lu.okc, tint = c.success, size = 18.dp, contentDescription = t("pulls.checks.success"))
-        pull.checks == "pending" -> Box(Modifier.size(8.dp).clip(CircleShape).background(StatusColors.amber500))
-    }
-}
-
-@Composable
-private fun DiffNumbers(pull: PullRow) {
-    DiffCounts(pull.additions ?: return, pull.deletions ?: 0)
-}
-
-/**
- * `.dx`: `+180` in green over a 56dp column, `−32` in red over 40dp, in the mono face, side by side. Every list that
- * counts lines (the Inbox, the Files sheet, a summary's files) draws them with this one (K27).
- */
-@Composable
-internal fun DiffCounts(additions: Int, deletions: Int) {
-    val c = LocalPullsColors.current
-    val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium, textAlign = TextAlign.End)
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("+${compactCount(additions)}", Modifier.width(56.dp), style = mono, color = c.success, maxLines = 1, softWrap = false)
-        Text("−${compactCount(deletions)}", Modifier.width(40.dp), style = mono, color = c.error, maxLines = 1, softWrap = false)
-    }
-}
-
-/**
  * While a pill's field waits for its first letter the page behind it dims a little, and a tap on it puts the keyboard
  * away; once something is typed the page is what the field is for, so it is shown at full strength and takes taps.
  * The dim starts with the tap, not when the keyboard is up, and comes in quickly; it goes a little slower than it came,
@@ -997,10 +879,11 @@ internal fun SearchDim(focused: Boolean, empty: Boolean) {
 }
 
 /**
- * `.search`: a 54dp white pill. Typing filters the list at once. When the text is a link or a number that names one
- * pull request, an Open pill appears in it and the keyboard's action opens it, so no separate field is needed. With
- * [onAsk], any other text can be asked instead: Ask sits in the pill as a quiet word, and once the text reads as a
- * question it fills like Open and the keyboard's action asks it.
+ * `.search`: Home's pill, the kit's one field in its page frame (N6). Typing filters the list at once. When the text is a
+ * link or a number that names one pull request, an Open pill appears in it and the keyboard's action opens it, so no
+ * separate field is needed. There is no Ask button (no "Ask" button "anywhere": recording 16 Oct 12:10, 05:03 to 05:47;
+ * N8): with [onAsk], once the text ends in a question mark the ✕ turns into the send circle, which asks it, the one
+ * fading into the other, and the keyboard's action asks whatever reads as a question.
  */
 @Composable
 internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier, onFocus: (Boolean) -> Unit = {}, onAsk: (() -> Unit)? = null) {
@@ -1008,27 +891,14 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
     val focus = LocalFocusManager.current
     val askable = onAsk != null && openLabel == null && value.isNotBlank()
     val question = askable && looksLikeQuestion(value)
-    Row(
-        modifier.fillMaxWidth().height(54.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 20.dp, end = if (value.isEmpty()) 20.dp else 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        LuIcon(Lu.search, tint = c.muted, size = 20.dp)
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = PullsType.lg.copy(color = c.text),
-            cursorBrush = SolidColor(c.accentTeal),
+    val asking = askable && endsInQuestion(value)
+    val ask = { focus.clearFocus(); onAsk?.invoke(); Unit }
+    FieldFrame(FieldPlace.Page, modifier, search = true, button = value.isNotEmpty()) {
+        FieldText(
+            value, onChange, placeholder,
+            Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
             keyboardOptions = KeyboardOptions(imeAction = if (openLabel != null) ImeAction.Go else if (question) ImeAction.Send else ImeAction.Search, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }, onGo = { onOpen() }, onSend = { focus.clearFocus(); onAsk?.invoke() }),
-            modifier = Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) Text(placeholder, style = PullsType.lg, color = c.muted, maxLines = 1)
-                    inner()
-                }
-            },
+            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }, onGo = { onOpen() }, onSend = { ask() }),
         )
         if (openLabel != null) {
             Box(
@@ -1036,15 +906,30 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
                 contentAlignment = Alignment.Center,
             ) { Text("Open", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
         }
-        if (askable && onAsk != null) {
-            val ask = { focus.clearFocus(); onAsk() }
-            Box(
-                Modifier.height(40.dp).clip(CircleShape).then(if (question) Modifier.background(c.cta) else Modifier)
-                    .cueClickable(role = Role.Button, onClickLabel = "Ask Pulls", onClick = ask).padding(horizontal = if (question) 16.dp else 8.dp),
-                contentAlignment = Alignment.Center,
-            ) { Text("Ask", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (question) c.onCta else c.activeText, maxLines = 1) }
+        if (value.isNotEmpty()) ClearOrSend(asking, onClear = { onChange("") }, onSend = ask)
+    }
+}
+
+/** Whether the search, trimmed, ends in a question mark (more than the mark alone): the ✕ is then the send circle (N8). */
+internal fun endsInQuestion(text: String): Boolean {
+    val trimmed = text.trim()
+    return trimmed.length > 1 && (trimmed.endsWith("?") || trimmed.endsWith("？"))
+}
+
+/**
+ * The button at the end of the search pill: ✕, which empties it, or, while [send], the primary send circle, which asks.
+ * The circle's fill fades in or out as the glyph swaps (rule 73), so the ✕ turns into the send icon in place (N8).
+ */
+@Composable
+private fun ClearOrSend(send: Boolean, onClear: () -> Unit, onSend: () -> Unit) {
+    val c = LocalPullsColors.current
+    val fill by animateColorAsState(if (send) c.primary else c.primary.copy(alpha = 0f), tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), label = "send-fill")
+    FloatButton(if (send) onSend else onClear, if (send) "Ask Pulls" else "Clear search", size = 40.dp, flat = true, emphasis = if (send) Emphasis.Normal else Emphasis.Subtle) {
+        Box(Modifier.matchParentSize().background(fill))
+        IconSwap(send) { on ->
+            if (on) LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) // raw-value-ok: the ink on the primary fill is white in both themes, as on SendButton
+            else LuIcon(Lu.close, tint = c.muted, size = 18.dp)
         }
-        if (value.isNotEmpty()) FloatIcon(Lu.close, "Clear search", { onChange("") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
     }
 }
 
@@ -1146,45 +1031,6 @@ internal fun dismissTour(entry: TourEntry, workTasks: List<WorkTask>, tours: Tou
     } else {
         tours.dismiss(entry.key, taskIds)
         toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
-    }
-}
-
-/**
- * A Tours row is the pull request row with the tour's ring leading it, rule 36's second anatomy: the ring says
- * how far you read, or the orb turns while the tour is written. When the pull request is not in the Inbox its
- * author's column says where the tour stands instead.
- */
-@Composable
-internal fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
-    val c = LocalPullsColors.current
-    val inset = with(LocalDensity.current) { 16.dp.toPx() }
-    Row(
-        Modifier.fillMaxWidth()
-            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(Modifier.padding(end = 4.dp).size(22.dp), contentAlignment = Alignment.Center) {
-            when {
-                entry.writingAt(now) -> Orb(size = 22.dp)
-                // A tour read to the end is a filled tick, so nothing has to say "Read" (H27).
-                entry.doneAt(now) -> OkDot(size = 20.dp)
-                else -> ProgressRing(entry.reached, entry.stops, size = 22.dp)
-            }
-        }
-        Text("#${entry.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(entry.prTitle, style = PullsType.row, color = c.text)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // One line, so it sits level with the checks, the numbers and the age (H28).
-                Text(pull?.author ?: tourState(entry, now), Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                if (pull != null) {
-                    Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) { CheckMark(pull) }
-                    Box(Modifier.width(100.dp), contentAlignment = Alignment.CenterEnd) { DiffNumbers(pull) }
-                }
-                Text(compactAge(pull?.updatedAtMs ?: entry.updatedAt, now), Modifier.width(34.dp), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, textAlign = TextAlign.End, maxLines = 1)
-            }
-        }
     }
 }
 

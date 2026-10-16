@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -47,22 +46,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Activity
 import com.octaviantocan.pulls.data.ChatMessage
+import com.octaviantocan.pulls.ui.design.FieldFrame
+import com.octaviantocan.pulls.ui.design.FieldPlace
+import com.octaviantocan.pulls.ui.design.FieldText
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
-import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.design.SoftChip
-import com.octaviantocan.pulls.ui.design.floatShadow
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.coroutines.launch
@@ -74,6 +73,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.tween
+import com.octaviantocan.pulls.ui.design.PullsMotion
+import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
+import kotlinx.coroutines.flow.first
+import kotlin.math.roundToInt
 
 private val GROUPING_UPDATED = Regex("Grouping updated: (\\d+) groups?")
 
@@ -129,7 +149,7 @@ private fun ReviewSession.startChat(text: String?, retry: Boolean, locale: Strin
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference?, keptScroll: ScrollState?, returning: Boolean, onOpen: (CodePlace) -> Unit, onDismiss: () -> Unit) {
+internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference?, keptScroll: ScrollState?, returning: Boolean, openHistory: Boolean, onOpen: (CodePlace) -> Unit, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
     val task = rememberLiveTask(session, "chat")
@@ -160,28 +180,57 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     val nextQuestions = if (lastAnswer != null && !busy && pending == null) session.saved?.suggestions.orEmpty() else emptyList()
     val failed = task?.status == "failed"
     val scroll = keptScroll ?: rememberScrollState()
-    // Each new line brings the end into view while the reader is at the end; once they scroll up the answer goes on
-    // writing below without pulling them back down, until they come back to the end or ask again ("if I scroll up, you
-    // scroll me down again immediately", recording 15 Oct 15:37, 16:14 to 16:23; L32). A sheet opened again where it was
-    // is left there until something new comes.
-    val stay = remember { booleanArrayOf(returning) }
-    var following by remember { mutableStateOf(true) }
-    val ours = remember { booleanArrayOf(false, false) }
-    val slack = with(LocalDensity.current) { 96.dp.toPx() }
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    // The conversation sticks to its end only while the reader is at the end, as shadcn's Conversation does (its
+    // use-stick-to-bottom): a finger that scrolls up lets go of the end, and new words are written below without pulling
+    // the reader down; letting go at the end, or the round button, takes hold of it again ("streaming scrolls you down",
+    // recording of 16 Oct 12:10, 11:48 to 12:47, N26; L32). Only the reader's own drags count: the sheet's scrolls never
+    // read as the reader's, so a chunk that arrives mid-scroll cannot hand the end back. A sheet opened again where it
+    // was is left there.
+    val slack = with(density) { 48.dp.toPx() }
+    val atEnd by remember(scroll) { derivedStateOf { scroll.value >= scroll.maxValue - slack } }
+    var following by remember { mutableStateOf(!returning) }
     LaunchedEffect(scroll) {
-        snapshotFlow { scroll.isScrollInProgress }.collect { moving ->
-            if (moving && !ours[0]) { ours[1] = true; following = false }
-            if (!moving && ours[1]) { ours[1] = false; following = scroll.value >= scroll.maxValue - slack }
+        scroll.interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is DragInteraction.Start -> following = false
+                is DragInteraction.Stop, is DragInteraction.Cancel -> {
+                    snapshotFlow { scroll.isScrollInProgress }.first { !it }
+                    following = scroll.value >= scroll.maxValue - slack
+                }
+            }
         }
     }
     LaunchedEffect(rows.size, pending, task?.activities?.size, streaming, written?.length) {
-        if (stay[0]) { stay[0] = false; return@LaunchedEffect }
-        if (!following) return@LaunchedEffect
-        ours[0] = true
-        try { scroll.animateScrollTo(scroll.maxValue) } finally { ours[0] = false }
+        if (following) scroll.animateScrollTo(scroll.maxValue)
+    }
+    // A chat opened afresh starts at its end, already there rather than scrolling to it.
+    LaunchedEffect(Unit) {
+        if (returning) return@LaunchedEffect
+        withFrameNanos { }
+        scroll.scrollTo(scroll.maxValue)
+    }
+    // A question sent goes to the top of the sheet with its answer to come under it, as in a chat app, and the sheet does
+    // not follow the answer down: the reader reads from the question (N26). [turnTop] and [contentTop] are where the
+    // latest turn and the top of the conversation are on screen; the turn is at least the sheet's height once a question
+    // is sent here, so the question can always reach the top.
+    var pinTo by remember { mutableIntStateOf(0) }
+    val marks = remember { floatArrayOf(0f, 0f) }
+    LaunchedEffect(pinTo) {
+        if (pinTo == 0) return@LaunchedEffect
+        // The new question is laid out on the next frame.
+        withFrameNanos { }
+        withFrameNanos { }
+        val gap = with(density) { 8.dp.toPx() }
+        scroll.animateScrollTo((marks[0] - marks[1] - gap).roundToInt().coerceIn(0, scroll.maxValue))
     }
     LaunchedEffect(initial) {
-        if (!initial.isNullOrBlank() && !busy) session.sendChat(initial)
+        if (!initial.isNullOrBlank() && !busy) {
+            following = false
+            pinTo++
+            session.sendChat(initial)
+        }
     }
 
     // A file note (or a file) the question is about: it rides on the next question and then goes.
@@ -193,16 +242,19 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
         // How long the question is, never what it says.
         com.octaviantocan.pulls.data.Analytics.track("ask.send", "where" to "pr", "chars" to question.length, "about" to (attached != null))
         val about = attached
-        following = true
+        following = false
+        pinTo++
         session.sendChat(if (about == null) question else "About ${about.label}: \"${about.text}\"\n\n$question")
         attached = null
     }
 
     // The chats this pull request had before, on a searchable sheet over this one (L36).
-    var history by remember { mutableStateOf(false) }
+    var history by remember { mutableStateOf(openHistory) }
     fun newChat() {
         val key = session.key ?: return
         ui.chatError = null
+        // An empty chat starts from the top, its starting questions in view.
+        pinTo = 0
         // The page empties at once; the server keeps the old chat in the history meanwhile (L35, L36).
         session.saved = session.saved?.copy(chat = emptyList(), suggestions = emptyList())
         session.chatChange = session.scope.launch { runCatching { session.repo.clearChat(key) }.onFailure { ui.chatError = it.message }; session.reloadSaved() }
@@ -230,6 +282,23 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
             scroll = scroll,
             // A fresh conversation, in place of a "Clear" button (F69).
             trailing = if (rows.isNotEmpty() && !busy) ({ FloatIcon(Lu.newChat, "New chat", ::newChat) }) else null,
+            // Ask opens at its tall height at once, with no keyboard, and may still be dragged down to half (recording of
+            // 16 Oct 12:10, 11:37 to 11:47, N25).
+            tall = true,
+            // Scrolled up from the end, a round button takes the reader back down and the sheet follows the end again (N26).
+            aboveFooter = {
+                val motion = rememberMotionEnabled()
+                AnimatedVisibility(
+                    !atEnd && scroll.maxValue > 0,
+                    enter = if (motion) fadeIn(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleIn(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), initialScale = 0.8f) else EnterTransition.None,
+                    exit = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), targetScale = 0.8f) else ExitTransition.None,
+                ) {
+                    FloatIcon(Lu.chevd, "Scroll to the end", {
+                        following = true
+                        scope.launch { scroll.animateScrollTo(scroll.maxValue) }
+                    }, size = 40.dp, iconSize = 20.dp)
+                }
+            },
             footer = {
                 attached?.let { about -> AttachedReference(about) { attached = null } }
                 AskField(
@@ -244,41 +313,52 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                 )
             },
         ) {
+            Spacer(Modifier.onGloballyPositioned { marks[1] = it.positionInRoot().y })
             Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (analyzeTask?.running == true && !streaming) Text("The analysis is running. You can ask when it finishes.", style = PullsType.sm, color = c.muted)
                 // The turn sits under its own question: below every saved row while it runs, under the saved
                 // question once the reply is saved, with the answer after it. The orb is drawn once, at one
                 // place in the code, so the orb that ran is the one that settles, where the log was.
-                shown.take(turnAt).forEach { RowView(it) }
-                if (pending != null) UserBubble(pending)
-                // From the moment the question is sent: "Thinking" and the time, then each step with its icon (rule 72). When the
-                // reply is in, the same log folds to "Worked for…" under the question that asked for it, so what is under it
-                // glides up instead of jumping (rule 69).
-                val working = streaming || ui.chatPending != null
-                val sentAt = remember(ui.chatPending) { System.currentTimeMillis() }
-                val turnTask = task?.takeIf { answering } ?: task?.takeIf { !working && lastQuestion >= 0 && it.activities.isNotEmpty() }
-                if (working || turnTask != null) key(turnTask?.id) {
-                    // The tour's progress, line for line: "Thinking" and the time over the steps with their icons, and no
-                    // grey bars or orb under them; what is running shows in the send button (recording 15 Oct 15:37, 16:09
-                    // to 16:37; L31, L33).
-                    AiActivityLogFull(
-                        turnTask?.activities.orEmpty(), working, startedAt = turnTask?.startedAt?.takeIf { it > 0 } ?: sentAt,
-                        endedAt = turnTask?.endedAt, outcome = outcomeOf(turnTask), compact = true, mark = false,
-                    )
-                }
-                // The answer as it is written, in the place the saved reply takes: plain text, never a bubble (rule 99).
-                if (written != null) Answer(written)
-                shown.drop(turnAt).forEach { RowView(it) }
-                if (!streaming && failed && ui.chatPending == null) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(task?.error ?: t("chat.requestFailed"), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
-                        // A failed turn saved nothing, so the question is sent again (web `retry` re-runs an errored reply).
-                        FloatIcon(Lu.redo, "Ask again", { val text = task?.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) }, flat = true, iconSize = 22.dp, tint = c.muted)
+                // The latest turn, from its question on, is one block: the one a question just sent scrolls to the top.
+                val split = if (pending == null && lastQuestion >= 0) lastQuestion else turnAt
+                shown.take(split).forEach { RowView(it) }
+                val room = with(density) { scroll.viewportSize.toDp() } - 14.dp
+                Column(
+                    Modifier.fillMaxWidth().then(if (pinTo > 0 && room > 0.dp) Modifier.heightIn(min = room) else Modifier)
+                        .onGloballyPositioned { marks[0] = it.positionInRoot().y },
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    shown.subList(split, turnAt).forEach { RowView(it) }
+                    if (pending != null) UserBubble(pending)
+                    // From the moment the question is sent: "Thinking" and the time, then each step with its icon (rule 72). When the
+                    // reply is in, the same log folds to "Worked for…" under the question that asked for it, so what is under it
+                    // glides up instead of jumping (rule 69).
+                    val working = streaming || ui.chatPending != null
+                    val sentAt = remember(ui.chatPending) { System.currentTimeMillis() }
+                    val turnTask = task?.takeIf { answering } ?: task?.takeIf { !working && lastQuestion >= 0 && it.activities.isNotEmpty() }
+                    if (working || turnTask != null) key(turnTask?.id) {
+                        // The tour's progress, line for line: "Thinking" and the time over the steps with their icons, and no
+                        // grey bars or orb under them; what is running shows in the send button (recording 15 Oct 15:37, 16:09
+                        // to 16:37; L31, L33).
+                        AiActivityLogFull(
+                            turnTask?.activities.orEmpty(), working, startedAt = turnTask?.startedAt?.takeIf { it > 0 } ?: sentAt,
+                            endedAt = turnTask?.endedAt, outcome = outcomeOf(turnTask), compact = true, mark = false,
+                        )
                     }
-                } else if (!streaming && task?.status == "cancelled") {
-                    Text(t("chat.stopped"), style = PullsType.sm, color = c.muted)
+                    // The answer as it is written, in the place the saved reply takes: plain text, never a bubble (rule 99).
+                    if (written != null) Answer(written)
+                    shown.drop(turnAt).forEach { RowView(it) }
+                    if (!streaming && failed && ui.chatPending == null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(task?.error ?: t("chat.requestFailed"), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.error)
+                            // A failed turn saved nothing, so the question is sent again (web `retry` re-runs an errored reply).
+                            FloatIcon(Lu.redo, "Ask again", { val text = task?.text; if (text != null) session.sendChat(text) else session.sendChat(null, retry = true) }, flat = true, iconSize = 22.dp, tint = c.muted)
+                        }
+                    } else if (!streaming && task?.status == "cancelled") {
+                        Text(t("chat.stopped"), style = PullsType.sm, color = c.muted)
+                    }
+                    ui.chatError?.takeIf { !failed }?.let { Text(it, style = PullsType.sm, color = c.error) }
                 }
-                ui.chatError?.takeIf { !failed }?.let { Text(it, style = PullsType.sm, color = c.error) }
             }
             // An empty chat, the first and every new one alike: the questions to start with as the same rows that follow
             // an answer, in a card, instead of loose chips ("this is not how we do things", 16:58 to 17:12; L35).
@@ -292,7 +372,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
             }
         }
     }
-    if (history) ChatHistorySheet(session, onClose = { history = false }) { following = true }
+    if (history) ChatHistorySheet(session, onClose = { history = false }) { pinTo = 0; following = true; scope.launch { withFrameNanos { }; scroll.scrollTo(scroll.maxValue) } }
 }
 
 /**
@@ -360,7 +440,7 @@ internal fun Answer(text: String) {
 @Composable
 private fun AnswerExtras(session: ReviewSession, text: String, onOpen: (CodePlace) -> Unit, read: List<Activity>, onRedo: (() -> Unit)?, next: List<String>, onAsk: (String) -> Unit) {
     val places = remember(text, read, session.files) {
-        val named = mentionedPlaces(text, { name -> resolveMention(session, name) }, reviewRepo(session))
+        val named = mentionedPlaces(text, { name -> resolveMention(session, name) }, reviewRepo(session)) { name -> codeNameOf(session, name) }
         val opened = readFiles(read).map { (path, line) -> CodePlace(resolveMention(session, path) ?: path, line) }
         named + opened.filter { place -> named.none { it.path == place.path } }.distinctBy { it.path }
     }
@@ -437,26 +517,14 @@ internal fun AskField(
     working: Boolean = false,
 ) {
     val c = LocalPullsColors.current
-    Row(
-        Modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 16.dp, end = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        BasicTextField(
+    FieldFrame(FieldPlace.Page, button = true) {
+        FieldText(
             value = value,
-            onValueChange = onValueChange,
-            singleLine = true,
-            textStyle = PullsType.base.copy(color = c.text),
-            cursorBrush = SolidColor(c.accentTeal),
+            onChange = onValueChange,
+            placeholder = placeholder,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
             modifier = Modifier.weight(1f),
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) Text(placeholder, style = PullsType.base, color = c.muted, maxLines = 1)
-                    inner()
-                }
-            },
         )
         when {
             // The loader is the button: while an answer is on its way the orb turns where Send was, and a tap stops it (L33).

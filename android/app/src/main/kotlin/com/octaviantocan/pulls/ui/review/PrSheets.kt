@@ -3,11 +3,7 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.mutableStateOf
-import com.octaviantocan.pulls.ui.ai.AnalyzePage
-import com.octaviantocan.pulls.ui.ai.AnalyzePageContent
 import com.octaviantocan.pulls.ui.ai.ReviewLensList
-import com.octaviantocan.pulls.ui.ai.analyzePageTitle
-import com.octaviantocan.pulls.ui.ai.rememberCustomAnalysis
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.PullsPagedSheet
 import com.octaviantocan.pulls.data.ReviewFile
@@ -37,7 +33,6 @@ import com.octaviantocan.pulls.ui.ai.CritiquePanel
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.runAnalyze
 import com.octaviantocan.pulls.ui.design.LocalMessages
-import com.octaviantocan.pulls.ui.design.EngineMark
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
@@ -142,8 +137,10 @@ private val AUTO_MERGE_WAITS = setOf("blocked", "checking")
 
 /**
  * The pages of the pull request's sheet. Everything one of its rows opens is a page that slides in inside the same sheet,
- * with ← back to the page it came from, and the phone's Back does the same (rule 78, J27, J33): the analysis model and
- * options, Checks, the AI review's lenses, and the page of decisions with the confirmation each one asks for.
+ * with ← back to the page it came from, and the phone's Back does the same (rule 78, J27, J33): the AI review's lenses,
+ * and the page of decisions with the confirmation each one asks for. The model, Analyze options, Checks and Review
+ * progress are not here: Checks is pinned on the Overview, and the rest confused more than it helped (recording of
+ * 16 Oct 12:10, 21:11 to 21:38; N39).
  */
 internal sealed interface PrPage {
     /** Aa on the Diff: the code's look and the file's own actions. */
@@ -160,10 +157,7 @@ internal sealed interface PrPage {
     data class Confirm(val change: String) : PrPage
     data object Merge : PrPage
     data class Submit(val verdict: String) : PrPage
-    data object Checks : PrPage
     data object Review : PrPage
-    data object Progress : PrPage
-    data class Ai(val page: AnalyzePage) : PrPage
 }
 
 /** The page ← goes back to from [page], in a sheet that opened on [start]. */
@@ -171,10 +165,9 @@ private fun prParent(page: PrPage, start: PrPage): PrPage? = when (page) {
     PrPage.Tools -> null
     PrPage.Font -> PrPage.Tools
     PrPage.Actions -> if (start == PrPage.Tools) PrPage.Tools else null
-    PrPage.Decide, PrPage.Checks, PrPage.Review, PrPage.Progress -> PrPage.Actions
+    PrPage.Decide, PrPage.Review -> PrPage.Actions
     is PrPage.Submit -> if (page.verdict == "COMMENT") PrPage.Actions else PrPage.Decide
     is PrPage.Confirm, PrPage.Merge -> PrPage.Decide
-    is PrPage.Ai -> page.page.parent?.let { PrPage.Ai(it) } ?: PrPage.Actions
 }
 
 /**
@@ -194,7 +187,6 @@ internal fun PrSheet(
     file: ReviewFile? = null,
 ) {
     var page by remember { mutableStateOf(start) }
-    val custom = rememberCustomAnalysis(session)
     val go: (PrPage) -> Unit = { page = it }
     PullsPagedSheet(
         onClose, page, parent = { prParent(it, start) }, onPage = go,
@@ -209,13 +201,7 @@ internal fun PrSheet(
             is PrPage.Confirm -> data?.overview?.let { ConfirmPage(session, top, it, head, current.change, onClose) }
             PrPage.Merge -> data?.let { MergePage(session, top, it, onDone = onClose) }
             is PrPage.Submit -> ReviewSubmitPage(session, top, canVerdict = head.isOpen, start = current.verdict, onDone = onClose)
-            PrPage.Checks -> data?.overview?.let { ChecksList(it.checks, it.checksSummary.hidden, it.url) }
             PrPage.Review -> ReviewLensList(session, onPick = { lens -> onClose(); onReview(lens) })
-            PrPage.Progress -> ReviewProgressPage(session, onClose)
-            is PrPage.Ai -> AnalyzePageContent(
-                session, current.page, custom, onPage = { go(PrPage.Ai(it)) }, onClose = onClose,
-                onModelDone = { go(prParent(current, start) ?: PrPage.Actions) },
-            )
         }
     }
 }
@@ -229,10 +215,7 @@ private fun prPageTitle(page: PrPage, head: PrHead, data: PrOverviewData?): Stri
     is PrPage.Confirm -> confirmLabel(page.change)
     PrPage.Merge -> t("overview.merge.title", "n" to (data?.overview?.number ?: head.label))
     is PrPage.Submit -> t("review.reviewChanges")
-    PrPage.Checks -> "Checks"
     PrPage.Review -> "Review"
-    PrPage.Progress -> t("reviewProgress.title")
-    is PrPage.Ai -> analyzePageTitle(page.page)
 }
 
 /** What the button that makes [change] says, which is also its page's title. */
@@ -244,9 +227,11 @@ private fun confirmLabel(change: String): String = when (change) {
 }
 
 /**
- * `#sheet`: Checks, GitHub and Analyze again as tiles; the analysis model; a comment; and a row into the decisions, which
- * sit a page further in so none of them is one slip of the thumb away (J29). There is no Refresh, since the page takes
- * new commits by itself, and no Commands, which a pull down on any page opens (J30).
+ * `#sheet`: GitHub and Analyze again as tiles; a comment; a row into the decisions, which sit a page further in so none
+ * of them is one slip of the thumb away (J29); and Review with AI. There is no Refresh, since the page takes new commits
+ * by itself, and no Commands, which a pull down on any page opens (J30). Checks is not a tile, since the Overview keeps
+ * them pinned at the top, and the model, Analyze options and Review progress are gone ("confusing", "fully", recording
+ * of 16 Oct 12:10, 21:11 to 21:38; N39).
  */
 @Composable
 private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData?, head: PrHead, onClose: () -> Unit, go: (PrPage) -> Unit) {
@@ -256,8 +241,6 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
     val toaster = LocalToaster.current
     val messages = LocalMessages.current
     val settings = session.settings
-    val overview = data?.overview
-    val failing = overview?.checksSummary?.failing ?: 0
     val repo = remember { Repo(context) }
     val config = remember { ServerStore.load(context) }
     val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine) {
@@ -268,10 +251,6 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
     val canReview = session.pull != null && session.canWrite
 
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        QuickAction("Checks", { go(PrPage.Checks) }, Modifier.weight(1f)) {
-            if (failing > 0) LuIcon(Lu.fail, tint = StatusColors.red(c.dark), size = 22.dp)
-            else LuIcon(Lu.okc, tint = if ((overview?.checksSummary?.total ?: 0) > 0) StatusColors.green(c.dark) else c.muted, size = 22.dp, strokeWidth = 1.8f)
-        }
         QuickAction("GitHub", { if (head.url.isNotBlank()) uri.openUri(head.url) }, Modifier.weight(1f)) { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 22.dp) }
         QuickAction("Analyze", {
             onClose()
@@ -282,19 +261,6 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
                 toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}", cue = Cue.Loading)
             }
         }, Modifier.weight(1f)) { LuIcon(Lu.list, tint = c.text, size = 22.dp) }
-    }
-
-    SheetCard {
-        SheetRow("Model", { go(PrPage.Ai(AnalyzePage.Model)) }, first = true, icon = { EngineMark(config.engine, size = 22.dp) }) {
-            Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
-            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-        }
-        if (session.key != null && cliEngine(context)) {
-            SheetRow("Analyze options", { go(PrPage.Ai(AnalyzePage.Main)) }, iconless = true) {
-                Text(settings.analyzeChoice.title, style = PullsType.sm, color = c.muted, maxLines = 1)
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
-        }
     }
 
     // A comment stays here (Tavi: "you can keep it"); the verdicts went in with the other decisions.
@@ -314,19 +280,11 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
         }
     }
 
-    val ai = session.key != null && cliEngine(context)
-    if (ai || session.files.isNotEmpty()) SheetCard {
-        if (ai) {
-            // One row: the Review page picks General or a lens, and a tap there starts the review.
-            SheetRow("Review with AI", { go(PrPage.Review) }, first = true, icon = { LuIcon(Lu.check, tint = c.text) }) {
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
-        }
-        if (session.files.isNotEmpty()) {
-            // Its own glyph, so the card's icon column stays whole and no glyph repeats (rule 48).
-            SheetRow(t("reviewProgress.title"), { go(PrPage.Progress) }, first = !ai, icon = { LuIcon(Lu.okc, tint = c.text, size = 20.dp) }) {
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-            }
+    // One row: the Review page picks General or a lens, and a tap there starts the review. Alone in its card it needs no
+    // icon column, like the rows above it.
+    if (session.key != null && cliEngine(context)) SheetCard {
+        SheetRow("Review with AI", { go(PrPage.Review) }, first = true, iconless = true) {
+            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
         }
     }
 }

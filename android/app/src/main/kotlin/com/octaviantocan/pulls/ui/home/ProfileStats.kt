@@ -103,14 +103,13 @@ internal object StatsMemory {
         return last
     }
 
-    /** Asks the server for the numbers and keeps them; false when it could not. */
+    /** Asks the server for the numbers and keeps them; false when it could not, or its answer had no calendar. */
     suspend fun refresh(context: android.content.Context, repo: Repo): Boolean = runCatching { repo.call("github-stats", buildJsonObject { put("fresh", false) }) }
         .map { result ->
             GithubStats.parse(result)?.let {
                 last = it
                 context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString(KEY, result.toString()).apply()
-            }
-            true
+            } != null
         }.getOrDefault(false)
 
     /** Once per launch, in the background: the profile then has today's numbers before it is opened. */
@@ -137,6 +136,8 @@ internal fun ColumnScope.ProfileStats(onLogin: (String) -> Unit = {}) {
     val stats = StatsMemory.last ?: remember { StatsMemory.load(context) }
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(stats?.login) { stats?.login?.takeIf { it.isNotBlank() }?.let(onLogin) }
+    // An answer with no calendar in it (an older server, an empty year) says so too, rather than leaving the cards' kept
+    // places empty for good ("Profile shows no stats": recording 16 Oct 12:10, 07:34 to 07:59; N12).
     LaunchedEffect(Unit) { if (!StatsMemory.refresh(context, repo)) failed = StatsMemory.last == null }
     val c = LocalPullsColors.current
     SheetHeading("Last year on GitHub")

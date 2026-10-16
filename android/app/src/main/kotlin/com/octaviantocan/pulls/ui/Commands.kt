@@ -8,13 +8,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 
-/** Port of `state/commands.ts`: something the palette can run. [group] is already translated. */
+/**
+ * Port of `state/commands.ts`: something the palette can run. [group] is already translated. [suggested] puts it in the
+ * Suggested group at the top of Commands, for what the page on screen is for (N14).
+ */
 data class Command(
     val id: String,
     val title: String,
     val group: String? = null,
     val keywords: String? = null,
     val hidden: Boolean = false,
+    val suggested: Boolean = false,
     val run: () -> Unit,
 )
 

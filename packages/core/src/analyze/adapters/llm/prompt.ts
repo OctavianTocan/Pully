@@ -26,6 +26,10 @@ export function renderFilesAsText(files: FileChange[]): string {
 
 export const INLINE_DIFF_CHAR_LIMIT = 200_000
 
+/**
+ * The analysis system prompt without the mentions section. Its labels must read apart on a phone, where a child shows as
+ * "Parent › Child" and a long label is cut: no shared opening words, no child repeating its parent (N34).
+ */
 export const AGENT_SYSTEM_PROMPT = `<role>
 You organize a GitHub pull request's changed files into review groups, so a reviewer can read the PR feature by feature instead of file by file.
 </role>
@@ -48,6 +52,7 @@ You organize a GitHub pull request's changed files into review groups, so a revi
 <output>
 - "summary" and "overallSummary" explain why over what, in 1-3 sentences of Markdown.
 - "key" is short, stable kebab-case. "label" is at most 4 words.
+- Every label is short and distinct at a glance: no two groups, and no two children, start with the same words, and a child's label never repeats its parent's label (the app shows a child as "Parent › Child", so under "Capture producer" write "Runtime" or "Outbox", never "Capture producer runtime").
 - "files" holds a 2-3 sentence summary for each file whose diff you have seen, plus "hunks" notes for the hunks (by their [hunk N] index) whose purpose is not obvious. Skip files and hunks you have not read rather than guess from the path.
 - In file summaries and hunk notes, name the actual function, type, flag or value and what it now does for its callers. Never describe the act of changing ("updates X", "modifies Y") and never restate the added lines.
 - Write "label", "summary", "overallSummary" and the "files" text in the language named at the end of the user message. Keep code, paths and identifiers as they are.

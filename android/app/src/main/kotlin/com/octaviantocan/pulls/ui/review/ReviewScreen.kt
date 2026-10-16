@@ -1,6 +1,10 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.Command
 import com.octaviantocan.pulls.ui.Commands
+import com.octaviantocan.pulls.ui.UseCommands
+import com.octaviantocan.pulls.ui.ai.TourSheet
+import com.octaviantocan.pulls.ui.home.SearchDim
 import com.octaviantocan.pulls.ui.home.PullToCommands
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -34,12 +38,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
@@ -76,7 +78,8 @@ import com.octaviantocan.pulls.ui.design.PageMotion
 
 /**
  * What the Ask sheet opens with: its title, the starter chips, a question to send at once, and what the next question is
- * about. [scroll] is where its conversation is, and [returning] that Back brought it back there.
+ * about. [scroll] is where its conversation is, and [returning] that Back brought it back there. [history] opens its
+ * earlier chats over it, as the Tour's Ask bar's history button asks (N28).
  */
 private data class AskRequest(
     val title: String,
@@ -85,6 +88,7 @@ private data class AskRequest(
     val reference: AskReference? = null,
     val scroll: ScrollState = ScrollState(0),
     val returning: Boolean = false,
+    val history: Boolean = false,
 )
 
 /** An Ask sheet a mention was opened from; [over] when that place opened on the page under the sheet, the diff. */
@@ -103,7 +107,6 @@ private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should 
 fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other") {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val uri = LocalUriHandler.current
     val toaster = LocalToaster.current
     val messages = LocalMessages.current
     val c = LocalPullsColors.current
@@ -125,6 +128,10 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     var pane by rememberSaveable { mutableIntStateOf(0) }
     var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
+    // The page the pull request's sheet opens on: its actions, or a review to submit when Commands asked for one (N14).
+    var prStart by remember { mutableStateOf<PrPage>(PrPage.Actions) }
+    // The Tour's Ask bar is focused and empty: the header dims with the page (N29).
+    var tourAskDim by remember { mutableStateOf(false to true) }
     var ask by remember { mutableStateOf<AskRequest?>(null) }
     // The Ask sheet a mention in an answer was opened from, and where it was scrolled: Back from the place opens it again
     // there, as Back from a place the tour opened finds the tour (J35).
@@ -204,17 +211,37 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     }
     // The sheet that shows the tour being written closes once the tour is there (M12).
     LaunchedEffect(session.tour != null) { if (session.tour != null && sheet == "tour") sheet = null }
-    fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
+    fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null, history: Boolean = false) {
         askBehind = null
         ask = AskRequest(
             if (forTour) "Ask about this tour" else "Ask about ${head?.label ?: "this pull request"}",
             if (forTour) TOUR_SUGGESTIONS else PR_SUGGESTIONS,
             initial,
             reference,
+            history = history,
         )
     }
 
-    PrCommands(session, orderedFiles(), diffPath, onGo = { path -> diffPath = path; push(PrView.Diff) }, onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session, context) })
+    // The files in reading order only when a command runs: ordering a large pull request's files on every frame made the
+    // Tour's ⋯ slow to open (N22).
+    PrCommands(
+        session, ::orderedFiles, diffPath, onGo = { path -> diffPath = path; push(PrView.Diff) },
+        onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session, context) },
+        onDiff = pages.last() == PrView.Diff,
+    )
+    // On a pull request's Overview, Commands leads with its next steps (N14); the Tour and the Diff bring their own.
+    UseCommands {
+        val here = head
+        if (pages.last() != PrView.Overview || here == null) return@UseCommands emptyList()
+        val group = messages.t("palette.group.pr")
+        val canReview = session.pull != null && session.canWrite
+        buildList {
+            add(Command("pr.reviewFiles", "Review files", group, keywords = "diff changes code", suggested = true) { openDiff(null) })
+            add(Command("pr.ask", "Ask about this pull request", group, keywords = "question chat ai", suggested = true) { openAsk(forTour = false) })
+            if (canReview) add(Command("pr.leaveComment", "Leave a comment", group, keywords = "review comment", suggested = true) { prStart = PrPage.Submit("COMMENT"); sheet = "more" })
+            if (canReview && here.isOpen) add(Command("pr.approve", "Approve", group, keywords = "review approve lgtm", suggested = true) { prStart = PrPage.Submit("APPROVE"); sheet = "more" })
+        }
+    }
 
     // A citation or a finding asked for a line: open the diff on its file (the diff screen then scrolls to the line).
     val focus = session.focus
@@ -236,7 +263,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
         if (opened == null) return@LaunchedEffect
         session.waitingSource?.let { source ->
             session.waitingSource = null
-            openSource(session, source, uri::openUri, inSheet = session.waitingInSheet)
+            openSource(session, source, inSheet = session.waitingInSheet)
         }
         if (diffPath == null && pages.last() == PrView.Diff) {
             val files = orderedFiles()
@@ -287,21 +314,27 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
-            waiting -> PrOpening(target, preview, onBack = nav.back, onReview = { openDiff(null) }, onAsk = { openAsk(false) })
+            waiting -> PrOpening(target, preview, onBack = nav.back, onReview = { openDiff(null) }, onAsk = { question -> openAsk(false, initial = question) })
             else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
                     // One header over the three views, drawn once: the same pixels on each while only what is under it slides
-                    // (rule 93), and the capsule's pill slides to the view you go to. Its corner is Aa on the diff and ⋯ elsewhere.
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                        FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
-                        Spacer(Modifier.weight(1f))
-                        SectionCapsule(
-                            selected = view.ordinal, live = tourComing(session),
-                            onOverview = ::toOverview, onChanges = ::toChanges, onTour = ::openTour,
-                            onCorner = { sheet = if (view == PrView.Diff) "tools" else "more" },
-                            corner = if (view == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
-                        )
+                    // (rule 93), and the capsule's pill slides to the view you go to. Its corner is Aa on the diff and ⋯ elsewhere;
+                    // on the Tour, ⋯ is the tour's own sheet (N23).
+                    Box(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
+                            FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
+                            Spacer(Modifier.weight(1f))
+                            SectionCapsule(
+                                selected = view.ordinal, live = tourComing(session),
+                                onOverview = ::toOverview, onChanges = ::toChanges, onTour = ::openTour,
+                                onCorner = { sheet = when (view) { PrView.Diff -> "tools"; PrView.Tour -> "tourmore"; else -> "more" } },
+                                corner = if (view == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
+                            )
+                        }
+                        // The Tour's dim for its focused Ask bar covers the header as well as the page ("the top bar stays
+                        // bright", recording of 16 Oct 12:10, 14:15 to 14:26, N29); a tap on it lets go of the bar.
+                        if (view == PrView.Tour) Box(Modifier.matchParentSize()) { SearchDim(tourAskDim.first, tourAskDim.second) }
                     }
                     // The views sit left to right as the capsule shows them, so going to one moves the page that way (rule 105).
                     // Pulling down past the top of any view opens Commands, as on the Inbox (J30).
@@ -311,12 +344,12 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                             PrView.Overview -> PrOverviewScreen(
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
                                 onDiff = { path -> if (path == null) toChanges() else openDiff(path) },
-                                onAsk = { openAsk(forTour = false) },
+                                onAsk = { question -> openAsk(forTour = false, initial = question) },
                                 onSheet = { name ->
                                     if (name == "stack") session.stack?.let { Analytics.track("stack.open", "size" to it.entries.size) }
                                     sheet = name
                                 },
-                                onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, ""), uri::openUri) },
+                                onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, "")) },
                                 onOpenRepo = nav.openRepo,
                             )
                             PrView.Diff -> PrDiffScreen(
@@ -331,8 +364,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                                     resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
                                     onReached = { stop, total, title -> recordReached(tours, pull, head, stop, total, title, tourRunning) },
                                     onChanges = ::toChanges,
-                                    onOpenSource = { source -> openSource(session, source, uri::openUri, inSheet = true) },
+                                    onOpenSource = { source -> openSource(session, source, inSheet = true) },
                                     onAsk = { question -> openAsk(forTour = true, initial = question) },
+                                    onOpenAsk = { openAsk(forTour = true) },
+                                    onAskHistory = { openAsk(forTour = true, history = true) },
+                                    onAskDim = { focused, empty -> tourAskDim = focused to empty },
                                     onProgress = { sheet = "tour" },
                                 )
                             }
@@ -350,10 +386,21 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                     }
                 }
                 // Sheets live outside the pages so they survive a page change and a scrolled-away opener.
-                // A place the Tour opened: that file's diff alone, on a sheet over the Tour (L28).
-                session.sourceSheet?.let { place -> FileDiffSheet(session, ui, place, onClose = { session.sourceSheet = null }) }
+                // A place the Tour opened: that file's diff alone, on a sheet over the Tour (L28), or a file the change does
+                // not touch, read at the head commit in the same code view (N20).
+                session.sourceSheet?.let { place ->
+                    if (session.files.any { it.path == place.path }) FileDiffSheet(session, ui, place, onClose = { session.sourceSheet = null })
+                    else FileViewSheet(session, ui, place, onClose = { session.sourceSheet = null })
+                }
                 when (sheet) {
-                    "more" -> PrSheet(session, top, data, head, PrPage.Actions, onClose = { sheet = null }, onReview = ::review)
+                    "more" -> PrSheet(session, top, data, head, prStart, onClose = { sheet = null; prStart = PrPage.Actions }, onReview = ::review)
+                    // ⋯ on the Tour: the tour's own sheet, drawn from what the phone holds so it opens at once; its last
+                    // row goes on to the pull request's sheet (N22, N23).
+                    "tourmore" -> TourSheet(
+                        session, onClose = { sheet = null },
+                        onAsk = { openAsk(forTour = true) }, onDiff = ::toChanges,
+                        onPrActions = { sheet = "more" },
+                    )
                     // Aa on the diff: the code's look, then the file's own actions and one row on to the pull request's ⋯,
                     // which slides in as a page of the same sheet (J27).
                     "tools" -> PrSheet(
@@ -383,15 +430,15 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                 }
                 ask?.let { request ->
                     // A mention in an answer closes the sheet and opens its place, as a tour source does (rule 96), and Back
-                    // brings the sheet back where it was. A file the change does not touch opens on GitHub over the sheet,
-                    // which stays (J35).
-                    AskSheet(session, request.title, request.suggestions, request.initial, request.reference, request.scroll, request.returning, onOpen = { place ->
+                    // brings the sheet back where it was. A file the change does not touch opens in the app's own viewer on
+                    // a sheet over the Ask sheet, which stays (J35, N20).
+                    AskSheet(session, request.title, request.suggestions, request.initial, request.reference, request.scroll, request.returning, request.history, onOpen = { place ->
                         if (session.opened == null || session.files.any { it.path == place.path }) {
                             ask = null
                             // Its question and what it was about are already sent: coming back must not send them again.
-                            askBehind = AskBehind(request.copy(initial = null, reference = null, returning = true), over = pages.last() == PrView.Diff)
+                            askBehind = AskBehind(request.copy(initial = null, reference = null, returning = true, history = false), over = pages.last() == PrView.Diff)
                         }
-                        openSource(session, TourSource(place.path, place.line, ""), uri::openUri)
+                        openSource(session, TourSource(place.path, place.line, ""))
                     }) { ask = null }
                 }
                 ReviewSubmitSheet(session, top, canVerdict = head.isOpen)
@@ -409,8 +456,12 @@ private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() 
     }
 }
 
-/** A tour source or a mention: a line the pull request changed opens in the diff; a file it did not touch opens on GitHub. */
-internal fun openSource(session: ReviewSession, source: TourSource, openUri: (String) -> Unit, inSheet: Boolean = false) {
+/**
+ * A tour source or a mention: a line the pull request changed opens in the diff; a file it did not touch opens in the
+ * app's own viewer on a sheet, read at the head commit, never on GitHub ("In the code rows still open GitHub", recording
+ * of 16 Oct 12:10, 10:01 to 10:07, N20).
+ */
+internal fun openSource(session: ReviewSession, source: TourSource, inSheet: Boolean = false) {
     // A kept tour shows before the diff: the place opens once the diff is in.
     if (session.opened == null) {
         session.waitingSource = source
@@ -423,9 +474,7 @@ internal fun openSource(session: ReviewSession, source: TourSource, openUri: (St
         if (inSheet) session.sourceSheet = Focus(source.path, source.line) else session.focus = Focus(source.path, source.line)
         return
     }
-    val repo = FileLinks.repoOf(session.target)
-    val sha = session.opened?.headSha
-    if (repo != null && !sha.isNullOrBlank()) runCatching { openUri(FileLinks.blob(repo.first, repo.second, sha, source.path) + if (source.line > 0) "#L${source.line}" else "") }
+    session.sourceSheet = Focus(source.path, source.line)
 }
 
 /** Remembers how far into the tour the reader has been, never going back. */
