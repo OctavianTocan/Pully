@@ -4,6 +4,7 @@ import type { MergeMethod, PrMergeability, PrOverview } from '@pulls.review/core
 import type { MyPull } from '@pulls.review/core/local-rpc'
 import type { DiffsPayload } from '@pulls.review/core/types'
 import type { Storage } from 'unstorage'
+import type { ServerHost } from './host'
 import process from 'node:process'
 import { assessMergeability, createGithubClient, createGithubSource, defaultMergeCommit, fetchPullRequestOverview } from '@pulls.review/core/github'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
@@ -242,8 +243,8 @@ export function createPrStore(deps: PrStoreDeps): PrStore {
 }
 
 export interface PrStoreOptions {
-  /** The repository whose cache the server serves. */
-  cwd: string
+  /** Where the server runs; the pull requests go into its session's store. */
+  host: ServerHost
   env: Env
   log?: (line: string) => void
 }
@@ -252,12 +253,12 @@ export interface PrStoreOptions {
  * Stores the open pull requests shortly after the server starts, then every
  * `PR_STORE_INTERVAL_MS`.
  *
- * @param options The repository, and the environment holding the GitHub token.
+ * @param options The host, and the environment holding the GitHub token.
  * @returns Stops the schedule.
  */
 export async function startPrStore(options: PrStoreOptions): Promise<() => void> {
-  const { cwd, env, log = line => process.stderr.write(`pulls.review: ${line}\n`) } = options
-  const session = await serverSession(cwd)
+  const { host, env, log = line => process.stderr.write(`pulls.review: ${line}\n`) } = options
+  const session = await serverSession(host)
   const store = createPrStore({
     listPulls: () => listMyPulls('open'),
     token: () => resolveGithubToken(env),
