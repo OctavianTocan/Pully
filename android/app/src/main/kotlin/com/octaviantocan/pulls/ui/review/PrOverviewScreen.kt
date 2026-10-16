@@ -875,7 +875,7 @@ internal fun ReviewBar(
 ) {
     Box(modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
         AskBar(
-            text, onText, "Ask about this pull request", onAsk, onFocus = onFocus,
+            text, onText, "Ask about this pull request", onAsk, onFocus = onFocus, idleSend = false,
             trailing = { FloatIcon(if (approve) Lu.check else Lu.arrow, label, onClick, size = FieldHeight, iconSize = 22.dp, enabled = enabled, primary = true) },
         )
     }

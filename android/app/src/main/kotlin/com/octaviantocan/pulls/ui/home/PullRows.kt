@@ -58,11 +58,14 @@ import com.octaviantocan.pulls.ui.design.t
 /** The state tile's side: Claude's square, a little under the 44dp touch size since the row is the target. */
 private val TILE = 36.dp
 
-/** The number's column: "#9999" fits, a longer one pushes the line rather than being cut. */
-private val NUMBER_WIDTH = 48.dp
+/**
+ * The number's column: "#999" fits; a longer one pushes only its own author along rather than being cut, while the
+ * columns at the right end stay put. Narrow, so the author keeps room beside the tile (0.40.0's rows cut "Octavi…").
+ */
+private val NUMBER_WIDTH = 40.dp
 
-/** The checks mark's column. */
-private val CHECK_WIDTH = 26.dp
+/** The checks mark's column: the 18dp mark and a little air. */
+private val CHECK_WIDTH = 22.dp
 
 /** The age's column: "22h", "3w", "11mo". */
 private val AGE_WIDTH = 34.dp

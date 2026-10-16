@@ -33,7 +33,8 @@ import com.octaviantocan.pulls.ui.design.SendButton
  * typed it is Send, and sending hands the question to [onSend] ("the history button while empty, send once typed",
  * recording of 16 Oct 12:10, 13:25 to 14:15, N28). With no history to offer, an empty bar shows Send, grey and inert
  * (rule 84). With [onTapEmpty], a tap on the empty bar goes there instead of to the keyboard: the page opens the
- * conversation it already has. [trailing] sits beside the pill, outside it, such as the Overview's review button.
+ * conversation it already has. [trailing] sits beside the pill, outside it, such as the Overview's review button; with
+ * [idleSend] false the empty pill shows no Send of its own, so that round button is the only arrow in the row.
  *
  * It is one component for every page that asks, so the Tour and the Overview never drift apart.
  */
@@ -48,6 +49,7 @@ internal fun AskBar(
     onOpenHistory: (() -> Unit)? = null,
     onTapEmpty: (() -> Unit)? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
+    idleSend: Boolean = true,
 ) {
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
@@ -59,7 +61,7 @@ internal fun AskBar(
         onSend(question)
     }
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FieldGap)) {
-        FieldFrame(FieldPlace.Page, Modifier.weight(1f), button = true) {
+        FieldFrame(FieldPlace.Page, Modifier.weight(1f), button = text.isNotBlank() || onOpenHistory != null || idleSend) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 FieldText(
                     value = text,
@@ -81,8 +83,8 @@ internal fun AskBar(
                 text.isNotBlank() -> SendButton({ send() }, "Send")
                 // The Ask sheet's own button, the same glyph and size, so the bar and the sheet read as one (N28).
                 onOpenHistory != null -> FloatIcon(Lu.history, "Earlier chats", onOpenHistory, size = 40.dp, iconSize = 20.dp, flat = true, tint = c.muted)
-                // Grey and inert until there is a question to send (rule 84).
-                else -> SendButton({ send() }, "Send", enabled = false)
+                // Grey and inert until there is a question to send (rule 84), unless [trailing] is already the row's arrow.
+                idleSend -> SendButton({ send() }, "Send", enabled = false)
             }
         }
         trailing?.invoke(this)
