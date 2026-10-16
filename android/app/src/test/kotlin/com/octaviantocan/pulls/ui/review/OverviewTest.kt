@@ -336,3 +336,54 @@ class GroupNavTest {
     @Suppress("unused")
     private val unusedJson = JsonObject(emptyMap())
 }
+
+/** A description edited since the overview on screen was fetched is put in from `pr-text` (Tavi, 16 Oct 13:52). */
+class NewerTextTest {
+    private fun answer(updatedAt: String?): JsonObject {
+        val at = updatedAt?.let { ",\"updatedAt\":\"$it\"" }.orEmpty()
+        return Json.parseToJsonElement(
+            "{\"overview\":{\"id\":\"PR_1\",\"number\":7,\"title\":\"Old\",\"body\":\"Old text\",\"bodyHTML\":\"<p>Old text</p>\"$at}," +
+                "\"defaultCommits\":{\"squash\":{\"title\":\"Old (#7)\",\"body\":\"Old text\"},\"merge\":{\"title\":\"Merge pull request #7 from a/b\",\"body\":\"Old\"}," +
+                "\"rebase\":{\"title\":\"\",\"body\":\"\"}},\"storedAt\":4}",
+        ) as JsonObject
+    }
+    private val text = Json.parseToJsonElement("""{"title":"New","body":"New text","bodyHTML":"<p>New text</p>","updatedAt":"2026-10-16T13:50:00Z"}""") as JsonObject
+
+    @Test
+    fun putsInTheDescription() {
+        val patched = parsePrOverviewData(withText(answer("2026-10-16T12:00:00Z"), text))!!.overview
+        assertEquals("New", patched.title)
+        assertEquals("New text", patched.body)
+        assertEquals("<p>New text</p>", patched.bodyHTML)
+        assertEquals("PR_1", patched.id)
+    }
+
+    @Test
+    fun putsItInWithinTheSameSecond() {
+        // GitHub's `updatedAt` counts whole seconds: an edit can carry the time of the copy it replaced.
+        assertEquals("New text", parsePrOverviewData(withText(answer("2026-10-16T13:50:00Z"), text))!!.overview.body)
+        assertEquals("New", parsePrOverviewData(withText(answer(null), text))!!.overview.title)
+    }
+
+    @Test
+    fun keepsTheRestOfTheAnswer() {
+        val patched = withText(answer("2026-10-16T12:00:00Z"), text)!!
+        assertEquals("4", patched["storedAt"].toString())
+        assertEquals("\"2026-10-16T13:50:00Z\"", (patched["overview"] as JsonObject)["updatedAt"].toString())
+    }
+
+    @Test
+    fun rewritesTheMergeCommitTextMadeFromTheOldOne() {
+        val defaults = parsePrOverviewData(withText(answer("2026-10-16T12:00:00Z"), text))!!.defaultCommits
+        assertEquals("New (#7)" to "New text", defaults["squash"])
+        assertEquals("Merge pull request #7 from a/b" to "New", defaults["merge"])
+        assertEquals("" to "", defaults["rebase"])
+    }
+
+    @Test
+    fun needsBoth() {
+        assertNull(withText(null, text))
+        assertNull(withText(answer("2026-10-16T12:00:00Z"), null))
+        assertNull(withText(answer("2026-10-16T12:00:00Z"), Json.parseToJsonElement("""{"updatedAt":"x"}""") as JsonObject))
+    }
+}

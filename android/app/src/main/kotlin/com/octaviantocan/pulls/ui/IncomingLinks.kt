@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui
 
 import android.content.Intent
+import com.octaviantocan.pulls.core.OpenTarget
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,6 +16,19 @@ object IncomingLinks {
         private set
 
     class Arrival(val text: String)
+
+    /**
+     * The last link to the pull request already on screen. Nothing opens over it, so that page reads the pull request
+     * again: an agent that just changed it sends the link to show the change (Tavi, 16 Oct 13:52).
+     */
+    var reopened by mutableStateOf<Reopen?>(null)
+        private set
+
+    class Reopen(val target: OpenTarget)
+
+    fun reopen(target: OpenTarget) {
+        reopened = Reopen(target)
+    }
 
     fun receive(intent: Intent?) {
         pending = read(intent)?.let(::Arrival)

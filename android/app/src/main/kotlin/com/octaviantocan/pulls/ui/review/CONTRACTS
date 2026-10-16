@@ -531,3 +531,10 @@ font that changes, never a picture of the page (M9; recording 16 Oct 13:06, 09:2
 Letting go of a file swipe carries the row on to the file it chose at once, at the speed it
 was thrown, before the new file is laid out; the row MUST NOT stand still between two files
 (recording 16 Oct 13:06, 09:36 to 09:43; O22, rules 105 and 189).
+
+@cc [owner:OctavianTocan,label:product] pr-opens-current-text
+Opening a pull request, coming back to it, or tapping a link to the one on screen MUST put
+the title and description GitHub holds now in place of a kept copy as soon as the small
+`pr-text` answer arrives, without waiting for the whole overview; a link to the page on
+screen reads it again rather than doing nothing (Tavi, thread message 16 Oct 13:52, "the
+description was not updated").

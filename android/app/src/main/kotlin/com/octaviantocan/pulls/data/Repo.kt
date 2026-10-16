@@ -106,6 +106,12 @@ class Repo(private val context: Context) {
     /** The overview the server stored when it last refreshed this pull request, without asking GitHub; null when it has none. */
     suspend fun storedOverview(target: OpenTarget.Pull): JsonObject? = call("pr-overview") { pull(target); put("cached", true) } as? JsonObject
 
+    /**
+     * The title and description as GitHub holds them now, with the pull request's `updatedAt`: one small query that
+     * answers well before [overview], so a page showing a kept overview puts an edited description in place at once.
+     */
+    suspend fun prText(target: OpenTarget.Pull): JsonObject? = call("pr-text") { pull(target) } as? JsonObject
+
     /** `action`: merge, update-branch, close, reopen, ready, draft. */
     suspend fun prAction(id: String, action: String, method: String? = null, title: String? = null, body: String? = null, expectedHeadOid: String? = null) {
         call("pr-action") {

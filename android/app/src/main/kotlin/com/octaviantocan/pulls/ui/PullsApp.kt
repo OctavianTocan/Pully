@@ -126,7 +126,8 @@ fun PullsApp(initialTarget: String?) {
     val toaster = remember { Toaster() }
     // A link Pully was opened with that it cannot open says so, rather than leaving the reader on Home wondering.
     LaunchedEffect(Unit) { if (initialTarget != null && linkScreen(initialTarget) == null) toaster.show(CANT_OPEN, cue = Cue.Error) }
-    // A link handed over while Pully is open opens over the page on screen, unless that page is already it.
+    // A link handed over while Pully is open opens over the page on screen, unless that page is already it: then it
+    // reads its pull request again.
     val arrival = IncomingLinks.pending
     LaunchedEffect(arrival) {
         if (arrival == null) return@LaunchedEffect
@@ -139,7 +140,8 @@ fun PullsApp(initialTarget: String?) {
         val top = stack.last()
         when {
             screen == null -> toaster.show(CANT_OPEN, cue = Cue.Error)
-            screen == top || screen is Screen.Review && top is Screen.Review && screen.target.serverTarget == top.target.serverTarget -> {}
+            screen == top || screen is Screen.Review && top is Screen.Review && screen.target.serverTarget == top.target.serverTarget ->
+                (top as? Screen.Review)?.let { IncomingLinks.reopen(it.target) }
             else -> stack.add(screen)
         }
     }
