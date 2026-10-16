@@ -831,7 +831,7 @@
   "stats": {
     "title": "Statistik",
     "usage": "Statistik penggunaan",
-    "usageHint": "Menghitung apa yang Anda lakukan di Pulls, tidak pernah apa yang Anda baca atau ketik. Hanya disimpan di server Anda.",
+    "usageHint": "Menghitung apa yang Anda lakukan di Pully, tidak pernah apa yang Anda baca atau ketik. Hanya disimpan di server Anda.",
     "off": "Statistik penggunaan nonaktif.",
     "range": "Rentang",
     "days": "{n} hari",

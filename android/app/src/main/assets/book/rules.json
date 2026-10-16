@@ -91,7 +91,7 @@
       "bans",
       "review"
     ],
-    "text": "Comment and Ask Pulls only. Split visual layout, not three text chips. No counters, no voice."
+    "text": "Comment and Ask Pully only. Split visual layout, not three text chips. No counters, no voice."
   },
   {
     "n": 11,
@@ -312,7 +312,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "An AI note on a diff is a comment card by “Pulls”: white, rounded, soft shadow. Not a loose line above the code."
+    "text": "An AI note on a diff is a comment card by “Pully”: white, rounded, soft shadow. Not a loose line above the code."
   },
   {
     "n": 35,
@@ -321,7 +321,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Profile at the top, “Search or ask Pulls” floating at the bottom, no search icon in the header."
+    "text": "Profile at the top, “Search or ask Pully” floating at the bottom, no search icon in the header."
   },
   {
     "n": 36,
@@ -513,7 +513,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "- It reads \"Search or ask Pulls\" as in the design (rule 35). The app shows \"Search pull requests\" on the Inbox and \"Search tours\" on Tours. With the keyboard up the pill rides on top of it.\n- It takes pasted links and PR numbers as well as text.\n- So the \"Open pull request\" field in the profile sheet goes."
+    "text": "- It reads \"Search or ask Pully\" as in the design (rule 35). The app shows \"Search pull requests\" on the Inbox and \"Search tours\" on Tours. With the keyboard up the pill rides on top of it.\n- It takes pasted links and PR numbers as well as text.\n- So the \"Open pull request\" field in the profile sheet goes."
   },
   {
     "n": 56,
@@ -957,7 +957,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "When the server has a newer build, Pulls shows only the update screen, from the first frame of a start: \"Pulls 0.28.0 is ready\", \"Update to keep using Pulls.\", then every version it brings over the installed one, each with its summary and bullets, and \"Update to 0.28.0\" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pulls, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version and open Pulls. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pulls from Commands with no newer build: it says this is the newest."
+    "text": "When the server has a newer build, Pully shows only the update screen, from the first frame of a start: \"Pully 0.28.0 is ready\", \"Update to keep using Pully.\", then every version it brings over the installed one, each with its summary and bullets, and \"Update to 0.28.0\" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pully, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version and open Pully. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pully from Commands with no newer build: it says this is the newest."
   },
   {
     "n": 105,
@@ -1446,7 +1446,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A code link opens in Pulls, never on GitHub: a file in the diff opens at its line, near the top and scrolled to its left edge, and a file outside the diff opens on a sheet, read at the head commit and scrolled to the line (N20, N21).\n\nCheck: tap an \"In the code\" row for a file outside the diff: a sheet opens at the line and no browser opens."
+    "text": "A code link opens in Pully, never on GitHub: a file in the diff opens at its line, near the top and scrolled to its left edge, and a file outside the diff opens on a sheet, read at the head commit and scrolled to the line (N20, N21).\n\nCheck: tap an \"In the code\" row for a file outside the diff: a sheet opens at the line and no browser opens."
   },
   {
     "n": 159,

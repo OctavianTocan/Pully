@@ -6,7 +6,7 @@ package com.octaviantocan.pulls.ui.design
 
 import androidx.compose.ui.graphics.Color
 
-/** OpenCode's colour themes as Pulls palettes: OpenCode first, then by name. A null dark has one look for both. */
+/** OpenCode's colour themes as Pully palettes: OpenCode first, then by name. A null dark has one look for both. */
 internal val OpenCodeThemes: List<ColorTheme> = listOf(
     ColorTheme(
         id = "opencode",

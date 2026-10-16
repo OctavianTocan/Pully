@@ -194,7 +194,7 @@ private fun ComponentPage(book: BookData, page: BookPage, component: BookCompone
 /** The text of Copy prompt: enough for an agent to use the component without restyling it. */
 internal fun promptFor(page: BookPage, component: BookComponent, declarations: List<Declaration>): String = buildString {
     val first = declarations.firstOrNull()
-    appendLine("Use ${component.composable} (${page.title}) from the Pulls Review Android kit${first?.let { ", ${it.file}:${it.line}" }.orEmpty()}.")
+    appendLine("Use ${component.composable} (${page.title}) from the Pully Android kit${first?.let { ", ${it.file}:${it.line}" }.orEmpty()}.")
     appendLine(component.summary)
     if (first != null) appendLine("Props: " + first.props.joinToString(", ") { prop -> "${prop.name}: ${prop.type}${prop.default?.let { " = $it" }.orEmpty()}" })
     appendLine("Usage:")

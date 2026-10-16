@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // The update notification brings Pulls to the front where the reader left it. A link opens over the page on
+        // The update notification brings Pully to the front where the reader left it. A link opens over the page on
         // screen, so Back returns there; the intent is kept so a rotation reopens it like a cold start does.
         if (UpdateNotice.handle(this, intent)) return
         if (IncomingLinks.read(intent) == null) return

@@ -419,7 +419,7 @@ private fun ColumnScope.AdvancedPage(nav: Nav, open: (SettingsPage) -> Unit) {
 
 /**
  * The installed version, which opens what each version changed, and the switch for the notification the background
- * check sends when a new one is out. The switch is on only when Android lets Pulls notify too; turning it on asks, and
+ * check sends when a new one is out. The switch is on only when Android lets Pully notify too; turning it on asks, and
  * when Android will not ask again it opens the app's notification settings instead.
  */
 @Composable

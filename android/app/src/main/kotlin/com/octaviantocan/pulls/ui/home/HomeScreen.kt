@@ -403,7 +403,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SearchPill(
                     ui.search, { ui.search = it },
-                    if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
+                    if (ui.tab == 0) "Search or ask Pully" else "Search tours",
                     openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
                     onOpen = ::openSearch,
                     modifier = Modifier.weight(1f),
@@ -903,7 +903,7 @@ internal fun endsInQuestion(text: String): Boolean {
 private fun ClearOrSend(send: Boolean, onClear: () -> Unit, onSend: () -> Unit) {
     val c = LocalPullsColors.current
     val fill by animateColorAsState(if (send) c.primary else c.primary.copy(alpha = 0f), tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), label = "send-fill")
-    FloatButton(if (send) onSend else onClear, if (send) "Ask Pulls" else "Clear search", size = 40.dp, flat = true, emphasis = if (send) Emphasis.Normal else Emphasis.Subtle) {
+    FloatButton(if (send) onSend else onClear, if (send) "Ask Pully" else "Clear search", size = 40.dp, flat = true, emphasis = if (send) Emphasis.Normal else Emphasis.Subtle) {
         Box(Modifier.matchParentSize().background(fill))
         IconSwap(send) { on ->
             if (on) LuIcon(Lu.arrow, tint = Color.White, size = 20.dp) // raw-value-ok: the ink on the primary fill is white in both themes, as on SendButton

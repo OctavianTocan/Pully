@@ -1,5 +1,5 @@
 @cc [owner:OctavianTocan,label:product] home-search-or-ask
-The bottom pill on Home reads "Search or ask Pulls" and is the one way to find a pull
+The bottom pill on Home reads "Search or ask Pully" and is the one way to find a pull
 request: typing filters the list at once, a pasted link or a number opens that pull
 request, and a question can be asked from it. There is no search icon in the header and no
 "Open pull request" field elsewhere (rules 35 and 55; D7). The pill has no Ask button: it

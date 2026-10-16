@@ -257,7 +257,7 @@ package com.octaviantocan.pulls.ui.design
 
 import androidx.compose.ui.graphics.Color
 
-/** OpenCode's colour themes as Pulls palettes: OpenCode first, then by name. A null dark has one look for both. */
+/** OpenCode's colour themes as Pully palettes: OpenCode first, then by name. A null dark has one look for both. */
 internal val OpenCodeThemes: List<ColorTheme> = listOf(
 ${entries}
 )
@@ -284,7 +284,7 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
   const list = themes()
   writeFileSync(OUT, kotlin(list))
   const license = readFileSync(join(VENDOR, 'LICENSE'), 'utf8')
-  writeFileSync(LICENSE_OUT, `The colour themes under Settings > Theme (all but Pulls) are converted from OpenCode's built-in\nthemes, https://github.com/anomalyco/opencode.\n\n${license}`)
+  writeFileSync(LICENSE_OUT, `The colour themes under Settings > Theme (all but Pully) are converted from OpenCode's built-in\nthemes, https://github.com/anomalyco/opencode.\n\n${license}`)
   for (const t of list) {
     const ratios = [t.light, t.dark].map(p => contrast(p.text, p.base).toFixed(1))
     console.log(`${t.id.padEnd(22)} ${t.modes ? 'light+dark' : 'one look  '} text/base ${ratios.join(' ')}`)

@@ -381,11 +381,11 @@ request's title and number in its header, with progress as a small element there
 pips, eyebrow or bottom "X of Y" (rule 23).
 
 @cc [owner:OctavianTocan,label:product] pr-composer-has-two-modes
-Writing on a pull request has two modes only, Comment and Ask Pulls, with no counters
+Writing on a pull request has two modes only, Comment and Ask Pully, with no counters
 and no voice (rule 10).
 
 @cc [owner:OctavianTocan,label:design] pr-ai-notes-are-comment-cards
-An AI note about a file is a comment card by "Pulls" (white, rounded, soft shadow), not a
+An AI note about a file is a comment card by "Pully" (white, rounded, soft shadow), not a
 loose line above the code (rule 34).
 
 @cc [owner:OctavianTocan,label:design] pr-reviewed-is-a-bare-checkbox

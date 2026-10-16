@@ -21,14 +21,14 @@ import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 
 /**
- * Whether a tapped github.com link opens in Pulls. Android 12 and later send a web link only to the app that owns the
- * site, or to one the reader allowed under the app's Open by default, and Pulls cannot own github.com. So the switch
- * reads Android's answer and opens that page; Pulls cannot turn it on itself.
+ * Whether a tapped github.com link opens in Pully. Android 12 and later send a web link only to the app that owns the
+ * site, or to one the reader allowed under the app's Open by default, and Pully cannot own github.com. So the switch
+ * reads Android's answer and opens that page; Pully cannot turn it on itself.
  */
 object GithubLinks {
     const val HOST = "github.com"
 
-    /** Before Android 12 Android asks which app opens each link, so Pulls is always offered and the row is not needed. */
+    /** Before Android 12 Android asks which app opens each link, so Pully is always offered and the row is not needed. */
     val asked: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     fun allowed(context: Context): Boolean = if (asked) allowedOnS(context) else true
@@ -44,7 +44,7 @@ object GithubLinks {
         }
     }
 
-    /** Pulls' own Open by default page, where Add link lists github.com. */
+    /** Pully's own Open by default page, where Add link lists github.com. */
     fun openSettings(context: Context) {
         val page = Intent(Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, Uri.parse("package:${context.packageName}"))
         runCatching { context.startActivity(page) }
@@ -52,14 +52,14 @@ object GithubLinks {
     }
 }
 
-/** Settings' GitHub links group: one switch that shows Android's answer, re-read whenever Pulls comes back. */
+/** Settings' GitHub links group: one switch that shows Android's answer, re-read whenever Pully comes back. */
 @Composable
 internal fun GithubLinksGroup() {
     if (!GithubLinks.asked) return
     val context = LocalContext.current
     var allowed by remember { mutableStateOf(GithubLinks.allowed(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { allowed = GithubLinks.allowed(context) }
-    val label = "Open GitHub links in Pulls"
+    val label = "Open GitHub links in Pully"
     Group("GitHub links") {
         SheetCard {
             SheetRow(label, { GithubLinks.openSettings(context) }, first = true, iconless = true) {

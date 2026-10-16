@@ -28,7 +28,7 @@ import kotlinx.serialization.json.Json
 sealed interface UpdateStatus {
     data object Idle : UpdateStatus
 
-    /** Android needs "Install unknown apps" for Pulls first; its settings page was opened. */
+    /** Android needs "Install unknown apps" for Pully first; its settings page was opened. */
     data object NeedsPermission : UpdateStatus
 
     /** [fraction] of the APK is down, or -1 while the size is not known. */
@@ -37,7 +37,7 @@ sealed interface UpdateStatus {
     /** The system "Update this app?" dialog is up. */
     data object Confirming : UpdateStatus
 
-    /** Handed to the installer; Pulls closes and reopens as the new version. */
+    /** Handed to the installer; Pully closes and reopens as the new version. */
     data object Installing : UpdateStatus
 
     data class Failed(val message: String) : UpdateStatus
@@ -53,7 +53,7 @@ enum class UpdateCheck { Found, UpToDate, Failed, Skipped }
  */
 object Updates {
     /**
-     * The newer build the server offers, or null when there is none. While it is set, Pulls shows only the update
+     * The newer build the server offers, or null when there is none. While it is set, Pully shows only the update
      * screen. It starts as the last offer the phone heard of, so a newer build is asked for from the first frame,
      * before the server answers again.
      */
@@ -73,7 +73,7 @@ object Updates {
     private const val CHECK_GAP_MS = 5 * 60_000L
 
     /**
-     * Picks up the offer the phone last heard of, if it is still newer than this build: on start, and each time Pulls comes
+     * Picks up the offer the phone last heard of, if it is still newer than this build: on start, and each time Pully comes
      * back to the front, since the background check may have heard of a build while the app sat in the background.
      */
     fun restore(context: Context) {
@@ -178,7 +178,7 @@ object Updates {
     }
 
     /**
-     * Pulls is in front again. Back from the install settings, the update carries on if it is allowed now, so the
+     * Pully is in front again. Back from the install settings, the update carries on if it is allowed now, so the
      * reader does not tap twice. Back from the system dialog without an answer (it was left, not cancelled), Update
      * is offered again rather than the orb turning for ever.
      */

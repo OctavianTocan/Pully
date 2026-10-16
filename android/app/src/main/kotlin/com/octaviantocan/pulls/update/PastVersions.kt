@@ -23,7 +23,7 @@ import java.io.File
 sealed interface PastStatus {
     data object Idle : PastStatus
 
-    /** Android needs "Install unknown apps" for Pulls first; its settings page was opened. */
+    /** Android needs "Install unknown apps" for Pully first; its settings page was opened. */
     data class NeedsPermission(val version: PastVersion) : PastStatus
 
     /** [fraction] of the APK is down, or -1 while the size is not known. */
@@ -42,8 +42,8 @@ sealed interface PastStatus {
 }
 
 /**
- * The past versions of Pulls behind the dev-only slider in Settings, Advanced. Each is the app as it was, rebuilt from
- * git by `android/scripts/build-past-ui.py` as its own app beside this one, with no launcher icon: Pulls lists them
+ * The past versions of Pully behind the dev-only slider in Settings, Advanced. Each is the app as it was, rebuilt from
+ * git by `android/scripts/build-past-ui.py` as its own app beside this one, with no launcher icon: Pully lists them
  * from the server, installs the one picked through the system installer, and opens it with this phone's server and
  * Access token, which the old copy takes on start. Nothing here changes this app, which always runs the newest UI.
  */
@@ -153,7 +153,7 @@ object PastVersions {
     }
 
     /**
-     * Pulls is in front again. Back from the system dialog without an answer (it was left, not cancelled), Get is
+     * Pully is in front again. Back from the system dialog without an answer (it was left, not cancelled), Get is
      * offered again, as the update screen does. Back from the install settings with it allowed now, the download starts
      * without a second tap.
      */

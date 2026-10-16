@@ -831,7 +831,7 @@
   "stats": {
     "title": "Statistik",
     "usage": "Nutzungsstatistik",
-    "usageHint": "Zählt, was du in Pulls tust, nie was du liest oder tippst. Nur auf deinem Server gespeichert.",
+    "usageHint": "Zählt, was du in Pully tust, nie was du liest oder tippst. Nur auf deinem Server gespeichert.",
     "off": "Die Nutzungsstatistik ist aus.",
     "range": "Zeitraum",
     "days": "{n} Tage",

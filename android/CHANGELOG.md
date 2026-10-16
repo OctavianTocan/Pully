@@ -1,4 +1,4 @@
-# What's new in Pulls
+# What's new in Pully
 
 <!--
 One section per version, newest first, headed with the versionName from app/build.gradle.kts.
@@ -15,6 +15,17 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 `![what it shows](changelog/<version>/<name>.png)` on its own unindented line under the bullet
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
+
+## 0.41.0
+
+The app is called Pully now.
+
+### Changed
+
+- Pully is the name under the icon on your home screen, on the update screen and in update notifications.
+- Search, Ask, Commands, Settings and the AI's notes on a file say Pully, and so does the web app's header and tab title.
+![The web app's header with the Pully name at its top left](changelog/0.41.0/web-header.png)
+- Nothing to reinstall: this update replaces the app you have, with your sign-in and settings kept.
 
 ## 0.40.0
 
