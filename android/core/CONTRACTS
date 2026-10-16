@@ -22,7 +22,9 @@ A list search matches a row when every word typed is in it, in any order (rule 1
 @cc [owner:OctavianTocan,label:architecture] core-changelog-reads-old-and-new
 `parseChangelog` reads `## <version>` sections with a summary and bullets, and `###`
 groups inside them; a section with groups still reads as one list of the same bullets on
-a build that does not know groups (rule 127).
+a build that does not know groups (rule 127). A `![alt](changelog/<version>/<name>.png)`
+line is a picture under the bullet it follows; it MUST stay unindented under a bullet so a
+build from before 0.40.0 skips it instead of showing it as text (Tavi, 16 Oct 10:49).
 
 @cc [owner:OctavianTocan,label:architecture] core-contracts-follow-the-grammar
 `parseContracts` follows the `@cc` grammar of the code-contracts skill: a directive line,

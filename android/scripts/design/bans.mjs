@@ -55,6 +55,9 @@ const AI_GLYPH = /\bLu\.(?:bot|ask|req)\b|"(?:robot|sparkles?|compass|chat-circl
 /** The arrow-out-of-a-box icon in the kit's glyph, as a Phosphor name or as a Material one. */
 const EXTERNAL_LINK = /\bLu\.ext\b|\bOpenInNew\b|"(?:external-link|arrow-square-out|arrow-up-right|open-in-new)(?:-(?:duotone|bold|fill|light|thin))?"/g
 
+/** Compose's own text fields: every field is the kit's one field in `Fields.kt` (N6, N9). */
+const TEXT_FIELDS = ['BasicTextField', 'BasicSecureTextField', 'TextField', 'OutlinedTextField', 'SecureTextField', 'OutlinedSecureTextField']
+
 const WAITING = ['Loading', 'SpinIcon', 'FeedbackSpinner', 'CircularProgressIndicator', 'LinearProgressIndicator']
 
 const MATERIAL = /^androidx\.compose\.material3\.(\w+(?:\.\w+)*)$/
@@ -157,6 +160,13 @@ export const BANS = {
     allowIn: ['ui/design/Components.kt'],
     strings: true,
     call: EXTERNAL_LINK,
+  },
+  'text-field': {
+    label: 'text fields outside the kit\'s one field',
+    rules: [149],
+    advice: 'Build on the kit\'s field: PillInput or SearchPill at the bottom of a page, SheetSearch over a sheet\'s list, SheetField in a sheet\'s card, or FieldText in a frame of its own. They share one height, corner, padding, placeholder and scrolling edge (N6, N9).',
+    allowIn: ['ui/design/Fields.kt'],
+    call: call(TEXT_FIELDS),
   },
   'waiting': {
     label: 'loading screens and spinners',

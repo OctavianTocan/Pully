@@ -105,6 +105,12 @@ describe('runLlmAnalysis', () => {
     expect(AGENT_SYSTEM_PROMPT).not.toContain(MENTION_RULE)
   })
 
+  it('asks for short labels that never share their opening words (N34)', () => {
+    expect(AGENT_SYSTEM_PROMPT).toContain('"label" is at most 4 words')
+    expect(AGENT_SYSTEM_PROMPT).toContain('no two groups, and no two children, start with the same words')
+    expect(AGENT_SYSTEM_PROMPT).toContain('a child\'s label never repeats its parent\'s label')
+  })
+
   it('lets the model resubmit after a coverage error', async () => {
     faux.setResponses([submit(oneGroup('a.ts')), submit(oneGroup('a.ts', 'b.ts'))])
 

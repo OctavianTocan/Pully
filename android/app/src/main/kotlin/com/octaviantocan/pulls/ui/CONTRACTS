@@ -49,3 +49,10 @@ J30, H22; recording 15 Oct 13:54, 12:33).
 @cc [owner:OctavianTocan,label:product] nav-commands-themes
 Commands offers Themes, which opens the same theme sheet as Settings (recording 15 Oct
 13:54, 08:33 to 09:11; K18).
+
+@cc [owner:OctavianTocan,label:product] nav-commands-follow-the-page
+Commands leads with a Suggested group, the actions of the page on screen: on the Tour, Ask
+about this tour, Switch to the diff, Regenerate tour and the next and previous stop; on a
+pull request's Overview, Review files, Ask, Leave a comment and Approve; on the Diff, the
+next and previous file, Mark reviewed and Find a file. The other groups follow, and General
+is always last (circled General, recording of 16 Oct 12:10, 08:31 to 09:04, N14).

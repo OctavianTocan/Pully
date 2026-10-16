@@ -1,4 +1,4 @@
-The colour themes under Settings > Theme (all but Pulls) are converted from OpenCode's built-in
+The colour themes under Settings > Theme (all but Pully) are converted from OpenCode's built-in
 themes, https://github.com/anomalyco/opencode.
 
 MIT License

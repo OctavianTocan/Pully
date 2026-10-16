@@ -3,7 +3,6 @@ package com.octaviantocan.pulls.ui.design
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.annotation.DrawableRes
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,9 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -317,54 +312,6 @@ fun Badge(text: String, modifier: Modifier = Modifier, color: Color = LocalPulls
 fun Card(modifier: Modifier = Modifier, radius: Dp = 8.dp, content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
     Box(modifier.clip(RoundedCornerShape(radius)).border(1.dp, c.border, RoundedCornerShape(radius))) { content() }
-}
-
-/**
- * `FormTextInput` / `FormTextarea`: `border border-base rounded bg-raised`, 16px text,
- * an optional leading Phosphor icon, placeholder at `op-fade`.
- */
-@Composable
-fun TextInput(
-    value: String,
-    onChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-    icon: String? = null,
-    singleLine: Boolean = true,
-    minLines: Int = 1,
-    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
-    enabled: Boolean = true,
-) {
-    val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(12.dp)
-    BasicTextField(
-        value = value,
-        onValueChange = onChange,
-        enabled = enabled,
-        singleLine = singleLine,
-        minLines = minLines,
-        maxLines = maxLines,
-        textStyle = PullsType.base.copy(color = c.text),
-        cursorBrush = SolidColor(c.primary),
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        modifier = modifier.defaultMinSize(minHeight = TOUCH),
-        decorationBox = { inner ->
-            Row(
-                Modifier.clip(shape).background(c.raised).border(BorderStroke(1.dp, c.border), shape).padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (icon != null) PhIcon(icon, tint = c.fade, size = 18.dp)
-                Box(Modifier.weight(1f)) {
-                    if (value.isEmpty()) Text(placeholder, style = PullsType.base, color = c.mute, maxLines = if (singleLine) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
-                    inner()
-                }
-            }
-        },
-    )
 }
 
 /** `FeedbackLoading`: a spinner and a muted line. */

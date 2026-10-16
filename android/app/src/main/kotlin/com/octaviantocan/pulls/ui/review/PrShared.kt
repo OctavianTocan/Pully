@@ -75,8 +75,43 @@ internal fun storedTourHead(target: OpenTarget, preview: PullPreview?, tour: Tou
     )
 }
 
-/** A run of files under an optional heading. */
-internal data class FileSection(val label: String?, val files: List<ReviewFile>)
+/**
+ * A run of files under an optional heading. [label] is the whole name, which keys the section's fold; [heading] is the
+ * "Prefix" it shares with the sections beside it and [name] what its own row shows once that prefix is said once over
+ * them (N34). A section that shares nothing has no [heading], and [name] is its [label].
+ */
+internal data class FileSection(val label: String?, val files: List<ReviewFile>, val heading: String? = null, val name: String? = label)
+
+/** Whether [section] needs a line of its own over it saying its [FileSection.heading]: the first of its run, unless its parent's section, just above, already says it. */
+internal fun opensHeading(section: FileSection, before: FileSection?): Boolean =
+    section.heading != null && before?.heading != section.heading && before?.label != section.heading
+
+/** Between a group's name and its child's, as the file sections write them. */
+internal const val SECTION_JOIN = " › "
+
+/**
+ * Says a shared "Prefix › " once (N34): where two or more sections in a row are named "Prefix › Something" with the same
+ * Prefix, each gets that Prefix as its [FileSection.heading] and the rest as its [FileSection.name], so no two rows read
+ * the same ("Wayland capture producer › …" four times, recording of 16 Oct 12:10, 17:41 to 18:02). Right under their
+ * parent's own section, named Prefix, even one does: the parent already says the Prefix. Any other lone one keeps its
+ * whole name.
+ */
+internal fun sharePrefixes(sections: List<FileSection>): List<FileSection> {
+    fun prefix(section: FileSection): String? = section.label?.takeIf { SECTION_JOIN in it }?.substringBefore(SECTION_JOIN)
+    val out = ArrayList<FileSection>(sections.size)
+    var at = 0
+    while (at < sections.size) {
+        val shared = prefix(sections[at])
+        var end = at + 1
+        if (shared != null) while (end < sections.size && prefix(sections[end]) == shared) end++
+        val run = sections.subList(at, end)
+        val underParent = out.lastOrNull()?.let { it.label == shared && it.heading == null } == true
+        if (shared != null && (run.size > 1 || underParent)) run.forEach { out += it.copy(heading = shared, name = it.label!!.substringAfter(SECTION_JOIN)) }
+        else out += run
+        at = end
+    }
+    return out
+}
 
 /**
  * The overview's file list. Files follow the groups (AI groups when the analysis exists, the rule-based
@@ -98,9 +133,9 @@ internal fun fileSections(session: ReviewSession, ui: DiffUi): List<FileSection>
     }
     views.forEach { view ->
         add(view.label.ifBlank { "Other files" }, view.files)
-        view.children.forEach { child -> add("${view.label} › ${child.label}", child.files) }
+        view.children.forEach { child -> add("${view.label}$SECTION_JOIN${child.label}", child.files) }
     }
-    return sections
+    return sharePrefixes(sections)
 }
 
 /** Above this many files a pull request's file sections start folded, so a huge one opens as a short list of headings. */

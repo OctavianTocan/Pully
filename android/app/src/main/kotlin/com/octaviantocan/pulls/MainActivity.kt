@@ -53,6 +53,9 @@ class MainActivity : ComponentActivity() {
                 this@MainActivity.enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
                 onDispose { }
             }
+            // Every role of `PullsType` but the numbers' reads `AppFonts`, which follows this; set before the theme so
+            // the first frame is already in the chosen face (N10).
+            if (com.octaviantocan.pulls.ui.design.AppFonts.selected != settings.appFont) com.octaviantocan.pulls.ui.design.AppFonts.selected = settings.appFont
             PullsTheme(dark = dark, theme = theme, locale = settings.locale) {
                 PullsApp(initialTarget = IncomingLinks.read(intent))
             }

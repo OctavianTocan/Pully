@@ -1,13 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -20,23 +13,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Sounds
-import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
-import com.octaviantocan.pulls.ui.design.PillButton
-import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
@@ -48,55 +35,6 @@ import kotlinx.coroutines.launch
 @Composable
 private fun Hint(text: String, color: androidx.compose.ui.graphics.Color = LocalPullsColors.current.muted) {
     Text(text, Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = color)
-}
-
-/**
- * Review progress, a page of the pull request's sheet (J27): Mark all, Invert and Reset, then every file (by path) with
- * its tick and status; a tap jumps to the file, closing the sheet with [onClose].
- */
-@Composable
-internal fun ColumnScope.ReviewProgressPage(session: ReviewSession, onClose: () -> Unit) {
-    val c = LocalPullsColors.current
-    val rows = session.files.map { it to session.reviewState(it) }.sortedBy { it.first.path }
-    val reviewedCount = rows.count { it.second == ReviewState.Reviewed }
-    fun shasWhere(reviewed: Boolean) = rows.filter { (it.second == ReviewState.Reviewed) == reviewed }.map { it.first.sha }
-    @OptIn(ExperimentalLayoutApi::class)
-    FlowRow( horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        PillButton(t("reviewProgress.markAll"), { session.setReviewed(shasWhere(false), true) }, enabled = reviewedCount != rows.size)
-        PillButton(t("reviewProgress.invert"), {
-            val (unmark, mark) = shasWhere(true) to shasWhere(false)
-            session.setReviewed(unmark, false)
-            session.setReviewed(mark, true)
-        }, enabled = rows.isNotEmpty())
-        PillButton(t("reviewProgress.reset"), { session.setReviewed(rows.map { it.first.sha }, false) }, enabled = reviewedCount > 0 || session.changedSinceReviewed.isNotEmpty())
-    }
-    SheetCard {
-        rows.forEachIndexed { index, (file, state) ->
-            Row(
-                Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp).padding(start = 8.dp, end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Box(
-                    Modifier.defaultMinSize(minWidth = 44.dp, minHeight = 44.dp).cueClickable(role = Role.Checkbox, onClickLabel = t("file.markReviewed")) { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) },
-                    contentAlignment = Alignment.Center,
-                ) { PullsCheck(state == ReviewState.Reviewed, size = 22.dp) }
-                Box(
-                    Modifier.weight(1f).defaultMinSize(minHeight = 44.dp).cueClickable(role = Role.Button) {
-                        onClose()
-                        session.focus = Focus(file.path)
-                    }.padding(vertical = 6.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) { FilePath(file.path, Modifier, dim = true, wrap = true, icon = false) }
-                val (label, color) = when (state) {
-                    ReviewState.Changed -> "changed" to c.warning
-                    ReviewState.Reviewed -> "reviewed" to c.accentTeal
-                    else -> "unreviewed" to c.muted
-                }
-                Text(t("reviewProgress.status.$label"), style = PullsType.sm, color = color)
-            }
-        }
-    }
 }
 
 private val VERDICTS = listOf("COMMENT", "APPROVE", "REQUEST_CHANGES")

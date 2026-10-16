@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -94,8 +95,10 @@ import kotlinx.coroutines.launch
  * its normal height, which is its content up to half the screen, and its tall height near the top of the
  * screen, which a short sheet reaches too: the room under its content is the sheet's own paper. [full]
  * makes the body fill the sheet (chat, Commands); its normal height is then half the screen, and its
- * [footer] stays on screen at either height. [expandable] off keeps a sheet at its normal height. [back]
- * swaps the close X for a back arrow. [tall] opens it at its tall height (Commands, whose search takes the keyboard).
+ * [footer] stays on screen at either height, floating over the body, which runs on under it and dissolves into the
+ * paper as the Tour's page does under its Ask bar ([aboveFooter] floats just over the footer, as Ask's
+ * scroll-to-the-end button). [expandable] off keeps a sheet at its normal height. [back] swaps the close X for a back
+ * arrow. [tall] opens it at its tall height (Commands, whose search takes the keyboard; Ask).
  *
  * The sheet is the kit's own window, not Material's. It rises from below the screen on a spring with a little bounce
  * while fading in through a 2px blur, and leaves in 350ms on the smooth-out curve (rule 73, H3). It follows a finger:
@@ -116,6 +119,7 @@ fun PullsSheet(
     expandable: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
     tall: Boolean = false,
+    aboveFooter: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollState = scroll ?: rememberScrollState()
@@ -128,7 +132,7 @@ fun PullsSheet(
                 title = title,
                 trailing = trailing,
             )
-            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), content)
+            SheetPage(scrollState, full, footer, Modifier.weight(1f, fill = full), aboveFooter, content)
         }
     }
 }
@@ -144,8 +148,9 @@ fun PullsSheet(
     expandable: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
     tall: Boolean = false,
+    aboveFooter: (@Composable BoxScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
-) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, tall, content)
+) = PullsSheet(onClose, { SheetTitle(title) }, full, back, footer, scroll, expandable, trailing, tall, aboveFooter, content)
 
 /**
  * A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze
@@ -692,13 +697,45 @@ private val PageFade = 20.dp
 
 /**
  * One page of a sheet: the scrolling body, which dissolves under the header as it scrolls (rule 74,
- * so the ✕ never overlaps text and nothing is sliced), and the [footer] under it.
+ * so the ✕ never overlaps text and nothing is sliced), and the [footer] under it. A [full] sheet's footer floats over
+ * the body instead, with [aboveFooter] over it: the body runs on under the footer and dissolves into the paper there,
+ * as the Tour's page does under its Ask bar, never ending on a solid band of paper ("a white band under the input
+ * instead of the content showing through", recording of 16 Oct 12:10, 13:06 to 13:16, N27). The body's end clears the
+ * footer, so the last line can always be scrolled above it.
  */
 @Composable
-private fun SheetPage(scroll: ScrollState, full: Boolean, footer: (@Composable ColumnScope.() -> Unit)?, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+private fun SheetPage(
+    scroll: ScrollState,
+    full: Boolean,
+    footer: (@Composable ColumnScope.() -> Unit)?,
+    modifier: Modifier,
+    aboveFooter: (@Composable BoxScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val c = LocalPullsColors.current
     val density = LocalDensity.current
     val band = with(density) { PageFade.toPx() }
+    if (full && footer != null) {
+        var footerHeight by remember { mutableIntStateOf(0) }
+        val under = with(density) { footerHeight.toDp() }
+        Box(modifier.fillMaxWidth()) {
+            Column(
+                Modifier.fillMaxSize()
+                    .edgeFade(
+                        top = PageFade, bottom = maxOf(PullsMotion.EdgeBottom, under + PageFade), color = c.paper, blur = PullsMotion.BlurMedium,
+                        topStrength = { (scroll.value / band).coerceIn(0f, 1f) },
+                    )
+                    .verticalScroll(scroll)
+                    .padding(start = 16.dp, end = 16.dp, bottom = under + 8.dp),
+                content = content,
+            )
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { footerHeight = it.height }) {
+                Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)
+            }
+            if (aboveFooter != null) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = under + 4.dp), content = aboveFooter)
+        }
+        return
+    }
     Column(modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth().weight(1f, fill = full)
@@ -739,7 +776,7 @@ internal fun <P : Any> PagedSheetPanel(
         )
         BlurSwitch(page, Modifier.weight(1f, fill = full), order = depth, reach = SHEET_PAGE_REACH, slow = true) { p ->
             val pageFooter: (@Composable ColumnScope.() -> Unit)? = footer?.let { f -> { f(p) } }
-            SheetPage(scrolls.getOrPut(p) { ScrollState(0) }, full, pageFooter, if (full) Modifier.fillMaxSize() else Modifier) { content(p) }
+            SheetPage(scrolls.getOrPut(p) { ScrollState(0) }, full, pageFooter, if (full) Modifier.fillMaxSize() else Modifier, null) { content(p) }
         }
     }
 }

@@ -39,6 +39,35 @@ class ChangelogTest {
     }
 
     @Test
+    fun attachesPicturesToTheBulletTheyFollow() {
+        val entries = parseChangelog(
+            """
+            ## 0.40.0
+
+            Rows show their state.
+
+            ![The Inbox](changelog/0.40.0/inbox.png)
+
+            ### New
+
+            - Rows carry a state icon.
+
+            ![A row with a draft icon](changelog/0.40.0/rows.png)
+
+            - Search asks when it ends with a question mark.
+
+            ![Asking from the search](changelog/0.40.0/ask.gif)
+            """.trimIndent(),
+        )
+        val entry = entries.single()
+        assertEquals(listOf("Rows carry a state icon.", "Search asks when it ends with a question mark."), entry.items)
+        assertEquals("Rows show their state.", entry.summary)
+        assertEquals(listOf("changelog/0.40.0/inbox.png"), entry.picturesAfter(-1).map { it.path })
+        assertEquals(listOf("A row with a draft icon"), entry.picturesAfter(0).map { it.alt })
+        assertEquals(listOf("changelog/0.40.0/ask.gif"), entry.picturesAfter(1).map { it.path })
+    }
+
+    @Test
     fun sortsBulletsUnderGroupHeadings() {
         val entries = parseChangelog(
             """

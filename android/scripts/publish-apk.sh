@@ -34,6 +34,11 @@ sha="$(sha256sum "$apk" | cut -d' ' -f1)"
 
 mkdir -p "$out"
 cp "$apk" "$out/pulls.apk.tmp" && mv "$out/pulls.apk.tmp" "$out/pulls.apk"
+# The changelog's pictures (android/changelog/<version>/), which the update screen shows for a version not installed yet.
+if [ -d changelog ]; then
+  mkdir -p "$out/changelog"
+  cp -R changelog/. "$out/changelog/"
+fi
 python3 - "$out/latest.json" "$code" "$name" "$sha" "${base%/}/android/pulls.apk" "$notes" CHANGELOG.md <<'EOF'
 import json, os, re, sys
 path, code, name, sha, url, notes, changelog_path = sys.argv[1:]

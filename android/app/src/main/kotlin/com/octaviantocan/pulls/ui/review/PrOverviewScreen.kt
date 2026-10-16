@@ -1,6 +1,10 @@
 package com.octaviantocan.pulls.ui.review
 
 import com.octaviantocan.pulls.ui.home.stayOnPull
+import androidx.compose.ui.layout.layout
+import androidx.compose.foundation.layout.imePadding
+import com.octaviantocan.pulls.ui.home.SearchDim
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.octaviantocan.pulls.data.JEV_FILE_WORDS
 import com.octaviantocan.pulls.data.JEV_RISK_WORDS
 import com.octaviantocan.pulls.data.PullJev
@@ -66,12 +70,14 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
@@ -94,7 +100,7 @@ import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CodePlace
-import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.FieldHeight
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.IconSwap
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -104,7 +110,6 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
-import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
@@ -127,7 +132,7 @@ import androidx.compose.foundation.layout.offset
  * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
  * who and when, the branches, a four-cell summary line, Summary / Commits / Conversation tabs, the AI's
  * status and the summary (the description until the AI writes one), the file list with its notes, and a
- * bottom bar with Ask, More and the one action that moves the review forward.
+ * bottom row with a field to ask about the pull request and the round button that moves the review forward (N32).
  */
 @Composable
 internal fun PrOverviewScreen(
@@ -140,7 +145,7 @@ internal fun PrOverviewScreen(
     pane: Int,
     onPane: (Int) -> Unit,
     onDiff: (path: String?) -> Unit,
-    onAsk: () -> Unit,
+    onAsk: (question: String) -> Unit,
     onSheet: (String) -> Unit,
     onCite: (Cite) -> Unit,
     onOpenRepo: (owner: String, repo: String) -> Unit,
@@ -171,14 +176,28 @@ internal fun PrOverviewScreen(
         // the Diff finds it where it was.
         val others = remember { List(labels.size - 1) { LazyListState() } }
         val lists = remember(scroll) { listOf(scroll) + others }
-        var headHeight by remember { mutableIntStateOf(0) }
-        var tabsHeight by remember { mutableIntStateOf(0) }
+        // The head's parts, each measured whole whatever the scroll: the title as it wraps, the same title on one line,
+        // the lines under it that scroll away, and the numbers with the tabs.
+        var titleHeight by remember { mutableIntStateOf(0) }
+        var lineHeight by remember { mutableIntStateOf(0) }
+        var awayHeight by remember { mutableIntStateOf(0) }
+        var pinnedHeight by remember { mutableIntStateOf(0) }
         val density = LocalDensity.current
-        // The head goes up until only its tabs are left, and they stay pinned at the top on the page's colour (K6).
-        val maxLift = (headHeight - tabsHeight).coerceAtLeast(0)
+        val headHeight = with(density) { HEAD_TOP.roundToPx() } + titleHeight + awayHeight + pinnedHeight
+        // The head goes up until the title on one line, the numbers and the tabs are left, pinned at the top on the
+        // page's colour (K6): first the meta, branch and Jev lines go up under the title, then the title folds to one
+        // line ("only the branch line scrolls away", recording of 16 Oct 12:10, 20:34 to 21:03; N38).
+        val titleFold = (titleHeight - lineHeight).coerceAtLeast(0)
+        val maxLift = awayHeight + titleFold
         // How far the head has gone up with the tab in view: as far as that tab's list has scrolled past it.
         fun lifted(list: LazyListState) = if (list.firstVisibleItemIndex > 0) maxLift else minOf(list.firstVisibleItemScrollOffset, maxLift)
         val front by remember { derivedStateOf { lists[sides.at.roundToInt().coerceIn(0, labels.lastIndex)] } }
+        // What has gone of the lines under the title, and of the title's own height as it folds to one line.
+        fun awayCut() = minOf(lifted(front), awayHeight)
+        fun titleCut() = (lifted(front) - awayHeight).coerceIn(0, titleFold)
+        fun folded() = if (titleFold == 0) 0f else titleCut().toFloat() / titleFold
+        // Once it starts folding, the title is a heading and not a field: a tap on it edits only at rest.
+        val pinned by remember(awayHeight) { derivedStateOf { lifted(front) > awayHeight } }
         // The tabs beside the one in view sit at the same height under the head, so a swipe brings them in level with it:
         // the head where it is, and each tab where it was left once the head has gone (J9).
         LaunchedEffect(lists, maxLift) {
@@ -225,25 +244,34 @@ internal fun PrOverviewScreen(
                 }
             }
         }
-        // The head: the title, who and when, the branch, the numbers and the tabs. It goes up with the tab in view and
-        // scrolls it when dragged, and a sideways drag on it moves the tabs' pages like one on them (J21).
-        // Nothing of it is drawn above the page, so it never covers the buttons over it or reaches the status bar (K6).
+        // The head: the title, who and when, the branch, the numbers and the tabs. It scrolls the tab in view when dragged,
+        // and a sideways drag on it moves the tabs' pages like one on them (J21). As the tab scrolls, the lines under the
+        // title go up under it and the title folds to one line, while the title, the numbers and the tabs stay pinned
+        // (N38). Nothing of it is drawn above the page, so it never covers the buttons over it or reaches the status bar
+        // (K6).
         Column(
             Modifier.fillMaxWidth()
-                .onSizeChanged { headHeight = it.height }
-                .graphicsLayer { translationY = -lifted(front).toFloat() }
                 .background(c.base)
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                .padding(start = 16.dp, end = 16.dp, top = HEAD_TOP)
                 .scrollable(front, Orientation.Vertical, reverseDirection = true)
                 .sideSwipe(sides),
         ) {
             val overview = data?.overview
-            EditableText(
-                head.title, canEdit = overview?.viewer?.canEditText == true, textStyle = PullsType.xxl, saved = "Title updated",
-                onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
-                modifier = Modifier.backUnless("title").holdUnless("title"),
-            ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
-            Column(Modifier.backUnless("").holdUnless("")) {
+            // The whole title at rest; as it folds it fades into the same title on one line, ending in … if it must
+            // ("ellipsis allowed when pinned", N38), and the box loses the lines it no longer shows.
+            Box(Modifier.clipToBounds().cut(::titleCut, keepTop = true)) {
+                EditableText(
+                    head.title, canEdit = overview?.viewer?.canEditText == true && !pinned, textStyle = PullsType.xxl, saved = "Title updated",
+                    onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
+                    modifier = Modifier.onSizeChanged { titleHeight = it.height }.graphicsLayer { alpha = 1f - folded() }.backUnless("title").holdUnless("title"),
+                ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
+                Text(
+                    head.title, Modifier.fillMaxWidth().onSizeChanged { lineHeight = it.height }.graphicsLayer { alpha = folded() }.clearAndSetSemantics { },
+                    style = PullsType.xl, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // What scrolls away: it goes up under the title, cut at the title's edge.
+            Column(Modifier.clipToBounds().cut(::awayCut, keepTop = false).onSizeChanged { awayHeight = it.height }.backUnless("").holdUnless("")) {
                 PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
                 if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head.base, head.head)
                 StackMark(session.stack) { onSheet("stack") }
@@ -254,16 +282,28 @@ internal fun PrOverviewScreen(
                 SharedAnalysisBanner(session, Modifier.padding(top = 12.dp))
                 val overviewError = session.overviewError
                 if (data == null && overviewError != null) OverviewError(overviewError) { session.reloadOverview() }
+            }
+            // Pinned under the title: the numbers, with Checks among them, and the tabs (N38).
+            Column(Modifier.onSizeChanged { pinnedHeight = it.height }.backUnless("").holdUnless("")) {
                 StatsLine(session, data, onSheet, onCommits = { onSheet("commits") })
                 // The stroke sits where the pages are, so the tab and the page under it move as one (J15). The tabs sit
                 // side by side from the left, a word's room apart, not spread over the width (K7).
-                UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp).onSizeChanged { tabsHeight = it.height + with(density) { 2.dp.roundToPx() } }, position = { sides.at })
+                UnderlineTabs(labels, shown, onPane, Modifier.padding(top = 2.dp), position = { sides.at })
             }
         }
-        BottomBar(session, head, Modifier.align(Alignment.BottomCenter).stayOnPull().backUnless("").holdUnless(""), onAsk = onAsk, onMore = { onSheet("more") }, onDiff = onDiff, onApprove = {
-            top.reviewVerdict = "APPROVE"
-            top.reviewOpen = true
-        })
+        // The Ask field is Home's search pill, and the page dims behind it while it waits for its first letter (rule 132).
+        var askText by remember { mutableStateOf("") }
+        var askFocused by remember { mutableStateOf(false) }
+        SearchDim(askFocused, askText.isEmpty())
+        BottomBar(
+            session, head, Modifier.align(Alignment.BottomCenter).stayOnPull().backUnless("").holdUnless(""),
+            askText = askText, onAskText = { askText = it }, onAskFocus = { askFocused = it },
+            onAsk = onAsk, onDiff = onDiff,
+            onApprove = {
+                top.reviewVerdict = "APPROVE"
+                top.reviewOpen = true
+            },
+        )
     }
     }
 }
@@ -291,6 +331,20 @@ internal fun JevLine(jev: PullJev?, attention: Map<String, String>) {
         }
     }
     Text(words, Modifier.padding(top = 8.dp), style = PullsType.sm, color = c.muted)
+}
+
+/** The air over the Overview's title, under the review's header. */
+private val HEAD_TOP = 12.dp
+
+/**
+ * Takes [cut] pixels off what this draws, as the head's parts do while the page scrolls (N38): from the bottom when
+ * [keepTop] (the title folding up), else from the top, the content going up under what is over it (the lines under the
+ * title). Only its height changes; [cut] is read while laying out, so a scroll moves it without composing it again.
+ */
+private fun Modifier.cut(cut: () -> Int, keepTop: Boolean): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val shown = (placeable.height - cut()).coerceIn(0, placeable.height)
+    layout(placeable.width, shown) { placeable.place(0, if (keepTop) 0 else shown - placeable.height) }
 }
 
 /** The Overview's tabs; the opening page draws the same row, so nothing moves when the page arrives (K22). */
@@ -530,8 +584,11 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
     val critiqueTask = rememberLiveTask(session, "critique")
     val reviewing = critiqueTask?.running == true
     val findings = session.visibleFindings
+    // Most serious first, nits last. The first few show, then "Show N more", which opens the rest in place (N5).
     val rank = mapOf("bug" to 0, "risk" to 1)
-    val shown = findings.sortedBy { rank[it.severity] ?: 2 }.filter { it.severity != "nit" }.ifEmpty { findings }.take(4)
+    val sorted = findings.sortedBy { rank[it.severity] ?: 2 }
+    var all by rememberSaveable(session.key) { mutableStateOf(false) }
+    val shown = sorted.take(firstFew(sorted.size, all))
     if (findings.isEmpty() && !reviewing && !session.hasAiResult) return
     // The first row has nothing above it; every later one has a hairline.
     fun line(index: Int): Modifier = if (index == 0) Modifier else Modifier.hairlineTop(c.borderMute)
@@ -550,10 +607,11 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
                 style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.text,
             )
         }
+        if (sorted.size > shown.size) ShowMore(sorted.size - shown.size) { all = true }
         if (findings.isNotEmpty()) {
-            // The findings sheet is also where findings are picked and posted as a review, so it is offered for a short list too.
+            // The findings sheet is where findings are picked and posted as a review, so it is offered however long the list.
             Text(
-                if (findings.size > shown.size) "Show all ${findings.size}" else "Open the review", Modifier.fillMaxWidth().then(line(shown.size)).cueClickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
+                "Open the review", Modifier.fillMaxWidth().then(line(shown.size)).cueClickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
                 style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
             )
         }
@@ -588,7 +646,9 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
 /**
  * The heading and one list row per file, grouped under the section headings when there are any. A heading folds its
  * files away; above [FOLD_ABOVE] files every section starts folded, so a pull request of thousands of files opens as
- * a short list of headings, and only the rows on screen are ever composed.
+ * a short list of headings, and only the rows on screen are ever composed. A long list stops after its first few
+ * sections, and a long section after its first few files, with "Show N more" under them (N5). Sections that share a
+ * "Prefix › " say it once over them, in a line of its own (N34).
  */
 private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff: (String?) -> Unit, onSheet: (String) -> Unit, rows: Modifier) {
     val sections = fileSections(session, ui)
@@ -609,37 +669,60 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: DiffUi, onDiff:
         }
         return
     }
-    sections.forEachIndexed { index, section ->
+    val shownSections = firstFewSections(sections, ui.shownAll[SHOWN_SECTIONS] == true)
+    sections.take(shownSections).forEachIndexed { index, section ->
         val label = section.label
         val folded = label != null && ui.isFolded(label, total)
+        // Sections that share a "Prefix › " are named once over them, and each row says only the rest (N34).
+        val shared = section.heading
+        if (shared != null && opensHeading(section, sections.getOrNull(index - 1))) item(key = "shared:$index") {
+            val c = LocalPullsColors.current
+            Text(
+                shared, rows.fillMaxWidth().padding(top = if (index == 0) 10.dp else 18.dp, bottom = 2.dp).semantics { heading() },
+                style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted,
+            )
+        }
         // The Inbox's fold heading (J18): run out over the list's side padding so it sits as the Inbox's does, its line
-        // drawn only while folded; open, the first file's own line is the one under it (rule 75).
+        // drawn only while folded; open, the first file's own line is the one under it (rule 75). It folds by its whole
+        // name, so a fold is kept however the row is named.
         if (label != null) item(key = "section:$index") {
             FoldHeading(
-                label, section.files.size, first = index == 0, folded = folded,
+                section.name ?: label, section.files.size, first = index == 0, folded = folded,
                 modifier = rows.bleed(16.dp).padding(top = 4.dp).animateItem(), line = folded, background = LocalPullsColors.current.base,
                 changes = section.files.sumOf { it.additions } to section.files.sumOf { it.deletions },
             ) { ui.folds[label] = !folded }
         }
-        if (!folded) itemsIndexed(section.files, key = { _, file -> "file:${file.path}" }) { index, file ->
-            val state = session.reviewState(file)
-            val note = notes[file.path]?.takeIf { it.isNotBlank() }
-            val toggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) }
-            // The same gestures as the Inbox rows (rule 56): right opens it, as it opens a pull request, left marks it
-            // reviewed (or not), a tap opens it and a long-press offers the rest.
-            SwipeRow(
-                file.path, onOpen = { onDiff(file.path) }, onArchive = toggle, archived = false, modifier = rows.animateItem(),
-                startLabel = "Open", startIcon = Lu.arrow,
-                endLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", endIcon = Lu.check,
-                onLongClick = { onSheet(FILE_SHEET + file.path) },
-            ) {
-                // The first row of a list has no line above it, unless a heading is over it: then that line is the
-                // heading's underline (rule 75, J18).
-                FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0 || label != null, mark = session.attention[file.path], onToggle = toggle)
+        if (!folded) {
+            val more = SHOWN_FILES + (label ?: "")
+            val files = section.files.take(firstFew(section.files.size, ui.shownAll[more] == true))
+            itemsIndexed(files, key = { _, file -> "file:${file.path}" }) { index, file ->
+                val state = session.reviewState(file)
+                val note = notes[file.path]?.takeIf { it.isNotBlank() }
+                val toggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) }
+                // The same gestures as the Inbox rows (rule 56): right opens it, as it opens a pull request, left marks it
+                // reviewed (or not), a tap opens it and a long-press offers the rest.
+                SwipeRow(
+                    file.path, onOpen = { onDiff(file.path) }, onArchive = toggle, archived = false, modifier = rows.animateItem(),
+                    startLabel = "Open", startIcon = Lu.arrow,
+                    endLabel = if (state == ReviewState.Reviewed) "Not reviewed" else "Reviewed", endIcon = Lu.check,
+                    onLongClick = { onSheet(FILE_SHEET + file.path) },
+                ) {
+                    // The first row of a list has no line above it, unless a heading is over it: then that line is the
+                    // heading's underline (rule 75, J18).
+                    FileRow(session, file, state, note, analyzing && note == null, ruled = index > 0 || label != null, mark = session.attention[file.path], onToggle = toggle)
+                }
             }
+            val hidden = section.files.size - files.size
+            if (hidden > 0) item(key = "more:$index") { ShowMore(hidden, rows.animateItem()) { ui.shownAll[more] = true } }
         }
     }
+    val hidden = sections.size - shownSections
+    if (hidden > 0) item(key = "more-sections") { ShowMore(hidden, rows.padding(top = 4.dp).animateItem()) { ui.shownAll[SHOWN_SECTIONS] = true } }
 }
+
+/** The keys under which [DiffUi.shownAll] keeps that the reader opened the whole list: the sections, or one section's files. */
+private const val SHOWN_SECTIONS = "files"
+private const val SHOWN_FILES = "files:"
 
 /**
  * `.flr`: the checkbox on the first line, the file name, its folder cut from the front under it (a tap shows the whole
@@ -664,15 +747,26 @@ internal fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewStat
                 color = if (reviewed) c.muted else c.text,
             )
             val jevMark = mark?.takeIf { it in JEV_FILE_WORDS }
-            if (dir.isNotEmpty() || jevMark != null) {
+            val pathTap = Modifier.clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (whole) "Shorten the path" else "Show the whole path") { whole = !whole }
+            if (whole && dir.isNotEmpty()) {
+                // The whole path is one paragraph with Jev's word: it runs on after "Worth a look ·" and wraps under it,
+                // never into a narrow column beside it ("almost a rule I personally have", recording of 16 Oct 12:10,
+                // 19:49 to 20:16; N37).
+                Text(
+                    buildAnnotatedString {
+                        if (jevMark != null) {
+                            withStyle(SpanStyle(color = if (jevMark == "p0") c.amber else c.muted)) { append(JEV_FILE_WORDS.getValue(jevMark)) }
+                            withStyle(SpanStyle(color = c.faint)) { append(" · ") }
+                        }
+                        withStyle(SpanStyle(fontFamily = PullsType.mono, color = c.faint)) { append("$dir/") }
+                    },
+                    Modifier.fillMaxWidth().then(pathTap), style = PullsType.sm, color = c.faint,
+                )
+            } else if (dir.isNotEmpty() || jevMark != null) {
+                // Cut to one line, Jev's word and the path's tail fit side by side.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (jevMark != null) JevMark(jevMark, trailingDot = dir.isNotEmpty())
-                    if (dir.isNotEmpty()) {
-                        val pathStyle = PullsType.sm.copy(fontFamily = PullsType.mono)
-                        val pathTap = Modifier.weight(1f, fill = false).clip(RoundedCornerShape(PullsRadius.xs)).cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (whole) "Shorten the path" else "Show the whole path") { whole = !whole }
-                        if (whole) Text("$dir/", pathTap, style = pathStyle, color = c.faint)
-                        else PathTail(dir, pathStyle, c.faint, pathTap)
-                    }
+                    if (dir.isNotEmpty()) PathTail(dir, PullsType.sm.copy(fontFamily = PullsType.mono), c.faint, Modifier.weight(1f, fill = false).then(pathTap))
                 }
             }
             when {
@@ -715,27 +809,32 @@ private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modif
 
 // --- Bottom bar ---
 
-/** `.vbar`: the Ask / More pill and the main action: review the files, or approve once they are all reviewed. */
+/**
+ * `.vbar`: the Ask field and the round button that moves the review forward: review the files, or approve once they are
+ * all reviewed. ⋯ is only in the header's capsule, so the bar holds no menu of its own (N32).
+ */
 @Composable
 private fun BottomBar(
     session: ReviewSession,
     head: PrHead,
     modifier: Modifier,
-    onAsk: () -> Unit,
-    onMore: () -> Unit,
+    askText: String,
+    onAskText: (String) -> Unit,
+    onAskFocus: (Boolean) -> Unit,
+    onAsk: (question: String) -> Unit,
     onDiff: (String?) -> Unit,
     onApprove: () -> Unit,
 ) {
     val left = session.files.count { it.sha !in session.reviewed }
     val canApprove = session.pull != null && session.canWrite && head.isOpen
     val done = left == 0 && session.files.isNotEmpty()
-    // The overview came before the diff: the button already counts the files the Inbox knew of, so its words do not change
-    // when they arrive (K22), and it is never greyed out while the rest loads; the Diff it opens shows bars until the
-    // files come ("the review button is greyed out", recording 15 Oct 15:37, 03:29 to 04:12; L5).
+    // The overview came before the diff: the button already counts the files the Inbox knew of, so what it says does not
+    // change when they arrive (K22), and it is never greyed out while the rest loads; the Diff it opens shows bars until
+    // the files come ("the review button is greyed out", recording 15 Oct 15:37, 03:29 to 04:12; L5).
     val arrived = session.opened != null
     val known = (session.target as? OpenTarget.Pull)?.let { PullSizes.get(it.owner, it.repo, it.number) }?.files
     ReviewBar(
-        text = when {
+        label = when {
             !arrived -> reviewFilesLabel(known)
             done && canApprove -> "Approve"
             done -> "Open changes"
@@ -744,8 +843,10 @@ private fun BottomBar(
         approve = done && canApprove,
         enabled = true,
         modifier = modifier,
+        text = askText,
+        onText = onAskText,
+        onFocus = onAskFocus,
         onAsk = onAsk,
-        onMore = onMore,
         onClick = { if (done && canApprove) onApprove() else onDiff(null) },
     )
 }
@@ -753,38 +854,29 @@ private fun BottomBar(
 /** "Review 12 files", or "Review changes" while nobody knows how many. */
 internal fun reviewFilesLabel(files: Int?): String = if (files == null) "Review changes" else "Review $files file${if (files == 1) "" else "s"}"
 
-/** The bar's shape, which the opening page draws too, so it is in place before the pull request arrives (K22). */
+/**
+ * The bar's shape, which the opening page draws too, so it is in place before the pull request arrives (K22): the Tour's
+ * [AskBar], asking about the pull request, and beside it a round button on the primary fill with an arrow, or a tick
+ * when it approves. The button has no words on it; [label] is what it says to a screen reader ("an Ask field and a round
+ * button that goes to the review, no text, like the Tour", recording of 16 Oct 12:10, 16:40 to 17:05; N32). Sending a
+ * question hands it to [onAsk], which opens the Ask sheet on it.
+ */
 @Composable
-internal fun ReviewBar(text: String, approve: Boolean, enabled: Boolean, modifier: Modifier, onAsk: () -> Unit, onMore: () -> Unit, onClick: () -> Unit) {
-    val c = LocalPullsColors.current
-    Row(
-        modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            // The ⋯ gets more room on its right than Ask has on its left: the dots sit in the middle of a 44dp target.
-            Modifier.height(52.dp).floatShadow(CircleShape, PullsShadow.Bar).clip(CircleShape).background(c.raised).padding(start = 6.dp, end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                // The word alone: the speech bubble beside it was the generic AI glyph of rule 48.
-                Modifier.height(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Ask", onClick = onAsk).padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Ask", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
-            }
-            Box(Modifier.width(1.dp).height(22.dp).background(c.border))
-            FloatIcon(Lu.more, "More actions", onMore, flat = true, size = 44.dp)
-        }
-        CtaButton(
-            text = text,
-            onClick = onClick,
-            modifier = Modifier.weight(1f),
-            enabled = enabled,
-            container = c.primary,
-            contentColor = Color.White,
-            trailing = { IconSwap(if (approve) Lu.check else Lu.arrow) { LuIcon(it, tint = Color.White, size = 20.dp) } },
+internal fun ReviewBar(
+    label: String,
+    approve: Boolean,
+    enabled: Boolean,
+    modifier: Modifier,
+    text: String,
+    onText: (String) -> Unit,
+    onFocus: (Boolean) -> Unit,
+    onAsk: (question: String) -> Unit,
+    onClick: () -> Unit,
+) {
+    Box(modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        AskBar(
+            text, onText, "Ask about this pull request", onAsk, onFocus = onFocus, idleSend = false,
+            trailing = { FloatIcon(if (approve) Lu.check else Lu.arrow, label, onClick, size = FieldHeight, iconSize = 22.dp, enabled = enabled, primary = true) },
         )
     }
 }

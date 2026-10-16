@@ -1,8 +1,11 @@
 @cc [owner:OctavianTocan,label:product] home-search-or-ask
 The bottom pill on Home reads "Search or ask Pully" and is the one way to find a pull
 request: typing filters the list at once, a pasted link or a number opens that pull
-request, and other text can be asked with the Ask in the pill. There is no search icon in
-the header and no "Open pull request" field elsewhere (rules 35 and 55; D7).
+request, and a question can be asked from it. There is no search icon in the header and no
+"Open pull request" field elsewhere (rules 35 and 55; D7). The pill has no Ask button: it
+keeps its ✕, and while the trimmed text ends in "?" the ✕ crossfades into the send circle,
+which asks it, and back when the "?" goes. Tavi decided this in the recording of 16 Oct
+12:10, 05:03 to 05:47 (no "Ask" button "anywhere"; N8), replacing the Ask in the pill.
 
 @cc [owner:OctavianTocan,label:product;motion] home-search-dims-what-is-behind
 While the search waits for its first letter with the keyboard up, the list behind dims to
@@ -21,10 +24,15 @@ filters alone (Waiting on you, Authored, All). On Tours the sort button leaves a
 pill takes the row (rule 114; H19).
 
 @cc [owner:OctavianTocan,label:product] home-one-row-anatomy
-A pull request row is the same in the Inbox, Tours, a repository and search: number,
-title, author, coloured diffstat, checks and age, in fixed columns that do not move when
-a digit or a name's length changes (rules 13, 15 and 36). A context-free count ("7
-sections") never replaces them.
+A pull request row is the same in the Inbox, Tours, a repository and search, after
+Claude's own list: a tinted square tile with the state's mark on the left (open, draft,
+merged and closed each in its own colour; a tour's ring in the tile on Tours), the title
+beside it, wrapped whole (`android-whole-identifiers`), and one meta line under the title that starts with the
+number and carries the author, checks, coloured diffstat and age, in fixed columns that
+do not move when a digit or a name's length changes (rules 13, 15 and 36). A draft is told
+apart by its tile's colour and no title says "[draft]". A context-free count ("7
+sections") never replaces them. Tavi decided this in the recording of 16 Oct 12:10, 01:23
+to 03:05 (N4), replacing the number-first row.
 
 @cc [owner:OctavianTocan,label:design] home-no-avatars-on-rows
 A row carries the author's name in its own column and no avatar or initial. The reader's
@@ -32,8 +40,9 @@ photo lives in the Home header, and the author's on the pull request page (rule 
 
 @cc [owner:OctavianTocan,label:design] home-names-are-horizontal
 An author's name on a row takes one line and gives way only at its end; it never wraps or
-stacks a letter to a line. A stacked pull request shows "2/10" with the layers mark under
-its number, not beside the name (rule 111; H15, H16, H28).
+stacks a letter to a line. A stacked pull request shows "2/10" with the layers mark on the
+meta line right after its number, before the author (rule 111; H15, H16, H28). Tavi moved
+it there from under the number in the recording of 16 Oct 12:10, 00:49 to 01:04 (N2).
 
 @cc [owner:OctavianTocan,label:product;motion] home-swipes-commit
 On the Inbox a swipe right opens the review as a full gesture that commits on release,
@@ -77,8 +86,11 @@ pushing the pinned heading away ("collapsed project categories not becoming stic
 top bar": recording 15 Oct 15:37, 01:56 to 02:15; L2; H13; K19).
 
 @cc [owner:OctavianTocan,label:design] home-heading-chevrons-line-up
-Every heading's chevron sits on one line at the right edge, whatever the length of its name
-(recording 15 Oct 15:37, 02:16 to 02:37; L3).
+A heading reads "Name (count) ⌄": the count in parentheses right after the name and the
+chevron right after the count, all on the name's line, and a long name gives way at its
+end so the count and chevron stay whole (recording 15 Oct 15:37, 02:16 to 02:37; L3). Tavi
+decided this in the recording of 16 Oct 12:10, 00:08 to 00:47 and 14:57 ("we swap it
+everywhere"; N1, N35), replacing the count and chevron at the right edge.
 
 @cc [owner:OctavianTocan,label:product] home-heading-name-opens-repository
 A tap on a repository heading folds its rows, and a tap on its name opens the repository:
@@ -127,11 +139,12 @@ checklist 53; architecture, Jev).
 
 @cc [owner:OctavianTocan,label:product;design] home-rows-carry-no-jev-line
 An Inbox row shows nothing from Jev unless the list is sorted Riskiest first or grouped by
-kind, and then only one short risk word under the number, in the number's column, so the
-row is no taller than without it. A stacked row, whose column already holds "2/10", shows
-the risk only as its stack mark turning amber when the risk is high. There is no "Feature · Medium risk" line under the title
-("do not run it by default", rows "way too tall": recording 16 Oct 09:50, 00:08 to 00:37;
-M1).
+kind, and then only one short risk word on the meta line right after the number, so the
+row is no taller than without it. A stacked row, whose place there holds "2/10", shows the
+risk only as its stack mark turning amber when the risk is high. There is no "Feature ·
+Medium risk" line under the title ("do not run it by default", rows "way too tall":
+recording 16 Oct 09:50, 00:08 to 00:37; M1; checked again for N3, recording 16 Oct 12:10,
+01:06 to 01:15). The word moved from under the number with the row's redesign (N2, N4).
 
 @cc [owner:OctavianTocan,label:product;motion] home-pull-for-commands
 Pulling the Inbox down past its top says "Pull for commands", then "Release for commands",

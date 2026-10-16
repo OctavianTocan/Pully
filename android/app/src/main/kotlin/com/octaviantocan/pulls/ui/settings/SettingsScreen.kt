@@ -162,6 +162,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Server(Advanced),
     PastVersions(Advanced),
     Font(Main),
+    AppFont(Main),
     Sound(Main),
     Model(Main),
     Effort(Main),
@@ -181,6 +182,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Server -> "Server"
     SettingsPage.PastVersions -> "Past versions"
     SettingsPage.Font -> "Code font"
+    SettingsPage.AppFont -> "App font"
     SettingsPage.Sound -> "Sound"
     SettingsPage.Model -> "Select model"
     SettingsPage.Effort -> "Effort"
@@ -190,7 +192,7 @@ internal fun SettingsPage.title(): String = when (this) {
 
 /**
  * Settings, as a sheet like the rest of the app: grouped white cards on paper, one row for each choice.
- * The colour theme, language, the code font, the sound, the model, its effort and Advanced (the server, past versions and the UI Book) are pages inside this one
+ * The colour theme, language, the app and code fonts, the sound, the model, its effort and Advanced (the server, past versions and the UI Book) are pages inside this one
  * sheet (rule 78). Rows carry no explanations under them: a row says what it is, and its page says the rest (H8).
  * A setting that changes how something looks shows the result (rule 81): the diff layout as two small diffs,
  * the code size and font as a sample line.
@@ -216,6 +218,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
         SettingsPage.Server -> ServerPage()
         SettingsPage.PastVersions -> PastVersionsPage()
         SettingsPage.Font -> CodeFontPage(settings, onDone = { onPage(SettingsPage.Main) })
+        SettingsPage.AppFont -> AppFontPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Sound -> SoundPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Effort -> EffortPage(settings, onBack = { onPage(SettingsPage.Main) })
@@ -300,15 +303,24 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
         // The two layouts drawn small, so the choice is the thing chosen (rule 81).
         LayoutChoices(settings, Modifier.padding(top = 10.dp))
     }
+    // The faces, the app's and the code's, in one section of their own (recording 16 Oct 12:10, 06:29 to 06:42; N10).
+    Group("Fonts") {
+        SheetCard {
+            SheetRow("App font", { open(SettingsPage.AppFont) }, first = true, iconless = true) {
+                Text(com.octaviantocan.pulls.ui.design.AppFont.of(settings.appFont).label, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            SheetRow("Code font", { open(SettingsPage.Font) }, iconless = true) {
+                Text(com.octaviantocan.pulls.ui.design.CodeFont.of(settings.codeFont).label, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+    }
     Group("Code") {
         SheetCard {
             Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 CapsuleTabs(ZOOMS.map { it.first }, zoomIndex, { settings.updateCodeZoom(ZOOMS[it].second) }, Modifier.fillMaxWidth())
                 CodeSample(settings.codeZoom, wrap = settings.codeWrap)
-            }
-            SheetRow("Code font", { open(SettingsPage.Font) }, iconless = true) {
-                Text(com.octaviantocan.pulls.ui.design.CodeFont.of(settings.codeFont).label, style = PullsType.sm, color = c.muted)
-                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
             SheetRow("Wrap long lines", { settings.updateCodeWrap(!settings.codeWrap) }, iconless = true) {
                 PullsSwitch(settings.codeWrap, { settings.updateCodeWrap(it) }, "Wrap long lines")

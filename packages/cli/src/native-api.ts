@@ -127,6 +127,7 @@ function nativeCall(name: string, host: ServerHost, args: unknown): Promise<Resp
 }
 
 const APK = 'application/vnd.android.package-archive'
+const PICTURE: Record<string, string> = { png: 'image/png', webp: 'image/webp', gif: 'image/gif', jpg: 'image/jpeg' }
 
 /**
  * The updater's files, and the past versions of the app that android/scripts/build-past-ui.py rebuilt from git for the
@@ -143,7 +144,11 @@ function androidRoute(host: ServerHost, path: string): Promise<Response> | undef
   if (path === '/android/past/index.json')
     return androidFile(host, 'past/index.json', 'application/json', () => Response.json({ versions: [] }, { headers: { 'Cache-Control': 'no-store' } }))
   const past = /^\/android\/past\/(\d+\.\d+\.\d+)\.apk$/.exec(path)
-  return past ? androidFile(host, `past/${past[1]}.apk`, APK) : undefined
+  if (past)
+    return androidFile(host, `past/${past[1]}.apk`, APK)
+  // A changelog's pictures, for an update the phone has not installed yet (android/changelog/, copied by publish-apk.sh).
+  const picture = /^\/android\/changelog\/(\d+\.\d+\.\d+)\/([a-z0-9-]+)\.(png|webp|gif|jpg)$/.exec(path)
+  return picture ? androidFile(host, `changelog/${picture[1]}/${picture[2]}.${picture[3]}`, PICTURE[picture[3]]) : undefined
 }
 
 /**

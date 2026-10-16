@@ -18,3 +18,11 @@ hairline between versions, and `### New` / `### Fixed` groups where the section 
 @cc [owner:OctavianTocan,label:product] whats-new-opens-once
 After an install the update screen did not show, What's new opens by itself once; it is
 also a page of Settings and a command (rule 104).
+
+@cc [owner:OctavianTocan,label:product;design] changelog-shows-pictures
+Every changelog section from 0.40.0 on carries at least one picture of what changed, a
+small GIF where it moves, and the update screen, What's new and Settings' version page
+show each one under the bullet it follows, full width with the cards' corner. A version
+already installed loads its pictures from the APK; a version only offered loads them from
+the server beside the APK. Tavi asked for this on 16 Oct at 10:49 ("images in the
+changelog too, showing the stuff, or little gifs if its animated").

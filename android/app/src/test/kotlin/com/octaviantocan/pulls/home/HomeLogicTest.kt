@@ -348,3 +348,28 @@ class AiSettingsLogicTest {
         assertNull(AiSettingsLogic.current(catalog, "custom"))
     }
 }
+
+/** The search pill's ✕ turns into the send circle only for a question (recording 16 Oct 12:10, 05:03 to 05:47; N8). */
+class SearchPillQuestionTest {
+    @Test fun aTrailingQuestionMarkMakesItAQuestion() {
+        assertTrue(com.octaviantocan.pulls.ui.home.endsInQuestion("which of these are blocked?"))
+        assertTrue(com.octaviantocan.pulls.ui.home.endsInQuestion("  what changed?  "))
+        assertTrue(com.octaviantocan.pulls.ui.home.endsInQuestion("どれ？"))
+    }
+
+    @Test fun aMarkAloneOrElsewhereIsNot() {
+        assertFalse(com.octaviantocan.pulls.ui.home.endsInQuestion("?"))
+        assertFalse(com.octaviantocan.pulls.ui.home.endsInQuestion("cache"))
+        assertFalse(com.octaviantocan.pulls.ui.home.endsInQuestion("why? cache"))
+    }
+}
+
+/** A row's tile reads the state GitHub gives a pull request (N4). */
+class PullStateTest {
+    @Test fun aRepositoryStateNamesItsTile() {
+        assertEquals(com.octaviantocan.pulls.ui.home.PullState.Draft, com.octaviantocan.pulls.ui.home.pullStateOf("draft"))
+        assertEquals(com.octaviantocan.pulls.ui.home.PullState.Merged, com.octaviantocan.pulls.ui.home.pullStateOf("merged"))
+        assertEquals(com.octaviantocan.pulls.ui.home.PullState.Closed, com.octaviantocan.pulls.ui.home.pullStateOf("closed"))
+        assertEquals(com.octaviantocan.pulls.ui.home.PullState.Open, com.octaviantocan.pulls.ui.home.pullStateOf("open"))
+    }
+}

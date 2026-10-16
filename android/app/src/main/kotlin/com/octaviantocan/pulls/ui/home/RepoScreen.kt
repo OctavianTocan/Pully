@@ -69,6 +69,8 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -369,50 +371,27 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
     }
 }
 
-/** One pull request, as an Inbox row: its number, the whole title, labels, then author, checks, size and age on one line. */
+/**
+ * One pull request, as an Inbox row (N4): its state's tile, the title, its labels, then the number, author, checks,
+ * size and age on one line in fixed columns.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: () -> Unit) {
     val c = LocalPullsColors.current
-    val inset = with(LocalDensity.current) { 16.dp.toPx() }
-    val title = buildAnnotatedString {
-        // The draft mark is muted at the title's own size, not a smaller run (rule 14).
-        if (pr.state == "draft") withStyle(SpanStyle(color = c.muted)) { append("[${t("local.home.draft")}] ") }
-        append(pr.title)
-    }
-    Row(
-        modifier.fillMaxWidth()
-            .cueClickable(role = Role.Button, onClickLabel = pr.title, onClick = onClick)
-            .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text("#${pr.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(title, style = PullsType.row, color = c.text)
-            if (pr.labels.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    PullRowFrame(
+        AnnotatedString(pr.title),
+        tile = { StateTile(pullStateOf(pr.state)) },
+        modifier = modifier.cueClickable(role = Role.Button, onClickLabel = pr.title, onClick = onClick),
+        under = if (pr.labels.isEmpty()) null else ({
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 pr.labels.forEach { LabelChip(it) }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(pr.author?.login ?: "ghost", Modifier.weight(1f), style = PullsType.sm, color = c.muted)
-                Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) {
-                    when (pr.checks) {
-                        "failure" -> LuIcon(Lu.xc, tint = c.error, size = 18.dp, contentDescription = t("pulls.checks.failure"))
-                        "success" -> LuIcon(Lu.okc, tint = c.success, size = 18.dp, contentDescription = t("pulls.checks.success"))
-                        "pending" -> Box(Modifier.size(8.dp).clip(CircleShape).background(StatusColors.amber500))
-                    }
-                }
-                val adds = pr.additions
-                if (adds != null) {
-                    val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontWeight = FontWeight.Medium, textAlign = TextAlign.End)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("+${compactCount(adds)}", Modifier.width(56.dp), style = mono, color = c.success, maxLines = 1, softWrap = false)
-                        Text("−${compactCount(pr.deletions ?: 0)}", Modifier.width(40.dp), style = mono, color = c.error, maxLines = 1, softWrap = false)
-                    }
-                }
-                Text(compactAge(parseInstant(pr.updatedAt.ifBlank { pr.createdAt }), now), Modifier.width(34.dp), style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, textAlign = TextAlign.End, maxLines = 1)
-            }
-        }
+        }),
+    ) {
+        RowNumber(pr.number)
+        Text(pr.author?.login ?: "ghost", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        RowFacts({ ChecksMark(pr.checks) }, pr.additions, pr.deletions, compactAge(parseInstant(pr.updatedAt.ifBlank { pr.createdAt }), now))
     }
 }
 
