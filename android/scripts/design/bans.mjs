@@ -163,8 +163,7 @@ export const BANS = {
   },
   'text-field': {
     label: 'text fields outside the kit\'s one field',
-    // The rule that names this check goes here once DESIGN.md has it (recording 16 Oct 12:10, 03:23 to 04:03; N6).
-    rules: [],
+    rules: [149],
     advice: 'Build on the kit\'s field: PillInput or SearchPill at the bottom of a page, SheetSearch over a sheet\'s list, SheetField in a sheet\'s card, or FieldText in a frame of its own. They share one height, corner, padding, placeholder and scrolling edge (N6, N9).',
     allowIn: ['ui/design/Fields.kt'],
     call: call(TEXT_FIELDS),

@@ -83,6 +83,28 @@ function pictureSize(path) {
   return existsSync(file) ? statSync(file).size : undefined
 }
 
+/** What is wrong with one section's pictures: where each is, its words, and whether it is there and small. */
+function pictureProblems(entry, sizeOf) {
+  const problems = []
+  const where = new RegExp(`^changelog/${entry.version.replace(/\./g, '\\.')}/[a-z0-9-]+\\.(png|webp|gif|jpg)$`)
+  for (const picture of entry.pictures) {
+    if (!where.test(picture.path)) {
+      problems.push(`CHANGELOG.md: ${entry.version}'s picture ${picture.path} must be changelog/${entry.version}/<lower-case-name>.png, .webp, .gif or .jpg`)
+      continue
+    }
+    if (!picture.placed)
+      problems.push(`CHANGELOG.md: ${picture.path} must sit on its own unindented line under a bullet, or phones from before 0.40.0 show it as text`)
+    if (!picture.alt.trim())
+      problems.push(`CHANGELOG.md: ${picture.path} needs words in its [ ] saying what it shows`)
+    const size = sizeOf(picture.path)
+    if (size === undefined)
+      problems.push(`CHANGELOG.md: ${picture.path} is not in android/`)
+    else if (size > PICTURE_MAX_BYTES)
+      problems.push(`CHANGELOG.md: ${picture.path} is ${Math.round(size / 1024)} KB. Keep a picture under ${PICTURE_MAX_BYTES / 1024 / 1024} MB: crop it or make the GIF shorter`)
+  }
+  return problems
+}
+
 /** Problems with a changelog for an app at `version`. `sizeOf` gives a picture's size in bytes, or undefined when it is missing. */
 export function checkChangelog(text, version, sizeOf = pictureSize) {
   const entries = parseChangelog(text)
@@ -109,21 +131,7 @@ export function checkChangelog(text, version, sizeOf = pictureSize) {
       problems.push(`CHANGELOG.md: ${entry.version} needs at least one bullet saying what changed`)
     if (compareVersions(entry.version, PICTURES_FROM) >= 0 && entry.pictures.length === 0)
       problems.push(`CHANGELOG.md: ${entry.version} needs at least one picture of what changed (a GIF for what moves): add "![what it shows](changelog/${entry.version}/<name>.png)" on its own line under the bullet`)
-    for (const picture of entry.pictures) {
-      if (!new RegExp(`^changelog/${entry.version.replace(/\./g, '\\.')}/[a-z0-9-]+\\.(png|webp|gif|jpg)$`).test(picture.path)) {
-        problems.push(`CHANGELOG.md: ${entry.version}'s picture ${picture.path} must be changelog/${entry.version}/<lower-case-name>.png, .webp, .gif or .jpg`)
-        continue
-      }
-      if (!picture.placed)
-        problems.push(`CHANGELOG.md: ${picture.path} must sit on its own unindented line under a bullet, or phones from before 0.40.0 show it as text`)
-      if (!picture.alt.trim())
-        problems.push(`CHANGELOG.md: ${picture.path} needs words in its [ ] saying what it shows`)
-      const size = sizeOf(picture.path)
-      if (size === undefined)
-        problems.push(`CHANGELOG.md: ${picture.path} is not in android/`)
-      else if (size > PICTURE_MAX_BYTES)
-        problems.push(`CHANGELOG.md: ${picture.path} is ${Math.round(size / 1024)} KB. Keep a picture under ${PICTURE_MAX_BYTES / 1024 / 1024} MB: crop it or make the GIF shorter`)
-    }
+    problems.push(...pictureProblems(entry, sizeOf))
   })
   return problems
 }

@@ -175,6 +175,18 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const { source, entry } = await sourceOfKey(host, key)
     const file = entry.diff.files.find(candidate => candidate.path === path)
     const { base, head } = entry.diff
+    // A file the change does not touch is read at the head commit, so a link to it opens in the app's own viewer
+    // (recording of 16 Oct 12:10, 10:01 to 10:07, N20). Only `new` comes back: it has no old side.
+    if (!file && head && source.loadFile && !path.split('/').includes('..')) {
+      const cache = (await serverSession(host)).cache.fileContents
+      const cached = await cache.get(key, head.sha, path)
+      const content = cached !== undefined ? cached : await source.loadFile(path, head.sha)
+      if (cached === undefined && content !== undefined)
+        await cache.set(key, head.sha, path, content)
+      if (content === undefined)
+        throw new Error('That file is not in the repository at this commit.')
+      return { old: null, new: content }
+    }
     if (!file || !base || !head || !source.loadFile)
       throw new Error('This diff has no full file for that path.')
     const cache = (await serverSession(host)).cache.fileContents

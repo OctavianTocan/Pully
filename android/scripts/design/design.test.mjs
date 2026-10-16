@@ -251,7 +251,7 @@ describe('bans', () => {
   })
 
   it('declares the rules DESIGN.md lists for it', () => {
-    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73, 100])
+    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73, 100, 149])
   })
 })
 
