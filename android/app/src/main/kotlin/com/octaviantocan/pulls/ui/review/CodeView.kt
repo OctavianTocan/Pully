@@ -3,12 +3,16 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import com.octaviantocan.pulls.data.AppSettings
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -33,6 +37,9 @@ interface PinchKeeper {
 
 /** A size change smaller than this waits for the next, so finger jitter does not lay the code out again. */
 private const val ZOOM_QUANTUM = 0.01f
+
+/** The share of the way to the fingers' size the code moves each frame: most of it within a few frames. */
+private const val ZOOM_EASE = 0.4f
 
 /**
  * One event of a pinch, read from the fingers that were down before it and still are, so a finger landing or lifting
@@ -59,38 +66,64 @@ private fun pinchStep(event: PointerEvent): Triple<Offset, Offset, Float>? {
  * [AppSettings.MIN_ZOOM] and [AppSettings.MAX_ZOOM].
  */
 fun Modifier.pinchToZoomCode(settings: AppSettings, keep: PinchKeeper? = null): Modifier = pointerInput(settings, keep) {
-    awaitEachGesture {
-        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    coroutineScope {
         var start = settings.codeZoom
-        var scale = 1f
-        var pivot = Offset.Unspecified
-        var moved = false
-        while (true) {
-            val event = awaitPointerEvent(PointerEventPass.Initial)
-            val pressed = event.changes.count { it.pressed }
-            if (pressed >= 2) {
-                pinchStep(event)?.let { (from, _, spread) ->
-                    if (!pivot.isSpecified) {
-                        pivot = from
-                        start = settings.codeZoom
-                        scale = 1f
-                        keep?.begin(pivot)
-                    }
-                    scale = (scale * spread).coerceIn(AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
-                    val to = start * scale
-                    if (abs(to - settings.codeZoom) >= ZOOM_QUANTUM) {
-                        settings.previewCodeZoom(to)
-                        keep?.step(start, settings.codeZoom)
-                        moved = true
-                    }
+        // Where the fingers have taken the size; NaN while there is no pinch.
+        var goal = Float.NaN
+        var easing: Job? = null
+        fun lay(to: Float) {
+            settings.previewCodeZoom(to)
+            keep?.step(start, settings.codeZoom)
+        }
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            var scale = 1f
+            var pivot = Offset.Unspecified
+            fun end() {
+                easing?.cancel()
+                easing = null
+                // The size lands where the fingers left it, and is saved once.
+                if (!goal.isNaN()) {
+                    if (abs(goal - settings.codeZoom) >= ZOOM_QUANTUM) lay(goal)
+                    settings.updateCodeZoom(settings.codeZoom)
                 }
-                event.changes.forEach { it.consume() }
-            } else {
-                if (moved) settings.updateCodeZoom(settings.codeZoom)
-                moved = false
+                goal = Float.NaN
                 pivot = Offset.Unspecified
-                if (pressed == 0) break
             }
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val pressed = event.changes.count { it.pressed }
+                if (pressed >= 2) {
+                    pinchStep(event)?.let { (from, _, spread) ->
+                        if (!pivot.isSpecified) {
+                            pivot = from
+                            start = settings.codeZoom
+                            scale = 1f
+                            keep?.begin(pivot)
+                            goal = start
+                            // Once a frame the size moves part of the way to the fingers, so it grows and shrinks smoothly
+                            // between their events instead of in their steps, and the code is laid out at most once a frame
+                            // ("make the scaling smooth": recording 16 Oct 13:06, 09:22 to 09:30; O21).
+                            easing = launch {
+                                while (true) {
+                                    withFrameNanos { }
+                                    val now = settings.codeZoom
+                                    val gap = goal - now
+                                    if (goal.isNaN() || abs(gap) < ZOOM_QUANTUM) continue
+                                    lay(if (abs(gap) < ZOOM_QUANTUM * 3) goal else now + gap * ZOOM_EASE)
+                                }
+                            }
+                        }
+                        scale = (scale * spread).coerceIn(AppSettings.MIN_ZOOM / start, AppSettings.MAX_ZOOM / start)
+                        goal = start * scale
+                    }
+                    event.changes.forEach { it.consume() }
+                } else {
+                    if (pivot.isSpecified) end()
+                    if (pressed == 0) break
+                }
+            }
+            if (pivot.isSpecified) end()
         }
     }
 }

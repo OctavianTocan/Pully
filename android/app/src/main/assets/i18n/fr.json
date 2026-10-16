@@ -865,6 +865,12 @@
     "problems": "Erreurs et plantages",
     "empty": "Rien n’a encore été compté. Utilisez l’app un moment, puis revenez.",
     "loadFailed": "Impossible de charger les statistiques.",
-    "download": "Télécharger"
+    "download": "Télécharger",
+    "aiUsage": "Utilisation de l'IA",
+    "tokens": "Jetons",
+    "unpriced": "Les exécutions marquées – n’ont pas indiqué de coût (Codex et les proxys ne le donnent pas).",
+    "byFeature": "Par fonction",
+    "byModel": "Par modèle",
+    "runsCount": "{n} exécution | {n} exécutions"
   }
 }

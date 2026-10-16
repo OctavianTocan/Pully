@@ -19,6 +19,8 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="com.octaviantocan.pulls.category.PAST_UI" />
         </intent>
+        <!-- The GitHub app, so the GitHub links page can tell whether it is there to take the links first. -->
+        <package android:name="com.github.android" />
     </queries>
 
     <application

@@ -865,6 +865,12 @@
     "problems": "오류 및 충돌",
     "empty": "아직 집계된 것이 없습니다. 앱을 잠시 사용한 뒤 다시 오세요.",
     "loadFailed": "통계를 불러오지 못했습니다.",
-    "download": "다운로드"
+    "download": "다운로드",
+    "aiUsage": "AI 사용량",
+    "tokens": "토큰",
+    "unpriced": "– 표시된 실행은 비용을 보고하지 않았습니다(Codex와 프록시는 비용을 알려 주지 않습니다).",
+    "byFeature": "기능별",
+    "byModel": "모델별",
+    "runsCount": "{n}회"
   }
 }

@@ -69,3 +69,19 @@ page of faces drawn in themselves. The app font sets every role of the type scal
 numbers' Mona Sans and the code face; the code font sets the code face alone. Geist stays
 the default. Tavi asked for this in the recording of 16 Oct 12:10, 06:29 to 06:42 (a font
 for the app as well as for code; N10), moving Code font out of the Code section.
+
+@cc [owner:OctavianTocan,label:product] settings-github-links-says-where-it-stands
+GitHub links is a row reading On or Off from Android's own answer, never a switch Pully
+cannot keep. Its page lists Open supported links and each address, says what to turn on,
+opens Android's page, points to the GitHub app's page when that app is installed, and says
+a link tapped inside a browser stays there (recording 16 Oct 13:06, 01:37 to 02:36; O2, O3, rule 177).
+
+@cc [owner:OctavianTocan,label:product] stats-at-once
+Stats shows the last answer for its range the moment it opens, kept on the phone, and
+refreshes underneath (recording 16 Oct 13:06, 04:49 to 04:55; O10, rule 178). The kept answer is
+the current server's; another server's numbers MUST NOT stand in for it (review of PR 57).
+
+@cc [owner:OctavianTocan,label:product] stats-ai-usage
+Stats has an AI usage section: tokens in, out and from cache and the spend, a table by
+feature and a card per model with its share. A cost no engine reported shows "–", never
+$0.00 (recording 16 Oct 13:06, 04:18 to 04:48; O9, rule 181).

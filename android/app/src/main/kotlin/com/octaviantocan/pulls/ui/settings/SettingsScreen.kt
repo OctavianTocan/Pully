@@ -168,6 +168,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Effort(Main),
     WhatsNew(Main),
     Stats(Main),
+    Links(Main),
 }
 
 /** The page's name in usage stats: `settings` for the main page, `settings-<page>` for one inside it. */
@@ -188,6 +189,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Effort -> "Effort"
     SettingsPage.WhatsNew -> "What's new"
     SettingsPage.Stats -> t("stats.title")
+    SettingsPage.Links -> "GitHub links"
 }
 
 /**
@@ -227,6 +229,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
             ChangelogEntries(remember { WhatsNew.all(context) })
         }
         SettingsPage.Stats -> StatsPage(settings)
+        SettingsPage.Links -> GithubLinksPage()
     }
 }
 
@@ -345,7 +348,7 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
             }
         }
     }
-    GithubLinksGroup()
+    GithubLinksGroup(open = { open(SettingsPage.Links) })
     // Usage stats, on until turned off; off drops what is queued (root CONTRACTS, analytics-can-be-turned-off). What it
     // counts is said to a screen reader, not in a line under the row (settings-no-helper-lines).
     Group(t("stats.title")) {

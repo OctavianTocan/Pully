@@ -865,6 +865,12 @@
     "problems": "错误和崩溃",
     "empty": "还没有统计数据。使用一段时间后再回来看看。",
     "loadFailed": "无法加载统计。",
-    "download": "下载"
+    "download": "下载",
+    "aiUsage": "AI 用量",
+    "tokens": "Token",
+    "unpriced": "标为 – 的运行未报告费用(Codex 和代理不报告费用)。",
+    "byFeature": "按功能",
+    "byModel": "按模型",
+    "runsCount": "{n} 次运行"
   }
 }

@@ -198,3 +198,12 @@ On the Tour, ⋯ opens the tour's own sheet: Model with Effort as its own row un
 diff, and last a row on to the pull request's actions. It opens in the frame of the tap,
 drawn from what the phone holds ("took far too long to open", recording of 16 Oct 12:10,
 10:37 to 10:43, N22; "on the Tour, ⋯ should hold tour things", 10:49 to 11:24, N23).
+
+@cc [owner:OctavianTocan,label:product] tour-log-grows-downward
+The tour's work log lists every step, newest at the bottom, growing downward in its sheet,
+with no "+n more" hiding older steps (recording 16 Oct 13:06, 06:02 to 06:30; O14, rule 184).
+
+@cc [owner:OctavianTocan,label:product] ai-every-finished-step-opens
+Every finished step of a work log opens on a tap to what is known about it: how long it
+took, what it read, found or wrote, and the rest of a title cut at two lines (recording 16 Oct 13:06, 06:31 to
+06:38; O15, rule 184).

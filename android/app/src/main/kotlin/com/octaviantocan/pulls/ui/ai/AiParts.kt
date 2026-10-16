@@ -294,7 +294,15 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
     val prose = activity.kind == "thinking" || activity.kind == "text"
     val fullText = activity.text?.trim().orEmpty()
     val preview = if (prose && !failed) lastLine(fullText) else ""
-    val expandable = prose && !failed && fullText.isNotEmpty() && fullText != preview
+    // Its title cut at two lines, so the step unfolds to show the rest.
+    var cut by remember(activity.id) { mutableStateOf(false) }
+    val took = activity.endedAt?.let { end -> activity.startedAt.takeIf { it > 0 }?.let { formatClockDuration(end - it) } }
+    // What a step unfolds to: a tool's output, the whole of what was thought or written, the rest of a long title.
+    val more = fullText.takeIf { it.isNotEmpty() && (!prose || it != preview) }
+    // Every finished step opens to say more about itself, not only one that wrote prose: what it read or found, and how
+    // long it took ("if I tap on, like, Wrote the answer ... I can see more about it": recording 16 Oct 13:06, 06:31 to
+    // 06:38; O15).
+    val expandable = !failed && !running && (more != null || cut || took != null)
     val timing = activityTiming(tracked, now)
     // Only a stalled step says how long: "Active 1s ago · 2s elapsed" on every line is noise (K13).
     val timingLabel = timing?.takeIf { it.state == TimingState.Idle }?.let {
@@ -336,7 +344,8 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
                                 pop()
                             }
                         },
-                        style = style, color = tone, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        style = style, color = tone, maxLines = if (expanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { if (!expanded) cut = it.hasVisualOverflow },
                     )
                 }
                 if (timingLabel != null) Text(timingLabel, Modifier.padding(start = 6.dp), style = PullsType.sm, color = if (timing.state == TimingState.Idle) c.amber else c.mute, maxLines = 1)
@@ -354,8 +363,9 @@ private fun AiActivityRow(tracked: TrackedActivity, now: Long, warning: Boolean,
         }
         if (failed && fullText.isNotEmpty()) Text(fullText, Modifier.padding(start = STEP_INDENT), style = PullsType.sm, color = c.error)
         if (expanded) {
-            Box(Modifier.padding(start = STEP_INDENT).fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(4.dp)).background(c.raised).verticalScroll(rememberScrollState()).padding(8.dp)) {
-                SelectionContainer { Text(fullText, style = PullsType.sm, color = c.muted) }
+            if (took != null) Text(messages.t("ai.workedFor", "duration" to took), Modifier.padding(start = STEP_INDENT), style = PullsType.sm, color = c.mute)
+            if (more != null) Box(Modifier.padding(start = STEP_INDENT).fillMaxWidth().heightIn(max = 240.dp).clip(RoundedCornerShape(4.dp)).background(c.raised).verticalScroll(rememberScrollState()).padding(8.dp)) {
+                SelectionContainer { Text(more, style = PullsType.sm, color = c.muted) }
             }
         }
     }
@@ -401,7 +411,7 @@ private fun Modifier.fadeTop(height: Dp): Modifier = graphicsLayer { compositing
  * … · Ran 3 commands" button that unfolds the steps. [outcome] is `done`, `failed` or `stopped`.
  * No grey bars sit under the orb (rule 71, L33). A screen that draws the orb
  * itself, where the log is replaced when the work ends, passes `mark = false` and puts
- * [AiLiveMark] in a place that stays. With [onStop] (from `guardedStop`) the orb is the Stop button
+ * [AiLiveMark] in a place that stays. With [everyStep] the log lists every step, growing downward, with no "+n more". With [onStop] (from `guardedStop`) the orb is the Stop button
  * at the end of the shimmering line instead (rule 87): there is never a Stop pill beside the log.
  */
 @Composable
@@ -416,6 +426,7 @@ internal fun AiActivityLogFull(
     workingVerb: String? = null,
     mark: Boolean = true,
     onStop: (() -> Unit)? = null,
+    everyStep: Boolean = false,
 ) {
     val c = LocalPullsColors.current
     val messages = LocalMessages.current
@@ -428,7 +439,11 @@ internal fun AiActivityLogFull(
     var open by remember { mutableStateOf(false) }
     // Compact keeps fewer steps, not smaller text: nothing is set below 15 (rule 14).
     val style = PullsType.sm
-    val cap = if (compact) 3 else 6
+    val cap = when {
+        everyStep -> Int.MAX_VALUE
+        compact -> 3
+        else -> 6
+    }
     val hidden = if (showAll) 0 else maxOf(0, tracked.size - cap)
     val start = startedAt ?: activities.firstOrNull()?.startedAt
     val end = endedAt ?: tracked.maxOfOrNull { it.activity.endedAt ?: it.seenAt }

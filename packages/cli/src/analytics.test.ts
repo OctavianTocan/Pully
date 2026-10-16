@@ -68,7 +68,7 @@ describe('analytics day files', () => {
       event('pr.open', { number: 1 }),
       event('pr.open', { kind: 'branch' }),
       event('file.reviewed', { files: 3 }),
-      event('ai.run', { task: 'review', engine: 'codex', model: 'gpt', status: 'done', costUsd: 0.5, tokensIn: 100, tokensOut: 10, ms: 2000 }, { app: 'server', session: undefined }),
+      event('ai.run', { task: 'review', engine: 'codex', model: 'gpt', status: 'done', costUsd: 0.5, tokensIn: 100, tokensOut: 10, cacheRead: 40, ms: 2000 }, { app: 'server', session: undefined }),
       event('ai.run', { task: 'review', engine: 'codex', model: 'gpt', status: 'failed', ms: 1000 }, { app: 'server' }),
       event('github.calls', { route: 'pulls', calls: 2, failures: 1, ms: 100, msMax: 120, rateLeft: 3999 }, { app: 'server' }),
       event('cache.diff', { outcome: 'hit' }, { app: 'server' }),
@@ -83,8 +83,9 @@ describe('analytics day files', () => {
       { day, sessions: 1, prsOpened: 1, filesReviewed: 3, aiRuns: 2, costUsd: 0.5 },
     ])
     expect(summary.screens).toEqual([{ screen: 'home', views: 1, seconds: 42 }])
-    expect(summary.engines).toEqual([{ engine: 'codex', model: 'gpt', runs: 2, failures: 1, costUsd: 0.5, tokensIn: 100, tokensOut: 10, medianMs: 2000 }])
-    expect(summary.tasks).toEqual([{ task: 'review', runs: 2, failures: 1, costUsd: 0.5 }])
+    expect(summary.engines).toEqual([{ engine: 'codex', model: 'gpt', runs: 2, failures: 1, costUsd: 0.5, tokensIn: 100, tokensOut: 10, cacheRead: 40, priced: 1, medianMs: 2000 }])
+    // The failed run reported no cost, so only one of the two is priced (O9).
+    expect(summary.tasks).toEqual([{ task: 'review', runs: 2, failures: 1, costUsd: 0.5, tokensIn: 100, tokensOut: 10, cacheRead: 40, priced: 1 }])
     expect(summary.github).toEqual({ calls: 2, failures: 1, lowestRateLeft: 3999 })
     expect(summary.cache).toEqual({ hit: 1, refetch: 0, stale: 0 })
     expect(summary.errors[0]).toMatchObject({ name: 'crash', kind: 'IllegalStateException', message: 'boom', count: 1 })

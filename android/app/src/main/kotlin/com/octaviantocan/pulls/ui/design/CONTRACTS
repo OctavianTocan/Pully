@@ -196,3 +196,7 @@ A full sheet's footer floats over its body: the body runs on under the footer an
 dissolves into the paper there, as a page does under its floating bar, and its end clears
 the footer so the last line can be scrolled above it. A full sheet never ends on a solid
 band of paper behind its footer (recording of 16 Oct 12:10, 13:06 to 13:16, N27).
+
+@cc [owner:OctavianTocan,label:motion] sheet-first-swipe-scrolls
+A swipe up that lifts a sheet carries on into its content in the same movement, so the first
+swipe on a long sheet scrolls it (recording 16 Oct 13:06, 03:24 to 03:33; O8, rule 180).
