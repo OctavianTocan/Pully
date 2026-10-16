@@ -59,7 +59,7 @@ async fn fresh_cached_rest_continuation_stays_rest_after_authentication() {
     let state = AppState::new(root.clone(), root.clone()).unwrap();
     let args = json!({"owner":"o","repo":"r"});
     let cached = json!({"totalCount":201,"items":[],"next":"2","cachedAt":now()});
-    state.store.set(&repo_key(&args), &cached).unwrap();
+    state.host.storage.set(&repo_key(&args), &cached).unwrap();
     let first = repo_pulls_with(&state, &args, |_, _| async {
         panic!("a fresh persisted first page must not fetch")
     })
@@ -83,7 +83,10 @@ async fn fresh_cached_rest_continuation_stays_rest_after_authentication() {
     .unwrap();
     assert_eq!(page["next"], "3");
     assert_eq!(page["items"].as_array().unwrap().len(), 100);
-    assert_eq!(state.store.get(&repo_key(&args)).unwrap(), Some(cached));
+    assert_eq!(
+        state.host.storage.get(&repo_key(&args)).unwrap(),
+        Some(cached)
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 

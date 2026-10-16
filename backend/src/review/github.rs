@@ -635,12 +635,14 @@ fn critique_selection(
 async fn critique_post(state: &AppState, args: &Value) -> Result<Value> {
     let key = required(args, "key")?;
     let entry = state
-        .store
+        .host
+        .storage
         .get(&format!("diff:{key}"))?
         .context("There is no AI review of this pull request to post.")?;
     let scope = crate::source::serialize_ref(&entry["diff"]["ref"])?;
     let stored = state
-        .store
+        .host
+        .storage
         .get(&format!("critique:{scope}"))?
         .unwrap_or(Value::Null);
     let (pull, result, chosen) = critique_selection(&entry, &stored, args)?;
@@ -819,7 +821,7 @@ fn shared_body(pull: &Pull, login: &str, analysis: &Value) -> Result<String> {
 async fn sharing(state: &AppState, name: &str, args: &Value) -> Result<Value> {
     let key = text(args, "key");
     let storage_key = format!("diff:{key}");
-    let entry = state.store.get(&storage_key)?;
+    let entry = state.host.storage.get(&storage_key)?;
     if name == "shared-list"
         && entry
             .as_ref()
@@ -859,7 +861,7 @@ async fn sharing(state: &AppState, name: &str, args: &Value) -> Result<Value> {
         };
         let response = github_request(state, method, &path, Some(json!({"body":body}))).await?;
         let comment = json!({"id":response["id"],"url":response["html_url"]});
-        state.store.update(&storage_key, |current| {
+        state.host.storage.update(&storage_key, |current| {
             let mut current = current.context("The saved diff is no longer available.")?;
             current["sharedComment"] = comment.clone();
             Ok(current)
@@ -886,7 +888,7 @@ async fn sharing(state: &AppState, name: &str, args: &Value) -> Result<Value> {
     if let Some(comment) = candidate {
         let mut result = comment["analysis"]["result"].clone();
         result["sharedBy"] = comment["login"].clone();
-        state.store.update(&storage_key, |now| {
+        state.host.storage.update(&storage_key, |now| {
             let mut now = now.context("The saved diff is no longer available.")?;
             if text(&now["diff"]["head"], "sha") != head {
                 bail!("The pull request changed. Reopen it before loading this analysis.")

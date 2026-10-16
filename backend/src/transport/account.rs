@@ -63,7 +63,7 @@ pub(super) async fn call(
         Ok(None) => return Some(error(StatusCode::UNAUTHORIZED, "Sign in first.")),
         Err(e) => return Some(reply(Err(e))),
     };
-    let result = (|| -> Result<Value> {
+    let result: Result<Value> = async {
         match name {
             "account-sign-out" => { app.accounts.sign_out(session(headers).unwrap_or(""))?; Ok(json!(true)) },
             "account-me" => Ok(json!(user)),
@@ -75,15 +75,15 @@ pub(super) async fn call(
                 let values = crate::account::clean_settings(&args["values"]).context("Settings need `values`: { name: { value, at } }.")?;
                 Ok(json!({"values":app.accounts.merge_settings(&user.id, values)?}))
             },
-            "posted-list" => Ok(json!(app.posted.list(&user.id)?.into_iter().map(|meta| json!({"id":meta["id"],"title":meta["title"],"author":meta.get("author").unwrap_or(&meta["keyName"]),"key":meta["keyName"],"version":meta["version"],"createdAt":meta["createdAt"],"updatedAt":meta["updatedAt"],"files":meta["files"],"additions":meta["additions"],"deletions":meta["deletions"]})).collect::<Vec<_>>())),
+            "posted-list" => Ok(json!(app.posted.list_async(&user.id).await?.into_iter().map(|meta| json!({"id":meta["id"],"title":meta["title"],"author":meta.get("author").unwrap_or(&meta["keyName"]),"key":meta["keyName"],"version":meta["version"],"createdAt":meta["createdAt"],"updatedAt":meta["updatedAt"],"files":meta["files"],"additions":meta["additions"],"deletions":meta["deletions"]})).collect::<Vec<_>>())),
             "posted-diff" => {
-                let Some(mut opened) = app.posted.open(&user.id,text(args,"id"))? else { return Ok(Value::Null); };
+                let Some(mut opened) = app.posted.open_async(&user.id,text(args,"id")).await? else { return Ok(Value::Null); };
                 opened["groups"] = crate::source::groups(&opened["diff"]); Ok(opened)
             },
-            "posted-delete" => Ok(json!(app.posted.remove(&user.id,text(args,"id"))?)),
+            "posted-delete" => Ok(json!(app.posted.remove_async(&user.id,text(args,"id")).await?)),
             _ => unreachable!(),
         }
-    })();
+    }.await;
     if name == "posted-diff" && matches!(&result, Ok(Value::Null)) {
         return Some(error(
             StatusCode::NOT_FOUND,
@@ -113,7 +113,8 @@ pub(super) async fn authorize_posted(
     let id = key.split_once(':').map(|(_, id)| id).unwrap_or("");
     if app
         .posted
-        .meta(&user.id, id)
+        .meta_async(&user.id, id)
+        .await
         .map_err(|e| reply(Err(e)))?
         .is_none()
     {
@@ -126,28 +127,38 @@ pub(super) async fn authorize_posted(
 }
 
 // Unscoped lists must never expose another account's posted diff or task.
-pub(super) fn filter_owned(app: &AppState, headers: &HeaderMap, value: Value) -> Result<Value> {
+pub(super) async fn filter_owned(
+    app: &AppState,
+    headers: &HeaderMap,
+    value: Value,
+) -> Result<Value> {
     let Value::Array(items) = value else {
         return Ok(value);
     };
-    let account = app.accounts.by_session(session(headers))?;
-    let mut visible = Vec::with_capacity(items.len());
-    for item in items {
-        let key = text(&item, "key");
-        if !is_posted(key)
-            || match &account {
-                Some(account) => app
-                    .posted
-                    .meta(
-                        &account.id,
-                        key.split_once(':').map(|(_, id)| id).unwrap_or(""),
-                    )?
-                    .is_some(),
-                None => false,
+    let accounts = app.accounts.clone();
+    let posted = app.posted.clone();
+    let token = session(headers).map(str::to_owned);
+    tokio::task::spawn_blocking(move || {
+        let account = accounts.by_session(token.as_deref())?;
+        let mut visible = Vec::with_capacity(items.len());
+        for item in items {
+            let key = text(&item, "key").replace(['/', '\\'], ":");
+            if !is_posted(&key)
+                || match &account {
+                    Some(account) => posted
+                        .meta(
+                            &account.id,
+                            key.split_once(':').map(|(_, id)| id).unwrap_or(""),
+                        )?
+                        .is_some(),
+                    None => false,
+                }
+            {
+                visible.push(item);
             }
-        {
-            visible.push(item);
         }
-    }
-    Ok(Value::Array(visible))
+        Ok(Value::Array(visible))
+    })
+    .await
+    .context("Posted visibility task failed")?
 }

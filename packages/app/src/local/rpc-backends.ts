@@ -75,31 +75,44 @@ export function createRpcSource(rpc: LocalRpc, pending: Promise<string>): DiffSo
 }
 
 /** Mutations execute against the server's shared repository, never as split raw storage writes. */
-export function createRpcDiffCache(rpc: LocalRpc, fallback: DiffCache): DiffCache {
-  const heads = new Map<string, string | null>()
+/**
+ * @cc [owner:OctavianTocan,label:architecture] rpc-diff-writes-use-operation-heads
+ * A diff write MUST compare the head observed by its own fetch operation, never a
+ * later unrelated cache read. A conflict MUST return the winning stored entry
+ * without retrying the stale write (R11 review finding 15, 16 Oct 2026).
+ */
+export function createRpcDiffCache(rpc: Pick<LocalRpc, 'call'>, fallback: DiffCache): DiffCache {
   const sessions = new Map<string, string>()
   const call = (method: string, key: string, ...values: unknown[]) => rpc.call(LOCAL_RPC.cacheDiff, { method, key, values })
   const cache: DiffCache = {
     ...fallback,
     async get(key) {
       const entry = await call('get', key) as PrCacheEntry | undefined
-      heads.set(key, entry?.headSha ?? null)
       sessions.set(key, JSON.stringify(entry?.llmSession ?? null))
       return entry
     },
     async getMeta(key) {
-      const meta = await call('getMeta', key) as PrCacheMeta | undefined
-      heads.set(key, meta?.headSha ?? null)
-      return meta
+      return await call('getMeta', key) as PrCacheMeta | undefined
     },
     async putDiff(key, diff, headSha, options) {
-      const entry = await call('putDiff', key, diff, headSha, heads.get(key) ?? null, options) as PrCacheEntry
-      heads.set(key, entry.headSha)
-      return entry
+      if (options?.expectedHeadSha === undefined)
+        throw new Error('A diff write needs the head observed before fetching.')
+      try {
+        return await call('putDiff', key, diff, headSha, options.expectedHeadSha, options) as PrCacheEntry
+      }
+      catch (error) {
+        if (error instanceof Error && error.message === 'The cached diff changed. Reload before saving.') {
+          const winner = await cache.get(key)
+          if (winner)
+            return winner
+        }
+        throw error
+      }
     },
     async updateDiff(key, next, options) {
-      const update = next(await cache.get(key))
-      return update ? cache.putDiff(key, update.diff, update.headSha, options) : undefined
+      const existing = await cache.get(key)
+      const update = next(existing)
+      return update ? cache.putDiff(key, update.diff, update.headSha, { ...options, expectedHeadSha: existing?.headSha ?? null }) : undefined
     },
     async put() { throw new Error('Whole-entry replacement is not supported by the server cache.') },
     touch: async (key) => { await call('touch', key) },

@@ -81,9 +81,10 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::sync::{watch, Notify};
-#[derive(Clone, Default)]
+use tokio::sync::{watch, Notify, Semaphore};
+#[derive(Clone)]
 pub struct Jobs {
+    provider_slots: Arc<Semaphore>,
     runs: Arc<Mutex<HashMap<String, Arc<Run>>>>,
     sessions: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
     handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
@@ -93,6 +94,22 @@ pub struct Jobs {
     catalog_refreshes: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
     bridge_url: Arc<Mutex<Option<String>>>,
     bridges: Arc<Mutex<HashMap<String, Bridge>>>,
+}
+impl Default for Jobs {
+    fn default() -> Self {
+        Self {
+            provider_slots: Arc::new(Semaphore::new(3)),
+            runs: Default::default(),
+            sessions: Default::default(),
+            handles: Default::default(),
+            diff_pin_tasks: Default::default(),
+            stopping: Default::default(),
+            catalogs: Default::default(),
+            catalog_refreshes: Default::default(),
+            bridge_url: Default::default(),
+            bridges: Default::default(),
+        }
+    }
 }
 struct Bridge {
     run: std::sync::Weak<Run>,
@@ -410,7 +427,8 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
         let pin = crate::review::pin_diff_blocking(state, key);
         if req.get("expectedHeadSha").is_none() {
             let entry = state
-                .store
+                .host
+                .storage
                 .get(&format!("diff:{key}"))?
                 .context("This diff is no longer cached; open it again.")?;
             req["expectedHeadSha"] = entry["headSha"].clone();
@@ -495,10 +513,7 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
         let outcome = tokio::select! {biased;_=receiver.changed()=>Err(anyhow::anyhow!("Stopped.")),r=work=>r};
         match outcome {
             Ok((answer, usage)) => {
-                settle(&run, "done", Some(answer), Some(usage), None);
-                if task && run.request["kind"] == "analyze" && !(*run.cancel.borrow()) {
-                    tasks::followups(&state, &run.request)
-                }
+                finish_success(&state, &run, answer, usage);
             }
             Err(error) => {
                 let stopped = *run.cancel.borrow();
@@ -531,6 +546,16 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
     handles.push(handle);
     drop(runs);
     Ok(id)
+}
+/// @cc [owner:OctavianTocan,label:architecture] rust-followups-visible-before-completion
+/// Eligible follow-up tasks MUST be registered before successful analysis completion
+/// is observable, and a stopped analysis MUST start no further work (server-follow-ups-
+/// run-on-the-server; Android ReviewSession completion observer; review R11, 16 Oct 2026).
+fn finish_success(state: &Arc<AppState>, run: &Run, answer: String, usage: Value) {
+    if run.task && run.request["kind"] == "analyze" {
+        tasks::followups(state, run);
+    }
+    settle(run, "done", Some(answer), Some(usage), None);
 }
 /// Drain jobs and daemon cleanup while the Tokio runtime still exists.
 pub async fn shutdown(state: &AppState) {
@@ -726,7 +751,8 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
                 cancel(r);
             }
             state
-                .store
+                .host
+                .storage
                 .set("inbox-chat", &json!({"turns":[]}))
                 .map(|_| Value::Null)
         }
@@ -739,14 +765,14 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
     Some(result)
 }
 pub fn saved_threads(state: &AppState, key: &str) -> Result<Vec<Value>> {
-    let mut threads = tasks::threads(state.store.get(&format!("ask-threads:{key}"))?);
+    let mut threads = tasks::threads(state.host.storage.get(&format!("ask-threads:{key}"))?);
     for thread in &mut threads {
         recover_turns(state, &mut thread["turns"]);
     }
     Ok(threads)
 }
 fn saved_inbox(state: &AppState) -> Result<Value> {
-    let mut chat = tasks::inbox(state.store.get("inbox-chat")?);
+    let mut chat = tasks::inbox(state.host.storage.get("inbox-chat")?);
     recover_turns(state, &mut chat["turns"]);
     Ok(chat)
 }
@@ -774,7 +800,14 @@ fn skill_root(state: &AppState) -> std::path::PathBuf {
         .ok()
         .filter(|value| !value.is_empty())
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| state.cwd.join("docker/agents/skills"))
+        .unwrap_or_else(|| {
+            state
+                .host
+                .cwd
+                .as_deref()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .join("docker/agents/skills")
+        })
 }
 fn lens(state: &AppState, name: &str) -> Result<Option<String>> {
     lenses::get(&skill_root(state), name)

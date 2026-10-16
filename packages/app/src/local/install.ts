@@ -14,6 +14,7 @@ import { createRpcLenses, setLensSource } from './lenses'
 import { localRpcKey } from './local-rpc-key'
 import LocalAuthGate from './LocalAuthGate.vue'
 import { localRoutes } from './pages'
+import { reloadAfterDisconnect } from './reconnect'
 import { createRpcCredentials, createRpcDiffCache, createRpcDriver } from './rpc-backends'
 
 /** Until the server trusts this tab, every RPC call fails: ask for the terminal's code first. */
@@ -29,28 +30,6 @@ async function ensureTrusted(client: Awaited<ReturnType<typeof connectLocal>>['c
     gate.mount(host)
   })
   host.remove()
-}
-
-/**
- * devframe's socket never reconnects, and a phone drops it whenever the tab sleeps. Every AI
- * task runs and saves on the server, so reloading once the tab is visible again loses nothing
- * and picks the running ones back up.
- */
-function reloadAfterDisconnect(client: Awaited<ReturnType<typeof connectLocal>>['client']): void {
-  let lost = false
-  const reloadWhenVisible = () => {
-    if (lost && document.visibilityState === 'visible')
-      location.reload()
-  }
-  client.events.on('connection:status', (status) => {
-    if (status !== 'disconnected' && status !== 'error')
-      return
-    lost = true
-    // A short pause rides out a server restart instead of reloading into a refused connection.
-    setTimeout(reloadWhenVisible, 1500)
-  })
-  document.addEventListener('visibilitychange', reloadWhenVisible)
-  window.addEventListener('online', reloadWhenVisible)
 }
 
 /**

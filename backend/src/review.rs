@@ -41,7 +41,7 @@ fn diff_snapshot_locked<'a>(
     cache: &'a mut DiffCache,
 ) -> Result<&'a crate::store::DiffSnapshot> {
     let previous = cache.snapshot.as_ref().map(|s| s.revision);
-    if let Some(snapshot) = state.store.diff_snapshot(previous)? {
+    if let Some(snapshot) = state.host.storage.diff_snapshot(previous)? {
         cache.snapshot = Some(snapshot);
     }
     Ok(cache.snapshot.as_ref().unwrap())
@@ -86,7 +86,8 @@ fn key(args: &Value) -> Result<&str> {
 }
 fn entry(state: &crate::AppState, key: &str) -> Result<Value> {
     state
-        .store
+        .host
+        .storage
         .get(&format!("diff:{key}"))?
         .context("Open the diff first.")
 }
@@ -147,7 +148,8 @@ fn valid_diff(diff: &Value) -> Result<()> {
 }
 fn marked(state: &crate::AppState) -> Result<HashSet<String>> {
     Ok(state
-        .store
+        .host
+        .storage
         .keys("review:")?
         .into_iter()
         .filter_map(|k| k.strip_prefix("review:").map(str::to_owned))
@@ -176,7 +178,7 @@ pub(crate) fn llm_analyzed_head(entry: &Value) -> Option<&str> {
         .as_str()
         .filter(|head| !head.is_empty())
 }
-fn next_diff(
+pub(crate) fn next_diff(
     key: &str,
     diff: &Value,
     current: Option<Value>,
@@ -255,7 +257,7 @@ fn enforce_diff_budget_locked(state: &crate::AppState, cache: &mut DiffCache) ->
     let mut entries: Vec<_> = diff_snapshot_locked(state, cache)?
         .entries
         .iter()
-        .map(|(key, meta)| (key.clone(), *meta))
+        .map(|(key, meta)| (key.clone(), meta.clone()))
         .collect();
     // Pins are temporary exceptions to both budgets, not a replacement for one of
     // the user's viewed entries. Pin registration and eviction share this lock.
@@ -270,15 +272,19 @@ fn enforce_diff_budget_locked(state: &crate::AppState, cache: &mut DiffCache) ->
         if index < DIFF_LIMIT && bytes <= DIFF_BYTES {
             continue;
         }
-        let Some(e) = state.store.diff_entry_if_unchanged(&key, meta.revision)? else {
+        let Some(e) = state
+            .host
+            .storage
+            .diff_entry_if_unchanged(&key, meta.revision)?
+        else {
             // A touch, refetch or AI write since metadata selection keeps it safe.
             continue;
         };
         let scope = key.strip_prefix("diff:").unwrap();
         let meta_key = format!("pr-meta:{scope}");
         let body_key = format!("pr-body:{scope}");
-        let meta = state.store.get(&meta_key)?;
-        let body = state.store.get(&body_key)?;
+        let meta = state.host.storage.get(&meta_key)?;
+        let body = state.host.storage.get(&body_key)?;
         // Full-file scopes retain canonical repository slashes, unlike Store keys.
         let removed_scope = crate::source::serialize_ref(&e["diff"]["ref"])
             .ok()
@@ -290,7 +296,7 @@ fn enforce_diff_budget_locked(state: &crate::AppState, cache: &mut DiffCache) ->
             })
             .unwrap_or_else(|| scope.to_owned());
         // An intervening touch, refetch or AI write makes this CAS fail; keep it.
-        let removed = state.store.compare_exchange(&[
+        let removed = state.host.storage.compare_exchange(&[
             (key, Some(e), None),
             (meta_key, meta, None),
             (body_key, body, None),
@@ -305,7 +311,7 @@ pub fn put_diff(state: &crate::AppState, key: &str, diff: &Value) -> Result<Valu
     valid_diff(diff)?;
     let mut cache = state.diff_cache.lock().unwrap();
     let marks = marked(state)?;
-    let value = state.store.update(&format!("diff:{key}"), |old| {
+    let value = state.host.storage.update(&format!("diff:{key}"), |old| {
         Ok(next_diff(key, diff, old, &marks, true))
     })?;
     enforce_diff_budget_locked(state, &mut cache)?;
@@ -334,7 +340,7 @@ fn put_diff_if_unchanged_locked(
 ) -> Result<Value> {
     valid_diff(diff)?;
     let marks = marked(state)?;
-    let value = state.store.update(&format!("diff:{key}"), |old| {
+    let value = state.host.storage.update(&format!("diff:{key}"), |old| {
         if old.as_ref().map(|v| &v["diff"]) != expected.map(|v| &v["diff"]) {
             return old.context("The cached diff changed. Reload before saving.");
         }
@@ -352,7 +358,7 @@ pub(crate) fn put_warmed_diff_if_unchanged(
 ) -> Result<WarmAdmission> {
     valid_diff(diff)?;
     let mut cache = state.diff_cache.lock().unwrap();
-    let current = state.store.get(&format!("diff:{key}"))?;
+    let current = state.host.storage.get(&format!("diff:{key}"))?;
     if current.as_ref().map(|v| &v["diff"]) != expected.map(|v| &v["diff"]) {
         return current
             .map(WarmAdmission::Stored)
@@ -372,7 +378,8 @@ pub(crate) fn put_warmed_diff_if_unchanged(
         return Ok(WarmAdmission::Rejected(capacity));
     }
     state
-        .store
+        .host
+        .storage
         .get(&format!("diff:{key}"))?
         .map(WarmAdmission::Stored)
         .context("The cached diff changed. Reload before saving.")
@@ -410,14 +417,14 @@ fn archive_session(mut session: Value) -> Value {
     session
 }
 pub fn change_chat_saved(state: &crate::AppState, key: &str, id: Option<&str>) -> Result<Value> {
-    if state.store.get(&format!("diff:{key}"))?.is_none() {
+    if state.host.storage.get(&format!("diff:{key}"))?.is_none() {
         if id.is_some() {
             bail!("That chat is not in this pull request's history.");
         }
         return Ok(json!({"cleared":0}));
     }
     let mut result = json!({"cleared":0});
-    state.store.update(&format!("diff:{key}"), |old| {
+    state.host.storage.update(&format!("diff:{key}"), |old| {
         let mut e = old.context("Open the diff first.")?;
         let session = e.get("llmSession").cloned();
         if let Some(mut session) = session {
@@ -468,7 +475,8 @@ fn latest(
     strict: bool,
 ) -> Result<Option<Value>> {
     let saved = state
-        .store
+        .host
+        .storage
         .get(&format!("{prefix}:{scope}"))?
         .unwrap_or(Value::Null);
     let entries = array(&saved["entries"]);
@@ -488,7 +496,8 @@ fn latest(
 async fn review_state(state: &Arc<crate::AppState>, args: &Value) -> Result<Value> {
     let key = key(args)?;
     let saved = state
-        .store
+        .host
+        .storage
         .get(&format!("diff:{key}"))?
         .unwrap_or(Value::Null);
     let session = &saved["llmSession"];
@@ -587,13 +596,15 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
     match method {
         "get" => {
             return Ok(state
-                .store
+                .host
+                .storage
                 .get(&format!("diff:{key}"))?
                 .unwrap_or(Value::Null))
         }
         "getMeta" => {
             return Ok(state
-                .store
+                .host
+                .storage
                 .get(&format!("diff:{key}"))?
                 .as_ref()
                 .map(metadata)
@@ -608,7 +619,7 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
             }
             let mut cache = state.diff_cache.lock().unwrap();
             let marks = marked(state)?;
-            let result = state.store.update(&format!("diff:{key}"), |old| {
+            let result = state.host.storage.update(&format!("diff:{key}"), |old| {
                 let current = old
                     .as_ref()
                     .map(|e| e["headSha"].clone())
@@ -625,10 +636,10 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
         }
         _ => {}
     }
-    if state.store.get(&format!("diff:{key}"))?.is_none() {
+    if state.host.storage.get(&format!("diff:{key}"))?.is_none() {
         return Ok(Value::Null);
     }
-    state.store.update(&format!("diff:{key}"), |old| {
+    state.host.storage.update(&format!("diff:{key}"), |old| {
         let mut e = old.context("Open the diff first.")?;
         match method {
             "touch" => e["lastViewedAt"] = json!(now()),
@@ -816,12 +827,22 @@ pub async fn handle(
         "file-content"|"diff-file"=>file_content(state,&args).await,
         "chat-clear"=>crate::ai::change_chat(state,key(&args)?,None).await,
         "chat-restore"=>{let id=text(&args["id"]);if id.is_empty(){bail!("That needs the diff key and the chat.");}crate::ai::change_chat(state,key(&args)?,Some(id)).await},
-        "chat-history"=>{let e=state.store.get(&format!("diff:{}",key(&args)?))?.unwrap_or(Value::Null);Ok(history(&e["llmSession"]))},
-        "reviewed-get"=>{let key=text(&args["key"]);let e=if key.is_empty(){Value::Null}else{state.store.get(&format!("diff:{key}"))?.unwrap_or(Value::Null)};let shas=if args["shas"].is_array(){array(&args["shas"])}else{array(&e["diff"]["files"]).iter().map(|f|f["sha"].clone()).collect()};let mut reviewed=Vec::new();for sha in shas {if let Some(sha)=sha.as_str(){if let Some(mark)=state.store.get(&format!("review:{sha}"))?{if mark["sha"]==sha&&mark["reviewedAt"].is_number(){if !reviewed.contains(&sha.to_string()){reviewed.push(sha.to_string());}}}}}Ok(json!({"reviewed":reviewed,"changedSinceReviewed":array(&e["changedSinceReviewed"])}))},
-        "reviewed-set"=>{let shas:HashSet<_>=array(&args["shas"]).iter().filter_map(Value::as_str).map(str::to_owned).collect();if shas.is_empty(){bail!("Name at least one file sha.");}for sha in &shas {if args["reviewed"]==true{state.store.set(&format!("review:{sha}"),&json!({"sha":sha,"reviewedAt":now()}))?;}else{state.store.remove(&format!("review:{sha}"))?;}}let key=text(&args["key"]);if !key.is_empty()&&state.store.get(&format!("diff:{key}"))?.is_some(){state.store.update(&format!("diff:{key}"),|old|{let mut e=old.context("Open the diff first.")?;let touched:HashSet<_>=array(&e["diff"]["files"]).iter().filter(|f|shas.contains(text(&f["sha"]))).map(|f|text(&f["path"]).to_owned()).collect();e["changedSinceReviewed"]=json!(array(&e["changedSinceReviewed"]).into_iter().filter(|p|!touched.contains(text(p))).collect::<Vec<_>>());Ok(e)})?;}Ok(json!(true))},
+        "chat-history"=>{let e=state.host.storage.get(&format!("diff:{}",key(&args)?))?.unwrap_or(Value::Null);Ok(history(&e["llmSession"]))},
+        "reviewed-get"=>{let key=text(&args["key"]);let e=if key.is_empty(){Value::Null}else{state.host.storage.get(&format!("diff:{key}"))?.unwrap_or(Value::Null)};let shas=if args["shas"].is_array(){array(&args["shas"])}else{array(&e["diff"]["files"]).iter().map(|f|f["sha"].clone()).collect()};let mut reviewed=Vec::new();for sha in shas {if let Some(sha)=sha.as_str(){if let Some(mark)=state.host.storage.get(&format!("review:{sha}"))?{if mark["sha"]==sha&&mark["reviewedAt"].is_number(){if !reviewed.contains(&sha.to_string()){reviewed.push(sha.to_string());}}}}}Ok(json!({"reviewed":reviewed,"changedSinceReviewed":array(&e["changedSinceReviewed"])}))},
+        "reviewed-set"=>{let shas:HashSet<_>=array(&args["shas"]).iter().filter_map(Value::as_str).map(str::to_owned).collect();if shas.is_empty(){bail!("Name at least one file sha.");}for sha in &shas {if args["reviewed"]==true{state.host.storage.set(&format!("review:{sha}"),&json!({"sha":sha,"reviewedAt":now()}))?;}else{state.host.storage.remove(&format!("review:{sha}"))?;}}let key=text(&args["key"]);if !key.is_empty()&&state.host.storage.get(&format!("diff:{key}"))?.is_some(){state.host.storage.update(&format!("diff:{key}"),|old|{let mut e=old.context("Open the diff first.")?;let touched:HashSet<_>=array(&e["diff"]["files"]).iter().filter(|f|shas.contains(text(&f["sha"]))).map(|f|text(&f["path"]).to_owned()).collect();e["changedSinceReviewed"]=json!(array(&e["changedSinceReviewed"]).into_iter().filter(|p|!touched.contains(text(p))).collect::<Vec<_>>());Ok(e)})?;}Ok(json!(true))},
         "diff-patches"=>diff_patches(state,&args),
         "jev-files"=>{let state=state.clone();tokio::task::spawn_blocking(move || {let e=entry(&state,key(&args)?)?;Ok(crate::jev::known_files(&state, &e["diff"]))}).await.context("Jev file snapshot unavailable")?},
-        "recent-diffs"|"repo-viewed"=>{let mut entries=Vec::new();for k in state.store.keys("diff:")? {if let Some(e)=state.store.get(&k)?{if e["lastViewedAt"].as_u64().unwrap_or(0)>0{entries.push(e);}}}entries.sort_by_key(|e|std::cmp::Reverse(e["lastViewedAt"].as_u64().unwrap_or(0)));if name=="recent-diffs"{entries.truncate(12);Ok(json!(entries.iter().map(|e|{let m=metadata(e);json!({"key":m["key"],"ref":m["ref"],"title":m["title"],"label":m["label"],"url":m["url"],"state":m["pullRequestState"],"additions":m["additions"],"deletions":m["deletions"],"lastViewedAt":m["lastViewedAt"]})}).collect::<Vec<_>>()))}else{if !args["owner"].is_string()||!args["repo"].is_string(){bail!("That needs an owner and a repo.");}Ok(json!(entries.iter().filter(|e|e["diff"]["ref"]["kind"]=="github-pr"&&e["diff"]["ref"]["owner"]==args["owner"]&&e["diff"]["ref"]["repo"]==args["repo"]).map(|e|{let m=metadata(e);let ai=e["analyzedBy"].get("llm").or_else(||e["analyzedBy"].get("web-llm"));json!({"number":text(&e["diff"]["ref"]["number"]).parse::<u64>().unwrap_or(0),"additions":m["additions"],"deletions":m["deletions"],"files":array(&e["diff"]["files"]).len(),"groups":ai.map(|a|array(&a["groups"]).len()).unwrap_or_else(||array(&crate::source::groups(&e["diff"])).len()),"hasAiResult":ai.is_some()})}).collect::<Vec<_>>()))}},
+        "recent-diffs"|"repo-viewed"=>{let mut selected = {
+            let mut cache = state.diff_cache.lock().unwrap_or_else(|e| e.into_inner());
+            diff_snapshot_locked(state, &mut cache)?.entries.iter()
+                .filter(|(_, meta)| meta.last_viewed_at > 0 && (name == "recent-diffs" || meta.repository.as_ref().is_some_and(|(owner, repo)| owner == text(&args["owner"]) && repo == text(&args["repo"]))))
+                .map(|(key, meta)| (key.clone(), meta.last_viewed_at)).collect::<Vec<_>>()
+        };
+        selected.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
+        if name == "recent-diffs" { selected.truncate(12); }
+        let mut entries = Vec::with_capacity(selected.len());
+        for (key, _) in selected { if let Some(entry) = state.host.storage.get(&key)? { entries.push(entry); } }
+        if name=="recent-diffs"{entries.truncate(12);Ok(json!(entries.iter().map(|e|{let m=metadata(e);json!({"key":m["key"],"ref":m["ref"],"title":m["title"],"label":m["label"],"url":m["url"],"state":m["pullRequestState"],"additions":m["additions"],"deletions":m["deletions"],"lastViewedAt":m["lastViewedAt"]})}).collect::<Vec<_>>()))}else{if !args["owner"].is_string()||!args["repo"].is_string(){bail!("That needs an owner and a repo.");}Ok(json!(entries.iter().filter(|e|e["diff"]["ref"]["kind"]=="github-pr"&&e["diff"]["ref"]["owner"]==args["owner"]&&e["diff"]["ref"]["repo"]==args["repo"]).map(|e|{let m=metadata(e);let ai=e["analyzedBy"].get("llm").or_else(||e["analyzedBy"].get("web-llm"));json!({"number":text(&e["diff"]["ref"]["number"]).parse::<u64>().unwrap_or(0),"additions":m["additions"],"deletions":m["deletions"],"files":array(&e["diff"]["files"]).len(),"groups":ai.map(|a|array(&a["groups"]).len()).unwrap_or_else(||array(&crate::source::groups(&e["diff"])).len()),"hasAiResult":ai.is_some()})}).collect::<Vec<_>>()))}},
         _=>unreachable!(),
     }}.await)
 }

@@ -18,7 +18,6 @@ and separate GitHub Action. No Cloudflare deployment is part of this change.
 Earlier validation below is historical; fresh compile/check and review evidence
 for the rebased revision is recorded separately when completed.
 
-
 ## Scope and baseline
 
 This branch replaces the local TypeScript backend with the native `backend/`

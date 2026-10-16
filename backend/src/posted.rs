@@ -1,14 +1,16 @@
 //! Account-owned, compressed agent diffs. Storage is compatible with the original flat-key layout.
-use crate::{source::parse_patch, store::Store};
+use crate::{source::parse_patch_untruncated, store::Store};
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use regex::Regex;
 use serde_json::{json, Value};
 use std::{
+    collections::HashSet,
     io::{Read, Write},
     sync::{Mutex, OnceLock},
 };
+mod async_store;
 mod fields;
 pub use fields::{check_agent_fields, keep_in_diff};
 pub const MAX_PATCH_BYTES: usize = 5 * 1024 * 1024;
@@ -70,7 +72,7 @@ pub fn posted_revision(meta: &Value) -> String {
     format!("v{}.{ms}", meta["version"].as_u64().unwrap_or(0))
 }
 pub fn posted_payload(meta: &Value, patch: &str) -> Value {
-    let mut out = json!({"ref":{"kind":"posted","id":meta["id"]},"title":meta["title"],"createdAt":meta["createdAt"],"updatedAt":meta["updatedAt"],"files":parse_patch(patch)});
+    let mut out = json!({"ref":{"kind":"posted","id":meta["id"]},"title":meta["title"],"createdAt":meta["createdAt"],"updatedAt":meta["updatedAt"],"files":parse_patch_untruncated(patch)});
     if let Some(d) = meta.get("description") {
         out["description"] = d.clone();
     }
@@ -334,14 +336,15 @@ impl PostedStore {
         let key = format!("posted:{}", text(meta, "id"));
         let revision = posted_revision(meta);
         let by = meta.get("author").unwrap_or(&meta["keyName"]);
+        let reviewed: HashSet<_> = self
+            .store
+            .keys("review:")?
+            .into_iter()
+            .filter_map(|key| key.strip_prefix("review:").map(str::to_owned))
+            .collect();
         self.store.update(&format!("diff:{key}"), |old| {
-            let mut e = old.unwrap_or_else(|| json!({"analyzedBy":{},"lastViewedAt":0}));
-            e["key"] = json!(key);
-            e["diff"] = diff.clone();
+            let mut e = crate::review::next_diff(&key, &diff, old, &reviewed, viewed);
             e["headSha"] = json!(revision);
-            if viewed {
-                e["lastViewedAt"] = json!(crate::now_ms());
-            }
             if let Some(g) = agent.get("groups") {
                 let mut g = g.clone();
                 g["source"] = json!("llm");
@@ -559,5 +562,146 @@ mod tests {
                 secret
             );
         }
+    }
+
+    fn large_patch(path: &str, added: bool, last_line: &str) -> String {
+        let mode = if added { "new file mode 100644\n" } else { "" };
+        let padding = "x".repeat(512 * 1024);
+        format!("diff --git a/{path} b/{path}\n{mode}--- a/{path}\n+++ b/{path}\n@@ -0,0 +1,2 @@\n+# {padding}\n+{last_line}\n")
+    }
+
+    #[test]
+    fn complete_large_posted_patches_are_validated_and_scanned() {
+        let s = store();
+        let token = format!("ghp_{}", "a".repeat(36));
+        for (path, secret) in [
+            ("large.txt", token.as_str()),
+            (".env.local", "PASSWORD=private"),
+        ] {
+            let patch = large_patch(path, true, secret);
+            assert!(patch.len() < MAX_PATCH_BYTES);
+            assert_eq!(crate::source::parse_patch(&patch)[0]["truncated"], true);
+            let error = s
+                .save("owner", "Agent", None, Some(&patch), &json!({}))
+                .unwrap_err();
+            assert_eq!(error.downcast_ref::<PostError>().unwrap().status, 422);
+            assert!(error.to_string().contains(&format!("{path} line 2")));
+            assert!(!error.to_string().contains(secret));
+            assert!(s.list("owner").unwrap().is_empty());
+
+            let saved = s
+                .save(
+                    "owner",
+                    "Agent",
+                    None,
+                    Some(&patch),
+                    &json!({"allowSecrets":true}),
+                )
+                .unwrap();
+            let id = text(&saved["meta"], "id");
+            let opened = s.open("owner", id).unwrap().unwrap();
+            assert_eq!(
+                opened["diff"]["files"][0]["hunks"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                1
+            );
+            assert!(opened["diff"]["files"][0].get("truncated").is_none());
+            assert_eq!(s.read("owner", id).unwrap().unwrap()["patch"], patch);
+            s.remove("owner", id).unwrap();
+        }
+        // Presentation truncation must not turn an ordinary modified file into
+        // the misleading "no files" rejection during posted validation.
+        let patch = large_patch("ordinary.txt", false, "ordinary content");
+        let saved = s
+            .save("owner", "Agent", None, Some(&patch), &json!({}))
+            .unwrap();
+        assert_eq!(saved["meta"]["files"], 1);
+        assert_eq!(saved["meta"]["additions"], 2);
+        std::fs::remove_dir_all(s.store.root()).unwrap();
+    }
+
+    #[tokio::test]
+    async fn posted_updates_reconcile_reviewed_shas_without_counting_a_view() {
+        let s = store();
+        let app = crate::AppState::new(s.store.root().to_path_buf(), s.store.root().to_path_buf())
+            .unwrap();
+        let saved = s
+            .save("owner", "Agent", None, Some(PATCH), &json!({}))
+            .unwrap();
+        let id = text(&saved["meta"], "id");
+        let key = format!("posted:{id}");
+        let first = s.open("owner", id).unwrap().unwrap();
+        let shas: Vec<_> = first["diff"]["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|file| file["sha"].clone())
+            .collect();
+        crate::review::handle(
+            &app,
+            "reviewed-set",
+            json!({"key":key,"shas":shas,"reviewed":true}),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        s.store
+            .update(&format!("diff:{key}"), |entry| {
+                let mut entry = entry.unwrap();
+                entry["lastViewedAt"] = json!(42);
+                Ok(entry)
+            })
+            .unwrap();
+        let changed = PATCH
+            .replace("e69de29..4b825dc", "4b825dc..abcdef0")
+            .replace("return 3", "return 4");
+        s.save_async("owner", "Agent", Some(id), Some(&changed), &json!({}))
+            .await
+            .unwrap();
+        let status = crate::review::handle(&app, "reviewed-get", json!({"key":key}))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(status["changedSinceReviewed"], json!(["src/retry.ts"]));
+        assert_eq!(status["reviewed"], json!(["2222222"]));
+        assert_eq!(
+            s.store.get(&format!("diff:{key}")).unwrap().unwrap()["lastViewedAt"],
+            42
+        );
+
+        // Metadata-only updates preserve the change flag, and viewing the diff
+        // does not clear it. Marking the new SHA reviewed does.
+        s.save_async(
+            "owner",
+            "Agent",
+            Some(id),
+            None,
+            &json!({"title":"New title"}),
+        )
+        .await
+        .unwrap();
+        s.open_async("owner", id).await.unwrap().unwrap();
+        let status = crate::review::handle(&app, "reviewed-get", json!({"key":key}))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(status["changedSinceReviewed"], json!(["src/retry.ts"]));
+        crate::review::handle(
+            &app,
+            "reviewed-set",
+            json!({"key":key,"shas":["abcdef0"],"reviewed":true}),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let status = crate::review::handle(&app, "reviewed-get", json!({"key":key}))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(status["changedSinceReviewed"], json!([]));
+        assert_eq!(status["reviewed"], json!(["abcdef0", "2222222"]));
+        std::fs::remove_dir_all(s.store.root()).unwrap();
     }
 }

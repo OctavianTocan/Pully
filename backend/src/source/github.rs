@@ -653,7 +653,7 @@ mod warmer_tests {
         crate::review::put_warmed_diff_if_unchanged(&state, &key, &updated, Some(&admitted))
             .unwrap();
         assert_eq!(
-            state.store.get(&format!("diff:{key}")).unwrap(),
+            state.host.storage.get(&format!("diff:{key}")).unwrap(),
             Some(newer)
         );
         drop(state);

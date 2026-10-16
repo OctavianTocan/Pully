@@ -23,11 +23,12 @@ struct RootLock {
     diff_body_reads: std::sync::atomic::AtomicUsize,
     _file: fs::File,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct DiffEntryMetadata {
     pub revision: u64,
     pub size_bytes: u64,
     pub last_viewed_at: u64,
+    pub repository: Option<(String, String)>,
 }
 impl DiffEntryMetadata {
     fn new(entry: &Value, revision: u64) -> Self {
@@ -35,6 +36,18 @@ impl DiffEntryMetadata {
             revision,
             size_bytes: entry["sizeBytes"].as_u64().unwrap_or(0),
             last_viewed_at: entry["lastViewedAt"].as_u64().unwrap_or(0),
+            repository: (entry["diff"]["ref"]["kind"] == "github-pr").then(|| {
+                (
+                    entry["diff"]["ref"]["owner"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_owned(),
+                    entry["diff"]["ref"]["repo"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_owned(),
+                )
+            }),
         }
     }
 }

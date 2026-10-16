@@ -270,7 +270,8 @@ pub(in crate::ai) fn update_grouping(
     }
     let key = required(&run.request, "key")?;
     let entry = state
-        .store
+        .host
+        .storage
         .get(&format!("diff:{key}"))?
         .context("This diff is no longer cached; open it again.")?;
     if entry["diff"]["head"]["sha"] != context["headSha"]
@@ -416,8 +417,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("pulls-grouping-{}", uuid::Uuid::new_v4()));
         let state = AppState::new(dir.clone(), dir.clone()).unwrap();
         let diff = json!({"ref":{"kind":"github-pr","owner":"o","repo":"r","number":1},"head":{"sha":"captured"},"files":[{"path":"a.rs","hunks":[]}]});
-        state
-            .store
+        state.host.storage
             .set(
                 "diff:test",
                 &json!({"headSha":"captured","diff":diff,"analyzedBy":{},"llmAnalyzedHeadSha":"old","lastViewedAt":0}),
@@ -434,16 +434,16 @@ mod tests {
         let mut ctx = context(&diff);
         ctx["allowGroupingUpdate"] = json!(true);
         let args = json!({"overallSummary":"New.","groups":[{"key":"all","label":"All","category":"core","filePaths":["a.rs"]}]});
-        let before = state.store.get("diff:test").unwrap();
+        let before = state.host.storage.get("diff:test").unwrap();
         assert!(update_grouping(&state, &run, &context(&diff), &args).is_err());
         let incomplete = json!({"overallSummary":"Missing.","groups":[]});
         assert!(update_grouping(&state, &run, &ctx, &incomplete).is_err());
-        assert_eq!(state.store.get("diff:test").unwrap(), before);
+        assert_eq!(state.host.storage.get("diff:test").unwrap(), before);
         assert!(array(&run.snapshot.lock().unwrap()["activities"]).is_empty());
         assert!(update_grouping(&state, &run, &ctx, &args)
             .unwrap()
             .contains("1 groups"));
-        let saved = state.store.get("diff:test").unwrap().unwrap();
+        let saved = state.host.storage.get("diff:test").unwrap().unwrap();
         assert_eq!(saved["analyzedBy"]["llm"]["overallSummary"], "New.");
         assert_eq!(saved["llmAnalyzedHeadSha"], "captured");
         assert_eq!(saved["lastViewedAt"], 0);
@@ -451,7 +451,7 @@ mod tests {
             .starts_with("grouping-update:"));
         ctx["headSha"] = json!("stale");
         assert!(update_grouping(&state, &run, &ctx, &args).is_err());
-        assert_eq!(state.store.get("diff:test").unwrap().unwrap(), saved);
+        assert_eq!(state.host.storage.get("diff:test").unwrap().unwrap(), saved);
         run.cancel.send_replace(true);
         assert!(update_grouping(&state, &run, &context(&diff), &args).is_err());
         std::fs::remove_dir_all(dir).unwrap();

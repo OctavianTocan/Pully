@@ -17,8 +17,16 @@ pub fn specs() -> Value {
     {"name":"read_discussion","description":"Read PR description, comments and review discussion.","inputSchema":{"type":"object","properties":{}}}
     ])
 }
+fn repository_tool(name: &str) -> bool {
+    matches!(name, "read_source" | "search_source" | "read_discussion")
+}
+/// @cc [owner:OctavianTocan,label:product;security] rust-posted-tools-are-diff-only
+/// Posted contexts MUST omit repository-source and discussion tools from the shared
+/// MCP/Pi registry, and direct calls to those tools MUST fail, even if headSha or
+/// sourceSnapshots are present (plan 13, "AI that Pully runs").
 pub fn specs_for(ctx: &Value) -> Value {
-    if ctx["pulls"].is_array() {
+    let posted = ctx["ref"]["kind"] == "posted";
+    if !posted && ctx["pulls"].is_array() {
         return json!([
         {"name":"read_pull_request","description":"Read details of one pull request on the inbox list.","inputSchema":{"type":"object","properties":{"pull":{"type":"string"}},"required":["pull"]}},
         {"name":"read_pull_request_diff","description":"Read changed files of one pull request on the inbox list.","inputSchema":{"type":"object","properties":{"pull":{"type":"string"},"paths":{"type":"array","items":{"type":"string"}}},"required":["pull"]}}
@@ -26,10 +34,17 @@ pub fn specs_for(ctx: &Value) -> Value {
     }
     let mut list = specs();
     let tools = list.as_array_mut().unwrap();
+    if posted {
+        tools.retain(|tool| !repository_tool(text(tool, "name")));
+        if let Some(tool) = tools.iter_mut().find(|tool| tool["name"] == "find_files") {
+            tool["description"] =
+                json!("Find paths in the captured diff using a regular expression.");
+        }
+    }
     if has_triage(ctx) {
         tools.insert(0, json!({"name":"triage_files","description":"A fast classifier's first read: PR kind and risk, then changed files rated p0 (human judgment), p1 (worth a look), or p2 (low attention). Call first when available; it is a hint, not a verdict.","inputSchema":{"type":"object","properties":{},"additionalProperties":false}}));
     }
-    if ctx["headSha"].is_string() || ctx["sourceSnapshots"].is_object() {
+    if !posted && (ctx["headSha"].is_string() || ctx["sourceSnapshots"].is_object()) {
         tools.push(json!({"name":"search_source","description":"Search source at the captured head, including unchanged files, with a case-insensitive regular expression. An optional path glob narrows the repository search.","inputSchema":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"],"additionalProperties":false}}));
     }
     if ctx["allowGroupingUpdate"] == true {
@@ -253,15 +268,21 @@ async fn source_content(state: Option<&AppState>, ctx: &Value, path: &str) -> Re
         .map(str::to_owned)
         .context("The source file is unavailable at this revision")
 }
+/// @cc [owner:OctavianTocan,label:product;security] rust-posted-paths-use-only-captured-diff
+/// Posted file discovery MUST enumerate only captured diff paths, including with live
+/// state and no checkout or head, and MUST ignore source snapshots and repository trees
+/// (plan 13, "AI that Pully runs").
 async fn source_paths(state: Option<&AppState>, ctx: &Value) -> Result<Vec<String>> {
-    if let Some(state) = state {
-        return crate::source::ai_tree(state, ctx).await;
+    let mut paths = vec![];
+    if ctx["ref"]["kind"] != "posted" {
+        if let Some(state) = state {
+            return crate::source::ai_tree(state, ctx).await;
+        }
+        // Offline snapshots are an explicit captured capability, never an implicit host checkout.
+        if let Some(snapshots) = ctx["sourceSnapshots"].as_object() {
+            paths.extend(snapshots.keys().cloned());
+        }
     }
-    // Offline snapshots are an explicit captured capability, never an implicit host checkout.
-    let mut paths: Vec<_> = ctx["sourceSnapshots"]
-        .as_object()
-        .map(|s| s.keys().cloned().collect())
-        .unwrap_or_default();
     paths.extend(files(ctx).iter().map(|f| text(f, "path").to_owned()));
     paths.sort();
     paths.dedup();
@@ -514,7 +535,11 @@ pub async fn call(
     name: &str,
     args: &Value,
 ) -> Result<String> {
-    if ctx["pulls"].is_array() {
+    let posted = ctx["ref"]["kind"] == "posted";
+    if posted && repository_tool(name) {
+        bail!("Posted diffs have no repository source or discussion; use the captured diff tools");
+    }
+    if !posted && ctx["pulls"].is_array() {
         return inbox::call(state, ctx, name, args).await;
     }
     if state.is_some() {
@@ -578,7 +603,12 @@ pub async fn call(
                     for (i, h) in selected {
                         found = true;
                         let result = if generated(path) {
-                            writeln!(out, "[{path}#{i}] Lockfile or generated output; its diff is left out. Use read_source if needed.")
+                            let hint = if posted {
+                                ""
+                            } else {
+                                " Use read_source if needed."
+                            };
+                            writeln!(out, "[{path}#{i}] Lockfile or generated output; its diff is left out.{hint}")
                         } else {
                             writeln!(out, "[{path}#{i}] {}", h.header).and_then(|()| {
                                 for (sign, n, line) in numbered(&h) {

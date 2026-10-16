@@ -22,18 +22,14 @@ use std::{path::PathBuf, sync::Arc};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub store: store::Store,
     pub accounts: account::Accounts,
     pub host: host::ServerHost,
-    pub has_checkout: bool,
     pub posted: posted::PostedStore,
     pub github_stats: github_stats::Cache,
     account_seed: Arc<tokio::sync::OnceCell<bool>>,
     pub http: reqwest::Client,
-    pub cwd: PathBuf,
     pub jobs: ai::Jobs,
     pub analytics: analytics::Analytics,
-    pub my_pulls_lock: Arc<tokio::sync::Mutex<()>>,
     pub(crate) diff_cache: Arc<std::sync::Mutex<review::DiffCache>>,
 }
 impl AppState {
@@ -45,30 +41,22 @@ impl AppState {
     }
     pub fn new(cwd: PathBuf, data: PathBuf) -> Result<Arc<Self>> {
         let store = store::Store::new(data)?;
+        Self::from_host(host::ServerHost::new(store, Some(cwd), None))
+    }
+    pub fn from_host(host: host::ServerHost) -> Result<Arc<Self>> {
+        let store = host.storage.clone();
         Ok(Arc::new(Self {
-            host: host::ServerHost::new(
-                store.clone(),
-                if cwd.as_os_str().is_empty() {
-                    None
-                } else {
-                    Some(cwd.clone())
-                },
-                None,
-            ),
-            has_checkout: !cwd.as_os_str().is_empty(),
+            host,
             accounts: account::Accounts::new(store.clone()),
             posted: posted::PostedStore::new(store.clone()),
             github_stats: github_stats::Cache::default(),
             account_seed: Arc::new(tokio::sync::OnceCell::new()),
-            store,
             http: reqwest::Client::builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(std::time::Duration::from_secs(60))
                 .build()?,
-            cwd,
             jobs: ai::Jobs::default(),
             analytics: analytics::Analytics::new(),
-            my_pulls_lock: Arc::new(tokio::sync::Mutex::new(())),
             diff_cache: Arc::new(std::sync::Mutex::new(review::DiffCache::default())),
         }))
     }

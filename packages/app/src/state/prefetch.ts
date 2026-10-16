@@ -67,7 +67,7 @@ export function createPrefetcher(options: PrefetchOptions): Prefetcher {
     let entry = await cache.diffs.get(key)
     if (entry?.headSha !== headSha) {
       const diff = await fetchDiff(pull)
-      entry = await cache.diffs.putDiff(key, diff, diff.head?.sha ?? '')
+      entry = await cache.diffs.putDiff(key, diff, diff.head?.sha ?? '', { expectedHeadSha: entry?.headSha ?? null })
     }
     const reviewed = await cache.reviewMarks.get(entry.diff.files.map(file => file.sha))
     await snapshots.put(key, entry, reviewed)

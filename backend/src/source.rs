@@ -13,7 +13,7 @@ mod patch;
 pub use github::{raw as github_raw, refresh_cached as refresh_cached_pr, token as github_token};
 pub use grouping::groups;
 pub use local::search as search_local;
-pub use patch::parse_patch;
+pub use patch::{parse_patch, parse_patch_untruncated};
 pub fn s<'a>(v: &'a Value, k: &str) -> &'a str {
     v[k].as_str().unwrap_or("")
 }
@@ -82,7 +82,8 @@ pub async fn load_file(state: &AppState, args: &Value) -> Result<Value> {
         args["ref"].clone()
     } else if !s(args, "key").is_empty() {
         state
-            .store
+            .host
+            .storage
             .get(&format!("diff:{}", s(args, "key")))?
             .context("Diff is not cached")?["diff"]["ref"]
             .clone()
@@ -95,11 +96,11 @@ pub async fn load_file(state: &AppState, args: &Value) -> Result<Value> {
         if !local::allowed_path(state, path).await? {
             return Ok(Value::Null);
         }
-        let root = local::git(&state.cwd, &["rev-parse", "--show-toplevel"]).await?;
+        let root = local::git(state.host.checkout()?, &["rev-parse", "--show-toplevel"]).await?;
         r["repo"] = json!(root.trim());
     }
     let scope = serialize_ref(&r)?;
-    if let Some(content) = content_cache::get_async(&state.store, &scope, sha, path).await? {
+    if let Some(content) = content_cache::get_async(&state.host.storage, &scope, sha, path).await? {
         return Ok(json!(content));
     }
     let result = match s(&r, "kind") {
@@ -110,13 +111,13 @@ pub async fn load_file(state: &AppState, args: &Value) -> Result<Value> {
         _ => bail!("This source does not provide full file content"),
     }?;
     if let Some(content) = result.as_str() {
-        content_cache::set_async(&state.store, &scope, sha, path, content).await?;
+        content_cache::set_async(&state.host.storage, &scope, sha, path, content).await?;
     }
     Ok(result)
 }
 /// Eviction must discard every captured full-file revision of the removed diff.
 pub fn remove_file_scope(state: &AppState, scope: &str) -> Result<()> {
-    content_cache::remove_scope(&state.store, scope)
+    content_cache::remove_scope(&state.host.storage, scope)
 }
 pub fn put_diff(state: &AppState, key: &str, diff: &Value) -> Result<Value> {
     crate::review::put_diff(state, key, diff)
@@ -124,20 +125,24 @@ pub fn put_diff(state: &AppState, key: &str, diff: &Value) -> Result<Value> {
 async fn open(state: &Arc<AppState>, r: &Value, args: &Value) -> Result<Value> {
     let mut canonical = r.clone();
     if r["kind"] == "local" {
-        let root = local::git(&state.cwd, &["rev-parse", "--show-toplevel"]).await?;
+        let root = local::git(state.host.checkout()?, &["rev-parse", "--show-toplevel"]).await?;
         canonical["repo"] = json!(root.trim());
     }
     let r = &canonical;
     let key = serialize_ref(r)?;
-    let existing = state.store.get(&format!("diff:{key}"))?;
+    let existing = state.host.storage.get(&format!("diff:{key}"))?;
     if args["fresh"] != true && r["kind"] == "github-pr" {
         if let Some(e) = &existing {
             if e["diff"]["files"].is_array() {
-                let viewed = state.store.update(&format!("diff:{key}"), |current| {
-                    let mut value = current.context("The cached diff was removed; reopen it.")?;
-                    value["lastViewedAt"] = json!(now());
-                    Ok(value)
-                })?;
+                let viewed = state
+                    .host
+                    .storage
+                    .update(&format!("diff:{key}"), |current| {
+                        let mut value =
+                            current.context("The cached diff was removed; reopen it.")?;
+                        value["lastViewedAt"] = json!(now());
+                        Ok(value)
+                    })?;
                 let diff = viewed["diff"].clone();
                 let owned_state = state.clone();
                 let expected = Some(viewed);
@@ -197,7 +202,7 @@ fn opened_response(key: &str, diff: &Value, lite: bool, stale: bool) -> Value {
     out
 }
 pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
-    if !state.has_checkout
+    if state.host.checkout().is_err()
         && matches!(
             name,
             "repo-info"
@@ -224,7 +229,7 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
         "repo-info" => local::info(state).await,
         "source-key" => {
             async {
-                let root = local::git(&state.cwd, &["rev-parse", "--show-toplevel"]).await?;
+                let root = local::git(state.host.checkout()?, &["rev-parse", "--show-toplevel"]).await?;
                 Ok(json!(serialize_ref(
                     &json!({"kind":"local","repo":root.trim(),"target":s(&args,"target")})
                 )?))
@@ -238,7 +243,7 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
         "source-load-file" => load_file(state, &args).await,
         "local-diff" | "local-open" => open(
             state,
-            &json!({"kind":"local","target":s(&args,"target"),"repo":state.cwd.to_string_lossy()}),
+            &json!({"kind":"local","target":s(&args,"target"),"repo":state.host.cwd.as_ref().expect("checkout checked").to_string_lossy()}),
             &args,
         )
         .await,
@@ -305,17 +310,13 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
         "my-pulls-cached" => {
             async {
                 let key = format!("my-pulls:{}", args["state"].as_str().unwrap_or("open"));
-                match state.store.get(&key) {
+                match state.host.storage.get(&key) {
                     Err(e) => Err(e),
                     Ok(Some(mut v)) => {
                         let refreshing = args["revalidate"] != false
                             && now().saturating_sub(v["fetchedAt"].as_u64().unwrap_or(0)) > 30000;
                         if refreshing {
-                            let state = state.clone();
-                            let args = args.clone();
-                            tokio::spawn(async move {
-                                let _ = lists::my_pulls(&state, &args).await;
-                            });
+                            let _ = lists::start_inbox_refresh(state, &args)?;
                         }
                         if args["classify"] == true
                             && args["state"].as_str().unwrap_or("open") == "open"
@@ -333,16 +334,12 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
                         }
                         v = crate::jev::apply_pulls(state, v).await?;
                         v["refreshing"] =
-                            json!(refreshing || state.my_pulls_lock.try_lock().is_err());
+                            json!(refreshing || lists::inbox_refreshing(state, &args));
                         Ok(v)
                     }
                     Ok(None) => {
                         if args["revalidate"] != false {
-                            let state = state.clone();
-                            let args = args.clone();
-                            tokio::spawn(async move {
-                                let _ = lists::my_pulls(&state, &args).await;
-                            });
+                            let _ = lists::start_inbox_refresh(state, &args)?;
                         }
                         Ok(Value::Null)
                     }

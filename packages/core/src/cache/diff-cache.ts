@@ -27,6 +27,12 @@ export interface CacheBudget {
 
 export interface PutDiffOptions {
   /**
+   * Head observed before this operation fetched its diff (`null` for a cache miss).
+   * A conflicting write returns the stored winner instead; a removed winner rejects.
+   * RPC-backed writes require this observation, while local writes may omit the guard.
+   */
+  expectedHeadSha?: string | null
+  /**
    * `false` for a write nobody is looking at (a server keeping open pull requests fresh):
    * the entry keeps its `lastViewedAt`, or gets `0` when new, so it neither moves up the
    * LRU nor shows as recently viewed. Defaults to `true`.
@@ -112,6 +118,12 @@ function join(meta: PrCacheMeta, body: PrCacheBody): PrCacheEntry {
  * @cc [owner:OctavianTocan,label:architecture] diff-cache-shares-transaction-locks
  * Repositories over the same storage MUST serialize read-modify-write operations for
  * each diff key, including coordinated browser writes (review finding 6, 15 Oct 2026).
+ */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] diff-cache-guards-observed-heads
+ * A putDiff with expectedHeadSha MUST compare that observation inside the write's
+ * transaction and keep a conflicting stored winner unchanged. A missing winner
+ * MUST NOT resurrect a removed diff (R11 review finding 15, 16 Oct 2026).
  */
 export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budget: CacheBudget = {}): DiffCache {
   const maxBytes = budget.maxBytes ?? DEFAULT_MAX_BUDGET_BYTES
@@ -254,9 +266,18 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
       await exclusive(entry.key, () => write(entry))
       await enforceBudget()
     },
-    async putDiff(key, diff, headSha, { viewed = true } = {}) {
-      const entry = await exclusive(key, async () => writeDiff(key, await get(key), { diff, headSha }, viewed))
-      await enforceBudget()
+    async putDiff(key, diff, headSha, { viewed = true, expectedHeadSha } = {}) {
+      const { entry, written } = await exclusive(key, async () => {
+        const existing = await get(key)
+        if (expectedHeadSha !== undefined && expectedHeadSha !== (existing?.headSha ?? null)) {
+          if (existing)
+            return { entry: existing, written: false }
+          throw new Error('The cached diff changed. Reload before saving.')
+        }
+        return { entry: await writeDiff(key, existing, { diff, headSha }, viewed), written: true }
+      })
+      if (written)
+        await enforceBudget()
       return entry
     },
     async updateDiff(key, next, { viewed = true } = {}) {

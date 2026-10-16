@@ -86,6 +86,13 @@ pub fn hunks(text: &str) -> Vec<Value> {
     out
 }
 pub fn parse_patch(text: &str) -> Vec<Value> {
+    parse_patch_with_limit(text, Some(512 * 1024))
+}
+/// Preserve complete hunks for bounded posted patches, including secret validation.
+pub fn parse_patch_untruncated(text: &str) -> Vec<Value> {
+    parse_patch_with_limit(text, None)
+}
+fn parse_patch_with_limit(text: &str, max_file_bytes: Option<usize>) -> Vec<Value> {
     let lines: Vec<_> = text.split('\n').collect();
     let git = lines.iter().any(|l| l.starts_with("diff --git "));
     let re = hr();
@@ -222,7 +229,7 @@ pub fn parse_patch(text: &str) -> Vec<Value> {
         if let Some(p) = prev {
             f["previousPath"] = json!(p)
         }
-        if chunk.len() > 512 * 1024 {
+        if max_file_bytes.is_some_and(|limit| chunk.len() > limit) {
             f["hunks"] = json!([]);
             f["truncated"] = json!(true)
         }

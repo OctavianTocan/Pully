@@ -42,9 +42,14 @@ fn eviction_removes_every_canonical_full_file_revision() {
             old["diff"] =
                 json!({"ref":{"kind":"github-pr","owner":"owner","repo":"repo","number":"1"}});
         }
-        state.store.set(&format!("diff:{scope}"), &old).unwrap();
         state
-            .store
+            .host
+            .storage
+            .set(&format!("diff:{scope}"), &old)
+            .unwrap();
+        state
+            .host
+            .storage
             .set("diff:keep", &json!({"lastViewedAt":1,"sizeBytes":1}))
             .unwrap();
         for (name, cached_scope) in [
@@ -53,11 +58,13 @@ fn eviction_removes_every_canonical_full_file_revision() {
             ("keep", "github:owner/repo#2"),
         ] {
             state
-                .store
+                .host
+                .storage
                 .set(&format!("file-content:{name}"), &json!({"content":"body"}))
                 .unwrap();
             state
-                .store
+                .host
+                .storage
                 .set(
                     &format!("file-content-meta:{name}"),
                     &json!({"scope":cached_scope,"sizeBytes":4,"lastAccessedAt":1}),
@@ -65,13 +72,18 @@ fn eviction_removes_every_canonical_full_file_revision() {
                 .unwrap();
         }
         assert!(finish_warming(&state, scope).unwrap().is_some());
-        assert!(state.store.get(&format!("diff:{scope}")).unwrap().is_none());
+        assert!(state
+            .host
+            .storage
+            .get(&format!("diff:{scope}"))
+            .unwrap()
+            .is_none());
         assert_eq!(
-            state.store.keys("file-content:").unwrap(),
+            state.host.storage.keys("file-content:").unwrap(),
             ["file-content:keep"]
         );
         assert_eq!(
-            state.store.keys("file-content-meta:").unwrap(),
+            state.host.storage.keys("file-content-meta:").unwrap(),
             ["file-content-meta:keep"]
         );
         drop(state);
@@ -84,7 +96,8 @@ fn repeated_capacity_checks_reuse_metadata_after_direct_changes() {
         std::env::temp_dir().join(format!("pulls-capacity-metadata-{}", uuid::Uuid::new_v4()));
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
     state
-        .store
+        .host
+        .storage
         .set("diff:one", &json!({"lastViewedAt":1,"sizeBytes":10}))
         .unwrap();
     assert_eq!(
@@ -94,14 +107,15 @@ fn repeated_capacity_checks_reuse_metadata_after_direct_changes() {
             bytes: DIFF_BYTES - 10
         }
     );
-    let reads = state.store.diff_body_reads();
+    let reads = state.host.storage.diff_body_reads();
     for _ in 0..10 {
         assert!(finish_warming(&state, "one").unwrap().is_none());
         assert_eq!(diff_capacity(&state).unwrap().bytes, DIFF_BYTES - 10);
     }
-    assert_eq!(state.store.diff_body_reads(), reads);
+    assert_eq!(state.host.storage.diff_body_reads(), reads);
     state
-        .store
+        .host
+        .storage
         .set("diff:two", &json!({"lastViewedAt":2,"sizeBytes":20}))
         .unwrap();
     assert_eq!(
@@ -111,8 +125,8 @@ fn repeated_capacity_checks_reuse_metadata_after_direct_changes() {
             bytes: DIFF_BYTES - 30
         }
     );
-    assert_eq!(state.store.diff_body_reads(), reads);
-    state.store.remove("diff:one").unwrap();
+    assert_eq!(state.host.storage.diff_body_reads(), reads);
+    state.host.storage.remove("diff:one").unwrap();
     assert_eq!(
         diff_capacity(&state).unwrap(),
         DiffCapacity {
@@ -120,7 +134,7 @@ fn repeated_capacity_checks_reuse_metadata_after_direct_changes() {
             bytes: DIFF_BYTES - 20
         }
     );
-    assert_eq!(state.store.diff_body_reads(), reads);
+    assert_eq!(state.host.storage.diff_body_reads(), reads);
     drop(state);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -130,7 +144,8 @@ async fn unseen_analysis_pins_preserve_fifty_viewed_diffs_until_last_release() {
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
     for i in 0..50 {
         state
-            .store
+            .host
+            .storage
             .set(
                 &format!("diff:viewed-{i}"),
                 &json!({"lastViewedAt":i+1,"sizeBytes":100}),
@@ -145,15 +160,21 @@ async fn unseen_analysis_pins_preserve_fifty_viewed_diffs_until_last_release() {
     let job_pin = pin_diff(&state, key).await.unwrap();
     fetch_pin.release().await;
     finish_warming(&state, key).unwrap();
-    assert_eq!(state.store.keys("diff:").unwrap().len(), 51);
+    assert_eq!(state.host.storage.keys("diff:").unwrap().len(), 51);
     assert_eq!(
-        state.store.get(&format!("diff:{key}")).unwrap().unwrap()["headSha"],
+        state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .unwrap()["headSha"],
         "h"
     );
     for i in 0..50 {
         assert_eq!(
             state
-                .store
+                .host
+                .storage
                 .get(&format!("diff:viewed-{i}"))
                 .unwrap()
                 .unwrap()["lastViewedAt"],
@@ -161,8 +182,13 @@ async fn unseen_analysis_pins_preserve_fifty_viewed_diffs_until_last_release() {
         );
     }
     job_pin.release().await;
-    assert_eq!(state.store.keys("diff:").unwrap().len(), 50);
-    assert!(state.store.get(&format!("diff:{key}")).unwrap().is_none());
+    assert_eq!(state.host.storage.keys("diff:").unwrap().len(), 50);
+    assert!(state
+        .host
+        .storage
+        .get(&format!("diff:{key}"))
+        .unwrap()
+        .is_none());
     assert!(state.diff_cache.lock().unwrap().pins.is_empty());
     drop(state);
     std::fs::remove_dir_all(root).unwrap();
@@ -172,7 +198,8 @@ async fn warming_respects_byte_capacity_and_pins_temporarily_exempt_it() {
     let root = std::env::temp_dir().join(format!("pulls-byte-budget-{}", uuid::Uuid::new_v4()));
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
     state
-        .store
+        .host
+        .storage
         .set(
             "diff:viewed",
             &json!({"lastViewedAt":1,"sizeBytes":DIFF_BYTES-1}),
@@ -186,10 +213,10 @@ async fn warming_respects_byte_capacity_and_pins_temporarily_exempt_it() {
     ));
     let pin = pin_diff(&state, "paste:new").await.unwrap();
     put_diff_if_unchanged(&state, "paste:new", &diff, None, false).unwrap();
-    assert_eq!(state.store.keys("diff:").unwrap().len(), 2);
+    assert_eq!(state.host.storage.keys("diff:").unwrap().len(), 2);
     pin.release().await;
-    assert!(state.store.get("diff:paste:new").unwrap().is_none());
-    assert!(state.store.get("diff:viewed").unwrap().is_some());
+    assert!(state.host.storage.get("diff:paste:new").unwrap().is_none());
+    assert!(state.host.storage.get("diff:viewed").unwrap().is_some());
     drop(state);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -201,7 +228,7 @@ fn stale_base_fetch_cannot_replace_newer_diff() {
     let mut newer = old.clone();
     newer["diff"]["base"]["sha"] = json!("b2");
     newer["llmSession"] = json!({"messages":[]});
-    state.store.set("diff:test", &newer).unwrap();
+    state.host.storage.set("diff:test", &newer).unwrap();
     let got = put_diff_if_unchanged(&state, "test", &old["diff"], Some(&old), false).unwrap();
     assert_eq!(got["diff"]["base"]["sha"], "b2");
     assert_eq!(got["llmSession"], newer["llmSession"]);
@@ -229,9 +256,9 @@ fn restore_removes_chosen_before_capacity_limit() {
     let root = std::env::temp_dir().join(format!("pulls-chat-{}", uuid::Uuid::new_v4()));
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
     let archive:Vec<_>=(0..30).map(|i|json!({"id":format!("chat-{i}"),"archivedAt":i,"messages":[{"role":"user","content":format!("Question {i}")}]})).collect();
-    state.store.set("diff:test",&json!({"llmSession":{"messages":[{"role":"assistant","content":"Analysis"},{"role":"user","content":"Current"}],"chatStartIndex":1,"archive":archive}})).unwrap();
+    state.host.storage.set("diff:test",&json!({"llmSession":{"messages":[{"role":"assistant","content":"Analysis"},{"role":"user","content":"Current"}],"chatStartIndex":1,"archive":archive}})).unwrap();
     change_chat_saved(&state, "test", Some("chat-29")).unwrap();
-    let e = state.store.get("diff:test").unwrap().unwrap();
+    let e = state.host.storage.get("diff:test").unwrap().unwrap();
     assert_eq!(e["llmSession"]["archive"].as_array().unwrap().len(), 30);
     assert!(array(&e["llmSession"]["archive"])
         .iter()
@@ -251,7 +278,8 @@ fn stale_fetch_preserves_new_head_and_saved_chat() {
     newer["head"]["sha"] = json!("two");
     put_diff(&state, "paste:test", &newer).unwrap();
     state
-        .store
+        .host
+        .storage
         .update("diff:paste:test", |old| {
             let mut e = old.unwrap();
             e["llmSession"] =
@@ -270,7 +298,7 @@ fn stale_fetch_preserves_new_head_and_saved_chat() {
 fn patch_reads_reject_stale_heads_and_match_wire_shape() {
     let root = std::env::temp_dir().join(format!("pulls-patches-{}", uuid::Uuid::new_v4()));
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
-    state.store.set("diff:test",&json!({"diff":{"head":{"sha":"new"},"files":[{"path":"x.rs","sha":"blob","hunks":[{"patch":"+new"}]}]}})).unwrap();
+    state.host.storage.set("diff:test",&json!({"diff":{"head":{"sha":"new"},"files":[{"path":"x.rs","sha":"blob","hunks":[{"patch":"+new"}]}]}})).unwrap();
     assert!(diff_patches(
         &state,
         &json!({"key":"test","paths":["x.rs"],"headSha":"old"})
@@ -352,7 +380,8 @@ async fn pin_acquisition_and_drop_yield_while_the_cache_lock_is_held() {
         .await
         .unwrap();
     state
-        .store
+        .host
+        .storage
         .set(
             "diff:unseen",
             &json!({"lastViewedAt":0,"sizeBytes":DIFF_BYTES+1}),
@@ -364,7 +393,7 @@ async fn pin_acquisition_and_drop_yield_while_the_cache_lock_is_held() {
     assert!(held.release(), "dropping a pin must not block the runtime");
     shutdown_diff_pins(&state).await;
     assert!(state.diff_cache.lock().unwrap().pins.is_empty());
-    assert!(state.store.get("diff:unseen").unwrap().is_none());
+    assert!(state.host.storage.get("diff:unseen").unwrap().is_none());
     drop(state);
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -391,7 +420,8 @@ async fn ai_admission_yields_and_releases_pins_when_the_request_is_cancelled() {
     let root = std::env::temp_dir().join(format!("pulls-admit-yield-{}", uuid::Uuid::new_v4()));
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
     state
-        .store
+        .host
+        .storage
         .set("diff:test", &json!({"headSha":"a"}))
         .unwrap();
     let request = json!({"key":"test","kind":"analyze","model":{"engine":"invalid"}});
@@ -424,7 +454,8 @@ async fn queued_analysis_admission_preserves_its_reserved_head() {
     let root = std::env::temp_dir().join(format!("pulls-admit-head-{}", uuid::Uuid::new_v4()));
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
     state
-        .store
+        .host
+        .storage
         .set(
             "diff:test",
             &json!({"headSha":"a","diff":{"head":{"sha":"a"}}}),
@@ -440,7 +471,8 @@ async fn queued_analysis_admission_preserves_its_reserved_head() {
         tokio::pin!(admission);
         assert!(futures_util::poll!(&mut admission).is_pending());
         state
-            .store
+            .host
+            .storage
             .set(
                 "diff:test",
                 &json!({"headSha":"b","diff":{"head":{"sha":"b"}}}),
@@ -639,4 +671,30 @@ fn borrowed_change_tracking_keeps_order_duplicates_and_complete_record() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn recent_and_repository_lists_hydrate_only_selected_bodies() {
+    let root = std::env::temp_dir().join(format!("pulls-list-metadata-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    for i in 0..30 {
+        state.host.storage.set(&format!("diff:posted:p{i}"), &json!({"key":format!("posted:p{i}"),"lastViewedAt":i+1,"diff":{"ref":{"kind":"posted","id":format!("p{i}")},"files":[]}})).unwrap();
+    }
+    state.host.storage.set("diff:github:o/r#1", &json!({"key":"github:o/r#1","lastViewedAt":31,"diff":{"ref":{"kind":"github-pr","owner":"o","repo":"r","number":"1"},"files":[]}})).unwrap();
+    state.host.storage.diff_snapshot(None).unwrap();
+    let reads = state.host.storage.diff_body_reads();
+    let recent = handle(&state, "recent-diffs", json!({}))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(recent.as_array().unwrap().len(), 12);
+    assert_eq!(state.host.storage.diff_body_reads() - reads, 12);
+    let reads = state.host.storage.diff_body_reads();
+    let repo = handle(&state, "repo-viewed", json!({"owner":"o","repo":"r"}))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(repo.as_array().unwrap().len(), 1);
+    assert_eq!(state.host.storage.diff_body_reads() - reads, 1);
+    std::fs::remove_dir_all(root).unwrap();
 }

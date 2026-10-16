@@ -349,7 +349,7 @@ fn service(app: &AppState) -> Arc<Service> {
         .get_or_init(Default::default)
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .entry(app.store.root().to_path_buf())
+        .entry(app.host.storage.root().to_path_buf())
         .or_insert_with(|| Arc::new(Service::new(client())))
         .clone()
 }
@@ -441,7 +441,11 @@ pub fn known_files(app: &AppState, diff: &Value) -> Value {
     }
     let keys = svc.file_keys(diff);
     svc.hydrate_files(&keys, |key| {
-        app.store.get(&format!("jev-file:{key}")).ok().flatten()
+        app.host
+            .storage
+            .get(&format!("jev-file:{key}"))
+            .ok()
+            .flatten()
     });
     let mut result = file_snapshot(&svc, &keys, diff_identity(diff));
     let pending = result["pending"].as_u64().unwrap_or(0);
@@ -539,7 +543,7 @@ async fn complete_file(
         match result {
             Ok(Some(answer)) => {
                 let value = attention(&answer["answers"]["attention"]);
-                let _ = app.store.set(&format!("jev-file:{key}"), &value);
+                let _ = app.host.storage.set(&format!("jev-file:{key}"), &value);
                 ratings.done_files.insert(key.clone(), value);
                 ratings.failed_files.remove(&key);
             }
@@ -593,7 +597,13 @@ fn lookup_pull(app: &AppState, pull: &Value) -> Option<Value> {
         .done_pulls
         .get(&key)
         .cloned()
-        .or_else(|| app.store.get(&format!("jev-pr:{key}")).ok().flatten())?;
+        .or_else(|| {
+            app.host
+                .storage
+                .get(&format!("jev-pr:{key}"))
+                .ok()
+                .flatten()
+        })?;
     current(&saved, pull).then(|| json!({"kind":saved["kind"],"kindConfidence":saved["kindConfidence"],"risk":saved["risk"]}))
 }
 pub async fn apply_pulls(app: &AppState, mut snapshot: Value) -> Result<Value> {
@@ -626,7 +636,11 @@ fn apply_pulls_stored(app: &AppState, snapshot: &mut Value) {
 }
 fn pull_state(app: &AppState, pull: &Value) -> Value {
     let mut state = json!({"repository":format!("{}/{}",s(pull,"owner"),s(pull,"repo")),"title":pull["title"],"labels":pull["labels"],"branch":s(pull,"headRef"),"author":pull["author"]});
-    if let Ok(Some(entry)) = app.store.get(&format!("diff:github:{}", pull_key(pull))) {
+    if let Ok(Some(entry)) = app
+        .host
+        .storage
+        .get(&format!("diff:github:{}", pull_key(pull)))
+    {
         if entry["diff"]["head"]["sha"].as_str() == pull["headSha"].as_str()
             && pull["headSha"].is_string()
         {
@@ -697,7 +711,7 @@ async fn complete_pull(
                         if KINDS.contains(&s(&answer["answers"]["kind"], "choice")) =>
                     {
                         let saved = json!({"kind":answer["answers"]["kind"]["choice"],"kindConfidence":answer["answers"]["kind"]["confidence"],"risk":answer["answers"]["risk"]["score"].as_f64().unwrap_or(3.0).clamp(0.0,3.0),"headSha":s(&pull,"headSha"),"title":pull["title"],"model":answer["model"]});
-                        let _ = app.store.set(&format!("jev-pr:{key}"), &saved);
+                        let _ = app.host.storage.set(&format!("jev-pr:{key}"), &saved);
                         ratings.done_pulls.insert(key.clone(), saved);
                         ratings.failed_pulls.remove(&key);
                     }
@@ -740,8 +754,7 @@ pub async fn prepare_review(app: &Arc<AppState>, diff: &Value, wait_ms: u64) {
     let Ok((keys, pull_version, id)) = tokio::task::spawn_blocking(move || {
         let keys = prep_svc.file_keys(&prep_diff);
         prep_svc.hydrate_files(&keys, |key| {
-            prep_app
-                .store
+            prep_app.host.storage
                 .get(&format!("jev-file:{key}"))
                 .ok()
                 .flatten()

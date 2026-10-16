@@ -85,7 +85,8 @@ async fn analysis_rechecks_reserved_head_after_waiting_for_session_lock() {
     let root = std::env::temp_dir().join(format!("pulls-head-wait-{}", uuid::Uuid::new_v4()));
     let state = AppState::new(root.clone(), root.clone()).unwrap();
     state
-        .store
+        .host
+        .storage
         .set(
             "diff:test",
             &json!({"headSha":"a","diff":{"head":{"sha":"a"}}}),
@@ -101,7 +102,8 @@ async fn analysis_rechecks_reserved_head_after_waiting_for_session_lock() {
         tokio::pin!(work);
         assert!(futures_util::poll!(work.as_mut()).is_pending());
         state
-            .store
+            .host
+            .storage
             .set(
                 "diff:test",
                 &json!({"headSha":"b","diff":{"head":{"sha":"b"}}}),
@@ -301,5 +303,84 @@ async fn numeric_wait_cursors_return_or_wait_at_the_declared_number() {
         .unwrap()
         .unwrap();
     assert!(listed[0]["activities"].as_array().unwrap().is_empty());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn analysis_completion_already_lists_all_eligible_followups() {
+    let root = std::env::temp_dir().join(format!("pulls-followup-order-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let mut analysis = run();
+    Arc::get_mut(&mut analysis).unwrap().request = json!({"kind":"analyze","key":"posted:fixture","model":{"engine":"pi"},"locale":"en","then":["tour","brief"]});
+    state
+        .jobs
+        .runs
+        .lock()
+        .unwrap()
+        .insert("test".into(), analysis.clone());
+    let wait = handle(&state, "ai-task-wait", json!({"id":"test","after":0}));
+    tokio::pin!(wait);
+    assert!(futures_util::poll!(wait.as_mut()).is_pending());
+    finish_success(&state, &analysis, "analysis".into(), json!({}));
+    assert_eq!(wait.await.unwrap().unwrap()["status"], "done");
+    let listed = handle(&state, "ai-task-list", json!({"key":"posted:fixture"}))
+        .await
+        .unwrap()
+        .unwrap();
+    for kind in ["tour", "brief"] {
+        assert!(listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|task| task["kind"] == kind));
+    }
+    shutdown(&state).await;
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn current_posted_tour_is_kept_without_starting_followup_work() {
+    let root = std::env::temp_dir().join(format!("pulls-posted-tour-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    state.host.storage.set("diff:posted:fixture", &json!({"headSha":"v1.12345","diff":{"ref":{"kind":"posted","id":"fixture"},"files":[]}})).unwrap();
+    let saved = json!({"entries":[{"locale":"en","title":"Agent supplied tour","stops":[]}]});
+    state
+        .host
+        .storage
+        .set("tour:posted:fixture", &saved)
+        .unwrap();
+    for locale in [Value::Null, json!("en")] {
+        let mut analysis = run();
+        Arc::get_mut(&mut analysis).unwrap().request = json!({"kind":"analyze","key":"posted:fixture","locale":locale,"model":{"engine":"pi"},"then":["tour"]});
+        finish_success(&state, &analysis, "analysis".into(), json!({}));
+        assert_eq!(snapshot(&analysis, 0.0)["status"], "done");
+        assert!(state.jobs.runs.lock().unwrap().is_empty());
+        assert!(state.jobs.handles.lock().unwrap().is_empty());
+        assert_eq!(state.jobs.provider_slots.available_permits(), 3);
+        assert_eq!(
+            state
+                .host
+                .storage
+                .get("tour:posted:fixture")
+                .unwrap()
+                .unwrap(),
+            saved
+        );
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn stopped_analysis_cannot_register_followups_or_publish_done() {
+    let root =
+        std::env::temp_dir().join(format!("pulls-stopped-followup-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let mut analysis = run();
+    Arc::get_mut(&mut analysis).unwrap().request =
+        json!({"kind":"analyze","key":"test","model":{"engine":"pi"},"then":["tour","brief"]});
+    cancel(&analysis);
+    finish_success(&state, &analysis, "analysis".into(), json!({}));
+    assert_eq!(snapshot(&analysis, 0.0)["status"], "cancelled");
+    assert!(state.jobs.runs.lock().unwrap().is_empty());
     std::fs::remove_dir_all(root).unwrap();
 }

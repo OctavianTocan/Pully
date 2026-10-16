@@ -414,7 +414,7 @@ pub(super) async fn overview(state: &AppState, args: &Value) -> Result<Value> {
     let pull = Pull::from(args)?;
     let key = format!("pr-overview:{}/{}#{}", pull.owner, pull.repo, pull.number);
     if bool_at(args, "cached") {
-        return Ok(match state.store.get(&key)? {
+        return Ok(match state.host.storage.get(&key)? {
             Some(stored) if stored["value"]["overview"].is_object() => {
                 let mut value = stored["value"].clone();
                 value["storedAt"] = stored["at"].clone();
@@ -427,7 +427,7 @@ pub(super) async fn overview(state: &AppState, args: &Value) -> Result<Value> {
     let value = normalize_overview(&graphql(state, OVERVIEW_QUERY, pull.variables()).await?)?;
     let stored = json!({"at":at,"updatedAt":value["overview"]["updatedAt"].as_str().unwrap_or(""),"value":value});
     // A slower earlier fetch may answer its caller but cannot replace a newer cached overview.
-    let _ = state.store.update(&key, |current| {
+    let _ = state.host.storage.update(&key, |current| {
         Ok(match current {
             Some(current) if current["at"].as_u64().unwrap_or(0) > at => current,
             _ => stored,

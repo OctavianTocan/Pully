@@ -1,5 +1,123 @@
 use super::*;
 #[tokio::test]
+async fn posted_live_mcp_discovers_only_captured_diff_paths_without_a_checkout() {
+    let root = std::env::temp_dir().join(format!("pulls-posted-tools-{}", uuid::Uuid::new_v4()));
+    let state = AppState::from_host(crate::host::ServerHost::new(
+        crate::store::Store::new(root.clone()).unwrap(),
+        None,
+        None,
+    ))
+    .unwrap();
+    let mut ctx = json!({"ref":{"kind":"posted","id":"test"},"files":[
+        {"path":"src/lib.rs","patch":"@@ -1 +1 @@\n-old\n+new\n"},
+        {"path":"Cargo.lock","patch":"@@ -1 +1 @@\n-old\n+new\n"},
+        {"path":"src/lib.rs"}
+    ]});
+    assert!(state.host.cwd.is_none());
+    assert!(ctx["headSha"].is_null());
+    let listed = mcp(Some(&state), &ctx, json!({"id":1,"method":"tools/list"})).await;
+    // Pi's adapter consumes the same registry that the live MCP endpoint publishes.
+    assert_eq!(listed["result"]["tools"], specs_for(&ctx));
+    let names: Vec<_> = listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tool| text(tool, "name"))
+        .collect();
+    assert_eq!(
+        names,
+        ["read_file_diff", "read_hunks", "find_files", "search_diff"]
+    );
+    assert!(listed["result"]["tools"][2]["description"]
+        .as_str()
+        .unwrap()
+        .contains("captured diff"));
+    for (arguments, expected) in [
+        (json!({}), "Cargo.lock\nsrc/lib.rs\n"),
+        (json!({"pattern":"SRC/.*\\.RS$"}), "src/lib.rs\n"),
+        (json!({"pattern":"missing"}), ""),
+    ] {
+        let response = mcp(
+            Some(&state),
+            &ctx,
+            json!({"id":2,"method":"tools/call","params":{"name":"find_files","arguments":arguments}}),
+        )
+        .await;
+        assert_ne!(response["result"]["isError"], true);
+        assert_eq!(response["result"]["content"][0]["text"], expected);
+    }
+    let diff = call(
+        Some(&state),
+        &ctx,
+        "read_hunks",
+        &json!({"hunkIds":["src/lib.rs#0","Cargo.lock#0"]}),
+    )
+    .await
+    .unwrap();
+    assert!(diff.contains("+    1 | new"));
+    assert!(!diff.contains("read_source"));
+    ctx["triage"] = json!({"files":{"src/lib.rs":{"priority":"p1"}}});
+    assert_eq!(specs_for(&ctx)[0]["name"], "triage_files");
+    drop(state);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn posted_tools_deny_source_and_discussion_even_with_poisoned_snapshots() {
+    let root = std::env::temp_dir().join(format!("pulls-posted-denials-{}", uuid::Uuid::new_v4()));
+    let state = AppState::from_host(crate::host::ServerHost::new(
+        crate::store::Store::new(root.clone()).unwrap(),
+        None,
+        None,
+    ))
+    .unwrap();
+    for poison in [false, true] {
+        let mut ctx = json!({"ref":{"kind":"posted","id":"test"},"files":[{"path":"changed.rs"}]});
+        if poison {
+            ctx["headSha"] = json!("abc123");
+            ctx["sourceSnapshots"] =
+                json!({"changed.rs":"must stay hidden","outside.rs":"must stay hidden"});
+            ctx["discussionSnapshot"] = json!([{"body":"must stay hidden"}]);
+            ctx["number"] = json!(42);
+            ctx["owner"] = json!("owner");
+            ctx["repo"] = json!("repo");
+        }
+        for live in [None, Some(state.as_ref())] {
+            let listed = mcp(live, &ctx, json!({"id":1,"method":"tools/list"})).await;
+            assert_eq!(listed["result"]["tools"], specs_for(&ctx));
+            assert!(listed["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|tool| !repository_tool(text(tool, "name"))));
+            let found = call(live, &ctx, "find_files", &json!({})).await.unwrap();
+            assert!(found.starts_with("changed.rs\n"));
+            assert!(!found.contains("outside.rs"));
+            for (name, arguments) in [
+                ("read_source", json!({"path":"changed.rs"})),
+                ("search_source", json!({"pattern":"hidden"})),
+                ("read_discussion", json!({})),
+            ] {
+                let error = call(live, &ctx, name, &arguments).await.unwrap_err();
+                assert!(error
+                    .to_string()
+                    .contains("Posted diffs have no repository"));
+                let response = mcp(
+                    live,
+                    &ctx,
+                    json!({"id":2,"method":"tools/call","params":{"name":name,"arguments":arguments}}),
+                )
+                .await;
+                assert_eq!(response["result"]["isError"], true);
+                assert!(!response.to_string().contains("must stay hidden"));
+            }
+        }
+    }
+    drop(state);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn offline_mcp_reads_only_context() {
     let ctx = json!({"files":[{"path":"a.rs","patch":"@@ -1,2 +1,2 @@\n old\n-gone\n+new\n"}],"sourceSnapshots":{"a.rs":"old\nnew\n"}});
     let diff = call(None, &ctx, "read_hunks", &json!({"hunkIds":["a.rs#0"]}))

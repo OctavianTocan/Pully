@@ -4,6 +4,12 @@ import type { LocalClient, LocalRpc } from './connection'
  * HTTP-only adapter for the native Rust server. It preserves the existing local
  * RPC contract and terminal-code gate; no rendering or application state changes.
  */
+/**
+ * @cc [owner:OctavianTocan,label:product] rust-web-trust-loss-reconnects
+ * A web-RPC 401 MUST notify connection listeners so an authenticated page reenters
+ * the trust gate. An invalid code at the initial gate MUST NOT trigger this reload
+ * path (R11 review finding 16, 16 Oct 2026).
+ */
 export async function connectRust(): Promise<{ client: LocalClient, rpc: LocalRpc } | undefined> {
   const endpoint = (path: string) => new URL(path, document.baseURI)
   const detected = await fetch(endpoint('api/backend'), { signal: AbortSignal.timeout(2000) })
@@ -26,6 +32,10 @@ export async function connectRust(): Promise<{ client: LocalClient, rpc: LocalRp
       for (const listener of listeners)
         listener('disconnected')
       throw error
+    }
+    if (path === 'api/web-rpc' && response.status === 401) {
+      for (const listener of listeners)
+        listener('disconnected')
     }
     const payload = await response.json()
     if (!response.ok)

@@ -13,14 +13,16 @@ impl Fixture {
         Self { dir, state }
     }
     fn write(&self, path: &str, bytes: impl AsRef<[u8]>) {
-        let path = self.state.cwd.join(path);
+        let path = self.state.host.cwd.as_ref().unwrap().join(path);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, bytes).unwrap();
     }
     async fn commit(&self) -> String {
-        git(&self.state.cwd, &["add", "--all"]).await.unwrap();
+        git(&self.state.host.cwd.as_ref().unwrap(), &["add", "--all"])
+            .await
+            .unwrap();
         git(
-            &self.state.cwd,
+            &self.state.host.cwd.as_ref().unwrap(),
             &[
                 "-c",
                 "user.name=Fixture",
@@ -35,20 +37,31 @@ impl Fixture {
         )
         .await
         .unwrap();
-        rev(&self.state.cwd, "HEAD").await.unwrap()
+        rev(&self.state.host.cwd.as_ref().unwrap(), "HEAD")
+            .await
+            .unwrap()
     }
     fn private_links(&self) {
         self.write("private-cache/chat.rs", "call_target private state");
         std::fs::write(self.dir.join("secret"), "call_target outside").unwrap();
         for (target, name) in [
             (
-                self.state.cwd.join("private-cache/chat.rs"),
+                self.state
+                    .host
+                    .cwd
+                    .as_ref()
+                    .unwrap()
+                    .join("private-cache/chat.rs"),
                 "private-link.rs",
             ),
-            (self.state.cwd.join(".git/config"), "git-link.rs"),
+            (
+                self.state.host.cwd.as_ref().unwrap().join(".git/config"),
+                "git-link.rs",
+            ),
             (self.dir.join("secret"), "outside-link.rs"),
         ] {
-            std::os::unix::fs::symlink(target, self.state.cwd.join(name)).unwrap();
+            std::os::unix::fs::symlink(target, self.state.host.cwd.as_ref().unwrap().join(name))
+                .unwrap();
         }
     }
 }
@@ -105,7 +118,7 @@ async fn worktree_batch_excludes_private_paths_and_rejects_stale_revisions() {
     f.write("new.rs", "call_target untracked");
     f.write("binary.rs", b"\0call_target");
     f.private_links();
-    std::fs::remove_file(f.state.cwd.join("gone.rs")).unwrap();
+    std::fs::remove_file(f.state.host.cwd.as_ref().unwrap().join("gone.rs")).unwrap();
     let captured = fetch_local(&f.state, "").await.unwrap()["head"]["sha"]
         .as_str()
         .unwrap()
@@ -130,7 +143,7 @@ async fn batch_reports_missing_objects_and_stops_before_oversize_body() {
     let f = Fixture::new().await;
     f.write("a.rs", "needle");
     let sha = f.commit().await;
-    let mut entries = search_inventory(&f.state.cwd, &[], &sha, None)
+    let mut entries = search_inventory(&f.state.host.cwd.as_ref().unwrap(), &[], &sha, None)
         .await
         .unwrap();
     entries.insert(
@@ -144,7 +157,7 @@ async fn batch_reports_missing_objects_and_stops_before_oversize_body() {
     let re = regex::Regex::new("needle").unwrap();
     let mut result = SearchResult::default();
     search_blobs(
-        &f.state.cwd,
+        &f.state.host.cwd.as_ref().unwrap(),
         &entries,
         &Value::Null,
         &re,
@@ -160,7 +173,7 @@ async fn batch_reports_missing_objects_and_stops_before_oversize_body() {
         ..Default::default()
     };
     search_blobs(
-        &f.state.cwd,
+        &f.state.host.cwd.as_ref().unwrap(),
         &entries[1..],
         &Value::Null,
         &re,

@@ -23,7 +23,7 @@ type RepoRefresh =
     tokio::sync::watch::Receiver<Option<std::result::Result<Value, RepoRefreshError>>>;
 
 #[derive(Clone, Debug)]
-struct RepoRefreshError(Arc<anyhow::Error>);
+pub(super) struct RepoRefreshError(Arc<anyhow::Error>);
 impl std::fmt::Display for RepoRefreshError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(self.0.as_ref(), f)
@@ -94,13 +94,13 @@ where
     Fut: std::future::Future<Output = Result<Value>> + Send + 'static,
 {
     let key = repo_key(args);
-    let identity = (state.store.root().to_path_buf(), key.clone());
+    let identity = (state.host.storage.root().to_path_buf(), key.clone());
     let mut inflight = repo_refreshes().lock().unwrap_or_else(|e| e.into_inner());
     if let Some(running) = inflight.get(&identity) {
         return Ok(running.clone());
     }
     if !fresh {
-        if let Some(v) = state.store.get(&key)? {
+        if let Some(v) = state.host.storage.get(&key)? {
             if now().saturating_sub(v["cachedAt"].as_u64().unwrap_or(0)) < 60_000 {
                 return Ok(tokio::sync::watch::channel(Some(Ok(v))).1);
             }
@@ -119,13 +119,65 @@ where
         let result = async {
             let mut result = fetch(state.clone(), args).await?;
             result["cachedAt"] = json!(now());
-            state.store.set(&key, &result)?;
+            state.host.storage.set(&key, &result)?;
             Ok(result)
         }
         .await;
         sender.send_replace(Some(result.map_err(|e| RepoRefreshError(Arc::new(e)))));
     });
     Ok(receiver)
+}
+/// @cc [owner:OctavianTocan,label:architecture] inbox-refresh-shares-failure
+/// Concurrent inbox refreshes MUST share one completion, including failure, without
+/// queuing retries behind a failed fetch (16 Oct 2026 review fixes).
+fn start_inbox_refresh_with<F, Fut>(
+    state: &Arc<AppState>,
+    args: &Value,
+    fetch: F,
+) -> Result<RepoRefresh>
+where
+    F: FnOnce(Arc<AppState>, Value) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<Value>> + Send + 'static,
+{
+    let st = args["state"].as_str().unwrap_or("open");
+    ensure!(["open", "closed"].contains(&st), "Invalid pull state");
+    let key = format!("my-pulls:{st}");
+    let identity = (state.host.storage.root().to_path_buf(), key.clone());
+    let mut inflight = repo_refreshes().lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(running) = inflight.get(&identity) {
+        return Ok(running.clone());
+    }
+    if let Some(v) = state.host.storage.get(&key)? {
+        if now().saturating_sub(v["fetchedAt"].as_u64().unwrap_or(0)) < 5_000 {
+            return Ok(tokio::sync::watch::channel(Some(Ok(v))).1);
+        }
+    }
+    // Register before spawning: stale reads can drop their receiver without creating
+    // detached waiters, and foreground callers keep the same result after completion.
+    let (sender, receiver) = tokio::sync::watch::channel(None);
+    inflight.insert(identity.clone(), receiver.clone());
+    drop(inflight);
+    let flight = RepoRefreshGuard(identity);
+    let state = state.clone();
+    let args = args.clone();
+    tokio::spawn(async move {
+        let _flight = flight;
+        let result = fetch(state, args).await;
+        sender.send_replace(Some(result.map_err(|e| RepoRefreshError(Arc::new(e)))));
+    });
+    Ok(receiver)
+}
+pub(super) fn start_inbox_refresh(state: &Arc<AppState>, args: &Value) -> Result<RepoRefresh> {
+    start_inbox_refresh_with(state, args, |state, args| async move {
+        fetch_my_pulls(&state, &args).await
+    })
+}
+pub(super) fn inbox_refreshing(state: &AppState, args: &Value) -> bool {
+    let key = format!("my-pulls:{}", args["state"].as_str().unwrap_or("open"));
+    repo_refreshes()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .contains_key(&(state.host.storage.root().to_path_buf(), key))
 }
 async fn repo_refresh_result(mut refresh: RepoRefresh) -> Result<Value> {
     loop {
@@ -164,7 +216,7 @@ where
         return fetch(state.clone(), args.clone()).await;
     }
     if args["fresh"] != true {
-        if let Some(v) = state.store.get(&repo_key(args))? {
+        if let Some(v) = state.host.storage.get(&repo_key(args))? {
             if now().saturating_sub(v["cachedAt"].as_u64().unwrap_or(0)) >= 60_000 {
                 let _ = start_repo_refresh(state, args, false, fetch);
             }
@@ -182,7 +234,7 @@ where
 pub fn warm_repositories(state: &Arc<AppState>, pulls: &[Value]) {
     use std::sync::{Mutex, OnceLock};
     static WARMING: OnceLock<Mutex<HashSet<std::path::PathBuf>>> = OnceLock::new();
-    let root = state.store.root().to_path_buf();
+    let root = state.host.storage.root().to_path_buf();
     let mut counts: HashMap<String, (Value, usize)> = HashMap::new();
     for p in pulls {
         let args = json!({"owner":p["owner"],"repo":p["repo"]});
@@ -200,7 +252,8 @@ pub fn warm_repositories(state: &Arc<AppState>, pulls: &[Value]) {
         .map(|(args, _)| args)
         .filter(|args| {
             state
-                .store
+                .host
+                .storage
                 .get(&repo_key(args))
                 .ok()
                 .flatten()
@@ -322,8 +375,11 @@ where
     }
     Ok(result)
 }
-pub async fn my_pulls(state: &AppState, args: &Value) -> Result<Value> {
-    let _refresh = state.my_pulls_lock.lock().await;
+pub async fn my_pulls(state: &Arc<AppState>, args: &Value) -> Result<Value> {
+    let value = repo_refresh_result(start_inbox_refresh(state, args)?).await?;
+    crate::jev::apply_pulls(state, value).await
+}
+async fn fetch_my_pulls(state: &AppState, args: &Value) -> Result<Value> {
     let st = args["state"].as_str().unwrap_or("open");
     ensure!(["open", "closed"].contains(&st), "Invalid pull state");
     ensure!(
@@ -331,9 +387,8 @@ pub async fn my_pulls(state: &AppState, args: &Value) -> Result<Value> {
         "GitHub authentication is required"
     );
     let cachekey = format!("my-pulls:{st}");
-    if let Some(mut v) = state.store.get(&cachekey)? {
+    if let Some(v) = state.host.storage.get(&cachekey)? {
         if now().saturating_sub(v["fetchedAt"].as_u64().unwrap_or(0)) < 5000 {
-            v = crate::jev::apply_pulls(state, v).await?;
             return Ok(v);
         }
     }
@@ -424,9 +479,8 @@ pub async fn my_pulls(state: &AppState, args: &Value) -> Result<Value> {
         }
     }
     pulls.sort_by(|a, b| s(b, "updatedAt").cmp(s(a, "updatedAt")));
-    let mut v = json!({"pulls":pulls,"fetchedAt":now(),"refreshing":false});
-    state.store.set(&cachekey, &v)?;
-    v = crate::jev::apply_pulls(state, v).await?;
+    let v = json!({"pulls":pulls,"fetchedAt":now(),"refreshing":false});
+    state.host.storage.set(&cachekey, &v)?;
     Ok(v)
 }
 
@@ -636,7 +690,7 @@ mod tests {
     }
     impl Drop for RepoFixture {
         fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(self.0.store.root());
+            let _ = std::fs::remove_dir_all(self.0.host.storage.root());
         }
     }
     #[derive(Clone)]
@@ -666,13 +720,42 @@ mod tests {
             )
         }
     }
+    #[tokio::test]
+    async fn inbox_refresh_shares_failure_without_queued_retries() {
+        let fixture = RepoFixture::new();
+        let state = &fixture.0;
+        let args = json!({"state":"open"});
+        let cached = json!({"pulls":[],"fetchedAt":0});
+        state.host.storage.set("my-pulls:open", &cached).unwrap();
+        let fake = RepoFetch::new(true);
+        let mut receivers = Vec::new();
+        for _ in 0..16 {
+            let fetch = fake.clone();
+            receivers.push(
+                start_inbox_refresh_with(state, &args, move |state, args| fetch.fetch(state, args))
+                    .unwrap(),
+            );
+        }
+        tokio::task::yield_now().await;
+        assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
+        fake.release.add_permits(1);
+        for receiver in receivers {
+            assert!(repo_refresh_result(receiver).await.is_err());
+        }
+        assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            state.host.storage.get("my-pulls:open").unwrap(),
+            Some(cached)
+        );
+        assert!(!inbox_refreshing(state, &args));
+    }
     async fn shared_repo_refresh(fail: bool) {
         let fixture = RepoFixture::new();
         let state = &fixture.0;
         let args = json!({"owner":"O","repo":"R"});
         let fresh_args = json!({"owner":"o","repo":"r","fresh":true});
         let cached = json!({"items":[{"number":1}],"next":"old-cursor","cachedAt":0});
-        state.store.set(&repo_key(&args), &cached).unwrap();
+        state.host.storage.set(&repo_key(&args), &cached).unwrap();
         let fake = RepoFetch::new(fail);
         let fetch = fake.clone();
         assert_eq!(
@@ -724,7 +807,10 @@ mod tests {
                 assert_eq!(value["items"][0]["number"], 2);
                 assert_eq!(value["next"], "cursor-2");
                 assert!(value["cachedAt"].as_u64().unwrap() > 0);
-                assert_eq!(state.store.get(&repo_key(&args)).unwrap(), Some(value));
+                assert_eq!(
+                    state.host.storage.get(&repo_key(&args)).unwrap(),
+                    Some(value)
+                );
             }
         }
         for _ in 0..16 {
@@ -734,9 +820,12 @@ mod tests {
         assert!(!repo_refreshes()
             .lock()
             .unwrap()
-            .contains_key(&(state.store.root().to_path_buf(), repo_key(&args))));
+            .contains_key(&(state.host.storage.root().to_path_buf(), repo_key(&args))));
         if fail {
-            assert_eq!(state.store.get(&repo_key(&args)).unwrap(), Some(cached));
+            assert_eq!(
+                state.host.storage.get(&repo_key(&args)).unwrap(),
+                Some(cached)
+            );
         }
         // A subsequent explicit refresh can retry, rather than retaining a failed flight.
         let mut fetch = fake.clone();
@@ -764,7 +853,7 @@ mod tests {
         let state = &fixture.0;
         let first = json!({"owner":"o","repo":"r"});
         let cached = json!({"items":[{"number":1}],"next":"cursor-1","cachedAt":now()});
-        state.store.set(&repo_key(&first), &cached).unwrap();
+        state.host.storage.set(&repo_key(&first), &cached).unwrap();
         let fake = RepoFetch::new(false);
         fake.release.add_permits(1);
         let fetch = fake.clone();
@@ -777,7 +866,10 @@ mod tests {
         .unwrap();
         assert_eq!(page["requestedNext"], "cursor-1");
         assert!(page["cachedAt"].is_null());
-        assert_eq!(state.store.get(&repo_key(&first)).unwrap(), Some(cached));
+        assert_eq!(
+            state.host.storage.get(&repo_key(&first)).unwrap(),
+            Some(cached)
+        );
         assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
     }
     #[tokio::test]
@@ -785,7 +877,7 @@ mod tests {
         let fixture = RepoFixture::new();
         let state = &fixture.0;
         let cached = json!({"pulls":[{"owner":"o","repo":"r","number":1}],"fetchedAt":0});
-        state.store.set("my-pulls:open", &cached).unwrap();
+        state.host.storage.set("my-pulls:open", &cached).unwrap();
         let value = crate::source::handle(state, "my-pulls-cached", json!({"revalidate":false}))
             .await
             .unwrap()
@@ -797,7 +889,7 @@ mod tests {
             .lock()
             .unwrap()
             .keys()
-            .any(|(root, _)| root == state.store.root()));
+            .any(|(root, _)| root == state.host.storage.root()));
     }
 
     fn pull(number: u64, base: &str, head: &str) -> Value {

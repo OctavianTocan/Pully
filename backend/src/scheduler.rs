@@ -58,7 +58,7 @@ where
     let key = source::serialize_ref(&r)?;
     let stored_state = state.clone();
     let stored_key = format!("diff:{key}");
-    let before = tokio::task::spawn_blocking(move || stored_state.store.get(&stored_key)).await??;
+    let before = tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
     let version = version(pull);
     if before.is_none() {
         let stored_state = state.clone();
@@ -110,7 +110,7 @@ where
     );
     let stored_state = state.clone();
     let overview =
-        tokio::task::spawn_blocking(move || stored_state.store.get(&overview_key)).await??;
+        tokio::task::spawn_blocking(move || stored_state.host.storage.get(&overview_key)).await??;
     let stale = overview.as_ref().is_none_or(|o| {
         o["updatedAt"] != pull["updatedAt"]
             || now_ms().saturating_sub(o["at"].as_u64().unwrap_or(0)) >= 30 * 60 * 1000
@@ -122,7 +122,7 @@ where
     let stored_state = state.clone();
     let stored_key = format!("diff:{key}");
     tokio::task::spawn_blocking(move || {
-        stored_state.store.update(&stored_key, |old| {
+        stored_state.host.storage.update(&stored_key, |old| {
             let mut e = old.context("Cached diff was evicted")?;
             if e.is_object() && e["headSha"] == overview["head"]["oid"] {
                 e["diff"]["title"] = overview["title"].clone();
@@ -253,7 +253,7 @@ fn store_preanalysis_diff(
 async fn preanalysis_cached_entry(state: &Arc<AppState>, key: &str) -> Option<Value> {
     let stored_state = state.clone();
     let stored_key = format!("diff:{key}");
-    tokio::task::spawn_blocking(move || stored_state.store.get(&stored_key))
+    tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key))
         .await
         .ok()?
         .ok()
@@ -286,7 +286,7 @@ pub async fn preanalyze(state: Arc<AppState>, engine: String, model: Option<Stri
                 let _pin = review::pin_diff(&state, &key).await?;
                 let stored_state = state.clone();
                 let stored_key = format!("diff:{key}");
-                let before = tokio::task::spawn_blocking(move || stored_state.store.get(&stored_key)).await??;
+                let before = tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
                 let expected_head = &pull["headSha"];
                 if before
                     .as_ref()
@@ -348,7 +348,7 @@ mod tests {
         for i in 0..count {
             let p = pull(i);
             let key = source::serialize_ref(&reference(&p)).unwrap();
-            state.store.set(&format!("diff:{key}"), &json!({"key":key,"headSha":"a","diff":diff(&p),"lastViewedAt":i+1,"sizeBytes":500})).unwrap();
+            state.host.storage.set(&format!("diff:{key}"), &json!({"key":key,"headSha":"a","diff":diff(&p),"lastViewedAt":i+1,"sizeBytes":500})).unwrap();
         }
     }
     struct HeldStore {
@@ -363,7 +363,8 @@ mod tests {
             let holder = std::thread::spawn(move || {
                 let mut on_time = false;
                 state
-                    .store
+                    .host
+                    .storage
                     .update("overview-test-lock", |old| {
                         let _ = ready.send(());
                         // A synchronous regression must fail instead of hanging
@@ -420,7 +421,11 @@ mod tests {
         p["requestedFromMe"] = json!(true);
         let key = source::serialize_ref(&reference(&p)).unwrap();
         let entry = json!({"headSha":"a","llmAnalyzedHeadSha":"a","analyzedBy":{"llm":{"groups":[]}},"diff":diff(&p)});
-        state.store.set(&format!("diff:{key}"), &entry).unwrap();
+        state
+            .host
+            .storage
+            .set(&format!("diff:{key}"), &entry)
+            .unwrap();
         let cached = HeldStore::new(&state)
             .await
             .assert_responsive(preanalysis_cached_entry(&state, &key))
@@ -430,10 +435,10 @@ mod tests {
         p["headSha"] = json!("b");
         assert!(needs_analysis(&p, cached.as_ref()));
         assert!(preanalysis_cached_entry(&state, "missing").await.is_none());
-        assert!(state.store.get("diff:").is_err());
+        assert!(state.host.storage.get("diff:").is_err());
         assert!(preanalysis_cached_entry(&state, "").await.is_none());
         assert_eq!(
-            state.store.get(&format!("diff:{key}")).unwrap(),
+            state.host.storage.get(&format!("diff:{key}")).unwrap(),
             Some(entry)
         );
         drop(state);
@@ -455,7 +460,12 @@ mod tests {
             .await
             .unwrap());
 
-        let before = state.store.get(&format!("diff:{key}")).unwrap().unwrap();
+        let before = state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .unwrap();
         {
             let (fetched, fetch_started) = tokio::sync::oneshot::channel();
             let (provide, response) = tokio::sync::oneshot::channel();
@@ -483,7 +493,7 @@ mod tests {
         expected["diff"]["updatedAt"] = value["overview"]["updatedAt"].clone();
         expected["sizeBytes"] = json!(serde_json::to_vec(&expected).unwrap().len());
         assert_eq!(
-            state.store.get(&format!("diff:{key}")).unwrap(),
+            state.host.storage.get(&format!("diff:{key}")).unwrap(),
             Some(expected)
         );
         drop(state);
@@ -499,9 +509,10 @@ mod tests {
         let key = source::serialize_ref(&reference(&p)).unwrap();
         let diff_key = format!("diff:{key}");
         let overview_key = "pr-overview:owner/repo#0";
-        let before = state.store.get(&diff_key).unwrap().unwrap();
+        let before = state.host.storage.get(&diff_key).unwrap().unwrap();
         state
-            .store
+            .host
+            .storage
             .set(overview_key, &json!({"at":now_ms(),"updatedAt":"now"}))
             .unwrap();
         assert!(!warm_overview(&state, &p, &key, || async {
@@ -509,28 +520,33 @@ mod tests {
         })
         .await
         .unwrap());
-        assert_eq!(state.store.get(&diff_key).unwrap(), Some(before.clone()));
+        assert_eq!(
+            state.host.storage.get(&diff_key).unwrap(),
+            Some(before.clone())
+        );
 
         state
-            .store
+            .host
+            .storage
             .set(overview_key, &json!({"at":now_ms(),"updatedAt":"old"}))
             .unwrap();
         let mut newer = before;
         newer["headSha"] = json!("b");
         newer["diff"]["head"]["sha"] = json!("b");
         assert!(warm_overview(&state, &p, &key, || async {
-            state.store.set(&diff_key, &newer).unwrap();
+            state.host.storage.set(&diff_key, &newer).unwrap();
             Ok(overview(&p))
         })
         .await
         .unwrap());
-        assert_eq!(state.store.get(&diff_key).unwrap(), Some(newer));
+        assert_eq!(state.host.storage.get(&diff_key).unwrap(), Some(newer));
 
         state
-            .store
+            .host
+            .storage
             .set(overview_key, &json!({"at":0,"updatedAt":"now"}))
             .unwrap();
-        state.store.remove(&diff_key).unwrap();
+        state.host.storage.remove(&diff_key).unwrap();
         let evicted = warm_overview(&state, &p, &key, || async { Ok(overview(&p)) })
             .await
             .unwrap_err();
@@ -541,7 +557,7 @@ mod tests {
         .await
         .unwrap_err();
         assert_eq!(failed.to_string(), "Overview fetch failed");
-        assert!(state.store.get(&diff_key).unwrap().is_none());
+        assert!(state.host.storage.get(&diff_key).unwrap().is_none());
         drop(state);
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -552,7 +568,7 @@ mod tests {
         let state = AppState::new(root.clone(), root.clone()).unwrap();
         seed_viewed(&state, 50);
         review::diff_capacity(&state).unwrap();
-        let reads = state.store.diff_body_reads();
+        let reads = state.host.storage.diff_body_reads();
         let mut rejected = HashMap::new();
         for _ in 0..2 {
             for i in 0..55 {
@@ -576,7 +592,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(state.store.diff_body_reads() - reads, 100);
+        assert_eq!(state.host.storage.diff_body_reads() - reads, 100);
         drop(state);
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -608,11 +624,16 @@ mod tests {
         }
         assert_eq!(refreshes.get(), 100);
         assert_eq!(downloads.get(), 0);
-        assert_eq!(state.store.keys("diff:").unwrap().len(), 50);
+        assert_eq!(state.host.storage.keys("diff:").unwrap().len(), 50);
         for i in 0..50 {
             let key = source::serialize_ref(&reference(&pull(i))).unwrap();
             assert_eq!(
-                state.store.get(&format!("diff:{key}")).unwrap().unwrap()["lastViewedAt"],
+                state
+                    .host
+                    .storage
+                    .get(&format!("diff:{key}"))
+                    .unwrap()
+                    .unwrap()["lastViewedAt"],
                 i + 1
             );
         }
@@ -653,7 +674,7 @@ mod tests {
         .await
         .unwrap();
         assert!(matches!(result, WarmedDiff::Rejected(_)));
-        assert_eq!(state.store.keys("diff:").unwrap().len(), 50);
+        assert_eq!(state.host.storage.keys("diff:").unwrap().len(), 50);
         drop(state);
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -672,7 +693,8 @@ mod tests {
         // Model an overview growing the entry over the byte budget without
         // allocating a large response in this bounded fixture.
         state
-            .store
+            .host
+            .storage
             .update(&format!("diff:{key}"), |entry| {
                 let mut entry = entry.unwrap();
                 entry["sizeBytes"] = json!(50 * 1024 * 1024 - 100);
@@ -681,7 +703,12 @@ mod tests {
             .unwrap();
         let capacity = review::finish_warming(&state, &key).unwrap().unwrap();
         assert_eq!(capacity, review::diff_capacity(&state).unwrap());
-        assert!(state.store.get(&format!("diff:{key}")).unwrap().is_none());
+        assert!(state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .is_none());
         let rejected = RejectedSnapshot {
             version: version(&p),
             capacity,
@@ -705,7 +732,8 @@ mod tests {
         seed_viewed(&state, 1);
         let pin = review::pin_diff(&state, "oversized").await.unwrap();
         state
-            .store
+            .host
+            .storage
             .set(
                 "diff:oversized",
                 &json!({"lastViewedAt":0,"sizeBytes":50*1024*1024}),
@@ -733,7 +761,12 @@ mod tests {
         .unwrap();
         assert!(matches!(result, WarmedDiff::Cached(true)));
         assert_eq!(
-            state.store.get(&format!("diff:{key}")).unwrap().unwrap()["lastViewedAt"],
+            state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap()["lastViewedAt"],
             0
         );
         drop(state);
@@ -744,7 +777,8 @@ mod tests {
         let root = std::env::temp_dir().join(format!("pulls-warm-bytes-{}", uuid::Uuid::new_v4()));
         let state = AppState::new(root.clone(), root.clone()).unwrap();
         state
-            .store
+            .host
+            .storage
             .set(
                 "diff:large",
                 &json!({"lastViewedAt":1,"sizeBytes":50*1024*1024-100}),
@@ -776,7 +810,7 @@ mod tests {
         if let WarmedDiff::Rejected(r) = result {
             rejected = Some(r);
         }
-        state.store.remove("diff:large").unwrap();
+        state.host.storage.remove("diff:large").unwrap();
         let result = warm_diff(&state, &p, rejected.as_ref(), |_| {
             calls.set(calls.get() + 1);
             std::future::ready(Ok(Some(diff(&p))))
@@ -787,7 +821,12 @@ mod tests {
         assert_eq!(calls.get(), 3);
         let key = source::serialize_ref(&reference(&p)).unwrap();
         assert_eq!(
-            state.store.get(&format!("diff:{key}")).unwrap().unwrap()["lastViewedAt"],
+            state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap()["lastViewedAt"],
             0
         );
         drop(state);
@@ -804,10 +843,20 @@ mod tests {
         fetched["head"]["sha"] = json!("b");
         let pin = review::pin_diff(&state, &key).await.unwrap();
         assert!(store_preanalysis_diff(&state, &key, &p["headSha"], &fetched, None).is_err());
-        assert!(state.store.get(&format!("diff:{key}")).unwrap().is_none());
+        assert!(state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .is_none());
         store_preanalysis_diff(&state, &key, &json!("b"), &fetched, None).unwrap();
         assert_eq!(
-            state.store.get(&format!("diff:{key}")).unwrap().unwrap()["headSha"],
+            state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap()["headSha"],
             "b"
         );
         pin.release().await;
@@ -860,11 +909,17 @@ mod tests {
                 .unwrap();
             assert!(!needs_analysis(
                 &p,
-                state.store.get(&format!("diff:{key}")).unwrap().as_ref()
+                state
+                    .host
+                    .storage
+                    .get(&format!("diff:{key}"))
+                    .unwrap()
+                    .as_ref()
             ));
             let history = json!({"messages":[{"role":"assistant","content":"Analysis of A"}],"chatStartIndex":1,"archive":[{"id":"prior","messages":[{"role":"user","content":"Keep this history"}]}]});
             state
-                .store
+                .host
+                .storage
                 .update(&format!("diff:{key}"), |old| {
                     let mut old = old.unwrap();
                     old["llmSession"] = history.clone();
@@ -879,7 +934,12 @@ mod tests {
                 .await
                 .unwrap();
             assert!(matches!(warmed, WarmedDiff::Cached(true)));
-            let entry = state.store.get(&format!("diff:{key}")).unwrap().unwrap();
+            let entry = state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap();
             assert_eq!(entry["headSha"], "b");
             assert_eq!(entry["llmAnalyzedHeadSha"], "a");
             assert_eq!(entry["analyzedBy"]["llm"], analysis);
@@ -893,7 +953,12 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-            let entry = state.store.get(&format!("diff:{key}")).unwrap().unwrap();
+            let entry = state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap();
             assert_eq!(entry["analyzedBy"]["llm"], imported["values"][1]);
             assert!(entry["llmAnalyzedHeadSha"].is_null());
             assert_eq!(entry["headSha"], "b");
@@ -905,7 +970,12 @@ mod tests {
                 .unwrap()
                 .is_err());
             assert_eq!(
-                state.store.get(&format!("diff:{key}")).unwrap().unwrap(),
+                state
+                    .host
+                    .storage
+                    .get(&format!("diff:{key}"))
+                    .unwrap()
+                    .unwrap(),
                 entry
             );
             let mut saved = save_args;
@@ -914,7 +984,12 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-            let entry = state.store.get(&format!("diff:{key}")).unwrap().unwrap();
+            let entry = state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap();
             assert_eq!(entry["llmAnalyzedHeadSha"], "b");
             assert_eq!(entry["llmSession"], history);
             assert_eq!(entry["lastViewedAt"], 0);

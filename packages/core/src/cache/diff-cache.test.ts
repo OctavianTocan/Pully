@@ -50,6 +50,34 @@ describe('diff cache', () => {
     expect(await cacheWith().cache.get('missing')).toBeUndefined()
   })
 
+  it('returns the unchanged winner when a fetch observed another head or a cache miss', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'new-head', 1000))
+    await cache.setLlmSession('a', session)
+    const winner = await cache.get('a')
+    for (const expectedHeadSha of ['old-head', null]) {
+      const returned = await cache.putDiff('a', makeEntry('a', 'old-head', 0).diff, 'old-head', { expectedHeadSha })
+      expect(returned).toEqual(winner)
+      expect(await cache.get('a')).toEqual(returned)
+    }
+  })
+
+  it('accepts the operation head, including an explicitly observed cold miss', async () => {
+    const { cache } = cacheWith()
+    await cache.putDiff('a', makeEntry('a', 'old', 0).diff, 'old', { expectedHeadSha: null, viewed: false })
+    const entry = await cache.putDiff('a', makeEntry('a', 'new', 0).diff, 'new', { expectedHeadSha: 'old', viewed: false })
+    expect(entry.headSha).toBe('new')
+    expect(entry.lastViewedAt).toBe(0)
+  })
+
+  it('does not recreate a diff removed after the operation observed it', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'old', 0))
+    await cache.remove('a')
+    await expect(cache.putDiff('a', makeEntry('a', 'new', 0).diff, 'new', { expectedHeadSha: 'old' })).rejects.toThrow('cached diff changed')
+    expect(await cache.get('a')).toBeUndefined()
+  })
+
   it('treats a corrupt half as a cache miss', async () => {
     const { cache } = cacheWith()
     await cache.put(makeEntry('a', 'sha-a', 1000))

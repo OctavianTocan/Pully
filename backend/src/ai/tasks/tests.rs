@@ -122,7 +122,7 @@ fn tours_save_partial_successes_but_never_all_failed_stops() {
     )
     .unwrap_err();
     assert_eq!(error.to_string(), "First stop failed");
-    assert!(state.store.get("tour:test").unwrap().is_none());
+    assert!(state.host.storage.get("tour:test").unwrap().is_none());
 
     let success = json!({"title":"Worked","takeaway":"Useful","blocks":[],"sources":[]});
     let mixed = vec![failed, success];
@@ -136,10 +136,10 @@ fn tours_save_partial_successes_but_never_all_failed_stops() {
     )
     .unwrap();
     assert_eq!(result["stops"], json!(mixed));
-    let saved = state.store.get("tour:test").unwrap().unwrap();
+    let saved = state.host.storage.get("tour:test").unwrap().unwrap();
     assert_eq!(saved["entries"][0], result);
     assert!(save_tour(&state, &request, &diff, json!({}), stops, &json!({})).is_err());
-    assert_eq!(state.store.get("tour:test").unwrap().unwrap(), saved);
+    assert_eq!(state.host.storage.get("tour:test").unwrap().unwrap(), saved);
     std::fs::remove_dir_all(dir).unwrap();
 }
 #[test]
@@ -291,4 +291,47 @@ fn tour_plan_and_stop_json_survive_task_snapshots_whole() {
         .as_array()
         .unwrap()
         .is_empty());
+}
+
+#[test]
+fn inbox_closed_window_uses_closure_date_and_missing_or_invalid_fallback() {
+    let now = 1_792_152_000_000; // 2026-10-16T12:00:00Z
+    let today = iso(now);
+    let cutoff = now - 30 * 24 * 60 * 60 * 1000;
+    assert!(!recently_closed(
+        &json!({"closedAt":"2020-01-01T00:00:00Z","updatedAt":today}),
+        now
+    ));
+    assert!(recently_closed(
+        &json!({"closedAt":iso(now - 86_400_000),"updatedAt":"2020-01-01T00:00:00Z"}),
+        now
+    ));
+    for closed in [
+        Value::Null,
+        json!(""),
+        json!("invalid"),
+        json!("2026-02-31T00:00:00Z"),
+    ] {
+        assert!(recently_closed(
+            &json!({"closedAt":closed,"updatedAt":today}),
+            now
+        ));
+    }
+    assert!(recently_closed(&json!({"closedAt":iso(cutoff)}), now));
+    assert!(!recently_closed(
+        &json!({"closedAt":iso(cutoff - 1),"updatedAt":today}),
+        now
+    ));
+    assert!(!recently_closed(
+        &json!({"closedAt":"invalid","updatedAt":"invalid"}),
+        now
+    ));
+}
+
+#[test]
+fn posted_task_system_explains_diff_only_capabilities() {
+    let posted = json!({"ref":{"kind":"posted","id":"fixture"}});
+    assert!(system_for(&posted).contains("There is no repository"));
+    assert!(system_for(&posted).contains("captured changed paths"));
+    assert_eq!(system_for(&json!({"ref":{"kind":"github-pr"}})), SYSTEM);
 }

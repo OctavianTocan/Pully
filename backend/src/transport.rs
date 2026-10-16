@@ -31,7 +31,6 @@ pub struct HttpState {
     pub origins: HashSet<String>,
     pub hosts: HashSet<String>,
     pub assets: Option<PathBuf>,
-    pub android: PathBuf,
 }
 pub struct Auth {
     token: String,
@@ -66,7 +65,6 @@ impl HttpState {
         allow: Vec<String>,
         no_auth: bool,
         assets: Option<PathBuf>,
-        android: PathBuf,
     ) -> Result<Self> {
         let mut origins = HashSet::new();
         let mut hosts = HashSet::from([
@@ -100,7 +98,6 @@ impl HttpState {
             origins,
             hosts,
             assets,
-            android,
         })
     }
     pub fn print_code(&self) {
@@ -283,7 +280,7 @@ async fn native(
             "That method is not available to the app.",
         );
     }
-    if rpc.name == "local-diff" && !state.app.has_checkout {
+    if rpc.name == "local-diff" && state.app.host.checkout().is_err() {
         return error(StatusCode::NOT_FOUND, crate::host::NO_CHECKOUT);
     }
     if let Err(response) =
@@ -298,7 +295,10 @@ async fn native(
             Err(e) => error(StatusCode::BAD_GATEWAY, safe_error(&e)),
         };
     }
-    reply(result.and_then(|value| account::filter_owned(&state.app, &headers, value)))
+    reply(match result {
+        Ok(value) => account::filter_owned(&state.app, &headers, value).await,
+        Err(e) => Err(e),
+    })
 }
 fn reply(result: Result<Value>) -> Response {
     match result {
@@ -471,7 +471,7 @@ async fn static_file(
                 "No Android build has been published.",
             );
         }
-        read_static(&state.android, relative).await
+        return android_file_response(&state.app.host, relative).await;
     } else if let Some(root) = &state.assets {
         if path.starts_with("/api/") {
             return error(StatusCode::NOT_FOUND, "Unknown API route.");
@@ -522,6 +522,52 @@ async fn static_file(
     }
 }
 
+async fn android_file_response(host: &crate::host::ServerHost, relative: &str) -> Response {
+    match host.android_file(relative).await {
+        Ok(Some(file)) => {
+            let mime = if relative.ends_with(".json") {
+                "application/json"
+            } else if relative.ends_with(".apk") {
+                "application/vnd.android.package-archive"
+            } else if relative.ends_with(".png") {
+                "image/png"
+            } else if relative.ends_with(".webp") {
+                "image/webp"
+            } else if relative.ends_with(".gif") {
+                "image/gif"
+            } else {
+                "image/jpeg"
+            };
+            let stream = futures_util::stream::try_unfold(file.file, |mut file| async move {
+                use tokio::io::AsyncReadExt;
+                let mut bytes = vec![0; 64 * 1024];
+                let n = file.read(&mut bytes).await?;
+                bytes.truncate(n);
+                Ok::<_, std::io::Error>(if n == 0 { None } else { Some((bytes, file)) })
+            });
+            let mut response = Response::new(Body::from_stream(stream));
+            response
+                .headers_mut()
+                .insert(header::CONTENT_TYPE, mime.parse().unwrap());
+            response
+                .headers_mut()
+                .insert(header::CONTENT_LENGTH, file.size.into());
+            response.headers_mut().insert(
+                header::CACHE_CONTROL,
+                header::HeaderValue::from_static("no-store"),
+            );
+            response
+        }
+        Ok(None) if relative == "past/index.json" => (
+            [(header::CACHE_CONTROL, "no-store")],
+            Json(json!({"versions":[]})),
+        )
+            .into_response(),
+        Ok(None) => error(StatusCode::NOT_FOUND, "File not found."),
+        Err(_) => error(StatusCode::BAD_REQUEST, "Invalid asset path."),
+    }
+}
+
 async fn web_only(state: &AppState, name: &str, args: &Value) -> Option<Result<Value>> {
     if !matches!(name, "github-authenticated" | "github-request") && !name.starts_with("storage-") {
         return None;
@@ -563,7 +609,8 @@ async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Re
         match name {
             "storage-get-item" => serial(public_get(state, required(args, "key")?)?),
             "storage-get-keys" => Ok(json!(state
-                .store
+                .host
+                .storage
                 .keys(text(args, "base"))?
                 .into_iter()
                 .filter(|k| !private_key(k))
@@ -608,7 +655,7 @@ async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Re
                     };
                     changes.push((key, expected, next));
                 }
-                state.store.compare_exchange(&changes)?;
+                state.host.storage.compare_exchange(&changes)?;
                 Ok(Value::Null)
             }
             _ => bail!("That method is not available to the app."),
@@ -689,8 +736,13 @@ pub async fn start_agent_bridge(app: Arc<AppState>) -> Result<tokio::task::JoinH
     }))
 }
 
+/// @cc [owner:OctavianTocan,label:security] posted-authorization-canonicalizes-storage-aliases
+/// Posted access checks MUST recognize the same slash/backslash aliases as Store;
+/// authorization MUST resolve their canonical ID before access (16 Oct 2026 review fixes).
 fn is_posted(key: &str) -> bool {
-    key.to_ascii_lowercase().starts_with("posted:")
+    key.replace(['/', '\\'], ":")
+        .to_ascii_lowercase()
+        .starts_with("posted:")
 }
 fn private_key(key: &str) -> bool {
     let key = key.replace(['/', '\\'], ":").to_ascii_lowercase();
@@ -706,21 +758,21 @@ fn public_get(state: &AppState, key: &str) -> Result<Option<Value>> {
     if private_key(key) {
         Ok(None)
     } else {
-        state.store.get(key)
+        state.host.storage.get(key)
     }
 }
 fn requested_key(app: &AppState, name: &str, args: &Value) -> Result<String> {
     let args = if args.is_array() { &args[0] } else { args };
     for field in ["key", "target"] {
         if is_posted(text(args, field)) {
-            return Ok(text(args, field).into());
+            return Ok(text(args, field).replace(['/', '\\'], ":"));
         }
     }
     if matches!(
         name,
         "ai-task-wait" | "ai-task-cancel" | "ai-job-wait" | "ai-job-cancel"
     ) {
-        return crate::ai::task_key(app, text(args, "id"));
+        return crate::ai::task_key(app, text(args, "id")).map(|key| key.replace(['/', '\\'], ":"));
     }
     Ok(String::new())
 }
@@ -858,13 +910,15 @@ mod privacy_tests {
     async fn web_masks_private_storage_and_rejects_posted_targets() {
         let root = std::env::temp_dir().join(format!("pulls-transport-{}", uuid::Uuid::new_v4()));
         let app = AppState::new(PathBuf::new(), root.clone()).unwrap();
-        app.store
+        app.host
+            .storage
             .set("account:abc", &json!({"password":"hashed"}))
             .unwrap();
-        app.store
+        app.host
+            .storage
             .set("tour:posted:abc", &json!({"text":"private"}))
             .unwrap();
-        app.store.set("shared", &json!("public")).unwrap();
+        app.host.storage.set("shared", &json!("public")).unwrap();
         assert_eq!(
             web_dispatch(&app, "storage-get-item", json!({"key":"account:abc"}))
                 .await
@@ -905,14 +959,96 @@ mod privacy_tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[tokio::test]
+    async fn posted_aliases_require_ownership_and_never_reach_the_web() {
+        let root = std::env::temp_dir().join(format!("pulls-alias-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(PathBuf::new(), root.clone()).unwrap();
+        app.host
+            .storage
+            .set(
+                "diff:posted:abc",
+                &json!({"key":"posted:abc","diff":{"files":[]}}),
+            )
+            .unwrap();
+        for key in ["posted:abc", "posted/abc", "posted\\abc"] {
+            assert_eq!(
+                requested_key(&app, "review-state", &json!({"key":key})).unwrap(),
+                "posted:abc"
+            );
+            for name in ["review-state", "diff-patches", "cache-diff"] {
+                let args = json!({"key":key,"method":"get"});
+                assert!(web_dispatch(&app, name, args.clone()).await.is_err());
+                assert!(
+                    account::authorize_posted(&app, &HeaderMap::new(), name, &args)
+                        .await
+                        .is_err()
+                );
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test]
+    async fn android_responses_use_the_configured_host() {
+        let root = std::env::temp_dir().join(format!("pulls-artifacts-{}", uuid::Uuid::new_v4()));
+        let files = root.join("artifacts");
+        std::fs::create_dir_all(&files).unwrap();
+        std::fs::write(files.join("pulls.apk"), b"apk-fixture").unwrap();
+        let host = crate::host::ServerHost::new(
+            crate::store::Store::new(root.join("data")).unwrap(),
+            None,
+            Some(files),
+        );
+        let state = HttpState::new(
+            AppState::from_host(host).unwrap(),
+            "127.0.0.1",
+            1234,
+            vec![],
+            true,
+            None,
+        )
+        .unwrap();
+        let response = static_file(
+            State(state.clone()),
+            "/android/pulls.apk".parse().unwrap(),
+            HeaderMap::new(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "application/vnd.android.package-archive"
+        );
+        assert_eq!(
+            axum::body::to_bytes(response.into_body(), 100)
+                .await
+                .unwrap()
+                .as_ref(),
+            b"apk-fixture"
+        );
+        let empty = static_file(
+            State(state.clone()),
+            "/android/past/index.json".parse().unwrap(),
+            HeaderMap::new(),
+        )
+        .await;
+        assert_eq!(empty.status(), StatusCode::OK);
+        let denied = static_file(
+            State(state),
+            "/android/private.txt".parse().unwrap(),
+            HeaderMap::new(),
+        )
+        .await;
+        assert_eq!(denied.status(), StatusCode::NOT_FOUND);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test]
     async fn unauthenticated_agent_variants_never_fall_through() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         let root = std::env::temp_dir().join(format!("pulls-http-{}", uuid::Uuid::new_v4()));
         let app = AppState::new(PathBuf::new(), root.clone()).unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let state =
-            HttpState::new(app, "127.0.0.1", port, vec![], true, None, root.clone()).unwrap();
+        let state = HttpState::new(app, "127.0.0.1", port, vec![], true, None).unwrap();
         let server =
             tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
         for path in [

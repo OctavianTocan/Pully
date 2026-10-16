@@ -52,14 +52,14 @@ pub async fn git(root: &Path, args: &[&str]) -> Result<String> {
 }
 async fn root(state: &AppState) -> Result<std::path::PathBuf> {
     Ok(std::fs::canonicalize(
-        git(&state.cwd, &["rev-parse", "--show-toplevel"])
+        git(state.host.checkout()?, &["rev-parse", "--show-toplevel"])
             .await?
             .trim(),
     )?)
 }
 async fn excluded_roots(state: &AppState, root: &Path) -> Result<Vec<std::path::PathBuf>> {
     let mut excluded = vec![
-        state.store.root().to_path_buf(),
+        state.host.storage.root().to_path_buf(),
         state.analytics.root().to_path_buf(),
     ];
     for flag in ["--absolute-git-dir", "--git-common-dir"] {

@@ -175,12 +175,31 @@ pub async fn run(state: &Arc<AppState>, run: &Arc<Run>, req: &Value) -> Result<(
     run_prepared(state, run, req, super::StructuredAnswerPreparation::Strict).await
 }
 
+/// @cc [owner:OctavianTocan,label:architecture] rust-provider-operations-share-three-slots
+/// Every provider operation, including parallel tour stops, MUST share a three-slot
+/// limit, acquire cancellation-aware before preparation or execution deadlines, and
+/// release its slot on every exit (base jobs.ts MAX_RUNNING; jobs-release-acquired-slots;
+/// review R11, 16 Oct 2026).
+async fn acquire_provider(jobs: &Jobs, run: &Run) -> Result<tokio::sync::OwnedSemaphorePermit> {
+    let mut cancelled = run.cancel.subscribe();
+    super::check(run)?;
+    let permit = tokio::select! {
+        biased;
+        _ = cancelled.changed() => bail!("Stopped."),
+        permit = jobs.provider_slots.clone().acquire_owned() =>
+            permit.context("Provider admission is closed")?,
+    };
+    super::check(run)?;
+    Ok(permit)
+}
+
 pub(super) async fn run_prepared(
     state: &Arc<AppState>,
     run: &Arc<Run>,
     req: &Value,
     preparation: super::StructuredAnswerPreparation,
 ) -> Result<(String, Value)> {
+    let _permit = acquire_provider(&state.jobs, run).await?;
     let activity = Activity::new(run);
     let safe_req = super::sanitize_value(req);
     let req = &safe_req;
@@ -738,6 +757,127 @@ fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn fixture_run(kind: &str) -> Arc<Run> {
+        Arc::new(Run {
+            snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+            request: json!({"kind":kind}),
+            task: true,
+            notify: tokio::sync::Notify::new(),
+            cancel: tokio::sync::watch::channel(false).0,
+        })
+    }
+    #[tokio::test(start_paused = true)]
+    async fn provider_slots_bound_overlapping_tour_fanouts_and_chat() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let jobs = Jobs::default();
+        let active = Arc::new(AtomicUsize::new(0));
+        let maximum = Arc::new(AtomicUsize::new(0));
+        let launches = Arc::new(AtomicUsize::new(0));
+        let mut work = vec![];
+        // Two concurrent tours fan out four stops each, beside one chat operation.
+        for (run, count) in [
+            (fixture_run("tour"), 4),
+            (fixture_run("tour"), 4),
+            (fixture_run("chat"), 1),
+        ] {
+            for _ in 0..count {
+                let (jobs, run, active, maximum, launches) = (
+                    jobs.clone(),
+                    run.clone(),
+                    active.clone(),
+                    maximum.clone(),
+                    launches.clone(),
+                );
+                work.push(tokio::spawn(async move {
+                    let _permit = acquire_provider(&jobs, &run).await.unwrap();
+                    let live = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    maximum.fetch_max(live, Ordering::SeqCst);
+                    launches.fetch_add(1, Ordering::SeqCst);
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    active.fetch_sub(1, Ordering::SeqCst);
+                }));
+            }
+        }
+        for task in work {
+            task.await.unwrap();
+        }
+        assert_eq!(maximum.load(Ordering::SeqCst), 3);
+        assert_eq!(launches.load(Ordering::SeqCst), 9);
+        assert_eq!(active.load(Ordering::SeqCst), 0);
+        assert_eq!(jobs.provider_slots.available_permits(), 3);
+    }
+    #[tokio::test(start_paused = true)]
+    async fn provider_queue_cancellation_never_prepares_and_failure_releases_slot() {
+        let root =
+            std::env::temp_dir().join(format!("pulls-provider-queue-{}", uuid::Uuid::new_v4()));
+        let state = AppState::new(root.clone(), root.join("data")).unwrap();
+        let occupied = state
+            .jobs
+            .provider_slots
+            .clone()
+            .acquire_many_owned(3)
+            .await
+            .unwrap();
+        let run = fixture_run("tour");
+        let request = json!({"engine":"codex","context":{"files":[]}});
+        let queued = run_prepared(
+            &state,
+            &run,
+            &request,
+            super::super::StructuredAnswerPreparation::Strict,
+        );
+        tokio::pin!(queued);
+        assert!(futures_util::poll!(queued.as_mut()).is_pending());
+        assert!(state.jobs.bridges.lock().unwrap().is_empty());
+        run.cancel.send_replace(true);
+        assert_eq!(queued.await.unwrap_err().to_string(), "Stopped.");
+        assert!(state.jobs.bridges.lock().unwrap().is_empty());
+        assert_eq!(state.jobs.provider_slots.available_permits(), 0);
+        drop(occupied);
+        let fresh = fixture_run("chat");
+        let error = run_prepared(
+            &state,
+            &fresh,
+            &request,
+            super::super::StructuredAnswerPreparation::Strict,
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("tool bridge is not running"));
+        assert_eq!(state.jobs.provider_slots.available_permits(), 3);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test(start_paused = true)]
+    async fn provider_queue_time_is_excluded_from_execution_deadline() {
+        let jobs = Jobs::default();
+        let occupied = jobs
+            .provider_slots
+            .clone()
+            .acquire_many_owned(3)
+            .await
+            .unwrap();
+        let run = fixture_run("chat");
+        let started = Instant::now();
+        let queued = async {
+            let _permit = acquire_provider(&jobs, &run).await?;
+            within_pi_deadline(Instant::now() + PI_TOTAL_LIMIT, async {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+                Ok(())
+            })
+            .await
+        };
+        tokio::pin!(queued);
+        assert!(futures_util::poll!(queued.as_mut()).is_pending());
+        tokio::time::advance(PI_TOTAL_LIMIT * 2).await;
+        assert!(futures_util::poll!(queued.as_mut()).is_pending());
+        drop(occupied);
+        queued.await.unwrap();
+        assert_eq!(
+            Instant::now() - started,
+            PI_TOTAL_LIMIT * 2 + Duration::from_secs(60)
+        );
+        assert_eq!(jobs.provider_slots.available_permits(), 3);
+    }
     #[test]
     fn parallel_provider_invocations_keep_separate_activity_rows() {
         let run = Arc::new(Run {

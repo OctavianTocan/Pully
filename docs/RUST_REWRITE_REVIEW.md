@@ -18,7 +18,6 @@ and separate GitHub Action. No Cloudflare deployment is part of this change.
 Earlier validation below is historical; fresh compile/check and review evidence
 for the rebased revision is recorded separately when completed.
 
-
 ## Current status
 
 Ten complete sequential review rounds and five complete simplification rounds

@@ -95,7 +95,11 @@ async fn run() -> Result<()> {
             )?;
         cwd.join(common.trim()).join("pulls-review-rust")
     };
-    let app = AppState::new(cwd, data)?;
+    let app = AppState::from_host(pulls_review_server::host::ServerHost::new(
+        pulls_review_server::store::Store::new(data)?,
+        Some(cwd),
+        args.android_dir,
+    ))?;
     if let Some(runtime) = &args.agents {
         std::env::set_var("PULLS_REVIEW_AGENT_RUNTIME", runtime);
     }
@@ -104,10 +108,6 @@ async fn run() -> Result<()> {
     } else {
         start_page(&app, args.target.as_deref(), args.worktree).await?
     };
-    let android = args.android_dir.unwrap_or_else(|| {
-        PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into()))
-            .join(".local/share/pulls-review/android")
-    });
     let state = HttpState::new(
         app.clone(),
         &args.host,
@@ -115,7 +115,6 @@ async fn run() -> Result<()> {
         args.allow_origin,
         args.no_auth,
         args.assets,
-        android,
     )?;
     let listener = tokio::net::TcpListener::bind((args.host.as_str(), args.port))
         .await

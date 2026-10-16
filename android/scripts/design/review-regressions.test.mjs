@@ -20,7 +20,6 @@ describe('review layout regression guards', () => {
     const source = read('PrTourScreen.kt')
     assert.match(source, /if \(tour != null\) SearchDim\(askFocused/)
     assert.match(source, /if \(tour != null\) AskBar\(/)
-
   })
 
   it('uses the tested highlight boundary and never caches a missing response row', () => {

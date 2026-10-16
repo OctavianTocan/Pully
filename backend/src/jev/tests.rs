@@ -181,11 +181,14 @@ impl Fixture {
             .get_or_init(Default::default)
             .lock()
             .unwrap()
-            .insert(app.store.root().to_path_buf(), svc.clone());
+            .insert(app.host.storage.root().to_path_buf(), svc.clone());
         let pull =
             json!({"owner":"o","repo":"r","number":1,"state":"open","headSha":"h","title":"title"});
         let diff = json!({"ref":{"kind":"github-pr","owner":"o","repo":"r","number":"1"},"title":"title","base":{"sha":"b"},"head":{"sha":"h"},"files":[{"path":"a.rs","sha":"f","hunks":[]}]});
-        app.store.set("diff:test", &json!({"diff":diff})).unwrap();
+        app.host
+            .storage
+            .set("diff:test", &json!({"diff":diff}))
+            .unwrap();
         let key = file_key(&diff["files"][0]);
         {
             let mut ratings = svc.ratings.lock().unwrap();
@@ -212,8 +215,8 @@ impl Drop for Fixture {
             .unwrap()
             .lock()
             .unwrap()
-            .remove(self.app.store.root());
-        std::fs::remove_dir_all(self.app.store.root()).unwrap();
+            .remove(self.app.host.storage.root());
+        std::fs::remove_dir_all(self.app.host.storage.root()).unwrap();
     }
 }
 #[derive(Clone, Copy)]
@@ -246,7 +249,8 @@ impl HeldTransaction {
             };
             match kind {
                 LockKind::Store => {
-                    app.store
+                    app.host
+                        .storage
                         .update("jev-test-lock", |old| {
                             wait();
                             Ok(old.unwrap_or(json!({})))
@@ -368,7 +372,8 @@ async fn file_completion_yields_and_cleans_running_state_for_every_outcome() {
     assert_eq!(
         fixture
             .app
-            .store
+            .host
+            .storage
             .get("jev-file:completion")
             .unwrap()
             .unwrap()["priority"],
@@ -434,7 +439,8 @@ async fn pull_completion_yields_preserves_latest_version_and_cleans_every_outcom
     .await;
     let saved = fixture
         .app
-        .store
+        .host
+        .storage
         .get(&format!("jev-pr:{key}"))
         .unwrap()
         .unwrap();
@@ -468,7 +474,8 @@ async fn pull_completion_yields_preserves_latest_version_and_cleans_every_outcom
     assert_eq!(
         fixture
             .app
-            .store
+            .host
+            .storage
             .get(&format!("jev-pr:{key}"))
             .unwrap()
             .unwrap(),
@@ -520,7 +527,8 @@ async fn pull_completion_yields_preserves_latest_version_and_cleans_every_outcom
     assert_eq!(
         fixture
             .app
-            .store
+            .host
+            .storage
             .get(&format!("jev-pr:{key}"))
             .unwrap()
             .unwrap(),
