@@ -12,7 +12,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /*
- * The signal-processing pieces Cuelume gets from Web Audio and Pulls has to bring itself: the
+ * The signal-processing pieces Cuelume gets from Web Audio and Pully has to bring itself: the
  * seeded noise, a biquad filter, a convolution reverb and the output stage's soft clip. Each one
  * follows the Web Audio specification, so a cue sounds as it does in a browser.
  */

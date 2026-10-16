@@ -18,7 +18,7 @@ import java.util.concurrent.Executors
  *
  * Which cue for which job follows octa-ui's table: a button is a `tap` (subtle when it is secondary),
  * a tab or option a `select`, a switch or checkbox a `toggle`, a confirmed outcome a `success`, a
- * refusal an `error`. octa-ui rejected the whooshes (`navigate`, `open`, `close`), so Pulls never plays
+ * refusal an `error`. octa-ui rejected the whooshes (`navigate`, `open`, `close`), so Pully never plays
  * them: a page change, a sheet or a menu opening is already the tap that caused it.
  */
 object Sounds {

@@ -227,9 +227,16 @@ the sheet and text-fade transitions (DESIGN.md Keep as is; recording 15 Oct 13:5
 00:45 and 10:16).
 
 @cc [owner:OctavianTocan,label:product] android-github-links-open-in-pulls
-Any GitHub pull request link MUST open in Pulls from the three ways a phone hands one
+Any GitHub pull request link MUST open in Pully from the three ways a phone hands one
 over: a tapped link (after Settings, GitHub links allows it), Share, and selected text's
-Open in Pulls. The shared text only has to contain the link. A link that arrives while
-Pulls is open MUST open over the page on screen, so Back returns there, and text Pulls
+Open in Pully. The shared text only has to contain the link. A link that arrives while
+Pully is open MUST open over the page on screen, so Back returns there, and text Pully
 cannot open MUST say so. Issue, code and other GitHub pages MUST stay in the browser
 (Tavi, 16 Oct: "Open link in Pulls or Share with Pulls for any GitHub links on my phone").
+
+@cc [owner:OctavianTocan,label:product;architecture] android-app-is-called-pully
+The app MUST be called Pully everywhere a person reads its name: the launcher label, the
+update screen and notification, Search, Ask, Commands, Settings, the AI's notes and the
+web app's wordmark and tab title (Tavi, 16 Oct: "Let's rename the app to Pully"). The
+`applicationId`, Kotlin package, repository, server and domain keep the pulls name, since
+a new `applicationId` is a different app to Android and would stop in-app updates.

@@ -55,7 +55,7 @@ class AppUpdater(private val context: Context) {
 
     /**
      * Hands [apk] to the system installer. With [packageName] the installer refuses an APK of any other package, which
-     * is how a past version can never replace Pulls itself; its result goes to [PastVersions] instead of [Updates].
+     * is how a past version can never replace Pully itself; its result goes to [PastVersions] instead of [Updates].
      */
     fun install(apk: File, packageName: String? = null) {
         val installer = context.packageManager.packageInstaller

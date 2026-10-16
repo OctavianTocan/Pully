@@ -1,6 +1,6 @@
 @cc [owner:OctavianTocan,label:product] update-screen-is-required
-When the server offers a newer build, Pulls shows only the update screen from the first
-frame of a start: "Pulls 0.28.0 is ready", "Update to keep using Pulls.", every version
+When the server offers a newer build, Pully shows only the update screen from the first
+frame of a start: "Pully 0.28.0 is ready", "Update to keep using Pully.", every version
 it brings with its summary and bullets, and "Update to 0.28.0" as the main action.
 Nothing closes it but the update, and Back leaves the app (rule 104).
 

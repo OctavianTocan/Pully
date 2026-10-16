@@ -35,7 +35,7 @@ import com.octaviantocan.pulls.ui.review.copyText
 
 /**
  * What holding a pull request row opens (H17): the pull request itself at the top, then two groups under the sheet's
- * own headings, what Pulls does with it (its tour, its repository, archiving it) and GitHub's (the page and its link).
+ * own headings, what Pully does with it (its tour, its repository, archiving it) and GitHub's (the page and its link).
  * The title used to sit under the number as loose text, further left than the cards and tight under the ✕, and every
  * action was one block ("this text is starting too far to the left ... I would suggest separating these into two
  * sections ... maybe archive can actually go into that one ... this is too bland": recording 16 Oct 13:06, 08:31 to
@@ -67,7 +67,7 @@ internal fun PullActionsSheet(
         HeldItem(pull.title, "${pull.owner}/${pull.repo} · ${pull.author}", icon = { PrStatusIcon(state, size = 22.dp) }) {
             DiffStats(pull.additions, pull.deletions)
         }
-        SheetHeading("Pulls")
+        SheetHeading("Pully")
         SheetCard(gap = 6.dp) {
             SheetRow("Start a tour", then(onTour), first = true, icon = { LuIcon(Lu.tour, tint = c.text, size = 20.dp) })
             SheetRow("Open ${pull.repo}", then(onRepo), icon = { LuIcon(Lu.list, tint = c.text, size = 20.dp) })

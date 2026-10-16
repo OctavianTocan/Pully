@@ -1,5 +1,5 @@
 @cc [owner:OctavianTocan,label:product] home-search-or-ask
-The bottom pill on Home reads "Search or ask Pulls" and is the one way to find a pull
+The bottom pill on Home reads "Search or ask Pully" and is the one way to find a pull
 request: typing filters the list at once, a pasted link or a number opens that pull
 request, and a question can be asked from it. There is no search icon in the header and no
 "Open pull request" field elsewhere (rules 35 and 55; D7). The pill has no Ask button: it
@@ -27,7 +27,7 @@ pill takes the row (rule 114; H19).
 A pull request row is the same in the Inbox, Tours, a repository and search, after
 Claude's own list: a tinted square tile with the state's mark on the left (open, draft,
 merged and closed each in its own colour; a tour's ring in the tile on Tours), the title
-beside it at most two lines, and one meta line under the title that starts with the
+beside it, wrapped whole (`android-whole-identifiers`), and one meta line under the title that starts with the
 number and carries the author, checks, coloured diffstat and age, in fixed columns that
 do not move when a digit or a name's length changes (rules 13, 15 and 36). A draft is told
 apart by its tile's colour and no title says "[draft]". A context-free count ("7
@@ -168,7 +168,7 @@ back and opens nothing, so a row never comes back pulled aside or animating (rec
 
 @cc [owner:OctavianTocan,label:product] profile-numbers-at-once
 Profile's year on GitHub shows the last answer at once, kept on the phone between launches,
-and refreshes underneath; Pulls asks for it a moment after it starts (recording 16 Oct 13:06, 02:56 to 03:04;
+and refreshes underneath; Pully asks for it a moment after it starts (recording 16 Oct 13:06, 02:56 to 03:04;
 O6, rule 178). The kept answer is the current server's; another server's MUST NOT stand in for it
 (review of PR 57).
 
@@ -180,4 +180,4 @@ big number's place, with a tick per step, and a second tap on it puts the total 
 @cc [owner:OctavianTocan,label:design] home-hold-menu-names-and-groups
 A row's hold menu is headed by its number, with a card naming the item (state, title,
 repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed
-groups, Pulls' own and GitHub's (recording 16 Oct 13:06, 08:31 to 08:58; O19, rule 186).
+groups, Pully's own and GitHub's (recording 16 Oct 13:06, 08:31 to 08:58; O19, rule 186).

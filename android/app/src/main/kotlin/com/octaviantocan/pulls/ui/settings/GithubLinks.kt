@@ -31,23 +31,23 @@ import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 
 /**
- * Whether a tapped github.com link opens in Pulls. Android 12 and later send a web link only to the app that owns the
- * site, or to one the reader allowed under the app's Open by default, and Pulls cannot own github.com. So Pulls reads
+ * Whether a tapped github.com link opens in Pully. Android 12 and later send a web link only to the app that owns the
+ * site, or to one the reader allowed under the app's Open by default, and Pully cannot own github.com. So Pully reads
  * Android's answer for each address it asks for and opens that page; it cannot turn them on itself.
  */
 object GithubLinks {
     const val HOST = "github.com"
 
-    /** The addresses Pulls asks for (the manifest's), in the order Android's page lists them. */
+    /** The addresses Pully asks for (the manifest's), in the order Android's page lists them. */
     val HOSTS = listOf("github.com", "www.github.com", "prs.octaviantocan.com")
 
     /** The GitHub app, which takes github.com links before any browser when its own Open supported links is on. */
     const val GITHUB_APP = "com.github.android"
 
-    /** Before Android 12 Android asks which app opens each link, so Pulls is always offered and the row is not needed. */
+    /** Before Android 12 Android asks which app opens each link, so Pully is always offered and the row is not needed. */
     val asked: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    /** Pulls opens github.com links: both GitHub addresses are on, and Open supported links is on. */
+    /** Pully opens github.com links: both GitHub addresses are on, and Open supported links is on. */
     fun allowed(context: Context): Boolean = if (asked) state(context).let { it.handling && it.hosts["github.com"] == true && it.hosts["www.github.com"] == true } else true
 
     /** Android's answer: whether Open supported links is on, and which of [HOSTS] are turned on. */
@@ -71,11 +71,11 @@ object GithubLinks {
         return State(user.isLinkHandlingAllowed, hosts)
     }
 
-    /** The GitHub app is on the phone, so it may take github.com links before Pulls is asked. */
+    /** The GitHub app is on the phone, so it may take github.com links before Pully is asked. */
     fun githubAppInstalled(context: Context): Boolean =
         runCatching { context.packageManager.getPackageInfo(GITHUB_APP, 0) }.isSuccess
 
-    /** Pulls' own Open by default page, where Supported web addresses lists github.com. */
+    /** Pully's own Open by default page, where Supported web addresses lists github.com. */
     fun openSettings(context: Context) = openByDefault(context, context.packageName)
 
     /** The GitHub app's Open by default page, where its Open supported links is turned off. */
@@ -88,7 +88,7 @@ object GithubLinks {
     }
 }
 
-/** Android's answer, read again whenever Pulls comes back from its page. */
+/** Android's answer, read again whenever Pully comes back from its page. */
 @Composable
 private fun rememberLinkState(): GithubLinks.State {
     val context = LocalContext.current
@@ -111,7 +111,7 @@ internal fun GithubLinksGroup(open: () -> Unit) {
     val on = state.handling && state.hosts["github.com"] == true && state.hosts["www.github.com"] == true
     Group("GitHub links") {
         SheetCard {
-            SheetRow("Open GitHub links in Pulls", open, first = true, iconless = true) {
+            SheetRow("Open GitHub links in Pully", open, first = true, iconless = true) {
                 Text(if (on) "On" else "Off", style = PullsType.sm, color = c.muted)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
@@ -142,7 +142,7 @@ internal fun ColumnScope.GithubLinksPage() {
     CtaButton("Open Android's page", { GithubLinks.openSettings(context) }, Modifier.fillMaxWidth().padding(top = 16.dp))
     if (githubApp) Group("The GitHub app") {
         Text(
-            "The GitHub app is on this phone and can take github.com links first. Android moves an address to Pulls when you turn it on here; if links still open in the GitHub app, turn Open supported links off on its page.",
+            "The GitHub app is on this phone and can take github.com links first. Android moves an address to Pully when you turn it on here; if links still open in the GitHub app, turn Open supported links off on its page.",
             Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), style = PullsType.read, color = c.muted,
         )
         SheetCard {
@@ -153,7 +153,7 @@ internal fun ColumnScope.GithubLinksPage() {
     }
     Group("In a browser") {
         Text(
-            "A link tapped inside Chrome or another browser stays in the browser: Android hands a link to Pulls only when it is opened from another app, such as WhatsApp or Slack. In a browser, share the page to Pulls instead.",
+            "A link tapped inside Chrome or another browser stays in the browser: Android hands a link to Pully only when it is opened from another app, such as WhatsApp or Slack. In a browser, share the page to Pully instead.",
             Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), style = PullsType.read, color = c.muted,
         )
     }

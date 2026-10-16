@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: Pulls Review for Android
+name: Pully for Android
 description: >-
   The Android app's design system. Warm paper with deep teal ink and one teal accent, Geist for
   text, Mona Sans for numbers, Geist Mono for code. White floating surfaces with a soft ink
@@ -333,7 +333,7 @@ components:
 
 ## Overview
 
-Pulls Review for Android is a phone app for reading pull requests: an inbox of what is waiting on you, a PR overview with a summary and a description, the diff, and a tour that walks a change in sections. It should feel calm and fast to scan. The diff is the product, so chrome stays flat and quiet, and nothing is on a screen unless it tells the reader something (rule 1).
+Pully for Android is a phone app for reading pull requests: an inbox of what is waiting on you, a PR overview with a summary and a description, the diff, and a tour that walks a change in sections. It should feel calm and fast to scan. The diff is the product, so chrome stays flat and quiet, and nothing is on a screen unless it tells the reader something (rule 1).
 
 The look comes from the Android prototype: warm paper, deep teal ink, one teal accent, white floating surfaces with a soft shadow, pill capsules, paper bottom sheets and a dark toast. Tavi's design canvas holds the reference rows (Row W is the latest). The canvas predates the code, so this file records what the Kotlin renders, and the rules below record how Tavi judges it.
 
@@ -353,7 +353,7 @@ Dark mode is derived from the light set (`dark-*`). Every colour has a dark pair
 
 The Kotlin names are the properties of `PullsColors` in `Tokens.kt`. A name here is that property in kebab-case: `border-mute` is `borderMute`, `primary-600` is `primary600`. Alpha is the last pair in this file and the first in Kotlin.
 
-Colour themes (K18). This palette is the theme named Pulls, and the default. Settings, Theme (and Change theme in Commands) offers the others: OpenCode's built-in themes (https://github.com/anomalyco/opencode, MIT), converted by `android/scripts/gen-opencode-themes.mjs` from the theme files vendored beside it into `ui/design/OpenCodeThemes.kt`, one `PullsColors` for each look. Light, Dark and System still pick the look; a theme with one look (Aura, Ayu) keeps it under both. The mapping: `base`, `secondary` (and `paper`, `code`) and `sunken` are OpenCode's background, panel and element; `text` and `muted` its text roles, `faint` the muted one a third of the way into the background; borders its subtle border halfway into the background; `raised` a step above the sheet; `accent-teal` and `active-text` its primary; `primary` its primary darkened until white ink reads on it at 3:1; states and the diff washes from its own. The tokens check and the UI Book's Colors page are about this palette; the Themes page shows every theme. Code colours come from the server's highlighter and do not follow the theme yet.
+Colour themes (K18). This palette is the theme named Pully, and the default. Settings, Theme (and Change theme in Commands) offers the others: OpenCode's built-in themes (https://github.com/anomalyco/opencode, MIT), converted by `android/scripts/gen-opencode-themes.mjs` from the theme files vendored beside it into `ui/design/OpenCodeThemes.kt`, one `PullsColors` for each look. Light, Dark and System still pick the look; a theme with one look (Aura, Ayu) keeps it under both. The mapping: `base`, `secondary` (and `paper`, `code`) and `sunken` are OpenCode's background, panel and element; `text` and `muted` its text roles, `faint` the muted one a third of the way into the background; borders its subtle border halfway into the background; `raised` a step above the sheet; `accent-teal` and `active-text` its primary; `primary` its primary darkened until white ink reads on it at 3:1; states and the diff washes from its own. The tokens check and the UI Book's Colors page are about this palette; the Themes page shows every theme. Code colours come from the server's highlighter and do not follow the theme yet.
 
 ## Typography
 
@@ -494,7 +494,7 @@ Source: canvas. Checked by: review.
 
 #### 10. Composer: two modes.
 
-Comment and Ask Pulls only. Split visual layout, not three text chips. No counters, no voice.
+Comment and Ask Pully only. Split visual layout, not three text chips. No counters, no voice.
 
 Source: canvas. Checked by: bans, review.
 
@@ -652,13 +652,13 @@ Source: canvas. Checked by: review.
 
 #### 34. Notes about a file look like comments.
 
-An AI note on a diff is a comment card by “Pulls”: white, rounded, soft shadow. Not a loose line above the code.
+An AI note on a diff is a comment card by “Pully”: white, rounded, soft shadow. Not a loose line above the code.
 
 Source: canvas. Checked by: review.
 
 #### 35. Search is a bottom bar on every inbox.
 
-Profile at the top, “Search or ask Pulls” floating at the bottom, no search icon in the header.
+Profile at the top, “Search or ask Pully” floating at the bottom, no search icon in the header.
 
 Source: canvas. Checked by: review.
 
@@ -818,7 +818,7 @@ Source: walkthrough. Checked by: review.
 
 #### 55. The bottom pill is the one way to find a PR.
 
-- It reads "Search or ask Pulls" as in the design (rule 35). The app shows "Search pull requests" on the Inbox and "Search tours" on Tours. With the keyboard up the pill rides on top of it.
+- It reads "Search or ask Pully" as in the design (rule 35). The app shows "Search pull requests" on the Inbox and "Search tours" on Tours. With the keyboard up the pill rides on top of it.
 - It takes pasted links and PR numbers as well as text.
 - So the "Open pull request" field in the profile sheet goes.
 
@@ -1227,9 +1227,9 @@ Source: overhaul. Checked by: review.
 
 #### 104. A new version must be installed, and its changelog is the screen that asks.
 
-When the server has a newer build, Pulls shows only the update screen, from the first frame of a start: "Pulls 0.28.0 is ready", "Update to keep using Pulls.", then every version it brings over the installed one, each with its summary and bullets, and "Update to 0.28.0" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pulls, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.
+When the server has a newer build, Pully shows only the update screen, from the first frame of a start: "Pully 0.28.0 is ready", "Update to keep using Pully.", then every version it brings over the installed one, each with its summary and bullets, and "Update to 0.28.0" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pully, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.
 
-Check: publish a build with a higher version and open Pulls. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pulls from Commands with no newer build: it says this is the newest.
+Check: publish a build with a higher version and open Pully. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pully from Commands with no newer build: it says this is the newest.
 
 Source: answers. Checked by: review.
 
@@ -1595,7 +1595,7 @@ Source: walkthrough. Checked by: review.
 
 #### 148. A pull request row is a state tile, a title and one meta line.
 
-On the left is a square tinted with the state's colour, carrying the state's mark: open, draft, merged or closed. A draft differs from an open pull request by that tile, never by "[draft]" in its title. Beside it is the title, at most two lines, and under the title one line: the number, the stack place or Jev's risk word, the author, then checks, diffstat and age in their columns. A tour row carries its ring in the same tile. This is Claude's own list of pull requests (N2, N4). This replaces "under its number" in rule 111: the stack place now follows the number on the meta line.
+On the left is a square tinted with the state's colour, carrying the state's mark: open, draft, merged or closed. A draft differs from an open pull request by that tile, never by "[draft]" in its title. Beside it is the title, wrapped whole as rule 2 says, and under the title one line: the number, the stack place or Jev's risk word, the author, then checks, diffstat and age in their columns. A tour row carries its ring in the same tile. This is Claude's own list of pull requests (N2, N4). This replaces "under its number" in rule 111: the stack place now follows the number on the meta line.
 
 Check: a draft and an open row differ by the tile alone, and no row has a second line under its title except labels on a repository page.
 
@@ -1675,7 +1675,7 @@ Source: walkthrough. Checked by: review.
 
 #### 158. Code links never leave the app.
 
-A code link opens in Pulls, never on GitHub: a file in the diff opens at its line, near the top and scrolled to its left edge, and a file outside the diff opens on a sheet, read at the head commit and scrolled to the line (N20, N21).
+A code link opens in Pully, never on GitHub: a file in the diff opens at its line, near the top and scrolled to its left edge, and a file outside the diff opens on a sheet, read at the head commit and scrolled to the line (N20, N21).
 
 Check: tap an "In the code" row for a file outside the diff: a sheet opens at the line and no browser opens.
 
@@ -1817,23 +1817,23 @@ The recording of 16 Oct at 13:06 (O1 to O22, in `/mnt/project-files/design/feedb
 
 #### 175. A link that arrives closes what was open.
 
-A pull request link shared to Pulls, or tapped in another app, first sends any open sheet down the way a sheet closes, then opens the pull request on top of the Inbox. Settings is closed too, so coming back from the pull request finds the Inbox, not a sheet left open (O1: "instead of going down nicely", O4: "I don't think that's good").
+A pull request link shared to Pully, or tapped in another app, first sends any open sheet down the way a sheet closes, then opens the pull request on top of the Inbox. Settings is closed too, so coming back from the pull request finds the Inbox, not a sheet left open (O1: "instead of going down nicely", O4: "I don't think that's good").
 
-Check: open Profile, share a pull request link to Pulls: Profile slides down, then the pull request opens. Open Settings, tap a link in WhatsApp, go back: the Inbox shows with no sheet.
+Check: open Profile, share a pull request link to Pully: Profile slides down, then the pull request opens. Open Settings, tap a link in WhatsApp, go back: the Inbox shows with no sheet.
 
 Source: walkthrough. Checked by: review.
 
-#### 176. Back on the Inbox asks before Pulls closes.
+#### 176. Back on the Inbox asks before Pully closes.
 
-Back on the Inbox, the page Pulls closes from, opens a small sheet, "Close Pulls?", with Close Pulls and Stay; it never closes the app on the first press (O5).
+Back on the Inbox, the page Pully closes from, opens a small sheet, "Close Pully?", with Close Pully and Stay; it never closes the app on the first press (O5).
 
-Check: press Back on the Inbox: the sheet asks; Stay keeps Pulls open, Close Pulls closes it.
+Check: press Back on the Inbox: the sheet asks; Stay keeps Pully open, Close Pully closes it.
 
 Source: walkthrough. Checked by: review.
 
 #### 177. A setting Android owns says where it stands and how to change it.
 
-Where a choice belongs to Android and Pulls cannot make it (which app opens github.com links), the row says On or Off from Android's own answer and opens a page that lists each part of that answer, says in one sentence what to turn on, has one button to Android's page, and explains what Android does not allow, such as a link tapped inside a browser staying there. Pulls never shows such a setting as a switch it cannot keep (O2, O3).
+Where a choice belongs to Android and Pully cannot make it (which app opens github.com links), the row says On or Off from Android's own answer and opens a page that lists each part of that answer, says in one sentence what to turn on, has one button to Android's page, and explains what Android does not allow, such as a link tapped inside a browser staying there. Pully never shows such a setting as a switch it cannot keep (O2, O3).
 
 Check: in Settings, GitHub links says Off while any address is off; its page lists Open supported links and each address, and coming back from Android's page shows the new answer.
 
@@ -1841,7 +1841,7 @@ Source: walkthrough. Checked by: review.
 
 #### 178. Numbers are there at once.
 
-A page of numbers (Profile's year on GitHub, Stats) shows the last answer the moment it opens, kept on the phone between launches, and refreshes underneath; Pulls asks for both a moment after it starts, so even a first open has today's numbers. A first open on a new phone holds the cards' places until they come (O6, O10; rule 145).
+A page of numbers (Profile's year on GitHub, Stats) shows the last answer the moment it opens, kept on the phone between launches, and refreshes underneath; Pully asks for both a moment after it starts, so even a first open has today's numbers. A first open on a new phone holds the cards' places until they come (O6, O10; rule 145).
 
 Check: open Profile and Stats after a restart: both show numbers at once.
 
@@ -1905,7 +1905,7 @@ Source: walkthrough. Checked by: review.
 
 #### 186. A hold menu names what it holds and groups its actions.
 
-Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pulls does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). A tour's hold menu has the same card (O19: "too bland").
+Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pully does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). A tour's hold menu has the same card (O19: "too bland").
 
 Check: hold an Inbox row: the card and two groups; hold a Tours row: the same card.
 
@@ -2006,7 +2006,7 @@ Run before showing any new screen.
 47. Tap the search on Home: the list dims until the first letter (rule 103).
 48. Type a question in the Home search: Ask fills in the pill, Send asks it, and every pull request the answer names opens with a tap (rule 55).
 49. Scroll the Inbox past a repository's first rows: its heading sticks whole at the top until the next one slides up under it and takes its place (L2); a tap on the heading folds the rows, a tap on its name opens the repository, and the round sort button beside the search says the order and changes it (rules 70, 74, 75, 81, 114).
-50. Offer an update: Pulls opens on the update screen with the changelog, nothing gets past it, Update shows its progress in place, and Commands has Update Pulls (rule 104).
+50. Offer an update: Pully opens on the update screen with the changelog, nothing gets past it, Update shows its progress in place, and Commands has Update Pully (rule 104).
 51. Open a pull request that sits on another: its Inbox row shows "2/10" with the layers mark under its number (H16, rule 111), the page says "Stacked on #241" under the title, and a tap there opens the Stack sheet, top layer first down to the base branch, where a tap on another layer opens it (rule 14).
 52. Drag, let go and throw between tabs and files, use the capsule and Back, and back-swipe from both edges: everything goes the way you went and nothing springs back the other way first (rule 105).
 53. With Jev on, open the Sort sheet: Riskiest first and a Group by card (Repository, Kind) are there; picking either asks Jev about every open row and the kinds fill in, while with neither picked nothing is asked; grouped by kind, the headings run Fixes, Features, Refactors, Performance, Tests, Docs, Dependencies, Infra, then Not sorted yet, they fold and pin like repositories, a tap on their name only folds, and every row's meta line starts with its repository. A row Jev has read shows one short risk word under its number (a stacked row turns its stack mark amber when the risk is high), and no row has a kind line (M1, rule 140). Open a pull request and run an analysis: its log starts with "Finding the files that need a careful look", then the line under the branch says the kind, the risk and how many files need a look, and every rated file's second line starts with "Needs a look" in amber, "Worth a look" or "Skim". Opening a pull request alone asks Jev nothing. With Jev off none of it shows (rules 1, 14, 53, 70 and 75).
@@ -2018,9 +2018,9 @@ Run before showing any new screen.
 59. Open a tour with pseudocode, a call tree, a file tree and a long file name under "In the code": pseudocode reads as plain wrapped steps, trees and flows are drawn, and no reason is squeezed (rule 95, L27).
 60. Ask a question and watch it work: its newest lines of thinking and the answer appear as they are written, and the chips include the files it read (rule 99).
 61. Open the Claude Code model sheet: names carry their version and older ones sit under "Older models"; in Settings the Effort row under Model names its level with Recommended on the CLI's default (rules 89 and 142).
-62. Open a sheet, share a pull request link to Pulls, then go back: the sheet slid down, the pull request opened, and Back lands on the Inbox with no sheet; Back again asks before Pulls closes (rules 175 and 176).
+62. Open a sheet, share a pull request link to Pully, then go back: the sheet slid down, the pull request opened, and Back lands on the Inbox with no sheet; Back again asks before Pully closes (rules 175 and 176).
 63. Generate a tour and pull its sheet down: a lip stays at the foot of the Tour, the section strip fills in as sections are written, unwritten cards shimmer, and every finished step in the log opens (rules 183 to 185).
-64. Restart Pulls and open Profile, Stats and the first Inbox row: each shows at once, with no skeleton (rules 178 and 187).
+64. Restart Pully and open Profile, Stats and the first Inbox row: each shows at once, with no skeleton (rules 178 and 187).
 
 The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) the checks from Tavi's answers (28 to 31), the checks from the second walkthrough (32 to 43) the checks from his comments and notes of the same day (44 to 47) the check from his answer on the search pill (48), the checks from his ideas for Home (49 and 51), the check from his message on updates (50) the check from his message on motion (52), the check for Jev (53), the check for huge pull requests (54) the checks from the audit of the second walkthrough (55 to 61) and the checks from the walkthrough of 0.39.0 (62 to 64). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
 

@@ -84,7 +84,7 @@ internal data class GithubStats(
 
 /**
  * The last answer, kept on the phone, so the sheet opens on the numbers at once, after a restart too, and refreshes
- * under them; [warm] asks for them as Pulls starts, so even a first open does not wait ("this took a long time to load
+ * under them; [warm] asks for them as Pully starts, so even a first open does not wait ("this took a long time to load
  * ... it should be loaded immediately": recording 16 Oct 13:06, 02:56 to 03:04; O6).
  */
 internal object StatsMemory {
@@ -97,7 +97,7 @@ internal object StatsMemory {
     var last by mutableStateOf<GithubStats?>(null)
         private set
 
-    /** The numbers kept for the server Pulls talks to now, read from the phone the first time and after a switch. */
+    /** The numbers kept for the server Pully talks to now, read from the phone the first time and after a switch. */
     fun load(context: android.content.Context): GithubStats? {
         val url = ServerStore.load(context).url
         if (server != url) {

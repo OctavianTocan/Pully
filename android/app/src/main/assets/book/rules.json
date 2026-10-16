@@ -91,7 +91,7 @@
       "bans",
       "review"
     ],
-    "text": "Comment and Ask Pulls only. Split visual layout, not three text chips. No counters, no voice."
+    "text": "Comment and Ask Pully only. Split visual layout, not three text chips. No counters, no voice."
   },
   {
     "n": 11,
@@ -312,7 +312,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "An AI note on a diff is a comment card by “Pulls”: white, rounded, soft shadow. Not a loose line above the code."
+    "text": "An AI note on a diff is a comment card by “Pully”: white, rounded, soft shadow. Not a loose line above the code."
   },
   {
     "n": 35,
@@ -321,7 +321,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Profile at the top, “Search or ask Pulls” floating at the bottom, no search icon in the header."
+    "text": "Profile at the top, “Search or ask Pully” floating at the bottom, no search icon in the header."
   },
   {
     "n": 36,
@@ -513,7 +513,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "- It reads \"Search or ask Pulls\" as in the design (rule 35). The app shows \"Search pull requests\" on the Inbox and \"Search tours\" on Tours. With the keyboard up the pill rides on top of it.\n- It takes pasted links and PR numbers as well as text.\n- So the \"Open pull request\" field in the profile sheet goes."
+    "text": "- It reads \"Search or ask Pully\" as in the design (rule 35). The app shows \"Search pull requests\" on the Inbox and \"Search tours\" on Tours. With the keyboard up the pill rides on top of it.\n- It takes pasted links and PR numbers as well as text.\n- So the \"Open pull request\" field in the profile sheet goes."
   },
   {
     "n": 56,
@@ -957,7 +957,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "When the server has a newer build, Pulls shows only the update screen, from the first frame of a start: \"Pulls 0.28.0 is ready\", \"Update to keep using Pulls.\", then every version it brings over the installed one, each with its summary and bullets, and \"Update to 0.28.0\" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pulls, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version and open Pulls. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pulls from Commands with no newer build: it says this is the newest."
+    "text": "When the server has a newer build, Pully shows only the update screen, from the first frame of a start: \"Pully 0.28.0 is ready\", \"Update to keep using Pully.\", then every version it brings over the installed one, each with its summary and bullets, and \"Update to 0.28.0\" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pully, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.\n\nCheck: publish a build with a higher version and open Pully. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pully from Commands with no newer build: it says this is the newest."
   },
   {
     "n": 105,
@@ -1355,7 +1355,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "On the left is a square tinted with the state's colour, carrying the state's mark: open, draft, merged or closed. A draft differs from an open pull request by that tile, never by \"[draft]\" in its title. Beside it is the title, at most two lines, and under the title one line: the number, the stack place or Jev's risk word, the author, then checks, diffstat and age in their columns. A tour row carries its ring in the same tile. This is Claude's own list of pull requests (N2, N4). This replaces \"under its number\" in rule 111: the stack place now follows the number on the meta line.\n\nCheck: a draft and an open row differ by the tile alone, and no row has a second line under its title except labels on a repository page."
+    "text": "On the left is a square tinted with the state's colour, carrying the state's mark: open, draft, merged or closed. A draft differs from an open pull request by that tile, never by \"[draft]\" in its title. Beside it is the title, wrapped whole as rule 2 says, and under the title one line: the number, the stack place or Jev's risk word, the author, then checks, diffstat and age in their columns. A tour row carries its ring in the same tile. This is Claude's own list of pull requests (N2, N4). This replaces \"under its number\" in rule 111: the stack place now follows the number on the meta line.\n\nCheck: a draft and an open row differ by the tile alone, and no row has a second line under its title except labels on a repository page."
   },
   {
     "n": 149,
@@ -1446,7 +1446,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A code link opens in Pulls, never on GitHub: a file in the diff opens at its line, near the top and scrolled to its left edge, and a file outside the diff opens on a sheet, read at the head commit and scrolled to the line (N20, N21).\n\nCheck: tap an \"In the code\" row for a file outside the diff: a sheet opens at the line and no browser opens."
+    "text": "A code link opens in Pully, never on GitHub: a file in the diff opens at its line, near the top and scrolled to its left edge, and a file outside the diff opens on a sheet, read at the head commit and scrolled to the line (N20, N21).\n\nCheck: tap an \"In the code\" row for a file outside the diff: a sheet opens at the line and no browser opens."
   },
   {
     "n": 159,
@@ -1599,16 +1599,16 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A pull request link shared to Pulls, or tapped in another app, first sends any open sheet down the way a sheet closes, then opens the pull request on top of the Inbox. Settings is closed too, so coming back from the pull request finds the Inbox, not a sheet left open (O1: \"instead of going down nicely\", O4: \"I don't think that's good\").\n\nCheck: open Profile, share a pull request link to Pulls: Profile slides down, then the pull request opens. Open Settings, tap a link in WhatsApp, go back: the Inbox shows with no sheet."
+    "text": "A pull request link shared to Pully, or tapped in another app, first sends any open sheet down the way a sheet closes, then opens the pull request on top of the Inbox. Settings is closed too, so coming back from the pull request finds the Inbox, not a sheet left open (O1: \"instead of going down nicely\", O4: \"I don't think that's good\").\n\nCheck: open Profile, share a pull request link to Pully: Profile slides down, then the pull request opens. Open Settings, tap a link in WhatsApp, go back: the Inbox shows with no sheet."
   },
   {
     "n": 176,
-    "title": "Back on the Inbox asks before Pulls closes.",
+    "title": "Back on the Inbox asks before Pully closes.",
     "source": "walkthrough",
     "checkedBy": [
       "review"
     ],
-    "text": "Back on the Inbox, the page Pulls closes from, opens a small sheet, \"Close Pulls?\", with Close Pulls and Stay; it never closes the app on the first press (O5).\n\nCheck: press Back on the Inbox: the sheet asks; Stay keeps Pulls open, Close Pulls closes it."
+    "text": "Back on the Inbox, the page Pully closes from, opens a small sheet, \"Close Pully?\", with Close Pully and Stay; it never closes the app on the first press (O5).\n\nCheck: press Back on the Inbox: the sheet asks; Stay keeps Pully open, Close Pully closes it."
   },
   {
     "n": 177,
@@ -1617,7 +1617,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Where a choice belongs to Android and Pulls cannot make it (which app opens github.com links), the row says On or Off from Android's own answer and opens a page that lists each part of that answer, says in one sentence what to turn on, has one button to Android's page, and explains what Android does not allow, such as a link tapped inside a browser staying there. Pulls never shows such a setting as a switch it cannot keep (O2, O3).\n\nCheck: in Settings, GitHub links says Off while any address is off; its page lists Open supported links and each address, and coming back from Android's page shows the new answer."
+    "text": "Where a choice belongs to Android and Pully cannot make it (which app opens github.com links), the row says On or Off from Android's own answer and opens a page that lists each part of that answer, says in one sentence what to turn on, has one button to Android's page, and explains what Android does not allow, such as a link tapped inside a browser staying there. Pully never shows such a setting as a switch it cannot keep (O2, O3).\n\nCheck: in Settings, GitHub links says Off while any address is off; its page lists Open supported links and each address, and coming back from Android's page shows the new answer."
   },
   {
     "n": 178,
@@ -1626,7 +1626,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A page of numbers (Profile's year on GitHub, Stats) shows the last answer the moment it opens, kept on the phone between launches, and refreshes underneath; Pulls asks for both a moment after it starts, so even a first open has today's numbers. A first open on a new phone holds the cards' places until they come (O6, O10; rule 145).\n\nCheck: open Profile and Stats after a restart: both show numbers at once."
+    "text": "A page of numbers (Profile's year on GitHub, Stats) shows the last answer the moment it opens, kept on the phone between launches, and refreshes underneath; Pully asks for both a moment after it starts, so even a first open has today's numbers. A first open on a new phone holds the cards' places until they come (O6, O10; rule 145).\n\nCheck: open Profile and Stats after a restart: both show numbers at once."
   },
   {
     "n": 179,
@@ -1698,7 +1698,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pulls does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). A tour's hold menu has the same card (O19: \"too bland\").\n\nCheck: hold an Inbox row: the card and two groups; hold a Tours row: the same card."
+    "text": "Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pully does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). A tour's hold menu has the same card (O19: \"too bland\").\n\nCheck: hold an Inbox row: the card and two groups; hold a Tours row: the same card."
   },
   {
     "n": 187,

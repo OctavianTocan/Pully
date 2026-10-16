@@ -58,8 +58,8 @@ server", Guardrails).
 
 @cc [owner:OctavianTocan,label:product] settings-github-links-switch
 On Android 12 and later the main Settings page has a GitHub links switch, Open GitHub
-links in Pulls, that shows whether Android sends tapped github.com links to Pulls. It
-MUST read Android's own answer each time Pulls comes back, and tapping it opens Pulls'
+links in Pully, that shows whether Android sends tapped github.com links to Pully. It
+MUST read Android's own answer each time Pully comes back, and tapping it opens Pully's
 Open by default page, since only the reader can allow it (Tavi, 16 Oct; Android 12 link
 handling).
 
@@ -71,7 +71,7 @@ the default. Tavi asked for this in the recording of 16 Oct 12:10, 06:29 to 06:4
 for the app as well as for code; N10), moving Code font out of the Code section.
 
 @cc [owner:OctavianTocan,label:product] settings-github-links-says-where-it-stands
-GitHub links is a row reading On or Off from Android's own answer, never a switch Pulls
+GitHub links is a row reading On or Off from Android's own answer, never a switch Pully
 cannot keep. Its page lists Open supported links and each address, says what to turn on,
 opens Android's page, points to the GitHub app's page when that app is installed, and says
 a link tapped inside a browser stays there (recording 16 Oct 13:06, 01:37 to 02:36; O2, O3, rule 177).

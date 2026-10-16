@@ -1,9 +1,9 @@
 package com.octaviantocan.pulls.sound
 
 /*
- * Pulls' sounds are Cuelume's (https://cuelume.dev, MIT, Daniel Belyi), ported to Kotlin from
+ * Pully's sounds are Cuelume's (https://cuelume.dev, MIT, Daniel Belyi), ported to Kotlin from
  * version 0.2.8 and synthesised live, with no audio files: fourteen cues, one per interface job,
- * in four materials. The Default tap is Pulls' own: a dry click where Cuelume rings glass. This is the vocabulary a caller speaks. Pick a cue by its job, never by how
+ * in four materials. The Default tap is Pully's own: a dry click where Cuelume rings glass. This is the vocabulary a caller speaks. Pick a cue by its job, never by how
  * it sounds, exactly as octa-ui does.
  */
 
@@ -12,7 +12,7 @@ enum class Cue {
     /** Buttons, links, direct activation. */
     Tap,
 
-    /** Text entry. Pulls does not play it: the phone's keyboard already clicks. */
+    /** Text entry. Pully does not play it: the phone's keyboard already clicks. */
     Type,
 
     /** Dropdowns, menus, tabs, lists. */
@@ -21,7 +21,7 @@ enum class Cue {
     /** Switching between two states: switch, checkbox, star. */
     Toggle,
 
-    /** Air drawing up. octa-ui rejected the air in `open`, so Pulls never plays it outside the sound board. */
+    /** Air drawing up. octa-ui rejected the air in `open`, so Pully never plays it outside the sound board. */
     Open,
 
     /** Air falling shut. Rejected like [Open]. */

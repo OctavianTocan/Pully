@@ -1,4 +1,4 @@
-# What's new in Pulls
+# What's new in Pully
 
 <!--
 One section per version, newest first, headed with the versionName from app/build.gradle.kts.
@@ -30,7 +30,7 @@ Faster pull requests, a tour you can watch being written, AI costs.
 - Settings has a GitHub links page that shows what Android has turned on, what to turn on, and why a link tapped in Chrome stays in Chrome.
 ![The GitHub links page with each address On or Off and the button to Android's page](changelog/0.42.0/github-links.png)
 - Touch Profile's graphs: a tap or a drag reads out a day or a month.
-- Back on the Inbox asks before Pulls closes.
+- Back on the Inbox asks before Pully closes.
 
 ### Better
 
@@ -41,6 +41,16 @@ Faster pull requests, a tour you can watch being written, AI costs.
 - Pinch zoom is smooth, and a swipe between files never stops halfway.
 - Holding a pull request shows a card for it and its actions in two groups.
 - The "No tour yet" sheet drops its explanation line and sits at the right gap.
+## 0.41.0
+
+The app is called Pully now.
+
+### Changed
+
+- Pully is the name under the icon on your home screen, on the update screen and in update notifications.
+- Search, Ask, Commands, Settings and the AI's notes on a file say Pully, and so does the web app's header and tab title.
+![The web app's header with the Pully name at its top left](changelog/0.41.0/web-header.png)
+- Nothing to reinstall: this update replaces the app you have, with your sign-in and settings kept.
 
 ## 0.40.0
 

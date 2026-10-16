@@ -84,7 +84,7 @@ fun PullsApp(initialTarget: String?) {
         Updates.resume(context)
         scope.launch { Updates.check(context) }
     }
-    // After an update, what changed opens once, over whatever page Pulls opened on.
+    // After an update, what changed opens once, over whatever page Pully opened on.
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
     LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
     // Commands' Change theme opens the theme list as a sheet of its own over whatever page is open (K18).
@@ -106,9 +106,9 @@ fun PullsApp(initialTarget: String?) {
     // Back slides the page backward, and a back swipe moves the page with the finger before it goes (rule 105).
     val pageMotion = remember { PageMotion() }
     PageBack(pageMotion, enabled = stack.size > 1) { nav.back() }
-    // Back on the Inbox asks before Pulls closes, rather than leaving at once (O5).
+    // Back on the Inbox asks before Pully closes, rather than leaving at once (O5).
     var leaving by remember { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(enabled = stack.size == 1) { leaving = true } // motion-ok: on the Inbox there is no page behind to move; Back opens the "Close Pulls?" sheet
+    androidx.activity.compose.BackHandler(enabled = stack.size == 1) { leaving = true } // motion-ok: on the Inbox there is no page behind to move; Back opens the "Close Pully?" sheet
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     // Every code view reads `PullsType.mono`, which follows this.
     if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont) com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont
@@ -119,9 +119,9 @@ fun PullsApp(initialTarget: String?) {
     // The inbox's tab, chip and search live above the screens, so they are still there after a review.
     val homeUi = remember { HomeUi() }
     val toaster = remember { Toaster() }
-    // A link Pulls was opened with that it cannot open says so, rather than leaving the reader on Home wondering.
+    // A link Pully was opened with that it cannot open says so, rather than leaving the reader on Home wondering.
     LaunchedEffect(Unit) { if (initialTarget != null && linkScreen(initialTarget) == null) toaster.show(CANT_OPEN, cue = Cue.Error) }
-    // A link handed over while Pulls is open opens over the page on screen, unless that page is already it.
+    // A link handed over while Pully is open opens over the page on screen, unless that page is already it.
     val arrival = IncomingLinks.pending
     LaunchedEffect(arrival) {
         if (arrival == null) return@LaunchedEffect
@@ -149,7 +149,7 @@ fun PullsApp(initialTarget: String?) {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
             Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette opencode appearance") { themePicker = true },
-            Command("update", "Update Pulls", group, keywords = "upgrade new version install check latest") {
+            Command("update", "Update Pully", group, keywords = "upgrade new version install check latest") {
                 scope.launch { updateFromCommand(context, toaster) }
             },
             Command("whatsNew", "What's new", group, keywords = "changelog changes version release notes") { whatsNew = WhatsNew.all(context) },
@@ -158,7 +158,7 @@ fun PullsApp(initialTarget: String?) {
     // One hook for screen time: the page on top by a fixed name (`screen.view`, `screen.time`). Settings names its own pages.
     val top = stack.last()
     LaunchedEffect(top.analyticsName) { Analytics.showScreen(top.analyticsName) }
-    // Profile's GitHub numbers and the Stats page are asked for once Pulls has settled, so they open on today's
+    // Profile's GitHub numbers and the Stats page are asked for once Pully has settled, so they open on today's
     // numbers instead of waiting (O6, O10).
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1_500)
@@ -190,27 +190,27 @@ fun PullsApp(initialTarget: String?) {
             CommandPalette()
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
             ToastHost(toaster)
-            // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pulls.
+            // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pully.
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
         }
     }
 }
 
 /**
- * "Close Pulls?" when Back is pressed on the Inbox: one button closes the app, the other keeps it, and Back or the ✕
+ * "Close Pully?" when Back is pressed on the Inbox: one button closes the app, the other keeps it, and Back or the ✕
  * keeps it too ("I would maybe add a little menu that says, are you sure you want to close the app?": recording
  * 16 Oct 13:06, 02:47 to 02:55; O5).
  */
 @Composable
 private fun LeaveSheet(onStay: () -> Unit, onLeave: () -> Unit) {
-    com.octaviantocan.pulls.ui.design.PullsSheet(onStay, "Close Pulls?", expandable = false) {
+    com.octaviantocan.pulls.ui.design.PullsSheet(onStay, "Close Pully?", expandable = false) {
         androidx.compose.foundation.layout.Spacer(Modifier.height(com.octaviantocan.pulls.ui.design.SheetTopGap))
-        com.octaviantocan.pulls.ui.design.CtaButton("Close Pulls", onLeave, Modifier.fillMaxWidth())
+        com.octaviantocan.pulls.ui.design.CtaButton("Close Pully", onLeave, Modifier.fillMaxWidth())
         com.octaviantocan.pulls.ui.design.PillButton("Stay", onStay, Modifier.fillMaxWidth().padding(top = 10.dp))
     }
 }
 
-private const val CANT_OPEN = "Pulls can't open that link"
+private const val CANT_OPEN = "Pully can't open that link"
 
 /**
  * The page a link from another app opens: a pull request, commit or compare opens its review, a repository its page.
@@ -240,7 +240,7 @@ private suspend fun updateFromCommand(context: Context, toaster: Toaster) {
     if (Updates.available != null) return Updates.start(context)
     when (Updates.check(context, force = true)) {
         UpdateCheck.Found -> Updates.start(context)
-        UpdateCheck.UpToDate -> toaster.show("Pulls ${AppVersion.name(context)} is the newest version")
+        UpdateCheck.UpToDate -> toaster.show("Pully ${AppVersion.name(context)} is the newest version")
         UpdateCheck.Failed -> toaster.show("Couldn't reach the server to check for updates", cue = Cue.Error)
         UpdateCheck.Skipped -> {}
     }

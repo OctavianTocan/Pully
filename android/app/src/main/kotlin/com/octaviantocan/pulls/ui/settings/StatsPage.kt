@@ -59,7 +59,7 @@ private val RANGES = listOf(7, 30, 90)
 
 /**
  * The last answer for each range, kept on the phone, so the page opens on it at once, after a restart too, and refreshes
- * underneath (rule 128); [warm] fetches the first range as Pulls starts, so a first open does not wait either ("still
+ * underneath (rule 128); [warm] fetches the first range as Pully starts, so a first open does not wait either ("still
  * long loading times ... that should be snappy": recording 16 Oct 13:06, 04:49 to 04:55; O10).
  */
 internal object StatsKeep {

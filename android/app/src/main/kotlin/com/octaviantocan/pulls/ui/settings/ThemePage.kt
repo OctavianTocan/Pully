@@ -55,7 +55,7 @@ internal fun CoroutineScope.applyColorTheme(settings: AppSettings, theme: ColorT
 }
 
 /**
- * Every colour theme, Pulls first, each with dots of its screen, accent, success and error colours in the look the
+ * Every colour theme, Pully first, each with dots of its screen, accent, success and error colours in the look the
  * Light, Dark and System choice asks for, and a tick on the one in use, under "Find a theme". A tap applies it at once
  * and stays here, so themes can be tried one after the other (K18, L4).
  */
