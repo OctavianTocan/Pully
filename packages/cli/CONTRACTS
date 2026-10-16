@@ -115,3 +115,11 @@ shown as "(High)") MUST offer that effort alone, as its default, and a run on it
 send a reasoning effort beside the id ("just assume that that's the reasoning effort, and
 when I select them, the only reasoning effort they have is that one", recording 15 Oct
 2026 15:37, L24).
+
+@cc [owner:OctavianTocan,label:architecture] server-reaches-the-machine-through-its-host
+The phone API, the server session, the review routes and the PR store reach storage, the
+checkout and served files only through their `ServerHost`, so the same code runs on a
+computer and on a hosted server (message 16 Oct 08:39, "where we want to host the server
+... to make sure that it's actually faster"; `plans/12-hosted-server.md`). `host.ts` MUST
+NOT import a Node builtin. A host without a checkout answers `NO_CHECKOUT` on every local
+route and MUST NOT fall back to the server's working directory.

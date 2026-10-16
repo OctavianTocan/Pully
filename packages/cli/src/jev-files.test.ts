@@ -1,4 +1,5 @@
 import type { DiffsPayload, FileChange } from '@pulls.review/core/types'
+import type { ServerHost } from './host'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -195,9 +196,9 @@ describe('the jev-files route', () => {
     repo = undefined
   })
 
-  async function call(cwd: string, args: unknown) {
+  async function call(host: ServerHost, args: unknown) {
     const { handleNativeRequest } = await import('./native-api')
-    const res = await handleNativeRequest({ url: new URL('http://localhost/api/rpc'), method: 'POST', json: async () => ({ name: 'jev-files', args }) }, cwd)
+    const res = await handleNativeRequest({ url: new URL('http://localhost/api/rpc'), method: 'POST', json: async () => ({ name: 'jev-files', args }) }, host)
     return res!.json() as Promise<{ result?: unknown, error?: string }>
   }
 
@@ -205,7 +206,7 @@ describe('the jev-files route', () => {
     vi.resetModules()
     vi.stubEnv('PULLS_REVIEW_TYPESAFE_API_KEY', '')
     vi.stubEnv('TYPESAFE_API_KEY', '')
-    expect(await call('/nowhere', {})).toEqual({ result: { enabled: false, files: {}, pending: 0 } })
+    expect(await call({ storage: memoryDriver() }, {})).toEqual({ result: { enabled: false, files: {}, pending: 0 } })
   })
 
   it('answers what Jev said about a diff the phone opened, and asks Jev nothing itself', async () => {
@@ -217,21 +218,22 @@ describe('the jev-files route', () => {
     vi.stubGlobal('fetch', fetch)
     const { serverSession } = await import('./server-session')
     const { sharedFileAttention } = await import('./jev-files')
-    const session = await serverSession(repo)
+    const host = await (await import('./node-host')).checkoutHost(repo)
+    const session = await serverSession(host)
     const opened = diff([file('src/app.ts'), file('pnpm-lock.yaml')])
     await session.cache.diffs.putDiff('github:acme/app#1', opened, 'head')
 
-    expect(await call(repo, { key: 'github:acme/app#1' })).toEqual({ result: { enabled: true, files: {}, pending: 0 } })
+    expect(await call(host, { key: 'github:acme/app#1' })).toEqual({ result: { enabled: true, files: {}, pending: 0 } })
     expect(paths).toHaveLength(0)
     // A review rates the files; the route then reports them.
     await sharedFileAttention(session.storage).rate(opened)
-    expect(await call(repo, { key: 'github:acme/app#1' })).toEqual({
+    expect(await call(host, { key: 'github:acme/app#1' })).toEqual({
       result: {
         enabled: true,
         files: { 'src/app.ts': { priority: 'p1', confidence: 0.8 }, 'pnpm-lock.yaml': { priority: 'p2', confidence: 0.95 } },
         pending: 0,
       },
     })
-    expect(await call(repo, { key: 'github:acme/app#2' })).toEqual({ error: 'Open the diff first.' })
+    expect(await call(host, { key: 'github:acme/app#2' })).toEqual({ error: 'Open the diff first.' })
   })
 })

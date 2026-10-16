@@ -1,11 +1,11 @@
 import type { CacheRepositories } from '@pulls.review/core/cache'
 import type { Storage } from 'unstorage'
+import type { ServerHost } from './host'
 import process from 'node:process'
 import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { createStorage } from 'unstorage'
 import { setMyPullsStore } from './my-pulls'
 import { localRpcFunctions } from './rpc'
-import { createRepoCacheDriver } from './storage'
 
 export interface ServerSession {
   functions: ReturnType<typeof localRpcFunctions>
@@ -14,27 +14,30 @@ export interface ServerSession {
   storage: Storage
 }
 
-let session: Promise<ServerSession> | undefined
+const sessions = new WeakMap<ServerHost, Promise<ServerSession>>()
 
 /**
- * One session for this process. The browser socket and the phone API share the task
- * manager and the cache, so a run started on the phone is the run the page follows.
- * @param cwd - The repository the server was started in.
+ * One session per host. The browser socket and the phone API share the task manager and the
+ * cache, so a run started on the phone is the run the page follows.
+ * @param host - Where the server runs (`nodeHost` in the CLI).
  */
-export function serverSession(cwd: string): Promise<ServerSession> {
-  return session ??= createRepoCacheDriver(cwd).then((driver) => {
-    const storage = createStorage({ driver })
+export function serverSession(host: ServerHost): Promise<ServerSession> {
+  let session = sessions.get(host)
+  if (!session) {
+    const storage = createStorage({ driver: host.storage })
     const cache = createCacheRepositories(storage, SERVER_CACHE_BUDGET)
     setMyPullsStore({ storage, diffs: cache.diffs })
-    return {
-      functions: localRpcFunctions({ cwd, driver, env: process.env }),
+    session = Promise.resolve({
+      functions: localRpcFunctions({ cwd: host.cwd, driver: host.storage, env: process.env }),
       cache,
       storage,
-    }
-  })
+    })
+    sessions.set(host, session)
+  }
+  return session
 }
 
 /** The RPC functions, for the browser socket. */
-export async function serverFunctions(cwd: string) {
-  return (await serverSession(cwd)).functions
+export async function serverFunctions(host: ServerHost) {
+  return (await serverSession(host)).functions
 }

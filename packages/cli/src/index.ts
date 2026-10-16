@@ -1,3 +1,4 @@
+import type { ServerHost } from './host'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -10,6 +11,7 @@ import { agentRuntime } from './ai/runtime'
 import { startAnalytics } from './analytics'
 import devframe from './devframe'
 import { handleNativeRequest } from './native-api'
+import { nodeHost } from './node-host'
 import { pageFor } from './page'
 import { startPrStore } from './pr-store'
 import { isPreanalyzeEngine, PREANALYZE_ENGINES, startPreanalyze } from './preanalyze'
@@ -84,7 +86,7 @@ To review a GitHub pull request in CI, use @pulls.review/actions.
  * (`main...feat`, `v1.2`) and repositories (`/antfu/pulls.review`). Page requests for
  * such paths get the SPA's `index.html` here, unless a built file really lives there.
  */
-function createAppWithRefRoutes(): H3 {
+function createAppWithRefRoutes(host: ServerHost): H3 {
   const app = new H3()
   const client = fileURLToPath(new URL('./client/', import.meta.url))
   const index = join(client, 'index.html')
@@ -94,7 +96,7 @@ function createAppWithRefRoutes(): H3 {
       method: event.req.method,
       json: () => event.req.json(),
       body: event.req.body,
-    }, process.cwd())
+    }, host)
     if (native)
       return native
     const path = event.url.pathname
@@ -140,8 +142,9 @@ async function main() {
   if (flags.preanalyze && !isPreanalyzeEngine(preanalyzeEngine))
     throw new Error(`--preanalyze-engine must be one of: ${PREANALYZE_ENGINES.join(', ')}`)
   const page = encodeURI(await pageFor(process.cwd(), positionals[0], !!flags.worktree))
+  const host = await nodeHost(process.cwd())
   await createDevServer(devframe, {
-    app: createAppWithRefRoutes(),
+    app: createAppWithRefRoutes(host),
     port: flags.port ? Number(flags.port) : undefined,
     host: flags.host,
     allowedOrigins: flags['allow-origin'],
@@ -153,7 +156,7 @@ async function main() {
   })
   startAnalytics()
   if (!flags['no-warm'])
-    await startPrStore({ cwd: process.cwd(), env: process.env })
+    await startPrStore({ host, env: process.env })
   if (flags.preanalyze && isPreanalyzeEngine(preanalyzeEngine))
     await startPreanalyze({ cwd: process.cwd(), env: process.env, engine: preanalyzeEngine, model: flags['preanalyze-model'] })
 }

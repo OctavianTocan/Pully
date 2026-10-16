@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { LOCAL_DEVFRAME_ID } from '@pulls.review/core/local-rpc'
 import { defineDevframe } from 'devframe'
 import pkg from '../package.json' with { type: 'json' }
+import { nodeHost } from './node-host'
 import { serverFunctions } from './server-session'
 
 /**
@@ -25,7 +26,7 @@ export default defineDevframe({
   // which page opens.
   async setup(ctx) {
     const scope = ctx.scope(LOCAL_DEVFRAME_ID)
-    const functions = await serverFunctions(ctx.cwd)
+    const functions = await serverFunctions(await nodeHost(ctx.cwd))
     for (const fn of functions)
       scope.rpc.register(fn)
   },

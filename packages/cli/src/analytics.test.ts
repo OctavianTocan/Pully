@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import memoryDriver from 'unstorage/drivers/memory'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { analyticsRange, countGithubCall, flushAnalytics, flushGithubCalls, ingestAnalytics, pruneAnalytics, summarizeAnalytics, track } from './analytics'
 import { EVENTS_BODY_LIMIT, handleNativeRequest } from './native-api'
@@ -110,7 +111,7 @@ describe('analytics day files', () => {
 
 describe('pOST /api/events', () => {
   it('answers 204', async () => {
-    const response = await handleNativeRequest({ url: new URL('http://localhost/api/events'), method: 'POST', json: async () => ({ events: [] }) }, dir)
+    const response = await handleNativeRequest({ url: new URL('http://localhost/api/events'), method: 'POST', json: async () => ({ events: [] }) }, { storage: memoryDriver() })
     expect(response?.status).toBe(204)
   })
 
@@ -123,7 +124,7 @@ describe('pOST /api/events', () => {
         controller.close()
       },
     })
-    const response = await handleNativeRequest({ url: new URL('http://localhost/api/events'), method: 'POST', json: async () => ({}), body }, dir)
+    const response = await handleNativeRequest({ url: new URL('http://localhost/api/events'), method: 'POST', json: async () => ({}), body }, { storage: memoryDriver() })
     expect(response?.status).toBe(413)
   })
 })

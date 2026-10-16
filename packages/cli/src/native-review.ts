@@ -1,6 +1,7 @@
 import type { LlmSession } from '@pulls.review/core/cache'
 import type { GithubClient, MergeMethod, PullRequestStateChange } from '@pulls.review/core/github'
 import type { DiffSource, ReviewVerdict } from '@pulls.review/core/types'
+import type { ServerHost } from './host'
 import type { PatchReader } from './stored-diff'
 import process from 'node:process'
 import { archiveChat, chatHistory, restoreChat } from '@pulls.review/core/cache'
@@ -21,6 +22,7 @@ import {
 import { createLocalSource } from '@pulls.review/core/local'
 import { staticCredentials } from '@pulls.review/core/types'
 import { resolveGithubToken } from './credentials'
+import { checkoutOf } from './host'
 import { sharedJev } from './jev'
 import { JEV_FILES_OFF, sharedFileAttention } from './jev-files'
 import { pullOfDiff } from './jev-review'
@@ -39,7 +41,7 @@ import { createPatchReader, MAX_PATCH_PATHS } from './stored-diff'
  * said about the diff.
  */
 type Args = Record<string, unknown> | undefined
-type Handler = (cwd: string, args: Args) => Promise<unknown>
+type Handler = (host: ServerHost, args: Args) => Promise<unknown>
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value : ''
@@ -96,23 +98,28 @@ async function prReviews(args: Args) {
 }
 
 /** The source a cached diff came from, for loading whole files at its base and head. */
-async function sourceOfKey(cwd: string, key: string): Promise<{ source: DiffSource, entry: NonNullable<Awaited<ReturnType<Awaited<ReturnType<typeof serverSession>>['cache']['diffs']['get']>>> }> {
-  const entry = await (await serverSession(cwd)).cache.diffs.get(key)
+async function sourceOfKey(host: ServerHost, key: string): Promise<{ source: DiffSource, entry: NonNullable<Awaited<ReturnType<Awaited<ReturnType<typeof serverSession>>['cache']['diffs']['get']>>> }> {
+  const entry = await (await serverSession(host)).cache.diffs.get(key)
   if (!entry)
     throw new Error('Open the diff first.')
   const ref = entry.diff.ref
   if (ref.kind === 'local')
-    return { source: createLocalSource({ cwd, target: ref.target }), entry }
+    return { source: createLocalSource({ cwd: checkoutOf(host), target: ref.target }), entry }
   if (ref.kind === 'paste')
     throw new Error('A pasted diff has no full files.')
   return { source: createGithubSource(ref, staticCredentials(await resolveGithubToken(process.env))), entry }
 }
 
-let patches: Promise<PatchReader> | undefined
+const patches = new WeakMap<ServerHost, Promise<PatchReader>>()
 
 /** The patch reader over the server session's cache; it remembers the diffs `github-pr` just served. */
-export function sessionPatches(cwd: string): Promise<PatchReader> {
-  return patches ??= serverSession(cwd).then(session => createPatchReader(session.cache.diffs))
+export function sessionPatches(host: ServerHost): Promise<PatchReader> {
+  let reader = patches.get(host)
+  if (!reader) {
+    reader = serverSession(host).then(session => createPatchReader(session.cache.diffs))
+    patches.set(host, reader)
+  }
+  return reader
 }
 
 const MERGE_METHODS: MergeMethod[] = ['merge', 'squash', 'rebase']
@@ -129,8 +136,8 @@ function mergeMethodOf(args: Args, what: string): MergeMethod {
 
 export const NATIVE_REVIEW: Record<string, Handler> = {
   /** Reviewed marks for a diff's files, by blob sha, and the paths that changed since they were marked. */
-  'reviewed-get': async function (cwd, args) {
-    const session = await serverSession(cwd)
+  'reviewed-get': async function (host, args) {
+    const session = await serverSession(host)
     const key = text(args?.key)
     const entry = key ? await session.cache.diffs.get(key) : undefined
     const shas = Array.isArray(args?.shas) ? args.shas.filter((sha): sha is string => typeof sha === 'string') : entry?.diff.files.map(file => file.sha) ?? []
@@ -141,8 +148,8 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Marks or unmarks files; either verdict clears their "changed since reviewed" flag, as the web store does. */
-  'reviewed-set': async function (cwd, args) {
-    const session = await serverSession(cwd)
+  'reviewed-set': async function (host, args) {
+    const session = await serverSession(host)
     const shas = Array.isArray(args?.shas) ? args.shas.filter((sha): sha is string => typeof sha === 'string') : []
     if (shas.length === 0)
       throw new Error('Name at least one file sha.')
@@ -160,17 +167,17 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Both sides of one file in full, cached like the web `fileContent.load`. */
-  'file-content': async function (cwd, args) {
+  'file-content': async function (host, args) {
     const key = text(args?.key)
     const path = text(args?.path)
     if (!key || !path)
       throw new Error('Loading a full file needs the diff key and a path.')
-    const { source, entry } = await sourceOfKey(cwd, key)
+    const { source, entry } = await sourceOfKey(host, key)
     const file = entry.diff.files.find(candidate => candidate.path === path)
     const { base, head } = entry.diff
     if (!file || !base || !head || !source.loadFile)
       throw new Error('This diff has no full file for that path.')
-    const cache = (await serverSession(cwd)).cache.fileContents
+    const cache = (await serverSession(host)).cache.fileContents
     const side = async (sidePath: string, sha: string) => {
       const cached = await cache.get(key, sha, sidePath)
       if (cached !== undefined)
@@ -192,9 +199,9 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
    * merge, stored for next time. `cached: true` answers the stored one at once with when it was
    * fetched (`storedAt`), or `null` when none is stored, without asking GitHub.
    */
-  'pr-overview': async function (cwd, args) {
+  'pr-overview': async function (host, args) {
     const pull = pullOf(args)
-    const { storage } = await serverSession(cwd)
+    const { storage } = await serverSession(host)
     if (args?.cached === true) {
       const stored = await readStoredOverview(storage, pull)
       return stored ? { ...stored.value, storedAt: stored.at } : null
@@ -205,27 +212,27 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Hunks of a stored diff's files, for the ones a lite `github-pr` answer left out (`patchOmitted`). */
-  'diff-patches': async function (cwd, args) {
+  'diff-patches': async function (host, args) {
     const key = text(args?.key)
     const paths = Array.isArray(args?.paths) ? args.paths.filter((path): path is string => typeof path === 'string') : undefined
     if (!key || !paths)
       throw new Error('Loading patches needs the diff key and the paths.')
     if (paths.length > MAX_PATCH_PATHS)
       throw new Error(`Ask for at most ${MAX_PATCH_PATHS} paths at a time.`)
-    return { files: await (await sessionPatches(cwd)).read(key, paths) }
+    return { files: await (await sessionPatches(host)).read(key, paths) }
   },
 
   /**
    * The stack the PR is a layer of, bottom first: GitHub's own, or inferred from branch names when GitHub has
    * none (or this host has no stack fields). `{ stack: null }` when the PR is in no stack.
    */
-  'pr-stack': async function (_cwd, args) {
+  'pr-stack': async function (_host, args) {
     const { owner, repo, number } = pullOf(args)
     return { stack: await fetchPullRequestStack(await client(), owner, repo, number) }
   },
 
   /** Merge now or when checks pass, close, reopen, ready, draft, edit the title or description, or update the branch. */
-  'pr-action': async function (_cwd, args) {
+  'pr-action': async function (_host, args) {
     const id = text(args?.id)
     const action = text(args?.action)
     if (!id)
@@ -258,13 +265,13 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Every review thread (outdated ones included, flagged), review summaries, and the viewer's pending review. */
-  'review-data': async function (_cwd, args) {
+  'review-data': async function (_host, args) {
     const data = await (await prReviews(args)).fetch()
     const viewer = await createGithubSource({ kind: 'github-pr', ...pullOf(args) }, staticCredentials(await token())).viewer?.().catch(() => undefined)
     return { ...data, viewer: viewer?.login, canWrite: viewer?.canWrite ?? false }
   },
 
-  'review-submit': async function (_cwd, args) {
+  'review-submit': async function (_host, args) {
     const verdict = text(args?.verdict) as ReviewVerdict
     if (!VERDICTS.includes(verdict))
       throw new Error('A review needs a verdict.')
@@ -274,7 +281,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return true
   },
 
-  'review-discard': async function (_cwd, args) {
+  'review-discard': async function (_host, args) {
     const reviews = await prReviews(args)
     const pending = (await reviews.fetch()).pendingReview
     if (pending)
@@ -282,7 +289,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return true
   },
 
-  'review-edit': async function (_cwd, args) {
+  'review-edit': async function (_host, args) {
     const id = Number(args?.commentId)
     const body = text(args?.body).trim()
     if (!Number.isFinite(id) || !body)
@@ -291,7 +298,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     return true
   },
 
-  'review-delete': async function (_cwd, args) {
+  'review-delete': async function (_host, args) {
     const id = Number(args?.commentId)
     if (!Number.isFinite(id))
       throw new Error('A delete needs the comment.')
@@ -300,12 +307,12 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Posts the chosen findings of the saved AI review as one COMMENT review, like `critique.post`. */
-  'critique-post': async function (cwd, args) {
+  'critique-post': async function (host, args) {
     const key = text(args?.key)
     const ids = new Set(Array.isArray(args?.ids) ? args.ids.filter((id): id is string => typeof id === 'string') : [])
     if (!key || ids.size === 0)
       throw new Error('Posting needs the diff and at least one finding.')
-    const session = await serverSession(cwd)
+    const session = await serverSession(host)
     const entry = await session.cache.diffs.get(key)
     const { serializeRef } = await import('@pulls.review/core/types')
     const result = entry && await session.cache.critiques.latest(serializeRef(entry.diff.ref), entry.diff.head?.sha)
@@ -331,9 +338,9 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Posts or updates the viewer's shared-analysis comment with the saved AI analysis. */
-  'share-analysis': async function (cwd, args) {
+  'share-analysis': async function (host, args) {
     const key = text(args?.key)
-    const session = await serverSession(cwd)
+    const session = await serverSession(host)
     const entry = key ? await session.cache.diffs.get(key) : undefined
     const result = entry?.analyzedBy?.llm
     const ref = entry?.diff.ref
@@ -353,9 +360,9 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
    * older head, and the language. With no AI result saved yet, a `github-actions[bot]` analysis
    * loads at once, as on the web.
    */
-  'shared-list': async function (cwd, args) {
+  'shared-list': async function (host, args) {
     const key = text(args?.key)
-    const session = await serverSession(cwd)
+    const session = await serverSession(host)
     const entry = key ? await session.cache.diffs.get(key) : undefined
     const ref = entry?.diff.ref
     if (!entry || !ref || ref.kind !== 'github-pr')
@@ -385,10 +392,10 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Installs one person's shared analysis as this diff's AI result (`shared.load`). */
-  'shared-load': async function (cwd, args) {
+  'shared-load': async function (host, args) {
     const key = text(args?.key)
     const login = text(args?.login)
-    const session = await serverSession(cwd)
+    const session = await serverSession(host)
     const entry = key ? await session.cache.diffs.get(key) : undefined
     const ref = entry?.diff.ref
     if (!entry || !ref || ref.kind !== 'github-pr' || !login)
@@ -402,7 +409,7 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** One page of a repository's open pull requests (`PullsPage`). */
-  'repo-pulls': async function (_cwd, args) {
+  'repo-pulls': async function (_host, args) {
     const owner = text(args?.owner)
     const repo = text(args?.repo)
     if (!owner || !repo)
@@ -418,9 +425,9 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
    * Starts a new chat: the one after the analysis is set aside in the diff's chat history (at most
    * `MAX_ARCHIVED_CHATS`), not thrown away, and the analysis turn stays as it was (L36).
    */
-  'chat-clear': async function (cwd, args) {
+  'chat-clear': async function (host, args) {
     const key = text(args?.key)
-    const session = await serverSession(cwd)
+    const session = await serverSession(host)
     const entry = key ? await session.cache.diffs.get(key) : undefined
     const stored = entry?.llmSession as LlmSession | undefined
     if (!stored)
@@ -430,21 +437,21 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** The diff's earlier chats for the history sheet, most recent first: `{ chats: [{ id, title, at, turns }] }`. */
-  'chat-history': async function (cwd, args) {
+  'chat-history': async function (host, args) {
     const key = text(args?.key)
     if (!key)
       throw new Error('That needs the diff key.')
-    const entry = await (await serverSession(cwd)).cache.diffs.get(key)
+    const entry = await (await serverSession(host)).cache.diffs.get(key)
     return { chats: chatHistory(entry?.llmSession as LlmSession | undefined) }
   },
 
   /** Puts an earlier chat back as the current one, setting the current chat aside first when it asked anything. */
-  'chat-restore': async function (cwd, args) {
+  'chat-restore': async function (host, args) {
     const key = text(args?.key)
     const id = text(args?.id)
     if (!key || !id)
       throw new Error('That needs the diff key and the chat.')
-    const session = await serverSession(cwd)
+    const session = await serverSession(host)
     const stored = (await session.cache.diffs.get(key))?.llmSession as LlmSession | undefined
     if (!stored)
       throw new Error('That chat is not in this pull request\'s history.')
@@ -458,13 +465,13 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
    * kind and risk (`pull`). Jev rates and sorts only when a review of the diff starts; the phone asks again while
    * `pending` is above 0, which counts the pull request too while Jev is still sorting it. With Jev off it answers `{ enabled: false, files: {}, pending: 0 }` and never fails.
    */
-  'jev-files': async function (cwd, args) {
+  'jev-files': async function (host, args) {
     if (!sharedJev().enabled())
       return JEV_FILES_OFF
     const key = text(args?.key)
     if (!key)
       throw new Error('That needs the diff key.')
-    const session = await serverSession(cwd)
+    const session = await serverSession(host)
     const entry = await session.cache.diffs.get(key)
     if (!entry)
       throw new Error('Open the diff first.')
@@ -482,8 +489,8 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
   },
 
   /** Diffs this server opened most recently, for the home page's "recently viewed". */
-  'recent-diffs': async function (cwd) {
-    const metas = await (await serverSession(cwd)).cache.diffs.listRecent(12)
+  'recent-diffs': async function (host) {
+    const metas = await (await serverSession(host)).cache.diffs.listRecent(12)
     return metas.map(meta => ({ key: meta.key, ref: meta.ref, title: meta.title, label: meta.label, url: meta.url, state: meta.pullRequestState, additions: meta.additions, deletions: meta.deletions, lastViewedAt: meta.lastViewedAt }))
   },
 }

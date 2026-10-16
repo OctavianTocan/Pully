@@ -1,13 +1,9 @@
 import type { DiffCache } from '@pulls.review/core/cache'
 import type { DiffSource, ReviewDraftTarget } from '@pulls.review/core/types'
+import type { ServerHost } from './host'
 import type { OpenedDiff } from './stored-diff'
 import { Buffer } from 'node:buffer'
-import { createReadStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import process from 'node:process'
-import { Readable } from 'node:stream'
 import { createRuleBasedAdapter } from '@pulls.review/core/analyze'
 import { createGithubSource } from '@pulls.review/core/github'
 import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
@@ -15,6 +11,7 @@ import { serializeRef, staticCredentials } from '@pulls.review/core/types'
 import { ingestAnalytics, track } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { highlightLines, pierreTheme } from './highlight'
+import { NO_CHECKOUT } from './host'
 import { NATIVE_REVIEW, sessionPatches } from './native-review'
 import { serverFunctions, serverSession } from './server-session'
 import { openStoredDiff, trimPatches } from './stored-diff'
@@ -82,20 +79,14 @@ async function readJsonUpTo(request: NativeRequest, limit: number): Promise<unkn
   }
 }
 
-function androidDir(): string {
-  return process.env.PULLS_REVIEW_ANDROID_DIR || join(homedir(), '.local/share/pulls-review/android')
-}
-
-async function androidFile(name: string, type: string): Promise<Response> {
-  const path = join(androidDir(), name)
-  const info = await stat(path).catch(() => undefined)
-  if (!info?.isFile())
+async function androidFile(host: ServerHost, name: string, type: string): Promise<Response> {
+  const file = await host.androidFile?.(name)
+  if (!file)
     return Response.json({ error: 'No Android build has been published.' }, { status: 404 })
-  const body = Readable.toWeb(createReadStream(path)) as ReadableStream
-  return new Response(body, {
+  return new Response(file.body, {
     headers: {
       'Content-Type': type,
-      'Content-Length': String(info.size),
+      'Content-Length': String(file.size),
       'Cache-Control': 'no-store',
     },
   })
@@ -105,30 +96,30 @@ async function androidFile(name: string, type: string): Promise<Response> {
  * The phone's HTTP API: the same RPC handlers the page uses, plus the updater files.
  * Returns undefined when the request is not one of ours.
  * @param name - The RPC name.
- * @param cwd - The repository the server was started in.
+ * @param host - Where the server runs.
  * @param args - The decoded JSON body.
  */
-function nativeCall(name: string, cwd: string, args: unknown): Promise<Response> | undefined {
+function nativeCall(name: string, host: ServerHost, args: unknown): Promise<Response> | undefined {
   if (name === 'github-pr' || name === 'github-compare' || name === 'github-commit')
-    return openGithub(cwd, name, args)
-  const calls: Record<string, (cwd: string, args: unknown) => Promise<Response>> = {
+    return openGithub(host, name, args)
+  const calls: Record<string, (host: ServerHost, args: unknown) => Promise<Response>> = {
     'local-diff': openLocal,
     'review-state': reviewState,
-    'review-threads': (_cwd, input) => reviewThreads(input),
-    'review-reply': (_cwd, input) => reviewReply(input),
-    'review-resolve': (_cwd, input) => reviewResolve(input),
-    'highlight': (_cwd, input) => highlight(input),
+    'review-threads': (_host, input) => reviewThreads(input),
+    'review-reply': (_host, input) => reviewReply(input),
+    'review-resolve': (_host, input) => reviewResolve(input),
+    'highlight': (_host, input) => highlight(input),
     'repo-viewed': repoViewed,
-    'mermaid-svg': (_cwd, input) => mermaidSvg(input),
-    'review-comment': (_cwd, input) => reviewComment(input),
+    'mermaid-svg': (_host, input) => mermaidSvg(input),
+    'review-comment': (_host, input) => reviewComment(input),
   }
   const call = calls[name]
   if (call)
-    return call(cwd, args)
+    return call(host, args)
   const review = NATIVE_REVIEW[name]
   if (!review)
     return undefined
-  return review(cwd, args as Record<string, unknown> | undefined)
+  return review(host, args as Record<string, unknown> | undefined)
     .then(result => Response.json({ result: result ?? null }))
     .catch(error => Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 }))
 }
@@ -138,17 +129,18 @@ const APK = 'application/vnd.android.package-archive'
 /**
  * The updater's files, and the past versions of the app that android/scripts/build-past-ui.py rebuilt from git for the
  * dev-only version slider. Only these names are served from the Android folder.
+ * @param host - Where the server runs; it reads the files.
  * @param path - The request path.
  */
-function androidRoute(path: string): Promise<Response> | undefined {
+function androidRoute(host: ServerHost, path: string): Promise<Response> | undefined {
   if (path === '/android/latest.json')
-    return androidFile('latest.json', 'application/json')
+    return androidFile(host, 'latest.json', 'application/json')
   if (path === '/android/pulls.apk')
-    return androidFile('pulls.apk', APK)
+    return androidFile(host, 'pulls.apk', APK)
   if (path === '/android/past/index.json')
-    return androidFile('past/index.json', 'application/json')
+    return androidFile(host, 'past/index.json', 'application/json')
   const past = /^\/android\/past\/(\d+\.\d+\.\d+)\.apk$/.exec(path)
-  return past ? androidFile(`past/${past[1]}.apk`, APK) : undefined
+  return past ? androidFile(host, `past/${past[1]}.apk`, APK) : undefined
 }
 
 /**
@@ -172,9 +164,14 @@ async function noteFailure(name: string, response: Response): Promise<Response> 
   return response
 }
 
-export async function handleNativeRequest(request: NativeRequest, cwd: string): Promise<Response | undefined> {
+/**
+ * Answers a request when it is one of the phone's, else undefined.
+ * @param request - The HTTP request.
+ * @param host - Where the server runs (`nodeHost` in the CLI).
+ */
+export async function handleNativeRequest(request: NativeRequest, host: ServerHost): Promise<Response | undefined> {
   const path = request.url.pathname
-  const android = request.method === 'GET' ? androidRoute(path) : undefined
+  const android = request.method === 'GET' ? androidRoute(host, path) : undefined
   if (android)
     return android
   if (request.method === 'POST' && path === '/api/events')
@@ -184,16 +181,16 @@ export async function handleNativeRequest(request: NativeRequest, cwd: string): 
 
   const body = await request.json().catch(() => undefined) as { name?: unknown, args?: unknown } | undefined
   const name = typeof body?.name === 'string' ? body.name : ''
-  return noteFailure(name, await rpcCall(name, body?.args, cwd))
+  return noteFailure(name, await rpcCall(name, body?.args, host))
 }
 
-async function rpcCall(name: string, args: unknown, cwd: string): Promise<Response> {
-  const native = nativeCall(name, cwd, args)
+async function rpcCall(name: string, args: unknown, host: ServerHost): Promise<Response> {
+  const native = nativeCall(name, host, args)
   if (native)
     return native
   if (!ALLOWED.has(name))
     return Response.json({ error: 'That method is not available to the app.' }, { status: 404 })
-  const fn = (await serverFunctions(cwd)).find(candidate => candidate.name === name)
+  const fn = (await serverFunctions(host)).find(candidate => candidate.name === name)
   if (!fn)
     return Response.json({ error: 'That method is not available to the app.' }, { status: 404 })
   try {
@@ -230,25 +227,27 @@ interface OpenFlags {
   fresh: boolean
 }
 
-async function openGithub(cwd: string, name: string, args: unknown): Promise<Response> {
+async function openGithub(host: ServerHost, name: string, args: unknown): Promise<Response> {
   const ref = githubRef(name, args)
   if (typeof ref === 'string')
     return Response.json({ error: ref }, { status: 400 })
   const input = args as Record<string, unknown> | undefined
-  return saveGithub(cwd, ref, { lite: input?.lite === true, fresh: input?.fresh === true })
+  return saveGithub(host, ref, { lite: input?.lite === true, fresh: input?.fresh === true })
 }
 
-async function openLocal(cwd: string, args: unknown): Promise<Response> {
+async function openLocal(host: ServerHost, args: unknown): Promise<Response> {
+  if (!host.cwd)
+    return Response.json({ error: NO_CHECKOUT }, { status: 404 })
   const target = (args as { target?: unknown } | undefined)?.target
   if (typeof target !== 'string')
     return Response.json({ error: 'A local diff needs a git target.' }, { status: 400 })
-  const functions = await serverFunctions(cwd)
+  const functions = await serverFunctions(host)
   const fetch = functions.find(fn => fn.name === LOCAL_RPC.sourceFetch)
   const keyOf = functions.find(fn => fn.name === LOCAL_RPC.sourceKey)
   try {
     const diff = await (fetch!.handler as (input: unknown) => Promise<import('@pulls.review/core/types').DiffsPayload>)({ target })
     const key = String(await (keyOf!.handler as (input: unknown) => Promise<unknown>)({ target }))
-    await (await serverSession(cwd)).cache.diffs.putDiff(key, diff, diff.head?.sha ?? '')
+    await (await serverSession(host)).cache.diffs.putDiff(key, diff, diff.head?.sha ?? '')
     return Response.json({ result: { key, diff, groups: await ruleGroups(diff) } })
   }
   catch (error) {
@@ -275,14 +274,14 @@ async function openGithubDiff(ref: Parameters<typeof createGithubSource>[0], sou
  * is stored, and `lite` only trims what this answer carries: the files left without hunks are
  * marked `patchOmitted`, and `diff-patches` serves them. Rule groups cover the full diff.
  */
-async function saveGithub(cwd: string, ref: Parameters<typeof createGithubSource>[0], flags: OpenFlags): Promise<Response> {
+async function saveGithub(host: ServerHost, ref: Parameters<typeof createGithubSource>[0], flags: OpenFlags): Promise<Response> {
   const token = await resolveGithubToken(process.env)
   if (!token)
     return Response.json({ error: 'The server has no GitHub token.' }, { status: 400 })
   try {
     const source = createGithubSource(ref, staticCredentials(token))
-    const { key, diff, stale } = await openGithubDiff(ref, source, (await serverSession(cwd)).cache.diffs, flags.fresh)
-    const patches = await sessionPatches(cwd)
+    const { key, diff, stale } = await openGithubDiff(ref, source, (await serverSession(host)).cache.diffs, flags.fresh)
+    const patches = await sessionPatches(host)
     patches.remember(key, diff.head?.sha ?? '', diff)
     const groups = await ruleGroups(diff)
     const sent = flags.lite ? trimPatches(diff) : { diff, omitted: 0 }
@@ -319,12 +318,12 @@ function plural(n: number, one: string, many: string): string {
  * PRs of one repo this server already opened (`loadViewed` in `pull-request-list-store.ts`):
  * their diff size, file and group counts, and whether an AI grouping exists.
  */
-async function repoViewed(cwd: string, input: unknown): Promise<Response> {
+async function repoViewed(host: ServerHost, input: unknown): Promise<Response> {
   const { owner, repo } = (input ?? {}) as { owner?: unknown, repo?: unknown }
   if (typeof owner !== 'string' || typeof repo !== 'string')
     return Response.json({ error: 'That needs an owner and a repo.' }, { status: 400 })
   // Diffs the server stored ahead of time but nobody opened (`lastViewedAt` 0) are left out.
-  const entries = await (await serverSession(cwd)).cache.diffs.listMatching(({ ref, lastViewedAt }) => lastViewedAt !== 0 && ref.kind === 'github-pr' && ref.owner === owner && ref.repo === repo)
+  const entries = await (await serverSession(host)).cache.diffs.listMatching(({ ref, lastViewedAt }) => lastViewedAt !== 0 && ref.kind === 'github-pr' && ref.owner === owner && ref.repo === repo)
   const viewed = await Promise.all(entries.map(async (entry) => {
     const ai = entry.analyzedBy.llm ?? entry.analyzedBy['web-llm']
     const ref = entry.diff.ref
@@ -448,11 +447,11 @@ async function briefState(cache: Awaited<ReturnType<typeof serverSession>>['cach
 }
 
 /** Saved questions, the latest AI review, and the chat, so a reopened pull request shows what already happened. */
-async function reviewState(cwd: string, args: unknown): Promise<Response> {
+async function reviewState(host: ServerHost, args: unknown): Promise<Response> {
   const key = textOf((args as { key?: unknown } | undefined)?.key)
   if (!key)
     return Response.json({ error: 'A review state needs a key.' }, { status: 400 })
-  const session = await serverSession(cwd)
+  const session = await serverSession(host)
   const entry = await session.cache.diffs.get(key)
   const threadsFn = session.functions.find(fn => fn.name === LOCAL_RPC.askThreads)
   const threads = await (threadsFn!.handler as (input: unknown) => Promise<unknown>)({ key })
