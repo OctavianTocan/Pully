@@ -19,7 +19,7 @@ use serde_json::{json, Value};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
 };
 
@@ -476,12 +476,17 @@ async fn static_file(
     let android = path.starts_with("/android/");
     let result = if android {
         let relative = path.trim_start_matches("/android/");
+        static PAST_APK: OnceLock<regex::Regex> = OnceLock::new();
+        static CHANGELOG_IMAGE: OnceLock<regex::Regex> = OnceLock::new();
         let allowed = matches!(relative, "latest.json" | "pulls.apk" | "past/index.json")
-            || regex::Regex::new(r"^past/\d+\.\d+\.\d+\.apk$")
-                .unwrap()
+            || PAST_APK
+                .get_or_init(|| regex::Regex::new(r"^past/\d+\.\d+\.\d+\.apk$").unwrap())
                 .is_match(relative)
-            || regex::Regex::new(r"^changelog/\d+\.\d+\.\d+/[a-z0-9-]+\.(png|webp|gif|jpg)$")
-                .unwrap()
+            || CHANGELOG_IMAGE
+                .get_or_init(|| {
+                    regex::Regex::new(r"^changelog/\d+\.\d+\.\d+/[a-z0-9-]+\.(png|webp|gif|jpg)$")
+                        .unwrap()
+                })
                 .is_match(relative);
         if !allowed {
             return error(

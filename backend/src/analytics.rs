@@ -358,18 +358,6 @@ fn patterns() -> &'static Patterns {
     })
 }
 
-fn truncate(value: &str, limit: usize) -> String {
-    // Count UTF-16 units like the JS limit, without emitting an unpaired surrogate.
-    let mut units = 0;
-    value
-        .chars()
-        .take_while(|ch| {
-            units += ch.len_utf16();
-            units <= limit
-        })
-        .collect()
-}
-
 pub fn scrub_text(value: &str, limit: usize) -> String {
     let p = patterns();
     let clean = p.key.replace_all(value, "[redacted]");
@@ -387,7 +375,7 @@ pub fn scrub_text(value: &str, limit: usize) -> String {
             text.to_string()
         }
     });
-    truncate(&clean, limit)
+    crate::truncate_utf16(clean.chars(), limit)
 }
 
 fn clean_props(raw: Option<&Value>) -> Map<String, Value> {
@@ -641,20 +629,25 @@ impl Samples {
         }
     }
     fn quantile(&self, q: f64) -> f64 {
+        self.quantiles([q])[0]
+    }
+    fn quantiles<const N: usize>(&self, qs: [f64; N]) -> [f64; N] {
         if self.values.is_empty() {
-            return 0.0;
+            return [0.0; N];
         }
         let mut values = self.values.clone();
         values.sort_by(|a, b| a.0.total_cmp(&b.0));
-        let target = (q * self.count).floor().min(self.count - 1.0);
-        let mut at = 0.0;
-        for (ms, weight) in &values {
-            at += weight;
-            if at > target {
-                return ms.round();
+        qs.map(|q| {
+            let target = (q * self.count).floor().min(self.count - 1.0);
+            let mut at = 0.0;
+            for (ms, weight) in &values {
+                at += weight;
+                if at > target {
+                    return ms.round();
+                }
             }
-        }
-        values.last().map(|v| v.0.round()).unwrap_or(0.0)
+            values.last().map(|v| v.0.round()).unwrap_or(0.0)
+        })
     }
 }
 #[derive(Default, Serialize)]
@@ -956,9 +949,9 @@ impl Tally {
         sort_desc(&mut engines, "runs");
         let mut tasks: Vec<Value> = self.tasks.iter().map(|(task, row)| json!({ "task": task, "runs": row.runs, "failures": row.failures, "costUsd": cents(row.cost), "tokensIn": row.input, "tokensOut": row.output, "cacheRead": row.cache_read, "priced": row.priced })).collect();
         sort_desc(&mut tasks, "runs");
-        let mut calls: Vec<Value> = self.calls.iter().map(|(name, row)| json!({ "name": name, "calls": row.calls, "failures": row.failures, "medianMs": row.ms.quantile(0.5), "p95Ms": row.ms.quantile(0.95) })).collect();
+        let mut calls: Vec<Value> = self.calls.iter().map(|(name, row)| { let [median, p95] = row.ms.quantiles([0.5, 0.95]); json!({ "name": name, "calls": row.calls, "failures": row.failures, "medianMs": median, "p95Ms": p95 }) }).collect();
         sort_desc(&mut calls, "medianMs");
-        let speed: Vec<Value> = self.speed.iter().map(|((metric, app), ms)| json!({ "metric": metric, "app": app, "count": ms.count, "medianMs": ms.quantile(0.5), "p95Ms": ms.quantile(0.95) })).collect();
+        let speed: Vec<Value> = self.speed.iter().map(|((metric, app), ms)| { let [median, p95] = ms.quantiles([0.5, 0.95]); json!({ "metric": metric, "app": app, "count": ms.count, "medianMs": median, "p95Ms": p95 }) }).collect();
         let mut errors: Vec<ErrorRow> = self.errors.into_values().collect();
         errors.sort_by(|a, b| {
             b.count
@@ -996,6 +989,24 @@ fn sort_desc(values: &mut [Value], key: &str) {
 mod tests {
     use super::*;
     const RX: &str = "2026-10-15T21:00:00.000Z";
+
+    #[test]
+    fn combined_quantiles_preserve_weighted_targets_and_rounding() {
+        let mut samples = Samples::default();
+        assert_eq!(samples.quantiles([0.5, 0.95]), [0.0, 0.0]);
+        for (value, weight) in [(19.6, 1.0), (0.4, 1.0), (10.5, 8.0), (99.6, 0.0)] {
+            samples.add_weight(value, weight);
+        }
+        assert_eq!(
+            samples.quantiles([0.0, 0.5, 0.95, 1.0]),
+            [0.0, 11.0, 20.0, 20.0]
+        );
+        assert_eq!(samples.values, vec![(19.6, 1.0), (0.4, 1.0), (10.5, 8.0)]);
+        assert_eq!(
+            samples.quantiles([0.5, 0.95]),
+            [samples.quantile(0.5), samples.quantile(0.95)]
+        );
+    }
 
     #[test]
     fn utc_dates_and_range_are_calendar_correct() {

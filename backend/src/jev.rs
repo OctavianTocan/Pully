@@ -1,5 +1,5 @@
 //! Environment-only TypeSafe classification, shared by the inbox and review tools.
-use crate::{source::s, AppState};
+use crate::{source::s, truncate_utf16, AppState};
 use anyhow::{bail, ensure, Context, Result};
 use futures_util::StreamExt;
 use serde_json::{json, Value};
@@ -361,16 +361,6 @@ fn file_questions() -> Value {
 }
 fn pull_questions() -> Value {
     json!({"kind":{"type":"choice","instructions":"What kind of change is this pull request? Judge from the title, labels, branch name and changed files together. When it does several things, pick its main purpose.","criteria":{"feature":"Adds a capability users or callers can see: a new screen, command, option, endpoint, API or behaviour. Tests or refactoring done along the way do not change this.","fix":"Corrects a bug: behaviour that was wrong, crashed, regressed or did not do what it was meant to. Titles often say fix, bug, crash, broken or regression.","refactor":"Restructures, renames, moves or cleans up code without changing what it does for users or callers.","performance":"Makes existing behaviour faster or lighter (speed, memory, bundle size, fewer requests) without changing what it does.","docs":"Only documentation: READMEs, guides, code comments, docstrings, changelogs or examples. Nothing about how the code runs changes.","tests":"Only tests: adds or changes test cases, fixtures, snapshots or test helpers, not the code under test.","dependencies":"Bumps, adds or removes third-party dependencies: package versions and lockfiles, often opened by Renovate or Dependabot.","infra":"Build, CI, tooling, configuration or release work: workflows, scripts, linters, bundler or compiler settings, containers, deployment, version tags."}},"risk":{"type":"score","instructions":"How risky is merging this pull request: how likely is it to break something, and how badly?","criteria":["trivial: cannot break anything (typos, comments, docs, formatting)","low: small and contained; a mistake would stay in one place and be easy to spot","medium: touches shared code or behaviour that other parts depend on","high: wide, risky or security-sensitive (auth, permissions, data migrations, money, concurrency, many files)"]}})
-}
-// JS slices UTF-16 code units, so keep the same 6,000-unit input limit.
-fn truncate_utf16(chars: impl Iterator<Item = char>, max: usize) -> String {
-    let mut n = 0;
-    chars
-        .take_while(|c| {
-            n += c.len_utf16();
-            n <= max
-        })
-        .collect()
 }
 fn file_state(file: &Value) -> Value {
     let patch = file["hunks"]

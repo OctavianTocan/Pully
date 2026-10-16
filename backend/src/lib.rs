@@ -101,6 +101,16 @@ pub(crate) fn decode_component(s: &str) -> Option<String> {
 pub(crate) fn js_whitespace(c: char) -> bool {
     matches!(c, '\u{0009}'..='\u{000d}' | '\u{0020}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}')
 }
+// Bound UTF-16 units without emitting an unpaired surrogate.
+pub(crate) fn truncate_utf16(chars: impl Iterator<Item = char>, max: usize) -> String {
+    let mut n = 0;
+    chars
+        .take_while(|c| {
+            n += c.len_utf16();
+            n <= max
+        })
+        .collect()
+}
 pub fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v.get(key).and_then(Value::as_str).unwrap_or("")
 }
@@ -210,6 +220,26 @@ mod timestamp_tests {
 
 #[cfg(test)]
 mod shared_value_tests {
+    #[test]
+    fn utf16_truncation_keeps_scalar_boundaries_and_iterator_consumption() {
+        for (input, limit, expected) in [
+            ("", 0, ""),
+            ("abc", 0, ""),
+            ("abc", 2, "ab"),
+            ("abc", 3, "abc"),
+            ("😀x", 1, ""),
+            ("😀x", 2, "😀"),
+            ("a😀x", 2, "a"),
+            ("a😀x", 3, "a😀"),
+            ("a😀x", 4, "a😀x"),
+        ] {
+            assert_eq!(super::truncate_utf16(input.chars(), limit), expected);
+        }
+        let mut chars = "a😀x".chars();
+        assert_eq!(super::truncate_utf16(&mut chars, 2), "a");
+        assert_eq!(chars.collect::<String>(), "x");
+    }
+
     #[test]
     fn component_decoding_preserves_strict_single_pass_semantics() {
         for (input, expected) in [
