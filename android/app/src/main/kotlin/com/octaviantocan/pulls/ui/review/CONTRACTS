@@ -320,7 +320,7 @@ it is from an older generation than the newest on the list: the tier is the mode
 less its maker and version ("GPT-6 Sol" is Sol, "Opus 4.1" is Opus). Codex's GPT-6.1 Sol,
 GPT-6 Astra and GPT-6 Luna are all current; GPT-6 Sol and the GPT-5.6 models are older. The
 default and aliases are never older (`modelTier`, `groupModels`). Tavi decided this in the
-recording of 16 Oct 12:10, 04:13 to 04:31 ("the lineup is Sol, Astra and Luna"; N7),
+recording of 16 Oct 12:10, 04:13 to 04:31 (the lineup is Sol, Astra and Luna; N7),
 replacing one newest model per maker's family.
 
 @cc [owner:OctavianTocan,label:product;design] models-recommended-and-tick

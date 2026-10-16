@@ -56,7 +56,7 @@ import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
-import com.octaviantocan.pulls.ui.design.PullsFonts
+import com.octaviantocan.pulls.ui.design.AppFonts
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsSpace
@@ -166,7 +166,7 @@ private fun TypeToken.style(): TextStyle = TextStyle(
     fontFamily = when (family) {
         "Geist Mono" -> PullsType.mono
         "Mona Sans" -> PullsType.display
-        else -> PullsFonts.sans
+        else -> AppFonts.family
     },
     fontSize = size.sp,
     lineHeight = lineHeight.sp,

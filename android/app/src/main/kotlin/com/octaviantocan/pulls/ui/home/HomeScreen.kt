@@ -860,7 +860,7 @@ internal fun SearchDim(focused: Boolean, empty: Boolean) {
 /**
  * `.search`: Home's pill, the kit's one field in its page frame (N6). Typing filters the list at once. When the text is a
  * link or a number that names one pull request, an Open pill appears in it and the keyboard's action opens it, so no
- * separate field is needed. There is no Ask button ("no Ask button anywhere": recording 16 Oct 12:10, 05:03 to 05:47;
+ * separate field is needed. There is no Ask button (no "Ask" button "anywhere": recording 16 Oct 12:10, 05:03 to 05:47;
  * N8): with [onAsk], once the text ends in a question mark the ✕ turns into the send circle, which asks it, the one
  * fading into the other, and the keyboard's action asks whatever reads as a question.
  */

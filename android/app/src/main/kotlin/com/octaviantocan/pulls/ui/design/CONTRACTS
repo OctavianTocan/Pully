@@ -188,4 +188,4 @@ Where a field's text has scrolled out of sight, it fades into the field at that 
 the start or end of a one-line field, at the top or bottom of one that scrolls through
 lines. An edge with nothing hidden past it has no fade, and the fade grows with how far the
 text has scrolled. Tavi asked for this in the recording of 16 Oct 12:10, 05:47 to 06:00
-("fade both ways"; N9).
+(fade both ways, sideways and up and down; N9).
