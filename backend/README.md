@@ -2,10 +2,11 @@
 
 ## Latest-main rebase, 16 October 2026
 
-The rewrite is rebased onto main `e23230a688a3723ac8c2ebbb125fd37a0686c3f7`
-(Android 0.44.0 plus posted-link/API-path security fixes). The newer web/mobile
+The rewrite is rebased onto main `c666dbcaa734081c3b26f4fb3e259ad8ab760a9b`
+(Android 0.45.0 with Google sign-in and posted-link/API-path security fixes). The newer web/mobile
 interfaces remain intact. Backend additions from main now have native modules:
-`account.rs` (environment-seeded account, hashed sessions/agent keys and settings),
+`account.rs` / `google_sign_in.rs` (password-test and verified Google accounts,
+hashed sessions/agent keys and settings),
 `posted.rs` / `agent_api.rs` (persistent posted diffs and authenticated agent API),
 `host.rs` (optional checkout and served artifacts), and `github_stats.rs` (cached
 profile counts). The lightweight `pr-text` route refreshes edited descriptions;
@@ -16,7 +17,9 @@ All TypeScript files newly introduced under `packages/cli/src` are removed too.
 The browser-consumed posted source/types stay in core, as do the web/mobile UI
 and separate GitHub Action. No Cloudflare deployment is part of this change.
 Earlier validation below is historical; fresh compile/check and review evidence
-for the rebased revision is recorded separately when completed.
+for the rebased revision is recorded in the additional-review section of
+`docs/RUST_REWRITE_REVIEW.md`. Google sign-in from the later main update is
+ported independently before the additional simplification sequence.
 
 `pulls-review-server` is the local/self-hosted server implementation. It serves
 the existing Vue web build and Android RPC interface. The local web connection
@@ -336,8 +339,18 @@ protection; account sign-in does not replace the existing network boundary for
 other phone RPCs.
 
 Set `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD` in the server environment
-to seed the account. There is no registration endpoint. Account RPCs use the
-`X-Pully-Session` returned by `account-sign-in`; the agent API under `/api/v1`
+to seed the password test account. There is no password registration endpoint.
+For Google sign-in, configure `PULLY_GOOGLE_CLIENT_ID` with the same web client ID
+the Android client uses. Google identity tokens are verified against Google
+signing keys, issuer, audience, expiration and verified email before the fixed
+email/domain allowlist is applied. A permitted email gets one account on first
+sign-in. Google-created accounts have no password unless explicitly seeded as
+the test account. `account-status` exposes only the public client ID and whether
+sign-in is configured. This change does not configure Google credentials or
+deploy the server.
+
+Account RPCs use the `X-Pully-Session` returned by `account-sign-in` or
+`account-google-sign-in`; the agent API under `/api/v1`
 requires a separately created bearer key. Agent keys are shown once, hashed at
 rest, individually revocable, and account scoped. `PULLY_PUBLIC_URL` controls
 posted links (`/-/<id>`), which open only in the phone app. Never put these

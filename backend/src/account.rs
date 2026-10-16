@@ -7,7 +7,7 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock, Weak},
 };
 
 mod async_store;
@@ -47,7 +47,8 @@ struct PasswordHash {
 struct StoredAccount {
     #[serde(flatten)]
     account: Account,
-    password: PasswordHash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    password: Option<PasswordHash>,
     created_at: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
@@ -136,11 +137,28 @@ fn check_password(password: &str, stored: &PasswordHash) -> Result<bool> {
         .fold(0u8, |different, (a, b)| different | (a ^ b))
         == 0)
 }
+// All handles for one canonical store root share the account transaction lock.
+static ACCOUNT_LOCKS: OnceLock<Mutex<HashMap<std::path::PathBuf, Weak<Mutex<()>>>>> =
+    OnceLock::new();
 impl Accounts {
     pub fn new(store: Store) -> Self {
+        let serial = {
+            let mut locks = ACCOUNT_LOCKS
+                .get_or_init(Default::default)
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            locks.retain(|_, lock| lock.strong_count() > 0);
+            if let Some(lock) = locks.get(store.root()).and_then(Weak::upgrade) {
+                lock
+            } else {
+                let lock = Arc::new(Mutex::new(()));
+                locks.insert(store.root().to_path_buf(), Arc::downgrade(&lock));
+                lock
+            }
+        };
         Self {
             store,
-            serial: Arc::new(Mutex::new(())),
+            serial,
             failures: Arc::new(Mutex::new(HashMap::new())),
             env_seed: Arc::new(tokio::sync::OnceCell::new()),
         }
@@ -193,8 +211,14 @@ impl Accounts {
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Account lock unavailable"))?;
             if let Some(mut existing) = this.by_email(&email)? {
-                if !check_password(&password, &existing.password)? {
-                    existing.password = hash_password(&password)?;
+                if !existing
+                    .password
+                    .as_ref()
+                    .map(|hash| check_password(&password, hash))
+                    .transpose()?
+                    .unwrap_or(false)
+                {
+                    existing.password = Some(hash_password(&password)?);
                     this.store.set(
                         &format!("account:{}", existing.account.id),
                         &serde_json::to_value(&existing)?,
@@ -207,7 +231,7 @@ impl Accounts {
                     id: random_id(16)?,
                     email: email.clone(),
                 },
-                password: hash_password(&password)?,
+                password: Some(hash_password(&password)?),
                 created_at: iso_ms(now_ms()),
             };
             this.store.set(
@@ -244,8 +268,8 @@ impl Accounts {
                 return Ok(SignIn::Error { error: "wait" });
             }
             let account = this.by_email(&who)?;
-            let right = if let Some(account) = &account {
-                check_password(&password, &account.password)?
+            let right = if let Some(hash) = account.as_ref().and_then(|a| a.password.as_ref()) {
+                check_password(&password, hash)?
             } else {
                 hash_password(&password)?;
                 false
@@ -265,6 +289,57 @@ impl Accounts {
         })
         .await
         .context("Sign in unavailable")?
+    }
+    /// @cc [owner:OctavianTocan,label:security] rust-google-account-creation-serialized
+    /// A verified Google email MUST reuse its existing account; concurrent creation
+    /// and session writes MUST serialize, with no password created (Tavi, 16 Oct 16:52).
+    pub(crate) async fn sign_in_with_google(&self, email: &str) -> Result<SignIn> {
+        let this = self.clone();
+        let email = email.trim().to_lowercase();
+        anyhow::ensure!(
+            crate::google_sign_in::allowed(&email),
+            "Google email is not allowed"
+        );
+        crate::store::blocking(move || {
+            let _guard = this
+                .serial
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Account lock unavailable"))?;
+            let session = random_id(43)?;
+            let mut writes = Vec::new();
+            let account = match this.by_email(&email)? {
+                Some(stored) => stored.account,
+                None => {
+                    let stored = StoredAccount {
+                        account: Account {
+                            id: random_id(16)?,
+                            email: email.clone(),
+                        },
+                        password: None,
+                        created_at: iso_ms(now_ms()),
+                    };
+                    writes.push((
+                        format!("account:{}", stored.account.id),
+                        None,
+                        Some(serde_json::to_value(&stored)?),
+                    ));
+                    writes.push((
+                        format!("account-email:{email}"),
+                        None,
+                        Some(json!(stored.account.id)),
+                    ));
+                    stored.account
+                }
+            };
+            writes.push((
+                format!("account-session:{}", sha256(&session)),
+                None,
+                Some(json!({"accountId":account.id,"createdAt":iso_ms(now_ms())})),
+            ));
+            this.store.compare_exchange(&writes)?;
+            Ok(SignIn::Signed { session, account })
+        })
+        .await
     }
     pub fn by_session(&self, token: Option<&str>) -> Result<Option<Account>> {
         let Some(token) = token.filter(|t| !t.is_empty() && t.len() <= 1024) else {
@@ -456,6 +531,79 @@ mod tests {
     fn accounts() -> (Accounts, std::path::PathBuf) {
         let root = std::env::temp_dir().join(format!("pulls-account-{}", uuid::Uuid::new_v4()));
         (Accounts::new(Store::new(root.clone()).unwrap()), root)
+    }
+    #[tokio::test]
+    async fn google_concurrent_signup_reuses_one_account_and_seed_can_add_password() {
+        let (accounts, root) = accounts();
+        let other = Accounts::new(Store::new(root.clone()).unwrap());
+        let mut jobs = Vec::new();
+        for i in 0..12 {
+            let handle = if i % 2 == 0 {
+                accounts.clone()
+            } else {
+                other.clone()
+            };
+            jobs.push(tokio::spawn(async move {
+                handle
+                    .sign_in_with_google(" Person@OctavianTocan.com ")
+                    .await
+                    .unwrap()
+            }));
+        }
+        let mut ids = std::collections::HashSet::new();
+        let mut sessions = std::collections::HashSet::new();
+        for job in jobs {
+            let SignIn::Signed { session, account } = job.await.unwrap() else {
+                panic!("missing session")
+            };
+            assert_eq!(account.email, "person@octaviantocan.com");
+            assert_eq!(
+                accounts.by_session(Some(&session)).unwrap().unwrap().id,
+                account.id
+            );
+            ids.insert(account.id);
+            sessions.insert(session);
+        }
+        assert_eq!(ids.len(), 1);
+        assert_eq!(sessions.len(), 12);
+        assert_eq!(accounts.store.keys("account:").unwrap().len(), 1);
+        let id = ids.into_iter().next().unwrap();
+        assert!(accounts
+            .store
+            .get(&format!("account:{id}"))
+            .unwrap()
+            .unwrap()
+            .get("password")
+            .is_none());
+        assert!(matches!(
+            accounts
+                .sign_in("person@octaviantocan.com", "")
+                .await
+                .unwrap(),
+            SignIn::Error { error: "wrong" }
+        ));
+        let seeded = accounts
+            .seed(
+                Some("PERSON@octaviantocan.com".into()),
+                Some("test-password".into()),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(seeded.id, id);
+        assert!(matches!(
+            accounts
+                .sign_in("person@octaviantocan.com", "test-password")
+                .await
+                .unwrap(),
+            SignIn::Signed { .. }
+        ));
+        assert!(accounts
+            .sign_in_with_google("forbidden@example.com")
+            .await
+            .is_err());
+        assert_eq!(accounts.store.keys("account:").unwrap().len(), 1);
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn cleaner_filters_invalid_values_and_merge_keeps_newer_fields() {

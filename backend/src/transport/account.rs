@@ -13,6 +13,7 @@ pub(super) async fn call(
         name,
         "account-status"
             | "account-sign-in"
+            | "account-google-sign-in"
             | "account-sign-out"
             | "account-me"
             | "agent-keys"
@@ -30,12 +31,19 @@ pub(super) async fn call(
         Ok(v) => v,
         Err(e) => return Some(reply(Err(e))),
     };
+    let google_client_id = crate::google_sign_in::client_id();
     if name == "account-status" {
-        return Some(reply(Ok(json!({"hasAccount":has_account}))));
+        return Some(reply(Ok(account_status(
+            has_account,
+            google_client_id.as_deref(),
+        ))));
+    }
+    if name == "account-google-sign-in" {
+        return Some(google_sign_in(app, args, google_client_id.as_deref()).await);
     }
     if name == "account-sign-in" {
         if !has_account {
-            return Some(error(StatusCode::UNAUTHORIZED, "This server has no account yet. Set PULLY_ACCOUNT_EMAIL and PULLY_ACCOUNT_PASSWORD on it."));
+            return Some(error(StatusCode::UNAUTHORIZED, "Email and password is only for the test account, and this server has none. Sign in with Google."));
         }
         return Some(
             match app
@@ -91,6 +99,48 @@ pub(super) async fn call(
         ));
     }
     Some(reply(result))
+}
+
+fn account_status(has_account: bool, google_client_id: Option<&str>) -> Value {
+    let mut result = json!({"hasAccount":has_account || google_client_id.is_some()});
+    if let Some(id) = google_client_id {
+        result["googleClientId"] = json!(id);
+    }
+    result
+}
+async fn google_sign_in(app: &Arc<AppState>, args: &Value, client_id: Option<&str>) -> Response {
+    let Some(client_id) = client_id else {
+        return error(
+            StatusCode::UNAUTHORIZED,
+            "This server has no Google sign-in. Set PULLY_GOOGLE_CLIENT_ID on it.",
+        );
+    };
+    let Some(email) = app
+        .google_sign_in
+        .email(text(args, "idToken"), client_id)
+        .await
+    else {
+        return error(
+            StatusCode::UNAUTHORIZED,
+            "Google could not confirm that sign-in. Try again.",
+        );
+    };
+    if !crate::google_sign_in::allowed(&email) {
+        return error(
+            StatusCode::FORBIDDEN,
+            format!("{email} can't sign in to Pully. Pick another Google account."),
+        );
+    }
+    match app.accounts.sign_in_with_google(&email).await {
+        Ok(crate::account::SignIn::Signed { session, account }) => {
+            reply(Ok(json!({"session":session,"email":account.email})))
+        }
+        Ok(_) => error(
+            StatusCode::UNAUTHORIZED,
+            "Google could not confirm that sign-in. Try again.",
+        ),
+        Err(e) => reply(Err(e)),
+    }
 }
 
 pub(super) async fn authorize_posted(
@@ -172,6 +222,72 @@ mod tests {
     use super::*;
     use crate::store::test_support::HeldLock;
 
+    #[tokio::test]
+    async fn google_sign_in_route_preserves_status_errors_and_session_scope() {
+        use crate::google_sign_in::tests::{claims, install_keys, token};
+        let root = std::env::temp_dir().join(format!("google-route-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        install_keys(&app.google_sign_in).await;
+        assert_eq!(account_status(false, None), json!({"hasAccount":false}));
+        assert_eq!(account_status(true, None), json!({"hasAccount":true}));
+        assert_eq!(
+            account_status(false, Some("test-client")),
+            json!({"hasAccount":true,"googleClientId":"test-client"})
+        );
+        for (args, client, expected, message) in [
+            (
+                json!({}),
+                None,
+                StatusCode::UNAUTHORIZED,
+                "This server has no Google sign-in. Set PULLY_GOOGLE_CLIENT_ID on it.",
+            ),
+            (
+                json!({"idToken":"bad"}),
+                Some("test-client"),
+                StatusCode::UNAUTHORIZED,
+                "Google could not confirm that sign-in. Try again.",
+            ),
+            (
+                json!({"idToken":token(&claims("other@example.com"))}),
+                Some("test-client"),
+                StatusCode::FORBIDDEN,
+                "other@example.com can't sign in to Pully. Pick another Google account.",
+            ),
+        ] {
+            let response = google_sign_in(&app, &args, client).await;
+            assert_eq!(response.status(), expected);
+            let value: Value = serde_json::from_slice(
+                &axum::body::to_bytes(response.into_body(), 8192)
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(value, json!({"error":message}));
+        }
+        assert!(app.host.storage.keys("account:").unwrap().is_empty());
+        let response = google_sign_in(
+            &app,
+            &json!({"idToken":token(&claims("tocanoctavian@gmail.com"))}),
+            Some("test-client"),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let value: Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 8192)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(value["result"]["email"], "tocanoctavian@gmail.com");
+        let session = value["result"]["session"].as_str().unwrap();
+        assert!(app.accounts.by_session(Some(session)).unwrap().is_some());
+        assert!(
+            super::super::web_dispatch(&app, "account-google-sign-in", json!({}))
+                .await
+                .is_err()
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[tokio::test(flavor = "current_thread")]
     async fn account_http_operations_yield_under_storage_contention() {
         let root =

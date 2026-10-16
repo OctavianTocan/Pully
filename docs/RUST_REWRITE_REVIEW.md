@@ -2,10 +2,11 @@
 
 ## Latest-main rebase, 16 October 2026
 
-The rewrite is rebased onto main `e23230a688a3723ac8c2ebbb125fd37a0686c3f7`
-(Android 0.44.0 plus posted-link/API-path security fixes). The newer web/mobile
+The rewrite is rebased onto main `c666dbcaa734081c3b26f4fb3e259ad8ab760a9b`
+(Android 0.45.0 with Google sign-in and posted-link/API-path security fixes). The newer web/mobile
 interfaces remain intact. Backend additions from main now have native modules:
-`account.rs` (environment-seeded account, hashed sessions/agent keys and settings),
+`account.rs` / `google_sign_in.rs` (password-test and verified Google accounts,
+hashed sessions/agent keys and settings),
 `posted.rs` / `agent_api.rs` (persistent posted diffs and authenticated agent API),
 `host.rs` (optional checkout and served artifacts), and `github_stats.rs` (cached
 profile counts). The lightweight `pr-text` route refreshes edited descriptions;
@@ -16,7 +17,9 @@ All TypeScript files newly introduced under `packages/cli/src` are removed too.
 The browser-consumed posted source/types stay in core, as do the web/mobile UI
 and separate GitHub Action. No Cloudflare deployment is part of this change.
 Earlier validation below is historical; fresh compile/check and review evidence
-for the rebased revision is recorded separately when completed.
+for the rebased revision is recorded in the additional-review section of
+`docs/RUST_REWRITE_REVIEW.md`. Google sign-in from the later main update is
+ported independently before the additional simplification sequence.
 
 ## Current status
 
@@ -326,3 +329,115 @@ end of the simplification sequence, missing rendering dependencies still blocked
 full production compilation and Clippy was not installed. Neither was counted
 as a pass. The later locked native build/presentation/smoke results are recorded
 separately above; no live integration result is inferred from them.
+
+## Five additional reviews after the latest-main rebase
+
+These are five new full-scope CE reviews, separate from the earlier ten rounds.
+Each included eleven review lenses and one independent validation batch.
+All 56 validated findings were fixed; five rejected suggestions were not counted.
+A different-provider CLI was unavailable, so each used the local adversarial
+review fallback. These are scoped regression checks, not full-suite evidence.
+
+### R11: 15 fixes
+
+- Restore the shared provider concurrency limit
+- Scan complete posted patches before truncating hunks
+- CWE-639: Canonicalize posted keys before authorization
+- Keep posted-diff transactions off Tokio workers
+- Reanalysis replaces current tours on posted diffs
+- Use diff paths for posted file discovery
+- Information Leakage: handlers bypass the native host seam
+- Register chained tasks before publishing analysis completion
+- Keep selected generated-file text available to Ask
+- Filter recently closed inbox PRs by closure date
+- Hyrum's Law: posted updates drop changed-review state
+- Select recent metadata before loading full diff bodies
+- Share failed inbox refreshes instead of queuing retries
+- Bind refresh expectations to their originating snapshot
+- Recover browser trust after idle server restarts
+
+Verification: cargo check --locked; cargo test --lib --no-run; 21 bounded Rust regression tests; 73 focused JS tests across7 files; core tsc + app vue-tsc; contract syntax; changed-file ESLint; git diff --check; cargo build --locked; offline HTTP/local/cache/review smoke; offline analytics smoke; hosted account/key/posted CRUD smoke.
+
+### R12: 10 fixes
+
+- Coordinate native and browser full-file cache writes
+- Allow cache writes for supported large diffs
+- Serialize overlapping cache writes before capturing CAS tokens
+- Run native checks on main pull requests
+- Isolate account storage from Tokio request workers
+- Restore authenticated posted-diff route coverage
+- Restore diff titles in task snapshots
+- Retrying from a stale phone deletes a newer answer
+- Cancel jobs before awaiting the HTTP shutdown drain
+- Keep foreground storage transactions off Tokio workers
+
+Verification: cargo build --locked; library test compilation; 19 bounded Rust tests; 12 focused JS tests; core/app typecheck; contracts; changed-file ESLint; git diff --check; three offline smokes including >4MiB cache payload and authenticated hosted API.
+
+### R13: 11 fixes
+
+- CWE-639: Public cache aliases expose private posted reviews
+- Finish moving AI storage work off Tokio workers
+- Browser chat growth silently bypasses the cache byte budget
+- Keep large review-mark batches within the RPC limit
+- Coalesce repeated review SHAs before the CAS batch
+- Restore the Docker cancellation lifecycle regression test
+- Share failed GitHub stats refreshes across concurrent callers
+- Guard browser saves with the complete observed diff revision
+- Hyrum's Law: large inboxes now fail
+- Offload synchronous working-tree file reads
+- Repeated Switches: duplicate GitHub proxy parsing
+
+Verification: cargo build --locked; library test compilation; 26 bounded native regression tests including fake-Docker child lifecycle (10.4seconds); 61 focused JS tests; core/app typechecks; contracts; changed-file ESLint; git diff --check; three offline HTTP smokes.
+
+### R14: 12 fixes
+
+- Use delegated authentication when loading PR overviews
+- CWE-400: Bound unauthenticated WebSocket buffering
+- Validate cache replies instead of asserting their types
+- Order cache reads with acknowledged mutations
+- Restore agent post rate-limit regression coverage
+- Retry cleanup after the final login helper
+- Expose rename origins in native agent context
+- Allow diff reads to continue beyond the output cap
+- Retain failed-head preanalysis deduplication coverage
+- Reuse compiled grouping expressions across requests
+- Offload bulk local source filesystem checks
+- Honor the browser trust deadline
+
+Verification: 54 bounded Rust tests passed (synthetic Docker, no live Docker); 103 scoped JS tests passed; Core and app typechecks passed; Full native build passed; Three offline HTTP smoke scripts passed; Contracts and whitespace checks passed; Whole ESLint found one README blank-line error; scoped automatic fix then check passed.
+
+### R15: 8 fixes
+
+- CWE-639: Decoy keys bypass posted-task ownership
+- Document the unsupported Windows worktree path
+- Restore coalescing for streamed text updates
+- Preserve commit context in native review prompts
+- Preserve failed chat turns for the web retry flow
+- Exercise native GitHub snapshot loading and rejection paths
+- Restore commit and range source regression fixtures
+- Refresh session observations from putDiff replies
+
+Verification: Library test compilation passed; 82 bounded Rust tests passed on default stack; 83 scoped JS tests passed; Core tsc and app vue-tsc passed; Full cargo build --locked passed; All three offline HTTP smoke scripts passed; Whole-repository ESLint passed; Whole-repository contract syntax check passed; git diff --check passed.
+
+The final review checkpoint passed 82 focused Rust tests, 83 scoped JavaScript
+tests, core/app typechecks, the locked native build, three offline HTTP smokes,
+whole-repository ESLint and contract syntax checks. No live AI providers, real
+Docker daemon, GitHub writes, Android device run or deployment was tested. The
+Docker lifecycle fixture uses a synthetic child process. The later Google
+sign-in change from main is separately integrated and reviewed; the five review
+rounds above do not imply that their original snapshots included that change.
+
+### Later main integration: Android 0.45 Google sign-in
+
+Main advanced to `c666dbcaa734081c3b26f4fb3e259ad8ab760a9b` while the five
+reviews ran. The branch was rebased again, the Android changes retained, and
+the new server Google-authentication implementation ported into Rust. All 75
+TypeScript files under the latest main CLI source directory are removed.
+A separate independent security/correctness review found one low-severity
+claim-type validation mismatch with the original verifier. It was fixed and
+rechecked: issuer arrays and malformed/null optional time claims are rejected.
+Seven offline Google-verifier/cache tests and six account/route regressions
+passed, including signed-token rejection, concurrent signup, explicit password
+seeding, refresh coalescing/cooldown/recovery and key-document limits. Tests use
+a synthetic public fixture key, never a deployed credential. No real Google
+HTTPS verification, credential setup or Android device sign-in is claimed.

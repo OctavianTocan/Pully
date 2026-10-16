@@ -646,10 +646,11 @@ flat key-value, so there's no native "object store" split):
 
 ## Latest-main rebase, 16 October 2026
 
-The rewrite is rebased onto main `e23230a688a3723ac8c2ebbb125fd37a0686c3f7`
-(Android 0.44.0 plus posted-link/API-path security fixes). The newer web/mobile
+The rewrite is rebased onto main `c666dbcaa734081c3b26f4fb3e259ad8ab760a9b`
+(Android 0.45.0 with Google sign-in and posted-link/API-path security fixes). The newer web/mobile
 interfaces remain intact. Backend additions from main now have native modules:
-`account.rs` (environment-seeded account, hashed sessions/agent keys and settings),
+`account.rs` / `google_sign_in.rs` (password-test and verified Google accounts,
+hashed sessions/agent keys and settings),
 `posted.rs` / `agent_api.rs` (persistent posted diffs and authenticated agent API),
 `host.rs` (optional checkout and served artifacts), and `github_stats.rs` (cached
 profile counts). The lightweight `pr-text` route refreshes edited descriptions;
@@ -660,5 +661,7 @@ All TypeScript files newly introduced under `packages/cli/src` are removed too.
 The browser-consumed posted source/types stay in core, as do the web/mobile UI
 and separate GitHub Action. No Cloudflare deployment is part of this change.
 Earlier validation below is historical; fresh compile/check and review evidence
-for the rebased revision is recorded separately when completed.
+for the rebased revision is recorded in the additional-review section of
+`docs/RUST_REWRITE_REVIEW.md`. Google sign-in from the later main update is
+ported independently before the additional simplification sequence.
 

@@ -43,8 +43,8 @@ Google sign-in should be restricted to tocanoctavian@gmail.com and emails with a
 @octaviantocan.com domain"). The server MUST check the Google ID token's signature against
 Google's keys, its issuer, that it was made out to the server's web client ID
 (`PULLY_GOOGLE_CLIENT_ID`) and has not expired, and that its email is verified; anything
-else is refused with no session. An account Google made never takes a password. Without
-that client ID the server takes no Google sign-in and the phone shows no Google button.
+else is refused with no session. Google-created accounts have no password unless that same email is explicitly
+configured as the environment-seeded test account. Without that client ID the server takes no Google sign-in and the phone shows no Google button.
 
 @cc [owner:OctavianTocan,label:security] agent-api-needs-a-key
 `/api/v1/*` is the only part of the server meant to sit outside Cloudflare Access, and it

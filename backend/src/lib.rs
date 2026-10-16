@@ -5,6 +5,7 @@ pub mod ai;
 pub mod analytics;
 pub mod brief;
 pub mod github_stats;
+pub mod google_sign_in;
 pub mod host;
 pub mod jev;
 mod lz;
@@ -23,6 +24,7 @@ use std::{path::PathBuf, sync::Arc};
 #[derive(Clone)]
 pub struct AppState {
     pub accounts: account::Accounts,
+    pub google_sign_in: Arc<google_sign_in::GoogleSignIn>,
     pub host: host::ServerHost,
     pub posted: posted::PostedStore,
     pub github_stats: github_stats::Cache,
@@ -48,6 +50,7 @@ impl AppState {
         Ok(Arc::new(Self {
             host,
             accounts: account::Accounts::new(store.clone()),
+            google_sign_in: Arc::new(google_sign_in::GoogleSignIn::new()?),
             posted: posted::PostedStore::new(store.clone()),
             github_stats: github_stats::Cache::default(),
             account_seed: Arc::new(tokio::sync::OnceCell::new()),

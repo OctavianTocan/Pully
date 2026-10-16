@@ -281,10 +281,11 @@ fetched with the server's own GitHub token; no repository name, title or text is
 
 
 @cc [owner:OctavianTocan,label:product;security] server-account-from-the-environment
-The account is `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`, seeded on first use and
-updated when they change; there is no way to sign up. Without them `account-status`
-answers `hasAccount: false` and nobody can sign in. After five wrong passwords in fifteen
-minutes sign-in waits, even for the right one (Tavi, 16 Oct 12:40: "you don't need to add
+The password test account is `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`, seeded
+on first use and updated when they change; there is no password registration endpoint.
+Google sign-in follows `google-sign-in-same-account`; `account-status` answers
+`hasAccount: true` when either password seeding or the Google client ID is configured.
+After five wrong passwords in fifteen minutes password sign-in waits, even for the right one (Tavi, 16 Oct 12:40: "you don't need to add
 any register functionality ... you can just seed the database").
 
 

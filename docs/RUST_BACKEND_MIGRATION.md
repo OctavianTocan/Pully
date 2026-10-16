@@ -2,10 +2,11 @@
 
 ## Latest-main rebase, 16 October 2026
 
-The rewrite is rebased onto main `e23230a688a3723ac8c2ebbb125fd37a0686c3f7`
-(Android 0.44.0 plus posted-link/API-path security fixes). The newer web/mobile
+The rewrite is rebased onto main `c666dbcaa734081c3b26f4fb3e259ad8ab760a9b`
+(Android 0.45.0 with Google sign-in and posted-link/API-path security fixes). The newer web/mobile
 interfaces remain intact. Backend additions from main now have native modules:
-`account.rs` (environment-seeded account, hashed sessions/agent keys and settings),
+`account.rs` / `google_sign_in.rs` (password-test and verified Google accounts,
+hashed sessions/agent keys and settings),
 `posted.rs` / `agent_api.rs` (persistent posted diffs and authenticated agent API),
 `host.rs` (optional checkout and served artifacts), and `github_stats.rs` (cached
 profile counts). The lightweight `pr-text` route refreshes edited descriptions;
@@ -16,7 +17,9 @@ All TypeScript files newly introduced under `packages/cli/src` are removed too.
 The browser-consumed posted source/types stay in core, as do the web/mobile UI
 and separate GitHub Action. No Cloudflare deployment is part of this change.
 Earlier validation below is historical; fresh compile/check and review evidence
-for the rebased revision is recorded separately when completed.
+for the rebased revision is recorded in the additional-review section of
+`docs/RUST_REWRITE_REVIEW.md`. Google sign-in from the later main update is
+ported independently before the additional simplification sequence.
 
 ## Scope and baseline
 
@@ -24,7 +27,7 @@ This branch replaces the local TypeScript backend with the native `backend/`
 server on top of the fixes in PR #48 (initial baseline
 `45f7a7d3648a8c1ef494722db0a431aedfaa5a04`, reconciled at
 `fa2c35327ae669b020317399fa8ebe04175ef479` with the 0.37 analytics changes from main).
-The 65 files under `packages/cli/src` and eight Node-only `packages/core/src/local*`
+All 75 files now present on main under `packages/cli/src` and eight Node-only `packages/core/src/local*`
 files have been removed, along with the old CLI TypeScript build/test configs and
 `@pulls.review/core/local` export. `packages/cli` now contains a dependency-free
 JavaScript native launcher and web/curated-skills packaging. Its package has no
@@ -80,7 +83,7 @@ counterparts.
 | Local repository, worktree, commit, and range sources                    | Read-only Git, resolved commit refs, patch parsing, untracked-file reads, full-file lookup                                                        | Secure worktree file reads/search require Unix. Windows/non-Unix cannot snapshot untracked files or expand/search worktree file contents; these paths fail closed. Committed Git sources remain available. Worktree fingerprint is not immutable. Git is required; no branch/index switching. |
 | Pasted diffs                                                             | Patch parsing and browser `paste-open`/`paste-diff`                                                                                               | No repository-backed full-file lookup. These open methods are not on the phone allowlist.                                                                                                                                                                                                     |
 | Deterministic rule grouping                                              | Native patterns, categories, test/source pairing, stable ordering, large code-area subdivision                                                    | Distinct from AI intent grouping; does not reproduce every TypeScript glob/runtime behavior.                                                                                                                                                                                                  |
-| Inbox and repository PR lists                                            | Search, deduplication, roles, enrichment, stored snapshots, Jev kind/risk                                                                         | Inbox searches over GitHub's 1,000-result cap fail. Repository pagination is capped at ten pages.                                                                                                                                                                                             |
+| Inbox and repository PR lists                                            | Search, deduplication, roles, enrichment, stored snapshots, Jev kind/risk                                                                         | Inbox retains the newest 100 results per role; broader histories are not exhaustive. Repository pagination is capped at ten pages.                                                                                                                                                            |
 | Cache warming                                                            | Every three minutes, discover up to 150 recently updated open inbox PRs; cache/probe diffs in pairs and refresh changed/30-minute-stale overviews | Requires GitHub authentication; does not mark viewed. `--no-warm` disables it. Network and rate limits still apply.                                                                                                                                                                           |
 | Preanalysis                                                              | Opt-in `--preanalyze`, ten-minute scheduler, engine/model selection, persisted analysis and analytics                                             | Review-requested open PRs only; maximum 300 changed files; each eligible head attempted at most once per server lifetime, including failures. May incur provider charges.                                                                                                                     |
 | Persistent cache and browser driver                                      | Atomic JSON replacement, root locking, serialized updates, compare-and-exchange, legacy reads                                                     | One native writer per root; no live shared TS/Rust writers. Multi-key changes are not crash-atomic transactions.                                                                                                                                                                              |
