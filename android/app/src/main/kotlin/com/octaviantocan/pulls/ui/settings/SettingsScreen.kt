@@ -332,6 +332,7 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
             }
         }
     }
+    GithubLinksGroup()
     // Usage stats, on until turned off; off drops what is queued (root CONTRACTS, analytics-can-be-turned-off). What it
     // counts is said to a screen reader, not in a line under the row (settings-no-helper-lines).
     Group(t("stats.title")) {
