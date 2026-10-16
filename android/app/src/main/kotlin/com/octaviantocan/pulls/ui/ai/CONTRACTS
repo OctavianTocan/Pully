@@ -37,6 +37,13 @@ tour or an answer is a link that scrolls to that place, including file names lis
 code block ("Super, super, super important", rule 96; F43; recording 14 Oct 19:19,
 03:43 to 03:55).
 
+@cc [owner:OctavianTocan,label:product] ai-names-find-their-files
+The app finds the code names the AI did not link: inline code or a word in code's shape
+(`PrTourScreen`, `PrTourScreen.kt`, `ReviewScreen.kt:91`, `openAsk`) that is a changed
+file's name without its extension is a link that opens that file, in the Tour, Ask and
+the summary. A name two files share, and a plain word, stay words (recording of 16 Oct
+12:10, 09:25 to 09:47, N17).
+
 @cc [owner:OctavianTocan,label:design] ai-links-look-alike
 Links in AI text are teal text with no underline, all in one face: one cite is never in
 the code font while the next is not. They sit on the text line and never grow it (rules
@@ -48,14 +55,32 @@ a dot-folder (`.agents`, `.github`) keeps its dot. A file the pull request chang
 in the app; any other opens on GitHub at the head commit, never a 404 (rule 124; J36).
 
 @cc [owner:OctavianTocan,label:product] ai-code-works-like-the-diff
-A code block in a tour or an answer is the diff's code view: syntax colours (pseudocode
-too), sideways scroll and pinch zoom. Inline code shows as code and never with its
-backticks (rule 95; F59, F63).
+A code block in a tour or an answer is the diff's code view: syntax colours, sideways
+scroll and pinch zoom, and a copy button at its top corner that shows the copied toast, as
+on a web code block (recording of 16 Oct 12:10, 09:51 to 09:55, N18). Inline code shows as
+code and never with its backticks (rule 95; F59, F63).
 
 @cc [owner:OctavianTocan,label:product] ai-structures-are-drawn
 A flow, a call tree and a file tree are drawn by the app from structured data, never
 printed as text; a flow line that does not parse stays as words in its place. A file in a
 tree that the pull request changes opens it (rule 95; F59; recording 14 Oct 19:19, 04:01).
+
+@cc [owner:OctavianTocan,label:design] ai-flow-is-steps-on-a-rail
+A flow is numbered steps on a rail: each part a card the width of the block with its
+number in a dot on the rail, each hop the rail with an arrowhead down to the next dot and
+what moves beside it ("the Flow block needs visual work", recording of 16 Oct 12:10,
+09:56 to 09:58, N19).
+
+@cc [owner:OctavianTocan,label:design] ai-call-tree-reads-at-a-glance
+A call tree sits in a well like code, its names in the code face on guide lines that end
+in a dot at each row. A call written as a chain puts each step on a line of its own, its
+arrow in one column under the name, so the steps line up and never wrap into each other
+("really easy and nice to look at", recording of 16 Oct 12:10, 09:17 to 09:24, N16).
+
+@cc [owner:OctavianTocan,label:design] ai-sketch-label-is-one-paragraph
+A sketch's or a diagram's kind and its caption are one paragraph above it, the caption
+wrapping under the kind from the left edge, and the caption is one short sentence; the
+brief's prompt asks the model for one (recording of 16 Oct 12:10, 17:07 to 17:22, N33).
 
 @cc [owner:OctavianTocan,label:design] ai-tables-stay-readable
 A table keeps a readable width for each column (a description never below about 230dp)

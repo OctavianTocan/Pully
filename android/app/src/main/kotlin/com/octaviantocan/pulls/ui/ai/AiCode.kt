@@ -16,7 +16,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.ui.design.FloatIcon
+import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.namedPlaceOf
+import com.octaviantocan.pulls.ui.review.copyText
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -73,9 +83,10 @@ import kotlinx.serialization.json.contentOrNull
 
 /*
  * Code and sketches in what the AI writes (rule 95). Code is the diff's code view: the diff's
- * highlighting, its size setting, a sideways scroll and the same pinch to zoom; pseudocode too,
- * coloured word by word. A flow is drawn: each part a box, each hop an arrow with what moves
- * beside it. A call tree and a file tree are rows on guide lines.
+ * highlighting, its size setting, a sideways scroll and the same pinch to zoom, with a copy button;
+ * pseudocode is the same well, its lines on indent guides. A flow is drawn: each part a numbered
+ * card on a rail, each hop an arrow with what moves beside it. A call tree and a file tree are rows
+ * on guide lines.
  */
 
 /** The file extension the highlighter knows a fence language by, or null for a language it does not colour. */
@@ -153,16 +164,38 @@ private fun spansOf(line: Any?): List<Tok> = (line as? JsonArray).orEmpty().mapN
 private fun CodeWell(session: ReviewSession, text: AnnotatedString, modifier: Modifier) {
     val c = LocalPullsColors.current
     val zoom = session.settings.codeZoom
-    val shape = RoundedCornerShape(PullsRadius.xl)
     val scroll = rememberScrollState()
-    // The outline keeps the well apart from a sheet, which is the same paper as the well.
-    Box(
-        modifier.fillMaxWidth().clip(shape).background(c.paper).border(1.dp, c.border, shape)
-            .pinchToZoomCode(session.settings).sideScrollFade(scroll, color = c.paper).horizontalScroll(scroll).padding(12.dp),
-    ) {
-        Text(text, style = codeTextStyle(zoom).copy(color = c.text), softWrap = false)
+    CodeFrame(session, text.text, modifier) {
+        Box(Modifier.fillMaxWidth().sideScrollFade(scroll, color = c.paper).horizontalScroll(scroll).padding(12.dp)) {
+            Text(text, style = codeTextStyle(zoom).copy(color = c.text), softWrap = false)
+        }
     }
 }
+
+/**
+ * The frame of a code well: the paper of the diff's code with an outline, which keeps it apart from a sheet of the same
+ * paper, the diff's pinch to zoom, and a copy button in its top corner, as a code block has on the web ("pseudocode
+ * should have a copy button like code", recording of 16 Oct 12:10, 09:51 to 09:55, N18). The button sits on the paper,
+ * so the code that scrolls under it stays out of its way; copying shows the toast (kit-copy-shows-a-toast).
+ */
+@Composable
+private fun CodeFrame(session: ReviewSession, copy: String, modifier: Modifier, content: @Composable () -> Unit) {
+    val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val toaster = LocalToaster.current
+    val shape = RoundedCornerShape(PullsRadius.xl)
+    Box(modifier.fillMaxWidth().clip(shape).background(c.paper).border(1.dp, c.border, shape).pinchToZoomCode(session.settings)) {
+        content()
+        FloatIcon(
+            Lu.copy, "Copy the code", { copyText(context, copy); toaster.show("Code copied", cue = Cue.Success) },
+            Modifier.align(Alignment.TopEnd).padding(4.dp).clip(CircleShape).background(c.paper),
+            flat = true, size = COPY_SIZE, iconSize = 16.dp, tint = c.muted,
+        )
+    }
+}
+
+/** The copy button of a code well; a wrapped well keeps this much room at its right for it. */
+private val COPY_SIZE = 36.dp
 
 /** The diff's colour for each kind of pseudocode, per theme (dark or not), once the highlighter has coloured the probe. */
 private val pseudoColors = mutableStateMapOf<Boolean, Map<PseudoKind, Color?>>()
@@ -211,7 +244,7 @@ internal fun AiFence(session: ReviewSession, code: String, lang: String) {
             val items = remember(code) { parseFlow(code) }
             if (items != null) FlowView(items) else AiCodeView(session, code, "")
         }
-        "pseudo", "pseudocode" -> PseudoView(code)
+        "pseudo", "pseudocode" -> PseudoView(session, code)
         // An answer in Ask draws with the tour's forms, a diagram too (L34).
         "mermaid" -> Diagram(session, com.octaviantocan.pulls.data.TourBlock("diagram", "", body = code))
         "calls" -> SketchTree(session, code, files = false)
@@ -221,53 +254,78 @@ internal fun AiFence(session: ReviewSession, code: String, lang: String) {
 }
 
 /**
- * A ```pseudo sketch as plain steps, not code: the reading face at the body's meta size, each line wrapped whole under
- * its own indent so nothing scrolls sideways, no syntax colours, and only the step words that steer it (if, else, for,
- * while, return...) in medium weight. As a code view it was cut at both edges and coloured like a language it is not
- * ("pseudocode looks ugly as sin", recording 15 Oct 15:37, 14:31 to 14:33; L27).
+ * A ```pseudo sketch as code: the diff's code face and size in the code well, with its copy button, the words that steer
+ * it (if, for, return...) in medium weight, comments muted and the rest in the text colour, and a guide line down each
+ * level of indent, so the blocks read at a glance. Lines wrap under their own indent, so nothing is cut at either edge.
+ * As plain grey steps it read as prose ("I still don't like the pseudo code", recording of 16 Oct 12:10, 08:16 to 08:20,
+ * N13; it was coloured code cut at both edges before that, L27).
  */
 @Composable
-private fun PseudoView(code: String) {
+private fun PseudoView(session: ReviewSession, code: String) {
     val c = LocalPullsColors.current
-    val lines = remember(code) { code.trimEnd().lines().dropWhile { it.isBlank() } }
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg)).background(c.sunken).padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        lines.forEach { line ->
-            if (line.isBlank()) return@forEach
-            val depth = (line.length - line.trimStart().length) / 2
-            val words = line.trim()
-            val lead = words.substringBefore(' ').lowercase().trimEnd(':')
-            val text = buildAnnotatedString {
-                if (lead in PSEUDO_STEERS) {
-                    withStyle(SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, color = c.text)) { append(words.substringBefore(' ')) }
-                    append(words.removePrefix(words.substringBefore(' ')))
-                } else append(words)
+    val zoom = session.settings.codeZoom
+    val lines = remember(code) { code.trimEnd().lines().dropWhile { it.isBlank() }.filter { it.isNotBlank() } }
+    val unit = remember(lines) { lines.map { it.length - it.trimStart().length }.filter { it > 0 }.minOrNull() ?: 2 }
+    val style = codeTextStyle(zoom)
+    val lineHeight = with(LocalDensity.current) { style.lineHeight.toDp() }
+    CodeFrame(session, code.trimEnd(), modifier = Modifier) {
+        Column(Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = COPY_SIZE)) {
+            lines.forEach { line ->
+                val depth = ((line.length - line.trimStart().length) / unit).coerceAtMost(PSEUDO_DEPTH_MAX)
+                val text = remember(line, c) { pseudoLine(line.trim(), c.text, c.muted) }
+                // The rows touch, so the guides of a level join into one line down the block.
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    if (depth > 0) Canvas(Modifier.width(PSEUDO_INDENT * zoom * depth).fillMaxHeight()) {
+                        val stroke = 1.dp.toPx()
+                        for (k in 0 until depth) {
+                            val x = (PSEUDO_INDENT * zoom * k).toPx() + PSEUDO_GUIDE_IN.toPx()
+                            drawLine(c.faint, Offset(x, 0f), Offset(x, size.height), stroke)
+                        }
+                    }
+                    Text(text, Modifier.weight(1f).heightIn(min = lineHeight), style = style.copy(color = c.text))
+                }
             }
-            Text(text, Modifier.padding(start = PSEUDO_INDENT * depth.coerceAtMost(6)), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted)
         }
     }
 }
 
-/** How far one level of a pseudocode step sits in. */
-private val PSEUDO_INDENT = 14.dp
+/** One line of pseudocode: its steering words in medium weight, its comment muted, the rest in [ink]. */
+private fun pseudoLine(line: String, ink: Color, muted: Color): AnnotatedString = buildAnnotatedString {
+    pseudoTokens(line).forEach { tok ->
+        when {
+            tok.kind == PseudoKind.Keyword -> withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = ink)) { append(tok.text) }
+            tok.kind == PseudoKind.Comment -> withStyle(SpanStyle(color = muted)) { append(tok.text) }
+            else -> append(tok.text)
+        }
+    }
+}
 
-/** The words that steer a pseudocode step, set in medium weight at the start of a line. */
-private val PSEUDO_STEERS = setOf("if", "else", "elif", "for", "foreach", "while", "return", "then", "when", "otherwise", "each", "until", "try", "catch", "on", "repeat")
+/** How far one level of a pseudocode line sits in at the normal code size: two characters of the code face. */
+private val PSEUDO_INDENT = 15.dp
+/** Where a level's guide runs: just inside the first letter of the line it hangs from. */
+private val PSEUDO_GUIDE_IN = 3.dp
+/** The deepest level drawn as its own step in; deeper lines sit at this one. */
+private const val PSEUDO_DEPTH_MAX = 6
 
 /** One level of a drawn tree: its guide runs down the middle of this width. */
 private val TREE_INDENT = 18.dp
 /** Above and below each tree row's text; the rows touch, so their guides join. */
 private val TREE_ROW_PAD = 3.dp
+/** The column a call chain's arrows stand in, under the name they lead on from. */
+private val CHAIN_ARROW = 20.dp
 
 /**
- * A ```calls or ```tree sketch drawn as a tree (rule 95): each row at its depth, hung from its parent by a guide line,
- * its name in the code face and the comment beside it in the muted colour. A file tree puts the file's icon in front, as
- * the Files list does, and a row that names a changed file opens it. A sketch with no rows is shown as its text.
+ * A ```calls or ```tree sketch drawn as a tree (rule 95) in a well of its own, like code: each row at its depth, hung
+ * from its parent by a guide line that ends in a dot at the row, its name in the code face and the comment beside it in
+ * the muted colour. A call written as a chain (`AskPill → openAsk → AskSheet`) puts each step of it on a line of its own,
+ * its arrow in one column under the name, so the steps line up and never wrap into each other ("really easy and nice to
+ * look at", recording of 16 Oct 12:10, 09:17 to 09:24, N16). A file tree puts the file's icon in front, as the Files list
+ * does; a row that names a changed file opens it, and so does a call named after one (N17). A sketch with no rows is
+ * shown as its text.
  */
 @Composable
 private fun SketchTree(session: ReviewSession, code: String, files: Boolean) {
+    val c = LocalPullsColors.current
     val rows = remember(code) { sketchRows(code) }
     if (rows.isEmpty()) {
         AiCodeView(session, code, "")
@@ -278,7 +336,8 @@ private fun SketchTree(session: ReviewSession, code: String, files: Boolean) {
     val targets = remember(rows, files, mentions) {
         rows.indices.map { i -> if (files && mentions != null && !isFolderRow(rows, i)) changedFileOf(treePath(rows, i), mentions.resolve) else null }
     }
-    Column(Modifier.fillMaxWidth()) {
+    val shape = RoundedCornerShape(PullsRadius.xl)
+    Column(Modifier.fillMaxWidth().clip(shape).background(c.paper).border(1.dp, c.border, shape).padding(horizontal = 12.dp, vertical = 10.dp)) {
         rows.forEachIndexed { i, row ->
             val icon = when {
                 !files || row.name.isEmpty() -> null
@@ -286,10 +345,17 @@ private fun SketchTree(session: ReviewSession, code: String, files: Boolean) {
                 else -> fileIconRes(row.name)
             }
             val open: (() -> Unit)? = targets[i]?.let { path -> { mentions?.open?.invoke(CodePlace(path, 0)) } }
-            TreeRow(row, guides[i], icon, open)
+            val steps = remember(row.name, files) { if (files) listOf(row.name) else callChain(row.name) }
+            TreeRow(row, steps, guides[i], icon, open) { name -> if (files || mentions == null) null else namedPlaceOf(name, mentions.names) }
         }
     }
 }
+
+/** The steps of a call written as a chain (`a → b`, `a -> b`, `a => b`), or the call alone. */
+internal fun callChain(name: String): List<String> = name.split(CHAIN).map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { listOf(name) }
+
+/** An arrow between two steps of a call chain, with a space on each side, so `a->b` in code stays one name. */
+private val CHAIN = Regex("""\s+(?:->|→|=>|⟶|⇒)\s+""")
 
 /** The changed file a tree row's path names: the whole path, or the end of it when the tree starts above the repository. */
 private fun changedFileOf(path: String, resolve: (String) -> String?): String? {
@@ -298,12 +364,18 @@ private fun changedFileOf(path: String, resolve: (String) -> String?): String? {
     return null
 }
 
-/** One row of a drawn tree: the guides of the levels above it, its branch, the icon of a file tree and the name with its comment. */
+/**
+ * One row of a drawn tree: the guides of the levels above it, its branch ending in a dot, the icon of a file tree, and
+ * the name, each further step of a call chain on its own line under it, with the comment after the last. [place] says
+ * where a step of a call opens, or null.
+ */
 @Composable
-private fun TreeRow(row: SketchRow, guides: List<Boolean>, @DrawableRes icon: Int?, onOpen: (() -> Unit)?) {
+private fun TreeRow(row: SketchRow, steps: List<String>, guides: List<Boolean>, @DrawableRes icon: Int?, onOpen: (() -> Unit)?, place: (String) -> CodePlace?) {
     val c = LocalPullsColors.current
+    val mentions = LocalMentions.current
     val style = PullsType.sm
     val lineHeight = with(LocalDensity.current) { style.lineHeight.toDp() }
+    val guide = c.muted.copy(alpha = 0.45f)
     Row(
         Modifier.fillMaxWidth().height(IntrinsicSize.Min)
             .then(if (onOpen != null) Modifier.clip(RoundedCornerShape(PullsRadius.sm)).cueClickable(role = Role.Button, onClickLabel = "Open ${row.name}", onClick = onOpen) else Modifier),
@@ -311,33 +383,42 @@ private fun TreeRow(row: SketchRow, guides: List<Boolean>, @DrawableRes icon: In
         if (guides.isNotEmpty()) Canvas(Modifier.width(TREE_INDENT * guides.size).fillMaxHeight()) {
             val step = TREE_INDENT.toPx()
             val stroke = 1.dp.toPx()
-            // The branch meets the row at the middle of its first line.
+            // The branch meets the row at the middle of its first line, and ends in a dot just before the name.
             val mid = (TREE_ROW_PAD + lineHeight / 2).toPx()
             guides.forEachIndexed { k, down ->
                 val x = k * step + step / 2
                 if (k < guides.lastIndex) {
-                    if (down) drawLine(c.faint, Offset(x, 0f), Offset(x, size.height), stroke)
+                    if (down) drawLine(guide, Offset(x, 0f), Offset(x, size.height), stroke)
                 } else {
-                    drawLine(c.faint, Offset(x, 0f), Offset(x, if (down) size.height else mid), stroke)
-                    drawLine(c.faint, Offset(x, mid), Offset(size.width - 4.dp.toPx(), mid), stroke)
+                    drawLine(guide, Offset(x, 0f), Offset(x, if (down) size.height else mid), stroke)
+                    drawLine(guide, Offset(x, mid), Offset(size.width - 6.dp.toPx(), mid), stroke)
+                    drawCircle(guide, 2.dp.toPx(), Offset(size.width - 4.dp.toPx(), mid))
                 }
             }
         }
         if (icon != null) Box(Modifier.padding(top = TREE_ROW_PAD, end = 6.dp).height(lineHeight), contentAlignment = Alignment.Center) {
             FileIcon(icon, Modifier.alpha(0.65f))
         }
-        Text(
-            buildAnnotatedString {
-                // A long name wraps between its words, never cut (rule 2).
-                withStyle(SpanStyle(fontFamily = PullsType.mono, color = if (onOpen != null) c.activeText else c.text)) { append(softBreaks(row.name)) }
-                if (row.note.isNotEmpty()) {
-                    if (row.name.isNotEmpty()) append("  ")
-                    withStyle(SpanStyle(color = c.muted)) { append(row.note) }
+        Column(Modifier.weight(1f).padding(vertical = TREE_ROW_PAD)) {
+            steps.forEachIndexed { k, name ->
+                val target = if (onOpen == null) place(name) else null
+                val link = onOpen != null || target != null
+                val text = buildAnnotatedString {
+                    // A long name wraps between its words, never cut (rule 2).
+                    withStyle(SpanStyle(fontFamily = PullsType.mono, color = if (link) c.activeText else c.text)) { append(softBreaks(name)) }
+                    if (k == steps.lastIndex && row.note.isNotEmpty()) {
+                        if (name.isNotEmpty()) append("  ")
+                        withStyle(SpanStyle(color = c.muted)) { append(row.note) }
+                    }
                 }
-            },
-            Modifier.weight(1f).padding(vertical = TREE_ROW_PAD),
-            style = style, color = c.text,
-        )
+                val tap = if (target != null && mentions != null) Modifier.clip(RoundedCornerShape(PullsRadius.sm)).cueClickable(role = Role.Button, onClickLabel = "Open $name") { mentions.open(target) } else Modifier
+                if (k == 0) Text(text, tap, style = style, color = c.text)
+                else Row {
+                    Text("→", Modifier.width(CHAIN_ARROW), style = style.copy(fontFamily = PullsType.mono), color = c.muted)
+                    Text(text, Modifier.weight(1f).then(tap), style = style, color = c.text)
+                }
+            }
+        }
     }
 }
 
@@ -451,7 +532,12 @@ internal fun parseFlow(text: String): List<FlowItem>? {
 /** The hops of a flow, in order, whatever lines sat between them. */
 internal fun flowHops(items: List<FlowItem>): List<FlowHop> = items.filterIsInstance<FlowItem.Run>().flatMap { it.hops }
 
-/** A flow drawn from what it parsed to: each part a box, each hop an arrow down with what moves beside it, and a line that was not a hop as quiet words where it stood. */
+/**
+ * A flow drawn from what it parsed to, as steps on a rail: each part a card the width of the page with its number in a
+ * dot on the rail, each hop the rail running down to the next dot with an arrowhead and what moves beside it, and a line
+ * that was not a hop as quiet words where it stood. Boxes of every width under a bare arrow read as a list of code, not
+ * a flow ("the Flow block needs visual work", recording of 16 Oct 12:10, 09:56 to 09:58, N19).
+ */
 @Composable
 internal fun FlowView(items: List<FlowItem>, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
@@ -459,10 +545,10 @@ internal fun FlowView(items: List<FlowItem>, modifier: Modifier = Modifier) {
         items.forEach { item ->
             when (item) {
                 is FlowItem.Run -> Column(Modifier.fillMaxWidth()) {
-                    FlowNode(item.hops.first().from)
-                    item.hops.forEach { hop ->
+                    FlowNode(1, item.hops.first().from, last = false)
+                    item.hops.forEachIndexed { i, hop ->
                         FlowArrow(hop.label)
-                        FlowNode(hop.to)
+                        FlowNode(i + 2, hop.to, last = i == item.hops.lastIndex)
                     }
                 }
                 is FlowItem.Note -> Text(item.text, style = PullsType.sm, color = c.muted)
@@ -471,32 +557,57 @@ internal fun FlowView(items: List<FlowItem>, modifier: Modifier = Modifier) {
     }
 }
 
+/** The rail a flow's steps hang on: its dots are this wide, and it runs down their middle. */
+private val FLOW_RAIL = 24.dp
+/** Between the rail and a step's card. */
+private val FLOW_GAP = 10.dp
+
+/** One part of a flow: its number in a dot on the rail, the rail running on from it to the next unless [last], and its name in a card. */
 @Composable
-private fun FlowNode(name: String) {
+private fun FlowNode(number: Int, name: String, last: Boolean) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(PullsRadius.lg)
-    Box(Modifier.clip(shape).background(c.raised).border(1.dp, c.border, shape).padding(horizontal = 12.dp, vertical = 8.dp)) {
-        Text(name, style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
+    val rail = c.muted.copy(alpha = 0.45f)
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(FLOW_RAIL).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.matchParentSize()) {
+                val x = size.width / 2
+                val stroke = 1.5.dp.toPx()
+                if (!last) drawLine(rail, Offset(x, size.height / 2), Offset(x, size.height), stroke)
+            }
+            Box(Modifier.size(FLOW_RAIL).clip(CircleShape).background(c.accentWash), contentAlignment = Alignment.Center) {
+                Text("$number", style = PullsType.xs.copy(fontWeight = FontWeight.SemiBold), color = c.accentWashInk)
+            }
+        }
+        Box(
+            Modifier.padding(start = FLOW_GAP).weight(1f).clip(shape).background(c.raised).border(1.dp, c.border, shape)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            // A long name wraps between its words, never cut (rule 2).
+            Text(softBreaks(name), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.text)
+        }
     }
 }
 
-/** The way down from one part to the next: a line ending in an arrowhead, 20dp in, and the label to its right. */
+/** The way down from one part to the next: the rail with an arrowhead into the next dot, and what moves beside it. */
 @Composable
 private fun FlowArrow(label: String) {
     val c = LocalPullsColors.current
-    Row(Modifier.fillMaxWidth().heightIn(min = 32.dp).height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-        Canvas(Modifier.width(40.dp).fillMaxHeight().padding(vertical = 4.dp)) {
-            val x = 20.dp.toPx()
-            val head = 5.dp.toPx()
+    val rail = c.muted.copy(alpha = 0.45f)
+    Row(Modifier.fillMaxWidth().heightIn(min = 28.dp).height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+        Canvas(Modifier.width(FLOW_RAIL).fillMaxHeight()) {
+            val x = size.width / 2
+            val head = 4.dp.toPx()
             val stroke = 1.5.dp.toPx()
-            drawLine(c.muted, Offset(x, 0f), Offset(x, size.height - stroke), stroke, StrokeCap.Round)
+            val end = size.height - 2.dp.toPx()
+            drawLine(rail, Offset(x, 0f), Offset(x, end), stroke, StrokeCap.Round)
             val tip = Path().apply {
-                moveTo(x - head, size.height - head - stroke)
-                lineTo(x, size.height - stroke)
-                lineTo(x + head, size.height - head - stroke)
+                moveTo(x - head, end - head)
+                lineTo(x, end)
+                lineTo(x + head, end - head)
             }
-            drawPath(tip, c.muted, style = Stroke(stroke, cap = StrokeCap.Round))
+            drawPath(tip, rail, style = Stroke(stroke, cap = StrokeCap.Round))
         }
-        if (label.isNotBlank()) Text(label, Modifier.padding(vertical = 4.dp), style = PullsType.sm, color = c.muted)
+        if (label.isNotBlank()) Text(label, Modifier.padding(start = FLOW_GAP, top = 4.dp, bottom = 4.dp), style = PullsType.sm, color = c.muted)
     }
 }

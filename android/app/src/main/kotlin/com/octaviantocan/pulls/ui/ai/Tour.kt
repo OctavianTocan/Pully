@@ -37,7 +37,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.caverock.androidsvg.SVG
@@ -58,6 +61,8 @@ import com.octaviantocan.pulls.ui.design.LocalMentions
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.MarkdownPreview
 import com.octaviantocan.pulls.ui.design.Mentions
+import com.octaviantocan.pulls.ui.design.fileStems
+import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.Skeleton
@@ -167,9 +172,21 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
 
 /**
  * Mentions in AI text go to their place: a changed file opens the diff on the line, any other
- * file opens through [open] (rule 96). The resolver takes a whole path or the end of one.
+ * file opens through [open] (rule 96). The resolver takes a whole path or the end of one, and a code
+ * name the AI left unlinked opens the changed file named after it (N17).
  */
-internal fun mentionsFor(session: ReviewSession, open: (CodePlace) -> Unit): Mentions = Mentions(resolve = { name -> resolveMention(session, name) }, open = open, repo = reviewRepo(session))
+internal fun mentionsFor(session: ReviewSession, open: (CodePlace) -> Unit): Mentions =
+    Mentions(resolve = { name -> resolveMention(session, name) }, open = open, repo = reviewRepo(session), names = { name -> codeNameOf(session, name) })
+
+/** The changed files by their names without extension, built once per list of files: a mention looks a name up, never walks the files. */
+private var stemsOf: Pair<List<ReviewFile>, Map<String, String>>? = null
+
+/** The changed file a code name is named after (`PrTourScreen` for `ui/review/PrTourScreen.kt`), or null (see [fileStems]). */
+internal fun codeNameOf(session: ReviewSession, name: String): String? {
+    val files = session.files
+    val stems = stemsOf?.takeIf { it.first === files }?.second ?: fileStems(files.map { it.path }).also { stemsOf = files to it }
+    return stems[name]
+}
 
 /** The `owner/name` of the repository under review, or null for a local branch. */
 internal fun reviewRepo(session: ReviewSession): String? = when (val target = session.target) {
@@ -217,15 +234,41 @@ internal fun TourBlockView(session: ReviewSession, block: TourBlock) {
             // The kind and its caption at body size: a 10sp label was below the floor of rule 14. Code carries no label:
             // it plainly is code, and its language ("text") said nothing ("why does it say Code Text?", recording 15 Oct
             // 15:37, 15:35 to 15:48; L30).
-            if (block.lang != "code") Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(SHAPE_LABELS[block.lang] ?: "Sketch", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentTeal)
-                if (block.text.isNotBlank()) Text(block.text, style = PullsType.sm, color = c.muted)
-            }
+            if (block.lang != "code") BlockLabel(SHAPE_LABELS[block.lang] ?: "Sketch", block.text)
             // A flow is drawn from its hops, a call tree and a file tree as trees, pseudocode and code as the diff's code view (rule 95).
             AiFence(session, block.body, if (block.lang == "code") block.text.takeUnless { it.lowercase() in PLAIN_LANGS }.orEmpty() else block.lang)
         }
         "diagram" -> Diagram(session, block)
     }
+}
+
+/**
+ * What a sketch or a diagram is and its caption, as one paragraph above it: the kind in the accent, the caption after it
+ * in the muted colour, wrapping under the kind at the left edge. Side by side, a two-line caption stood in a column of its
+ * own, out of line with the kind ("the Diagram label does not line up with its caption", recording of 16 Oct 12:10,
+ * 17:07 to 17:22, N33). The caption is its first sentence: the model is asked for one, and an older brief may hold more.
+ */
+@Composable
+private fun BlockLabel(kind: String, caption: String) {
+    val c = LocalPullsColors.current
+    val text = remember(kind, caption, c) {
+        buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = c.accentTeal)) { append(kind) }
+            val first = firstSentence(caption)
+            if (first.isNotEmpty()) {
+                append("  ")
+                withStyle(SpanStyle(color = c.muted)) { append(first) }
+            }
+        }
+    }
+    Text(text, Modifier.fillMaxWidth(), style = PullsType.sm)
+}
+
+/** The first sentence of [text]: up to the first `. `, `! ` or `? `, or all of it. */
+internal fun firstSentence(text: String): String {
+    val trimmed = text.trim()
+    val end = Regex("""[.!?](?=\s)""").find(trimmed)?.range?.first ?: return trimmed
+    return trimmed.substring(0, end + 1)
 }
 
 private val svgCache = mutableStateMapOf<String, Result<String>>()
@@ -245,10 +288,7 @@ internal fun Diagram(session: ReviewSession, block: TourBlock) {
     }
     var full by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Diagram", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.accentTeal)
-            if (block.text.isNotBlank()) Text(block.text, style = PullsType.sm, color = c.muted)
-        }
+        BlockLabel("Diagram", block.text)
         when {
             svg != null -> androidx.compose.foundation.layout.BoxWithConstraints(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.md)).border(1.dp, c.border, RoundedCornerShape(PullsRadius.md))

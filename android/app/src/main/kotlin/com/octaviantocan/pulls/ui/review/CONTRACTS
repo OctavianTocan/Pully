@@ -404,9 +404,12 @@ tour" line, in the places the stops will take, and the page is never scrolled fo
 recording 15 Oct 15:37, 13:47 to 14:05; L26).
 
 @cc [owner:OctavianTocan,label:design] tour-sketches-read-cleanly
-Pseudocode reads as plain steps that wrap under their indent, never as coloured code cut at
-both edges, and a code block has no "Code" or "text" label (recording 15 Oct 15:37, 14:31
-to 14:33 and 15:35 to 15:48; L27, L30).
+Pseudocode is a code block like the Tour's code: the code face in the code well with its
+copy button, the steering words lightly emphasised and a guide line down each level of
+indent. Its lines wrap under their indent and are never cut at either edge, and a code
+block has no "Code" or "text" label. Tavi changed the plain grey steps of L27 to this ("I
+still don't like the pseudo code", recording of 16 Oct 12:10, 08:16 to 08:20, N13, and
+09:51 to 09:55, N18; recording 15 Oct 15:37, 14:31 to 14:33 and 15:35 to 15:48; L27, L30).
 
 @cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
 A file or line the Tour names opens that one file's diff on a sheet over the Tour, at the
