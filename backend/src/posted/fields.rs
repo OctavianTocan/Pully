@@ -1,17 +1,34 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
+fn present_optional<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(
+    deserializer: D,
+) -> Result<Option<T>, D::Error> {
+    T::deserialize(deserializer).map(Some)
+}
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Group {
     key: String,
     label: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     summary: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     category: Option<Category>,
     file_paths: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     children: Option<Vec<Leaf>>,
 }
 #[derive(Deserialize, Serialize)]
@@ -19,9 +36,17 @@ struct Group {
 struct Leaf {
     key: String,
     label: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     summary: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     category: Option<Category>,
     file_paths: Vec<String>,
 }
@@ -54,16 +79,28 @@ struct HunkNote {
 struct FileNote {
     path: String,
     summary: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     hunks: Option<Vec<HunkNote>>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Groups {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     overall_summary: Option<String>,
     groups: Vec<Group>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     files: Option<Vec<FileNote>>,
 }
 #[derive(Deserialize, Serialize)]
@@ -146,20 +183,32 @@ enum Severity {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Finding {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     id: Option<String>,
     path: String,
     #[serde(default)]
     side: Side,
     line: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     start_line: Option<f64>,
     #[serde(default)]
     severity: Severity,
     title: String,
     #[serde(default)]
     body: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_optional"
+    )]
     suggestion: Option<String>,
 }
 #[derive(Deserialize, Serialize)]

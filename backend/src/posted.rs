@@ -244,9 +244,10 @@ impl PostedStore {
         let patch = patch.or(old_patch).unwrap();
         let now = crate::now_ms().max(old.and_then(|m| m["updatedMs"].as_u64()).unwrap_or(0) + 1);
         let stamp = crate::iso_ms(now);
-        let id = id
-            .map(str::to_owned)
-            .unwrap_or_else(|| uuid::Uuid::new_v4().simple().to_string()[..12].to_owned());
+        let id = match id {
+            Some(id) => id.to_owned(),
+            None => crate::account::random_id(12)?,
+        };
         let mut meta=old.cloned().unwrap_or_else(||json!({"id":id,"accountId":account_id,"keyName":key_name,"title":"Posted diff","version":0,"createdAt":stamp,"chunks":0}));
         for (field, limit) in [("title", 200), ("description", 20000), ("author", 80)] {
             if let Some(v) = bounded(&fields[field], limit) {

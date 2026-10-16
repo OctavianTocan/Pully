@@ -155,17 +155,22 @@ fn bearer(headers: &HeaderMap) -> Option<&str> {
     }
 }
 pub async fn handle(app: Arc<AppState>, request: Request, path: &str) -> Response {
+    let unauthorized = || {
+        let mut response = fail(401, "This needs an API key: send `Authorization: Bearer pully_...`. Make one in Pully, Settings, Agent keys.");
+        response
+            .headers_mut()
+            .insert("www-authenticate", "Bearer".parse().unwrap());
+        response
+    };
+    let Some(key) = bearer(request.headers()) else {
+        return unauthorized();
+    };
     if app.ensure_account().await.is_err() {
-        return fail(500, "The server could not do that.");
+        return unauthorized();
     }
-    let caller = match app.accounts.by_key(bearer(request.headers())) {
-        Ok(Some(c)) => c,
-        _ => {
-            let mut r=fail(401,"This needs an API key: send `Authorization: Bearer pully_...`. Make one in Pully, Settings, Agent keys.");
-            r.headers_mut()
-                .insert("www-authenticate", "Bearer".parse().unwrap());
-            return r;
-        }
+    let caller = match app.accounts.by_key(Some(key)) {
+        Ok(Some(caller)) => caller,
+        _ => return unauthorized(),
     };
     let origin = std::env::var("PULLY_PUBLIC_URL")
         .ok()

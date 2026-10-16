@@ -283,6 +283,9 @@ async fn native(
             "That method is not available to the app.",
         );
     }
+    if rpc.name == "local-diff" && !state.app.has_checkout {
+        return error(StatusCode::NOT_FOUND, crate::host::NO_CHECKOUT);
+    }
     if let Err(response) =
         account::authorize_posted(&state.app, &headers, &rpc.name, &rpc.args).await
     {
@@ -290,7 +293,10 @@ async fn native(
     }
     let result = crate::dispatch(&state.app, &rpc.name, rpc.args).await;
     if rpc.name == "github-stats" {
-        return match result { Ok(value) => reply(Ok(value)), Err(e) => error(StatusCode::BAD_GATEWAY, safe_error(&e)) };
+        return match result {
+            Ok(value) => reply(Ok(value)),
+            Err(e) => error(StatusCode::BAD_GATEWAY, safe_error(&e)),
+        };
     }
     reply(result.and_then(|value| account::filter_owned(&state.app, &headers, value)))
 }
@@ -730,13 +736,13 @@ fn filter_posted(value: Value) -> Value {
     }
 }
 async fn web_dispatch(app: &Arc<AppState>, name: &str, args: Value) -> Result<Value> {
+    if let Some(result) = web_only(app, name, &args).await {
+        return result;
+    }
     anyhow::ensure!(
         !is_posted(&requested_key(app, name, &args)?),
         "Posted diffs open only in the Pully app."
     );
-    if let Some(result) = web_only(app, name, &args).await {
-        return result;
-    }
     crate::dispatch(app, name, args).await.map(filter_posted)
 }
 
