@@ -490,7 +490,7 @@ Source: canvas. Checked by: review.
 
 #### 10. Composer: two modes.
 
-Comment and Ask Pulls only. Split visual layout, not three text chips. No counters, no voice.
+Comment and Ask Pully only. Split visual layout, not three text chips. No counters, no voice.
 
 Source: canvas. Checked by: bans, review.
 
@@ -638,13 +638,13 @@ Source: canvas. Checked by: review.
 
 #### 34. Notes about a file look like comments.
 
-An AI note on a diff is a comment card by “Pulls”: white, rounded, soft shadow. Not a loose line above the code.
+An AI note on a diff is a comment card by “Pully”: white, rounded, soft shadow. Not a loose line above the code.
 
 Source: canvas. Checked by: review.
 
 #### 35. Search is a bottom bar on every inbox.
 
-Profile at the top, “Search or ask Pulls” floating at the bottom, no search icon in the header.
+Profile at the top, “Search or ask Pully” floating at the bottom, no search icon in the header.
 
 Source: canvas. Checked by: review.
 
@@ -802,7 +802,7 @@ Source: walkthrough. Checked by: review.
 
 #### 55. The bottom pill is the one way to find a PR.
 
-- It reads "Search or ask Pulls" as in the design (rule 35). The app shows "Search pull requests" on the Inbox and "Search tours" on Tours. With the keyboard up the pill rides on top of it.
+- It reads "Search or ask Pully" as in the design (rule 35). The app shows "Search pull requests" on the Inbox and "Search tours" on Tours. With the keyboard up the pill rides on top of it.
 - It takes pasted links and PR numbers as well as text.
 - So the "Open pull request" field in the profile sheet goes.
 
@@ -1210,9 +1210,9 @@ Source: overhaul. Checked by: review.
 
 #### 104. A new version must be installed, and its changelog is the screen that asks.
 
-When the server has a newer build, Pulls shows only the update screen, from the first frame of a start: "Pulls 0.28.0 is ready", "Update to keep using Pulls.", then every version it brings over the installed one, each with its summary and bullets, and "Update to 0.28.0" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pulls, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.
+When the server has a newer build, Pully shows only the update screen, from the first frame of a start: "Pully 0.28.0 is ready", "Update to keep using Pully.", then every version it brings over the installed one, each with its summary and bullets, and "Update to 0.28.0" as the dark main action at the foot. Nothing closes it but the update; Back leaves the app. Update downloads and installs in the app and says how far it got (a ring while it downloads, the orb while the system installs), and a failed download or install offers Try again rather than letting the reader through. The phone remembers the last offer, so the screen is there before the server answers again, and it goes when the server has nothing newer. Commands has Update Pully, which asks the server at once and starts the update, or says this is the newest version, and What's new. The phone is also told in a notification when the app is closed. What's new opens by itself once after an install the update screen did not show. The words come from `android/CHANGELOG.md`, written for the reader, not from commit messages.
 
-Check: publish a build with a higher version and open Pulls. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pulls from Commands with no newer build: it says this is the newest.
+Check: publish a build with a higher version and open Pully. The update screen lists what changed and nothing gets past it; Update installs it. Run Update Pully from Commands with no newer build: it says this is the newest.
 
 Source: answers. Checked by: review.
 
@@ -1625,7 +1625,7 @@ Run before showing any new screen.
 47. Tap the search on Home: the list dims until the first letter (rule 103).
 48. Type a question in the Home search: Ask fills in the pill, Send asks it, and every pull request the answer names opens with a tap (rule 55).
 49. Scroll the Inbox past a repository's first rows: its heading stays at the top until the next one pushes it away; a tap on the heading folds the rows, a tap on its name opens the repository, and the sort chip says the order and changes it (rules 70, 74, 75, 81).
-50. Offer an update: Pulls opens on the update screen with the changelog, nothing gets past it, Update shows its progress in place, and Commands has Update Pulls (rule 104).
+50. Offer an update: Pully opens on the update screen with the changelog, nothing gets past it, Update shows its progress in place, and Commands has Update Pully (rule 104).
 51. Open a pull request that sits on another: its Inbox row says "on #241" after the author, the page says "Stacked on #241" under the title, and a tap there opens the Stack sheet, top layer first down to the base branch, where a tap on another layer opens it (rule 14).
 52. Drag, let go and throw between tabs and files, use the capsule and Back, and back-swipe from both edges: everything goes the way you went and nothing springs back the other way first (rule 105).
 53. With Jev on, open the Sort sheet: Riskiest first and a Group by card (Repository, Kind) are there; picking either asks Jev about every open row and the kinds fill in, while with neither picked nothing is asked; grouped by kind, the headings run Fixes, Features, Refactors, Performance, Tests, Docs, Dependencies, Infra, then Not sorted yet, they fold and pin like repositories, a tap on their name only folds, and every row's meta line starts with its repository. A row Jev has read has a third line, its kind with how sure ("Fix", "Likely a fix", "Maybe a fix") and its risk, "High risk" in amber; under a kind's heading only the risk. Open a pull request and run an analysis: its log starts with "Finding the files that need a careful look", then the line under the branch says the kind, the risk and how many files need a look, and every rated file's second line starts with "Needs a look" in amber, "Worth a look" or "Skim". Opening a pull request alone asks Jev nothing. With Jev off none of it shows (rules 1, 14, 53, 70 and 75).
