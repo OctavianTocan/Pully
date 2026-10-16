@@ -37,8 +37,9 @@ has ("Collapsible sections differ ... one component, used everywhere", J18; rule
 @cc [owner:OctavianTocan,label:design] android-one-fold-heading
 Every heading that folds rows away is `GroupHeading`: the name, the count, a chevron that
 turns as it folds, a line under it while folded, and the rows leaving and returning with
-motion. The Inbox, Tours, the Overview's file sections, the Files sheet and any new
-folding list use it (rule 119; recording 15 Oct 12:39, J18).
+motion. The Inbox, Tours, the Overview's file sections and any new folding list on a
+page use it (rule 119; recording 15 Oct 12:39, J18). Sheets never fold: they use the plain
+heading of `kit-sheet-headings` (M7, rule 141; changed 16 Oct by Tavi's 0.37.0 recording).
 
 @cc [owner:OctavianTocan,label:design] android-one-dialect
 Every screen is in the mobile style of `ui/design/Kit.kt` and the `Lu` icons. The
@@ -169,8 +170,9 @@ Components; book check).
 
 @cc [owner:OctavianTocan,label:product] android-words-name-their-effect
 A button names its effect in words a GitHub reviewer would use, on one line: a wrapped
-button label is a defect ("Next unreviewed" becomes "Next"). Every paragraph of text is
-labelled (Summary, Description) (rules 6 and 24).
+button label is a defect ("Next unreviewed" becomes "Next"). The summary and the
+description are told apart by the link that switches them, never by a label over the text
+(rules 6, 24 and 138; M6, Tavi's 0.37.0 recording).
 
 @cc [owner:OctavianTocan,label:design] android-no-number-cards
 Counts are never stat tiles, KPI cards or boxed mini-widgets, and never a run-on sentence

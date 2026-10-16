@@ -36,8 +36,8 @@ Commands is a bottom sheet like any other: it rises from the bottom and a throw 
 carries it on down. It MUST NOT drop in from the top (H6; rules 105 and 108).
 
 @cc [owner:OctavianTocan,label:product] nav-commands-ready-to-type
-Commands opens at its tall height and its search takes the keyboard as soon as it rests,
-so a command can be typed at once, and it opens without a delay after the pull (J11;
+Commands opens at its tall height and its search takes the keyboard as the sheet rises,
+not after it rests, so a command can be typed at once, and it opens without a delay after the pull (J11;
 recording 15 Oct 13:54, 00:56 to 01:05; K5; rule 77).
 
 @cc [owner:OctavianTocan,label:product] nav-commands-reach-everywhere
