@@ -283,7 +283,7 @@ describe('createDiffsStore credentials', () => {
 
   it('sends a token saved after the store was created on the next refresh', async () => {
     const pr = { title: 'PR', body: '', user: null, base: { ref: 'main', sha: 'b' }, head: { ref: 'f', sha: 'h' }, created_at: '', updated_at: '', html_url: '', state: 'open', draft: false, merged: false }
-    const fetchMock = vi.fn(async (url: string, _init: RequestInit) => new Response(JSON.stringify(url.endsWith('/pulls/1') ? pr : []), { status: 200 }))
+    const fetchMock = vi.fn(async (url: string, _init: RequestInit) => new Response(JSON.stringify(url.endsWith('/pulls/1') ? pr : url.includes('/compare/') ? { merge_base_commit: { sha: 'b' } } : []), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
     let token: string | undefined
     const credentials = { githubToken: async () => token }

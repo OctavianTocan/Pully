@@ -6,11 +6,10 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import com.octaviantocan.pulls.core.UpdateManifest
 import com.octaviantocan.pulls.core.isNewerThan
+import com.octaviantocan.pulls.core.openUpdateConnection
 import com.octaviantocan.pulls.core.parseUpdateManifest
 import com.octaviantocan.pulls.core.sha256Hex
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 
 /** The downloaded APK is not the one the manifest names: cut short, or replaced on the way. */
 class DigestMismatch(message: String) : IllegalStateException(message)
@@ -21,29 +20,33 @@ class DigestMismatch(message: String) : IllegalStateException(message)
  */
 class AppUpdater(private val context: Context) {
     fun check(server: String, headers: Map<String, String>, installedVersionCode: Int): UpdateManifest? {
-        val manifest = parseUpdateManifest(get("${server.trimEnd('/')}/android/latest.json", headers))
+        val manifest = parseUpdateManifest(get(server, "android/latest.json", headers))
         return manifest.takeIf { it.isNewerThan(installedVersionCode) }
     }
 
-    fun download(manifest: UpdateManifest, headers: Map<String, String>, onProgress: (Long, Long) -> Unit): File =
-        download(manifest.apkUrl, manifest.sha256, headers, File(context.cacheDir, "pulls-update.apk"), onProgress)
+    fun download(server: String, manifest: UpdateManifest, headers: Map<String, String>, onProgress: (Long, Long) -> Unit): File =
+        download(server, manifest.apkUrl, manifest.sha256, headers, File(context.cacheDir, "pulls-update.apk"), onProgress)
 
     /** Downloads [url] to [file] and checks it against [sha256]; a mismatch deletes the file and throws [DigestMismatch]. */
-    fun download(url: String, sha256: String, headers: Map<String, String>, file: File, onProgress: (Long, Long) -> Unit): File {
-        val connection = open(url, headers)
-        val total = connection.contentLengthLong
-        connection.inputStream.use { input ->
-            file.outputStream().use { output ->
-                val buffer = ByteArray(64 * 1024)
-                var readTotal = 0L
-                while (true) {
-                    val n = input.read(buffer)
-                    if (n < 0) break
-                    output.write(buffer, 0, n)
-                    readTotal += n
-                    onProgress(readTotal, total)
+    fun download(server: String, url: String, sha256: String, headers: Map<String, String>, file: File, onProgress: (Long, Long) -> Unit): File {
+        val connection = openUpdateConnection(server, url, headers)
+        try {
+            val total = connection.contentLengthLong
+            connection.inputStream.use { input ->
+                file.outputStream().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var readTotal = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        output.write(buffer, 0, n)
+                        readTotal += n
+                        onProgress(readTotal, total)
+                    }
                 }
             }
+        } finally {
+            connection.disconnect()
         }
         val actual = sha256Hex(file.readBytes())
         if (!actual.equals(sha256, ignoreCase = true)) {
@@ -78,22 +81,12 @@ class AppUpdater(private val context: Context) {
         }
     }
 
-    fun get(url: String, headers: Map<String, String>): String {
-        val connection = open(url, headers)
-        return connection.inputStream.bufferedReader().readText()
-    }
-
-    private fun open(url: String, headers: Map<String, String>): HttpURLConnection {
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 60_000
-            instanceFollowRedirects = true
-            headers.forEach { (name, value) -> setRequestProperty(name, value) }
+    fun get(server: String, location: String, headers: Map<String, String>): String {
+        val connection = openUpdateConnection(server, location, headers)
+        return try {
+            connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
         }
-        if (connection.responseCode !in 200..299) {
-            val detail = connection.errorStream?.bufferedReader()?.readText().orEmpty()
-            error("Update request failed: HTTP ${connection.responseCode} $detail")
-        }
-        return connection
     }
 }

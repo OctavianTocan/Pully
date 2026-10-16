@@ -1,5 +1,7 @@
 # Plan 10: source- and storage-agnostic refactor
 
+> Historical implementation plan. Backend implementation details below were superseded by the native Rust cutover. See [the current architecture](../.agents/01-architecture.md) and [migration notes](../docs/RUST_BACKEND_MIGRATION.md) for current functionality and verification.
+
 Status: **built** (#34-#38, #43-#45).
 
 ## Why

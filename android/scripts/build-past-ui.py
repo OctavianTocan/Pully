@@ -12,7 +12,7 @@ the app as it was when the next version replaced it. Every build is changed in t
 - the pinned debug key, so a rebuild on any machine installs over the last one.
 
 The APKs go to `<android dir>/past/<version>.apk` with `index.json` beside them, where the server serves them under
-`/android/past/` (packages/cli/src/native-api.ts). The version the checkout is on is the current app, so it is never
+`/android/past/` (backend/src/transport.rs). The version the checkout is on is the current app, so it is never
 built here.
 
     android/scripts/build-past-ui.py               build every version not built yet

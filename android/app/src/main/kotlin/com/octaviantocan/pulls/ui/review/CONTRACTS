@@ -468,7 +468,10 @@ still don't like the pseudo code", recording of 16 Oct 12:10, 08:16 to 08:20, N1
 
 @cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
 A file or line the Tour names opens that one file's diff on a sheet over the Tour, at the
-line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28).
+line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28). A
+file the pull request does not change opens on the same sheet, read at the head commit
+through the path "Load the whole file" uses, scrolled to the line (recording of 16 Oct
+12:10, 10:01 to 10:07, N20).
 
 @cc [owner:OctavianTocan,label:product;design] pr-head-pins-title-numbers-tabs
 While the Overview scrolls, only the lines under the title (the repository and author,
@@ -494,11 +497,6 @@ name.
 Two texts MUST NOT sit side by side where one wraps into a narrow column beside the other.
 A file row's whole path runs on after "Worth a look ·" and wraps under it, as one paragraph
 ("almost a rule I personally have", recording of 16 Oct 12:10, 19:49 to 20:16; N37).
-
-line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28). A
-file the pull request does not change opens on the same sheet, read at the head commit
-through the path "Load the whole file" uses, scrolled to the line (recording of 16 Oct
-12:10, 10:01 to 10:07, N20).
 
 @cc [owner:OctavianTocan,label:product] diff-focus-lands-whole
 A place opened in the diff or its sheet lands with its line near the top and the code
@@ -538,3 +536,13 @@ the title and description GitHub holds now in place of a kept copy as soon as th
 `pr-text` answer arrives, without waiting for the whole overview; a link to the page on
 screen reads it again rather than doing nothing (Tavi, thread message 16 Oct 13:52, "the
 description was not updated").
+
+@cc [owner:OctavianTocan,label:product] diff-highlight-respects-server-batches
+Highlight requests MUST contain at most 400 lines, matching the server limit. Missing
+response rows MUST remain uncached so later attempts can color them (repository review
+15 Oct 2026, finding 12).
+
+@cc [owner:OctavianTocan,label:design] pr-metadata-stays-one-line
+The repository, number, author and age MUST remain on one line. Variable names MUST
+yield at their ends while number and age retain their width (DESIGN.md rule 26;
+repository review 15 Oct 2026, finding 13).

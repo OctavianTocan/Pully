@@ -44,7 +44,7 @@ Needs JDK (the script uses `mise where java`), the Android SDK (`ANDROID_HOME`, 
    summary from `android/CHANGELOG.md` (the notes argument replaces it) and `changelog` is the whole file, so
    the phone can list every version it skipped.
 4. The pulls.review server serves them at `GET /android/pulls.apk` and `GET /android/latest.json`
-   (`packages/cli/src/native-api.ts`). It must run with the same `PULLS_REVIEW_ANDROID_DIR`.
+   (`backend/src/transport.rs`). It must run with the same `PULLS_REVIEW_ANDROID_DIR`.
 5. On the phone the installed app compares its version code with `latest.json` and offers the update: a card
    above the Home search while the app is open, and from 0.17.0 a notification within about 15 minutes when it
    is not (a WorkManager check, no push service). Accept it; Android asks once for permission to install from

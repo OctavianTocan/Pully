@@ -48,6 +48,7 @@ export function useLlmChat({ diff, session, onSessionChange, onGroupingUpdate, s
   /** The server reply this page follows; aborting it stops following, not the reply. */
   let following: AbortController | undefined
   let serverTask: { rpc: LocalRpc, id: string } | undefined
+  let starting: { cancelled: boolean } | undefined
 
   const available = computed(() => session.value !== undefined)
   const messages = computed(() => {
@@ -176,12 +177,34 @@ export function useLlmChat({ diff, session, onSessionChange, onGroupingUpdate, s
   async function sendOnServer(target: NonNullable<ReturnType<NonNullable<LlmChatOptions['server']>['target']>>, input: { text?: string, retry?: boolean }) {
     if (isStreaming.value)
       return
+    const pending = { cancelled: false }
+    starting = pending
+    isStreaming.value = true
+    error.value = undefined
+    activities.value = []
+    startedAt.value = Date.now()
+    endedAt.value = undefined
     try {
       const id = await startAiTask(target.rpc, { kind: 'chat', key: target.key, model: target.model, locale: settings.value.locale, ...input })
+      if (pending.cancelled) {
+        await cancelAiTask(target.rpc, id)
+        return
+      }
+      if (starting !== pending)
+        return
+      starting = undefined
       await follow(target.rpc, { id, startedAt: Date.now(), text: input.text })
     }
     catch (err) {
-      error.value = localizeError(err)
+      if (starting === pending)
+        error.value = localizeError(err)
+    }
+    finally {
+      if (starting === pending) {
+        starting = undefined
+        endedAt.value = Date.now()
+        isStreaming.value = false
+      }
     }
   }
 
@@ -215,6 +238,8 @@ export function useLlmChat({ diff, session, onSessionChange, onGroupingUpdate, s
   function stop() {
     stopRequested = true
     liveAgent?.abort()
+    if (starting)
+      starting.cancelled = true
     if (serverTask)
       void cancelAiTask(serverTask.rpc, serverTask.id)
   }
@@ -226,6 +251,7 @@ export function useLlmChat({ diff, session, onSessionChange, onGroupingUpdate, s
     following?.abort()
     following = undefined
     serverTask = undefined
+    starting = undefined
     live.value = undefined
     isStreaming.value = false
   }

@@ -21,8 +21,8 @@ function runtimeBase(): Plugin {
 }
 
 /**
- * The `pulls.review` CLI's SPA (Plan 09): the site with `PR_LOCAL` on, served by its
- * devframe server. Built into the CLI package, next to its server.
+ * The native server's SPA: the site with `PR_LOCAL` on, packaged by the
+ * `pulls.review` npm launcher and served by the separately built Rust executable.
  */
 export default defineConfig({
   base: './',

@@ -110,8 +110,10 @@ export function createChatSession({ diff, resolved, locale, messages, onGrouping
     transformContext: async (messages) => {
       const compacted = compactContext(messages)
       // Omitted reads must be re-readable, not answered with "(already shown above)".
-      if (compacted !== messages)
+      if (compacted !== messages) {
         ledger.readPaths.clear()
+        ledger.readRanges.clear()
+      }
       return withLanguageReminder(compacted)
     },
     finishTurn: ({ message, newMessages }) => {

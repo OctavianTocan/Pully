@@ -4,7 +4,7 @@ import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core
 import { setCliRunner } from '@pulls.review/core/llm'
 import { createStorage } from 'unstorage'
 import { createApp } from 'vue'
-import { installAppContext, settingsCredentials } from '../app-context'
+import { installAppContext } from '../app-context'
 import { i18n } from '../i18n'
 import { createJobRunner } from './ai-jobs'
 import { setAiRpc } from './ai-rpc'
@@ -14,7 +14,7 @@ import { createRpcLenses, setLensSource } from './lenses'
 import { localRpcKey } from './local-rpc-key'
 import LocalAuthGate from './LocalAuthGate.vue'
 import { localRoutes } from './pages'
-import { createRpcCredentials, createRpcDriver } from './rpc-backends'
+import { createRpcCredentials, createRpcDiffCache, createRpcDriver } from './rpc-backends'
 
 /** Until the server trusts this tab, every RPC call fails: ask for the terminal's code first. */
 async function ensureTrusted(client: Awaited<ReturnType<typeof connectLocal>>['client']): Promise<void> {
@@ -55,7 +55,7 @@ function reloadAfterDisconnect(client: Awaited<ReturnType<typeof connectLocal>>[
 
 /**
  * Wires a `PR_LOCAL` build to the `pulls.review` server: the cache lives in the repo
- * (over RPC), the GitHub token comes from the server's environment, `/` picks refs and
+ * (over RPC), GitHub operations stay on the server, `/` picks refs and
  * `/compare`, `/branch`, `/worktree` and `/commit` review them.
  */
 export async function installLocal(app: App, router: Router): Promise<void> {
@@ -63,10 +63,11 @@ export async function installLocal(app: App, router: Router): Promise<void> {
   await ensureTrusted(client)
   reloadAfterDisconnect(client)
 
+  const cache = createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) }), SERVER_CACHE_BUDGET)
+  cache.diffs = createRpcDiffCache(rpc, cache.diffs)
   installAppContext(app, {
-    // The server's own storage: a browser-sized budget here would evict what the server keeps.
-    cache: createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) }), SERVER_CACHE_BUDGET),
-    credentials: createRpcCredentials(rpc, settingsCredentials),
+    cache,
+    credentials: createRpcCredentials(rpc),
   })
   app.provide(localRpcKey, rpc)
   setCliRunner(createJobRunner(rpc))

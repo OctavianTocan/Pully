@@ -164,7 +164,8 @@ private val AREAS = listOf(
     "$APP/data" to "Phone data",
     "$APP/ui/book" to "UI Book",
     "android/core" to "Shared logic",
-    "packages/cli" to "Server",
+    "backend" to "Server",
+    "packages/cli" to "Server launcher",
     "packages/core" to "Review engine",
     "packages/app" to "Web app",
 )

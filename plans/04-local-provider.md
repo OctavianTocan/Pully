@@ -1,5 +1,7 @@
 # Plan 04: local git source
 
+> Historical implementation plan. The superseded TypeScript server and Node-only local provider were removed in the Rust cutover. See [the current architecture](../.agents/01-architecture.md) and [migration notes](../docs/RUST_BACKEND_MIGRATION.md); source paths below describe the earlier design.
+
 Status: **built** (the source; Plan 09 serves it). Builds on Plan 10 (`DiffSource`, `SourceRef`, core `/cache`).
 Plan 09 serves it to the browser.
 

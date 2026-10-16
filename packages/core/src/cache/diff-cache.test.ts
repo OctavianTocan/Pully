@@ -3,7 +3,7 @@ import type { CacheBudget } from './diff-cache'
 import type { LlmSession, PrCacheEntry } from './schema'
 import { createStorage } from 'unstorage'
 import memoryDriver from 'unstorage/drivers/memory'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computeEntrySizeBytes, createDiffCache } from './diff-cache'
 import { createReviewMarks } from './review-marks'
 
@@ -155,6 +155,65 @@ describe('diff cache', () => {
     const back = await cache.get('a')
     expect(back!.headSha).toBe('sha-new')
     expect(back!.lastViewedAt).toBe(1000)
+  })
+
+  it('serializes mutations across two repositories sharing the same storage', async () => {
+    const first = cacheWith().cache
+    const second = cacheWith().cache
+    await first.put(makeEntry('a', 'sha-a', 1000))
+    const original = storage.getItem.bind(storage)
+    let entered!: () => void
+    let release!: () => void
+    const reading = new Promise<void>(resolve => entered = resolve)
+    const blocked = new Promise<void>(resolve => release = resolve)
+    let held = false
+    vi.spyOn(storage, 'getItem').mockImplementation(async (key, options) => {
+      const value = await original(key, options)
+      if (key === 'pr-body:a' && !held) {
+        held = true
+        entered()
+        await blocked
+      }
+      return value
+    })
+    const saving = first.setLlmSession('a', session)
+    await reading
+    const refreshing = second.putDiff('a', makeEntry('a', 'sha-b', 0).diff, 'sha-b')
+    release()
+    await Promise.all([saving, refreshing])
+    expect(await second.get('a')).toMatchObject({ headSha: 'sha-b', llmSession: session })
+    vi.restoreAllMocks()
+  })
+
+  it('does not expose mixed metadata and body while a write is in flight', async () => {
+    const first = cacheWith().cache
+    const second = cacheWith().cache
+    await first.put(makeEntry('a', 'sha-a', 1000))
+    const original = storage.setItem.bind(storage)
+    let entered!: () => void
+    let release!: () => void
+    const writing = new Promise<void>(resolve => entered = resolve)
+    const blocked = new Promise<void>(resolve => release = resolve)
+    vi.spyOn(storage, 'setItem').mockImplementation(async (key, value, options) => {
+      if (key === 'pr-body:a') {
+        entered()
+        await blocked
+      }
+      await original(key, value, options)
+    })
+    const refreshing = first.putDiff('a', makeEntry('a', 'sha-b', 0).diff, 'sha-b')
+    await writing
+    let readFinished = false
+    const reading = second.get('a').then((value) => {
+      readFinished = true
+      return value
+    })
+    await Promise.resolve()
+    expect(readFinished).toBe(false)
+    release()
+    await refreshing
+    expect(await reading).toMatchObject({ headSha: 'sha-b', diff: { files: [{ sha: 'sha-b' }] } })
+    vi.restoreAllMocks()
   })
 
   it('updateDiff decides on the entry as stored when its turn comes', async () => {
@@ -330,6 +389,17 @@ describe('diff cache', () => {
     const cleared = await cache.get('a')
     expect(cleared!.llmSession).toBeUndefined()
     expect(cleared!.sizeBytes).toBe(computeEntrySizeBytes(entry.diff, entry.analyzedBy))
+  })
+
+  it('rejects a browser transcript that was based on an older session', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'sha-a', 1000))
+    await cache.setLlmSession('a', session, 'null')
+    const observed = JSON.stringify((await cache.get('a'))!.llmSession)
+    const serverSession = { messages: [{ role: 'user' as const, content: 'New conversation', timestamp: 2 }], chatStartIndex: 0 }
+    await cache.setLlmSession('a', serverSession)
+    await expect(cache.setLlmSession('a', session, observed)).rejects.toThrow('The chat changed on the server. Reload before saving.')
+    expect((await cache.get('a'))?.llmSession).toEqual(serverSession)
   })
 
   it('setLlmSession keeps the stored chat archive when a write leaves it out, and reads it back (L36)', async () => {

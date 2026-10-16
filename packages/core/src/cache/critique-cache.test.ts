@@ -42,3 +42,15 @@ describe('critique cache', () => {
     await expect(cache.latest('pr')).resolves.toBeUndefined()
   })
 })
+
+it('serializes concurrent variants across repositories over the same storage', async () => {
+  const other = createCritiqueCache(storage)
+  await Promise.all([
+    cache.set('pr', 'security', result('security review')),
+    other.set('pr', 'correctness', result('correctness review')),
+  ])
+  await expect(cache.get('pr', 'security')).resolves.toMatchObject({ summary: 'security review' })
+  await expect(other.get('pr', 'correctness')).resolves.toMatchObject({ summary: 'correctness review' })
+  await expect(cache.latestEntry('pr', 'h1')).resolves.toMatchObject({ variant: 'correctness', result: { summary: 'correctness review' } })
+  await expect(cache.latestEntry('pr', 'missing')).resolves.toBeUndefined()
+})

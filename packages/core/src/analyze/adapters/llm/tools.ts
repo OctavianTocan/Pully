@@ -1,6 +1,6 @@
 import type { AgentTool } from '@earendil-works/pi-agent-core'
 import type { Tool } from '@earendil-works/pi-ai'
-import type { DiffsPayload } from '../../../types/diff'
+import type { DiffsPayload, FileChange } from '../../../types/diff'
 import type { Analysis } from './schema'
 import { toJsonSchema } from '@valibot/to-json-schema'
 import * as v from 'valibot'
@@ -13,12 +13,13 @@ export interface AnalysisLedger {
   turn: number
   charsRead: number
   readPaths: Set<string>
+  readRanges: Map<string, [number, number][]>
   submitAttempts: number
   result?: Analysis
 }
 
 export function createLedger(): AnalysisLedger {
-  return { turn: 0, charsRead: 0, readPaths: new Set(), submitAttempts: 0 }
+  return { turn: 0, charsRead: 0, readPaths: new Set(), readRanges: new Map(), submitAttempts: 0 }
 }
 
 export interface CoverageIssues {
@@ -69,7 +70,52 @@ function describeCoverageIssues(issues: CoverageIssues, toolName: string): strin
 
 const ReadDiffsParamsSchema = v.object({
   paths: v.array(v.string()),
+  offset: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 })
+
+/** Records the union of returned character ranges, so a partial read never completes a path. */
+function recordRead(ledger: AnalysisLedger, path: string, start: number, end: number, length: number): void {
+  const merged: [number, number][] = []
+  const ranges: [number, number][] = [...ledger.readRanges.get(path) ?? [], [start, end]]
+  for (const range of ranges.sort((a, b) => a[0] - b[0])) {
+    const previous = merged.at(-1)
+    if (previous && range[0] <= previous[1])
+      previous[1] = Math.max(previous[1], range[1])
+    else
+      merged.push([...range])
+  }
+  ledger.readRanges.set(path, merged)
+  if (merged[0]?.[0] === 0 && merged[0][1] >= length)
+    ledger.readPaths.add(path)
+}
+
+interface ReadSection {
+  text: string
+  start: number
+  end: number
+  length: number
+  alreadyRead: boolean
+  continuation?: number
+}
+
+function readSection(file: FileChange, ledger: AnalysisLedger, offset: number | undefined, available: number, pendingChars: number, canTruncate: boolean): ReadSection | undefined {
+  const alreadyRead = offset === undefined && ledger.readPaths.has(file.path)
+  const fullText = alreadyRead ? `### ${file.path}\n(already shown above)` : renderFilesAsText([file])
+  const firstRange = ledger.readRanges.get(file.path)?.[0]
+  const start = alreadyRead ? 0 : offset ?? (firstRange?.[0] === 0 ? firstRange[1] : 0)
+  if (start > fullText.length)
+    throw new Error(`Offset is past the end of ${file.path}.`)
+  const section: ReadSection = { text: fullText.slice(start), start, end: fullText.length, length: fullText.length, alreadyRead }
+  if (section.text.length + pendingChars <= available)
+    return section
+  if (!canTruncate)
+    return undefined
+  // Keep the continuation and queued-path notice inside the same call budget.
+  section.end = start + Math.max(0, available - pendingChars - 160)
+  section.text = `${fullText.slice(start, section.end)}\n(truncated; continue this path with offset: ${section.end})`
+  section.continuation = section.end
+  return section
+}
 
 export function createReadDiffsTool(diff: DiffsPayload, ledger: AnalysisLedger): AgentTool {
   const filesByPath = new Map(diff.files.map(file => [file.path, file]))
@@ -77,13 +123,15 @@ export function createReadDiffsTool(diff: DiffsPayload, ledger: AnalysisLedger):
   return {
     name: 'read_diffs',
     label: 'Read diffs',
-    description: 'Returns the diffs of the given manifest paths.',
+    description: 'Returns the diffs of the given manifest paths. Large files return a continuation offset: request that single path with offset to read the next chunk. Omitting offset resumes the first unread range.',
     parameters: toJsonSchema(ReadDiffsParamsSchema) as Tool['parameters'],
     execute: async (_toolCallId, rawParams) => {
       const parsed = v.safeParse(ReadDiffsParamsSchema, rawParams)
       if (!parsed.success)
         throw new Error(v.summarize(parsed.issues))
-      const { paths } = parsed.output
+      const { paths, offset } = parsed.output
+      if (offset !== undefined && paths.length !== 1)
+        throw new Error('An offset requires exactly one path.')
 
       const unknownPaths = paths.filter(path => !filesByPath.has(path))
       if (unknownPaths.length > 0)
@@ -91,40 +139,40 @@ export function createReadDiffsTool(diff: DiffsPayload, ledger: AnalysisLedger):
 
       const sections: string[] = []
       const returnedPaths: string[] = []
+      const continuations: { path: string, offset: number }[] = []
       let chars = 0
+      const pendingNotice = (remaining: string[]) => remaining.length ? `\n\nNot returned (limit reached), request again: ${remaining.join(', ')}`.slice(0, 512) : ''
 
       for (let i = 0; i < paths.length; i++) {
         const path = paths[i]!
-        if (ledger.readPaths.has(path)) {
-          const text = `### ${path}\n(already shown above)`
-          sections.push(text)
-          returnedPaths.push(path)
-          chars += text.length
-          continue
-        }
-
-        let text = renderFilesAsText([filesByPath.get(path)!])
-
-        if (chars + text.length > READ_CALL_CHAR_CAP && returnedPaths.length > 0) {
-          sections.push(`Not returned (limit reached), request again: ${paths.slice(i).join(', ')}`)
+        const separator = sections.length ? 2 : 0
+        const remaining = READ_CALL_CHAR_CAP - chars - separator
+        const pending = pendingNotice(paths.slice(i + 1))
+        const section = readSection(filesByPath.get(path)!, ledger, offset, remaining, pending.length, returnedPaths.length === 0)
+        if (!section) {
+          const notice = pendingNotice(paths.slice(i)).slice(0, READ_CALL_CHAR_CAP - chars)
+          sections[sections.length - 1] += notice
+          chars += notice.length
           break
         }
 
-        if (text.length > READ_CALL_CHAR_CAP)
-          text = `${text.slice(0, READ_CALL_CHAR_CAP)}\n(truncated)`
-
-        sections.push(text)
+        sections.push(section.text)
         returnedPaths.push(path)
-        chars += text.length
+        chars += separator + section.text.length
+        if (!section.alreadyRead)
+          recordRead(ledger, path, section.start, section.end, section.length)
+        if (section.continuation !== undefined) {
+          continuations.push({ path, offset: section.continuation })
+          sections[sections.length - 1] += pending
+          chars += pending.length
+          break
+        }
       }
 
-      for (const path of returnedPaths)
-        ledger.readPaths.add(path)
       ledger.charsRead += chars
-
       return {
         content: [{ type: 'text', text: sections.join('\n\n') }],
-        details: { paths: returnedPaths, chars },
+        details: { paths: returnedPaths, chars, continuations },
       }
     },
   }

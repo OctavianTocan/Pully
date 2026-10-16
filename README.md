@@ -56,14 +56,56 @@ GITHUB_TOKEN=... ANTHROPIC_API_KEY=... npx @pulls.review/actions owner/repo#123
 
 Every variable also has a `PULLS_REVIEW_*` form that takes precedence (`PULLS_REVIEW_GITHUB_TOKEN`, `PULLS_REVIEW_PROVIDER`, `PULLS_REVIEW_API_KEY`, `PULLS_REVIEW_MODEL`, `PULLS_REVIEW_BASE_URL`, `PULLS_REVIEW_LOCALE`); `npx @pulls.review/actions --help` lists everything.
 
+## Run your own review server
+
+[`pulls-review-server`](./backend/README.md) is the native Rust server for local
+Git reviews, the existing Android client, server-owned AI tasks, GitHub
+operations, and persistent review state. The [`pulls.review` npm package](./packages/cli/README.md)
+is a small JavaScript launcher plus the web UI and curated review lenses. It
+requires a separately built or installed native executable; it does not bundle,
+download, or build one, and has no TypeScript server fallback.
+
+From a source checkout, with Rust, Git, Node.js compatible with the workspace dependencies (checks used 24.19.0) and the repository's pnpm
+version installed:
+
+```sh
+pnpm install
+cargo build --locked --manifest-path backend/Cargo.toml
+pnpm -F pulls.review run build
+node packages/cli/bin.mjs --cwd /absolute/path/to/repository --worktree
+# Or build the native server and packaged web assets together:
+# pnpm run build:server
+```
+
+For an installed npm launcher, install the server from a source checkout with
+`cargo install --locked --path /path/to/pulls.review/backend`, then put Cargo's
+bin directory on `PATH` or set `PULLS_REVIEW_SERVER_BIN` to its executable.
+The launcher uses this checkout's `backend/target/debug` or `release` build when
+run from source, and supplies the packaged web/skills directories automatically.
+Direct native execution is also supported; see the [setup guide](./backend/README.md).
+This PR does not publish an npm release; use the source checkout commands until
+a release includes the native launcher.
+
+A [full native CI run](https://github.com/OctavianTocan/pulls.review/actions/runs/38917860671)
+at `fac9ff30b532297145b890d91cde2ec2c3af6ca6` passed a locked full build, all 43 targeted native fixtures (16 presentation,
+11 lens, 14 RPC and two cursor tests), and both bounded offline HTTP/auth/review
+and analytics smokes after the TypeScript backend removal. Live providers, Docker/shared login, GitHub writes, and
+Android-device workflows remain untested; these bounded results do not establish
+complete end-to-end parity. The Vue/Android UIs, browser-used TypeScript core,
+and separate GitHub Action remain. See the [migration and rollback notes](./docs/RUST_BACKEND_MIGRATION.md).
+Keep remote access on a trusted network or behind an authenticated proxy: the
+phone API has no application login.
+
 ## Packages
 
 | Package                                       | What it is                                                                                      |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [`packages/app`](./packages/app)              | The site at [pulls.review](https://pulls.review) and the github.com embed.                      |
-| [`@pulls.review/core`](./packages/core)       | Fetching, parsing, grouping and summarizing diffs - runs in the browser and in Node.            |
-| [`@pulls.review/actions`](./packages/actions) | The CLI the GitHub Action runs.                                                                 |
-| [`pulls.review`](./packages/cli)              | The standalone CLI for reviewing local git changes. Not implemented yet - the name is reserved. |
+| [`packages/app`](./packages/app)              | The Vue website, github.com embed, and self-hosted web UI.                                      |
+| [`@pulls.review/core`](./packages/core)       | Browser/Action diff parsing, providers, analysis, caching, and shared client contracts.         |
+| [`@pulls.review/actions`](./packages/actions) | The separate TypeScript CLI used by the GitHub Action.                                          |
+| [`pulls.review`](./packages/cli)              | Dependency-free JavaScript launcher, packaged web UI, and curated lenses; requires Rust server. |
+| [`pulls-review-server`](./backend)            | The native Rust HTTP/RPC server, local Git provider, AI orchestration, and persistent storage.  |
+| [`android`](./android)                        | The Kotlin/Compose Android client for the self-hosted server.                                   |
 
 ## Credits
 

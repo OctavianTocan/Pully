@@ -90,8 +90,8 @@ string is added once, at the web's locale, and copied over.
 
 @cc [owner:OctavianTocan,label:security;architecture] agents-act-through-pr-tools
 An AI job reads and acts on a pull request through the server's own tools (the PR tools
-over MCP, `piTools` for Pi). It MUST NOT be given a writable checkout, the server's own
-files, the user's skills or a shell beyond its job folder, "so that they can't really
+over MCP, the native Pi tool adapter for Pi). It MUST NOT be given a writable checkout,
+the server's own files, the user's skills or a shell beyond its job folder, "so that they can't really
 like mess anything up" (recording 14 Oct 19:19, 01:10 to 01:35).
 
 @cc [owner:OctavianTocan,label:architecture] analyses-run-side-by-side
@@ -109,11 +109,19 @@ will track them directly on our server. No need for fancy packages").
 Analytics records what was done, never what was read or typed: no token or key, no diff,
 file contents, file path, prompt, AI answer, comment, Ask message or search text. Events
 carry counts, timings, enums, on or off values and a pull request's repo and number, and
-`cleanEvent` in `packages/core/src/analytics.ts` enforces it on the server before any
-event is written (plan "Pulls analytics on our own server", Guardrails).
+`clean_event` in `backend/src/analytics.rs` enforces it on the server before any
+event is written. `packages/core/src/analytics.ts` retains the shared client definitions
+and cleaner (plan "Pulls analytics on our own server", Guardrails).
 
 @cc [owner:OctavianTocan,label:product;security] analytics-can-be-turned-off
 Each client has a Usage stats switch in Settings, on by default; turning it off drops
 what is queued and sends nothing more. `PULLS_REVIEW_ANALYTICS=off` on the server stops it
 writing anything, its own events included. Day files older than 365 days are deleted
 (plan "Pulls analytics on our own server", Guardrails).
+
+@cc [owner:OctavianTocan,label:architecture] server-backend-is-native-rust
+The HTTP/RPC server, its background orchestration and local Git source provider MUST
+run in Rust. Current builds and launchers MUST NOT start or fall back to TypeScript or
+Node server implementations. Shared browser and Action code and external agent CLIs
+remain separate runtime boundaries (Tavi, 16 Oct 2026 10:40:28 UTC,
+"remove all the TypeScript backend", in the same Rust pull request).

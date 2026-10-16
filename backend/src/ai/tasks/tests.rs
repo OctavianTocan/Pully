@@ -1,0 +1,294 @@
+use super::*;
+#[test]
+fn tour_stop_previews_include_only_successes() {
+    let run = Run {
+        snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+        request: json!({}),
+        task: true,
+        notify: tokio::sync::Notify::new(),
+        cancel: tokio::sync::watch::channel(false).0,
+    };
+    let plan = json!({"title":"Planned","purpose":"Explain","files":["a.rs"]});
+    let success = json!({"title":"Written","takeaway":"Useful","blocks":[],"sources":[]});
+    assert_eq!(
+        finish_tour_stop(&run, 0, &plan, Ok(success.clone())).unwrap(),
+        success
+    );
+    let failed = finish_tour_stop(&run, 1, &plan, Err(anyhow::anyhow!("Fixture failed"))).unwrap();
+    assert_eq!(failed["error"], "Fixture failed");
+    assert_eq!(failed["title"], plan["title"]);
+    assert_eq!(failed["files"], plan["files"]);
+    finish_tour_stop(&run, 2, &plan, Ok(success)).unwrap();
+    let snapshot = run.snapshot.lock().unwrap();
+    let activities = snapshot["activities"].as_array().unwrap();
+    assert_eq!(activities.len(), 2);
+    assert_eq!(activities[0]["id"], "tour-stop:0");
+    assert_eq!(activities[1]["id"], "tour-stop:2");
+    assert!(activities.iter().all(|a| a["status"] == "done"));
+}
+
+#[test]
+fn provider_grouping_preparation_normalizes_before_strict_validation() {
+    let expected = json!({
+        "overallSummary":"Together.",
+        "groups":[{
+            "key":"parent","label":"Parent","category":"core","filePaths":["a.rs"],
+            "children":[{"key":"child","label":"Child","category":"tests","filePaths":["b.rs"]}]
+        }],
+        "files":[{"path":"a.rs","summary":"Changed.","hunks":[{"index":0,"note":"Updated."}]}]
+    });
+    let mut encoded = expected.clone();
+    let parent = &mut encoded["groups"][0];
+    parent["filePaths"] = json!(parent["filePaths"].to_string());
+    parent["children"][0]["filePaths"] = json!(parent["children"][0]["filePaths"].to_string());
+    parent["children"][0] = json!(parent["children"][0].to_string());
+    parent["children"] = json!(parent["children"].to_string());
+    *parent = json!(parent.to_string());
+    encoded["groups"] = json!(encoded["groups"].to_string());
+    encoded["files"][0]["hunks"] = json!(encoded["files"][0]["hunks"].to_string());
+    encoded["files"][0] = json!(encoded["files"][0].to_string());
+    encoded["files"] = json!(encoded["files"].to_string());
+    let schema = grouping_schema();
+
+    // Both provider transports use this exact preparation/validation boundary.
+    for raw in [&encoded, &json!(encoded.to_string())] {
+        assert!(
+            prepare_structured_answer(&schema, raw, StructuredAnswerPreparation::Strict,).is_err()
+        );
+        let prepared =
+            prepare_structured_answer(&schema, raw, StructuredAnswerPreparation::Grouping).unwrap();
+        assert_eq!(prepared, expected);
+        assert!(validate_schema(&schema, &prepared).is_ok());
+    }
+    assert_eq!(
+        prepare_structured_answer(&schema, &expected, StructuredAnswerPreparation::Strict,)
+            .unwrap(),
+        expected
+    );
+}
+
+#[test]
+fn provider_grouping_preparation_rejects_invalid_values_and_other_schemas() {
+    let schema = grouping_schema();
+    let valid = json!({"overallSummary":"Together.","groups":[{"key":"all","label":"All","category":"core","filePaths":["a.rs"]}]});
+    for (field, value) in [
+        ("category", json!("invalid")),
+        ("filePaths", json!("[1]")),
+        ("filePaths", json!("not JSON")),
+        ("children", json!("[{\"filePaths\":[]}]")),
+    ] {
+        let mut invalid = valid.clone();
+        invalid["groups"][0][field] = value;
+        invalid["groups"] = json!(invalid["groups"].to_string());
+        assert!(prepare_structured_answer(
+            &schema,
+            &invalid,
+            StructuredAnswerPreparation::Grouping,
+        )
+        .is_err());
+    }
+    let other_schema = json!({"type":"object","properties":{"groups":{"type":"array","items":{"type":"integer"}}},"required":["groups"],"additionalProperties":false});
+    let other_answer = json!({"groups":"[1,2]"});
+    for preparation in [
+        StructuredAnswerPreparation::Strict,
+        StructuredAnswerPreparation::Grouping,
+    ] {
+        assert!(prepare_structured_answer(&other_schema, &other_answer, preparation).is_err());
+    }
+    assert!(prepare_structured_answer(
+        &other_schema,
+        &json!({"groups":[1,2]}),
+        StructuredAnswerPreparation::Strict,
+    )
+    .is_ok());
+}
+
+#[test]
+fn tours_save_partial_successes_but_never_all_failed_stops() {
+    let dir = std::env::temp_dir().join(format!("pulls-tour-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(dir.clone(), dir.clone()).unwrap();
+    let request = json!({"key":"test","locale":"en"});
+    let diff = json!({"head":{"sha":"head"}});
+    let failed = json!({"title":"Failed","error":"First stop failed"});
+    let later = json!({"title":"Later","error":"Second stop failed"});
+    let stops = vec![failed.clone(), later];
+    let error = save_tour(
+        &state,
+        &request,
+        &diff,
+        json!({}),
+        stops.clone(),
+        &json!({}),
+    )
+    .unwrap_err();
+    assert_eq!(error.to_string(), "First stop failed");
+    assert!(state.store.get("tour:test").unwrap().is_none());
+
+    let success = json!({"title":"Worked","takeaway":"Useful","blocks":[],"sources":[]});
+    let mixed = vec![failed, success];
+    let result = save_tour(
+        &state,
+        &request,
+        &diff,
+        json!({}),
+        mixed.clone(),
+        &json!({}),
+    )
+    .unwrap();
+    assert_eq!(result["stops"], json!(mixed));
+    let saved = state.store.get("tour:test").unwrap().unwrap();
+    assert_eq!(saved["entries"][0], result);
+    assert!(save_tour(&state, &request, &diff, json!({}), stops, &json!({})).is_err());
+    assert_eq!(state.store.get("tour:test").unwrap().unwrap(), saved);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn saved_threads_salvage_valid_turns() {
+    let v = json!({"threads":[{"id":"a","label":"a:1","selection":{"path":"a","side":"additions","startLine":1,"endLine":1},"turns":[{"question":"valid"},{"question":2}]},{"id":3}]});
+    let ts = threads(Some(v));
+    assert_eq!(ts.len(), 1);
+    assert_eq!(ts[0]["turns"].as_array().unwrap().len(), 1);
+}
+#[test]
+fn findings_must_cover_real_diff_lines() {
+    let diff = json!({"files":[{"path":"a","hunks":[{"oldStart":4,"newStart":4,"patch":" x\n-old\n+new\n"}]}]});
+    assert!(valid_finding(
+        &diff,
+        &json!({"path":"a","line":5,"side":"additions"})
+    ));
+    assert!(!valid_finding(
+        &diff,
+        &json!({"path":"a","line":6,"side":"additions"})
+    ));
+    assert!(!valid_finding(
+        &diff,
+        &json!({"path":"missing","line":5,"side":"additions"})
+    ));
+}
+#[test]
+fn inbox_citations_match_only_listed_pulls_in_mention_order() {
+    let listed =
+        json!([{"owner":"Org","repo":"Repo","number":2},{"owner":"Org","repo":"Repo","number":1}]);
+    let cited = cited_pulls("See https://github.com/org/repo/pull/1 then ORG/REPO#2 and Org/Repo#1. Ignore org/repo#3 and prefix/org/repo#2.",&listed);
+    assert_eq!(
+        cited,
+        json!([{"owner":"Org","repo":"Repo","number":1},{"owner":"Org","repo":"Repo","number":2}])
+            .as_array()
+            .unwrap()
+            .clone()
+    );
+}
+#[test]
+fn malformed_nested_turns_and_repeat_suggestions_are_filtered() {
+    let turns = turns(
+        &json!([{"question":"ok","usage":{"costUsd":0.1}},{"question":"bad","usage":{"costUsd":"bad"}},{"question":"bad","activities":[{"id":"incomplete"}]}]),
+    );
+    assert_eq!(turns.len(), 1);
+    let suggestions = suggestions(
+        &json!({"questions":["Why this?","  Next   step? ","next step？","他には？"]}),
+        "why THIS?",
+    );
+    assert_eq!(suggestions, vec!["Next step?", "他には？"]);
+}
+
+#[test]
+fn brief_references_preserve_nested_validation_and_non_array_fallbacks() {
+    let diff =
+        json!({"files":[{"path":"a.rs","hunks":[{"patch":"large".repeat(1024)}]},{"path":"b.rs"}]});
+    let before = diff.clone();
+    let tree = json!({"path":"a.rs","children":[null,{"path":"b.rs","nested":{"path":4}}]});
+    assert!(validate_brief_refs(&tree, &diff).is_ok());
+    let unknown = json!({"children":[{"path":"missing.rs"},{"path":"a.rs"}]});
+    assert_eq!(
+        validate_brief_refs(&unknown, &diff)
+            .unwrap_err()
+            .to_string(),
+        "Brief references a file outside the diff"
+    );
+    assert_eq!(diff, before);
+    for files in [Value::Null, json!({}), json!(false), json!([])] {
+        let empty = json!({"files":files});
+        assert!(validate_brief_refs(&json!({"path":4}), &empty).is_ok());
+        assert!(validate_brief_refs(&json!({"path":"a.rs"}), &empty).is_err());
+        assert!(cited_pulls("org/repo#1", &files).is_empty());
+    }
+}
+
+#[test]
+fn answered_history_borrows_but_keeps_last_eight_pairs_in_order() {
+    fn reference(turns: &Value) -> Value {
+        let mut history: Vec<_> = array(turns)
+            .into_iter()
+            .filter(|t| t["question"].is_string() && t["answer"].is_string())
+            .rev()
+            .take(8)
+            .map(|t| json!({"question":t["question"],"answer":t["answer"]}))
+            .collect();
+        history.reverse();
+        json!(history)
+    }
+    let mut turns = vec![Value::Null, json!({"question":false,"answer":"x"})];
+    for i in 0..12 {
+        turns.push(json!({"question":format!("q{i}"),"answer":format!("😀{i}"),"activities":[{"data":"x".repeat(4096)}]}));
+        turns.push(json!({"question":"pending","answer":null}));
+    }
+    turns.push(json!({"question":"","answer":""}));
+    let cases = [
+        Value::Null,
+        json!({}),
+        json!(false),
+        json!([]),
+        json!(turns),
+    ];
+    for turns in cases {
+        let original = turns.clone();
+        let result = answered_history(&turns);
+        assert_eq!(result.to_string(), reference(&turns).to_string());
+        assert_eq!(turns, original);
+        assert!(result
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t.as_object().unwrap().len() == 2));
+        if turns.as_array().is_some_and(|a| a.len() > 8) {
+            assert_eq!(result[0]["question"], "q5");
+            assert_eq!(result[7], json!({"question":"","answer":""}));
+        }
+    }
+}
+
+#[test]
+fn tour_plan_and_stop_json_survive_task_snapshots_whole() {
+    let run = Run {
+        snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0})),
+        request: json!({}),
+        task: true,
+        notify: tokio::sync::Notify::new(),
+        cancel: tokio::sync::watch::channel(false).0,
+    };
+    let long = "A useful description. ".repeat(1000);
+    let plan = json!({"title":"Plan","overview":long,"stops":[]});
+    record(
+        &run,
+        "tour-plan",
+        "status",
+        "Planned tour",
+        Some(&plan.to_string()),
+        "done",
+    );
+    let stop = json!({"title":"Stop","takeaway":long,"blocks":[],"sources":[]});
+    finish_tour_stop(&run, 0, &plan, Ok(stop.clone())).unwrap();
+    let snapshot = super::super::snapshot(&run, 0.0);
+    assert_eq!(
+        serde_json::from_str::<Value>(snapshot["activities"][0]["text"].as_str().unwrap()).unwrap(),
+        plan
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(snapshot["activities"][1]["text"].as_str().unwrap()).unwrap(),
+        stop
+    );
+    assert!(super::super::snapshot(&run, 2.0)["activities"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}

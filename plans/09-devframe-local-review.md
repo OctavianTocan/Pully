@@ -1,5 +1,7 @@
 # Plan 09: local review through devframe (`pulls.review` CLI)
 
+> Historical implementation plan. Backend implementation details below were superseded by the native Rust cutover. See [the current architecture](../.agents/01-architecture.md) and [migration notes](../docs/RUST_BACKEND_MIGRATION.md) for current functionality and verification.
+
 Status: **in progress**. Depends on Plan 04 (the `local` source) and Plan 10.
 
 Built so far: the `pulls.review [target]` server, the `source.*`, `repo-info`,

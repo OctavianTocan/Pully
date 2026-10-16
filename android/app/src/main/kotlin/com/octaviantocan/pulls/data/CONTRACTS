@@ -38,6 +38,12 @@ and never shows a loading screen for it (architecture, Jev; rule 51).
 The phone drops a diff's file marks when the pull request's head moves, and shows Jev's
 read only for the current head and title (architecture, Jev).
 
+@cc [owner:OctavianTocan,label:security;product] data-posts-selected-critique-revision
+Posting findings MUST send the displayed critique's variant, immutable revision and
+head SHA with its selected IDs. A newer displayed result MUST reset selection, and a
+late post of an older result MUST NOT mark the new result posted (repository review
+15 Oct 2026, finding 8).
+
 @cc [owner:OctavianTocan,label:product;architecture] data-analytics-queue-on-disk
 Every usage event the phone tracks MUST be written to `filesDir/analytics/queue.ndjson`
 as well as kept in memory, so no network and a killed app lose nothing: a crash's own

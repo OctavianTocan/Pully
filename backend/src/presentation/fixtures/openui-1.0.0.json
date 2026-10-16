@@ -1,0 +1,3142 @@
+[
+  {
+    "source": "root = Stack([Text(\"ok\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ok"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(\"x\" + \"y\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "BinOp",
+                "op": "+",
+                "left": {
+                  "k": "Str",
+                  "v": "x"
+                },
+                "right": {
+                  "k": "Str",
+                  "v": "y"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(message)])\nmessage = \"x\"",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "x"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(message.value)])\nmessage = {value: \"hello\", count:2}",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Member",
+                "obj": {
+                  "k": "Obj",
+                  "entries": [
+                    [
+                      "value",
+                      {
+                        "k": "Str",
+                        "v": "hello"
+                      }
+                    ],
+                    [
+                      "count",
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  ]
+                },
+                "field": "value"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text([\"a\", \"b\"][0])])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Index",
+                "obj": {
+                  "k": "Arr",
+                  "els": [
+                    {
+                      "k": "Str",
+                      "v": "a"
+                    },
+                    {
+                      "k": "Str",
+                      "v": "b"
+                    }
+                  ]
+                },
+                "index": {
+                  "k": "Num",
+                  "v": 0
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "$name = \"world\"\nroot = Stack([Text($name)])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "StateRef",
+                "n": "$name"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text($undeclared)])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "StateRef",
+                "n": "$undeclared"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "$enabled = true\nroot = Stack([$enabled ? Text(\"yes\") : Text(\"no\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "k": "Ternary",
+            "cond": {
+              "k": "StateRef",
+              "n": "$enabled"
+            },
+            "then": {
+              "k": "Comp",
+              "name": "Text",
+              "args": [
+                {
+                  "k": "Str",
+                  "v": "yes"
+                }
+              ],
+              "mappedProps": {
+                "markdown": {
+                  "k": "Str",
+                  "v": "yes"
+                }
+              }
+            },
+            "else": {
+              "k": "Comp",
+              "name": "Text",
+              "args": [
+                {
+                  "k": "Str",
+                  "v": "no"
+                }
+              ],
+              "mappedProps": {
+                "markdown": {
+                  "k": "Str",
+                  "v": "no"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(!false), Text(-(2+3)), Text(1 + 2*3 > 4 && true || false)])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "UnaryOp",
+                "op": "!",
+                "operand": {
+                  "k": "Bool",
+                  "v": false
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "UnaryOp",
+                "op": "-",
+                "operand": {
+                  "k": "BinOp",
+                  "op": "+",
+                  "left": {
+                    "k": "Num",
+                    "v": 2
+                  },
+                  "right": {
+                    "k": "Num",
+                    "v": 3
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "BinOp",
+                "op": "||",
+                "left": {
+                  "k": "BinOp",
+                  "op": "&&",
+                  "left": {
+                    "k": "BinOp",
+                    "op": ">",
+                    "left": {
+                      "k": "BinOp",
+                      "op": "+",
+                      "left": {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      "right": {
+                        "k": "BinOp",
+                        "op": "*",
+                        "left": {
+                          "k": "Num",
+                          "v": 2
+                        },
+                        "right": {
+                          "k": "Num",
+                          "v": 3
+                        }
+                      }
+                    },
+                    "right": {
+                      "k": "Num",
+                      "v": 4
+                    }
+                  },
+                  "right": {
+                    "k": "Bool",
+                    "v": true
+                  }
+                },
+                "right": {
+                  "k": "Bool",
+                  "v": false
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(@Count([1,2])), Text(@First([\"a\", \"b\"])), Text(@Last([\"a\"])), Text(@Sum([1,2])), Text(@Avg([1,2])), Text(@Min([1,2])), Text(@Max([1,2]))])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Count",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                ],
+                "mappedProps": {
+                  "array": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "First",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Str",
+                        "v": "a"
+                      },
+                      {
+                        "k": "Str",
+                        "v": "b"
+                      }
+                    ]
+                  }
+                ],
+                "mappedProps": {
+                  "array": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Str",
+                        "v": "a"
+                      },
+                      {
+                        "k": "Str",
+                        "v": "b"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Last",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Str",
+                        "v": "a"
+                      }
+                    ]
+                  }
+                ],
+                "mappedProps": {
+                  "array": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Str",
+                        "v": "a"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Sum",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                ],
+                "mappedProps": {
+                  "numbers": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Avg",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                ],
+                "mappedProps": {
+                  "numbers": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Min",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                ],
+                "mappedProps": {
+                  "numbers": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Max",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                ],
+                "mappedProps": {
+                  "numbers": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(@Sort([1,2], \"\", \"desc\")), Text(@Filter([1,2], \"\", \">\", 1)), Text(@Round(1.234, 2)), Text(@Abs(-1)), Text(@Floor(1.5)), Text(@Ceil(1.2))])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Sort",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  },
+                  {
+                    "k": "Str",
+                    "v": ""
+                  },
+                  {
+                    "k": "Str",
+                    "v": "desc"
+                  }
+                ],
+                "mappedProps": {
+                  "array": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  },
+                  "field": {
+                    "k": "Str",
+                    "v": ""
+                  },
+                  "direction": {
+                    "k": "Str",
+                    "v": "desc"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Filter",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  },
+                  {
+                    "k": "Str",
+                    "v": ""
+                  },
+                  {
+                    "k": "Str",
+                    "v": ">"
+                  },
+                  {
+                    "k": "Num",
+                    "v": 1
+                  }
+                ],
+                "mappedProps": {
+                  "array": {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      },
+                      {
+                        "k": "Num",
+                        "v": 2
+                      }
+                    ]
+                  },
+                  "field": {
+                    "k": "Str",
+                    "v": ""
+                  },
+                  "operator": {
+                    "k": "Str",
+                    "v": ">"
+                  },
+                  "value": {
+                    "k": "Num",
+                    "v": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Round",
+                "args": [
+                  {
+                    "k": "Num",
+                    "v": 1.234
+                  },
+                  {
+                    "k": "Num",
+                    "v": 2
+                  }
+                ],
+                "mappedProps": {
+                  "number": {
+                    "k": "Num",
+                    "v": 1.234
+                  },
+                  "decimals": {
+                    "k": "Num",
+                    "v": 2
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Abs",
+                "args": [
+                  {
+                    "k": "Num",
+                    "v": -1
+                  }
+                ],
+                "mappedProps": {
+                  "number": {
+                    "k": "Num",
+                    "v": -1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Floor",
+                "args": [
+                  {
+                    "k": "Num",
+                    "v": 1.5
+                  }
+                ],
+                "mappedProps": {
+                  "number": {
+                    "k": "Num",
+                    "v": 1.5
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Ceil",
+                "args": [
+                  {
+                    "k": "Num",
+                    "v": 1.2
+                  }
+                ],
+                "mappedProps": {
+                  "number": {
+                    "k": "Num",
+                    "v": 1.2
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([@Each(items, item, Text(item.label))])\nitems = [{label:\"a\"},{label:\"b\"}]",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "k": "Comp",
+            "name": "Each",
+            "args": [
+              {
+                "k": "Arr",
+                "els": [
+                  {
+                    "k": "Obj",
+                    "entries": [
+                      [
+                        "label",
+                        {
+                          "k": "Str",
+                          "v": "a"
+                        }
+                      ]
+                    ]
+                  },
+                  {
+                    "k": "Obj",
+                    "entries": [
+                      [
+                        "label",
+                        {
+                          "k": "Str",
+                          "v": "b"
+                        }
+                      ]
+                    ]
+                  }
+                ]
+              },
+              {
+                "k": "Ref",
+                "n": "item"
+              },
+              {
+                "k": "Comp",
+                "name": "Text",
+                "args": [
+                  {
+                    "k": "Member",
+                    "obj": {
+                      "k": "Ref",
+                      "n": "item"
+                    },
+                    "field": "label"
+                  }
+                ],
+                "mappedProps": {
+                  "markdown": {
+                    "k": "Member",
+                    "obj": {
+                      "k": "Ref",
+                      "n": "item"
+                    },
+                    "field": "label"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(@Each(items, \"item\", item.title + title))])\nitems = [{title:\"a\"}]\ntitle=\"!\"",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Each",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Obj",
+                        "entries": [
+                          [
+                            "title",
+                            {
+                              "k": "Str",
+                              "v": "a"
+                            }
+                          ]
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "k": "Str",
+                    "v": "item"
+                  },
+                  {
+                    "k": "BinOp",
+                    "op": "+",
+                    "left": {
+                      "k": "Member",
+                      "obj": {
+                        "k": "Ref",
+                        "n": "item"
+                      },
+                      "field": "title"
+                    },
+                    "right": {
+                      "k": "Str",
+                      "v": "!"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(@Unknown(\"a\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Text(Count([1,2])),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "data = Query(\"search\", {q: $query}, {title:\"default\"})\nroot = Stack([Text(data.title)])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Member",
+                "obj": {
+                  "k": "RuntimeRef",
+                  "n": "data",
+                  "refType": "query"
+                },
+                "field": "title"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "save = Mutation(\"save\", {name:$name})\nroot=Stack([Text(save)])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "RuntimeRef",
+                "n": "save",
+                "refType": "mutation"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(Query(\"x\")), Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Text(Action([@Set($x,1), @Reset($x), @Run(data), @OpenUrl(\"https://example.com\"), @ToAssistant(\"why\", {id:1})]))])\ndata=Query(\"x\",{})",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Action",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Comp",
+                        "name": "Set",
+                        "args": [
+                          {
+                            "k": "StateRef",
+                            "n": "$x"
+                          },
+                          {
+                            "k": "Num",
+                            "v": 1
+                          }
+                        ]
+                      },
+                      {
+                        "k": "Comp",
+                        "name": "Reset",
+                        "args": [
+                          {
+                            "k": "StateRef",
+                            "n": "$x"
+                          }
+                        ]
+                      },
+                      {
+                        "k": "Comp",
+                        "name": "Run",
+                        "args": [
+                          {
+                            "k": "RuntimeRef",
+                            "n": "data",
+                            "refType": "query"
+                          }
+                        ]
+                      },
+                      {
+                        "k": "Comp",
+                        "name": "OpenUrl",
+                        "args": [
+                          {
+                            "k": "Str",
+                            "v": "https://example.com"
+                          }
+                        ],
+                        "mappedProps": {
+                          "url": {
+                            "k": "Str",
+                            "v": "https://example.com"
+                          }
+                        }
+                      },
+                      {
+                        "k": "Comp",
+                        "name": "ToAssistant",
+                        "args": [
+                          {
+                            "k": "Str",
+                            "v": "why"
+                          },
+                          {
+                            "k": "Obj",
+                            "entries": [
+                              [
+                                "id",
+                                {
+                                  "k": "Num",
+                                  "v": 1
+                                }
+                              ]
+                            ]
+                          }
+                        ],
+                        "mappedProps": {
+                          "message": {
+                            "k": "Str",
+                            "v": "why"
+                          },
+                          "context": {
+                            "k": "Obj",
+                            "entries": [
+                              [
+                                "id",
+                                {
+                                  "k": "Num",
+                                  "v": 1
+                                }
+                              ]
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text($x = 2)])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Assign",
+                "target": "$x",
+                "value": {
+                  "k": "Num",
+                  "v": 2
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(\"first\")])\nroot = Stack([Text(\"second\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "second"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(\"ok\")]); process.exit()",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ok"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(\"ok\")]) # comment\n// hello\nunused = Text(\"x\")",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ok"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "Before\n```openui\nroot = Stack([a])\n```\nMore\n```openui\na = Text(\"yes\")\n```",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "yes"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(\"code ``` inside\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "code ``` inside"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(\"partial",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "partial"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Text(\"a\\",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "a\\"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Callout(\"warn",
+    "tree": null,
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Section(\"s\", [Text(\"t\")], null)])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Section",
+            "props": {
+              "title": "s",
+              "children": [
+                {
+                  "type": "Text",
+                  "props": {
+                    "markdown": "t"
+                  }
+                }
+              ],
+              "open": null
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(\"x\", \"extra\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "x"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Table([\"a\", 5, null], [[\"x\", false], 3])])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Table",
+            "props": {
+              "columns": [
+                "a"
+              ],
+              "rows": [
+                [
+                  "x"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Section(\"a\",[Section(\"b\",[Text(\"inside\")])])])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Section",
+            "props": {
+              "title": "a",
+              "children": [
+                {
+                  "type": "Section",
+                  "props": {
+                    "title": "b",
+                    "children": [
+                      {
+                        "type": "Text",
+                        "props": {
+                          "markdown": "inside"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([CheckItem(\"allowed by parser\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "CheckItem",
+            "props": {
+              "text": "allowed by parser"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Section(\"page\", [Text(\"body\")])",
+    "tree": {
+      "type": "Section",
+      "props": {
+        "title": "page",
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "body"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([\"bad\", {}, 2, null, Text(\"good\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "good"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Text(), Text(null), Text(42), Text(\"good\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "good"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Code(\"x\", false), CheckItem(\"x\", null, \"bad\"), Text(\"good\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Code",
+            "props": {
+              "code": "x"
+            }
+          },
+          {
+            "type": "CheckItem",
+            "props": {
+              "text": "x",
+              "path": null
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "good"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Nope(\"x\"), Text(\"good\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "good"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([missing, Text(\"good\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "good"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([a, Text(\"good\")])\na = b\nb=a",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "good"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "a = Stack([Text(\"fallback\")])",
+    "tree": null,
+    "valid": false
+  },
+  {
+    "source": "root = Stack([])",
+    "tree": null,
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Text(\"ok\")])\n$unused = \"x\"\nquery = Query(\"tool\", {v:ref})\nref=\"x\"",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ok"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root = Stack([Text(\"a\\q\"),Text(\"a\\uD83D\\uDE00\"),Text('a\\r')])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "a\\q"
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "a😀"
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ar"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text({k:\"Str\",v:\"literal object\"})])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Str",
+                "v": "literal object"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(true\n ? \"yes\"\n : \"no\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Ternary",
+                "cond": {
+                  "k": "Bool",
+                  "v": true
+                },
+                "then": {
+                  "k": "Str",
+                  "v": "yes"
+                },
+                "else": {
+                  "k": "Str",
+                  "v": "no"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(@Each([1], x, @Each([2], y, Text(x+y))))])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Each",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "k": "Ref",
+                    "n": "x"
+                  },
+                  {
+                    "k": "Comp",
+                    "name": "Each",
+                    "args": [
+                      {
+                        "k": "Arr",
+                        "els": [
+                          {
+                            "k": "Num",
+                            "v": 2
+                          }
+                        ]
+                      },
+                      {
+                        "k": "Ref",
+                        "n": "y"
+                      },
+                      {
+                        "k": "Comp",
+                        "name": "Text",
+                        "args": [
+                          {
+                            "k": "BinOp",
+                            "op": "+",
+                            "left": {
+                              "k": "Ref",
+                              "n": "x"
+                            },
+                            "right": {
+                              "k": "Ref",
+                              "n": "y"
+                            }
+                          }
+                        ],
+                        "mappedProps": {
+                          "markdown": {
+                            "k": "BinOp",
+                            "op": "+",
+                            "left": {
+                              "k": "Ref",
+                              "n": "x"
+                            },
+                            "right": {
+                              "k": "Ref",
+                              "n": "y"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root = Stack([Text(1e3), Text(-5), Text(1e), Text(\"good\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "good"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(null),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(false),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(0),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(\"\"),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": ""
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text({}),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text([]),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text([null,\"x\"]),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text({k:\"Str\",v:1}),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Str",
+                "v": 1
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text({type:\"element\",typeName:\"Text\",props:{markdown:\"spoof\"}}),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Text(\"x\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Text([\"x\"])),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Section(\"s\", Text(\"x\"))),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Callout({}, \"x\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Callout([],\"x\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(missing.foo[1]),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Index",
+                "obj": {
+                  "k": "Member",
+                  "obj": {
+                    "k": "Ph",
+                    "n": "missing"
+                  },
+                  "field": "foo"
+                },
+                "index": {
+                  "k": "Num",
+                  "v": 1
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(@Each([1], item, Text(item))),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Each",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "k": "Ref",
+                    "n": "item"
+                  },
+                  {
+                    "k": "Comp",
+                    "name": "Text",
+                    "args": [
+                      {
+                        "k": "Ref",
+                        "n": "item"
+                      }
+                    ],
+                    "mappedProps": {
+                      "markdown": {
+                        "k": "Ref",
+                        "n": "item"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(@Each([1],\"\",Text(\"x\"))),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Each",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Num",
+                        "v": 1
+                      }
+                    ]
+                  },
+                  {
+                    "k": "Str",
+                    "v": ""
+                  },
+                  {
+                    "k": "Comp",
+                    "name": "Text",
+                    "args": [
+                      {
+                        "k": "Str",
+                        "v": "x"
+                      }
+                    ],
+                    "mappedProps": {
+                      "markdown": {
+                        "k": "Str",
+                        "v": "x"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(Action([@Set($s,1)])),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Action",
+                "args": [
+                  {
+                    "k": "Arr",
+                    "els": [
+                      {
+                        "k": "Comp",
+                        "name": "Set",
+                        "args": [
+                          {
+                            "k": "StateRef",
+                            "n": "$s"
+                          },
+                          {
+                            "k": "Num",
+                            "v": 1
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(@Run(unknown)),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Comp",
+                "name": "Run",
+                "args": [
+                  {
+                    "k": "Ph",
+                    "n": "unknown"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text((1-2)+3),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "BinOp",
+                "op": "+",
+                "left": {
+                  "k": "BinOp",
+                  "op": "-",
+                  "left": {
+                    "k": "Num",
+                    "v": 1
+                  },
+                  "right": {
+                    "k": "Num",
+                    "v": 2
+                  }
+                },
+                "right": {
+                  "k": "Num",
+                  "v": 3
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(1+-2),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "BinOp",
+                "op": "+",
+                "left": {
+                  "k": "Num",
+                  "v": 1
+                },
+                "right": {
+                  "k": "Num",
+                  "v": -2
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(-1 * -2),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "BinOp",
+                "op": "*",
+                "left": {
+                  "k": "Num",
+                  "v": -1
+                },
+                "right": {
+                  "k": "Num",
+                  "v": -2
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(a?b:c),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Ternary",
+                "cond": {
+                  "k": "Ph",
+                  "n": "a"
+                },
+                "then": {
+                  "k": "Ph",
+                  "n": "b"
+                },
+                "else": {
+                  "k": "Ph",
+                  "n": "c"
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(a\n? b\n: c),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Ternary",
+                "cond": {
+                  "k": "Ph",
+                  "n": "a"
+                },
+                "then": {
+                  "k": "Ph",
+                  "n": "b"
+                },
+                "else": {
+                  "k": "Ph",
+                  "n": "c"
+                }
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(foo.bar.$x),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Member",
+                "obj": {
+                  "k": "Member",
+                  "obj": {
+                    "k": "Ph",
+                    "n": "foo"
+                  },
+                  "field": "bar"
+                },
+                "field": "x"
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(foo.2),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": {
+                "k": "Member",
+                "obj": {
+                  "k": "Ph",
+                  "n": "foo"
+                },
+                "field": "2"
+              }
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text([true false null]),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Text(\"a\" \"b\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(@Unknown(1)),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(@Query(\"a\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Query(\"a\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(Text($s==true ? \"a\" : \"b\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([null,Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([false,Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([0,Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([\"\",Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([{},Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([[],Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([[null,\"x\"],Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([{k:\"Str\",v:1},Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "k": "Str",
+            "v": 1
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([{type:\"element\",typeName:\"Text\",props:{markdown:\"spoof\"}},Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(\"x\"),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "x"
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text([\"x\"]),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Section(\"s\", Text(\"x\")),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Callout({}, \"x\"),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Callout",
+            "props": {
+              "tone": {},
+              "text": "x"
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Callout([],\"x\"),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Callout",
+            "props": {
+              "tone": [],
+              "text": "x"
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([missing.foo[1],Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "k": "Index",
+            "obj": {
+              "k": "Member",
+              "obj": {
+                "k": "Ph",
+                "n": "missing"
+              },
+              "field": "foo"
+            },
+            "index": {
+              "k": "Num",
+              "v": 1
+            }
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([@Each([1], item, Text(item)),Text(\"kept\")])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "k": "Comp",
+            "name": "Each",
+            "args": [
+              {
+                "k": "Arr",
+                "els": [
+                  {
+                    "k": "Num",
+                    "v": 1
+                  }
+                ]
+              },
+              {
+                "k": "Ref",
+                "n": "item"
+              },
+              {
+                "k": "Comp",
+                "name": "Text",
+                "args": [
+                  {
+                    "k": "Ref",
+                    "n": "item"
+                  }
+                ],
+                "mappedProps": {
+                  "markdown": {
+                    "k": "Ref",
+                    "n": "item"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "kept"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(x)])\nx=\"before\"\nx=\"after\"",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "after"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(\"a\")])\n$foo=missing",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "a"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(\"a\")])\n$foo=Query(\"x\")",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "a"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(\"a\")])\nunused=Nope(\"b\")",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "a"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([Text(\"hi😀\")]) // comment",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "hi😀"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text('x\\r\\b\\t\\n')])",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "xrb\t\n"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text('partial",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "partial"
+            }
+          }
+        ]
+      }
+    },
+    "valid": false
+  },
+  {
+    "source": "root=Stack([a])\na=Text(\"before\") // hi",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "before"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(\"ok\")])\n\"ignored\"",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ok"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(\"ok\")])\nroot=",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ok"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "source": "root=Stack([Text(\"ok\")])\n$var=",
+    "tree": {
+      "type": "Stack",
+      "props": {
+        "children": [
+          {
+            "type": "Text",
+            "props": {
+              "markdown": "ok"
+            }
+          }
+        ]
+      }
+    },
+    "valid": true
+  }
+]

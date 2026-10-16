@@ -1,7 +1,7 @@
 import type { LlmSettings } from './analyze/adapters/llm/settings'
 import { defaultLlmSettings, deriveProvider, isLlmProvider } from './analyze/adapters/llm/settings'
 
-/** Settings from a process environment, shared by every Node entry point (the CLI, a local server). */
+/** Settings from a process environment for the retained GitHub Action CLI. */
 export type Env = Record<string, string | undefined>
 
 /** The first value that is set and not blank: an Action passes unset inputs as `''`. */

@@ -1,0 +1,20 @@
+@cc [owner:OctavianTocan,label:architecture] rust-mermaid-renders-native-geometry
+The Mermaid endpoint MUST render flowchart, state, sequence, class, ER and XY diagrams as
+native SVG geometry without Node, a browser, a JavaScript engine or a source-text
+fallback (Tavi, 16 Oct 2026 backend parity request; historical TypeScript native-api.ts mermaidSvg).
+
+@cc [owner:OctavianTocan,label:security;product] rust-mermaid-native-svg-boundary
+Mermaid source MUST be nonempty and at most 8000 UTF-16 code units, and only the boolean
+true selects the dark app palette. Returned SVG MUST have a transparent canvas and
+MUST NOT contain executable markup, external resources, foreignObject, CSS variables,
+font imports or color-mix expressions (historical TypeScript native-api.ts mermaidSvg and flattenMermaidSvg;
+Tavi, 16 Oct 2026 backend parity request).
+
+@cc [owner:OctavianTocan,label:architecture;product] rust-highlight-native-grammars
+The native highlight endpoint MUST use language grammars for the TypeScript API's
+extension allowlist, preserve multiline syntax state within a request, return the
+existing lines/theme envelope and use the same locked Pierre theme data. It MUST
+preserve source text, use plain-text fallback for unknown grammars or failed bounded
+highlighting, and MUST NOT invoke Node or a browser. Engine-specific scope/token
+boundaries MUST be disclosed rather than described as byte-identical to Shiki
+(Tavi, 16 Oct 2026 all-backend-parity request; historical TypeScript native-api.ts and highlight.ts).

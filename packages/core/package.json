@@ -22,7 +22,6 @@
     "./paste": "./dist/paste.js",
     "./analyze": "./dist/analyze.js",
     "./llm": "./dist/llm.js",
-    "./local": "./dist/local.js",
     "./local-rpc": "./dist/local-rpc.js",
     "./diagnostics": "./dist/diagnostics.js",
     "./env": "./dist/env.js",

@@ -1,5 +1,11 @@
 # Plan: posted diffs (an agent posts a diff, gets a Pully link)
 
+> Rust migration update, 16 October 2026: PR #50 retains this plan's product
+> contracts in the native backend. References below to `packages/cli/src` describe
+> the original TypeScript design; implementation now lives in `backend/src/host.rs`,
+> `account.rs`, `posted.rs`, `agent_api.rs` and `transport.rs`. The TypeScript server
+> has been removed. Cloudflare deployment remains separately approved work.
+
 Status: **built** on branch `claude/project-thread-xfrvu7` (Android 0.43.0). Started 16 Oct 2026 from Tavi's
 message (12:24): "an endpoint where agents can post a diff, and they get back a link ... like a PR showcase using our
 stuff, but the diff is just what they gave you ... we hide elements like the branches and so on that are not actually

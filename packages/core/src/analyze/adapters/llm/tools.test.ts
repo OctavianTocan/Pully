@@ -2,6 +2,7 @@ import type { DiffsPayload, FileChange } from '../../../types/diff'
 import type { Analysis } from './schema'
 import { toJsonSchema } from '@valibot/to-json-schema'
 import { describe, expect, it, vi } from 'vitest'
+import { buildAnalysisPrompt, INLINE_DIFF_CHAR_LIMIT, renderFilesAsText } from './prompt'
 import { AnalysisSchema } from './schema'
 import { createLedger, createReadDiffsTool, createSubmitGroupingTool, createUpdateGroupingTool, findCoverageIssues, prepareGroupingArguments, READ_CALL_CHAR_CAP } from './tools'
 
@@ -82,7 +83,7 @@ describe('createReadDiffsTool', () => {
     const result = await tool.execute('id', { paths: ['a.ts', 'b.ts'] })
     const text = (result.content[0] as { text: string }).text
     expect(text).toContain('Not returned (limit reached), request again: b.ts')
-    expect(result.details).toEqual({ paths: ['a.ts'], chars: expect.any(Number) })
+    expect(result.details).toEqual({ paths: ['a.ts'], chars: expect.any(Number), continuations: [{ path: 'a.ts', offset: expect.any(Number) }] })
   })
 
   it('truncates a single file larger than the cap on its own', async () => {
@@ -91,8 +92,8 @@ describe('createReadDiffsTool', () => {
     const tool = createReadDiffsTool(diff, createLedger())
     const result = await tool.execute('id', { paths: ['huge.ts'] })
     const text = (result.content[0] as { text: string }).text
-    expect(text.endsWith('(truncated)')).toBe(true)
-    expect(text.length).toBeLessThanOrEqual(READ_CALL_CHAR_CAP + '\n(truncated)'.length)
+    expect(text).toContain('(truncated; continue this path with offset:')
+    expect(text.length).toBeLessThanOrEqual(READ_CALL_CHAR_CAP)
   })
 
   it('updates ledger counters after a successful read', async () => {
@@ -213,4 +214,39 @@ describe('prepareGroupingArguments', () => {
     expect(prepareGroupingArguments(args)).toEqual(args)
     expect(prepareGroupingArguments({ groups: 'not json' })).toEqual({ groups: 'not json' })
   })
+})
+
+it('recovers the unique tail of a large non-generated diff through an explicit continuation', async () => {
+  const huge = file({ path: 'huge.ts', hunks: [{ header: '@@ -1 +1 @@', oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, patch: `+${'x'.repeat(60_000)}UNIQUE_TAIL_MARKER` }] })
+  const diff = diffWithFiles([huge, ...Array.from({ length: 3 }, (_, index) => ({ ...huge, path: `other-${index}.ts` }))])
+  expect(renderFilesAsText(diff.files).length).toBeGreaterThan(INLINE_DIFF_CHAR_LIMIT)
+  expect(buildAnalysisPrompt(diff, 'en')).not.toContain('---DIFFS---')
+  const ledger = createLedger()
+  const tool = createReadDiffsTool(diff, ledger)
+  const first = await tool.execute('first', { paths: ['huge.ts'] })
+  const firstText = (first.content[0] as { text: string }).text
+  const continuation = (first.details as { continuations: { path: string, offset: number }[] }).continuations[0]!
+  expect(firstText).not.toContain('UNIQUE_TAIL_MARKER')
+  expect(firstText.length).toBeLessThanOrEqual(READ_CALL_CHAR_CAP)
+  expect(ledger.readPaths.has('huge.ts')).toBe(false)
+  const second = await tool.execute('second', { paths: [continuation.path], offset: continuation.offset })
+  const secondText = (second.content[0] as { text: string }).text
+  expect(secondText).toContain('UNIQUE_TAIL_MARKER')
+  expect(secondText.length).toBeLessThanOrEqual(READ_CALL_CHAR_CAP)
+  expect(ledger.readPaths.has('huge.ts')).toBe(true)
+})
+
+it('resumes partial reads automatically and does not mark disjoint ranges complete', async () => {
+  const huge = file({ path: 'huge.ts', hunks: [{ header: '@@ -1 +1 @@', oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, patch: `+${'x'.repeat(50_000)}TAIL` }] })
+  const ledger = createLedger()
+  const tool = createReadDiffsTool(diffWithFiles([huge]), ledger)
+  await tool.execute('tail', { paths: ['huge.ts'], offset: 45_000 })
+  expect(ledger.readPaths.has('huge.ts')).toBe(false)
+  await tool.execute('start', { paths: ['huge.ts'] })
+  expect(ledger.readPaths.has('huge.ts')).toBe(false)
+  const end = await tool.execute('continue', { paths: ['huge.ts'] })
+  expect((end.content[0] as { text: string }).text).toContain('TAIL')
+  expect(ledger.readPaths.has('huge.ts')).toBe(true)
+  await expect(tool.execute('invalid', { paths: ['huge.ts'], offset: -1 })).rejects.toThrow()
+  await expect(tool.execute('invalid', { paths: ['huge.ts', 'huge.ts'], offset: 1 })).rejects.toThrow('exactly one')
 })

@@ -1,5 +1,7 @@
 # Plan 11: Pi, our own agent harness for any model
 
+> Historical implementation plan. The superseded TypeScript server and Node-only local provider were removed in the Rust cutover. See [the current architecture](../.agents/01-architecture.md) and [migration notes](../docs/RUST_BACKEND_MIGRATION.md); source paths below describe the earlier design.
+
 Status: **step 1 built** (the `pi` engine, opt-in). Claude Code stays the default.
 
 ## Why

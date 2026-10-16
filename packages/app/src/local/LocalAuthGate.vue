@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { DevframeRpcClient } from 'devframe/client'
+import type { LocalClient } from './connection'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import { onMounted, ref } from 'vue'
 
 const props = defineProps<{
-  client: DevframeRpcClient
+  client: Pick<LocalClient, 'requestAuthCode' | 'requestTrustWithCode'>
   onTrusted: () => void
 }>()
 

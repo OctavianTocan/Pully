@@ -99,3 +99,19 @@ describe('restoreChat', () => {
     expect(() => restoreChat(session(chat('Now', 1)), 'missing')).toThrow('not in this pull request\'s history')
   })
 })
+
+it('restoring from a full archive preserves the unrelated oldest chat and keeps all final slots', () => {
+  let current = session()
+  for (let at = 0; at < MAX_ARCHIVED_CHATS; at++)
+    current = archiveChat({ ...current, messages: [...current.messages, ...chat(`Question ${at}`, 100 + at)] }, 1000 + at)
+  const selected = current.archive![1]!
+  const oldest = current.archive!.at(-1)!
+  current = { ...current, messages: [...current.messages, ...chat('Current', 2000)], suggestions: ['Current follow-up'] }
+  const restored = restoreChat(current, selected.id, 3000)
+  expect(restored.archive).toHaveLength(MAX_ARCHIVED_CHATS)
+  expect(restored.archive).toContainEqual(oldest)
+  expect(restored.archive!.some(entry => entry.id === selected.id)).toBe(false)
+  expect(restored.archive![0]!.suggestions).toEqual(['Current follow-up'])
+  expect(restored.messages).toEqual([...analysis, ...selected.messages])
+  expect(restored.suggestions).toBeUndefined()
+})
