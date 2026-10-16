@@ -180,10 +180,10 @@ fun PullsApp(initialTarget: String?) {
 private const val CANT_OPEN = "Pulls can't open that link"
 
 /**
- * The page a link from another app opens, with the same parsing as the home URL field: a pull request, commit or
- * compare opens its review, a repository its page. `null` for anything else.
+ * The page a link from another app opens: a pull request, commit or compare opens its review, a repository its page.
+ * `null` for anything else, an issue or a file included.
  */
-private fun linkScreen(text: String): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parse(text)) {
+private fun linkScreen(text: String): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parseShared(text)) {
     is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link")
     is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
     null -> null

@@ -60,6 +60,21 @@ object HomeLinks {
         return PrLinks.parse(trimmed)?.let { HomeLink.Target(it) }
     }
 
+    private val githubUrl = Regex("""(?:https?://)?(?:www\.)?github\.com/[^\s<>"'()]+""", RegexOption.IGNORE_CASE)
+    private val bareRepo = Regex("""^(?:https?://)?(?:www\.)?github\.com/([^/\s#?]+)/([^/\s#?]+?)(?:\.git)?(?:/pulls)?/?(?:[?#].*)?$""", RegexOption.IGNORE_CASE)
+
+    /**
+     * What a link handed over by another app opens: text shared, selected or tapped. Every GitHub address in it is read
+     * whole, a pull request, commit or compare before a repository, and an issue, file or any other GitHub page is not a
+     * repository link. Text without a GitHub address falls back to [PrLinks] (`owner/repo#1`, a server link).
+     */
+    fun parseShared(text: String): HomeLink? {
+        val urls = githubUrl.findAll(text).map { it.value.trimEnd('.', ',', ';', ':', '!', '?') }.toList()
+        if (urls.isEmpty()) return PrLinks.parse(text)?.let { HomeLink.Target(it) }
+        urls.firstNotNullOfOrNull { url -> parse(url) as? HomeLink.Target }?.let { return it }
+        return urls.firstNotNullOfOrNull { url -> bareRepo.matchEntire(url)?.let { HomeLink.Repo(it.groupValues[1], it.groupValues[2]) } }
+    }
+
     /**
      * What the search pill's text opens: a link [parse] understands, or a bare number (`42`, `#42`) that only one of the
      * [listed] pull requests has. `null` when the text is just a search.
