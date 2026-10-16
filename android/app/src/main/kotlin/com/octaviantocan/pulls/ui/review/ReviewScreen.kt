@@ -287,7 +287,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
-            waiting -> PrOpening(target, preview, onBack = nav.back, onReview = { openDiff(null) }, onAsk = { openAsk(false) })
+            waiting -> PrOpening(target, preview, onBack = nav.back, onReview = { openDiff(null) }, onAsk = { question -> openAsk(false, initial = question) })
             else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
@@ -311,7 +311,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                             PrView.Overview -> PrOverviewScreen(
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
                                 onDiff = { path -> if (path == null) toChanges() else openDiff(path) },
-                                onAsk = { openAsk(forTour = false) },
+                                onAsk = { question -> openAsk(forTour = false, initial = question) },
                                 onSheet = { name ->
                                     if (name == "stack") session.stack?.let { Analytics.track("stack.open", "size" to it.entries.size) }
                                     sheet = name

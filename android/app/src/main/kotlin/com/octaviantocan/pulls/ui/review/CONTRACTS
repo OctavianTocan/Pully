@@ -17,7 +17,9 @@ half transparent over the numbers and tabs, and nothing sits under the status ba
 
 @cc [owner:OctavianTocan,label:design] pr-title-is-whole
 The title is a plain 26sp heading that wraps whole, never cut and never in a bubble
-(rules 2 and 12).
+(rules 2 and 12). The one exception is the Overview's pinned head: once the page scrolls,
+the title folds to one line and MAY end in an ellipsis, and it is whole again at rest
+("ellipsis allowed", recording of 16 Oct 12:10, 20:34 to 21:03; N38, Tavi's decision).
 
 @cc [owner:OctavianTocan,label:product] pr-edit-in-place
 On a pull request the person may edit, a tap on the title turns it into a field with the
@@ -367,9 +369,14 @@ Reviewed is a checkbox and a word, with no pill, chip or border around it (rule 
 Branches are squarish pills, head → base, and a tap copies one (rule 21).
 
 @cc [owner:OctavianTocan,label:product] pr-review-is-the-bottom-action
-The bottom of the Overview carries the reviewing action ("Review 4 files") beside a
-quiet "Ask | ⋯" capsule; there is never a second Ask inside a comment card (rules 7 and
-30).
+The bottom of the Overview, and of the page while it opens, is an Ask field ("Ask about
+this pull request"), the Tour's Ask pill, and beside it one round button with no words
+that moves the review forward: an arrow to the review, a tick when it approves. The ⋯
+lives only in the header's capsule, so the bottom row MUST NOT carry a menu, and there is
+never a second Ask inside a comment card (rules 7 and 30; recording of 16 Oct 12:10, 16:40
+to 17:05; N32). Tavi decided this in place of the "Review 4 files" button beside a quiet
+"Ask | ⋯" capsule. Sending a question opens the Ask sheet on it, and the field dims the
+page behind it as the Tour's does.
 
 @cc [owner:OctavianTocan,label:product] pr-stack-is-a-sheet
 A pull request in a stack says so under its title ("Stacked on #241"), and a tap opens
@@ -431,3 +438,28 @@ to 14:33 and 15:35 to 15:48; L27, L30).
 @cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
 A file or line the Tour names opens that one file's diff on a sheet over the Tour, at the
 line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28).
+
+@cc [owner:OctavianTocan,label:product;design] pr-head-pins-title-numbers-tabs
+While the Overview scrolls, only the lines under the title (the repository and author,
+the branches, the stack and Jev lines) go up under it. The title, folded to one line, the
+Changes, Commits, Files and Checks row and the tabs MUST stay pinned at the top ("only
+the branch line scrolls away", recording of 16 Oct 12:10, 20:34 to 21:03; N38).
+
+@cc [owner:OctavianTocan,label:product;design] pr-long-lists-show-more
+A long list on the Overview (the file groups, a group's files, what needs a human) shows
+its first few rows, then a hairline and "Show N more" with a down chevron, which opens the
+rest in place. It is not a fold: nothing closes again, and the findings keep "Open the
+review" under them (Claude's lists, recording of 16 Oct 12:10, 02:14 to 02:36; N5). A cut
+MUST NOT separate groups that share a heading.
+
+@cc [owner:OctavianTocan,label:product;design] pr-groups-say-a-shared-start-once
+File groups in a row named "Prefix › Something" with the same Prefix are listed under one
+line saying the Prefix, and each group's row says only the rest. Two group rows on the
+Overview MUST NOT start with the same words ("Wayland capture producer" four times,
+recording of 16 Oct 12:10, 17:41 to 18:02; N34). A group keeps its fold under its whole
+name.
+
+@cc [owner:OctavianTocan,label:design] pr-texts-never-stand-in-columns
+Two texts MUST NOT sit side by side where one wraps into a narrow column beside the other.
+A file row's whole path runs on after "Worth a look ·" and wraps under it, as one paragraph
+("almost a rule I personally have", recording of 16 Oct 12:10, 19:49 to 20:16; N37).
