@@ -15,5 +15,5 @@ colour role for light and for dark, so no screen falls back to a hard-coded colo
 
 @cc [owner:OctavianTocan,label:design] theme-material-follows-pulls
 The few Material pieces still drawn (menus, dialogs, text selection) read their colours
-from the current Pulls palette, so they never show Material's own purple or a colour
+from the current Pully palette, so they never show Material's own purple or a colour
 that differs from the theme around them.

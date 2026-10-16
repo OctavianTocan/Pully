@@ -101,7 +101,7 @@ private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShow
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (you != null) GithubAvatar(you, size = 64.dp) else ProfileDot(size = 64.dp)
-        Text(you ?: "Pulls", style = PullsType.xxl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
+        Text(you ?: "Pully", style = PullsType.xxl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
     }
     // Your year on GitHub, between you and the settings: the sheet is a profile, not only switches (M5).
     ProfileStats(onLogin = { statsLogin = it })

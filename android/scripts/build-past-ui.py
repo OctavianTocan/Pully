@@ -6,7 +6,7 @@ the app as it was when the next version replaced it. Every build is changed in t
 
 - its own package, `com.octaviantocan.pulls.v0_20_0`, so it installs beside the current app and the others;
 - a versionCode of 1000000 plus its own, so no update the server offers is ever newer and its update screen stays away;
-- the label "Pulls 0.20.0", and no launcher icon, link handling or share target: its activity answers only the
+- the label "Pully 0.20.0", and no launcher icon, link handling or share target: its activity answers only the
   PAST_UI category the current app opens it with, behind a signature permission only the current app holds;
 - `PastUiBoot`, which takes the server address and Access token from the current app when it opens the old one;
 - the pinned debug key, so a rebuild on any machine installs over the last one.
@@ -167,7 +167,7 @@ android {{
     if activity.group(1) == "/":
         opener += "\n        </activity>"
     text = text[: activity.start()] + opener + text[activity.end() :]
-    text = re.sub(r'(<application\b[^>]*?android:label=)"[^"]*"', rf'\1"Pulls {name}"', text, count=1, flags=re.S)
+    text = re.sub(r'(<application\b[^>]*?android:label=)"[^"]*"', rf'\1"Pully {name}"', text, count=1, flags=re.S)
     # Only an app signed with the same key, the current Pulls, may open it (and so hand it a server).
     text = text.replace(head, head.replace("<activity", f'<activity android:permission="{PERMISSION}"', 1), 1)
     permission = f"""<permission
@@ -238,7 +238,7 @@ def write_index(dest: Path) -> None:
             "packageName": meta["packageName"],
             "commit": meta["commit"],
             "date": meta["date"],
-            "summary": summaries.get(meta["versionName"]) or meta["subject"] or f"Pulls {meta['versionName']}",
+            "summary": summaries.get(meta["versionName"]) or meta["subject"] or f"Pully {meta['versionName']}",
             "sha256": meta["sha256"],
             "size": meta["size"],
         })

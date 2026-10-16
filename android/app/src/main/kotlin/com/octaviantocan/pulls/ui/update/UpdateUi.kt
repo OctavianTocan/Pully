@@ -48,11 +48,11 @@ import com.octaviantocan.pulls.update.UpdateStatus
 import com.octaviantocan.pulls.update.Updates
 
 /**
- * The update screen. While the server offers a newer build Pulls shows only this, from the first frame of a start
+ * The update screen. While the server offers a newer build Pully shows only this, from the first frame of a start
  * (Tavi, 15 Oct: "When I have not updated and I enter the app, show me the changelog! Make me update!"). It names the
  * version and lists what it brings over the installed one, newest first, with Update at its foot. Update downloads and
  * installs in the app and says how far it got (a ring while it downloads, the orb while the system installs); a
- * download or install that fails offers Try again. Nothing closes it but the update: Back leaves Pulls ([onLeave]), as
+ * download or install that fails offers Try again. Nothing closes it but the update: Back leaves Pully ([onLeave]), as
  * Back does on the first page. It opens as a modal (rule 73).
  */
 @Composable
@@ -84,8 +84,8 @@ internal fun UpdateGate(onLeave: () -> Unit) {
                     .verticalScroll(scroll)
                     .padding(bottom = 16.dp),
             ) {
-                Text("Pulls ${offer.versionName} is ready", style = PullsType.xxl, color = c.text)
-                Text("Update to keep using Pulls. This is what it brings.", Modifier.padding(top = 8.dp), style = PullsType.read, color = c.muted)
+                Text("Pully ${offer.versionName} is ready", style = PullsType.xxl, color = c.text)
+                Text("Update to keep using Pully. This is what it brings.", Modifier.padding(top = 8.dp), style = PullsType.read, color = c.muted)
                 ChangelogEntries(entries, Modifier.padding(top = 20.dp))
             }
             UpdateFooter(offer.versionName) {

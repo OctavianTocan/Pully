@@ -72,20 +72,20 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
 }
 
 /**
- * The "Pulls 0.17.0 is ready" notification. A tap opens Pulls where it was; Update opens it and starts the
+ * The "Pully 0.17.0 is ready" notification. A tap opens Pully where it was; Update opens it and starts the
  * download at once. Neither restarts the screen the reader was on (see [MainActivity]).
  */
 object UpdateNotice {
     private const val CHANNEL = "updates"
     private const val ID = 1
 
-    /** The extra on the intents this notification opens Pulls with: [OPEN] or [UPDATE]. */
+    /** The extra on the intents this notification opens Pully with: [OPEN] or [UPDATE]. */
     const val EXTRA = "com.octaviantocan.pulls.update"
     const val OPEN = "open"
     const val UPDATE = "update"
 
     /**
-     * Android lets Pulls notify and the App updates channel is not turned off, so a version marked as notified was
+     * Android lets Pully notify and the App updates channel is not turned off, so a version marked as notified was
      * really shown. A channel not made yet counts as on.
      */
     fun allowed(context: Context): Boolean {
@@ -96,7 +96,7 @@ object UpdateNotice {
     fun post(context: Context, manifest: UpdateManifest) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "App updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "A new version of Pulls is ready to install."
+            description = "A new version of Pully is ready to install."
         })
         val changes = manifest.changesSince(AppVersion.name(context))
         val summary = plainChangelogText(changes.firstOrNull()?.summary.orEmpty()).ifBlank { "Tap to see what's new." }
@@ -109,7 +109,7 @@ object UpdateNotice {
         val notification = Notification.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_pulls)
             .setColor(context.getColor(R.color.pulls_primary))
-            .setContentTitle("Pulls ${manifest.versionName} is ready")
+            .setContentTitle("Pully ${manifest.versionName} is ready")
             .setContentText(summary)
             .setStyle(Notification.BigTextStyle().bigText(detail))
             .setContentIntent(intent(context, OPEN, 0))
@@ -124,7 +124,7 @@ object UpdateNotice {
     fun clear(context: Context) = context.getSystemService(NotificationManager::class.java).cancel(ID)
 
     /**
-     * Handles an intent this notification opened Pulls with, and says whether it was one. Update starts the
+     * Handles an intent this notification opened Pully with, and says whether it was one. Update starts the
      * download straight away; the floating card on Home shows how far it got.
      */
     fun handle(context: Context, intent: Intent?): Boolean {

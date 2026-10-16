@@ -59,7 +59,7 @@ replaced, every installed app must be reinstalled — never let Gradle fall back
 
 Settings, Advanced, Past versions (0.36.0) has a dev-only slider over every version the app has had. Each past
 version is the app rebuilt from the last commit that carried its `versionName`, as its own package
-(`com.octaviantocan.pulls.v0_20_0`, label "Pulls 0.20.0", versionCode offset by 1000000, no launcher icon or link
+(`com.octaviantocan.pulls.v0_20_0`, label "Pully 0.20.0", versionCode offset by 1000000, no launcher icon or link
 handling). The phone downloads one when it is picked, installs it beside the app and opens it with its own server
 and Access token.
 

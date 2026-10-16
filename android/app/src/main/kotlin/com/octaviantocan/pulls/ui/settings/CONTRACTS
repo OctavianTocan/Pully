@@ -58,7 +58,7 @@ server", Guardrails).
 
 @cc [owner:OctavianTocan,label:product] settings-github-links-switch
 On Android 12 and later the main Settings page has a GitHub links switch, Open GitHub
-links in Pulls, that shows whether Android sends tapped github.com links to Pulls. It
-MUST read Android's own answer each time Pulls comes back, and tapping it opens Pulls'
+links in Pully, that shows whether Android sends tapped github.com links to Pully. It
+MUST read Android's own answer each time Pully comes back, and tapping it opens Pully's
 Open by default page, since only the reader can allow it (Tavi, 16 Oct; Android 12 link
 handling).

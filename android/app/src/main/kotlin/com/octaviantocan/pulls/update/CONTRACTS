@@ -17,7 +17,7 @@ A new version is told in a notification while the app is closed, once per versio
 (rule 104).
 
 @cc [owner:OctavianTocan,label:product] updater-update-pulls-command
-Update Pulls in Commands asks the server at once and starts the update, or says this is
+Update Pully in Commands asks the server at once and starts the update, or says this is
 the newest version (rule 104).
 
 @cc [owner:OctavianTocan,label:security] past-versions-install-beside

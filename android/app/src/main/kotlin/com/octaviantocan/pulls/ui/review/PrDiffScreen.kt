@@ -686,7 +686,7 @@ private fun toggleReviewed(session: ReviewSession, file: ReviewFile, files: List
     }
 }
 
-/** `.note`: the AI's note about this file, from "Pulls", its mentions links to their place (rule 96). A tap asks about it, with the note attached (rule 94). */
+/** `.note`: the AI's note about this file, from "Pully", its mentions links to their place (rule 96). A tap asks about it, with the note attached (rule 94). */
 @Composable
 private fun NoteCard(session: ReviewSession, note: String, modifier: Modifier, onAsk: () -> Unit) {
     val c = LocalPullsColors.current
@@ -699,7 +699,7 @@ private fun NoteCard(session: ReviewSession, note: String, modifier: Modifier, o
     ) {
         // The name alone: an initial in a disc is not information (rule 1).
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Pulls", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+            Text("Pully", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
             Spacer(Modifier.weight(1f))
             Text("Ask about it", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)
         }

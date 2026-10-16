@@ -1,4 +1,4 @@
-# What's new in Pulls
+# What's new in Pully
 
 <!--
 One section per version, newest first, headed with the versionName from app/build.gradle.kts.
@@ -11,6 +11,16 @@ rule numbers, file names or component names. A pull request that bumps the versi
 section here; `pnpm run android:design` fails when the version has none. The app bundles this
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
+
+## 0.41.0
+
+The app is called Pully now.
+
+### Changed
+
+- Pully is the name under the icon on your home screen, on the update screen and in update notifications.
+- Search, Ask, Commands, Settings and the AI's notes on a file say Pully, and so does the web app's header and tab title.
+- Nothing to reinstall: this update replaces the app you have, with your sign-in and settings kept.
 
 ## 0.39.0
 

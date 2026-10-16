@@ -14,7 +14,7 @@ fun searchNumber(text: String): Int? =
 fun listedPullByNumber(number: Int, listed: List<ListedPull>): ListedPull? =
     listed.filter { it.number == number }.distinct().singleOrNull()
 
-/** Words a question to Pulls starts with, when it does not end in a question mark. */
+/** Words a question to Pully starts with, when it does not end in a question mark. */
 private val QUESTION_WORDS = setOf(
     "what", "which", "who", "whose", "why", "how", "when", "where", "is", "are", "was", "were", "do", "does", "did",
     "can", "could", "should", "will", "would", "has", "have", "any", "anything", "list", "show", "summarize", "summarise",
@@ -22,7 +22,7 @@ private val QUESTION_WORDS = setOf(
 )
 
 /**
- * Whether the search text reads as a question for Pulls rather than words to filter the list by: it ends in a
+ * Whether the search text reads as a question for Pully rather than words to filter the list by: it ends in a
  * question mark, or it is at least three words and starts like a question ("what is failing", "show my drafts").
  * The keyboard's action asks it; anything else only filters, and the Ask pill still asks it on a tap.
  */

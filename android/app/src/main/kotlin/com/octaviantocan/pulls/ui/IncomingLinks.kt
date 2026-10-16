@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
- * Links handed to Pulls from another app while it is already open: a tapped GitHub link, a Share, or selected text's
- * Open in Pulls. [PullsApp] opens each one over the page on screen, so Back returns to where the reader was.
+ * Links handed to Pully from another app while it is already open: a tapped GitHub link, a Share, or selected text's
+ * Open in Pully. [PullsApp] opens each one over the page on screen, so Back returns to where the reader was.
  */
 object IncomingLinks {
     /** The text that arrived and has not been opened yet. A new object each time, so the same link shared twice opens twice. */

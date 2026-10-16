@@ -19,7 +19,7 @@ import com.octaviantocan.pulls.ui.design.PullsType
 
 // The few stock Material widgets left (menus, dialogs, text selection) read these; the rest of the
 // app reads `PullsColors`, which holds the same palette under the prototype's names. Each colour theme
-// gets its own scheme from its palette, the way Pulls' light and dark ones were written by hand.
+// gets its own scheme from its palette, the way Pully's light and dark ones were written by hand.
 private fun materialScheme(c: PullsColors) = if (c.dark) {
     darkColorScheme(
         primary = c.accentTeal,

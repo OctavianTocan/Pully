@@ -204,7 +204,7 @@ private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, o
         return
     }
     Text(
-        "Pulls reads the change and the code around it, then walks you through it section by section.",
+        "Pully reads the change and the code around it, then walks you through it section by section.",
         Modifier.padding(horizontal = 4.dp),
         style = PullsType.read, color = c.muted,
     )

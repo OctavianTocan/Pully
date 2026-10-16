@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: Pulls Review for Android
+name: Pully for Android
 description: >-
   The Android app's design system. Warm paper with deep teal ink and one teal accent, Geist for
   text, Mona Sans for numbers, Geist Mono for code. White floating surfaces with a soft ink
@@ -333,7 +333,7 @@ components:
 
 ## Overview
 
-Pulls Review for Android is a phone app for reading pull requests: an inbox of what is waiting on you, a PR overview with a summary and a description, the diff, and a tour that walks a change in sections. It should feel calm and fast to scan. The diff is the product, so chrome stays flat and quiet, and nothing is on a screen unless it tells the reader something (rule 1).
+Pully for Android is a phone app for reading pull requests: an inbox of what is waiting on you, a PR overview with a summary and a description, the diff, and a tour that walks a change in sections. It should feel calm and fast to scan. The diff is the product, so chrome stays flat and quiet, and nothing is on a screen unless it tells the reader something (rule 1).
 
 The look comes from the Android prototype: warm paper, deep teal ink, one teal accent, white floating surfaces with a soft shadow, pill capsules, paper bottom sheets and a dark toast. Tavi's design canvas holds the reference rows (Row W is the latest). The canvas predates the code, so this file records what the Kotlin renders, and the rules below record how Tavi judges it.
 
@@ -353,7 +353,7 @@ Dark mode is derived from the light set (`dark-*`). Every colour has a dark pair
 
 The Kotlin names are the properties of `PullsColors` in `Tokens.kt`. A name here is that property in kebab-case: `border-mute` is `borderMute`, `primary-600` is `primary600`. Alpha is the last pair in this file and the first in Kotlin.
 
-Colour themes (K18). This palette is the theme named Pulls, and the default. Settings, Theme (and Change theme in Commands) offers the others: OpenCode's built-in themes (https://github.com/anomalyco/opencode, MIT), converted by `android/scripts/gen-opencode-themes.mjs` from the theme files vendored beside it into `ui/design/OpenCodeThemes.kt`, one `PullsColors` for each look. Light, Dark and System still pick the look; a theme with one look (Aura, Ayu) keeps it under both. The mapping: `base`, `secondary` (and `paper`, `code`) and `sunken` are OpenCode's background, panel and element; `text` and `muted` its text roles, `faint` the muted one a third of the way into the background; borders its subtle border halfway into the background; `raised` a step above the sheet; `accent-teal` and `active-text` its primary; `primary` its primary darkened until white ink reads on it at 3:1; states and the diff washes from its own. The tokens check and the UI Book's Colors page are about this palette; the Themes page shows every theme. Code colours come from the server's highlighter and do not follow the theme yet.
+Colour themes (K18). This palette is the theme named Pully, and the default. Settings, Theme (and Change theme in Commands) offers the others: OpenCode's built-in themes (https://github.com/anomalyco/opencode, MIT), converted by `android/scripts/gen-opencode-themes.mjs` from the theme files vendored beside it into `ui/design/OpenCodeThemes.kt`, one `PullsColors` for each look. Light, Dark and System still pick the look; a theme with one look (Aura, Ayu) keeps it under both. The mapping: `base`, `secondary` (and `paper`, `code`) and `sunken` are OpenCode's background, panel and element; `text` and `muted` its text roles, `faint` the muted one a third of the way into the background; borders its subtle border halfway into the background; `raised` a step above the sheet; `accent-teal` and `active-text` its primary; `primary` its primary darkened until white ink reads on it at 3:1; states and the diff washes from its own. The tokens check and the UI Book's Colors page are about this palette; the Themes page shows every theme. Code colours come from the server's highlighter and do not follow the theme yet.
 
 ## Typography
 

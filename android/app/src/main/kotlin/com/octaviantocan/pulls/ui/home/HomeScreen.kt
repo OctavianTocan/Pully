@@ -397,7 +397,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SearchPill(
                     ui.search, { ui.search = it },
-                    if (ui.tab == 0) "Search or ask Pulls" else "Search tours",
+                    if (ui.tab == 0) "Search or ask Pully" else "Search tours",
                     openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
                     onOpen = ::openSearch,
                     modifier = Modifier.weight(1f),
@@ -1019,7 +1019,7 @@ internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: 
             val ask = { focus.clearFocus(); onAsk() }
             Box(
                 Modifier.height(40.dp).clip(CircleShape).then(if (question) Modifier.background(c.cta) else Modifier)
-                    .cueClickable(role = Role.Button, onClickLabel = "Ask Pulls", onClick = ask).padding(horizontal = if (question) 16.dp else 8.dp),
+                    .cueClickable(role = Role.Button, onClickLabel = "Ask Pully", onClick = ask).padding(horizontal = if (question) 16.dp else 8.dp),
                 contentAlignment = Alignment.Center,
             ) { Text("Ask", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = if (question) c.onCta else c.activeText, maxLines = 1) }
         }

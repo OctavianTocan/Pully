@@ -777,7 +777,7 @@
   "stats": {
     "title": "Stats",
     "usage": "Usage stats",
-    "usageHint": "Counts what you do in Pulls, never what you read or type. Kept only on your server.",
+    "usageHint": "Counts what you do in Pully, never what you read or type. Kept only on your server.",
     "off": "Usage stats are off.",
     "range": "Range",
     "days": "{n} days",

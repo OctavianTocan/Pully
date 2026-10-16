@@ -234,7 +234,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                 attached?.let { about -> AttachedReference(about) { attached = null } }
                 AskField(
                     ui.chatInput, { ui.chatInput = it },
-                    placeholder = if (rows.isEmpty()) "Ask Pulls…" else "Ask a follow-up…",
+                    placeholder = if (rows.isEmpty()) "Ask Pully…" else "Ask a follow-up…",
                     onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) },
                     sendEnabled = !busy && ui.chatInput.isNotBlank(),
                     onStop = if (streaming && task != null) ({ session.cancelTask(task.id) }) else null,

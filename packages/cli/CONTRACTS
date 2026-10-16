@@ -82,7 +82,7 @@ dot-folders kept, so no link 404s (rules 96 and 124; J36; architecture, Sharing)
 
 @cc [owner:OctavianTocan,label:product] server-catalog-text-models-only
 The model catalog lists each model once and only models that write text: image and other
-generation models (GPT Image, Grok Imagine Image) are left out, since Pulls never makes
+generation models (GPT Image, Grok Imagine Image) are left out, since Pully never makes
 images (recording 15 Oct 13:54, 00:22 to 00:44; K2, K4).
 
 @cc [owner:OctavianTocan,label:product] server-follow-ups-by-a-small-model
