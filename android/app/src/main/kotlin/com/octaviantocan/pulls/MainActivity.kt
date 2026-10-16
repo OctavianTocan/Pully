@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.Commands
+import com.octaviantocan.pulls.ui.IncomingLinks
 import com.octaviantocan.pulls.ui.PullsApp
 import com.octaviantocan.pulls.ui.design.ColorThemes
 import com.octaviantocan.pulls.ui.design.PullsColors
@@ -53,7 +54,7 @@ class MainActivity : ComponentActivity() {
                 onDispose { }
             }
             PullsTheme(dark = dark, theme = theme, locale = settings.locale) {
-                PullsApp(initialTarget = readTarget(intent))
+                PullsApp(initialTarget = IncomingLinks.read(intent))
             }
         }
     }
@@ -85,19 +86,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // The update notification brings Pulls to the front where the reader left it; only a link opens a new page.
+        // The update notification brings Pulls to the front where the reader left it. A link opens over the page on
+        // screen, so Back returns there; the intent is kept so a rotation reopens it like a cold start does.
         if (UpdateNotice.handle(this, intent)) return
+        if (IncomingLinks.read(intent) == null) return
         setIntent(intent)
-        recreate()
-    }
-
-    private fun readTarget(intent: Intent?): String? {
-        if (intent == null) return null
-        val shared = when (intent.action) {
-            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
-            Intent.ACTION_PROCESS_TEXT -> intent.getStringExtra(Intent.EXTRA_PROCESS_TEXT)
-            else -> intent.dataString
-        }
-        return shared?.takeIf { com.octaviantocan.pulls.ui.home.HomeLinks.parse(it) != null }
+        IncomingLinks.receive(intent)
     }
 }

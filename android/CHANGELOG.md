@@ -12,6 +12,22 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.38.0
+
+GitHub links open in Pulls: tap one, share it, or select it.
+
+### New
+
+- Share a pull request from Chrome, the GitHub app or any chat, and Pulls opens it. The shared text only has to contain the link.
+- Select a link or a name like owner/repo#12 anywhere, and Open in Pulls is in the menu.
+- Tapping a GitHub pull request, commit or compare link can now open Pulls instead of the browser. Turn it on in Settings, GitHub links, which opens Android's page for it.
+
+### Fixed
+
+- Tapped GitHub links never reached Pulls before, because the app's link pattern could not match a real address.
+- A link that arrives while Pulls is open now opens over the page you were on, so Back returns there, instead of starting the app again.
+- A shared text with no link Pulls can open says so instead of quietly opening Home.
+
 ## 0.37.0
 
 Usage stats on your own server, and a Stats page in Settings.

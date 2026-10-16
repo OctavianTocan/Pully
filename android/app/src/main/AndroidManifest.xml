@@ -40,12 +40,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!--
+            A tapped GitHub pull request, commit or compare link. Android's pathPattern never backtracks: each ".*" stops at
+            the first "/", so one ".*" per path segment is the only form that matches /owner/repo/pull/12 (LinkFilterTest).
+            Android 12 and later open github.com links here only once the reader allows it under Open by default, which
+            Settings, GitHub links opens. Issues, code and every other GitHub page stay in the browser.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="github.com" android:pathPattern="/..*/pull/.*" />
-                <data android:scheme="https" android:host="www.github.com" android:pathPattern="/..*/pull/.*" />
+                <data android:scheme="https" />
+                <data android:host="github.com" />
+                <data android:host="www.github.com" />
+                <data android:pathPattern="/.*/.*/pull/.*" />
+                <data android:pathPattern="/.*/.*/commit/.*" />
+                <data android:pathPattern="/.*/.*/compare/.*" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -53,12 +63,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="prs.octaviantocan.com" android:pathPrefix="/" />
             </intent-filter>
+            <!-- Share, from Chrome, the GitHub app or anywhere: the shared text only has to contain the link. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
-            <intent-filter>
+            <!-- Selected text's menu: a link, or owner/repo#12. -->
+            <intent-filter android:label="@string/open_in_pulls">
                 <action android:name="android.intent.action.PROCESS_TEXT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
