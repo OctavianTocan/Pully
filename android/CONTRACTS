@@ -78,6 +78,9 @@ and 89).
 Titles of pull requests, commits, tours and files wrap whole and are never cut with an
 ellipsis. Names (an author, a branch) keep to one line and give way only at their end,
 and a path is cut from the left by whole folders (rules 2, 90 and 111; F23, F24, H15).
+The one exception is a pull request's title pinned at the top of its scrolled Overview,
+which is one line and MAY end in an ellipsis (recording of 16 Oct 12:10, 20:34 to 21:03;
+N38, Tavi's decision).
 
 @cc [owner:OctavianTocan,label:product] android-no-loading-screens
 No page or list shows a loading screen, a spinner page or "Loading..." text. What the app

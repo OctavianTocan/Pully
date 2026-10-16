@@ -1,10 +1,10 @@
 import type { PrOverview } from './overview'
-import type { RawCheckContext, RawOverviewData, RawPullRequest, RawTimelineNode } from './overview-query'
+import type { RawActor, RawCheckContext, RawOverviewData, RawPullRequest, RawTimelineNode } from './overview-query'
 import { Diagnostic } from 'nostics'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { staticCredentials } from '../../types/source'
 import { createGithubClient, GithubApiError } from './client'
-import { assessMergeability, defaultMergeCommit, fetchPullRequestOverview, parseChecks, parsePullRequestOverview, parseTimeline } from './overview'
+import { assessMergeability, defaultMergeCommit, fetchPullRequestOverview, isBotActor, parseChecks, parsePullRequestOverview, parseTimeline } from './overview'
 import { cancelAutoMerge, changePullRequestState, enableAutoMerge, mergePullRequest, updatePullRequestBranch, updatePullRequestText } from './overview-actions'
 
 function rawPullRequest(overrides: Partial<RawPullRequest> = {}): RawPullRequest {
@@ -202,6 +202,36 @@ describe('parseTimeline', () => {
     expect(items.map(item => item.kind)).toEqual(['commits', 'comment', 'commits'])
     expect(items[0]).toMatchObject({ actor: { login: 'alice' }, commits: [{ oid: 'a' }, { oid: 'b' }] })
     expect(items[1]).toMatchObject({ minimizedReason: 'outdated', actor: { login: 'bob' } })
+  })
+
+  it('marks apps and bots from GitHub\'s own data, never from their names (N31)', () => {
+    const comment = (id: string, author: RawActor): RawTimelineNode =>
+      ({ __typename: 'IssueComment', id, url: `https://${id}`, createdAt: '2026-01-02T00:00:00Z', bodyHTML: '<p>hi</p>', isMinimized: false, minimizedReason: null, author })
+    const items = parseTimeline([
+      comment('codex', { __typename: 'Bot', login: 'chatgpt-codex-connector' }),
+      comment('devin', { __typename: 'Bot', login: 'devin-ai-integration' }),
+      comment('actions', { __typename: 'Bot', login: 'github-actions' }),
+      comment('rest', { login: 'renovate[bot]' }),
+      comment('person', { __typename: 'User', login: 'OctavianTocan' }),
+      // A person whose login happens to read like a bot's is still a person.
+      comment('named', { __typename: 'User', login: 'coderabbit-fan' }),
+    ])
+    expect(items.map(item => [item.id, item.actor?.bot === true])).toEqual([
+      ['codex', true],
+      ['devin', true],
+      ['actions', true],
+      ['rest', true],
+      ['person', false],
+      ['named', false],
+    ])
+    expect(isBotActor({ login: 'Some-App[BOT]' })).toBe(true)
+    expect(isBotActor({ __typename: 'Mannequin', login: 'ghost' })).toBe(false)
+    expect(isBotActor(null)).toBe(false)
+  })
+
+  it('marks a review by an app as a bot\'s', () => {
+    const items = parseTimeline([{ ...review('COMMENTED', '<p>looks fine</p>'), author: { __typename: 'Bot', login: 'coderabbitai' } } as RawTimelineNode])
+    expect(items[0]?.actor).toEqual({ login: 'coderabbitai', avatarUrl: undefined, bot: true })
   })
 
   it('drops pending and empty comment-only reviews, keeps inline comment counts', () => {

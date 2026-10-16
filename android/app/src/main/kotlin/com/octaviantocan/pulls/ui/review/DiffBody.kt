@@ -100,6 +100,9 @@ class DiffUi(val session: ReviewSession) {
     /** File-list sections the reader folded (true) or opened (false), by heading; an unset one follows [isFolded]'s default. */
     val folds = mutableStateMapOf<String, Boolean>()
 
+    /** The Overview's long lists the reader opened past their first rows with "Show N more" (N5), by name; true once opened. */
+    val shownAll = mutableStateMapOf<String, Boolean>()
+
     /** Shared sideways scroll of each file's code, by path and column (0 unified, 1 left, 2 right). */
     internal val scrolls = HashMap<Pair<String, Int>, HScroll>()
 
