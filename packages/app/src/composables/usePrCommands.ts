@@ -240,7 +240,7 @@ export function usePrCommands(context: PrCommandsContext): void {
   const hasDiff = () => !!store()?.diff
   const github = () => {
     const ref = store()?.diff?.ref
-    return ref && ref.kind !== 'paste' && ref.kind !== 'local' ? ref : undefined
+    return ref && ref.kind !== 'paste' && ref.kind !== 'local' && ref.kind !== 'posted' ? ref : undefined
   }
 
   useCommand(() => {

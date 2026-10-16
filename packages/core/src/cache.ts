@@ -41,7 +41,7 @@ export interface CacheRepositories {
  * each one enforces its own budget, so one built with the browser-sized default would evict
  * the server's entries and prune their review marks.
  */
-export const SERVER_CACHE_BUDGET: CacheBudget = { maxBytes: 1024 * 1024 * 1024, maxEntries: 400 }
+export const SERVER_CACHE_BUDGET: CacheBudget = { maxBytes: 1024 * 1024 * 1024, maxEntries: 400, keep: key => key.startsWith('posted:') }
 
 /** Every collection shares one storage by key prefix (`pr-meta:*`, `review:*`, ...). */
 export function createCacheRepositories(storage: Storage, budget?: CacheBudget): CacheRepositories {

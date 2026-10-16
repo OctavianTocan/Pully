@@ -24,7 +24,7 @@ import kotlinx.serialization.json.put
 class Repo(private val context: Context) {
     private fun api(): PullsApi {
         val config = ServerStore.load(context)
-        return PullsApi(config.url, config.headers())
+        return PullsApi(config.url, config.headers() + Account.headers(context))
     }
 
     /** Runs the RPC [name] and times it for `rpc.call`: the name, how long, whether it worked and the HTTP status, never [args]. */
@@ -64,6 +64,7 @@ class Repo(private val context: Context) {
         }
         is OpenTarget.Local -> call("local-diff") { put("target", target.target) }.asOpened()
         OpenTarget.Worktree -> call("local-diff") { put("target", "") }.asOpened()
+        is OpenTarget.Posted -> call("posted-diff") { put("id", target.id) }.asOpened()
     }
 
     private fun JsonObjectBuilder.lite(fresh: Boolean) {
@@ -192,6 +193,48 @@ class Repo(private val context: Context) {
 
     /** A Mermaid diagram as a flat SVG string (theme colours resolved on the server). */
     suspend fun mermaidSvg(source: String, dark: Boolean): String = call("mermaid-svg") { put("source", source); put("dark", dark) }.jsonObject.s("svg")
+
+    // --- The account (plan 13) ---
+
+    /** Signs in with the account's email and password; answers the session the phone keeps, and the email. */
+    suspend fun signIn(email: String, password: String): Pair<String, String> {
+        if (!carriesSecrets(ServerStore.load(context).url))
+            throw IllegalStateException("Pully signs in only over HTTPS. Change the server address in Settings, Server to start with https://.")
+        val o = call("account-sign-in") { put("email", email); put("password", password) }.jsonObject
+        return o.s("session") to o.s("email")
+    }
+
+    suspend fun signOut() { call("account-sign-out") }
+
+    /** Whether the server has an account to sign in to; asked without a session, so a server never set up locks nobody out. */
+    suspend fun accountStatus(): Boolean = call("account-status").jsonObject.b("hasAccount")
+
+    /** The signed-in account's email, or null when the session is not one the server knows. */
+    suspend fun accountEmail(): String? = (call("account-me") as? JsonObject)?.s("email")?.ifBlank { null }
+
+    suspend fun agentKeys(): List<AgentKey> = call("agent-keys").objects().map { it.asAgentKey() }
+
+    /** A new key: the key itself, shown once, and how the list shows it. */
+    suspend fun createAgentKey(name: String): Pair<String, AgentKey> {
+        val o = call("agent-key-create") { put("name", name) }.jsonObject
+        return o.s("key") to o.getValue("item").jsonObject.asAgentKey()
+    }
+
+    suspend fun revokeAgentKey(id: String) { call("agent-key-revoke") { put("id", id) } }
+
+    /** The account's synced settings: each one's value and when it was changed. */
+    suspend fun accountSettings(): Map<String, SyncedSetting> = call("account-settings").jsonObject.asSyncedSettings()
+
+    /** Sends [values]; each one stays only if it is newer than the account's. Answers the merged set. */
+    suspend fun mergeAccountSettings(values: Map<String, SyncedSetting>): Map<String, SyncedSetting> =
+        call("account-settings-merge") {
+            put("values", buildJsonObject { values.forEach { (name, setting) -> put(name, buildJsonObject { put("value", setting.value); put("at", setting.at) }) } })
+        }.jsonObject.asSyncedSettings()
+
+    /** The diffs agents posted to the account, newest first. */
+    suspend fun postedDiffs(): List<PostedRow> = call("posted-list").objects().map { it.asPostedRow() }
+
+    suspend fun deletePosted(id: String) { call("posted-delete") { put("id", id) } }
 
     // --- Lists ---
 

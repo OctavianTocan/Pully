@@ -124,6 +124,7 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.JEV_RISK_WORDS
 import com.octaviantocan.pulls.data.riskLevel
 import com.octaviantocan.pulls.data.riskWords
+import com.octaviantocan.pulls.data.PostedRow
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.SavedState
@@ -296,6 +297,11 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val sections = remember(sorted, groupBy) { inboxSections(sorted, groupBy) }
     val rowRepos = remember(sorted, groupBy) { if (groupBy == InboxGrouping.Kind) repoLabels(sorted) else emptyMap() }
     val viewer = remember(everything) { Triage.viewerLogin(everything.orEmpty()) }
+    // The diffs agents posted (plan 13): kept on the phone, asked for again on start, on return and on sign-in.
+    remember { PostedDiffs.load(context) }
+    LaunchedEffect(com.octaviantocan.pulls.data.Account.email) { PostedDiffs.refresh(context) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { PostedDiffs.refresh(context) } }
+    val posted = remember(PostedDiffs.rows, needle) { PostedDiffs.rows.matching(needle) }
     var profileOpen by remember { mutableStateOf(false) }
     var sortOpen by remember { mutableStateOf(false) }
 
@@ -367,6 +373,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     // The pull request whose row is held: its actions are open (H17).
     var held by remember { mutableStateOf<PullRow?>(null) }
     var heldTour by remember { mutableStateOf<Pair<TourEntry, Boolean>?>(null) }
+    var heldPosted by remember { mutableStateOf<PostedRow?>(null) }
     var searchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
@@ -388,6 +395,8 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it }, viewer = viewer,
                         onPress = { pull -> ReviewSession.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
+                        posted = posted, onOpenPosted = { row -> nav.openFrom(OpenTarget.Posted(row.id), if (needle.isEmpty()) "inbox" else "search", false) },
+                        onHoldPosted = { heldPosted = it },
                     )
                 } else PullToCommands({ Commands.open() }, Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
@@ -446,6 +455,25 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                 onRepo = { nav.openRepo(pull.owner, pull.repo) },
                 onArchive = if (canArchive(pull, viewer, Triage.key(pull) in archived)) ({ archivePull(pull) }) else null,
                 onClose = { held = null },
+            )
+        }
+        heldPosted?.let { row ->
+            PostedActionsSheet(
+                row,
+                onOpen = { nav.openFrom(OpenTarget.Posted(row.id), "inbox", false) },
+                onDelete = {
+                    scope.launch {
+                        try {
+                            PostedDiffs.delete(context, row)
+                            toaster.show("Deleted ${row.title}", cue = Cue.Success)
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            toaster.show(e.message ?: "Pully could not delete it", cue = Cue.Error)
+                        }
+                    }
+                },
+                onClose = { heldPosted = null },
             )
         }
         if (sortOpen) {
@@ -575,6 +603,10 @@ internal fun InboxList(
     viewer: String? = null,
     /** A finger landed on a row, before it is a tap: its pull request starts loading (O20). */
     onPress: (PullRow) -> Unit = {},
+    /** The diffs agents posted to the account (plan 13): a group of their own, first, in its own colour. */
+    posted: List<PostedRow> = emptyList(),
+    onOpenPosted: (PostedRow) -> Unit = {},
+    onHoldPosted: (PostedRow) -> Unit = {},
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
@@ -584,7 +616,11 @@ internal fun InboxList(
     fun isFolded(section: InboxSection) = !searching && section.key in folded
     // Jev's read shows on a row only while he sorted by risk or grouped by kind, the only times Jev is asked (M1).
     val jevAsked = sort.needsJev || groupBy.needsJev
-    val sectionOfRow = remember(sections) { sections.flatMap { section -> section.pulls.map { Triage.key(it) to section.key } }.toMap() }
+    val sectionOfRow = remember(sections, posted) {
+        posted.associate { postedKey(it) to POSTED_SECTION } + sections.flatMap { section -> section.pulls.map { Triage.key(it) to section.key } }.toMap()
+    }
+    val postedShut = !searching && POSTED_SECTION in folded
+    val postedLabel = "Posted by agents"
     // A new sort or grouping starts the list from its top, where the order begins.
     var laidOut by remember { mutableStateOf(sort to groupBy) }
     LaunchedEffect(sort, groupBy) {
@@ -593,7 +629,7 @@ internal fun InboxList(
     }
     fun open(section: InboxSection): (() -> Unit)? = section.repo?.let { repo -> { onRepo(repo) } }
     fun fold(section: InboxSection) {
-        var at = 0
+        var at = if (posted.isEmpty() || section.key == POSTED_SECTION) 0 else 1 + if (postedShut) 0 else posted.size
         for (each in sections) {
             if (each.key == section.key) break
             at += 1 + if (isFolded(each)) 0 else each.pulls.size
@@ -608,9 +644,12 @@ internal fun InboxList(
             state,
             groupOf = { key -> sectionOfRow[key] },
             heading = { key, modifier ->
+                if (key == POSTED_SECTION) {
+                    GroupHeading(postedLabel, posted.size, first = true, folded = postedShut, onFold = if (searching) null else ({ fold(InboxSection(POSTED_SECTION, postedLabel, emptyList())) }), onOpen = null, modifier = modifier, line = true, tint = c.accentMagenta)
+                }
                 sections.firstOrNull { it.key == key }?.let { section ->
                     // The first heading keeps its own 6dp top when it pins, so it does not jump as it sticks (H13).
-                    GroupHeading(section.label, section.pulls.size, first = sections.firstOrNull()?.key == key, folded = isFolded(section), onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = modifier, line = true)
+                    GroupHeading(section.label, section.pulls.size, first = posted.isEmpty() && sections.firstOrNull()?.key == key, folded = isFolded(section), onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = modifier, line = true)
                 }
             },
         ) { fade ->
@@ -619,12 +658,29 @@ internal fun InboxList(
             state = state,
             contentPadding = PaddingValues(bottom = bottom),
         ) {
+            // What agents posted comes first, under a heading in its own colour: one group, no chip (Tavi, 16 Oct 12:47).
+            // It is on the server, not GitHub, so it shows while the pull requests load or when they fail to.
+            if (posted.isNotEmpty()) {
+                item(key = groupKey(POSTED_SECTION)) {
+                    GroupHeading(
+                        postedLabel, posted.size, first = true, folded = postedShut,
+                        onFold = if (searching) null else ({ fold(InboxSection(POSTED_SECTION, postedLabel, emptyList())) }), onOpen = null,
+                        modifier = Modifier.animateItem(), tint = c.accentMagenta,
+                    )
+                }
+                if (!postedShut) items(posted, key = { postedKey(it) }) { row ->
+                    SwipeRow(
+                        label = row.title, onOpen = { onOpenPosted(row) }, onArchive = null, archived = false,
+                        modifier = Modifier.animateItem(), onLongClick = { onHoldPosted(row) },
+                    ) { PostedRowContent(row, now) }
+                }
+            }
             when {
                 loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
                     ListNote(t("local.home.failed"), hint = failed) { FloatIcon(Lu.redo, "Load the list again", onRetry, flat = true, iconSize = 22.dp, tint = c.muted) }
                 }
-                sections.isEmpty() -> item(key = "empty") {
+                sections.isEmpty() && posted.isEmpty() -> item(key = "empty") {
                     val title = when {
                         searching -> "Nothing matches"
                         filter == "waiting" -> "Nothing is waiting on you"
@@ -638,7 +694,7 @@ internal fun InboxList(
                         val shut = isFolded(section)
                         item(key = groupKey(section.key)) {
                             GroupHeading(
-                                section.label, section.pulls.size, first = index == 0, folded = shut,
+                                section.label, section.pulls.size, first = index == 0 && posted.isEmpty(), folded = shut,
                                 onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = Modifier.animateItem(),
                             )
                         }

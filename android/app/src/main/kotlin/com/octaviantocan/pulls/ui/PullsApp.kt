@@ -46,7 +46,9 @@ import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
 import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
+import com.octaviantocan.pulls.ui.settings.AccountCheck
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
+import com.octaviantocan.pulls.ui.settings.SignInGate
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.update.UpdateGate
 import com.octaviantocan.pulls.ui.update.WhatsNewSheet
@@ -84,6 +86,9 @@ fun PullsApp(initialTarget: String?) {
         Updates.resume(context)
         scope.launch { Updates.check(context) }
     }
+    // Whether the server has an account and this phone's session still works, on start and on every return.
+    remember { com.octaviantocan.pulls.data.Account.load(context) }
+    AccountCheck()
     // After an update, what changed opens once, over whatever page Pully opened on.
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
     LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
@@ -192,6 +197,8 @@ fun PullsApp(initialTarget: String?) {
             ToastHost(toaster)
             // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pully.
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
+            // On a server with an account, a phone not signed in to it signs in first; once signed in it stays (plan 13).
+            if (Updates.available == null) SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
         }
     }
 }

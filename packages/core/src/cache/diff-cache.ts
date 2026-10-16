@@ -17,6 +17,8 @@ export const DEFAULT_MAX_ENTRY_COUNT = 50
 export interface CacheBudget {
   maxBytes?: number
   maxEntries?: number
+  /** Keys the budget never evicts nor counts, such as the diffs an account owns (`posted:*`), which last until deleted. */
+  keep?: (key: string) => boolean
 }
 
 export interface PutDiffOptions {
@@ -59,6 +61,8 @@ export interface DiffCache {
   setLlmSession: (key: string, session: LlmSession | undefined) => Promise<void>
   setSharedComment: (key: string, sharedComment: PrCacheEntry['sharedComment']) => Promise<void>
   setReviewData: (key: string, reviews: ReviewData) => Promise<void>
+  /** Drops one entry, both halves. Its review marks stay until the next eviction prunes them. */
+  remove: (key: string) => Promise<void>
   /** Most-recently-viewed first, leaving out entries never viewed (`lastViewedAt` 0). Reads metadata only. */
   listRecent: (limit: number) => Promise<PrCacheMeta[]>
   /** Whole entries whose metadata matches; only those bodies are read. */
@@ -100,6 +104,7 @@ function join(meta: PrCacheMeta, body: PrCacheBody): PrCacheEntry {
 export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budget: CacheBudget = {}): DiffCache {
   const maxBytes = budget.maxBytes ?? DEFAULT_MAX_BUDGET_BYTES
   const maxEntries = budget.maxEntries ?? DEFAULT_MAX_ENTRY_COUNT
+  const keep = budget.keep ?? (() => false)
   const queues = new Map<string, Promise<unknown>>()
 
   function exclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
@@ -168,9 +173,10 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     const legacy = await storage.getKeys(LEGACY_PREFIX)
     await Promise.all(legacy.map(key => storage.removeItem(key)))
 
-    const sorted = (await listMetas()).sort((a, b) => b.lastViewedAt - a.lastViewedAt)
+    const metas = await listMetas()
+    const kept: PrCacheMeta[] = metas.filter(meta => keep(meta.key))
+    const sorted = metas.filter(meta => !keep(meta.key)).sort((a, b) => b.lastViewedAt - a.lastViewedAt)
     let totalBytes = 0
-    const kept: PrCacheMeta[] = []
     const evicted: PrCacheMeta[] = []
     for (const [index, meta] of sorted.entries()) {
       totalBytes += meta.sizeBytes
@@ -262,6 +268,11 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
         await write({ ...entry, llmSession, sizeBytes: computeEntrySizeBytes(entry.diff, entry.analyzedBy, llmSession) })
       })
       await enforceBudget()
+    },
+    remove(key) {
+      return exclusive(key, async () => {
+        await Promise.all([storage.removeItem(`${META_PREFIX}${key}`), storage.removeItem(`${BODY_PREFIX}${key}`)])
+      })
     },
     async listRecent(limit) {
       return (await listMetas()).filter(meta => meta.lastViewedAt !== 0).sort((a, b) => b.lastViewedAt - a.lastViewedAt).slice(0, limit)

@@ -1,8 +1,20 @@
 @cc [owner:OctavianTocan,label:security] data-no-user-credentials
-The phone talks to one server, the one set in Settings, with no user sign-in: the only
-credentials it holds are the optional Cloudflare Access client ID and secret, which are
+The phone talks to one server, the one set in Settings. The only credentials it holds are
+the optional Cloudflare Access client ID and secret and the account's session, which are
 sent only to that server, stored only on the phone, and never logged or shown back in
-full.
+full. The account's password is sent once, to sign in, and never stored (Tavi, 16 Oct
+12:47). The session MUST go only to the server address it signed in on, and the password
+and session MUST NOT go over plain HTTP except to this phone or the emulator's host
+(Devin Review on PR 58).
+
+@cc [owner:OctavianTocan,label:product] data-settings-sync
+While signed in, the phone's choices of look, language, layout, fonts, code size, sounds,
+vibration, AI effort and Analyze, and which repositories the Inbox hides, are kept on the
+account, each with when it changed, and the newer change of each wins; a change made while
+a sync is out is never undone by it, and choices made before the first sync count as the
+oldest, so they reach an account without them but never override another phone's. The server and its
+Access secrets, the session, Update notifications and Usage stats stay on the phone
+("start saving settings, both on the mobile app and also sync it": Tavi, 16 Oct 12:47).
 
 @cc [owner:OctavianTocan,label:architecture] data-server-is-the-source
 The phone reads pull requests, diffs, tours and AI work from its server's API, the same

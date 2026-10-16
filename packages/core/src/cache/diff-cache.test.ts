@@ -238,6 +238,26 @@ describe('diff cache', () => {
     expect(await storage.getKeys('pr-body')).toHaveLength(2)
   })
 
+  it('never evicts nor counts the entries the budget keeps', async () => {
+    const { cache } = cacheWith({ maxEntries: 2, keep: key => key.startsWith('posted:') })
+    await cache.put(makeEntry('posted:a', 'sha-posted', 1))
+    await cache.put(makeEntry('old', 'sha-old', 1000))
+    await cache.put(makeEntry('mid', 'sha-mid', 2000))
+    await cache.put(makeEntry('new', 'sha-new', 3000))
+
+    expect(await cache.get('posted:a')).toBeDefined()
+    expect(await cache.get('old')).toBeUndefined()
+    expect(await cache.get('mid')).toBeDefined()
+  })
+
+  it('removes an entry, both halves', async () => {
+    const { cache } = cacheWith()
+    await cache.put(makeEntry('a', 'sha-a', 1000))
+    await cache.remove('a')
+    expect(await cache.get('a')).toBeUndefined()
+    expect(await storage.getKeys('pr-')).toEqual([])
+  })
+
   it('evicts once the byte budget is exceeded, even under the entry-count budget', async () => {
     const { cache } = cacheWith({ maxBytes: 100, maxEntries: 50 })
     await cache.put(makeEntry('old', 'sha-old', 1000, 60))

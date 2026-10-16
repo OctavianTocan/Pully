@@ -85,3 +85,17 @@ the current server's; another server's numbers MUST NOT stand in for it (review 
 Stats has an AI usage section: tokens in, out and from cache and the spend, a table by
 feature and a card per model with its share. A cost no engine reported shows "–", never
 $0.00 (recording 16 Oct 13:06, 04:18 to 04:48; O9, rule 181).
+
+@cc [owner:OctavianTocan,label:product;security] settings-sign-in-page
+While the server has an account and the phone is not signed in to it, a sign-in page with
+email and password covers the app, as the update screen does; signed in, it stays signed in
+until Sign out on the Account page. A server with no account, an older server or one that
+cannot be reached MUST NOT bring the page up, and a session the server no longer knows
+brings it back ("it actually should get a sign in screen, but once you sign in it's just
+signed in": Tavi, 16 Oct 12:47). There is no sign-up.
+
+@cc [owner:OctavianTocan,label:product;security] settings-agent-keys-on-the-phone
+Settings has an Account section with the signed-in email and an Agent keys page. The page
+lists each key by its name and first letters, makes a key from a name and shows the new key
+once with Copy, and revokes one from its own page, which says what revoking does first
+("please make sure this is possible from the phone": Tavi, 16 Oct 12:47).

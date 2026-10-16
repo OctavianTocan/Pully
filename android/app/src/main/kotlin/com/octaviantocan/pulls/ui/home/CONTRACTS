@@ -181,3 +181,12 @@ big number's place, with a tick per step, and a second tap on it puts the total 
 A row's hold menu is headed by its number, with a card naming the item (state, title,
 repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed
 groups, Pully's own and GitHub's (recording 16 Oct 13:06, 08:31 to 08:58; O19, rule 186).
+
+@cc [owner:OctavianTocan,label:product;design] home-posted-group
+The diffs agents posted to the account are one group of their own at the top of the Inbox,
+"Posted by agents", its heading in the magenta accent, foldable like the others. Its rows
+are the Inbox's row with a magenta terminal tile, who posted it, the + and − and the age;
+a tap opens the diff and a hold offers Open and Delete. The group shows while the pull
+requests load and when they fail to, since it comes from the server. There MUST NOT be a chip, filter
+or tag for them ("we are definitely not adding any more chips ... You just group them,
+maybe somewhere specific, and you can maybe color the group": Tavi, 16 Oct 12:47).

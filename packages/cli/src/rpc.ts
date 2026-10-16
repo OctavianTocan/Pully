@@ -1,15 +1,18 @@
 import type { AnalyticsSummary } from '@pulls.review/core/analytics'
 import type { Env } from '@pulls.review/core/env'
 import type { AiAskThread, AiInboxChat, AiJobSnapshot, AiTaskRequest, AiTaskSnapshot, CliModelCatalog, MyPull } from '@pulls.review/core/local-rpc'
+import type { DiffSource } from '@pulls.review/core/types'
 import type { Driver } from 'unstorage'
 import type { TaskManager } from './ai/tasks'
 import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core/cache'
 import { createLocalSource, readRepoInfo } from '@pulls.review/core/local'
 import { AI_FOLLOW_UPS, INBOX_KEY, LLM_ENGINES, LOCAL_RPC, MY_PULL_STATES, REVIEW_LENS_NAME } from '@pulls.review/core/local-rpc'
-import { DiffsPayloadSchema } from '@pulls.review/core/types'
+import { postedRevision } from '@pulls.review/core/paste'
+import { DiffsPayloadSchema, serializeRef } from '@pulls.review/core/types'
 import { defineRpcFunction } from 'devframe'
 import { createStorage } from 'unstorage'
 import * as v from 'valibot'
+import { createAccounts } from './account'
 import { listCliModels } from './ai/catalog'
 import { cancelAiJob, listAiJobs, runAiJob, startAiJob, waitAiJob } from './ai/jobs'
 import { createTaskManager, defaultTaskRunners } from './ai/tasks'
@@ -19,6 +22,7 @@ import { checkoutOf } from './host'
 import { getLens, listLenses } from './lenses'
 import { cachedMyPulls, classifyMyPulls, listMyPulls } from './my-pulls'
 import { warmRepoPulls } from './native-review'
+import { createPostedStore } from './posted'
 
 export interface LocalRpcOptions {
   /** Any directory inside the repository under review; without one, every local route answers `NO_CHECKOUT`. */
@@ -31,6 +35,25 @@ export interface LocalRpcOptions {
 }
 
 const target = v.object({ target: v.string() })
+
+/**
+ * The account's records and what agents posted (plan 13) live in the same store as the page's cache, but the page's
+ * storage calls never read, list, write or remove them: they are reached only through the account and posted calls.
+ */
+const PRIVATE_KEY = /^(?:account[:-]|agent-key:|posted-(?:diff|agent|patch):)/
+
+/** [key] when the page may write it; a private record refuses. */
+function shared(key: string): string {
+  if (PRIVATE_KEY.test(key))
+    throw new Error('That key is not the page\'s to change.')
+  return key
+}
+
+/** What a page's diff is served by: a git target's or a posted diff's source, which both read files and fingerprint. */
+type ServedSource = DiffSource & Required<Pick<DiffSource, 'fingerprint' | 'loadFile'>>
+
+/** A posted diff's target: `posted:` and the id in its `/-/<id>` link. */
+const POSTED_TARGET = /^posted:([0-9A-Z]{6,32})$/i
 
 /** A return schema for values the server builds itself, so only their type needs declaring. */
 function trusted<T>() {
@@ -89,9 +112,36 @@ const diffKey = v.object({ key: v.string() })
  * reaches them; inputs are still validated, since they decide what `git` runs.
  */
 export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: LocalRpcOptions) {
-  const source = (text: string) => createLocalSource({ cwd: checkoutOf({ cwd }), target: text })
   const storage = createStorage({ driver })
-  const tasks = givenTasks ?? createTaskManager({ cache: createCacheRepositories(storage, SERVER_CACHE_BUDGET), storage, runners: defaultTaskRunners(getLens) })
+  const cache = createCacheRepositories(storage, SERVER_CACHE_BUDGET)
+  const tasks = givenTasks ?? createTaskManager({ cache, storage, runners: defaultTaskRunners(getLens) })
+  // `posted:<id>` is a diff an agent posted (plan 13), opened by the page at `/-/<id>`; anything else is a git target.
+  const posted = createPostedStore(storage, cache)
+  let account: Promise<string | undefined> | undefined
+  const accountId = () => account ??= createAccounts(storage).seed(env).then(found => found?.id)
+  const postedSource = (id: string): ServedSource => {
+    const meta = async () => {
+      const owner = await accountId()
+      const found = owner && await posted.meta(owner, id)
+      if (!owner || !found)
+        throw new Error('There is no posted diff with that id.')
+      return { owner, found }
+    }
+    return {
+      key: async () => serializeRef({ kind: 'posted', id }),
+      fetch: async () => {
+        const { owner } = await meta()
+        return (await posted.open(owner, id))!.diff
+      },
+      fingerprint: async () => postedRevision((await meta()).found),
+      // Only the patch was posted: there are no whole files to read.
+      loadFile: async () => undefined,
+    }
+  }
+  const source = (text: string): ServedSource => {
+    const id = text.match(POSTED_TARGET)?.[1]
+    return id ? postedSource(id) : createLocalSource({ cwd: checkoutOf({ cwd }), target: text })
+  }
   return [
     defineRpcFunction({ name: LOCAL_RPC.repoInfo, type: 'query', handler: () => readRepoInfo(checkoutOf({ cwd })) }),
     defineRpcFunction({ name: LOCAL_RPC.sourceKey, type: 'query', args: [target], returns: v.string(), handler: ({ target }) => source(target).key() }),
@@ -110,7 +160,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       args: [v.object({ key: v.string() })],
       returns: v.nullable(v.string()),
       handler: async ({ key }) => {
-        const value = await driver.getItem(key, {})
+        const value = PRIVATE_KEY.test(key) ? null : await driver.getItem(key, {})
         return typeof value === 'string' ? value : null
       },
     }),
@@ -120,7 +170,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       args: [v.object({ key: v.string(), value: v.string() })],
       returns: v.void(),
       handler: async ({ key, value }) => {
-        await driver.setItem?.(key, value, {})
+        await driver.setItem?.(shared(key), value, {})
       },
     }),
     defineRpcFunction({
@@ -129,7 +179,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       args: [v.object({ key: v.string() })],
       returns: v.void(),
       handler: async ({ key }) => {
-        await driver.removeItem?.(key, {})
+        await driver.removeItem?.(shared(key), {})
       },
     }),
     defineRpcFunction({
@@ -137,7 +187,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       type: 'query',
       args: [v.object({ base: v.string() })],
       returns: v.array(v.string()),
-      handler: ({ base }) => driver.getKeys(base, {}),
+      handler: async ({ base }) => (await driver.getKeys(base, {})).filter(key => !PRIVATE_KEY.test(key)),
     }),
     defineRpcFunction({ name: LOCAL_RPC.githubToken, type: 'query', handler: () => resolveGithubToken(env) }),
     defineRpcFunction({ name: LOCAL_RPC.myPulls, type: 'query', args: [v.object({ state: v.picklist(MY_PULL_STATES) })], returns: trusted<MyPull[]>(), handler: ({ state }) => listMyPulls(state) }),
@@ -226,7 +276,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       args: [v.object({ keys: v.array(v.string()) })],
       returns: v.array(v.nullable(v.string())),
       handler: ({ keys }) => Promise.all(keys.map(async (key) => {
-        const value = await driver.getItem(key, {})
+        const value = PRIVATE_KEY.test(key) ? null : await driver.getItem(key, {})
         return typeof value === 'string' ? value : null
       })),
     }),
@@ -236,7 +286,7 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       args: [v.object({ items: v.array(v.object({ key: v.string(), value: v.string() })) })],
       returns: v.void(),
       handler: async ({ items }) => {
-        await Promise.all(items.map(({ key, value }) => driver.setItem?.(key, value, {})))
+        await Promise.all(items.map(({ key, value }) => driver.setItem?.(shared(key), value, {})))
       },
     }),
   ]

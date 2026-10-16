@@ -8,6 +8,8 @@ import { createRuleBasedAdapter } from '@pulls.review/core/analyze'
 import { createGithubSource } from '@pulls.review/core/github'
 import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
+import { cleanSettings } from './account'
+import { accountServices, handleAgentRequest } from './agent-api'
 import { ingestAnalytics, track } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { githubStats } from './github-stats'
@@ -47,6 +49,8 @@ export interface NativeRequest {
   json: () => Promise<unknown>
   /** The raw body, so a route can stop reading past a size limit. */
   body?: ReadableStream<Uint8Array> | null
+  /** The request's headers: the account's session (`X-Pully-Session`) and an agent's key ride here. */
+  headers?: Headers
 }
 
 /** The most `POST /api/events` reads: a full batch of the largest events, with room for the envelope. */
@@ -172,6 +176,82 @@ async function noteFailure(name: string, response: Response): Promise<Response> 
   return response
 }
 
+type AccountServicesOf = Awaited<ReturnType<typeof accountServices>>
+
+interface AccountContext extends AccountServicesOf {
+  host: ServerHost
+  accountId: string
+  session: string
+}
+
+/**
+ * The phone's calls that belong to the signed-in account (plan 13): `account-sign-in` takes an email and a password,
+ * every other one needs the session it answered, in `X-Pully-Session`. The rest of the phone API stays as it was.
+ */
+const ACCOUNT_CALLS: Record<string, { open?: true, run: (context: AccountContext, args: Record<string, unknown>) => Promise<Response> }> = {
+  'account-sign-in': { open: true, run: signIn },
+  'account-status': { open: true, run: async ({ hasAccount }) => Response.json({ result: { hasAccount } }) },
+  'account-sign-out': {
+    run: async ({ accounts, session }) => {
+      await accounts.signOut(session)
+      return Response.json({ result: true })
+    },
+  },
+  'account-me': { run: async ({ accounts, session }) => Response.json({ result: await accounts.bySession(session) }) },
+  'agent-keys': { run: async ({ accounts, accountId }) => Response.json({ result: await accounts.keys(accountId) }) },
+  'agent-key-create': { run: async ({ accounts, accountId }, args) => Response.json({ result: await accounts.createKey(accountId, textOf(args.name)) }) },
+  'agent-key-revoke': { run: async ({ accounts, accountId }, args) => Response.json({ result: await accounts.revokeKey(accountId, textOf(args.id)) }) },
+  'account-settings': { run: async ({ accounts, accountId }) => Response.json({ result: { values: await accounts.settings(accountId) } }) },
+  'account-settings-merge': {
+    run: async ({ accounts, accountId }, args) => {
+      const values = cleanSettings(args.values)
+      if (!values)
+        return Response.json({ error: 'Settings need `values`: { name: { value, at } }.' }, { status: 400 })
+      return Response.json({ result: { values: await accounts.mergeSettings(accountId, values) } })
+    },
+  },
+  'posted-list': {
+    run: async ({ posted, accountId }) => Response.json({
+      result: (await posted.list(accountId)).map(meta => ({ id: meta.id, title: meta.title, author: meta.author ?? meta.keyName, key: meta.keyName, version: meta.version, createdAt: meta.createdAt, updatedAt: meta.updatedAt, files: meta.files, additions: meta.additions, deletions: meta.deletions })),
+    }),
+  },
+  'posted-diff': {
+    run: async ({ posted, accountId }, args) => {
+      const opened = await posted.open(accountId, textOf(args.id))
+      if (!opened)
+        return Response.json({ error: 'There is no posted diff with that id.' }, { status: 404 })
+      return Response.json({ result: { ...opened, groups: await ruleGroups(opened.diff) } })
+    },
+  },
+  'posted-delete': { run: async ({ posted, accountId }, args) => Response.json({ result: await posted.remove(accountId, textOf(args.id)) }) },
+}
+
+async function signIn(context: AccountContext, args: Record<string, unknown>): Promise<Response> {
+  if (!context.hasAccount)
+    return Response.json({ error: 'This server has no account yet. Set PULLY_ACCOUNT_EMAIL and PULLY_ACCOUNT_PASSWORD on it.' }, { status: 401 })
+  const signed = await context.accounts.signIn(textOf(args.email), textOf(args.password))
+  if ('error' in signed) {
+    return signed.error === 'wait'
+      ? Response.json({ error: 'Too many wrong passwords. Wait 15 minutes, then try again.' }, { status: 429 })
+      : Response.json({ error: 'That email and password don\'t match.' }, { status: 401 })
+  }
+  return Response.json({ result: { session: signed.session, email: signed.account.email } })
+}
+
+async function accountCall(call: (typeof ACCOUNT_CALLS)[string], host: ServerHost, session: string | undefined, args: unknown): Promise<Response> {
+  const services = await accountServices(host, process.env)
+  const input = (args && typeof args === 'object' ? args : {}) as Record<string, unknown>
+  const account = call.open ? undefined : await services.accounts.bySession(session)
+  if (!call.open && !account)
+    return Response.json({ error: 'Sign in first.' }, { status: 401 })
+  try {
+    return await call.run({ ...services, host, accountId: account?.id ?? '', session: session ?? '' }, input)
+  }
+  catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 })
+  }
+}
+
 /**
  * Answers a request when it is one of the phone's, else undefined.
  * @param request - The HTTP request.
@@ -179,6 +259,9 @@ async function noteFailure(name: string, response: Response): Promise<Response> 
  */
 export async function handleNativeRequest(request: NativeRequest, host: ServerHost): Promise<Response | undefined> {
   const path = request.url.pathname
+  const agent = await handleAgentRequest(request, host, process.env)
+  if (agent)
+    return agent
   const android = request.method === 'GET' ? androidRoute(host, path) : undefined
   if (android)
     return android
@@ -189,6 +272,9 @@ export async function handleNativeRequest(request: NativeRequest, host: ServerHo
 
   const body = await request.json().catch(() => undefined) as { name?: unknown, args?: unknown } | undefined
   const name = typeof body?.name === 'string' ? body.name : ''
+  const account = ACCOUNT_CALLS[name]
+  if (account)
+    return noteFailure(name, await accountCall(account, host, request.headers?.get('x-pully-session') ?? undefined, body?.args))
   return noteFailure(name, await rpcCall(name, body?.args, host))
 }
 

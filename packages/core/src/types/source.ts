@@ -10,6 +10,8 @@ export const SourceRefSchema = v.variant('kind', [
   v.object({ kind: v.literal('github-compare'), owner: v.string(), repo: v.string(), base: v.string(), head: v.string() }),
   v.object({ kind: v.literal('github-commit'), owner: v.string(), repo: v.string(), sha: v.string() }),
   v.object({ kind: v.literal('paste'), hash: v.string() }),
+  /** A diff an agent posted to the server's API with its account's key (plan 13); `id` is random, never a hash. */
+  v.object({ kind: v.literal('posted'), id: v.string() }),
   /** A local repository (its root path) at a target in git revision syntax; `''` is the working tree. */
   v.object({ kind: v.literal('local'), repo: v.string(), target: v.string() }),
 ])
@@ -26,6 +28,8 @@ export function serializeRef(ref: SourceRef): string {
       return `github:${ref.owner}/${ref.repo}@${ref.sha}`
     case 'paste':
       return `paste:${ref.hash}`
+    case 'posted':
+      return `posted:${ref.id}`
     case 'local':
       // Both parts are free text (paths, `a...b`): escaped so no two refs normalize to one storage key.
       return `local:${encodeURIComponent(ref.repo)}@${encodeURIComponent(ref.target)}`
