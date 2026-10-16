@@ -98,6 +98,12 @@ pub async fn set_async(
         .await
         .context("Full-file cache write task failed")?
 }
+pub async fn remove_scope_async(store: &Store, scope: &str) -> Result<()> {
+    let scope = scope.to_owned();
+    store
+        .transaction(move |store| remove_scope(&store, &scope))
+        .await
+}
 pub fn get(store: &Store, scope: &str, sha: &str, path: &str) -> Result<Option<String>> {
     let mutex = lock(store);
     let _guard = mutex

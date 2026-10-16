@@ -88,6 +88,13 @@ with tempfile.TemporaryDirectory(prefix='pulls-rust-smoke-') as tmp:
         # JSON.stringify(undefined) is null in optional tuple positions.
         copied = web_rpc('cache-diff', {'method': 'putDiff', 'key': 'schema-fixture', 'values': [fetched, fetched['head']['sha'], None, None]})
         assert copied['diff'] == fetched
+        # Valid multi-file diffs may exceed the old 4 MiB transport ceiling.
+        large=json.loads(json.dumps(fetched))
+        template=large['files'][0]
+        large['files']=[{**template,'path':f'large-{i}.txt','hunks':[{**template['hunks'][0],'patch':'@@ -1 +1 @@\n-old\n+'+'x'*(480*1024)+'\n'}]} for i in range(10)]
+        large_saved=web_rpc('cache-diff', {'method':'putDiff','key':'large-fixture','values':[large,large['head']['sha'],None,None]})
+        assert len(large_saved['diff']['files'])==10
+        assert web_rpc('cache-diff', {'method':'get','key':'large-fixture'})['diff']==large
         assert web_rpc('cache-diff', {'method': 'setLlmSession', 'key': 'schema-fixture', 'values': [None, 'null']}) is None
         assert web_rpc('cache-diff', {'method': 'setSharedComment', 'key': 'schema-fixture', 'values': [None]}) is None
         assert request('/api/web-rpc', {'name': 'cache-diff', 'args': {'method': 'setReviewData', 'key': 'schema-fixture', 'values': [{'threads': [{}], 'summaries': []}]}})[0] == 400

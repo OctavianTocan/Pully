@@ -58,22 +58,22 @@ pub(super) async fn call(
             },
         );
     }
-    let user = match app.accounts.by_session(session(headers)) {
+    let user = match app.accounts.by_session_async(session(headers)).await {
         Ok(Some(user)) => user,
         Ok(None) => return Some(error(StatusCode::UNAUTHORIZED, "Sign in first.")),
         Err(e) => return Some(reply(Err(e))),
     };
     let result: Result<Value> = async {
         match name {
-            "account-sign-out" => { app.accounts.sign_out(session(headers).unwrap_or(""))?; Ok(json!(true)) },
+            "account-sign-out" => { app.accounts.sign_out_async(session(headers).unwrap_or("")).await?; Ok(json!(true)) },
             "account-me" => Ok(json!(user)),
-            "agent-keys" => Ok(json!(app.accounts.keys(&user.id)?)),
-            "agent-key-create" => Ok(json!(app.accounts.create_key(&user.id,text(args,"name"))?)),
-            "agent-key-revoke" => Ok(json!(app.accounts.revoke_key(&user.id,text(args,"id"))?)),
-            "account-settings" => Ok(json!({"values":app.accounts.settings(&user.id)?})),
+            "agent-keys" => Ok(json!(app.accounts.keys_async(&user.id).await?)),
+            "agent-key-create" => Ok(json!(app.accounts.create_key_async(&user.id,text(args,"name")).await?)),
+            "agent-key-revoke" => Ok(json!(app.accounts.revoke_key_async(&user.id,text(args,"id")).await?)),
+            "account-settings" => Ok(json!({"values":app.accounts.settings_async(&user.id).await?})),
             "account-settings-merge" => {
                 let values = crate::account::clean_settings(&args["values"]).context("Settings need `values`: { name: { value, at } }.")?;
-                Ok(json!({"values":app.accounts.merge_settings(&user.id, values)?}))
+                Ok(json!({"values":app.accounts.merge_settings_async(&user.id, values).await?}))
             },
             "posted-list" => Ok(json!(app.posted.list_async(&user.id).await?.into_iter().map(|meta| json!({"id":meta["id"],"title":meta["title"],"author":meta.get("author").unwrap_or(&meta["keyName"]),"key":meta["keyName"],"version":meta["version"],"createdAt":meta["createdAt"],"updatedAt":meta["updatedAt"],"files":meta["files"],"additions":meta["additions"],"deletions":meta["deletions"]})).collect::<Vec<_>>())),
             "posted-diff" => {
@@ -106,7 +106,8 @@ pub(super) async fn authorize_posted(
     app.ensure_account().await.map_err(|e| reply(Err(e)))?;
     let user = app
         .accounts
-        .by_session(session(headers))
+        .by_session_async(session(headers))
+        .await
         .map_err(|e| reply(Err(e)))?
         .ok_or_else(|| error(StatusCode::UNAUTHORIZED, "Sign in first."))?;
     // A valid session alone cannot authorize another account's diff.
@@ -161,4 +162,68 @@ pub(super) async fn filter_owned(
     })
     .await
     .context("Posted visibility task failed")?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::test_support::HeldLock;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn account_http_operations_yield_under_storage_contention() {
+        let root =
+            std::env::temp_dir().join(format!("account-http-contention-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        app.account_seed.set(true).unwrap();
+        let (user, session, created) = app.accounts.fixture_for_test();
+        let mut headers = HeaderMap::new();
+        headers.insert("x-pully-session", session.parse().unwrap());
+        for (name, args) in [
+            ("account-me", json!({})),
+            ("agent-keys", json!({})),
+            ("agent-key-create", json!({"name":"Second"})),
+            ("account-settings", json!({})),
+            (
+                "account-settings-merge",
+                json!({"values":{"theme":{"value":"dark","at":1}}}),
+            ),
+            ("agent-key-revoke", json!({"id":created.item.id})),
+        ] {
+            let response = HeldLock::storage(&app.host.storage)
+                .assert_yields(call(&app, &headers, name, &args))
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK, "{name}");
+        }
+        assert_eq!(
+            app.accounts.settings(&user.id).unwrap()["theme"]["value"],
+            "dark"
+        );
+        // Authentication itself needs only the Store lock; creation must also move
+        // its subsequent account mutex acquisition off the single runtime thread.
+        let response = app
+            .accounts
+            .held_for_test()
+            .assert_yields(call(
+                &app,
+                &headers,
+                "agent-key-create",
+                &json!({"name":"Third"}),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let response = HeldLock::storage(&app.host.storage)
+            .assert_yields(call(&app, &headers, "account-sign-out", &json!({})))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(app
+            .accounts
+            .by_session_async(Some(&session))
+            .await
+            .unwrap()
+            .is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

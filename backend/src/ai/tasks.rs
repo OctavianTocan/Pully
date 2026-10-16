@@ -117,8 +117,32 @@ pub(super) fn inbox(v: Option<Value>) -> Value {
 fn turn(run: &Run) -> Value {
     json!({"question":run.request["question"],"startedAt":now_ms(),"taskId":run.snapshot.lock().unwrap()["id"]})
 }
+/**
+ * @cc [owner:OctavianTocan,label:product] rust-task-snapshots-keep-cached-titles
+ * Non-inbox tasks MUST expose the cached diff's string title in every task snapshot;
+ * an unavailable title MUST remain optional (existing tasks.ts preparation and Android
+ * Activity contract; Tavi's parity request, review R12 finding 8, 16 Oct 2026).
+ */
+/**
+ * @cc [owner:OctavianTocan,label:product] rust-inbox-retry-preserves-newer-turns
+ * An inbox retry MUST replace the last saved turn only when its question matches the
+ * validated retry question; a stale retry MUST preserve newer questions and answers
+ * (existing tasks.ts preparation; Tavi's parity request, review R12 finding 9, 16 Oct 2026).
+ */
 pub(super) fn prepare(state: &AppState, run: &Run) -> Result<()> {
     let r = &run.request;
+    if r["kind"] != "inbox" {
+        if let Some(title) = state
+            .host
+            .storage
+            .get(&format!("diff:{}", text(r, "key")))
+            .ok()
+            .flatten()
+            .and_then(|entry| entry["diff"]["title"].as_str().map(str::to_owned))
+        {
+            run.snapshot.lock().unwrap()["title"] = json!(title);
+        }
+    }
     match text(r, "kind") {
         "ask" => {
             let sel = &r["selection"];
@@ -135,7 +159,13 @@ pub(super) fn prepare(state: &AppState, run: &Run) -> Result<()> {
             required(r, "question")?;
             state.host.storage.update("inbox-chat", |old| {
                 let mut c = inbox(old);
-                if r["retry"] == true {
+                if r["retry"] == true
+                    && c["turns"]
+                        .as_array()
+                        .unwrap()
+                        .last()
+                        .is_some_and(|turn| turn["question"] == r["question"])
+                {
                     c["turns"].as_array_mut().unwrap().pop();
                 }
                 c["turns"].as_array_mut().unwrap().push(turn(run));

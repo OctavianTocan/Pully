@@ -698,3 +698,34 @@ async fn recent_and_repository_lists_hydrate_only_selected_bodies() {
     assert_eq!(state.host.storage.diff_body_reads() - reads, 1);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn foreground_review_transactions_yield_under_storage_contention() {
+    let root = std::env::temp_dir().join(format!("review-contention-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    let key = "paste:test";
+    let diff = json!({"ref":{"kind":"paste","hash":"test"},"title":"Fixture","files":[{"path":"a","sha":"file-sha","status":"modified","additions":1,"deletions":1,"isBinary":false,"hunks":[]}],"head":{"sha":"head"}});
+    put_diff(&state, key, &diff).unwrap();
+    for (name, args) in [
+        (
+            "reviewed-set",
+            json!({"key":key,"shas":["file-sha"],"reviewed":true}),
+        ),
+        ("reviewed-get", json!({"key":key})),
+        ("review-state", json!({"key":key})),
+        ("diff-patches", json!({"key":key,"paths":["a"]})),
+        ("cache-diff", json!({"key":key,"method":"get"})),
+        ("recent-diffs", json!({})),
+    ] {
+        crate::store::test_support::HeldLock::storage(&state.host.storage)
+            .assert_yields(handle(&state, name, args))
+            .await
+            .unwrap()
+            .unwrap();
+    }
+    assert_eq!(
+        state.host.storage.get("review:file-sha").unwrap().unwrap()["sha"],
+        "file-sha"
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}

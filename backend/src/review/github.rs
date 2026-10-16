@@ -633,19 +633,22 @@ fn critique_selection(
     Ok((pull, result, chosen))
 }
 async fn critique_post(state: &AppState, args: &Value) -> Result<Value> {
-    let key = required(args, "key")?;
-    let entry = state
+    let owned_args = args.clone();
+    let (pull, result, chosen) = state
         .host
         .storage
-        .get(&format!("diff:{key}"))?
-        .context("There is no AI review of this pull request to post.")?;
-    let scope = crate::source::serialize_ref(&entry["diff"]["ref"])?;
-    let stored = state
-        .host
-        .storage
-        .get(&format!("critique:{scope}"))?
-        .unwrap_or(Value::Null);
-    let (pull, result, chosen) = critique_selection(&entry, &stored, args)?;
+        .transaction(move |store| {
+            let key = required(&owned_args, "key")?;
+            let entry = store
+                .get(&format!("diff:{key}"))?
+                .context("There is no AI review of this pull request to post.")?;
+            let scope = crate::source::serialize_ref(&entry["diff"]["ref"])?;
+            let stored = store
+                .get(&format!("critique:{scope}"))?
+                .unwrap_or(Value::Null);
+            critique_selection(&entry, &stored, &owned_args)
+        })
+        .await?;
     let head = required(args, "headSha")?;
     if current_head(state, &pull).await? != head {
         bail!("The pull request head changed. Reopen the findings before posting.")
@@ -821,7 +824,7 @@ fn shared_body(pull: &Pull, login: &str, analysis: &Value) -> Result<String> {
 async fn sharing(state: &AppState, name: &str, args: &Value) -> Result<Value> {
     let key = text(args, "key");
     let storage_key = format!("diff:{key}");
-    let entry = state.host.storage.get(&storage_key)?;
+    let entry = state.host.storage.get_async(&storage_key).await?;
     if name == "shared-list"
         && entry
             .as_ref()
@@ -861,11 +864,18 @@ async fn sharing(state: &AppState, name: &str, args: &Value) -> Result<Value> {
         };
         let response = github_request(state, method, &path, Some(json!({"body":body}))).await?;
         let comment = json!({"id":response["id"],"url":response["html_url"]});
-        state.host.storage.update(&storage_key, |current| {
-            let mut current = current.context("The saved diff is no longer available.")?;
-            current["sharedComment"] = comment.clone();
-            Ok(current)
-        })?;
+        let saved_comment = comment.clone();
+        state
+            .host
+            .storage
+            .transaction(move |store| {
+                store.update(&storage_key, |current| {
+                    let mut current = current.context("The saved diff is no longer available.")?;
+                    current["sharedComment"] = saved_comment;
+                    Ok(current)
+                })
+            })
+            .await?;
         return Ok(comment);
     }
     let comments = shared_comments(state, &pull).await?;
@@ -888,17 +898,28 @@ async fn sharing(state: &AppState, name: &str, args: &Value) -> Result<Value> {
     if let Some(comment) = candidate {
         let mut result = comment["analysis"]["result"].clone();
         result["sharedBy"] = comment["login"].clone();
-        state.host.storage.update(&storage_key, |now| {
-            let mut now = now.context("The saved diff is no longer available.")?;
-            if text(&now["diff"]["head"], "sha") != head {
-                bail!("The pull request changed. Reopen it before loading this analysis.")
-            }
-            if name == "shared-list" && !now["analyzedBy"]["llm"].is_null() {
-                return Ok(now);
-            }
-            super::set_llm_analysis(&mut now, result, comment["analysis"]["headSha"].clone());
-            Ok(now)
-        })?;
+        let (head, shared_list, analysis_head) = (
+            head.to_owned(),
+            name == "shared-list",
+            comment["analysis"]["headSha"].clone(),
+        );
+        state
+            .host
+            .storage
+            .transaction(move |store| {
+                store.update(&storage_key, |now| {
+                    let mut now = now.context("The saved diff is no longer available.")?;
+                    if text(&now["diff"]["head"], "sha") != head {
+                        bail!("The pull request changed. Reopen it before loading this analysis.")
+                    }
+                    if shared_list && !now["analyzedBy"]["llm"].is_null() {
+                        return Ok(now);
+                    }
+                    super::set_llm_analysis(&mut now, result, analysis_head);
+                    Ok(now)
+                })
+            })
+            .await?;
         return Ok(if name == "shared-list" {
             json!({"candidates":[],"loaded":comment["login"]})
         } else {

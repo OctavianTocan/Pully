@@ -15,7 +15,7 @@ import { localRpcKey } from './local-rpc-key'
 import LocalAuthGate from './LocalAuthGate.vue'
 import { localRoutes } from './pages'
 import { reloadAfterDisconnect } from './reconnect'
-import { createRpcCredentials, createRpcDiffCache, createRpcDriver } from './rpc-backends'
+import { createRpcCredentials, createRpcDiffCache, createRpcDriver, createRpcFileContentCache } from './rpc-backends'
 
 /** Until the server trusts this tab, every RPC call fails: ask for the terminal's code first. */
 async function ensureTrusted(client: Awaited<ReturnType<typeof connectLocal>>['client']): Promise<void> {
@@ -44,6 +44,7 @@ export async function installLocal(app: App, router: Router): Promise<void> {
 
   const cache = createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) }), SERVER_CACHE_BUDGET)
   cache.diffs = createRpcDiffCache(rpc, cache.diffs)
+  cache.fileContents = createRpcFileContentCache(rpc)
   installAppContext(app, {
     cache,
     credentials: createRpcCredentials(rpc),

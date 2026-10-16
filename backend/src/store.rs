@@ -11,6 +11,18 @@ use std::{
     sync::{Arc, Mutex, OnceLock, Weak},
 };
 
+/// @cc [owner:OctavianTocan,label:architecture] rust-foreground-storage-off-runtime
+/// Foreground async storage operations MUST move their complete synchronous work,
+/// including mutex acquisition, to the blocking pool; network waits MUST remain
+/// outside it (Rust parity review, 16 Oct 2026, round 12 finding 11).
+pub(crate) async fn blocking<T: Send + 'static>(
+    operation: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
+    tokio::task::spawn_blocking(operation)
+        .await
+        .context("Storage task failed")?
+}
+
 #[derive(Clone)]
 pub struct Store {
     root: PathBuf,
@@ -95,6 +107,21 @@ fn decode(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 impl Store {
+    pub(crate) async fn transaction<T: Send + 'static>(
+        &self,
+        operation: impl FnOnce(Self) -> Result<T> + Send + 'static,
+    ) -> Result<T> {
+        let store = self.clone();
+        blocking(move || operation(store)).await
+    }
+    pub(crate) async fn get_async(&self, key: &str) -> Result<Option<Value>> {
+        let key = key.to_owned();
+        self.transaction(move |store| store.get(&key)).await
+    }
+    pub(crate) async fn set_async(&self, key: &str, value: &Value) -> Result<()> {
+        let (key, value) = (key.to_owned(), value.clone());
+        self.transaction(move |store| store.set(&key, &value)).await
+    }
     pub fn root(&self) -> &std::path::Path {
         &self.root
     }
@@ -732,3 +759,6 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[cfg(test)]
+pub(crate) mod test_support;

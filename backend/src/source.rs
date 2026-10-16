@@ -4,7 +4,7 @@ use crate::AppState;
 use anyhow::{bail, ensure, Context, Result};
 use serde_json::{json, Value};
 use std::sync::Arc;
-mod content_cache;
+pub(crate) mod content_cache;
 mod github;
 mod grouping;
 mod lists;
@@ -84,7 +84,8 @@ pub async fn load_file(state: &AppState, args: &Value) -> Result<Value> {
         state
             .host
             .storage
-            .get(&format!("diff:{}", s(args, "key")))?
+            .get_async(&format!("diff:{}", s(args, "key")))
+            .await?
             .context("Diff is not cached")?["diff"]["ref"]
             .clone()
     } else {
@@ -130,19 +131,23 @@ async fn open(state: &Arc<AppState>, r: &Value, args: &Value) -> Result<Value> {
     }
     let r = &canonical;
     let key = serialize_ref(r)?;
-    let existing = state.host.storage.get(&format!("diff:{key}"))?;
+    let existing = state.host.storage.get_async(&format!("diff:{key}")).await?;
     if args["fresh"] != true && r["kind"] == "github-pr" {
         if let Some(e) = &existing {
             if e["diff"]["files"].is_array() {
+                let storage_key = format!("diff:{key}");
                 let viewed = state
                     .host
                     .storage
-                    .update(&format!("diff:{key}"), |current| {
-                        let mut value =
-                            current.context("The cached diff was removed; reopen it.")?;
-                        value["lastViewedAt"] = json!(now());
-                        Ok(value)
-                    })?;
+                    .transaction(move |store| {
+                        store.update(&storage_key, |current| {
+                            let mut value =
+                                current.context("The cached diff was removed; reopen it.")?;
+                            value["lastViewedAt"] = json!(now());
+                            Ok(value)
+                        })
+                    })
+                    .await?;
                 let diff = viewed["diff"].clone();
                 let owned_state = state.clone();
                 let expected = Some(viewed);
@@ -151,13 +156,16 @@ async fn open(state: &Arc<AppState>, r: &Value, args: &Value) -> Result<Value> {
                 tokio::spawn(async move {
                     let diff = cached_diff;
                     if let Ok(Some(fresh)) = github::refresh_cached(&owned_state, &diff).await {
-                        let _ = crate::review::put_diff_if_unchanged(
-                            &owned_state,
-                            &owned_key,
-                            &fresh,
-                            expected.as_ref(),
-                            false,
-                        );
+                        let _ = crate::store::blocking(move || {
+                            crate::review::put_diff_if_unchanged(
+                                &owned_state,
+                                &owned_key,
+                                &fresh,
+                                expected.as_ref(),
+                                false,
+                            )
+                        })
+                        .await;
                     }
                 });
                 return Ok(opened_response(&key, &diff, args["lite"] == true, true));
@@ -166,7 +174,18 @@ async fn open(state: &Arc<AppState>, r: &Value, args: &Value) -> Result<Value> {
     }
     let diff = fetch(state, r).await?;
     let key = serialize_ref(&diff["ref"])?;
-    let saved = crate::review::put_diff_if_unchanged(state, &key, &diff, existing.as_ref(), true)?;
+    let owned_state = state.clone();
+    let owned_key = key.clone();
+    let saved = crate::store::blocking(move || {
+        crate::review::put_diff_if_unchanged(
+            &owned_state,
+            &owned_key,
+            &diff,
+            existing.as_ref(),
+            true,
+        )
+    })
+    .await?;
     let diff = saved["diff"].clone();
     Ok(opened_response(&key, &diff, args["lite"] == true, false))
 }
@@ -310,13 +329,13 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
         "my-pulls-cached" => {
             async {
                 let key = format!("my-pulls:{}", args["state"].as_str().unwrap_or("open"));
-                match state.host.storage.get(&key) {
+                match state.host.storage.get_async(&key).await {
                     Err(e) => Err(e),
                     Ok(Some(mut v)) => {
                         let refreshing = args["revalidate"] != false
                             && now().saturating_sub(v["fetchedAt"].as_u64().unwrap_or(0)) > 30000;
                         if refreshing {
-                            let _ = lists::start_inbox_refresh(state, &args)?;
+                            let _ = lists::start_inbox_refresh(state, &args).await?;
                         }
                         if args["classify"] == true
                             && args["state"].as_str().unwrap_or("open") == "open"
@@ -329,17 +348,17 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
                             && args["state"].as_str().unwrap_or("open") == "open"
                         {
                             if let Some(pulls) = v["pulls"].as_array() {
-                                lists::warm_repositories(state, pulls);
+                                lists::warm_repositories(state, pulls).await?;
                             }
                         }
                         v = crate::jev::apply_pulls(state, v).await?;
                         v["refreshing"] =
-                            json!(refreshing || lists::inbox_refreshing(state, &args));
+                            json!(refreshing || lists::inbox_refreshing(state, &args).await?);
                         Ok(v)
                     }
                     Ok(None) => {
                         if args["revalidate"] != false {
-                            let _ = lists::start_inbox_refresh(state, &args)?;
+                            let _ = lists::start_inbox_refresh(state, &args).await?;
                         }
                         Ok(Value::Null)
                     }
@@ -406,4 +425,49 @@ pub async fn ai_tree(state: &AppState, context: &Value) -> Result<Vec<String>> {
     paths.sort();
     paths.dedup();
     Ok(paths)
+}
+
+#[cfg(test)]
+mod contention_tests {
+    use super::*;
+    #[tokio::test(flavor = "current_thread")]
+    async fn cached_and_cold_opens_yield_under_storage_contention() {
+        let root = std::env::temp_dir().join(format!("source-contention-{}", uuid::Uuid::new_v4()));
+        let state = AppState::new(root.clone(), root.clone()).unwrap();
+        // An invalid remote number makes the detached refresh fail locally, so the
+        // fixture verifies the cached path without contacting GitHub.
+        let reference =
+            json!({"kind":"github-pr","owner":"owner","repo":"repo","number":"offline"});
+        let key = serialize_ref(&reference).unwrap();
+        put_diff(
+            &state,
+            &key,
+            &json!({"ref":reference,"title":"Cached","files":[]}),
+        )
+        .unwrap();
+        let result = crate::store::test_support::HeldLock::storage(&state.host.storage)
+            .assert_yields(open(&state, &reference, &json!({})))
+            .await
+            .unwrap();
+        assert_eq!(result["diff"]["title"], "Cached");
+        assert_eq!(result["stale"], true);
+        assert!(
+            state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap()["lastViewedAt"]
+                .as_u64()
+                .unwrap()
+                > 0
+        );
+        let paste = json!({"kind":"paste","hash":"new","text":"diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new\n"});
+        let result = crate::store::test_support::HeldLock::storage(&state.host.storage)
+            .assert_yields(open(&state, &paste, &json!({})))
+            .await
+            .unwrap();
+        assert_eq!(result["diff"]["files"][0]["path"], "a");
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

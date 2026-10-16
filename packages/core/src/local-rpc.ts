@@ -24,6 +24,8 @@ export const LOCAL_RPC = {
   storageRemoveItem: 'storage-remove-item',
   storageGetKeys: 'storage-get-keys',
   cacheDiff: 'cache-diff',
+  /** Native bounded full-file cache, shared with source-load-file. */
+  cacheFileContent: 'cache-file-content',
   githubRequest: 'github-request',
   githubAuthenticated: 'github-authenticated',
   /** The signed-in user's pull requests, fetched fresh unless the server's copy is seconds old. */

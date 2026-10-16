@@ -8,7 +8,7 @@ use axum::extract::{
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 
-const MAX_RPC_BYTES: usize = 4 * 1024 * 1024;
+const MAX_RPC_BYTES: usize = MAX_CACHE_RPC_BYTES;
 
 pub(super) async fn metadata() -> Json<Value> {
     Json(json!({"backend":"websocket","websocket":{"path":"__ws"},"jsonSerializableMethods":[]}))
@@ -19,8 +19,12 @@ pub(super) async fn metadata() -> Json<Value> {
 /// Decoding MUST omit undefined object members, retain explicit null members, and
 /// use null placeholders for undefined array items (Tavi's 16 Oct parity request;
 /// devframe 1.2.0 / structured-clone-es 2.0.1 JSON data contract).
+#[cfg(test)]
 fn decode(raw: &str) -> Result<Value> {
-    anyhow::ensure!(raw.len() <= MAX_RPC_BYTES, "RPC data is too large");
+    decode_with_budget(raw, MAX_RPC_BYTES)
+}
+fn decode_with_budget(raw: &str, budget: usize) -> Result<Value> {
+    anyhow::ensure!(raw.len() <= budget, "RPC data is too large");
     let Some(encoded) = raw.strip_prefix("s:") else {
         return Ok(serde_json::from_str(raw)?);
     };
@@ -109,7 +113,7 @@ fn decode(raw: &str) -> Result<Value> {
             _ => bail!("Only JSON RPC values are accepted"),
         })
     }
-    let mut bytes = MAX_RPC_BYTES;
+    let mut bytes = budget;
     visit(&graph, 0, 0, &mut 100_000, &mut bytes)
 }
 fn valid_token(auth: &Mutex<Auth>, token: &str) -> bool {
@@ -213,7 +217,9 @@ async fn serve(socket: WebSocket, state: HttpState, mut token: Option<String>) {
                     Some(Ok(Message::Pong(_))) => continue,
                     _ => break,
                 };
-                let Ok(q) = decode(&raw) else { break; };
+                let authorized = state.no_auth || token.as_deref().is_some_and(|token| valid_token(&state.auth, token));
+                let budget = if authorized { MAX_RPC_BYTES } else { 4 * 1024 * 1024 };
+                let Ok(q) = decode_with_budget(&raw, budget) else { break; };
                 if q["t"] != "q" { continue; }
                 let id = q["i"].clone();
                 let name = text(&q, "m");
@@ -344,7 +350,9 @@ mod tests {
         );
         assert!(frame.len() < MAX_RPC_BYTES);
         assert_eq!(
-            decode(&frame).unwrap_err().to_string(),
+            decode_with_budget(&frame, 4 * 1024 * 1024)
+                .unwrap_err()
+                .to_string(),
             "RPC data is too large"
         );
     }
@@ -451,6 +459,17 @@ for (const request of JSON.parse(process.argv[2])) {
     }
 
     #[test]
+    fn supported_cache_payload_exceeds_four_mib() {
+        let payload = "x".repeat(5 * 1024 * 1024);
+        let frame = format!("s:{}", json!([[0, payload]]));
+        assert_eq!(
+            decode(&frame).unwrap().as_str().unwrap().len(),
+            payload.len()
+        );
+        assert!(decode_with_budget(&frame, 4 * 1024 * 1024).is_err());
+    }
+
+    #[test]
     fn graph_bounds() {
         assert_eq!(
             decode(r#"s:[[2,[[1,2]]],[0,"t"],[0,"q"]]"#).unwrap(),
@@ -470,7 +489,9 @@ for (const request of JSON.parse(process.argv[2])) {
         let frame = format!("s:{}", json!([[1, vec![1; 32]], [0, value]]));
         assert!(frame.len() < MAX_RPC_BYTES);
         assert_eq!(
-            decode(&frame).unwrap_err().to_string(),
+            decode_with_budget(&frame, 4 * 1024 * 1024)
+                .unwrap_err()
+                .to_string(),
             "RPC data is too large"
         );
 
@@ -488,7 +509,9 @@ for (const request of JSON.parse(process.argv[2])) {
         );
         assert!(frame.len() < MAX_RPC_BYTES);
         assert_eq!(
-            decode(&frame).unwrap_err().to_string(),
+            decode_with_budget(&frame, 4 * 1024 * 1024)
+                .unwrap_err()
+                .to_string(),
             "RPC data is too large"
         );
     }
@@ -496,14 +519,16 @@ for (const request of JSON.parse(process.argv[2])) {
     #[test]
     fn repeated_containers_are_charged_before_growing() {
         // No string payloads: the expanded Value slots alone exceed the cap.
-        let references = MAX_RPC_BYTES / (1_000 * std::mem::size_of::<Value>()) + 1;
+        let references = (4 * 1024 * 1024) / (1_000 * std::mem::size_of::<Value>()) + 1;
         let frame = format!(
             "s:{}",
             json!([[1, vec![1; references]], [1, vec![2; 1_000]], [0, null]])
         );
         assert!(frame.len() < 10_000);
         assert_eq!(
-            decode(&frame).unwrap_err().to_string(),
+            decode_with_budget(&frame, 4 * 1024 * 1024)
+                .unwrap_err()
+                .to_string(),
             "RPC data is too large"
         );
     }

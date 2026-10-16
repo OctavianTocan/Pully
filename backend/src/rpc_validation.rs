@@ -297,6 +297,34 @@ fn input_schema(name: &str) -> Option<Schema> {
             ("days", opt(Number)),
         ]),
         "ask-thread-close" => obj(vec![("key", Str), ("threadId", Str)]),
+        "cache-file-content" => Variant(
+            "method",
+            vec![
+                (
+                    "get",
+                    obj(vec![
+                        ("method", Pick(&["get"])),
+                        ("scope", Str),
+                        ("sha", Str),
+                        ("path", Str),
+                    ]),
+                ),
+                (
+                    "set",
+                    obj(vec![
+                        ("method", Pick(&["set"])),
+                        ("scope", Str),
+                        ("sha", Str),
+                        ("path", Str),
+                        ("content", Str),
+                    ]),
+                ),
+                (
+                    "removeScope",
+                    obj(vec![("method", Pick(&["removeScope"])), ("scope", Str)]),
+                ),
+            ],
+        ),
         "cache-diff" => obj(vec![
             (
                 "method",
@@ -343,7 +371,9 @@ pub(crate) fn result(name: &str, value: Value) -> Result<Value> {
     let schema = match name {
         "source-key" | "source-fingerprint" | "llm-run" | "ai-job-start" | "ai-task-start" => Str,
         "source-fetch" => diff(),
-        "source-load-file" | "lens-get" | "storage-get-item" => nullable(Str),
+        "source-load-file" | "lens-get" | "storage-get-item" | "cache-file-content" => {
+            nullable(Str)
+        }
         "storage-get-keys" => strings(),
         "storage-get-items" => arr(nullable(Str)),
         "storage-set-item"

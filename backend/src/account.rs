@@ -10,6 +10,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+mod async_store;
+
 pub const KEY_PREFIX: &str = "pully_";
 pub const MAX_KEYS: usize = 50;
 pub const MAX_KEY_NAME: usize = 60;

@@ -185,6 +185,17 @@ async fn boundary(State(state): State<HttpState>, request: Request, next: Next) 
             return error(StatusCode::FORBIDDEN, "Origin is not allowed.");
         }
     }
+    // Authenticate large browser requests before JSON extraction allocates their body.
+    if matches!(
+        request.uri().path(),
+        "/api/web-rpc" | "/__pulls.review/api/web-rpc"
+    ) && !trusted(&state, request.headers())
+    {
+        return error(
+            StatusCode::UNAUTHORIZED,
+            "Enter the server's terminal code first.",
+        );
+    }
     let mut response = next.run(request).await;
     response.headers_mut().insert(
         header::X_CONTENT_TYPE_OPTIONS,
@@ -386,6 +397,10 @@ async fn login(State(state): State<HttpState>, Json(body): Json<Value>) -> Respo
     )
         .into_response()
 }
+// A 32 MiB source patch can grow through JSON escaping and structured-clone framing.
+// Only authenticated browser RPCs need this budget; other HTTP endpoints stay small.
+const MAX_CACHE_RPC_BYTES: usize = 256 * 1024 * 1024;
+
 pub fn router(state: HttpState) -> Router {
     let routes = Router::new()
         .route(
@@ -397,7 +412,10 @@ pub fn router(state: HttpState) -> Router {
             post(events).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
         .route("/api/rpc", post(native))
-        .route("/api/web-rpc", post(web))
+        .route(
+            "/api/web-rpc",
+            post(web).layer(DefaultBodyLimit::max(MAX_CACHE_RPC_BYTES)),
+        )
         .route("/__connection.json", get(devframe::metadata))
         .route("/__ws", get(devframe::connect))
         .route("/api/session", get(session_status).post(login))
@@ -569,7 +587,11 @@ async fn android_file_response(host: &crate::host::ServerHost, relative: &str) -
 }
 
 async fn web_only(state: &AppState, name: &str, args: &Value) -> Option<Result<Value>> {
-    if !matches!(name, "github-authenticated" | "github-request") && !name.starts_with("storage-") {
+    if !matches!(
+        name,
+        "github-authenticated" | "github-request" | "cache-file-content"
+    ) && !name.starts_with("storage-")
+    {
         return None;
     }
     let args = match crate::rpc_validation::arguments(name, args.clone()) {
@@ -580,6 +602,10 @@ async fn web_only(state: &AppState, name: &str, args: &Value) -> Option<Result<V
         .await
         .map(|result| result.and_then(|value| crate::rpc_validation::result(name, value)))
 }
+/// @cc [owner:OctavianTocan,label:architecture;security] rust-web-fullfile-cache-shares-native-transactions
+/// Browser full-file cache operations MUST use the same native transactions as source
+/// loads, preserving body and metadata together; posted scopes MUST remain inaccessible
+/// (Rust parity review, 16 Oct 2026, round 12 finding 2).
 async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Result<Value>> {
     if name == "github-authenticated" {
         return Some(Ok(json!(crate::source::github_token().await.is_some())));
@@ -587,80 +613,124 @@ async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Re
     if name == "github-request" {
         return Some(github_proxy(state, args).await);
     }
+    if name == "cache-file-content" {
+        return Some(
+            async {
+                let scope = required(args, "scope")?;
+                anyhow::ensure!(
+                    !is_posted(scope) && !private_key(scope),
+                    "Posted diffs open only in the Pully app."
+                );
+                let store = &state.host.storage;
+                match text(args, "method") {
+                    "get" => Ok(json!(
+                        crate::source::content_cache::get_async(
+                            store,
+                            scope,
+                            required(args, "sha")?,
+                            required(args, "path")?
+                        )
+                        .await?
+                    )),
+                    "set" => {
+                        crate::source::content_cache::set_async(
+                            store,
+                            scope,
+                            required(args, "sha")?,
+                            required(args, "path")?,
+                            args["content"].as_str().context("content is required")?,
+                        )
+                        .await?;
+                        Ok(Value::Null)
+                    }
+                    "removeScope" => {
+                        crate::source::content_cache::remove_scope_async(store, scope).await?;
+                        Ok(Value::Null)
+                    }
+                    _ => bail!("Unknown file content cache operation."),
+                }
+            }
+            .await,
+        );
+    }
     if !name.starts_with("storage-") {
         return None;
     }
-    Some((|| {
-        let parse = |v: &Value| -> Result<Option<Value>> {
-            if v.is_null() {
-                Ok(None)
-            } else {
-                Ok(Some(serde_json::from_str(
-                    v.as_str().context("Expected serialized JSON")?,
-                )?))
-            }
-        };
-        let serial = |value: Option<Value>| -> Result<Value> {
-            Ok(match value {
-                Some(v) => Value::String(serde_json::to_string(&v)?),
-                None => Value::Null,
-            })
-        };
-        match name {
-            "storage-get-item" => serial(public_get(state, required(args, "key")?)?),
-            "storage-get-keys" => Ok(json!(state
-                .host
-                .storage
-                .keys(text(args, "base"))?
-                .into_iter()
-                .filter(|k| !private_key(k))
-                .collect::<Vec<_>>())),
-            "storage-get-items" => Ok(Value::Array(
-                args["keys"]
-                    .as_array()
-                    .context("keys must be an array")?
-                    .iter()
-                    .map(|k| serial(public_get(state, k.as_str().context("Invalid key")?)?))
-                    .collect::<Result<Vec<_>>>()?,
-            )),
-            "storage-set-item" | "storage-remove-item" | "storage-set-items" => {
-                let items = if name == "storage-set-items" {
-                    args["items"]
-                        .as_array()
-                        .context("items must be an array")?
-                        .clone()
+    let store = state.host.storage.clone();
+    let (name, args) = (name.to_owned(), args.clone());
+    Some(
+        crate::store::blocking(move || {
+            let parse = |v: &Value| -> Result<Option<Value>> {
+                if v.is_null() {
+                    Ok(None)
                 } else {
-                    vec![args.clone()]
-                };
-                if items.len() > 200 {
-                    bail!("Too many storage writes")
+                    Ok(Some(serde_json::from_str(
+                        v.as_str().context("Expected serialized JSON")?,
+                    )?))
                 }
-                let mut changes = Vec::new();
-                for item in items {
-                    let key = required(&item, "key")?.replace(['/', '\\'], ":");
-                    if private_key(&key) {
-                        bail!("That key is not the page's to change.");
-                    }
-                    if key.starts_with("pr-meta:")
-                        || key.starts_with("pr-body:")
-                        || key.starts_with("diff:")
-                    {
-                        bail!("Use the server diff cache operations to change review data.")
-                    }
-                    let expected = parse(item.get("expected").context("expected is required")?)?;
-                    let next = if name == "storage-remove-item" {
-                        None
+            };
+            let serial = |value: Option<Value>| -> Result<Value> {
+                Ok(match value {
+                    Some(v) => Value::String(serde_json::to_string(&v)?),
+                    None => Value::Null,
+                })
+            };
+            match name.as_str() {
+                "storage-get-item" => serial(public_get(&store, required(&args, "key")?)?),
+                "storage-get-keys" => Ok(json!(store
+                    .keys(text(&args, "base"))?
+                    .into_iter()
+                    .filter(|k| !private_key(k))
+                    .collect::<Vec<_>>())),
+                "storage-get-items" => Ok(Value::Array(
+                    args["keys"]
+                        .as_array()
+                        .context("keys must be an array")?
+                        .iter()
+                        .map(|k| serial(public_get(&store, k.as_str().context("Invalid key")?)?))
+                        .collect::<Result<Vec<_>>>()?,
+                )),
+                "storage-set-item" | "storage-remove-item" | "storage-set-items" => {
+                    let items = if name == "storage-set-items" {
+                        args["items"]
+                            .as_array()
+                            .context("items must be an array")?
+                            .clone()
                     } else {
-                        parse(item.get("value").context("value is required")?)?
+                        vec![args.clone()]
                     };
-                    changes.push((key, expected, next));
+                    if items.len() > 200 {
+                        bail!("Too many storage writes")
+                    }
+                    let mut changes = Vec::new();
+                    for item in items {
+                        let key = required(&item, "key")?.replace(['/', '\\'], ":");
+                        if private_key(&key) {
+                            bail!("That key is not the page's to change.");
+                        }
+                        if key.starts_with("pr-meta:")
+                            || key.starts_with("pr-body:")
+                            || key.starts_with("diff:")
+                        {
+                            bail!("Use the server diff cache operations to change review data.")
+                        }
+                        let expected =
+                            parse(item.get("expected").context("expected is required")?)?;
+                        let next = if name == "storage-remove-item" {
+                            None
+                        } else {
+                            parse(item.get("value").context("value is required")?)?
+                        };
+                        changes.push((key, expected, next));
+                    }
+                    store.compare_exchange(&changes)?;
+                    Ok(Value::Null)
                 }
-                state.host.storage.compare_exchange(&changes)?;
-                Ok(Value::Null)
+                _ => bail!("That method is not available to the app."),
             }
-            _ => bail!("That method is not available to the app."),
-        }
-    })())
+        })
+        .await,
+    )
 }
 async fn github_proxy(state: &AppState, args: &Value) -> Result<Value> {
     let path = required(args, "path")?;
@@ -754,11 +824,11 @@ fn private_key(key: &str) -> bool {
             .any(|p| key.starts_with(p))
         || key.contains(":posted:")
 }
-fn public_get(state: &AppState, key: &str) -> Result<Option<Value>> {
+fn public_get(store: &crate::store::Store, key: &str) -> Result<Option<Value>> {
     if private_key(key) {
         Ok(None)
     } else {
-        state.host.storage.get(key)
+        store.get(key)
     }
 }
 fn requested_key(app: &AppState, name: &str, args: &Value) -> Result<String> {
@@ -1069,6 +1139,107 @@ mod privacy_tests {
             assert!(answer.starts_with("HTTP/1.1 401"), "{path}: {answer}");
         }
         server.abort();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod storage_contention_tests {
+    use super::*;
+    use crate::store::test_support::HeldLock;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn browser_storage_transactions_yield_and_preserve_cas() {
+        let root =
+            std::env::temp_dir().join(format!("web-storage-contention-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        for (name, args) in [
+            (
+                "storage-set-item",
+                json!({"key":"review:test","value":"true","expected":null}),
+            ),
+            ("storage-get-item", json!({"key":"review:test"})),
+            ("storage-get-items", json!({"keys":["review:test"]})),
+            ("storage-get-keys", json!({"base":"review:"})),
+            (
+                "storage-remove-item",
+                json!({"key":"review:test","expected":"true"}),
+            ),
+        ] {
+            HeldLock::storage(&app.host.storage)
+                .assert_yields(web_dispatch(&app, name, args))
+                .await
+                .unwrap();
+        }
+        assert!(web_dispatch(
+            &app,
+            "storage-set-item",
+            json!({"key":"review:test","value":"true","expected":"true"})
+        )
+        .await
+        .is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn browser_fullfile_cache_uses_native_transactions_and_blocks_posted_scopes() {
+        let root =
+            std::env::temp_dir().join(format!("web-fullfile-cache-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        let scope = "github:owner/repo#1";
+        let request = |method| json!({"method":method,"scope":scope,"sha":"head","path":"a","content":"contents"});
+        assert_eq!(
+            web_dispatch(&app, "cache-file-content", request("get"))
+                .await
+                .unwrap(),
+            Value::Null
+        );
+        crate::source::content_cache::set_async(&app.host.storage, scope, "head", "a", "contents")
+            .await
+            .unwrap();
+        HeldLock::storage(&app.host.storage)
+            .assert_yields(web_dispatch(&app, "cache-file-content", request("set")))
+            .await
+            .unwrap();
+        for _ in 0..2 {
+            assert_eq!(
+                web_dispatch(&app, "cache-file-content", request("get"))
+                    .await
+                    .unwrap(),
+                "contents"
+            );
+        }
+        assert_eq!(app.host.storage.keys("file-content:").unwrap().len(), 1);
+        assert_eq!(
+            app.host.storage.keys("file-content-meta:").unwrap().len(),
+            1
+        );
+        for scope in ["posted:secret", "POSTED/secret", "posted\\secret"] {
+            for method in ["get", "set", "removeScope"] {
+                let mut args = request(method);
+                args["scope"] = json!(scope);
+                assert!(web_dispatch(&app, "cache-file-content", args)
+                    .await
+                    .is_err());
+            }
+        }
+        assert!(!phone_allowed("cache-file-content"));
+        assert!(web_dispatch(
+            &app,
+            "cache-file-content",
+            json!({"method":"set","scope":scope,"path":"a","sha":"head"})
+        )
+        .await
+        .is_err());
+        web_dispatch(&app, "cache-file-content", request("removeScope"))
+            .await
+            .unwrap();
+        assert_eq!(
+            web_dispatch(&app, "cache-file-content", request("get"))
+                .await
+                .unwrap(),
+            Value::Null
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 }

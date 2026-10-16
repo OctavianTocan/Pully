@@ -320,3 +320,8 @@ The account's synced settings are merged one setting at a time: a value replaces
 kept one only when its time is newer, so two phones never undo each other's other
 choices, and merges of one account run one at a time. At most 200 settings are kept, each
 at most 8 KB and 64 KB in all (Tavi, 16 Oct 12:47).
+
+@cc [owner:OctavianTocan,label:architecture] rust-browser-cache-transport-budget
+Authenticated browser cache RPCs MUST accept serialized supported source diffs above
+4 MiB while retaining finite wire and decoded-graph bounds; small authentication and
+analytics endpoints MUST keep their separate limits (R12 parity fix, 16 Oct 2026).

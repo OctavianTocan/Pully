@@ -156,8 +156,12 @@ async fn run() -> Result<()> {
             args.preanalyze_model,
         ))
     });
+    let shutdown_app = app.clone();
     let result = axum::serve(listener, transport::router(state))
-        .with_graceful_shutdown(shutdown())
+        .with_graceful_shutdown(async move {
+            shutdown().await;
+            ai::begin_shutdown(&shutdown_app);
+        })
         .await;
     if let Some(warmer) = warmer {
         warmer.abort();

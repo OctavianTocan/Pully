@@ -1,4 +1,104 @@
 use super::*;
+
+fn preparation_run(request: Value) -> Run {
+    Run {
+        snapshot: Mutex::new(json!({"id":"prepared","status":"running","activities":[],"rev":0})),
+        request,
+        task: true,
+        notify: Notify::new(),
+        cancel: watch::channel(false).0,
+    }
+}
+
+#[test]
+fn task_preparation_copies_only_available_non_inbox_titles() {
+    let root = std::env::temp_dir().join(format!("pulls-task-title-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    state
+        .host
+        .storage
+        .set(
+            "diff:test",
+            &json!({"diff":{"title":"Readable pull request"}}),
+        )
+        .unwrap();
+    for kind in [
+        "analyze", "critique", "ask", "chat", "tour", "brief", "inbox",
+    ] {
+        let run = preparation_run(
+            json!({"key":"test","kind":kind,"question":"Why?","threadId":"thread","selection":{"path":"a.rs","side":"additions","startLine":1,"endLine":1}}),
+        );
+        prepare(&state, &run).unwrap();
+        let snapshot = run.snapshot.lock().unwrap();
+        if kind == "inbox" {
+            assert!(snapshot.get("title").is_none());
+        } else {
+            assert_eq!(snapshot["title"], "Readable pull request", "{kind}");
+        }
+    }
+    for entry in [
+        None,
+        Some(json!({"diff":{}})),
+        Some(json!({"diff":{"title":12}})),
+    ] {
+        state.host.storage.remove("diff:test").unwrap();
+        if let Some(entry) = entry {
+            state.host.storage.set("diff:test", &entry).unwrap();
+        }
+        let run = preparation_run(json!({"key":"test","kind":"chat"}));
+        prepare(&state, &run).unwrap();
+        assert!(run.snapshot.lock().unwrap().get("title").is_none());
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn inbox_retry_replaces_only_the_matching_latest_question() {
+    let root = std::env::temp_dir().join(format!("pulls-inbox-retry-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let a = json!({"question":"A","answer":"Answer A","outcome":"done"});
+    let b = json!({"question":"B","answer":"Answer B","outcome":"done"});
+    for (question, retry, kept) in [("A", true, 2), ("B", true, 1), ("B", false, 2)] {
+        state
+            .host
+            .storage
+            .set(
+                "inbox-chat",
+                &json!({"turns":[a,b],"suggestions":["Old suggestion"]}),
+            )
+            .unwrap();
+        let run = preparation_run(
+            json!({"kind":"inbox","key":"inbox","question":question,"retry":retry}),
+        );
+        prepare(&state, &run).unwrap();
+        let saved = state.host.storage.get("inbox-chat").unwrap().unwrap();
+        let turns = saved["turns"].as_array().unwrap();
+        assert_eq!(turns.len(), kept + 1);
+        assert_eq!(turns[0], a);
+        if kept == 2 {
+            assert_eq!(turns[1], b);
+        }
+        assert_eq!(turns[kept]["question"], question);
+        assert_eq!(turns[kept]["taskId"], "prepared");
+        assert!(turns[kept].get("answer").is_none());
+        assert!(saved.get("suggestions").is_none());
+    }
+    state.host.storage.remove("inbox-chat").unwrap();
+    prepare(
+        &state,
+        &preparation_run(json!({"kind":"inbox","question":"A","retry":true})),
+    )
+    .unwrap();
+    assert_eq!(
+        state.host.storage.get("inbox-chat").unwrap().unwrap()["turns"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn tour_stop_previews_include_only_successes() {
     let run = Run {

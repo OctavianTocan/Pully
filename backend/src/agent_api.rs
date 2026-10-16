@@ -168,7 +168,7 @@ pub async fn handle(app: Arc<AppState>, request: Request, path: &str) -> Respons
     if app.ensure_account().await.is_err() {
         return unauthorized();
     }
-    let caller = match app.accounts.by_key(Some(key)) {
+    let caller = match app.accounts.by_key_async(Some(key)).await {
         Ok(Some(caller)) => caller,
         _ => return unauthorized(),
     };
@@ -234,5 +234,37 @@ mod tests {
             "Retry calls ✓"
         );
         assert!(decode("%zz").is_err());
+    }
+}
+
+#[cfg(test)]
+mod contention_tests {
+    use super::*;
+    use crate::store::test_support::HeldLock;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn agent_http_authentication_yields_under_account_and_storage_contention() {
+        let root =
+            std::env::temp_dir().join(format!("agent-http-contention-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        app.account_seed.set(true).unwrap();
+        let (_, _, created) = app.accounts.fixture_for_test();
+        for account_lock in [true, false] {
+            let held = if account_lock {
+                app.accounts.held_for_test()
+            } else {
+                HeldLock::storage(&app.host.storage)
+            };
+            let request = Request::builder()
+                .uri("/api/v1/me")
+                .header("authorization", format!("Bearer {}", created.key))
+                .body(axum::body::Body::empty())
+                .unwrap();
+            let response = held
+                .assert_yields(handle(app.clone(), request, "/api/v1/me"))
+                .await;
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

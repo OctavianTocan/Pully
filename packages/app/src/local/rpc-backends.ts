@@ -1,4 +1,4 @@
-import type { DiffCache, PrCacheEntry, PrCacheMeta } from '@pulls.review/core/cache'
+import type { DiffCache, FileContentCache, PrCacheEntry, PrCacheMeta } from '@pulls.review/core/cache'
 import type { Credentials, DiffSource } from '@pulls.review/core/types'
 import type { Driver } from 'unstorage'
 import type { LocalRpc } from './connection'
@@ -6,9 +6,22 @@ import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { DiffsPayloadSchema } from '@pulls.review/core/types'
 import * as v from 'valibot'
 
-/** The server's cache directory as an unstorage driver: the browser's `CacheRepositories` run on it unchanged. */
-export function createRpcDriver(rpc: LocalRpc): Driver {
+/** The server's cache directory for collections without a dedicated native repository. */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] rpc-storage-mutations-use-acknowledged-values
+ * Mutations from one driver MUST serialize before capturing their expected values,
+ * so overlapping single and batch writes observe successful earlier writes. A failed
+ * mutation MUST NOT advance the observation or prevent later writes, and external
+ * conflicts MUST still reject (R12 review finding 4, 16 Oct 2026).
+ */
+export function createRpcDriver(rpc: Pick<LocalRpc, 'call'>): Driver {
   const observed = new Map<string, string | null>()
+  let mutations = Promise.resolve()
+  function mutate(change: () => Promise<void>): Promise<void> {
+    const result = mutations.then(change)
+    mutations = result.catch(() => {})
+    return result
+  }
   async function read(key: string) {
     const value = v.parse(v.nullable(v.string()), await rpc.call(LOCAL_RPC.storageGetItem, { key }))
     observed.set(key, value)
@@ -18,14 +31,14 @@ export function createRpcDriver(rpc: LocalRpc): Driver {
     name: 'pulls-review-rpc',
     hasItem: async key => await read(key) !== null,
     getItem: read,
-    setItem: async (key, value) => {
+    setItem: (key, value) => mutate(async () => {
       await rpc.call(LOCAL_RPC.storageSetItem, { key, value, expected: observed.get(key) ?? null })
       observed.set(key, value)
-    },
-    removeItem: async (key) => {
+    }),
+    removeItem: key => mutate(async () => {
       await rpc.call(LOCAL_RPC.storageRemoveItem, { key, expected: observed.get(key) ?? null })
       observed.set(key, null)
-    },
+    }),
     getKeys: async base => v.parse(v.array(v.string()), await rpc.call(LOCAL_RPC.storageGetKeys, { base })),
     getItems: async (items) => {
       const values = v.parse(v.array(v.nullable(v.string())), await rpc.call(LOCAL_RPC.storageGetItems, { keys: items.map(item => item.key) }))
@@ -35,10 +48,31 @@ export function createRpcDriver(rpc: LocalRpc): Driver {
         return { key: item.key, value }
       })
     },
-    setItems: async (items) => {
+    setItems: items => mutate(async () => {
       await rpc.call(LOCAL_RPC.storageSetItems, { items: items.map(({ key, value }) => ({ key, value, expected: observed.get(key) ?? null })) })
       for (const { key, value } of items)
         observed.set(key, value)
+    }),
+  }
+}
+
+/**
+ * @cc [owner:OctavianTocan,label:architecture] rpc-full-file-cache-uses-native-transactions
+ * Local full-file cache reads, writes and scope removals MUST use the same native
+ * transaction boundary as source-load-file. A cold file expansion MUST preserve the
+ * native body and metadata and permit repeated reads without raw-storage CAS conflicts
+ * (R12 review finding 2, 16 Oct 2026).
+ */
+export function createRpcFileContentCache(rpc: Pick<LocalRpc, 'call'>): FileContentCache {
+  return {
+    async get(scope, sha, path) {
+      return v.parse(v.optional(v.string()), await rpc.call(LOCAL_RPC.cacheFileContent, { method: 'get', scope, sha, path }) ?? undefined)
+    },
+    async set(scope, sha, path, content) {
+      await rpc.call(LOCAL_RPC.cacheFileContent, { method: 'set', scope, sha, path, content })
+    },
+    async removeScope(scope) {
+      await rpc.call(LOCAL_RPC.cacheFileContent, { method: 'removeScope', scope })
     },
   }
 }
@@ -65,7 +99,7 @@ export function createRpcCredentials(rpc: LocalRpc): Credentials {
 }
 
 /** A local diff, run by the server's `git`. Its target may still be resolving (a branch's base). */
-export function createRpcSource(rpc: LocalRpc, pending: Promise<string>): DiffSource {
+export function createRpcSource(rpc: Pick<LocalRpc, 'call'>, pending: Promise<string>): DiffSource {
   return {
     key: async () => v.parse(v.string(), await rpc.call(LOCAL_RPC.sourceKey, { target: await pending })),
     fetch: async () => v.parse(DiffsPayloadSchema, await rpc.call(LOCAL_RPC.sourceFetch, { target: await pending })),

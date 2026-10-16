@@ -557,8 +557,11 @@ fn finish_success(state: &Arc<AppState>, run: &Run, answer: String, usage: Value
     }
     settle(run, "done", Some(answer), Some(usage), None);
 }
-/// Drain jobs and daemon cleanup while the Tokio runtime still exists.
-pub async fn shutdown(state: &AppState) {
+/// @cc [owner:OctavianTocan,label:architecture] rust-shutdown-cancels-before-http-drain
+/// Server shutdown MUST reject new jobs and cancel registered runs before waiting for
+/// HTTP requests to drain, so a waiting llm-run cannot delay its own cancellation
+/// (server-every-cli-through-start-agent; review R12 finding 10, 16 Oct 2026).
+pub fn begin_shutdown(state: &AppState) {
     state
         .jobs
         .stopping
@@ -567,6 +570,10 @@ pub async fn shutdown(state: &AppState) {
     for run in runs {
         cancel(&run);
     }
+}
+/// Drain jobs and daemon cleanup while the Tokio runtime still exists.
+pub async fn shutdown(state: &AppState) {
+    begin_shutdown(state);
     let handles = std::mem::take(&mut *state.jobs.handles.lock().unwrap());
     for handle in handles {
         let _ = handle.await;

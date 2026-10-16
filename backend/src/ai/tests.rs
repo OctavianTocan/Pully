@@ -16,6 +16,157 @@ fn run() -> Arc<Run> {
         cancel: tx,
     })
 }
+
+#[tokio::test]
+async fn admitted_task_titles_survive_wait_and_list_routes() {
+    let root = std::env::temp_dir().join(format!("pulls-title-routes-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    state
+        .host
+        .storage
+        .set(
+            "diff:test",
+            &json!({"diff":{"title":"Readable pull request"}}),
+        )
+        .unwrap();
+    let session = state.jobs.session("test");
+    let guard = session.lock().await;
+    let id = crate::dispatch(
+        &state,
+        "ai-task-start",
+        json!({"kind":"chat","key":"test","locale":"en","text":"Why?","model":{"engine":"pi"}}),
+    )
+    .await
+    .unwrap();
+    for (name, args) in [
+        ("ai-task-wait", json!({"id":id,"after":-1})),
+        ("ai-task-list", json!({"key":"test"})),
+        ("ai-task-list-all", json!({})),
+    ] {
+        let reply =
+            tokio::time::timeout(Duration::from_secs(2), crate::dispatch(&state, name, args))
+                .await
+                .unwrap()
+                .unwrap();
+        let task = if name == "ai-task-wait" {
+            &reply
+        } else {
+            &reply[0]
+        };
+        assert_eq!(task["title"], "Readable pull request", "{name}");
+        assert_eq!(task["id"], id);
+        assert_eq!(task["status"], "running");
+    }
+    begin_shutdown(&state);
+    drop(guard);
+    tokio::time::timeout(Duration::from_secs(2), shutdown(&state))
+        .await
+        .unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn shutdown_cancels_pending_http_llm_run_before_server_drain() {
+    let root = std::env::temp_dir().join(format!("pulls-http-shutdown-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    // No provider can start or complete naturally, and no external service is used.
+    let held_slots = state
+        .jobs
+        .provider_slots
+        .clone()
+        .acquire_many_owned(3)
+        .await
+        .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let http =
+        crate::transport::HttpState::new(state.clone(), "127.0.0.1", port, vec![], true, None)
+            .unwrap();
+    let (stop, stopped) = tokio::sync::oneshot::channel();
+    let shutdown_state = state.clone();
+    let server = tokio::spawn(async move {
+        axum::serve(listener, crate::transport::router(http))
+            .with_graceful_shutdown(async move {
+                stopped.await.unwrap();
+                begin_shutdown(&shutdown_state);
+            })
+            .await
+            .unwrap();
+    });
+    let request = tokio::spawn(async move {
+        reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(3)).build().unwrap()
+            .post(format!("http://127.0.0.1:{port}/api/web-rpc"))
+            .json(&json!({"name":"llm-run","args":{"engine":"pi","system":"Fixture","prompt":"Wait"}}))
+            .send().await.unwrap()
+    });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if !state.jobs.runs.lock().unwrap().is_empty() {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(!request.is_finished());
+    assert_eq!(
+        state
+            .jobs
+            .runs
+            .lock()
+            .unwrap()
+            .values()
+            .next()
+            .unwrap()
+            .snapshot
+            .lock()
+            .unwrap()["status"],
+        "running"
+    );
+    stop.send(()).unwrap();
+    let response = tokio::time::timeout(Duration::from_secs(2), request)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+    assert!(response.json::<Value>().await.unwrap()["error"].is_string());
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        state
+            .jobs
+            .runs
+            .lock()
+            .unwrap()
+            .values()
+            .next()
+            .unwrap()
+            .snapshot
+            .lock()
+            .unwrap()["status"],
+        "cancelled"
+    );
+    assert!(start_async(
+        &state,
+        json!({"engine":"pi","system":"Fixture","prompt":"Late"}),
+        false
+    )
+    .await
+    .unwrap_err()
+    .to_string()
+    .contains("shutting down"));
+    tokio::time::timeout(Duration::from_secs(2), shutdown(&state))
+        .await
+        .unwrap();
+    assert!(state.jobs.handles.lock().unwrap().is_empty());
+    // Keep all slots held until after drain: cancellation must release the HTTP waiter.
+    drop(held_slots);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn revisions_and_cancellation_are_terminal() {
     let r = run();

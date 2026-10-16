@@ -4,11 +4,18 @@ on:
   push:
     branches:
       - feat/rust-backend-20261015
+      - main
     paths:
       - backend/src/**
       - backend/Cargo.toml
       - backend/Cargo.lock
       - backend/scripts/**
+      - .github/workflows/rust-backend-compile.yml
+
+  pull_request:
+    branches: [main]
+    paths:
+      - backend/**
       - .github/workflows/rust-backend-compile.yml
 
 permissions:
@@ -51,6 +58,7 @@ jobs:
         run: |
           python3 backend/scripts/smoke.py
           python3 backend/scripts/analytics_smoke.py
+          python3 backend/scripts/hosted_smoke.py
       # Keep the resolved public dependency lockfile recoverable without artifact
       # storage, repository writes, credentials or running the built program.
       - name: Record resolved dependency lockfile
