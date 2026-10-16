@@ -198,6 +198,8 @@ class Repo(private val context: Context) {
 
     /** Signs in with the account's email and password; answers the session the phone keeps, and the email. */
     suspend fun signIn(email: String, password: String): Pair<String, String> {
+        if (!carriesSecrets(ServerStore.load(context).url))
+            throw IllegalStateException("Pully signs in only over HTTPS. Change the server address in Settings, Server to start with https://.")
         val o = call("account-sign-in") { put("email", email); put("password", password) }.jsonObject
         return o.s("session") to o.s("email")
     }

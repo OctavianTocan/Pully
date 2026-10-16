@@ -25,6 +25,7 @@ object SettingsSync {
     )
 
     private const val PREFS = "pully-settings-sync"
+    private const val SEEDED = "seeded"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val running = Mutex()
     private var pending: Job? = null
@@ -50,6 +51,7 @@ object SettingsSync {
         running.withLock {
             val settings = AppSettings.get(context)
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            seed(prefs, settings)
             val local = SYNCED.associateWith { prefs.getLong(it, 0L) }
             val outgoing = local.filterValues { it > 0 }.mapNotNull { (name, at) -> settings.syncedValue(name)?.let { name to SyncedSetting(it, at) } }.toMap()
             val merged = try {
@@ -59,13 +61,25 @@ object SettingsSync {
             } catch (_: Exception) {
                 return
             }
+            // Read again: a setting changed here while the call was out is newer than what came back, and stays.
             val edit = prefs.edit()
-            for (name in newer(local, merged)) {
+            for (name in newer(SYNCED.associateWith { prefs.getLong(it, 0L) }, merged)) {
                 val setting = merged.getValue(name)
                 if (settings.applySynced(name, setting.value)) edit.putLong(name, setting.at)
             }
             edit.apply()
         }
+    }
+
+    /**
+     * Once per phone: a choice made before settings synced gets the oldest time there is, so it goes up to an account
+     * that has none of its own, and an account's choice from another phone still wins over it.
+     */
+    private fun seed(prefs: android.content.SharedPreferences, settings: AppSettings) {
+        if (prefs.getBoolean(SEEDED, false)) return
+        val edit = prefs.edit()
+        for (name in SYNCED) if (prefs.getLong(name, 0L) == 0L && settings.chosen(name)) edit.putLong(name, 1L)
+        edit.putBoolean(SEEDED, true).apply()
     }
 
     /** The settings the account changed after this phone did, by name: the ones to take. */

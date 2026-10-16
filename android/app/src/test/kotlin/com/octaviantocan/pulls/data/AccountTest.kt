@@ -5,9 +5,21 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class AccountTest {
+    @Test
+    fun sendsAPasswordOrSessionOnlyOverHttpsOrToThisMachine() {
+        assertTrue(carriesSecrets("https://prs.example.com"))
+        assertTrue(carriesSecrets("http://10.0.2.2:5173"))
+        assertTrue(carriesSecrets("http://localhost:5173"))
+        assertFalse(carriesSecrets("http://prs.example.com"))
+        assertFalse(carriesSecrets("http://192.168.1.4:5173"))
+        assertFalse(carriesSecrets("not a url"))
+    }
+
     @Test
     fun readsTheAccountsKeysWithoutTheKeyItself() {
         val key = Json.parseToJsonElement("""{"id":"k1","name":"Claude Code","hint":"pully_AbCd","createdAt":"2026-10-16T12:00:00Z"}""").jsonObject.asAgentKey()

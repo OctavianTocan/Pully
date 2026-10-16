@@ -143,6 +143,9 @@ class AppSettings private constructor(private val context: Context) {
     /** A setting the account keeps (plan 13) changed here: [SettingsSync] sends it on. */
     private fun touched(key: String) = SettingsSync.touched(context, key)
 
+    /** Whether [name] was ever chosen on this phone, rather than left at its default. */
+    fun chosen(name: String): Boolean = prefs.contains(name)
+
     /** A synced setting's value as the account keeps it; null for one that does not travel. */
     fun syncedValue(name: String): JsonElement? = when (name) {
         "theme" -> JsonPrimitive(theme)

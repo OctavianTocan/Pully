@@ -56,6 +56,9 @@ object Account {
 
     private var session: String? = null
 
+    /** The server [session] came from; the session goes to that server only. */
+    private var server: String? = null
+
     /** `true` once the server said it has an account, `false` once it said it has none, null before it was asked. */
     var serverHasAccount by mutableStateOf<Boolean?>(null)
         private set
@@ -65,6 +68,12 @@ object Account {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         session = prefs.getString("session", null)
         email = prefs.getString("email", null)?.takeIf { session != null }
+        server = prefs.getString("server", null)
+        // A session kept before it was tied to a server belongs to the one the phone uses now.
+        if (session != null && server == null) {
+            server = ServerStore.load(context).url.trim()
+            prefs.edit().putString("server", server).apply()
+        }
         serverHasAccount = if (prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null
         loaded = true
     }
@@ -72,26 +81,48 @@ object Account {
     /** Whether the sign-in page covers the app: the server has an account and this phone is not signed in to it. */
     val mustSignIn: Boolean get() = serverHasAccount == true && email == null
 
+    /**
+     * The session header, only for the server it came from and only over HTTPS (or to this machine, as the emulator
+     * reaches it), so a changed server address or a plain-HTTP one never receives it.
+     */
     fun headers(context: Context): Map<String, String> {
         load(context)
-        return session?.let { mapOf("X-Pully-Session" to it) } ?: emptyMap()
+        val url = ServerStore.load(context).url.trim()
+        val session = session ?: return emptyMap()
+        return if (url == server && carriesSecrets(url)) mapOf("X-Pully-Session" to session) else emptyMap()
     }
 
     fun signedIn(context: Context, session: String, email: String) {
         this.session = session
         this.email = email
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("session", session).putString("email", email).apply()
+        server = ServerStore.load(context).url.trim()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("session", session).putString("email", email).putString("server", server).apply()
     }
 
     /** Forgets the session, as Sign out does and as a session the server no longer knows does. */
     fun signedOut(context: Context) {
         session = null
         email = null
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("session").remove("email").apply()
+        server = null
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("session").remove("email").remove("server").apply()
     }
 
     fun noteServer(context: Context, hasAccount: Boolean) {
         serverHasAccount = hasAccount
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("hasAccount", hasAccount).apply()
+    }
+}
+
+/** Hosts a password or session may go to over plain HTTP: this phone, and the machine the emulator runs on. */
+private val LOCAL_HOSTS = setOf("localhost", "127.0.0.1", "10.0.2.2")
+
+/** Whether [url] may carry a password or a session: HTTPS, or plain HTTP to [LOCAL_HOSTS] only. */
+fun carriesSecrets(url: String): Boolean {
+    val uri = runCatching { java.net.URI(url.trim()) }.getOrNull() ?: return false
+    return when (uri.scheme?.lowercase()) {
+        "https" -> true
+        "http" -> uri.host?.lowercase() in LOCAL_HOSTS
+        else -> false
     }
 }

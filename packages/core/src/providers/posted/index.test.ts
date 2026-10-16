@@ -20,9 +20,11 @@ describe('posted source', () => {
     expect(diff.base ?? diff.head ?? diff.commits ?? diff.pullRequest).toBeUndefined()
   })
 
-  it('is keyed by its id and fingerprinted by its version', async () => {
+  it('is keyed by its id and fingerprinted by its version and when it last changed', async () => {
     const source = createPostedSource(input)
     expect(await source.key()).toBe('posted:k3T9xQ2mLp0a')
-    expect(await source.fingerprint!()).toBe('v2')
+    expect(await source.fingerprint!()).toBe(`v2.${Date.parse(input.updatedAt)}`)
+    // A new title or tour keeps the version but changes the fingerprint, so the page reads it again.
+    expect(await createPostedSource({ ...input, updatedAt: '2026-10-17T00:00:00.000Z' }).fingerprint!()).not.toBe(await source.fingerprint!())
   })
 })

@@ -67,6 +67,25 @@ describe('local RPC', () => {
     expect(await call(functions, LOCAL_RPC.storageGetItems, { keys: ['b', 'missing', 'a'] })).toEqual(['2', null, '1'])
   })
 
+  it('keeps the account\'s records and posted diffs out of the page\'s storage calls', async () => {
+    const driver = memoryDriver()
+    const env = { PULLY_ACCOUNT_EMAIL: 'tavi@example.com', PULLY_ACCOUNT_PASSWORD: 'correct horse' }
+    await createAccounts(createStorage({ driver })).seed(env)
+    const functions = localRpcFunctions({ cwd: repo, driver, env })
+    await call(functions, LOCAL_RPC.storageSetItem, { key: 'cache:one', value: '1' })
+
+    const keys = await call(functions, LOCAL_RPC.storageGetKeys, { base: '' }) as string[]
+    expect(keys).toEqual(['cache:one'])
+    const records = (await driver.getKeys('', {})).filter(key => key !== 'cache:one')
+    expect(records.length).toBeGreaterThan(0)
+    for (const key of records) {
+      expect(await call(functions, LOCAL_RPC.storageGetItem, { key })).toBeNull()
+      await expect(call(functions, LOCAL_RPC.storageSetItem, { key, value: 'x' })).rejects.toThrow('not the page')
+    }
+    await expect(call(functions, LOCAL_RPC.storageSetItems, { items: [{ key: 'agent-key:abc', value: '{}' }] })).rejects.toThrow('not the page')
+    await expect(call(functions, LOCAL_RPC.storageRemoveItem, { key: 'account:anything' })).rejects.toThrow('not the page')
+  })
+
   it('opens a posted diff for the page at /-/<id>, and only one the account has', async () => {
     const driver = memoryDriver()
     const env = { PULLY_ACCOUNT_EMAIL: 'tavi@example.com', PULLY_ACCOUNT_PASSWORD: 'correct horse' }
@@ -84,7 +103,7 @@ describe('local RPC', () => {
     expect(diff).toMatchObject({ title: 'Two', files: [{ path: 'a.ts' }] })
     expect(diff.head).toBeUndefined()
     expect(await call(functions, LOCAL_RPC.sourceKey, { target: `posted:${meta.id}` })).toBe(`posted:${meta.id}`)
-    expect(await call(functions, LOCAL_RPC.sourceFingerprint, { target: `posted:${meta.id}` })).toBe('v1')
+    expect(await call(functions, LOCAL_RPC.sourceFingerprint, { target: `posted:${meta.id}` })).toMatch(/^v1\.\d+$/)
     await expect(call(functions, LOCAL_RPC.sourceFetch, { target: 'posted:nothinghere' })).rejects.toThrow('no posted diff')
   })
 })

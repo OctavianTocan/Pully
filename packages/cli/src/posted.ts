@@ -2,7 +2,7 @@ import type { CacheRepositories } from '@pulls.review/core/cache'
 import type { PostedDiffInput } from '@pulls.review/core/paste'
 import type { BriefResult, CritiqueResult, DiffsPayload, GroupedResult, TourResult } from '@pulls.review/core/types'
 import type { Storage } from 'unstorage'
-import { postedPayload } from '@pulls.review/core/paste'
+import { postedPayload, postedRevision } from '@pulls.review/core/paste'
 import { DiffGroupSchema, FileNoteSchema, serializeRef, TourBlockSchema } from '@pulls.review/core/types'
 import * as v from 'valibot'
 import { randomId } from './account'
@@ -222,6 +222,40 @@ function checkReview(value: unknown, paths: Set<string>, warn: Warn): AgentField
 }
 
 /**
+ * Results kept from an older version, trimmed to the files the new patch still has: a group, tour stop or finding never
+ * points at a file the diff no longer changes.
+ */
+export function keepInDiff(agent: AgentFields, diff: DiffsPayload): AgentFields {
+  const paths = new Set(diff.files.map(file => file.path))
+  const has = (path: string) => paths.has(path)
+  const kept: AgentFields = { ...agent }
+  if (agent.groups) {
+    kept.groups = {
+      ...agent.groups,
+      groups: agent.groups.groups.map(group => ({
+        ...group,
+        filePaths: group.filePaths.filter(has),
+        children: group.children?.map(child => ({ ...child, filePaths: child.filePaths.filter(has) })),
+      })),
+      files: agent.groups.files?.filter(note => has(note.path)),
+    }
+  }
+  if (agent.tour) {
+    // A stop that pointed only at files the new patch dropped has nothing left to show, so it goes too.
+    const stops = agent.tour.stops.map(stop => ({ stop, files: stop.files.filter(has), sources: stop.sources.filter(source => has(source.path)) }))
+    kept.tour = {
+      ...agent.tour,
+      stops: stops
+        .filter(({ stop, files, sources }) => files.length + sources.length > 0 || stop.files.length + stop.sources.length === 0)
+        .map(({ stop, files, sources }) => ({ ...stop, files, sources })),
+    }
+  }
+  if (agent.review)
+    kept.review = { ...agent.review, findings: agent.review.findings.filter(finding => has(finding.path)) }
+  return kept
+}
+
+/**
  * The agent's fields checked against the shapes Pully already uses, and against the diff: a group, tour stop, source or
  * finding may name only files in it. What fails is left out and said in `warnings`, and keeps what was there; the diff
  * still posts.
@@ -293,6 +327,16 @@ function inputOf(meta: PostedMeta, patch: string): PostedDiffInput {
   return { id: meta.id, patch, version: meta.version, title: meta.title, description: meta.description, author: meta.author ?? meta.keyName, createdAt: meta.createdAt, updatedAt: meta.updatedAt }
 }
 
+/** Throws when a save can't start: an unknown [id], no patch for a new post, or a patch over the limit. */
+function refuseBadSave(id: string | undefined, previous: PostedMeta | undefined, patch: string | undefined): void {
+  if (id && !previous)
+    throw new PostError(404, 'There is no posted diff with that id.')
+  if (patch === undefined && !previous)
+    throw new PostError(400, 'A post needs a patch: the body as text/x-diff, or `patch` in JSON.')
+  if (patch !== undefined && new TextEncoder().encode(patch).length > MAX_PATCH_BYTES)
+    throw new PostError(413, `A patch can be at most ${MAX_PATCH_BYTES / 1024 / 1024} MB.`)
+}
+
 /**
  * The account's posted diffs in the server's store, and their copies in its cache.
  * @param storage - The server's store.
@@ -323,7 +367,7 @@ export function createPostedStore(storage: Storage, cache: CacheRepositories): P
   async function materialize(meta: PostedMeta, patch: string, agent: AgentFields): Promise<{ key: string, diff: DiffsPayload }> {
     const diff = await postedPayload(inputOf(meta, patch))
     const key = serializeRef(diff.ref)
-    const headSha = `v${meta.version}`
+    const headSha = postedRevision(meta)
     const at = meta.updatedAt
     const by = meta.author ?? meta.keyName
     await cache.diffs.putDiff(key, diff, headSha, { viewed: false })
@@ -349,12 +393,7 @@ export function createPostedStore(storage: Storage, cache: CacheRepositories): P
   return {
     save: ({ accountId, keyName, id, patch, fields }) => exclusive(id ?? '', async () => {
       const previous = id ? await ownMeta(accountId, id) : undefined
-      if (id && !previous)
-        throw new PostError(404, 'There is no posted diff with that id.')
-      if (patch === undefined && !previous)
-        throw new PostError(400, 'A post needs a patch: the body as text/x-diff, or `patch` in JSON.')
-      if (patch !== undefined && new TextEncoder().encode(patch).length > MAX_PATCH_BYTES)
-        throw new PostError(413, `A patch can be at most ${MAX_PATCH_BYTES / 1024 / 1024} MB.`)
+      refuseBadSave(id, previous, patch)
       const newPatch = patch !== undefined && (!previous || patch !== await readPatch(previous))
       const text_ = patch !== undefined ? patch : await readPatch(previous!)
       const now = new Date().toISOString()
@@ -374,7 +413,8 @@ export function createPostedStore(storage: Storage, cache: CacheRepositories): P
         chunks: previous?.chunks ?? 0,
       }
       const diff = await checkedDiff(inputOf(meta, text_), newPatch && fields.allowSecrets !== true)
-      const { agent, warnings } = checkAgentFields(fields, diff, previous ? await storage.getItem<AgentFields>(`${AGENT}${meta.id}`) ?? {} : {})
+      const kept = previous ? await storage.getItem<AgentFields>(`${AGENT}${meta.id}`) ?? {} : {}
+      const { agent, warnings } = checkAgentFields(fields, diff, newPatch ? keepInDiff(kept, diff) : kept)
       meta.files = diff.files.length
       meta.additions = diff.files.reduce((sum, file) => sum + file.additions, 0)
       meta.deletions = diff.files.reduce((sum, file) => sum + file.deletions, 0)
@@ -410,7 +450,7 @@ export function createPostedStore(storage: Storage, cache: CacheRepositories): P
         return undefined
       const key = serializeRef({ kind: 'posted', id })
       const cached = await cache.diffs.getMeta(key)
-      if (cached?.headSha === `v${meta.version}`) {
+      if (cached?.headSha === postedRevision(meta)) {
         const entry = await cache.diffs.get(key)
         if (entry) {
           await cache.diffs.touch(key)

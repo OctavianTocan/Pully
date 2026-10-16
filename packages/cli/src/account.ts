@@ -67,6 +67,8 @@ export const MAX_KEYS = 50
 export const MAX_KEY_NAME = 60
 export const MAX_SETTINGS = 200
 export const MAX_SETTING_BYTES = 8 * 1024
+/** All of an account's settings together, as JSON. */
+export const MAX_SETTINGS_TOTAL = 64 * 1024
 
 /** Wrong passwords allowed for one email before sign-in waits. */
 export const SIGN_IN_TRIES = 5
@@ -271,7 +273,8 @@ export function createAccounts(storage: Storage): Accounts {
       return (await storage.getItem<{ values: Record<string, SyncedSetting> }>(`${SETTINGS}${accountId}`))?.values ?? {}
     },
 
-    async mergeSettings(accountId, values) {
+    // One merge at a time per account, so two phones merging at once never drop each other's settings.
+    mergeSettings: (accountId, values) => oneAtATime(`settings:${accountId}`, async () => {
       const stored = (await storage.getItem<{ values: Record<string, SyncedSetting> }>(`${SETTINGS}${accountId}`))?.values ?? {}
       const merged = { ...stored }
       for (const [name, setting] of Object.entries(values)) {
@@ -280,9 +283,11 @@ export function createAccounts(storage: Storage): Accounts {
       }
       if (Object.keys(merged).length > MAX_SETTINGS)
         throw new Error(`An account keeps at most ${MAX_SETTINGS} settings.`)
+      if (JSON.stringify(merged).length > MAX_SETTINGS_TOTAL)
+        throw new Error(`An account keeps at most ${MAX_SETTINGS_TOTAL / 1024} KB of settings.`)
       await storage.setItem(`${SETTINGS}${accountId}`, { values: merged })
       return merged
-    },
+    }),
   }
 }
 
@@ -303,6 +308,17 @@ export function cleanSettings(input: unknown): Record<string, SyncedSetting> | u
     out[name] = { value: setting.value, at: setting.at }
   }
   return out
+}
+
+/** What runs on each key, so a read, merge and write of one document is never interleaved with another, in this process. */
+const queues = new Map<string, Promise<unknown>>()
+
+function oneAtATime<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const run = (queues.get(key) ?? Promise.resolve()).then(task, task)
+  const settled = run.catch(() => {})
+  queues.set(key, settled)
+  void settled.then(() => queues.get(key) === settled && queues.delete(key))
+  return run
 }
 
 /** Forgets every failed sign-in; for tests. */

@@ -226,7 +226,9 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
     // An in-flight browser run analyzed the diff being replaced; the last persisted result stands.
     // A server task keeps going and is picked up again once the new diff is installed.
     llm.value?.detach()
-    const entry = await cache.diffs.putDiff(key, freshDiff, freshDiff.head?.sha ?? '')
+    // A diff with no head (a posted one) is stored under its source's fingerprint, so the next visit sees it current.
+    const headSha = freshDiff.head?.sha ?? await source.fingerprint?.().catch(() => undefined) ?? ''
+    const entry = await cache.diffs.putDiff(key, freshDiff, headSha)
     await install(key, entry)
     saveSnapshot(key, entry)
     // `llm` is never auto-run, even here - a paid/slow call must always be an explicit

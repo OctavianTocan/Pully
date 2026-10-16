@@ -30,11 +30,19 @@ export async function postedPayload(input: PostedDiffInput): Promise<DiffsPayloa
   }
 }
 
+/**
+ * What a posted diff's page compares to know it is current: its version and when it last changed, so a new title or
+ * tour on the same patch counts as new too.
+ */
+export function postedRevision(input: Pick<PostedDiffInput, 'version' | 'updatedAt'>): string {
+  return `v${input.version}.${Date.parse(input.updatedAt) || 0}`
+}
+
 /** A diff an agent posted (plan 13): parsed again on every fetch, never stored parsed, and versioned by its `PUT`s. */
 export function createPostedSource(input: PostedDiffInput): DiffSource {
   return {
     key: async () => serializeRef({ kind: 'posted', id: input.id }),
     fetch: () => postedPayload(input),
-    fingerprint: async () => `v${input.version}`,
+    fingerprint: async () => postedRevision(input),
   }
 }

@@ -658,6 +658,23 @@ internal fun InboxList(
             state = state,
             contentPadding = PaddingValues(bottom = bottom),
         ) {
+            // What agents posted comes first, under a heading in its own colour: one group, no chip (Tavi, 16 Oct 12:47).
+            // It is on the server, not GitHub, so it shows while the pull requests load or when they fail to.
+            if (posted.isNotEmpty()) {
+                item(key = groupKey(POSTED_SECTION)) {
+                    GroupHeading(
+                        postedLabel, posted.size, first = true, folded = postedShut,
+                        onFold = if (searching) null else ({ fold(InboxSection(POSTED_SECTION, postedLabel, emptyList())) }), onOpen = null,
+                        modifier = Modifier.animateItem(), tint = c.accentMagenta,
+                    )
+                }
+                if (!postedShut) items(posted, key = { postedKey(it) }) { row ->
+                    SwipeRow(
+                        label = row.title, onOpen = { onOpenPosted(row) }, onArchive = null, archived = false,
+                        modifier = Modifier.animateItem(), onLongClick = { onHoldPosted(row) },
+                    ) { PostedRowContent(row, now) }
+                }
+            }
             when {
                 loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
@@ -673,22 +690,6 @@ internal fun InboxList(
                     ListNote(title)
                 }
                 else -> {
-                    // What agents posted comes first, under a heading in its own colour: one group, no chip (Tavi, 16 Oct 12:47).
-                    if (posted.isNotEmpty()) {
-                        item(key = groupKey(POSTED_SECTION)) {
-                            GroupHeading(
-                                postedLabel, posted.size, first = true, folded = postedShut,
-                                onFold = if (searching) null else ({ fold(InboxSection(POSTED_SECTION, postedLabel, emptyList())) }), onOpen = null,
-                                modifier = Modifier.animateItem(), tint = c.accentMagenta,
-                            )
-                        }
-                        if (!postedShut) items(posted, key = { postedKey(it) }) { row ->
-                            SwipeRow(
-                                label = row.title, onOpen = { onOpenPosted(row) }, onArchive = null, archived = false,
-                                modifier = Modifier.animateItem(), onLongClick = { onHoldPosted(row) },
-                            ) { PostedRowContent(row, now) }
-                        }
-                    }
                     sections.forEachIndexed { index, section ->
                         val shut = isFolded(section)
                         item(key = groupKey(section.key)) {

@@ -1,7 +1,7 @@
 import type { ServerHost } from './host'
 import memoryDriver from 'unstorage/drivers/memory'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetSignInFailures } from './account'
+import { MAX_SETTING_BYTES, MAX_SETTINGS_TOTAL, resetSignInFailures } from './account'
 import { POSTS_PER_HOUR, resetPostLimits } from './agent-api'
 import { handleNativeRequest } from './native-api'
 import { MAX_PATCH_BYTES } from './posted'
@@ -116,6 +116,20 @@ describe('the account', () => {
     expect(merged.body.result.values).toEqual({ theme: { value: 'dark', at: 10 }, sounds: { value: true, at: 20 } })
     expect((await rpc('account-settings', {}, session)).body.result.values.sounds.value).toBe(true)
   })
+
+  it('runs two merges at once without either losing its settings, and refuses past the total limit', async () => {
+    const session = await signIn()
+    await Promise.all([
+      rpc('account-settings-merge', { values: { theme: { value: 'dark', at: 10 } } }, session),
+      rpc('account-settings-merge', { values: { sounds: { value: false, at: 10 } } }, session),
+    ])
+    expect(Object.keys((await rpc('account-settings', {}, session)).body.result.values).sort()).toEqual(['sounds', 'theme'])
+
+    const big = 'x'.repeat(MAX_SETTING_BYTES - 16)
+    const values = Object.fromEntries(Array.from({ length: Math.ceil(MAX_SETTINGS_TOTAL / big.length) + 1 }, (_, at) => [`big${at}`, { value: big, at: 1 }]))
+    expect((await rpc('account-settings-merge', { values }, session)).status).not.toBe(200)
+    expect(Object.keys((await rpc('account-settings', {}, session)).body.result.values).sort()).toEqual(['sounds', 'theme'])
+  })
 })
 
 describe('the agent API', () => {
@@ -184,6 +198,23 @@ describe('the agent API', () => {
     expect(await read!.json()).toMatchObject({ title: 'Retry', version: 2, patch: changed, tour: { title: 'Tour' } })
     // The same patch again is not a new version.
     expect((await post(key, { patch: changed, title: 'Retry, renamed' }, 'PUT', `/api/v1/diffs/${created.body.id}`)).body.version).toBe(2)
+  })
+
+  it('drops kept findings, groups and tour stops on files a new patch no longer has', async () => {
+    const session = await signIn()
+    const key = await newKey(session)
+    const created = await post(key, {
+      patch: PATCH,
+      groups: { groups: [{ key: 'all', label: 'All', category: 'core', filePaths: ['src/retry.ts', 'README.md'] }] },
+      tour: { title: 'Tour', stops: [{ title: 'Readme', files: ['README.md'] }, { title: 'Helper', files: ['src/retry.ts'] }] },
+      review: { findings: [{ path: 'README.md', line: 2, title: 'Wording' }, { path: 'src/retry.ts', line: 2, title: 'Magic number' }] },
+    })
+    const onlyRetry = PATCH.slice(0, PATCH.indexOf('diff --git a/README.md'))
+    expect((await post(key, { patch: onlyRetry }, 'PUT', `/api/v1/diffs/${created.body.id}`)).body.version).toBe(2)
+    const read = await (await request(`/api/v1/diffs/${created.body.id}`, { headers: { Authorization: `Bearer ${key}` } }))!.json()
+    expect(read.groups.groups).toEqual([expect.objectContaining({ filePaths: ['src/retry.ts'] })])
+    expect(read.tour.stops.map((stop: { title: string }) => stop.title)).toEqual(['Helper'])
+    expect(read.review.findings.map((finding: { title: string }) => finding.title)).toEqual(['Magic number'])
   })
 
   it('refuses a patch with a secret in an added line, unless told it is not one', async () => {

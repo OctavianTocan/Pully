@@ -170,4 +170,5 @@ still goes through.
 @cc [owner:OctavianTocan,label:product] server-settings-newer-wins
 The account's synced settings are merged one setting at a time: a value replaces the
 kept one only when its time is newer, so two phones never undo each other's other
-choices. At most 200 settings of 8 KB in all are kept (Tavi, 16 Oct 12:47).
+choices, and merges of one account run one at a time. At most 200 settings are kept, each
+at most 8 KB and 64 KB in all (Tavi, 16 Oct 12:47).
