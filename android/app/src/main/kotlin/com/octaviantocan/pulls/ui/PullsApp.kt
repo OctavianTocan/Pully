@@ -11,6 +11,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -102,6 +106,9 @@ fun PullsApp(initialTarget: String?) {
     // Back slides the page backward, and a back swipe moves the page with the finger before it goes (rule 105).
     val pageMotion = remember { PageMotion() }
     PageBack(pageMotion, enabled = stack.size > 1) { nav.back() }
+    // Back on the Inbox asks before Pulls closes, rather than leaving at once (O5).
+    var leaving by remember { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = stack.size == 1) { leaving = true }
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     // Every code view reads `PullsType.mono`, which follows this.
     if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont) com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont
@@ -120,6 +127,10 @@ fun PullsApp(initialTarget: String?) {
         if (arrival == null) return@LaunchedEffect
         IncomingLinks.consume(arrival)
         val screen = linkScreen(arrival.text)
+        // Any sheet open (Settings, Profile, a pull request's ⋯) slides down first, so the new page never opens under
+        // it and nothing is left open behind it to find on the way back (O1, O4).
+        if (screen != null) com.octaviantocan.pulls.ui.design.Sheets.closeAll()
+        if (screen != null && stack.last() == Screen.Settings) stack.removeAt(stack.lastIndex)
         val top = stack.last()
         when {
             screen == null -> toaster.show(CANT_OPEN, cue = Cue.Error)
@@ -147,6 +158,13 @@ fun PullsApp(initialTarget: String?) {
     // One hook for screen time: the page on top by a fixed name (`screen.view`, `screen.time`). Settings names its own pages.
     val top = stack.last()
     LaunchedEffect(top.analyticsName) { Analytics.showScreen(top.analyticsName) }
+    // Profile's GitHub numbers and the Stats page are asked for once Pulls has settled, so they open on today's
+    // numbers instead of waiting (O6, O10).
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1_500)
+        launch { com.octaviantocan.pulls.ui.home.StatsMemory.warm(context) }
+        launch { com.octaviantocan.pulls.ui.settings.StatsKeep.warm(context) }
+    }
     // The first frame of a launch on Home is how long the app took to open (`app.open`).
     LaunchedEffect(Unit) {
         withFrameNanos { }
@@ -170,10 +188,25 @@ fun PullsApp(initialTarget: String?) {
             if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()
+            if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
             ToastHost(toaster)
             // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pulls.
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
         }
+    }
+}
+
+/**
+ * "Close Pulls?" when Back is pressed on the Inbox: one button closes the app, the other keeps it, and Back or the ✕
+ * keeps it too ("I would maybe add a little menu that says, are you sure you want to close the app?": recording
+ * 16 Oct 13:06, 02:47 to 02:55; O5).
+ */
+@Composable
+private fun LeaveSheet(onStay: () -> Unit, onLeave: () -> Unit) {
+    com.octaviantocan.pulls.ui.design.PullsSheet(onStay, "Close Pulls?", expandable = false) {
+        androidx.compose.foundation.layout.Spacer(Modifier.height(com.octaviantocan.pulls.ui.design.SheetTopGap))
+        com.octaviantocan.pulls.ui.design.CtaButton("Close Pulls", onLeave, Modifier.fillMaxWidth())
+        com.octaviantocan.pulls.ui.design.PillButton("Stay", onStay, Modifier.fillMaxWidth().padding(top = 10.dp))
     }
 }
 

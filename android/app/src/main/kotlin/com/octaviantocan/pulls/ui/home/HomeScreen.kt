@@ -26,6 +26,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import com.octaviantocan.pulls.sound.Haptics
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -114,6 +115,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.looksLikeQuestion
 import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.ui.review.ReviewSession
 import com.octaviantocan.pulls.core.PullWork
 import com.octaviantocan.pulls.core.WorkTask
 import com.octaviantocan.pulls.core.pullKey
@@ -310,6 +312,15 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             }
     }
 
+    // The top of the Inbox starts loading once it has shown, so the pull requests he is most likely to open are there
+    // when he taps them (O20).
+    val warmTop = remember(sorted) { sorted.take(ReviewSession.WARM_TOP).map { OpenTarget.Pull(it.owner, it.repo, it.number, "github.com") } }
+    LaunchedEffect(warmTop) {
+        if (warmTop.isEmpty()) return@LaunchedEffect
+        kotlinx.coroutines.delay(800)
+        warmTop.forEach { ReviewSession.warm(repo, it) }
+    }
+
     fun openPull(pull: PullRow) = nav.openFrom(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"), if (needle.isEmpty()) "inbox" else "search", false)
     // A pasted link, or a number only one listed pull request has, opens straight from the search pill.
     val listed = remember(pulls, tours.entries) {
@@ -370,6 +381,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onRetry = reload, onCommands = { Commands.open() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it }, viewer = viewer,
+                        onPress = { pull -> ReviewSession.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
                     )
                 } else PullToCommands({ Commands.open() }, Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
@@ -555,6 +567,8 @@ internal fun InboxList(
     onRepo: (Triage.RepoGroup) -> Unit,
     /** Who he is on GitHub: only his own rows archive (K20). */
     viewer: String? = null,
+    /** A finger landed on a row, before it is a tap: its pull request starts loading (O20). */
+    onPress: (PullRow) -> Unit = {},
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
@@ -633,6 +647,7 @@ internal fun InboxList(
                                 archived = key in archived,
                                 modifier = Modifier.animateItem(),
                                 onLongClick = { onHold(pull) },
+                                onPress = { onPress(pull) },
                             ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)], repo = rowRepos["${pull.owner}/${pull.repo}"], risk = jevAsked) }
                         }
                     }
@@ -674,6 +689,8 @@ internal fun SwipeRow(
     onClick: () -> Unit = onOpen,
     onLongClick: (() -> Unit)? = null,
     opensLeft: Boolean = false,
+    /** A finger landed on the row; it may still become a tap, a hold, a swipe or a scroll. */
+    onPress: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val c = LocalPullsColors.current
@@ -744,6 +761,10 @@ internal fun SwipeRow(
                     if (dx < 0f) drawRect(Brush.horizontalGradient(listOf(ink.copy(alpha = 0.16f * strength), Color.Transparent), startX = size.width, endX = size.width + edge), Offset(size.width, 0f), Size(edge, size.height))
                 }
                 .background(c.base)
+                .then(
+                    if (onPress == null) Modifier
+                    else Modifier.pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial); onPress() } },
+                )
                 // The tap is outside the swipe, so a drag the swipe has taken is never also a tap: a short sideways drag
                 // used to open the file and leave its row pulled aside, which then slid back on return ("this plays an
                 // animation for no reason when I come back", recording 15 Oct 15:37, 09:28 to 09:44; L16).

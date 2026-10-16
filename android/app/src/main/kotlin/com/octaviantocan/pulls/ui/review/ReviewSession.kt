@@ -29,7 +29,10 @@ import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -201,7 +204,9 @@ class ReviewSession(
             val started = android.os.SystemClock.elapsedRealtime()
             // What the page could already show from an earlier visit, before the server answered.
             val hadCopy = opened != null
-            runCatching { repo.open(target, fresh) }
+            // A warm already on its way ([warm]) is waited for, not asked again.
+            val warming = if (fresh) null else rememberedAs?.let { warming[it] }
+            runCatching { warming?.await() ?: repo.open(target, fresh) }
                 .onSuccess {
                     Analytics.track("pr.load", "ms" to android.os.SystemClock.elapsedRealtime() - started, "cached" to hadCopy, "stale" to it.stale)
                     trackOpen(it)
@@ -583,18 +588,45 @@ class ReviewSession(
     /** A pull request's diff and overview as last loaded in this run. */
     private data class Remembered(val opened: OpenedReview, val overview: JsonObject?)
 
-    private companion object {
-        const val REMEMBERED = 6
-        const val ATTENTION_EVERY_MS = 3_000L
-        const val ATTENTION_FOR_MS = 120_000L
+    companion object {
+        private const val REMEMBERED = 12
+        /** How many pull requests at the top of the Inbox are warmed once it has shown (O20). */
+        const val WARM_TOP = 4
+        private const val ATTENTION_EVERY_MS = 3_000L
+        private const val ATTENTION_FOR_MS = 120_000L
         /** The tasks the server starts with Jev's read of the diff (`TRIAGED` in the server's `tasks.ts`). */
-        val JEV_TASKS = setOf("analyze", "critique", "tour", "brief")
+        private val JEV_TASKS = setOf("analyze", "critique", "tour", "brief")
         /** The work-log step that read is (`jev-triage` in the server's `jev-review.ts`). */
-        const val JEV_STEP = "jev-triage"
+        private const val JEV_STEP = "jev-triage"
 
-        // Least recently opened first; the oldest goes when a seventh arrives. Touched on the main thread only.
-        val recent = object : LinkedHashMap<String, Remembered>(8, 0.75f, true) {
+        // Least recently opened first; the oldest goes when a thirteenth arrives. Touched on the main thread only.
+        private val recent = object : LinkedHashMap<String, Remembered>(8, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Remembered>?): Boolean = size > REMEMBERED
+        }
+
+        /** Diffs asked for by [warm] and not in yet, by pull request; a page opened meanwhile waits for its own. */
+        private val warming = HashMap<String, Deferred<OpenedReview>>()
+
+        /** Warms run past the screen that asked for them, and one failing leaves the others alone. */
+        private val warmScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+        /**
+         * Asks for [pull]'s diff and overview before it is opened, so tapping it shows it at once instead of the skeleton:
+         * the Inbox warms its top rows once it shows, and a row as the finger lands on it. Opening a pull request used to
+         * wait on the server each time ("Why does it take so long to load ... when I tap on the different ones":
+         * recording 16 Oct 13:06, 09:09 to 09:17; O20). One kept or on its way is not asked again.
+         */
+        fun warm(repo: Repo, pull: OpenTarget.Pull) {
+            val name = pull.label
+            if (recent.containsKey(name) || warming.containsKey(name)) return
+            val diff = warmScope.async { repo.open(pull) }
+            warming[name] = diff
+            warmScope.launch {
+                val overview = async { runCatching { repo.overview(pull) }.getOrNull() }
+                runCatching { diff.await() }.onSuccess { opened -> if (!recent.containsKey(name)) recent[name] = Remembered(opened, null) }
+                warming.remove(name)
+                overview.await()?.let { fetched -> recent[name]?.let { kept -> if (kept.overview == null) recent[name] = kept.copy(overview = fetched) } }
+            }
         }
     }
 }

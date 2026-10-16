@@ -865,6 +865,12 @@
     "problems": "エラーとクラッシュ",
     "empty": "まだ何も数えていません。しばらくアプリを使ってから戻ってきてください。",
     "loadFailed": "統計を読み込めませんでした。",
-    "download": "ダウンロード"
+    "download": "ダウンロード",
+    "aiUsage": "AI の使用量",
+    "tokens": "トークン",
+    "unpriced": "– の実行はコストを報告していません(Codex やプロキシはコストを返しません)。",
+    "byFeature": "機能別",
+    "byModel": "モデル別",
+    "runsCount": "{n} 回"
   }
 }

@@ -195,13 +195,12 @@ private class FileSlide(start: String) {
     var at by mutableFloatStateOf(0f)
     var glide: Job? = null
 
+    /** The file the running glide is going to, so a file change that only names it again leaves it running. */
+    var heading: String? = null
+
     /** A finger is moving the row, and how many glides are running; with neither, the row must rest on the file shown. */
     var held by mutableStateOf(false)
     var gliding by mutableIntStateOf(0)
-
-    /** The file a swipe settled on that the screen has yet to take up, and how fast it was thrown, in pages a second. */
-    var thrownTo: String? = null
-    var speed = 0f
 
     /** Where [path] is drawn, in pages from the screen: 0 on it, 1 a page to the right. */
     fun place(path: String): Float = if (path == current) -at else way - at
@@ -270,9 +269,13 @@ private fun FilePages(
 
     fun glideTo(to: String, speed: Float = 0f) {
         slide.glide?.cancel()
+        slide.heading = to
         slide.glide = scope.launch {
             slide.gliding++
-            try { slide.settle(to, speed, motion, order) } finally { slide.gliding-- }
+            try { slide.settle(to, speed, motion, order) } finally {
+                slide.gliding--
+                if (slide.heading == to) slide.heading = null
+            }
         }
     }
 
@@ -289,15 +292,14 @@ private fun FilePages(
             }
     }
 
-    // A new file starts with nothing selected, and the row glides to it, as fast as a swipe that chose it was thrown.
+    // A new file starts with nothing selected, and the row glides to it unless the swipe that chose it already does.
     LaunchedEffect(target.path) {
         ui.drafts.clear()
         ui.selectionStart.clear()
         ui.mark = null
-        val speed = if (slide.thrownTo == target.path) slide.speed else 0f
-        slide.thrownTo = null
-        slide.speed = 0f
-        if (slide.current != target.path || slide.at != 0f) glideTo(target.path, speed)
+        // A swipe already set the row gliding here as the finger let go: restarting it would stop it mid-way (O22).
+        if (slide.glide?.isActive == true && slide.heading == target.path) return@LaunchedEffect
+        if (slide.current != target.path || slide.at != 0f) glideTo(target.path)
     }
 
     // Syntax colours come from the server a file at a time. Asking for the files a swipe or an arrow away too, while this
@@ -373,8 +375,10 @@ private fun FilePages(
         } else {
             // A file that changes under the finger is felt like any page that does (rule 109, J20).
             Haptics.page()
-            slide.thrownTo = to
-            slide.speed = speed
+            // The row goes on gliding the moment the finger lets go, before the new file is laid out, instead of waiting
+            // for the screen to take the file up and standing still between the two meanwhile ("it stops a little in the
+            // middle": recording 16 Oct 13:06, 09:36 to 09:43; O22).
+            glideTo(to, speed)
             onPath(to)
         }
     }

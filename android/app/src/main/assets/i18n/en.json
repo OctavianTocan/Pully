@@ -811,6 +811,12 @@
     "problems": "Errors and crashes",
     "empty": "Nothing counted yet. Use the app for a while and come back.",
     "loadFailed": "Couldn't load the stats.",
-    "download": "Download"
+    "download": "Download",
+    "aiUsage": "AI usage",
+    "tokens": "Tokens",
+    "unpriced": "Runs marked – reported no cost (Codex and proxies do not say what a run costs).",
+    "byFeature": "By feature",
+    "byModel": "By model",
+    "runsCount": "{n} run | {n} runs"
   }
 }

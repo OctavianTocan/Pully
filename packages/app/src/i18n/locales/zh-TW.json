@@ -865,6 +865,12 @@
     "problems": "錯誤與當機",
     "empty": "尚未統計任何資料。使用一段時間後再回來看看。",
     "loadFailed": "無法載入統計。",
-    "download": "下載"
+    "download": "下載",
+    "aiUsage": "AI 用量",
+    "tokens": "Token",
+    "unpriced": "標為 – 的執行未回報費用(Codex 與代理不回報費用)。",
+    "byFeature": "按功能",
+    "byModel": "按模型",
+    "runsCount": "{n} 次執行"
   }
 }
