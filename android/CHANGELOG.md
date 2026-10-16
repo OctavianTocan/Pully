@@ -16,6 +16,21 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.43.0
+
+Agents can post a diff to Pully and hand you a link to review.
+
+### New
+
+- Agents can send Pully a diff with a key from your account and get back a link. It opens like a pull request, with the agent's own grouping, tour and review when it sends them, and without the branches and checks a bare diff does not have.
+- Diffs agents post sit together at the top of the Inbox, under Posted by agents in their own colour. Tap one to review it, or hold it to delete it.
+![The Inbox with two diffs under Posted by agents above a repository's pull requests](changelog/0.43.0/posted-group.png)
+- Settings has an Account section and an Agent keys page: name a key, copy it once to give your agent, and revoke it when you are done.
+![Agent keys with a new key shown once to copy, and the keys already made](changelog/0.43.0/agent-keys.png)
+- Pully asks you to sign in once with your account's email and password, then stays signed in.
+![The sign-in page with email and password](changelog/0.43.0/sign-in.png)
+- Your look, fonts, code size, sounds and hidden repositories follow you to any phone signed in to the account.
+
 ## 0.42.0
 
 Faster pull requests, a tour you can watch being written, AI costs.

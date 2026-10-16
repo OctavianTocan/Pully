@@ -177,7 +177,7 @@ internal fun AccountGroup(open: (SettingsPage) -> Unit) {
     val email = Account.email ?: return
     Group("Account") {
         SheetCard {
-            SheetRow("Account", { open(SettingsPage.Account) }, first = true, iconless = true) {
+            SheetRow("Signed in as", { open(SettingsPage.Account) }, first = true, iconless = true) {
                 Text(email, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }

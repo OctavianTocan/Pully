@@ -123,6 +123,24 @@ Object) step by step. Contract:
   `repo-info`, the `source-*` methods, whole files of a local diff) answers `NO_CHECKOUT`;
   none of them falls back to the server's working directory.
 
+## Posted diffs (`packages/cli/src/agent-api.ts`, `posted.ts`, `account.ts`, `plans/13-posted-diffs.md`)
+
+Agents post a diff and get back a link that shows it as a pull request page (Tavi, 16 Oct 12:24, 12:40 and 12:47).
+
+- The server has one account, `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`, seeded on first use. There is no
+  sign-up. The phone signs in once (`account-sign-in`) and sends its session as `X-Pully-Session`; only the account's
+  methods need it. Passwords are PBKDF2 hashes, sessions and keys SHA-256 hashes.
+- API keys (`pully_` and 32 letters) are made and revoked on the phone. `/api/v1/*` takes `Authorization: Bearer`, is
+  the only path meant to sit outside Cloudflare Access, and reaches only its account's posted diffs.
+- A post stores what the agent sent: the patch gzipped in chunks (`posted-patch:`), its words (`posted-diff:`) and its
+  groups, tour, brief and review (`posted-agent:`). Opening one parses it again into a `posted` ref
+  (`/-/<id>`, no base, head or commits) and writes the agent's results into the usual caches, so the page and the
+  phone draw them like their own. `SERVER_CACHE_BUDGET` keeps `posted:` keys, so links last forever; only DELETE
+  removes one. `PULLY_PUBLIC_URL` names the link's host.
+- The phone lists them in the Inbox under "Posted by agents"; the web opens `/-/<id>` through `source-fetch` with the
+  target `posted:<id>`. The agents' skill is `skills/post-diff-to-pully/SKILL.md`.
+- The account also keeps the phone's synced settings, newest change of each one winning.
+
 ## The phone reads the server's store (`packages/cli/src/pr-store.ts`, `stored-diff.ts`)
 
 Opening a pull request on the phone MUST NOT wait on every page of its files. Contract:
