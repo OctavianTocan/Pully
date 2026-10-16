@@ -3,14 +3,27 @@ package com.octaviantocan.pulls.core
 /**
  * One version's section of `android/CHANGELOG.md`: its [summary] sentence and the [items] under it,
  * each a bullet's Markdown. [groups] are the same items under the section's own `### New`, `### Fixed`
- * headings, in order; a section without them is one group with no title.
+ * headings, in order; a section without them is one group with no title. [pictures] are the section's
+ * images and GIFs, each shown under the bullet it follows.
  */
 data class ChangelogEntry(
     val version: String,
     val summary: String,
     val items: List<String>,
     val groups: List<ChangelogGroup> = if (items.isEmpty()) emptyList() else listOf(ChangelogGroup(null, items)),
-)
+    val pictures: List<ChangelogPicture> = emptyList(),
+) {
+    /** The pictures under the bullet at [item] in [items], or under the summary when [item] is -1. */
+    fun picturesAfter(item: Int): List<ChangelogPicture> = pictures.filter { it.item == item }
+}
+
+/**
+ * A `![alt](changelog/<version>/<name>.png)` line of a section: [path] is relative to `android/`, which the app
+ * bundles as its assets and the server serves under `/android/`. [item] is the index in [ChangelogEntry.items] of
+ * the bullet it follows, or -1 when it comes before any. Tavi asked on 16 Oct 10:49 for every changelog to show
+ * what changed in pictures, and GIFs for what moves.
+ */
+data class ChangelogPicture(val path: String, val alt: String, val item: Int)
 
 /** Bullets under a `### <title>` heading inside a version's section, or before any such heading when [title] is null. */
 data class ChangelogGroup(val title: String?, val items: List<String>)
@@ -19,18 +32,22 @@ private val HEADING = Regex("""^##\s+(\S+)\s*$""")
 private val GROUP = Regex("""^###\s+(.+?)\s*$""")
 private val BULLET = Regex("""^\s*[-*]\s+(.*)$""")
 private val COMMENT = Regex("""<!--.*?-->""", RegexOption.DOT_MATCHES_ALL)
+private val PICTURE = Regex("""^\s*!\[([^\]]*)]\(([^)\s]+)\)\s*$""")
 
 /**
  * The sections of a changelog, in file order (newest first). A section is a `## <version>` heading, a
  * first paragraph that is its summary, and bullets, which `### <title>` headings may sort into groups.
  * Comments and the `#` title are skipped. Older builds skip the `###` lines too and read the same bullets
- * as one list, so a section with groups still shows on a phone that has not updated yet.
+ * as one list, so a section with groups still shows on a phone that has not updated yet. A picture line,
+ * written unindented on its own line under a bullet, is skipped by builds from before 0.40.0 the same way
+ * (changelog.mjs checks it sits there: indented it would join the bullet, above the bullets the summary).
  */
 fun parseChangelog(text: String): List<ChangelogEntry> {
     val entries = mutableListOf<ChangelogEntry>()
     var version: String? = null
     val summary = StringBuilder()
     val items = mutableListOf<String>()
+    val pictures = mutableListOf<ChangelogPicture>()
     // Where each group starts in [items], and its title.
     val starts = mutableListOf<Pair<String?, Int>>()
     fun close() {
@@ -38,9 +55,10 @@ fun parseChangelog(text: String): List<ChangelogEntry> {
         val bounds = if (starts.firstOrNull()?.second == 0) starts.toList() else listOf<Pair<String?, Int>>(null to 0) + starts
         val groups = bounds.mapIndexed { i, (title, from) -> ChangelogGroup(title, items.subList(from, bounds.getOrNull(i + 1)?.second ?: items.size).toList()) }
             .filter { it.items.isNotEmpty() }
-        entries += ChangelogEntry(v, summary.toString().trim(), items.toList(), groups)
+        entries += ChangelogEntry(v, summary.toString().trim(), items.toList(), groups, pictures.toList())
         summary.clear()
         items.clear()
+        pictures.clear()
         starts.clear()
     }
     for (line in COMMENT.replace(text, "").lines()) {
@@ -56,6 +74,11 @@ fun parseChangelog(text: String): List<ChangelogEntry> {
             continue
         }
         if (version == null || line.isBlank() || line.startsWith("#")) continue
+        val picture = PICTURE.matchEntire(line)
+        if (picture != null) {
+            pictures += ChangelogPicture(picture.groupValues[2], picture.groupValues[1], items.lastIndex)
+            continue
+        }
         val bullet = BULLET.matchEntire(line)
         when {
             bullet != null -> items += bullet.groupValues[1].trim()
