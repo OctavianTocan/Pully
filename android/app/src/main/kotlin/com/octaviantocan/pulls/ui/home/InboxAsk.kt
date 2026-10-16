@@ -320,8 +320,8 @@ internal fun InboxAskSheet(ask: InboxAsk, listed: List<ListedPull>, onOpen: (Lis
                         compact = true, mark = false,
                     )
                 }
-                // The grey bars hint where the answer will arrive until its first words do (rule 71).
-                AiLiveMark(busy, hint = written == null)
+                // The orb alone, no grey bars under it: the answer arrives where it goes (rule 71, L33).
+                AiLiveMark(busy)
                 // The answer as it is written, plain text in the place the saved one takes (rule 99).
                 if (busy && written != null) Answer(written)
                 if (current != null && !busy) TurnAnswer(current, split)
