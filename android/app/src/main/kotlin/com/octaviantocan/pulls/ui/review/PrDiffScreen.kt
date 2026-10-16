@@ -127,6 +127,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import com.octaviantocan.pulls.core.pageWay
@@ -914,12 +916,19 @@ private const val SHORT_NAME = 22
 private fun DiffFocus(session: ReviewSession, ui: DiffUi, file: ReviewFile, listState: LazyListState) =
     DiffFocusOn(session.focus, ui, file, listState) { target -> if (session.focus === target) session.focus = null }
 
-/** Scrolls [listState] to [focus]'s line in [file] and marks it; [onDone] takes the request once it is met. */
+/**
+ * Scrolls [listState] to [focus]'s line in [file] and marks it; [onDone] takes the request once it is met. The line lands
+ * near the top with a few lines above it, and the code is scrolled back to its left edge, so the line opens whole
+ * ("lands at the top of the file, cut off on the left", recording of 16 Oct 12:10, 10:11 to 10:13, N21). A full file
+ * that is slow to come is waited for, and a line the rows do not hold lands on the nearest one they do.
+ */
 @Composable
-private fun DiffFocusOn(focus: Focus?, ui: DiffUi, file: ReviewFile, listState: LazyListState, onDone: (Focus) -> Unit) {
+internal fun DiffFocusOn(focus: Focus?, ui: DiffUi, file: ReviewFile, listState: LazyListState, onDone: (Focus) -> Unit) {
     LaunchedEffect(focus, file.path) {
         val target = focus ?: return@LaunchedEffect
         if (target.path != file.path) return@LaunchedEffect
+        // Whatever the code was scrolled sideways to before, the place opens at the start of its lines.
+        ui.scrolls.forEach { (key, scroll) -> if (key.first == file.path) scroll.offset = 0f }
         if (target.line <= 0) {
             listState.scrollToItem(0)
             onDone(target)
@@ -931,11 +940,13 @@ private fun DiffFocusOn(focus: Focus?, ui: DiffUi, file: ReviewFile, listState: 
         if (ui.lineKey[file.path]?.get(anchor) == null && !file.isBinary) {
             // The line sits in an unmodified gap: load the full file and open every gap.
             ui.loadFullFile(file)
-            repeat(250) { if (ui.fullLoading[file.path] != true) return@repeat; delay(20) }
+            withTimeoutOrNull(FULL_FILE_WAIT_MS) { snapshotFlow { ui.fullLoading[file.path] == true }.first { !it } }
             if (ui.fullFiles[file.path] != null) ui.expandedGaps[file.path] = null
         }
         var key: String? = null
-        repeat(60) { if (key == null) { key = ui.lineKey[file.path]?.get(anchor); if (key == null) delay(16) } }
+        repeat(90) { if (key == null) { key = ui.lineKey[file.path]?.get(anchor); if (key == null) delay(16) } }
+        // Not a line the rows hold (past the end, or on a side the view does not show): the nearest one that is.
+        if (key == null) key = nearestLineKey(ui.lineKey[file.path].orEmpty(), "${file.path}|${target.side}|", target.line)
         val at = key?.let { ui.indexOf[file.path]?.get(it) }
         if (at != null) listState.animateScrollToItem(at, scrollOffset = -240)
         onDone(target)
@@ -976,3 +987,11 @@ internal fun FileDiffSheet(session: ReviewSession, ui: DiffUi, place: Focus, onC
         }
     }
 }
+
+/** How long a focus waits for a full file it needs before it settles for the rows it has. */
+private const val FULL_FILE_WAIT_MS = 15_000L
+
+/** The item key of the line nearest [line] among [lines] (anchor -> item key) whose anchor starts with [prefix], or null. */
+internal fun nearestLineKey(lines: Map<String, String>, prefix: String, line: Int): String? =
+    lines.entries.mapNotNull { (anchor, key) -> anchor.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)?.toIntOrNull()?.let { it to key } }
+        .minByOrNull { (at) -> kotlin.math.abs(at - line) }?.second

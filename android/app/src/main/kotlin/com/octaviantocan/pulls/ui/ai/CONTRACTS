@@ -37,6 +37,13 @@ tour or an answer is a link that scrolls to that place, including file names lis
 code block ("Super, super, super important", rule 96; F43; recording 14 Oct 19:19,
 03:43 to 03:55).
 
+@cc [owner:OctavianTocan,label:product] ai-names-find-their-files
+The app finds the code names the AI did not link: inline code or a word in code's shape
+(`PrTourScreen`, `PrTourScreen.kt`, `ReviewScreen.kt:91`, `openAsk`) that is a changed
+file's name without its extension is a link that opens that file, in the Tour, Ask and
+the summary. A name two files share, and a plain word, stay words (recording of 16 Oct
+12:10, 09:25 to 09:47, N17).
+
 @cc [owner:OctavianTocan,label:design] ai-links-look-alike
 Links in AI text are teal text with no underline, all in one face: one cite is never in
 the code font while the next is not. They sit on the text line and never grow it (rules
@@ -45,17 +52,38 @@ the code font while the next is not. They sit on the text line and never grow it
 @cc [owner:OctavianTocan,label:product] ai-links-read-from-the-root
 A link in AI text is read from the repository root: `./` and `../` never go above it, and
 a dot-folder (`.agents`, `.github`) keeps its dot. A file the pull request changes opens
-in the app; any other opens on GitHub at the head commit, never a 404 (rule 124; J36).
+in the app's diff; any other opens in the app too, read at the head commit in the same
+code view, and a link in AI text MUST NOT open GitHub. Tavi changed this from "any other
+opens on GitHub" ("In the code rows still open GitHub", recording of 16 Oct 12:10, 10:01
+to 10:07, N20; rule 124; J36).
 
 @cc [owner:OctavianTocan,label:product] ai-code-works-like-the-diff
-A code block in a tour or an answer is the diff's code view: syntax colours (pseudocode
-too), sideways scroll and pinch zoom. Inline code shows as code and never with its
-backticks (rule 95; F59, F63).
+A code block in a tour or an answer is the diff's code view: syntax colours, sideways
+scroll and pinch zoom, and a copy button at its top corner that shows the copied toast, as
+on a web code block (recording of 16 Oct 12:10, 09:51 to 09:55, N18). Inline code shows as
+code and never with its backticks (rule 95; F59, F63).
 
 @cc [owner:OctavianTocan,label:product] ai-structures-are-drawn
 A flow, a call tree and a file tree are drawn by the app from structured data, never
 printed as text; a flow line that does not parse stays as words in its place. A file in a
 tree that the pull request changes opens it (rule 95; F59; recording 14 Oct 19:19, 04:01).
+
+@cc [owner:OctavianTocan,label:design] ai-flow-is-steps-on-a-rail
+A flow is numbered steps on a rail: each part a card the width of the block with its
+number in a dot on the rail, each hop the rail with an arrowhead down to the next dot and
+what moves beside it ("the Flow block needs visual work", recording of 16 Oct 12:10,
+09:56 to 09:58, N19).
+
+@cc [owner:OctavianTocan,label:design] ai-call-tree-reads-at-a-glance
+A call tree sits in a well like code, its names in the code face on guide lines that end
+in a dot at each row. A call written as a chain puts each step on a line of its own, its
+arrow in one column under the name, so the steps line up and never wrap into each other
+("really easy and nice to look at", recording of 16 Oct 12:10, 09:17 to 09:24, N16).
+
+@cc [owner:OctavianTocan,label:design] ai-sketch-label-is-one-paragraph
+A sketch's or a diagram's kind and its caption are one paragraph above it, the caption
+wrapping under the kind from the left edge, and the caption is one short sentence; the
+brief's prompt asks the model for one (recording of 16 Oct 12:10, 17:07 to 17:22, N33).
 
 @cc [owner:OctavianTocan,label:design] ai-tables-stay-readable
 A table keeps a readable width for each column (a description never below about 230dp)
@@ -85,9 +113,10 @@ names) scroll to their place, and two or three follow-up questions tap to send (
 F70).
 
 @cc [owner:OctavianTocan,label:product] ask-opens-without-the-keyboard
-The chat opens at its normal height with no keyboard; tapping the field brings the
-keyboard and lifts the sheet ("it goes into this text mode immediately" was jarring,
-rule 77).
+The chat opens at its tall height at once with no keyboard, and may still be dragged
+down to half; tapping the field brings the keyboard ("it goes into this text mode
+immediately" was jarring, rule 77). Tavi changed the opening height from the normal one
+to the tall one (recording of 16 Oct 12:10, 11:37 to 11:47, N25).
 
 @cc [owner:OctavianTocan,label:product] ask-send-needs-text
 Send does nothing until its field has text (rule 84; F65). With nothing typed the button is
@@ -118,8 +147,12 @@ and a tap on it stops the answer ("that should just be where the button is", rec
 
 @cc [owner:OctavianTocan,label:product;motion] ask-scroll-is-the-readers
 An answer being written MUST NOT scroll the reader back down once they have scrolled up;
-the sheet follows the end only while they are at it, and again when they return to it or
-ask again (recording 15 Oct 15:37, 16:14 to 16:23; L32).
+the sheet follows the end only while they are at it, and again when they let go at the
+end or tap the round scroll-to-the-end button that shows once they are away from it. Only
+the reader's own drags let go of the end. A question sent goes to the top of the sheet
+with its answer written under it, and the sheet does not follow the answer down, as
+shadcn's Conversation does (recording 15 Oct 15:37, 16:14 to 16:23; L32; strengthened by
+Tavi, recording of 16 Oct 12:10, 11:48 to 12:47, N26).
 
 @cc [owner:OctavianTocan,label:product] ask-answers-draw-like-tours
 Answers in Ask MAY use the tour's forms (tables, call trees, file trees, pseudocode, flows,
@@ -150,3 +183,16 @@ N36, Tavi's decision).
 In the brief, a label and its value, and a finding's severity and its title, are one
 paragraph that wraps as a sentence, never two columns where one wraps into a narrow one
 (recording of 16 Oct 12:10, 19:49 to 20:16; N37).
+
+@cc [owner:OctavianTocan,label:design] ask-field-floats-over-the-chat
+Ask's field floats over the conversation, which runs on under it and dissolves into the
+paper as the Tour's page does under its Ask bar; there is no solid band of paper under
+the field ("a white band under the input", recording of 16 Oct 12:10, 13:06 to 13:16,
+N27).
+
+@cc [owner:OctavianTocan,label:product] tour-sheet-holds-tour-things
+On the Tour, ⋯ opens the tour's own sheet: Model with Effort as its own row under it
+(rule 142), Analyze options, then Regenerate tour, Ask about this tour and Switch to the
+diff, and last a row on to the pull request's actions. It opens in the frame of the tap,
+drawn from what the phone holds ("took far too long to open", recording of 16 Oct 12:10,
+10:37 to 10:43, N22; "on the Tour, ⋯ should hold tour things", 10:49 to 11:24, N23).

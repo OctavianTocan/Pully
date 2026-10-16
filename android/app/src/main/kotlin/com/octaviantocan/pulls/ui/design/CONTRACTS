@@ -189,3 +189,9 @@ the start or end of a one-line field, at the top or bottom of one that scrolls t
 lines. An edge with nothing hidden past it has no fade, and the fade grows with how far the
 text has scrolled. Tavi asked for this in the recording of 16 Oct 12:10, 05:47 to 06:00
 (fade both ways, sideways and up and down; N9).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-footer-floats
+A full sheet's footer floats over its body: the body runs on under the footer and
+dissolves into the paper there, as a page does under its floating bar, and its end clears
+the footer so the last line can be scrolled above it. A full sheet never ends on a solid
+band of paper behind its footer (recording of 16 Oct 12:10, 13:06 to 13:16, N27).

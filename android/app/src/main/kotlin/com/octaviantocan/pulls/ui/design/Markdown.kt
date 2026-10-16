@@ -101,8 +101,10 @@ data class CodePlace(val path: String, val line: Int)
  * Where the mentions in AI text go (rule 96). [resolve] gives the path of a changed file a mention
  * names (the whole path, or its end), or null; [open] scrolls to a place. A Markdown link to a path
  * in the repository is always a mention; a bare `file.ext:12` is one only when it names a changed file.
+ * [names] gives the changed file a code name is named after (`PrTourScreen` for `PrTourScreen.kt`), so the
+ * names the AI did not link open their code too (recording of 16 Oct 12:10, 09:25 to 09:47, N17).
  */
-class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit, val repo: String? = null)
+class Mentions(val resolve: (String) -> String?, val open: (CodePlace) -> Unit, val repo: String? = null, val names: (String) -> String? = { null })
 
 /** Set by AI screens: their Markdown turns mentions into links. Elsewhere Markdown links stay links. */
 val LocalMentions = staticCompositionLocalOf<Mentions?> { null }
@@ -168,16 +170,81 @@ fun codeSpanPlaceOf(literal: String, resolve: (String) -> String?): CodePlace? {
 
 private val PATH_WITH_EXTENSION = Regex("""[\w./-]+\.[A-Za-z0-9]+""")
 
-/** Every place [markdown] mentions, in order and each once: its links into [repo], and the backticked paths and named files that [resolve] knows. */
-fun mentionedPlaces(markdown: String, resolve: (String) -> String?, repo: String? = null): List<CodePlace> {
+/** The shortest file name, without its extension, that a code name may stand for: `Kit`, never `ui` or `a`. */
+private const val STEM_MIN = 3
+
+/**
+ * Each file name of [paths] without its extension (`PrTourScreen` for `ui/review/PrTourScreen.kt`) and the path it is
+ * the name of. A name two files share (`index`, `README`) names neither, so it stays words.
+ */
+fun fileStems(paths: List<String>): Map<String, String> {
+    val stems = HashMap<String, String?>()
+    for (path in paths) {
+        val stem = path.substringAfterLast('/').substringBefore('.')
+        if (stem.length < STEM_MIN || !STEM.matches(stem)) continue
+        stems[stem] = if (stems.containsKey(stem) && stems[stem] != path) null else path
+    }
+    @Suppress("UNCHECKED_CAST")
+    return stems.filterValues { it != null } as Map<String, String>
+}
+
+/** A name a file can be called and code can call: letters, digits and underscores, not starting with a digit. */
+private val STEM = Regex("""[A-Za-z_][A-Za-z0-9_]*""")
+
+/**
+ * Backticked code that is a name of a changed file's code: `PrTourScreen`, `PrTourScreen()`, `PrTourScreen.Stop`,
+ * `PrTourScreen(session, head)` or `PrTourScreen:91`, when [names] knows the name (see [fileStems]). A member of a value
+ * (`pages.last()`) is not one: only a type, written with a capital, leads to its members. Null when it names no file.
+ */
+fun namedPlaceOf(literal: String, names: (String) -> String?): CodePlace? {
+    val match = NAMED_CODE.matchEntire(literal.trim()) ?: return null
+    val name = match.groupValues[1]
+    if (name.length < STEM_MIN || match.groupValues[2].startsWith(".") && !name[0].isUpperCase()) return null
+    val path = names(name) ?: return null
+    return CodePlace(path, match.groupValues[3].toIntOrNull() ?: 0)
+}
+
+/** A name, then a call or a member chain, or a `:line`. */
+private val NAMED_CODE = Regex("""([A-Za-z_][A-Za-z0-9_]*)(\(.*\)|(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\(.*\))?)+)?(?::(\d+))?""")
+
+/**
+ * Where running text names the code of a changed file by a name [names] knows: a word written as code is (`ReviewScreen`,
+ * `openAsk`, `drain_token`), with a capital or an underscore inside it. A plain word (`Tour`, `the`) is never one, even
+ * when a file has that name, since prose is full of them.
+ */
+fun namedWords(text: String, names: (String) -> String?): Sequence<Pair<IntRange, String>> = CODE_WORD.findAll(text).mapNotNull { m ->
+    names(m.value)?.let { m.range to it }
+}
+
+/** A word in code's own shape: `camelCase`, `PascalCase` with two humps, or `snake_case`, four letters or more. */
+private val CODE_WORD = Regex("""(?<![\w./`-])(?=[A-Za-z_]*[a-z][A-Z]|[A-Za-z]+_[A-Za-z])[A-Za-z_][A-Za-z0-9_]{3,}(?![\w/-]|\.[A-Za-z])""")
+
+/**
+ * The places running text names, in order and none overlapping: changed files by their file name (`key.ts:12`), and the
+ * code names [names] knows. Each with the words it covers and how the link reads.
+ */
+private fun textPlaces(text: String, resolve: (String) -> String?, names: (String) -> String?): List<Triple<IntRange, CodePlace, String>> {
+    val cites = bareCites(text).mapNotNull { (range, name, line) ->
+        resolve(name)?.let { path -> Triple(range, CodePlace(path, line), if (line > 0) "${name.substringAfterLast('/')}:$line" else name) }
+    }
+    val words = namedWords(text, names).map { (range, path) -> Triple(range, CodePlace(path, 0), text.substring(range)) }
+    var end = -1
+    return (cites + words).sortedBy { it.first.first }.filter { (range) -> (range.first > end).also { if (it) end = range.last } }.toList()
+}
+
+/**
+ * Every place [markdown] mentions, in order and each once: its links into [repo], the backticked paths and named files
+ * that [resolve] knows, and the code names [names] knows.
+ */
+fun mentionedPlaces(markdown: String, resolve: (String) -> String?, repo: String? = null, names: (String) -> String? = { null }): List<CodePlace> {
     val places = LinkedHashSet<CodePlace>()
     fun walk(node: Node) {
         var child = node.firstChild
         while (child != null) {
             when (child) {
                 is Link -> linkPlaceOf(child.destination, resolve, repo)?.let { places += it }
-                is MdText -> bareCites(child.literal).forEach { (_, name, line) -> resolve(name)?.let { places += CodePlace(it, line) } }
-                is Code -> codeSpanPlaceOf(child.literal, resolve)?.let { places += it }
+                is MdText -> textPlaces(child.literal, resolve, names).forEach { places += it.second }
+                is Code -> (codeSpanPlaceOf(child.literal, resolve) ?: namedPlaceOf(child.literal, names))?.let { places += it }
                 is FencedCodeBlock, is IndentedCodeBlock -> Unit
                 else -> walk(child)
             }
@@ -638,11 +705,11 @@ private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors, 
         when (node) {
             is MdText -> if (mentions == null) append(node.literal) else {
                 var at = 0
-                // A changed file named in the text is a mention, with its line or at its top (rule 96).
-                for ((range, name, line) in bareCites(node.literal)) {
-                    val path = mentions.resolve(name) ?: continue
+                // A changed file named in the text is a mention, with its line or at its top (rule 96), and so is a code
+                // name that is a changed file's name (N17).
+                for ((range, place, label) in textPlaces(node.literal, mentions.resolve, mentions.names)) {
                     append(node.literal.substring(at, range.first))
-                    withMention(CodePlace(path, line), c, mentions) { append(if (line > 0) "${name.substringAfterLast('/')}:$line" else name) }
+                    withMention(place, c, mentions) { append(label) }
                     at = range.last + 1
                 }
                 append(node.literal.substring(at))
@@ -656,7 +723,7 @@ private fun AnnotatedString.Builder.appendInlineOne(node: Node, c: PullsColors, 
             // `text-[max(0.85em,var(--pr-code-min))] px-1 py-0.5 rounded bg-code` (13px floor on phones).
             is Code -> {
                 val code = SpanStyle(fontFamily = PullsType.mono, background = c.code, fontSize = if (PullsType.wide) 0.85.em else 13.sp)
-                val place = mentions?.let { codeSpanPlaceOf(node.literal, it.resolve) }
+                val place = mentions?.let { codeSpanPlaceOf(node.literal, it.resolve) ?: namedPlaceOf(node.literal, it.names) }
                 // A path in backticks is a mention too, and reads like every other link: one face, not code for some and
                 // sans for the rest (K16).
                 if (place != null && mentions != null) withMention(place, c, mentions) { append(node.literal) }

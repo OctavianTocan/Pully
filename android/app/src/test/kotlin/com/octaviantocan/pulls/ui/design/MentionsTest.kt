@@ -103,4 +103,33 @@ class MentionsTest {
         assertEquals(listOf(CodePlace("src/cache/key.ts", 0), CodePlace("src/parser.ts", 0), CodePlace("src/cache/key.ts", 42), CodePlace("README.md", 0)), mentionedPlaces(markdown, resolve))
         assertEquals(listOf("parser.ts" to 0, "key.ts" to 42, "README.md" to 0, "other.ts" to 4), bareCites("into parser.ts, see [key.ts:42] and README.md. other.ts:4.").map { it.second to it.third }.toList())
     }
+
+    private val stems = fileStems(listOf("ui/review/PrTourScreen.kt", "ui/review/ReviewScreen.kt", "src/drain_token.rs", "a/index.ts", "b/index.ts", "ui/Kit.kt", "ui/ai/Ai.kt"))
+    private val names: (String) -> String? = { stems[it] }
+
+    @Test
+    fun aFileNameWithoutItsExtensionNamesItOnlyWhenNoOtherFileShares() {
+        // N17: the AI wrote `PrTourScreen` and it did not open; two `index` files name neither, and `Ai` is too short.
+        assertEquals("ui/review/PrTourScreen.kt", stems["PrTourScreen"])
+        assertEquals("ui/Kit.kt", stems["Kit"])
+        assertNull(stems["index"])
+        assertNull(stems["Ai"])
+    }
+
+    @Test
+    fun backtickedCodeNamedAfterAChangedFileIsAPlace() {
+        assertEquals(CodePlace("ui/review/PrTourScreen.kt", 0), namedPlaceOf("PrTourScreen", names))
+        assertEquals(CodePlace("ui/review/PrTourScreen.kt", 0), namedPlaceOf("PrTourScreen(session, head)", names))
+        assertEquals(CodePlace("ui/review/ReviewScreen.kt", 91), namedPlaceOf("ReviewScreen:91", names))
+        assertEquals(CodePlace("ui/review/ReviewScreen.kt", 0), namedPlaceOf("ReviewScreen.openAsk()", names))
+        assertNull(namedPlaceOf("cacheKey", names))
+        assertNull(namedPlaceOf("a == b", names))
+    }
+
+    @Test
+    fun aCodeWordInTheTextIsAPlaceButAPlainWordIsNot() {
+        val markdown = "ReviewScreen hands the stop to PrTourScreen and drain_token; the Kit and the Tour stay words, as does PrTourScreen.kt's `cacheKey`."
+        assertEquals(listOf(CodePlace("ui/review/ReviewScreen.kt", 0), CodePlace("ui/review/PrTourScreen.kt", 0), CodePlace("src/drain_token.rs", 0)), mentionedPlaces(markdown, { null }, names = names))
+        assertEquals(listOf(CodePlace("ui/review/PrTourScreen.kt", 0)), mentionedPlaces("Open `PrTourScreen`.", { null }, names = names))
+    }
 }

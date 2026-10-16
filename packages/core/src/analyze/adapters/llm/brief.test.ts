@@ -52,6 +52,10 @@ describe('brief library', () => {
     expect(Object.keys(briefLibrary.components)).toEqual(expect.arrayContaining(['Stack', 'Section', 'Text', 'Callout', 'Table', 'Checklist', 'FileList', 'Diagram', 'Finding']))
   })
 
+  it('caps a diagram caption to one short sentence (recording of 16 Oct 12:10, 17:07, N33)', () => {
+    expect(BRIEF_SYSTEM_PROMPT).toContain('caption, when given, is one short sentence under 60 characters')
+  })
+
   it('hands clients a plain tree of components with their children inline', () => {
     expect(briefTree(good)).toEqual({
       type: 'Stack',
