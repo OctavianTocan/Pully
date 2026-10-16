@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AnalyticsSummary
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
+import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.engineName
 import com.octaviantocan.pulls.data.asAnalyticsSummary
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
@@ -63,18 +64,25 @@ private val RANGES = listOf(7, 30, 90)
  */
 internal object StatsKeep {
     private const val PREFS = "pulls-stats"
-    private val kept = HashMap<Int, AnalyticsSummary>()
+    private val kept = HashMap<String, AnalyticsSummary>()
     private var warmed = false
 
-    fun get(context: android.content.Context, days: Int): AnalyticsSummary? = kept[days] ?: runCatching {
-        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString("days:$days", null)
-            ?.let { kotlinx.serialization.json.Json.parseToJsonElement(it).asAnalyticsSummary() }
-    }.getOrNull()?.also { kept[days] = it }
+    /** Kept per server, so another server's numbers never stand in for this one's. */
+    private fun key(context: android.content.Context, days: Int) = "${ServerStore.load(context).url} days:$days"
+
+    fun get(context: android.content.Context, days: Int): AnalyticsSummary? {
+        val key = key(context, days)
+        return kept[key] ?: runCatching {
+            context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(key, null)
+                ?.let { kotlinx.serialization.json.Json.parseToJsonElement(it).asAnalyticsSummary() }
+        }.getOrNull()?.also { kept[key] = it }
+    }
 
     suspend fun fetch(context: android.content.Context, repo: Repo, days: Int): AnalyticsSummary {
+        val key = key(context, days)
         val raw = repo.analyticsSummaryRaw(days)
-        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString("days:$days", raw.toString()).apply()
-        return raw.asAnalyticsSummary().also { kept[days] = it }
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString(key, raw.toString()).apply()
+        return raw.asAnalyticsSummary().also { kept[key] = it }
     }
 
     /** Once per launch, in the background, when usage stats are on. */

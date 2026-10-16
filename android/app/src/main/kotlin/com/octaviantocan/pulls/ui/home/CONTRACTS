@@ -169,7 +169,8 @@ back and opens nothing, so a row never comes back pulled aside or animating (rec
 @cc [owner:OctavianTocan,label:product] profile-numbers-at-once
 Profile's year on GitHub shows the last answer at once, kept on the phone between launches,
 and refreshes underneath; Pulls asks for it a moment after it starts (recording 16 Oct 13:06, 02:56 to 03:04;
-O6, rule 178).
+O6, rule 178). The kept answer is the current server's; another server's MUST NOT stand in for it
+(review of PR 57).
 
 @cc [owner:OctavianTocan,label:product;design] profile-graphs-answer-a-finger
 A tap or a horizontal drag on Profile's days or months reads that day or month out in the

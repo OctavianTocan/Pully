@@ -78,7 +78,8 @@ a link tapped inside a browser stays there (recording 16 Oct 13:06, 01:37 to 02:
 
 @cc [owner:OctavianTocan,label:product] stats-at-once
 Stats shows the last answer for its range the moment it opens, kept on the phone, and
-refreshes underneath (recording 16 Oct 13:06, 04:49 to 04:55; O10, rule 178).
+refreshes underneath (recording 16 Oct 13:06, 04:49 to 04:55; O10, rule 178). The kept answer is
+the current server's; another server's numbers MUST NOT stand in for it (review of PR 57).
 
 @cc [owner:OctavianTocan,label:product] stats-ai-usage
 Stats has an AI usage section: tokens in, out and from cache and the spend, a table by

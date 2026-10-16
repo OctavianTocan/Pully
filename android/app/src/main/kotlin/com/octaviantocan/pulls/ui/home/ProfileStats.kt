@@ -28,6 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Repo
+import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
@@ -89,28 +90,41 @@ internal data class GithubStats(
 internal object StatsMemory {
     private const val PREFS = "pulls-github-stats"
     private const val KEY = "last"
-    private var loaded = false
+    private const val SERVER = "server"
     private var asked = false
+    /** The server [last] came from: another server may be signed in to another GitHub account. */
+    private var server: String? = null
     var last by mutableStateOf<GithubStats?>(null)
         private set
 
+    /** The numbers kept for the server Pulls talks to now, read from the phone the first time and after a switch. */
     fun load(context: android.content.Context): GithubStats? {
-        if (!loaded) {
-            loaded = true
-            val raw = context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(KEY, null)
-            if (last == null && raw != null) last = runCatching { GithubStats.parse(kotlinx.serialization.json.Json.parseToJsonElement(raw)) }.getOrNull()
+        val url = ServerStore.load(context).url
+        if (server != url) {
+            server = url
+            val prefs = context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            val raw = prefs.getString(KEY, null)?.takeIf { prefs.getString(SERVER, null) == url }
+            last = raw?.let { runCatching { GithubStats.parse(kotlinx.serialization.json.Json.parseToJsonElement(it)) }.getOrNull() }
         }
         return last
     }
 
     /** Asks the server for the numbers and keeps them; false when it could not, or its answer had no calendar. */
-    suspend fun refresh(context: android.content.Context, repo: Repo): Boolean = runCatching { repo.call("github-stats", buildJsonObject { put("fresh", false) }) }
-        .map { result ->
-            GithubStats.parse(result)?.let {
-                last = it
-                context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString(KEY, result.toString()).apply()
-            } != null
-        }.getOrDefault(false)
+    suspend fun refresh(context: android.content.Context, repo: Repo): Boolean {
+        val url = ServerStore.load(context).url
+        return runCatching { repo.call("github-stats", buildJsonObject { put("fresh", false) }) }
+            .map { result ->
+                val stats = GithubStats.parse(result) ?: return@map false
+                // An answer that arrives after a switch to another server is not kept for the new one.
+                if (url == ServerStore.load(context).url) {
+                    server = url
+                    last = stats
+                    context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit()
+                        .putString(KEY, result.toString()).putString(SERVER, url).apply()
+                }
+                true
+            }.getOrDefault(false)
+    }
 
     /** Once per launch, in the background: the profile then has today's numbers before it is opened. */
     suspend fun warm(context: android.content.Context) {
@@ -133,7 +147,7 @@ internal object StatsMemory {
 internal fun ColumnScope.ProfileStats(onLogin: (String) -> Unit = {}) {
     val context = LocalContext.current
     val repo = remember { Repo(context) }
-    val stats = StatsMemory.last ?: remember { StatsMemory.load(context) }
+    val stats = StatsMemory.load(context)
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(stats?.login) { stats?.login?.takeIf { it.isNotBlank() }?.let(onLogin) }
     // An answer with no calendar in it (an older server, an empty year) says so too, rather than leaving the cards' kept
