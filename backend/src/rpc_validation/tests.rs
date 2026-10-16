@@ -467,3 +467,11 @@ fn record_and_loose_object_keys_match_valibot_without_rewriting_unknown_data() {
     .unwrap();
     assert_eq!(parsed["schema"], payload);
 }
+
+#[test]
+fn browser_diff_schema_rejects_posted_references_behind_public_keys() {
+    rejected(
+        "cache-diff",
+        json!({"method":"putDiff","key":"paste:alias","values":[{"ref":{"kind":"posted","id":"victim"},"title":"Alias","files":[]},"",null]}),
+    );
+}

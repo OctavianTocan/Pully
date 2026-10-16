@@ -16,6 +16,8 @@ const DIFF_BYTES: u64 = 50 * 1024 * 1024;
 pub(crate) struct DiffCache {
     pins: HashMap<String, usize>,
     snapshot: Option<crate::store::DiffSnapshot>,
+    #[cfg(test)]
+    limits: Option<DiffCapacity>,
 }
 mod pins;
 pub(crate) use pins::{pin_diff, pin_diff_blocking, shutdown_diff_pins};
@@ -46,17 +48,28 @@ fn diff_snapshot_locked<'a>(
     }
     Ok(cache.snapshot.as_ref().unwrap())
 }
+fn diff_limits(_cache: &DiffCache) -> DiffCapacity {
+    #[cfg(test)]
+    if let Some(limits) = _cache.limits {
+        return limits;
+    }
+    DiffCapacity {
+        slots: DIFF_LIMIT,
+        bytes: DIFF_BYTES,
+    }
+}
 fn diff_capacity_locked(state: &crate::AppState, cache: &mut DiffCache) -> Result<DiffCapacity> {
+    let limits = diff_limits(cache);
     let snapshot = diff_snapshot_locked(state, cache)?;
     Ok(DiffCapacity {
-        slots: DIFF_LIMIT.saturating_sub(
+        slots: limits.slots.saturating_sub(
             snapshot
                 .entries
                 .keys()
                 .filter(|k| !k.starts_with("diff:posted:"))
                 .count(),
         ),
-        bytes: DIFF_BYTES.saturating_sub(
+        bytes: limits.bytes.saturating_sub(
             snapshot
                 .entries
                 .iter()
@@ -85,11 +98,55 @@ fn key(args: &Value) -> Result<&str> {
     Ok(key)
 }
 fn entry(state: &crate::AppState, key: &str) -> Result<Value> {
-    state
+    let saved = state
         .host
         .storage
         .get(&format!("diff:{key}"))?
-        .context("Open the diff first.")
+        .context("Open the diff first.")?;
+    validate_posted_provenance(key, &saved)?;
+    Ok(saved)
+}
+/// @cc [owner:OctavianTocan,label:security] rust-posted-cache-provenance-is-canonical
+/// A stored posted reference MUST NOT be read or mutated through a different cache
+/// key, even when that alias predates admission validation (R13 finding 1, 16 Oct 2026).
+fn validate_posted_provenance(key: &str, saved: &Value) -> Result<()> {
+    validate_posted_diff_key(key, &saved["diff"])
+}
+fn validate_posted_diff_key(key: &str, diff: &Value) -> Result<()> {
+    if diff["ref"]["kind"] == "posted" {
+        let canonical = crate::source::serialize_ref(&diff["ref"])?;
+        anyhow::ensure!(
+            key.replace(['/', '\\'], ":") == canonical,
+            "Invalid posted diff cache alias."
+        );
+    }
+    Ok(())
+}
+/// @cc [owner:OctavianTocan,label:architecture] rust-browser-cache-revisions-cover-complete-diffs
+/// Browser get/getMeta observations and atomic putDiff comparisons MUST identify the
+/// complete stored diff and head, so same-head base and metadata updates cannot be
+/// replaced by an older operation (R13 finding 8, 16 Oct 2026).
+fn diff_revision(entry: &Value) -> String {
+    hex::encode(Sha256::digest(
+        serde_json::to_vec(&json!({"diff":entry["diff"],"headSha":entry["headSha"]}))
+            .expect("JSON diff serialization"),
+    ))
+}
+fn with_revision(mut entry: Value) -> Value {
+    if entry.is_object() {
+        entry["revision"] = json!(diff_revision(&entry));
+    }
+    entry
+}
+fn update_entry_size(entry: &mut Value) -> Result<()> {
+    // Include sizeBytes itself, including a possible change in its digit count.
+    loop {
+        let bytes = serde_json::to_vec(entry)?.len();
+        if entry["sizeBytes"].as_u64() == Some(bytes as u64) {
+            return Ok(());
+        }
+        entry["sizeBytes"] = json!(bytes);
+    }
 }
 pub fn metadata(entry: &Value) -> Value {
     let diff = &entry["diff"];
@@ -254,6 +311,7 @@ fn finish_warming_locked(
     }
 }
 fn enforce_diff_budget_locked(state: &crate::AppState, cache: &mut DiffCache) -> Result<()> {
+    let limits = diff_limits(cache);
     let mut entries: Vec<_> = diff_snapshot_locked(state, cache)?
         .entries
         .iter()
@@ -269,7 +327,7 @@ fn enforce_diff_budget_locked(state: &crate::AppState, cache: &mut DiffCache) ->
     let mut bytes = 0u64;
     for (index, (key, meta)) in entries.into_iter().enumerate() {
         bytes = bytes.saturating_add(meta.size_bytes);
-        if index < DIFF_LIMIT && bytes <= DIFF_BYTES {
+        if index < limits.slots && bytes <= limits.bytes {
             continue;
         }
         let Some(e) = state
@@ -309,9 +367,13 @@ fn enforce_diff_budget_locked(state: &crate::AppState, cache: &mut DiffCache) ->
 }
 pub fn put_diff(state: &crate::AppState, key: &str, diff: &Value) -> Result<Value> {
     valid_diff(diff)?;
+    validate_posted_diff_key(key, diff)?;
     let mut cache = state.diff_cache.lock().unwrap();
     let marks = marked(state)?;
     let value = state.host.storage.update(&format!("diff:{key}"), |old| {
+        if let Some(saved) = &old {
+            validate_posted_provenance(key, saved)?;
+        }
         Ok(next_diff(key, diff, old, &marks, true))
     })?;
     enforce_diff_budget_locked(state, &mut cache)?;
@@ -339,8 +401,12 @@ fn put_diff_if_unchanged_locked(
     viewed: bool,
 ) -> Result<Value> {
     valid_diff(diff)?;
+    validate_posted_diff_key(key, diff)?;
     let marks = marked(state)?;
     let value = state.host.storage.update(&format!("diff:{key}"), |old| {
+        if let Some(saved) = &old {
+            validate_posted_provenance(key, saved)?;
+        }
         if old.as_ref().map(|v| &v["diff"]) != expected.map(|v| &v["diff"]) {
             return old.context("The cached diff changed. Reload before saving.");
         }
@@ -357,8 +423,12 @@ pub(crate) fn put_warmed_diff_if_unchanged(
     expected: Option<&Value>,
 ) -> Result<WarmAdmission> {
     valid_diff(diff)?;
+    validate_posted_diff_key(key, diff)?;
     let mut cache = state.diff_cache.lock().unwrap();
     let current = state.host.storage.get(&format!("diff:{key}"))?;
+    if let Some(saved) = &current {
+        validate_posted_provenance(key, saved)?;
+    }
     if current.as_ref().map(|v| &v["diff"]) != expected.map(|v| &v["diff"]) {
         return current
             .map(WarmAdmission::Stored)
@@ -426,6 +496,7 @@ pub fn change_chat_saved(state: &crate::AppState, key: &str, id: Option<&str>) -
     let mut result = json!({"cleared":0});
     state.host.storage.update(&format!("diff:{key}"), |old| {
         let mut e = old.context("Open the diff first.")?;
+        validate_posted_provenance(key, &e)?;
         let session = e.get("llmSession").cloned();
         if let Some(mut session) = session {
             let count = array(&session["messages"])
@@ -500,6 +571,7 @@ fn review_state(state: &Arc<crate::AppState>, args: &Value) -> Result<Value> {
         .storage
         .get(&format!("diff:{key}"))?
         .unwrap_or(Value::Null);
+    validate_posted_provenance(key, &saved)?;
     let session = &saved["llmSession"];
     let chat: Vec<_> = array(&session["messages"])
         .into_iter()
@@ -588,31 +660,45 @@ fn valid_analysis(v: &Value) -> bool {
             .map(|a| a.iter().all(|g| group(g, true)))
             .unwrap_or(false)
 }
+/// @cc [owner:OctavianTocan,label:architecture] rust-browser-cache-mutations-account-bytes
+/// Browser body mutations MUST update serialized byte accounting before publishing
+/// cache metadata and enforce the shared budget under its coordinator, preserving
+/// posted exclusions and active pins (R13 finding 3, 16 Oct 2026).
 fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
     let key = key(args)?;
     let method = text(&args["method"]);
     let values = array(&args["values"]);
     let v = |i: usize| values.get(i).cloned().unwrap_or(Value::Null);
     match method {
-        "get" => {
-            return Ok(state
-                .host
-                .storage
-                .get(&format!("diff:{key}"))?
-                .unwrap_or(Value::Null))
-        }
-        "getMeta" => {
-            return Ok(state
-                .host
-                .storage
-                .get(&format!("diff:{key}"))?
-                .as_ref()
-                .map(metadata)
-                .unwrap_or(Value::Null))
+        "get" | "getMeta" => {
+            let saved = state.host.storage.get(&format!("diff:{key}"))?;
+            if let Some(saved) = &saved {
+                validate_posted_provenance(key, saved)?;
+            }
+            return Ok(saved
+                .map(|saved| {
+                    if method == "getMeta" {
+                        let mut meta = metadata(&saved);
+                        meta["revision"] = json!(diff_revision(&saved));
+                        meta
+                    } else {
+                        with_revision(saved)
+                    }
+                })
+                .unwrap_or(Value::Null));
         }
         "putDiff" => {
             let diff = v(0);
             valid_diff(&diff)?;
+            anyhow::ensure!(
+                diff["ref"]["kind"] != "posted",
+                "Posted diffs open only in the Pully app."
+            );
+            let canonical = crate::source::serialize_ref(&diff["ref"])?;
+            anyhow::ensure!(
+                key.replace(['/', '\\'], ":") == canonical.replace(['/', '\\'], ":"),
+                "The diff reference must match its cache key."
+            );
             let head = v(1);
             if !head.is_string() || !(v(2).is_null() || v(2).is_string()) {
                 bail!("Invalid diff write.");
@@ -620,27 +706,33 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
             let mut cache = state.diff_cache.lock().unwrap();
             let marks = marked(state)?;
             let result = state.host.storage.update(&format!("diff:{key}"), |old| {
+                if let Some(saved) = &old {
+                    validate_posted_provenance(key, saved)?;
+                }
                 let current = old
                     .as_ref()
-                    .map(|e| e["headSha"].clone())
+                    .map(|e| json!(diff_revision(e)))
                     .unwrap_or(Value::Null);
                 if current != v(2) {
-                    bail!("The cached diff changed. Reload before saving.");
+                    return old.context("The cached diff changed. Reload before saving.");
                 }
                 let mut next = next_diff(key, &diff, old, &marks, v(3)["viewed"] != false);
                 next["headSha"] = head;
+                update_entry_size(&mut next)?;
                 Ok(next)
             })?;
             enforce_diff_budget_locked(state, &mut cache)?;
-            return Ok(result);
+            return Ok(with_revision(result));
         }
         _ => {}
     }
+    let mut cache = state.diff_cache.lock().unwrap();
     if state.host.storage.get(&format!("diff:{key}"))?.is_none() {
         return Ok(Value::Null);
     }
     state.host.storage.update(&format!("diff:{key}"), |old| {
         let mut e = old.context("Open the diff first.")?;
+        validate_posted_provenance(key, &e)?;
         match method {
             "touch" => e["lastViewedAt"] = json!(now()),
             "setChangedSinceReviewed" => {
@@ -711,8 +803,10 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
             }
             _ => bail!("Unknown diff cache operation."),
         }
+        update_entry_size(&mut e)?;
         Ok(e)
     })?;
+    enforce_diff_budget_locked(state, &mut cache)?;
     Ok(Value::Null)
 }
 async fn file_content(state: &Arc<crate::AppState>, args: &Value) -> Result<Value> {
@@ -854,6 +948,7 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
                 .storage
                 .get(&format!("diff:{}", key(&args)?))?
                 .unwrap_or(Value::Null);
+            validate_posted_provenance(key(&args)?, &e)?;
             Ok(history(&e["llmSession"]))
         }
         "reviewed-get" => {
@@ -867,6 +962,7 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
                     .get(&format!("diff:{key}"))?
                     .unwrap_or(Value::Null)
             };
+            validate_posted_provenance(key, &e)?;
             let shas = if args["shas"].is_array() {
                 array(&args["shas"])
             } else {
@@ -892,6 +988,10 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
             )
         }
         "reviewed-set" => {
+            let key = text(&args["key"]);
+            if let Some(saved) = state.host.storage.get(&format!("diff:{key}"))? {
+                validate_posted_provenance(key, &saved)?;
+            }
             let shas: HashSet<_> = array(&args["shas"])
                 .iter()
                 .filter_map(Value::as_str)
@@ -914,6 +1014,7 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
             if !key.is_empty() && state.host.storage.get(&format!("diff:{key}"))?.is_some() {
                 state.host.storage.update(&format!("diff:{key}"), |old| {
                     let mut e = old.context("Open the diff first.")?;
+                    validate_posted_provenance(key, &e)?;
                     let touched: HashSet<_> = array(&e["diff"]["files"])
                         .iter()
                         .filter(|f| shas.contains(text(&f["sha"])))
@@ -956,7 +1057,11 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
             let mut entries = Vec::with_capacity(selected.len());
             for (key, _) in selected {
                 if let Some(entry) = state.host.storage.get(&key)? {
-                    entries.push(entry);
+                    if validate_posted_provenance(key.strip_prefix("diff:").unwrap_or(&key), &entry)
+                        .is_ok()
+                    {
+                        entries.push(entry);
+                    }
                 }
             }
             if name == "recent-diffs" {

@@ -168,8 +168,7 @@ async fn fetch_at(root: &Path, excluded: &[std::path::PathBuf], target: &str) ->
         let untracked = git(&root, &["ls-files", "--others", "--exclude-standard", "-z"]).await?;
         let mut untracked_bytes = 0usize;
         for path in untracked.split('\0').filter(|p| !p.is_empty()) {
-            tokio::task::yield_now().await;
-            if let Some(bytes) = read_worktree_bytes(&root, path, &excluded)? {
+            if let Some(bytes) = read_worktree_bytes_async(root, path, excluded).await? {
                 untracked_bytes += bytes.len();
                 ensure!(
                     untracked_bytes <= SOURCE_BYTE_LIMIT,
@@ -235,6 +234,7 @@ pub fn read_worktree(root: &Path, path: &str) -> Result<Option<String>> {
 fn private_source_path(root: &Path, target: &Path, excluded: &[std::path::PathBuf]) -> bool {
     target.strip_prefix(root).ok().is_some_and(|p|p.components().any(|c|matches!(c,Component::Normal(n) if n.to_string_lossy().eq_ignore_ascii_case(".git")))) || excluded.iter().any(|p|target.starts_with(p))
 }
+#[cfg(test)]
 fn read_worktree_excluding(
     root: &Path,
     path: &str,
@@ -242,6 +242,29 @@ fn read_worktree_excluding(
 ) -> Result<Option<String>> {
     Ok(read_worktree_bytes(root, path, excluded)?
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()))
+}
+/// @cc [owner:OctavianTocan,label:architecture;security] rust-worktree-file-reads-off-runtime
+/// Async working-tree snapshots and full-file reads MUST offload the complete
+/// containment, descriptor validation and bounded read to a blocking worker, while
+/// retaining revision checks and content identities (16 Oct 2026 review fixes, R13 #10).
+async fn read_worktree_bytes_async(
+    root: &Path,
+    path: &str,
+    excluded: &[std::path::PathBuf],
+) -> Result<Option<Vec<u8>>> {
+    read_worktree_bytes_with(root, path, excluded, read_worktree_bytes).await
+}
+async fn read_worktree_bytes_with<F>(
+    root: &Path,
+    path: &str,
+    excluded: &[std::path::PathBuf],
+    read: F,
+) -> Result<Option<Vec<u8>>>
+where
+    F: FnOnce(&Path, &str, &[std::path::PathBuf]) -> Result<Option<Vec<u8>>> + Send + 'static,
+{
+    let (root, path, excluded) = (root.to_path_buf(), path.to_owned(), excluded.to_vec());
+    crate::store::blocking(move || read(&root, &path, &excluded)).await
 }
 fn read_worktree_bytes(
     root: &Path,
@@ -389,8 +412,9 @@ pub async fn file(state: &AppState, path: &str, sha: &str) -> Result<Value> {
             return Ok(Value::Null);
         }
         let excluded = excluded_roots(state, &root).await?;
-        let content =
-            read_worktree_excluding(&root, path, &excluded)?.map_or(Value::Null, Value::String);
+        let content = read_worktree_bytes_async(&root, path, &excluded)
+            .await?
+            .map_or(Value::Null, |bytes| json!(String::from_utf8_lossy(&bytes)));
         ensure!(
             fetch_local(state, "").await?["head"]["sha"] == sha,
             "The working tree changed while reading; reopen the diff"
@@ -467,6 +491,45 @@ pub async fn info(state: &AppState) -> Result<Value> {
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
+    #[tokio::test(flavor = "current_thread")]
+    async fn worktree_reads_offload_complete_containment_and_bounded_io() {
+        let dir = std::env::temp_dir().join(format!("pulls-async-read-{}", uuid::Uuid::new_v4()));
+        let root = dir.join("repo");
+        std::fs::create_dir_all(root.join("private")).unwrap();
+        std::fs::write(root.join("ok"), b"complete\0binary").unwrap();
+        std::fs::write(dir.join("secret"), "outside").unwrap();
+        std::fs::write(root.join("private/chat"), "private").unwrap();
+        std::os::unix::fs::symlink(dir.join("secret"), root.join("escape")).unwrap();
+        std::os::unix::fs::symlink(root.join("private/chat"), root.join("private-link")).unwrap();
+        let excluded = vec![root.join("private")];
+        let runtime_thread = std::thread::current().id();
+        let bytes =
+            read_worktree_bytes_with(&root, "ok", &excluded, move |root, path, excluded| {
+                assert_ne!(std::thread::current().id(), runtime_thread);
+                read_worktree_bytes(root, path, excluded)
+            })
+            .await
+            .unwrap();
+        assert_eq!(bytes.as_deref(), Some(&b"complete\0binary"[..]));
+        for path in ["escape", "private-link", "private/chat", "../secret"] {
+            assert_eq!(
+                read_worktree_bytes_async(&root, path, &excluded)
+                    .await
+                    .unwrap(),
+                None
+            );
+        }
+        std::fs::File::create(root.join("too-large"))
+            .unwrap()
+            .set_len(SOURCE_BYTE_LIMIT as u64 + 1)
+            .unwrap();
+        assert!(read_worktree_bytes_async(&root, "too-large", &excluded)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("32 MiB"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn private_directories_are_not_source_files() {
         let dir = std::env::temp_dir().join(format!("pulls-private-{}", uuid::Uuid::new_v4()));

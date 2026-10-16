@@ -12,7 +12,9 @@ import * as v from 'valibot'
  * Mutations from one driver MUST serialize before capturing their expected values,
  * so overlapping single and batch writes observe successful earlier writes. A failed
  * mutation MUST NOT advance the observation or prevent later writes, and external
- * conflicts MUST still reject (R12 review finding 4, 16 Oct 2026).
+ * conflicts MUST still reject. Repeated keys MUST coalesce to their final value and
+ * bulk writes MUST use at most 200 items per acknowledged RPC batch
+ * (R12 finding 4 and R13 findings 4/5, 16 Oct 2026).
  */
 export function createRpcDriver(rpc: Pick<LocalRpc, 'call'>): Driver {
   const observed = new Map<string, string | null>()
@@ -49,9 +51,15 @@ export function createRpcDriver(rpc: Pick<LocalRpc, 'call'>): Driver {
       })
     },
     setItems: items => mutate(async () => {
-      await rpc.call(LOCAL_RPC.storageSetItems, { items: items.map(({ key, value }) => ({ key, value, expected: observed.get(key) ?? null })) })
-      for (const { key, value } of items)
-        observed.set(key, value)
+      // Repeated file SHAs deliberately share one review mark. Keep the final
+      // value per key, then respect the native endpoint's bounded batch size.
+      const unique = [...new Map(items.map(item => [item.key, item])).values()]
+      for (let offset = 0; offset < unique.length; offset += 200) {
+        const chunk = unique.slice(offset, offset + 200)
+        await rpc.call(LOCAL_RPC.storageSetItems, { items: chunk.map(({ key, value }) => ({ key, value, expected: observed.get(key) ?? null })) })
+        for (const { key, value } of chunk)
+          observed.set(key, value)
+      }
     }),
   }
 }
@@ -111,9 +119,10 @@ export function createRpcSource(rpc: Pick<LocalRpc, 'call'>, pending: Promise<st
 /** Mutations execute against the server's shared repository, never as split raw storage writes. */
 /**
  * @cc [owner:OctavianTocan,label:architecture] rpc-diff-writes-use-operation-heads
- * A diff write MUST compare the head observed by its own fetch operation, never a
- * later unrelated cache read. A conflict MUST return the winning stored entry
- * without retrying the stale write (R11 review finding 15, 16 Oct 2026).
+ * A diff write MUST compare the complete revision observed by its own fetch operation,
+ * never a later unrelated cache read, including same-head base or metadata changes.
+ * A conflict MUST return the winning stored entry
+ * without retrying the stale write (R11 finding 15 and R13 finding 8, 16 Oct 2026).
  */
 export function createRpcDiffCache(rpc: Pick<LocalRpc, 'call'>, fallback: DiffCache): DiffCache {
   const sessions = new Map<string, string>()
@@ -129,10 +138,10 @@ export function createRpcDiffCache(rpc: Pick<LocalRpc, 'call'>, fallback: DiffCa
       return await call('getMeta', key) as PrCacheMeta | undefined
     },
     async putDiff(key, diff, headSha, options) {
-      if (options?.expectedHeadSha === undefined)
-        throw new Error('A diff write needs the head observed before fetching.')
+      if (options?.expectedRevision === undefined)
+        throw new Error('A diff write needs the revision observed before fetching.')
       try {
-        return await call('putDiff', key, diff, headSha, options.expectedHeadSha, options) as PrCacheEntry
+        return await call('putDiff', key, diff, headSha, options.expectedRevision, options) as PrCacheEntry
       }
       catch (error) {
         if (error instanceof Error && error.message === 'The cached diff changed. Reload before saving.') {
@@ -146,7 +155,7 @@ export function createRpcDiffCache(rpc: Pick<LocalRpc, 'call'>, fallback: DiffCa
     async updateDiff(key, next, options) {
       const existing = await cache.get(key)
       const update = next(existing)
-      return update ? cache.putDiff(key, update.diff, update.headSha, { ...options, expectedHeadSha: existing?.headSha ?? null }) : undefined
+      return update ? cache.putDiff(key, update.diff, update.headSha, { ...options, expectedRevision: existing?.revision ?? null }) : undefined
     },
     async put() { throw new Error('Whole-entry replacement is not supported by the server cache.') },
     touch: async (key) => { await call('touch', key) },

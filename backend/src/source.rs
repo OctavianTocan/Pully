@@ -10,7 +10,7 @@ mod grouping;
 mod lists;
 mod local;
 mod patch;
-pub use github::{raw as github_raw, refresh_cached as refresh_cached_pr, token as github_token};
+pub use github::{refresh_cached as refresh_cached_pr, token as github_token};
 pub use grouping::groups;
 pub use local::search as search_local;
 pub use patch::{parse_patch, parse_patch_untruncated};
@@ -63,6 +63,58 @@ pub async fn github_request(
 ) -> Result<Value> {
     github::request(state, method, path, body).await
 }
+pub async fn github_proxy(state: &AppState, args: &Value) -> Result<Value> {
+    github_proxy_with(args, |method, path, body, accept| {
+        github::raw(state, method, path, body, accept)
+    })
+    .await
+}
+/// @cc [owner:OctavianTocan,label:architecture;security] rust-github-proxy-shares-policy
+/// Browser and source GitHub proxy dispatch MUST share path validation, method and
+/// representation defaults and the status/headers/body envelope; the GitHub boundary
+/// MUST retain fixed-origin credentials and reject redirects (16 Oct 2026 review fixes,
+/// R13 #11; web-github-operations-stay-server-side).
+async fn github_proxy_with<'a, F, Fut>(args: &'a Value, request: F) -> Result<Value>
+where
+    F: FnOnce(reqwest::Method, &'a str, Option<Value>, &'a str) -> Fut,
+    Fut: std::future::Future<Output = Result<(u16, Value, String)>>,
+{
+    let path = crate::required(args, "path")?;
+    let base = url::Url::parse("https://api.github.com")?;
+    let url = base.join(path)?;
+    if url.origin() != base.origin()
+        || !path.starts_with('/')
+        || path.starts_with("//")
+        || !(path.starts_with("/repos/")
+            || path == "/user"
+            || path.starts_with("/user/")
+            || path.starts_with("/user?")
+            || path.starts_with("/search/")
+            || path == "/graphql")
+    {
+        bail!("Unsupported GitHub API path")
+    }
+    let method = match s(args, "method") {
+        "" | "GET" => reqwest::Method::GET,
+        "POST" => reqwest::Method::POST,
+        "PATCH" => reqwest::Method::PATCH,
+        "PUT" => reqwest::Method::PUT,
+        "DELETE" => reqwest::Method::DELETE,
+        _ => bail!("Unsupported HTTP method"),
+    };
+    let accept = match s(args, "accept") {
+        "" => "application/vnd.github+json",
+        v @ ("application/vnd.github+json"
+        | "application/vnd.github.raw"
+        | "application/vnd.github.diff"
+        | "application/vnd.github.sha") => v,
+        _ => bail!("Unsupported response type"),
+    };
+    let body = args.get("body").filter(|body| !body.is_null()).cloned();
+    let (status, headers, body) = request(method, path, body, accept).await?;
+    Ok(json!({"status":status,"headers":headers,"body":body}))
+}
+
 pub async fn fetch(state: &AppState, r: &Value) -> Result<Value> {
     match s(r, "kind") {
         "local" => local::fetch_local(state, s(r, "target")).await,
@@ -281,47 +333,7 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
             open(state, &r, &args).await
         }
         "github-authenticated" => Ok(json!(github::token().await.is_some())),
-        "github-request" => {
-            async {
-                let method = reqwest::Method::from_bytes(
-                    args["method"].as_str().unwrap_or("GET").as_bytes(),
-                )?;
-                ensure!(
-                    [
-                        reqwest::Method::GET,
-                        reqwest::Method::POST,
-                        reqwest::Method::PUT,
-                        reqwest::Method::PATCH,
-                        reqwest::Method::DELETE
-                    ]
-                    .contains(&method),
-                    "Unsupported method"
-                );
-                let accept = args["accept"]
-                    .as_str()
-                    .unwrap_or("application/vnd.github+json");
-                ensure!(
-                    [
-                        "application/vnd.github+json",
-                        "application/vnd.github.raw",
-                        "application/vnd.github.diff",
-                        "application/vnd.github.sha"
-                    ]
-                    .contains(&accept),
-                    "Unsupported GitHub representation"
-                );
-                let (code, headers, body) = github::raw(
-                    state,
-                    method,
-                    s(&args, "path"),
-                    args.get("body").cloned(),
-                    accept,
-                )
-                .await?;
-                Ok(json!({"status":code,"headers":headers,"body":body}))
-            }
-            .await
-        }
+        "github-request" => github_proxy(state, &args).await,
         "repo-pulls" => lists::repo_pulls(state, &args).await,
         "my-pulls" => lists::my_pulls(state, &args)
             .await
@@ -469,5 +481,81 @@ mod contention_tests {
             .unwrap();
         assert_eq!(result["diff"]["files"][0]["path"], "a");
         std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod github_proxy_tests {
+    use super::*;
+    #[tokio::test]
+    async fn shared_github_proxy_preserves_defaults_methods_and_envelope() {
+        for method in ["", "GET", "POST", "PUT", "PATCH", "DELETE"] {
+            for accept in [
+                "",
+                "application/vnd.github+json",
+                "application/vnd.github.raw",
+                "application/vnd.github.diff",
+                "application/vnd.github.sha",
+            ] {
+                let args = json!({"path":"/repos/o/r/pulls/1","method":method,"accept":accept,"body":null});
+                let result = github_proxy_with(
+                    &args,
+                    |actual_method, path, body, actual_accept| async move {
+                        assert_eq!(
+                            actual_method.as_str(),
+                            if method.is_empty() { "GET" } else { method }
+                        );
+                        assert_eq!(
+                            actual_accept,
+                            if accept.is_empty() {
+                                "application/vnd.github+json"
+                            } else {
+                                accept
+                            }
+                        );
+                        assert_eq!(path, "/repos/o/r/pulls/1");
+                        assert!(body.is_none());
+                        Ok((
+                            422,
+                            json!({"content-type":"text/plain"}),
+                            "provider response".into(),
+                        ))
+                    },
+                )
+                .await
+                .unwrap();
+                assert_eq!(
+                    result,
+                    json!({"status":422,"headers":{"content-type":"text/plain"},"body":"provider response"})
+                );
+            }
+        }
+        let args = json!({"path":"/graphql","body":{"query":"query { viewer { login } }"}});
+        github_proxy_with(&args, |method, path, body, accept| async move {
+            assert_eq!(method, reqwest::Method::GET);
+            assert_eq!(path, "/graphql");
+            assert_eq!(accept, "application/vnd.github+json");
+            assert_eq!(body, Some(json!({"query":"query { viewer { login } }"})));
+            Ok((200, json!({}), "{}".into()))
+        })
+        .await
+        .unwrap();
+    }
+    #[tokio::test]
+    async fn shared_github_proxy_rejects_invalid_policy_before_network() {
+        for args in [
+            json!({}),
+            json!({"path":"https://example.invalid/repos/o/r"}),
+            json!({"path":"//example.invalid/repos/o/r"}),
+            json!({"path":"/admin"}),
+            json!({"path":"/user","method":"HEAD"}),
+            json!({"path":"/user","accept":"text/html"}),
+        ] {
+            assert!(github_proxy_with(&args, |_, _, _, _| async {
+                panic!("invalid proxy request must fail before networking")
+            })
+            .await
+            .is_err());
+        }
     }
 }

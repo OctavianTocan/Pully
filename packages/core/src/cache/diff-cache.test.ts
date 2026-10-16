@@ -43,7 +43,7 @@ describe('diff cache', () => {
     const { cache } = cacheWith()
     const entry = makeEntry('a', 'sha-a', Date.now())
     await cache.put(entry)
-    expect(await cache.get('a')).toEqual(entry)
+    expect(await cache.get('a')).toMatchObject(entry)
   })
 
   it('returns undefined for a missing entry', async () => {
@@ -450,4 +450,20 @@ describe('diff cache', () => {
     await cache.put(makeEntry('a', 'sha-a', 2000))
     expect((await cache.get('a'))!.llmSession).toBeUndefined()
   })
+})
+
+it('derives legacy full revisions and keeps them stable for non-diff writes', async () => {
+  const { cache } = cacheWith()
+  await cache.put(makeEntry('legacy', 'head', 1))
+  const meta = await storage.getItem<Record<string, unknown>>('pr-meta:legacy')
+  delete meta!.revision
+  await storage.setItem('pr-meta:legacy', meta)
+  const observed = await cache.getMeta('legacy')
+  expect(observed?.revision).toEqual(expect.any(String))
+  expect((await cache.get('legacy'))?.revision).toBe(observed?.revision)
+  await cache.setLlmSession('legacy', session)
+  await cache.touch('legacy')
+  expect((await cache.getMeta('legacy'))?.revision).toBe(observed?.revision)
+  const updated = await cache.putDiff('legacy', { ...makeEntry('legacy', 'head', 1).diff, title: 'New title' }, 'head', { expectedRevision: observed!.revision })
+  expect(updated.revision).not.toBe(observed?.revision)
 })

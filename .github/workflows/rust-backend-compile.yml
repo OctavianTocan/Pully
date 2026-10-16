@@ -54,6 +54,8 @@ jobs:
         run: |
           cargo test --manifest-path backend/Cargo.toml --locked --lib rpc_validation:: --jobs 2 -- --test-threads=2
           cargo test --manifest-path backend/Cargo.toml --locked --lib numeric_wait_cursors --jobs 2 -- --test-threads=2
+      - name: Check offline cancellation cleanup
+        run: cargo test --manifest-path backend/Cargo.toml --locked --lib fake_docker_cancellation_removes_late_containers --jobs 2 -- --test-threads=1
       - name: Run bounded offline HTTP smokes
         run: |
           python3 backend/scripts/smoke.py

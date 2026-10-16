@@ -129,3 +129,60 @@ async fn numeric_rest_continuations_keep_page_limits_and_errors() {
         "GitHub search is incomplete; retry later"
     );
 }
+
+#[tokio::test]
+async fn inbox_latest_role_windows_allow_large_totals_and_keep_role_precedence() {
+    for state in ["open", "closed"] {
+        let mut requests = Vec::new();
+        let pulls = inbox_window(state, "viewer", &[json!({"login":"team"})], |path| {
+            requests.push(path);
+            let role = requests.len();
+            async move {
+                let mut items = (1..=101).map(|number| json!({
+                    "repository_url":format!("https://api.github.com/repos/team/role-{role}"),
+                    "number":number,"title":"Recent PR","updated_at":"2026-10-16T00:00:00Z",
+                    "closed_at":"2026-10-16T01:00:00Z","pull_request":{"merged_at":"2026-10-16T01:00:00Z"}
+                })).collect::<Vec<_>>();
+                // The first PR appears in every role, retaining review-requested priority.
+                items[0]["repository_url"] = json!("https://api.github.com/repos/team/shared");
+                Ok(json!({"total_count":1001,"incomplete_results":false,"items":items}))
+            }
+        }).await.unwrap();
+        assert_eq!(requests.len(), 4);
+        assert!(requests
+            .iter()
+            .all(|path| path.ends_with("&per_page=100&page=1")
+                && path.contains("sort%3Aupdated-desc")));
+        assert!(requests[3].contains("user%3Ateam"));
+        assert_eq!(pulls.len(), 397);
+        assert!(pulls
+            .iter()
+            .all(|pull| pull["number"].as_u64().unwrap() <= 100 && pull["state"] == state));
+        assert_eq!(pulls[0]["role"], "review-requested");
+        assert_eq!(pulls[0]["requestedFromMe"], true);
+        assert_eq!(
+            pulls.iter().filter(|pull| pull["role"] == "owned").count(),
+            99
+        );
+        if state == "closed" {
+            assert!(pulls
+                .iter()
+                .all(|pull| pull["merged"] == true && pull["closedAt"].is_string()));
+        }
+    }
+}
+#[tokio::test]
+async fn inbox_latest_role_windows_still_reject_incomplete_provider_responses() {
+    let mut calls = 0;
+    let error = inbox_window("closed", "viewer", &[], |_| {
+        calls += 1;
+        async { Ok(json!({"total_count":1001,"incomplete_results":true,"items":[]})) }
+    })
+    .await
+    .unwrap_err();
+    assert_eq!(calls, 1);
+    assert_eq!(
+        error.to_string(),
+        "GitHub inbox search is incomplete; retry later"
+    );
+}

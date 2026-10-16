@@ -376,6 +376,32 @@ pub(super) fn check_expected_head(request: &Value, entry: &Value) -> Result<()> 
     }
     Ok(())
 }
+/// Complete synchronous AI transactions run here, including their lock acquisition.
+async fn storage<T: Send + 'static>(
+    state: &AppState,
+    operation: impl FnOnce(&AppState) -> Result<T> + Send + 'static,
+) -> Result<T> {
+    let state = state.clone();
+    crate::store::blocking(move || operation(&state)).await
+}
+/// Keep writes drainable even when Stop drops the task's async waiter.
+async fn run_storage<T: Send + 'static>(
+    state: &AppState,
+    run: &Arc<Run>,
+    operation: impl FnOnce(&AppState, &Run) -> Result<T> + Send + 'static,
+) -> Result<T> {
+    let (send, result) = tokio::sync::oneshot::channel();
+    let stored_state = state.clone();
+    let run = run.clone();
+    {
+        let mut handles = state.jobs.handles.lock().unwrap();
+        handles.retain(|h| !h.is_finished());
+        handles.push(tokio::task::spawn_blocking(move || {
+            let _ = send.send(operation(&stored_state, &run));
+        }));
+    }
+    result.await.context("AI storage task stopped")?
+}
 /// Admission stays independent of the HTTP request once queued. Its complete
 /// storage/pin transaction runs on the blocking pool, including mutex acquisition.
 async fn start_async(state: &Arc<AppState>, req: Value, task: bool) -> Result<String> {
@@ -392,13 +418,22 @@ async fn start_async(state: &Arc<AppState>, req: Value, task: bool) -> Result<St
         let stored_state = state.clone();
         handles.retain(|h| !h.is_finished());
         handles.push(tokio::task::spawn_blocking(move || {
-            let _ = send.send(start(&stored_state, req, task));
+            let _ = send.send(start(&stored_state, req, task, None));
         }));
     }
     result.await.context("AI admission stopped")?
 }
-/// Record the task before spawning; synchronous follow-ups only start tours/briefs.
-fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
+/// @cc [owner:OctavianTocan,label:architecture] rust-ai-admission-keeps-registry-responsive
+/// Admission MUST reserve duplicate work in memory before preparing its saved state,
+/// and MUST NOT hold the run registry across storage or cache locks. Reserved runs
+/// MUST remain pollable and cancellable, including during shutdown (R13 finding 2,
+/// 16 Oct 2026; server-ai-work-outlives-the-page).
+fn start(
+    state: &Arc<AppState>,
+    mut req: Value,
+    task: bool,
+    parent: Option<&Run>,
+) -> Result<String> {
     if task {
         required(&req, "key")?;
         if ![
@@ -446,6 +481,8 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
             bail!("Provider credentials and endpoints are configured on the server")
         }
     }
+    // Populate the title before exposing a reservation, without the registry lock.
+    let title = task.then(|| tasks::cached_title(state, &req)).flatten();
     let mut runs = state.jobs.runs.lock().unwrap();
     if state
         .jobs
@@ -468,6 +505,9 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
     }
     let id = uuid::Uuid::new_v4().to_string();
     let mut snap = json!({"id":id,"engine":model["engine"],"status":"running","rev":0,"activities":[],"startedAt":now_ms()});
+    if let Some(title) = title {
+        snap["title"] = json!(title);
+    }
     for f in ["model", "effort"] {
         if let Some(v) = model.get(f) {
             snap[f] = v.clone()
@@ -494,10 +534,46 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
         notify: Notify::new(),
         cancel: tx,
     });
-    if task {
-        tasks::prepare(state, &run)?
+    // Serialize follow-up registration with Stop, but never hold this guard over I/O.
+    let parent_snapshot = parent.map(|parent| parent.snapshot.lock().unwrap());
+    if parent_snapshot
+        .as_ref()
+        .is_some_and(|snapshot| snapshot["status"] != "running")
+    {
+        bail!("Stopped.");
     }
+    if let Some(parent) = parent {
+        check(parent)?;
+    }
+    // Reservation makes overlapping starts join this run while preparation yields.
     runs.insert(id.clone(), run.clone());
+    drop(parent_snapshot);
+    drop(runs);
+    if let Err(error) = (|| {
+        check(&run)?;
+        if task {
+            tasks::prepare(state, &run)?;
+        }
+        check(&run)
+    })() {
+        let stopped = *run.cancel.borrow();
+        let message = if stopped {
+            "Stopped.".to_owned()
+        } else {
+            sanitize(&error.to_string())
+        };
+        if task {
+            let _ = tasks::failed(state, &run, &message, stopped);
+        }
+        settle(
+            &run,
+            if stopped { "cancelled" } else { "failed" },
+            None,
+            None,
+            Some(message),
+        );
+        return Err(error);
+    }
     record(&run, "start", "status", "Started", None, "done");
     let handles = state.jobs.handles.clone();
     let state = state.clone();
@@ -510,10 +586,14 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
         } else {
             Box::pin(provider::run(&state, &run, &run.request))
         };
-        let outcome = tokio::select! {biased;_=receiver.changed()=>Err(anyhow::anyhow!("Stopped.")),r=work=>r};
+        let outcome = if check(&run).is_err() {
+            Err(anyhow::anyhow!("Stopped."))
+        } else {
+            tokio::select! {biased;_=receiver.changed()=>Err(anyhow::anyhow!("Stopped.")),r=work=>r}
+        };
         match outcome {
             Ok((answer, usage)) => {
-                finish_success(&state, &run, answer, usage);
+                finish_success(&state, &run, answer, usage).await;
             }
             Err(error) => {
                 let stopped = *run.cancel.borrow();
@@ -523,7 +603,7 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
                     sanitize(&error.to_string())
                 };
                 if task {
-                    let _ = tasks::failed(&state, &run, &message, stopped);
+                    let _ = tasks::failed_async(&state, &run, &message, stopped).await;
                 }
                 settle(
                     &run,
@@ -544,18 +624,30 @@ fn start(state: &Arc<AppState>, mut req: Value, task: bool) -> Result<String> {
     let mut handles = handles.lock().unwrap();
     handles.retain(|h| !h.is_finished());
     handles.push(handle);
-    drop(runs);
     Ok(id)
 }
 /// @cc [owner:OctavianTocan,label:architecture] rust-followups-visible-before-completion
 /// Eligible follow-up tasks MUST be registered before successful analysis completion
 /// is observable, and a stopped analysis MUST start no further work (server-follow-ups-
 /// run-on-the-server; Android ReviewSession completion observer; review R11, 16 Oct 2026).
-fn finish_success(state: &Arc<AppState>, run: &Run, answer: String, usage: Value) {
-    if run.task && run.request["kind"] == "analyze" {
-        tasks::followups(state, run);
+async fn finish_success(state: &Arc<AppState>, run: &Arc<Run>, answer: String, usage: Value) {
+    let result = run_storage(state, run, move |state, run| {
+        if run.task && run.request["kind"] == "analyze" {
+            tasks::followups(&Arc::new(state.clone()), run);
+        }
+        settle(run, "done", Some(answer), Some(usage), None);
+        Ok(())
+    })
+    .await;
+    if let Err(error) = result {
+        settle(
+            run,
+            "failed",
+            None,
+            None,
+            Some(sanitize(&error.to_string())),
+        );
     }
-    settle(run, "done", Some(answer), Some(usage), None);
 }
 /// @cc [owner:OctavianTocan,label:architecture] rust-shutdown-cancels-before-http-drain
 /// Server shutdown MUST reject new jobs and cancel registered runs before waiting for
@@ -574,9 +666,14 @@ pub fn begin_shutdown(state: &AppState) {
 /// Drain jobs and daemon cleanup while the Tokio runtime still exists.
 pub async fn shutdown(state: &AppState) {
     begin_shutdown(state);
-    let handles = std::mem::take(&mut *state.jobs.handles.lock().unwrap());
-    for handle in handles {
-        let _ = handle.await;
+    loop {
+        let handles = std::mem::take(&mut *state.jobs.handles.lock().unwrap());
+        if handles.is_empty() {
+            break;
+        }
+        for handle in handles {
+            let _ = handle.await;
+        }
     }
     crate::review::shutdown_diff_pins(state).await;
     crate::agent_process::shutdown_cleanup().await;
@@ -673,9 +770,15 @@ pub async fn change_chat(state: &Arc<AppState>, key: &str, id: Option<&str>) -> 
     for run in runs {
         cancel(&run);
     }
-    let lock = state.jobs.session(key);
-    let _guard = lock.lock().await;
-    crate::review::change_chat_saved(state, key, id)
+    let guard = state.jobs.session(key).lock_owned().await;
+    let key = key.to_owned();
+    let id = id.map(str::to_owned);
+    storage(state, move |state| {
+        // A detached HTTP waiter must not release the session before its write.
+        let _guard = guard;
+        crate::review::change_chat_saved(state, &key, id.as_deref())
+    })
+    .await
 }
 pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
     let a = if args.is_array() {
@@ -743,9 +846,19 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
             }
             .await
         }
-        "ask-threads" => saved_threads(state, text(&a, "key")).map(|v| json!(v)),
-        "ask-thread-close" => tasks::close_thread(state, text(&a, "key"), text(&a, "threadId")),
-        "inbox-chat" => saved_inbox(state),
+        "ask-threads" => {
+            storage(state, move |state| {
+                saved_threads(state, text(&a, "key")).map(|v| json!(v))
+            })
+            .await
+        }
+        "ask-thread-close" => {
+            storage(state, move |state| {
+                tasks::close_thread(state, text(&a, "key"), text(&a, "threadId"))
+            })
+            .await
+        }
+        "inbox-chat" => storage(state, saved_inbox).await,
         "inbox-chat-clear" => {
             for r in state
                 .jobs
@@ -757,15 +870,21 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
             {
                 cancel(r);
             }
-            state
-                .host
-                .storage
-                .set("inbox-chat", &json!({"turns":[]}))
-                .map(|_| Value::Null)
+            storage(state, |state| {
+                state
+                    .host
+                    .storage
+                    .set("inbox-chat", &json!({"turns":[]}))
+                    .map(|_| Value::Null)
+            })
+            .await
         }
-        "lens-list" => lenses(state),
+        "lens-list" => storage(state, lenses).await,
         "lens-get" => {
-            lens(state, text(&a, "name")).map(|v| v.map(Value::String).unwrap_or(Value::Null))
+            storage(state, move |state| {
+                lens(state, text(&a, "name")).map(|v| v.map(Value::String).unwrap_or(Value::Null))
+            })
+            .await
         }
         _ => return None,
     };

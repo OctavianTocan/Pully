@@ -611,7 +611,7 @@ async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Re
         return Some(Ok(json!(crate::source::github_token().await.is_some())));
     }
     if name == "github-request" {
-        return Some(github_proxy(state, args).await);
+        return Some(crate::source::github_proxy(state, args).await);
     }
     if name == "cache-file-content" {
         return Some(
@@ -732,43 +732,6 @@ async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Re
         .await,
     )
 }
-async fn github_proxy(state: &AppState, args: &Value) -> Result<Value> {
-    let path = required(args, "path")?;
-    let base = url::Url::parse("https://api.github.com")?;
-    let url = base.join(path)?;
-    if url.origin() != base.origin()
-        || !path.starts_with('/')
-        || path.starts_with("//")
-        || !(path.starts_with("/repos/")
-            || path == "/user"
-            || path.starts_with("/user/")
-            || path.starts_with("/user?")
-            || path.starts_with("/search/")
-            || path == "/graphql")
-    {
-        bail!("Unsupported GitHub API path")
-    }
-    let method = match text(args, "method") {
-        "" | "GET" => reqwest::Method::GET,
-        "POST" => reqwest::Method::POST,
-        "PATCH" => reqwest::Method::PATCH,
-        "PUT" => reqwest::Method::PUT,
-        "DELETE" => reqwest::Method::DELETE,
-        _ => bail!("Unsupported HTTP method"),
-    };
-    let accept = match text(args, "accept") {
-        "" => "application/vnd.github+json",
-        v @ ("application/vnd.github+json"
-        | "application/vnd.github.raw"
-        | "application/vnd.github.diff"
-        | "application/vnd.github.sha") => v,
-        _ => bail!("Unsupported response type"),
-    };
-    let body = args.get("body").filter(|body| !body.is_null()).cloned();
-    let (status, headers, body) =
-        crate::source::github_raw(state, method, path, body, accept).await?;
-    Ok(json!({"status":status,"headers":headers,"body":body}))
-}
 
 /// Dedicated capability endpoint: no general RPC or storage methods are exposed to containers.
 pub async fn start_agent_bridge(app: Arc<AppState>) -> Result<tokio::task::JoinHandle<()>> {
@@ -828,21 +791,52 @@ fn public_get(store: &crate::store::Store, key: &str) -> Result<Option<Value>> {
     if private_key(key) {
         Ok(None)
     } else {
-        store.get(key)
+        Ok(store
+            .get(key)?
+            .filter(|value| posted_reference(value).is_none()))
     }
 }
-fn requested_key(app: &AppState, name: &str, args: &Value) -> Result<String> {
+fn posted_reference(value: &Value) -> Option<String> {
+    for reference in [&value["diff"]["ref"], &value["ref"]] {
+        if reference["kind"] == "posted" {
+            return Some(format!("posted:{}", text(reference, "id")));
+        }
+    }
+    None
+}
+async fn requested_key(app: &AppState, name: &str, args: &Value) -> Result<String> {
     let args = if args.is_array() { &args[0] } else { args };
     for field in ["key", "target"] {
         if is_posted(text(args, field)) {
             return Ok(text(args, field).replace(['/', '\\'], ":"));
         }
     }
+    if let Some(scope) = posted_reference(&args["values"][0]) {
+        return Ok(scope);
+    }
+    let mut keys: Vec<String> = ["key", "target"]
+        .into_iter()
+        .map(|field| text(args, field))
+        .filter(|key| !key.is_empty())
+        .map(str::to_owned)
+        .collect();
     if matches!(
         name,
         "ai-task-wait" | "ai-task-cancel" | "ai-job-wait" | "ai-job-cancel"
     ) {
-        return crate::ai::task_key(app, text(args, "id")).map(|key| key.replace(['/', '\\'], ":"));
+        keys.push(crate::ai::task_key(app, text(args, "id"))?);
+    }
+    for key in keys {
+        if is_posted(&key) {
+            return Ok(key.replace(['/', '\\'], ":"));
+        }
+        // Authorization follows persisted provenance, including legacy malformed
+        // aliases. Keep the complete storage read off the async runtime worker.
+        if let Some(saved) = app.host.storage.get_async(&format!("diff:{key}")).await? {
+            if let Some(scope) = posted_reference(&saved) {
+                return Ok(scope);
+            }
+        }
     }
     Ok(String::new())
 }
@@ -851,7 +845,7 @@ fn filter_posted(value: Value) -> Value {
         Value::Array(items) => Value::Array(
             items
                 .into_iter()
-                .filter(|item| !is_posted(text(item, "key")))
+                .filter(|item| !is_posted(text(item, "key")) && posted_reference(item).is_none())
                 .collect(),
         ),
         other => other,
@@ -862,7 +856,7 @@ async fn web_dispatch(app: &Arc<AppState>, name: &str, args: Value) -> Result<Va
         return result;
     }
     anyhow::ensure!(
-        !is_posted(&requested_key(app, name, &args)?),
+        !is_posted(&requested_key(app, name, &args).await?),
         "Posted diffs open only in the Pully app."
     );
     crate::dispatch(app, name, args).await.map(filter_posted)
@@ -1041,7 +1035,9 @@ mod privacy_tests {
             .unwrap();
         for key in ["posted:abc", "posted/abc", "posted\\abc"] {
             assert_eq!(
-                requested_key(&app, "review-state", &json!({"key":key})).unwrap(),
+                requested_key(&app, "review-state", &json!({"key":key}))
+                    .await
+                    .unwrap(),
                 "posted:abc"
             );
             for name in ["review-state", "diff-patches", "cache-diff"] {
@@ -1054,6 +1050,70 @@ mod privacy_tests {
                 );
             }
         }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test]
+    async fn persisted_public_aliases_cannot_expose_private_posted_artifacts() {
+        let root = std::env::temp_dir().join(format!("posted-provenance-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        app.account_seed.set(true).unwrap();
+        let (_user, session, _) = app.accounts.fixture_for_test();
+        let mut headers = HeaderMap::new();
+        headers.insert("x-pully-session", session.parse().unwrap());
+        let private = json!({"ref":{"kind":"posted","id":"victim"},"title":"Private","files":[]});
+        assert!(web_dispatch(
+            &app,
+            "cache-diff",
+            json!({"method":"putDiff","key":"paste:alias","values":[private,"",null]})
+        )
+        .await
+        .is_err());
+        // A malformed record from an earlier release must be blocked on reads too.
+        app.host
+            .storage
+            .set(
+                "diff:paste:alias",
+                &json!({"key":"paste:alias","diff":private}),
+            )
+            .unwrap();
+        app.host
+            .storage
+            .set(
+                "posted-diff:victim",
+                &json!({"id":"victim","accountId":"someone-else"}),
+            )
+            .unwrap();
+        for prefix in ["tour", "brief", "critique"] {
+            app.host.storage.set(&format!("{prefix}:posted:victim"), &json!({"entries":[{"secret":"private artifact","result":{"secret":"private review"}}]})).unwrap();
+        }
+        for name in ["review-state", "cache-diff", "diff-patches"] {
+            let args = json!({"key":"paste:alias","method":"get"});
+            assert!(web_dispatch(&app, name, args.clone()).await.is_err());
+            assert_eq!(
+                account::authorize_posted(&app, &HeaderMap::new(), name, &args)
+                    .await
+                    .unwrap_err()
+                    .status(),
+                StatusCode::UNAUTHORIZED
+            );
+            assert_eq!(
+                account::authorize_posted(&app, &headers, name, &args)
+                    .await
+                    .unwrap_err()
+                    .status(),
+                StatusCode::NOT_FOUND
+            );
+        }
+        assert_eq!(
+            web_dispatch(&app, "storage-get-item", json!({"key":"diff:paste:alias"}))
+                .await
+                .unwrap(),
+            Value::Null
+        );
+        assert_eq!(
+            filter_posted(json!([{"key":"paste:alias","ref":{"kind":"posted","id":"victim"}}])),
+            json!([])
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
     #[tokio::test]

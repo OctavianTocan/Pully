@@ -207,7 +207,7 @@ fn provider_grouping_preparation_rejects_invalid_values_and_other_schemas() {
 fn tours_save_partial_successes_but_never_all_failed_stops() {
     let dir = std::env::temp_dir().join(format!("pulls-tour-{}", uuid::Uuid::new_v4()));
     let state = AppState::new(dir.clone(), dir.clone()).unwrap();
-    let request = json!({"key":"test","locale":"en"});
+    let request = preparation_run(json!({"key":"test","locale":"en"}));
     let diff = json!({"head":{"sha":"head"}});
     let failed = json!({"title":"Failed","error":"First stop failed"});
     let later = json!({"title":"Later","error":"Second stop failed"});
@@ -434,4 +434,197 @@ fn posted_task_system_explains_diff_only_capabilities() {
     assert!(system_for(&posted).contains("There is no repository"));
     assert!(system_for(&posted).contains("captured changed paths"));
     assert_eq!(system_for(&json!({"ref":{"kind":"github-pr"}})), SYSTEM);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ai_storage_task_read_yields_and_observes_cancel() {
+    use crate::store::test_support::HeldLock;
+    let root = std::env::temp_dir().join(format!("pulls-ai-storage-read-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    state
+        .host
+        .storage
+        .set("diff:test", &json!({"headSha":"head","diff":{"files":[]}}))
+        .unwrap();
+    let run = Arc::new(preparation_run(
+        json!({"kind":"chat","key":"test","text":"Why?","model":{"engine":"pi"}}),
+    ));
+    state
+        .jobs
+        .runs
+        .lock()
+        .unwrap()
+        .insert("prepared".into(), run.clone());
+    let held = HeldLock::storage(&state.host.storage);
+    let mut work = Box::pin(perform(&state, &run));
+    assert!(futures_util::poll!(&mut work).is_pending());
+    assert_eq!(
+        handle(&state, "ai-task-cancel", json!({"id":"prepared"}))
+            .await
+            .unwrap()
+            .unwrap(),
+        true
+    );
+    let error = held.assert_yields(work).await.unwrap_err();
+    assert_eq!(error.to_string(), "Stopped.");
+    assert_eq!(state.jobs.provider_slots.available_permits(), 3);
+    shutdown(&state).await;
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ai_storage_task_writes_and_failure_cleanup_yield() {
+    use crate::store::test_support::HeldLock;
+    let root =
+        std::env::temp_dir().join(format!("pulls-ai-storage-writes-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    state
+        .host
+        .storage
+        .set("diff:test", &json!({"headSha":"head","diff":{"files":[]}}))
+        .unwrap();
+    let run = Arc::new(preparation_run(
+        json!({"kind":"inbox","key":"test","question":"Why?","model":{"engine":"pi"}}),
+    ));
+    prepare(&state, &run).unwrap();
+    HeldLock::storage(&state.host.storage)
+        .assert_yields(update_diff_async(&state, &run, &json!("head"), |entry| {
+            entry["llmSession"] = json!({"messages":[],"chatStartIndex":0});
+            Ok(())
+        }))
+        .await
+        .unwrap();
+    HeldLock::storage(&state.host.storage)
+        .assert_yields(save_artifact_async(
+            &state,
+            &run,
+            "brief",
+            &json!({"lang":"Fixture","headSha":"head","locale":"en"}),
+        ))
+        .await
+        .unwrap();
+    HeldLock::storage(&state.host.storage)
+        .assert_yields(patch_turn_async(
+            &state,
+            &run,
+            json!({"answer":"Saved answer","outcome":"done"}),
+        ))
+        .await
+        .unwrap();
+    HeldLock::storage(&state.host.storage)
+        .assert_yields(run_storage(&state, &run, |state, run| {
+            save_inbox_suggestions(state, run, vec!["Next?".into()])
+        }))
+        .await
+        .unwrap();
+    cancel(&run);
+    HeldLock::storage(&state.host.storage)
+        .assert_yields(failed_async(&state, &run, "Stopped.", true))
+        .await
+        .unwrap();
+    let saved = state.host.storage.get("inbox-chat").unwrap().unwrap();
+    assert_eq!(saved["turns"][0]["answer"], "Saved answer");
+    assert_eq!(saved["turns"][0]["outcome"], "done");
+    assert_eq!(saved["suggestions"], json!(["Next?"]));
+    // Failure cleanup must also persist on an unanswered, stopped turn.
+    let failed = Arc::new(preparation_run(
+        json!({"kind":"inbox","key":"test","question":"Again?"}),
+    ));
+    failed.snapshot.lock().unwrap()["id"] = json!("failed");
+    prepare(&state, &failed).unwrap();
+    cancel(&failed);
+    HeldLock::storage(&state.host.storage)
+        .assert_yields(failed_async(&state, &failed, "Stopped.", true))
+        .await
+        .unwrap();
+    assert_eq!(
+        state.host.storage.get("inbox-chat").unwrap().unwrap()["turns"][1]["outcome"],
+        "stopped"
+    );
+    shutdown(&state).await;
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ai_storage_detached_write_is_guarded_and_drained_on_shutdown() {
+    use crate::store::test_support::HeldLock;
+    let root =
+        std::env::temp_dir().join(format!("pulls-ai-storage-drain-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let original = json!({"headSha":"head","diff":{"files":[]}});
+    state.host.storage.set("diff:test", &original).unwrap();
+    let run = Arc::new(preparation_run(json!({"kind":"chat","key":"test"})));
+    state
+        .jobs
+        .runs
+        .lock()
+        .unwrap()
+        .insert("prepared".into(), run.clone());
+    let held = HeldLock::storage(&state.host.storage);
+    let result = json!({"lang":"Late","headSha":"head","locale":"en"});
+    let mut write = Box::pin(save_artifact_async(&state, &run, "brief", &result));
+    assert!(futures_util::poll!(&mut write).is_pending());
+    // Dropping the async future models the task's cancellation select.
+    drop(write);
+    cancel(&run);
+    held.assert_yields(shutdown(&state)).await;
+    assert_eq!(
+        state.host.storage.get("diff:test").unwrap().unwrap(),
+        original
+    );
+    assert!(state.host.storage.get("brief:test").unwrap().is_none());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ai_storage_grouping_tool_transaction_yields_and_preserves_guards() {
+    use crate::store::test_support::HeldLock;
+    let root = std::env::temp_dir().join(format!("pulls-ai-storage-tool-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let diff = json!({"ref":{"kind":"posted","id":"fixture"},"head":{"sha":"head"},"files":[{"path":"a.rs","hunks":[]}]});
+    state
+        .host
+        .storage
+        .set(
+            "diff:test",
+            &json!({"headSha":"head","diff":diff,"analyzedBy":{}}),
+        )
+        .unwrap();
+    let run = Arc::new(preparation_run(
+        json!({"kind":"chat","key":"test","model":{"engine":"pi"}}),
+    ));
+    let mut ctx = context(&diff);
+    ctx["allowGroupingUpdate"] = json!(true);
+    let args = json!({"overallSummary":"Saved.","groups":[{"key":"all","label":"All","category":"core","filePaths":["a.rs"]}]});
+    let result = HeldLock::storage(&state.host.storage)
+        .assert_yields(tools::call_for_run(
+            &state,
+            &run,
+            &ctx,
+            "update_grouping",
+            &args,
+        ))
+        .await
+        .unwrap();
+    assert!(result.contains("1 groups"));
+    let saved = state.host.storage.get("diff:test").unwrap().unwrap();
+    assert_eq!(saved["analyzedBy"]["llm"]["overallSummary"], "Saved.");
+    let held = HeldLock::storage(&state.host.storage);
+    let mut update = Box::pin(tools::call_for_run(
+        &state,
+        &run,
+        &ctx,
+        "update_grouping",
+        &args,
+    ));
+    assert!(futures_util::poll!(&mut update).is_pending());
+    cancel(&run);
+    drop(held);
+    assert!(tokio::time::timeout(Duration::from_secs(1), update)
+        .await
+        .unwrap()
+        .is_err());
+    assert_eq!(state.host.storage.get("diff:test").unwrap().unwrap(), saved);
+    shutdown(&state).await;
+    std::fs::remove_dir_all(root).unwrap();
 }

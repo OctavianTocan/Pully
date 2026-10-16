@@ -99,7 +99,9 @@ pub(super) async fn authorize_posted(
     name: &str,
     args: &Value,
 ) -> std::result::Result<(), Response> {
-    let key = requested_key(app, name, args).map_err(|e| reply(Err(e)))?;
+    let key = requested_key(app, name, args)
+        .await
+        .map_err(|e| reply(Err(e)))?;
     if !is_posted(&key) {
         return Ok(());
     }
@@ -143,7 +145,8 @@ pub(super) async fn filter_owned(
         let account = accounts.by_session(token.as_deref())?;
         let mut visible = Vec::with_capacity(items.len());
         for item in items {
-            let key = text(&item, "key").replace(['/', '\\'], ":");
+            let key = posted_reference(&item)
+                .unwrap_or_else(|| text(&item, "key").replace(['/', '\\'], ":"));
             if !is_posted(&key)
                 || match &account {
                     Some(account) => posted

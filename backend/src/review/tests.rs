@@ -729,3 +729,203 @@ async fn foreground_review_transactions_yield_under_storage_contention() {
     );
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn browser_cache_writes_compare_complete_operation_revisions() {
+    let root = std::env::temp_dir().join(format!("cache-revisions-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    let key = "paste:revision";
+    let original = json!({"ref":{"kind":"paste","hash":"revision"},"title":"Old title","files":[],"base":{"sha":"base-1","ref":"main"},"head":{"sha":"head","ref":"branch"}});
+    for change in ["base", "metadata"] {
+        let observed = cache_diff(&state, &json!({"method":"get","key":key})).unwrap();
+        cache_diff(
+            &state,
+            &json!({"method":"putDiff","key":key,"values":[original,"head",observed["revision"]]}),
+        )
+        .unwrap();
+        let observed = cache_diff(&state, &json!({"method":"getMeta","key":key})).unwrap();
+        assert_eq!(
+            observed["revision"],
+            cache_diff(&state, &json!({"method":"get","key":key})).unwrap()["revision"]
+        );
+        let mut newer = original.clone();
+        if change == "base" {
+            newer["base"]["sha"] = json!("base-2");
+        } else {
+            newer["title"] = json!("New title");
+            newer["description"] = json!("Updated metadata");
+        }
+        // Simulate the native warmer publishing a same-head replacement while
+        // this browser fetch is pending, followed by unrelated reads.
+        put_diff(&state, key, &newer).unwrap();
+        let winner = state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .unwrap();
+        let latest = cache_diff(&state, &json!({"method":"get","key":key})).unwrap();
+        assert_ne!(latest["revision"], observed["revision"]);
+        cache_diff(&state, &json!({"method":"getMeta","key":key})).unwrap();
+        let returned = cache_diff(
+            &state,
+            &json!({"method":"putDiff","key":key,"values":[original,"head",observed["revision"]]}),
+        )
+        .unwrap();
+        assert_eq!(returned, with_revision(winner.clone()));
+        assert_eq!(
+            state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap(),
+            winner
+        );
+        state.host.storage.remove(&format!("diff:{key}")).unwrap();
+        assert!(cache_diff(
+            &state,
+            &json!({"method":"putDiff","key":key,"values":[original,"head",observed["revision"]]})
+        )
+        .is_err());
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn browser_session_growth_updates_metadata_and_enforces_small_budgets() {
+    let root = std::env::temp_dir().join(format!("cache-growth-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    state.diff_cache.lock().unwrap().limits = Some(DiffCapacity {
+        slots: 50,
+        bytes: 1500,
+    });
+    let diff = json!({"ref":{"kind":"paste","hash":"growth"},"title":"Tiny","files":[]});
+    let key = "paste:growth";
+    put_diff(&state, key, &diff).unwrap();
+    cache_diff(&state, &json!({"method":"setLlmSession","key":key,"values":[{"messages":[{"role":"user","content":"x".repeat(2000)}],"chatStartIndex":0},"null"]})).unwrap();
+    assert!(state
+        .host
+        .storage
+        .get(&format!("diff:{key}"))
+        .unwrap()
+        .is_none());
+
+    put_diff(&state, key, &diff).unwrap();
+    cache_diff(&state, &json!({"method":"setLlmSession","key":key,"values":[{"messages":[{"role":"user","content":"x".repeat(700)}],"chatStartIndex":0},"null"]})).unwrap();
+    let grown = state
+        .host
+        .storage
+        .get(&format!("diff:{key}"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        grown["sizeBytes"].as_u64().unwrap(),
+        serde_json::to_vec(&grown).unwrap().len() as u64
+    );
+    assert_eq!(
+        diff_capacity(&state).unwrap().bytes,
+        1500 - grown["sizeBytes"].as_u64().unwrap()
+    );
+    state
+        .host
+        .storage
+        .update(&format!("diff:{key}"), |old| {
+            let mut old = old.unwrap();
+            old["lastViewedAt"] = json!(1);
+            Ok(old)
+        })
+        .unwrap();
+    let other = json!({"ref":{"kind":"paste","hash":"next"},"title":"y".repeat(700),"files":[]});
+    put_diff(&state, "paste:next", &other).unwrap();
+    assert!(state
+        .host
+        .storage
+        .get(&format!("diff:{key}"))
+        .unwrap()
+        .is_none());
+    assert!(state.host.storage.get("diff:paste:next").unwrap().is_some());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn browser_cache_admission_and_saved_reads_reject_posted_aliases() {
+    let root = std::env::temp_dir().join(format!("cache-provenance-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    let private = json!({"ref":{"kind":"posted","id":"victim"},"title":"Private","files":[]});
+    assert!(put_diff(&state, "paste:alias", &private).is_err());
+    // Internal non-posted fixtures may still intentionally use arbitrary keys.
+    assert!(put_diff(
+        &state,
+        "fixture-key",
+        &json!({"ref":{"kind":"paste","hash":"safe"},"title":"Safe","files":[]})
+    )
+    .is_ok());
+    for key in ["paste:alias", "posted:victim"] {
+        assert!(cache_diff(
+            &state,
+            &json!({"method":"putDiff","key":key,"values":[private,"",null]})
+        )
+        .is_err());
+    }
+    assert!(cache_diff(&state, &json!({"method":"putDiff","key":"paste:alias","values":[{"ref":{"kind":"paste","hash":"another"},"title":"Mismatch","files":[]},"",null]})).is_err());
+    state
+        .host
+        .storage
+        .set(
+            "diff:paste:alias",
+            &json!({"key":"paste:alias","diff":private}),
+        )
+        .unwrap();
+    for method in ["get", "getMeta", "touch"] {
+        assert!(cache_diff(&state, &json!({"method":method,"key":"paste:alias"})).is_err());
+    }
+    assert!(review_state(&state, &json!({"key":"paste:alias"})).is_err());
+    assert!(entry(&state, "paste:alias").is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn browser_growth_keeps_posted_entries_and_active_pins() {
+    let root = std::env::temp_dir().join(format!("cache-growth-pins-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    state.diff_cache.lock().unwrap().limits = Some(DiffCapacity {
+        slots: 50,
+        bytes: 1000,
+    });
+    let key = "paste:pinned";
+    let pin = pin_diff(&state, key).await.unwrap();
+    for (key, reference) in [
+        (key, json!({"kind":"paste","hash":"pinned"})),
+        ("posted:owned", json!({"kind":"posted","id":"owned"})),
+    ] {
+        put_diff(
+            &state,
+            key,
+            &json!({"ref":reference,"title":"Tiny","files":[]}),
+        )
+        .unwrap();
+        cache_diff(&state, &json!({"method":"setLlmSession","key":key,"values":[{"messages":[{"role":"user","content":"x".repeat(1500)}],"chatStartIndex":0},"null"]})).unwrap();
+        let saved = state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .unwrap();
+        assert!(saved["sizeBytes"].as_u64().unwrap() > 1000);
+    }
+    pin.release().await;
+    assert!(state
+        .host
+        .storage
+        .get("diff:paste:pinned")
+        .unwrap()
+        .is_none());
+    assert!(state
+        .host
+        .storage
+        .get("diff:posted:owned")
+        .unwrap()
+        .is_some());
+    std::fs::remove_dir_all(root).unwrap();
+}

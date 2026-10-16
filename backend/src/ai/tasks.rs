@@ -117,6 +117,18 @@ pub(super) fn inbox(v: Option<Value>) -> Value {
 fn turn(run: &Run) -> Value {
     json!({"question":run.request["question"],"startedAt":now_ms(),"taskId":run.snapshot.lock().unwrap()["id"]})
 }
+pub(super) fn cached_title(state: &AppState, request: &Value) -> Option<String> {
+    if request["kind"] == "inbox" {
+        return None;
+    }
+    state
+        .host
+        .storage
+        .get(&format!("diff:{}", text(request, "key")))
+        .ok()
+        .flatten()
+        .and_then(|entry| entry["diff"]["title"].as_str().map(str::to_owned))
+}
 /**
  * @cc [owner:OctavianTocan,label:product] rust-task-snapshots-keep-cached-titles
  * Non-inbox tasks MUST expose the cached diff's string title in every task snapshot;
@@ -130,16 +142,10 @@ fn turn(run: &Run) -> Value {
  * (existing tasks.ts preparation; Tavi's parity request, review R12 finding 9, 16 Oct 2026).
  */
 pub(super) fn prepare(state: &AppState, run: &Run) -> Result<()> {
+    check(run)?;
     let r = &run.request;
-    if r["kind"] != "inbox" {
-        if let Some(title) = state
-            .host
-            .storage
-            .get(&format!("diff:{}", text(r, "key")))
-            .ok()
-            .flatten()
-            .and_then(|entry| entry["diff"]["title"].as_str().map(str::to_owned))
-        {
+    if run.snapshot.lock().unwrap().get("title").is_none() {
+        if let Some(title) = cached_title(state, r) {
             run.snapshot.lock().unwrap()["title"] = json!(title);
         }
     }
@@ -153,11 +159,12 @@ pub(super) fn prepare(state: &AppState, run: &Run) -> Result<()> {
             {
                 bail!("Invalid selected lines")
             };
-            state.host.storage.update(&format!("ask-threads:{}",text(r,"key")),|old|{let mut all=threads(old);let index=all.iter().position(|t|t["id"]==r["threadId"]);let i=if let Some(i)=index{i}else{all.push(json!({"id":r["threadId"],"selection":sel,"label":format!("{}:L{}-L{}",text(sel,"path"),sel["startLine"],sel["endLine"]),"turns":[]}));all.len()-1};all[i]["turns"].as_array_mut().unwrap().push(turn(run));Ok(json!({"threads":all}))})?;
+            state.host.storage.update(&format!("ask-threads:{}",text(r,"key")),|old|{check(run)?;let mut all=threads(old);let index=all.iter().position(|t|t["id"]==r["threadId"]);let i=if let Some(i)=index{i}else{all.push(json!({"id":r["threadId"],"selection":sel,"label":format!("{}:L{}-L{}",text(sel,"path"),sel["startLine"],sel["endLine"]),"turns":[]}));all.len()-1};all[i]["turns"].as_array_mut().unwrap().push(turn(run));Ok(json!({"threads":all}))})?;
         }
         "inbox" => {
             required(r, "question")?;
             state.host.storage.update("inbox-chat", |old| {
+                check(run)?;
                 let mut c = inbox(old);
                 if r["retry"] == true
                     && c["turns"]
@@ -186,6 +193,9 @@ fn patch_turn(state: &AppState, run: &Run, patch: Value) -> Result<()> {
         format!("ask-threads:{}", text(r, "key"))
     };
     state.host.storage.update(&key, |old| {
+        if patch["outcome"] == "done" {
+            check(run)?;
+        }
         let mut v = if r["kind"] == "inbox" {
             inbox(old)
         } else {
@@ -231,6 +241,21 @@ pub(super) fn failed(state: &AppState, run: &Run, error: &str, stopped: bool) ->
         )?
     }
     Ok(())
+}
+pub(super) async fn failed_async(
+    state: &AppState,
+    run: &Arc<Run>,
+    error: &str,
+    stopped: bool,
+) -> Result<()> {
+    let error = error.to_owned();
+    run_storage(state, run, move |state, run| {
+        failed(state, run, &error, stopped)
+    })
+    .await
+}
+async fn patch_turn_async(state: &AppState, run: &Arc<Run>, patch: Value) -> Result<()> {
+    run_storage(state, run, move |state, run| patch_turn(state, run, patch)).await
 }
 pub(super) fn close_thread(state: &AppState, key: &str, id: &str) -> Result<Value> {
     for r in state
@@ -362,8 +387,11 @@ fn stamp(mut result: Value, r: &Value, diff: &Value, usage: &Value) -> Value {
     result["usage"] = usage.clone();
     result
 }
-fn save_artifact(state: &AppState, key: &str, kind: &str, r: &Value, result: &Value) -> Result<()> {
+fn save_artifact(state: &AppState, run: &Run, kind: &str, result: &Value) -> Result<()> {
+    let r = &run.request;
+    let key = text(r, "key");
     state.host.storage.update(&format!("{kind}:{key}"), |old| {
+        check(run)?;
         let mut entries = array(&old.unwrap_or(Value::Null)["entries"]);
         entries.retain(|e| {
             if kind == "critique" {
@@ -384,6 +412,31 @@ fn save_artifact(state: &AppState, key: &str, kind: &str, r: &Value, result: &Va
         Ok(json!({"entries":entries}))
     })?;
     Ok(())
+}
+async fn save_artifact_async(
+    state: &AppState,
+    run: &Arc<Run>,
+    kind: &str,
+    result: &Value,
+) -> Result<()> {
+    let kind = kind.to_owned();
+    let result = result.clone();
+    run_storage(state, run, move |state, run| {
+        save_artifact(state, run, &kind, &result)
+    })
+    .await
+}
+async fn update_diff_async(
+    state: &AppState,
+    run: &Arc<Run>,
+    head: &Value,
+    f: impl FnOnce(&mut Value) -> Result<()> + Send + 'static,
+) -> Result<()> {
+    let head = head.clone();
+    run_storage(state, run, move |state, run| {
+        update_diff(state, text(&run.request, "key"), &head, run, f)
+    })
+    .await
 }
 fn update_diff(
     state: &AppState,
@@ -413,9 +466,11 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
         state
             .host
             .storage
-            .get(&format!("diff:{key}"))?
+            .get_async(&format!("diff:{key}"))
+            .await?
             .context("This diff is no longer cached; open it again.")?
     };
+    check(run)?;
     super::check_expected_head(r, &entry)?;
     let diff = &entry["diff"];
     let mut job = r["model"].clone();
@@ -452,14 +507,24 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
         "critique" => {
             job["schema"] = critique_schema();
             let lens = if !text(r, "lens").is_empty() {
-                super::lens(state, text(r, "lens"))?.context("That curated lens was not found")?
+                run_storage(state, run, |state, run| {
+                    super::lens(state, text(&run.request, "lens"))
+                })
+                .await?
+                .context("That curated lens was not found")?
             } else {
                 String::new()
             };
             job["prompt"]=json!(format!("{heading}\nReview for actionable bugs, risks and nits. Read relevant evidence. Each finding must anchor to a real diff line on the correct side. No speculative findings. Lens instructions: {lens}"));
         }
         "ask" => {
-            let ts = threads(state.host.storage.get(&format!("ask-threads:{key}"))?);
+            let ts = threads(
+                state
+                    .host
+                    .storage
+                    .get_async(&format!("ask-threads:{key}"))
+                    .await?,
+            );
             let history = ts
                 .iter()
                 .find(|t| t["id"] == r["threadId"])
@@ -519,7 +584,9 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
                 }
             }
             job["context"] = json!({"pulls":pulls});
-            let history = answered_history(&inbox(state.host.storage.get("inbox-chat")?)["turns"]);
+            let history = answered_history(
+                &inbox(state.host.storage.get_async("inbox-chat").await?)["turns"],
+            );
             job["prompt"]=json!(format!("The user's open and recently closed pull requests: {}\nConversation: {}\nQuestion: {}\nUse read_pull_request and read_pull_request_diff when the answer needs details. Refer to PRs using their URLs.",json!(pulls),history,text(r,"question")));
         }
         _ => bail!("Unsupported task"),
@@ -544,7 +611,7 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
             if let Some(l) = r.get("lens") {
                 result["lens"] = l.clone()
             }
-            save_artifact(state, key, kind, r, &result)?;
+            save_artifact_async(state, run, kind, &result).await?;
             Ok((serde_json::to_string(&result)?, usage))
         }
         "chat" => {
@@ -560,13 +627,15 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
                 }
             }
             session["messages"].as_array_mut().unwrap().push(json!({"role":"assistant","content":[{"type":"text","text":answer}],"timestamp":now_ms()}));
-            update_diff(state, key, &entry["headSha"], run, |e| {
-                if e.get("llmSession") != entry.get("llmSession") {
+            let expected_session = entry.get("llmSession").cloned();
+            let saved_session = session.clone();
+            update_diff_async(state, run, &entry["headSha"], move |e| {
+                if e.get("llmSession") != expected_session.as_ref() {
                     bail!("The conversation changed while the answer was being written. Retry on the current conversation.")
                 }
-                e["llmSession"] = session.clone();
+                e["llmSession"] = saved_session;
                 Ok(())
-            })?;
+            }).await?;
             suggest(
                 state,
                 run,
@@ -584,7 +653,7 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
             if kind == "inbox" {
                 patch["pulls"] = json!(cited_pulls(&answer, &job["context"]["pulls"]));
             }
-            patch_turn(state, run, patch)?;
+            patch_turn_async(state, run, patch).await?;
             if kind == "inbox" {
                 suggest(state, run, &job, &answer, None).await
             }
@@ -791,26 +860,35 @@ async fn suggest(
     if let Some((head, mut session)) = session {
         let expected = session.clone();
         session["suggestions"] = json!(questions);
-        let _ = update_diff(state, crate::text(&run.request, "key"), head, run, |e| {
+        let _ = update_diff_async(state, run, head, move |e| {
             if e["llmSession"] == expected {
                 e["llmSession"] = session;
             }
             Ok(())
-        });
+        })
+        .await;
     } else {
-        let id = run.snapshot.lock().unwrap()["id"].clone();
-        let _ = state.host.storage.update("inbox-chat", |old| {
-            let mut c = inbox(old);
-            if c["turns"]
-                .as_array()
-                .and_then(|a| a.last())
-                .is_some_and(|t| t["taskId"] == id)
-            {
-                c["suggestions"] = json!(questions)
-            }
-            Ok(c)
-        });
+        let _ = run_storage(state, run, move |state, run| {
+            save_inbox_suggestions(state, run, questions)
+        })
+        .await;
     }
+}
+fn save_inbox_suggestions(state: &AppState, run: &Run, questions: Vec<String>) -> Result<()> {
+    let id = run.snapshot.lock().unwrap()["id"].clone();
+    state.host.storage.update("inbox-chat", |old| {
+        check(run)?;
+        let mut c = inbox(old);
+        if c["turns"]
+            .as_array()
+            .and_then(|a| a.last())
+            .is_some_and(|t| t["taskId"] == id)
+        {
+            c["suggestions"] = json!(questions)
+        }
+        Ok(c)
+    })?;
+    Ok(())
 }
 async fn tour(
     state: &Arc<AppState>,
@@ -868,7 +946,12 @@ async fn tour(
         written[i] = stop;
     }
     check(run)?;
-    let result = save_tour(state, &run.request, diff, plan, written, &usage)?;
+    let saved_diff = diff.clone();
+    let saved_usage = usage.clone();
+    let result = run_storage(state, run, move |state, run| {
+        save_tour(state, run, &saved_diff, plan, written, &saved_usage)
+    })
+    .await?;
     Ok((serde_json::to_string(&result)?, usage))
 }
 /// @cc [owner:OctavianTocan,label:product] rust-tour-previews-exclude-failed-stops
@@ -903,7 +986,7 @@ fn finish_tour_stop(
 /// partial successes (Tavi's 16 Oct 2026 parity request; core llm tour.ts failure guard).
 fn save_tour(
     state: &AppState,
-    request: &Value,
+    run: &Run,
     diff: &Value,
     mut plan: Value,
     written: Vec<Value>,
@@ -916,8 +999,8 @@ fn save_tour(
         ));
     }
     plan["stops"] = json!(written);
-    let result = stamp(plan, request, diff, usage);
-    save_artifact(state, text(request, "key"), "tour", request, &result)?;
+    let result = stamp(plan, &run.request, diff, usage);
+    save_artifact(state, run, "tour", &result)?;
     Ok(result)
 }
 pub(super) fn followups(state: &Arc<AppState>, run: &Run) {
@@ -961,6 +1044,7 @@ pub(super) fn followups(state: &Arc<AppState>, run: &Run) {
             state,
             json!({"kind":kind,"key":key,"model":request["model"],"locale":request["locale"]}),
             true,
+            Some(run),
         );
     }
 }
@@ -989,13 +1073,7 @@ async fn brief(
             Ok(tree) => {
                 validate_brief_refs(&tree, diff)?;
                 let result = stamp(json!({"lang":lang}), &run.request, diff, &total);
-                save_artifact(
-                    state,
-                    text(&run.request, "key"),
-                    "brief",
-                    &run.request,
-                    &result,
-                )?;
+                save_artifact_async(state, run, "brief", &result).await?;
                 return Ok((serde_json::to_string(&result)?, total));
             }
             Err(error) => {

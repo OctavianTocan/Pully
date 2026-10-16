@@ -517,14 +517,19 @@ fn cap(mut out: String, limit: usize) -> String {
 }
 pub(super) async fn call_for_run(
     state: &AppState,
-    run: &super::Run,
+    run: &std::sync::Arc<super::Run>,
     ctx: &Value,
     name: &str,
     args: &Value,
 ) -> Result<String> {
     super::check(run)?;
     if name == "update_grouping" {
-        return super::tasks::update_grouping(state, run, ctx, args);
+        let ctx = ctx.clone();
+        let args = args.clone();
+        return super::run_storage(state, run, move |state, run| {
+            super::tasks::update_grouping(state, run, &ctx, &args)
+        })
+        .await;
     }
     call(Some(state), ctx, name, args).await
 }
@@ -729,7 +734,7 @@ pub async fn call(
 }
 pub(super) async fn mcp_for_run(
     state: &AppState,
-    run: &super::Run,
+    run: &std::sync::Arc<super::Run>,
     ctx: &Value,
     request: Value,
 ) -> Value {

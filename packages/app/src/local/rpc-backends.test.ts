@@ -126,3 +126,50 @@ it('serializes single and batch writes while keeping external conflicts visible'
   await driver.removeItem!('key', {})
   expect(stored).toBeNull()
 })
+
+it.each([
+  { shas: Array.from({ length: 201 }, (_, index) => `sha-${index}`) },
+  { shas: ['same-sha', 'same-sha'] },
+])('marks every selected SHA with bounded unique native batches', async ({ shas }) => {
+  const values = new Map<string, string>()
+  const call = vi.fn(async (method: string, args: any) => {
+    if (method === LOCAL_RPC.storageGetItems)
+      return args.keys.map((key: string) => values.get(key) ?? null)
+    if (method === LOCAL_RPC.storageSetItems) {
+      expect(args.items.length).toBeLessThanOrEqual(200)
+      expect(new Set(args.items.map((item: any) => item.key)).size).toBe(args.items.length)
+      for (const item of args.items)
+        expect(item.expected).toBe(values.get(item.key) ?? null)
+      for (const item of args.items)
+        values.set(item.key, item.value)
+      return null
+    }
+    throw new Error(`Unexpected RPC: ${method}`)
+  })
+  const marks = createReviewMarks(createStorage({ driver: createRpcDriver({ call } as Pick<LocalRpc, 'call'>) }))
+  await marks.set(shas, true)
+  expect(await marks.get(shas)).toEqual(new Set(shas))
+  const batches = call.mock.calls.filter(([method]) => method === LOCAL_RPC.storageSetItems)
+  expect(batches.map(([, args]) => args.items.length)).toEqual(shas.length === 201 ? [200, 1] : [1])
+})
+
+it('keeps only acknowledged chunk observations after a partial bulk failure', async () => {
+  let fail = true
+  const values = new Map<string, string>()
+  const call = vi.fn(async (_method: string, args: any) => {
+    if (args.items.some((item: any) => item.key === 'key-200') && fail)
+      throw new Error('Second batch failed')
+    for (const item of args.items)
+      expect(item.expected).toBe(values.get(item.key) ?? null)
+    for (const item of args.items)
+      values.set(item.key, item.value)
+  })
+  const driver = createRpcDriver({ call } as Pick<LocalRpc, 'call'>)
+  const items = Array.from({ length: 201 }, (_, index) => ({ key: `key-${index}`, value: 'first' }))
+  await expect(driver.setItems!(items, {})).rejects.toThrow('Second batch failed')
+  expect(values.size).toBe(200)
+  fail = false
+  await driver.setItems!([...items, { key: 'key-0', value: 'last' }], {})
+  expect(values.size).toBe(201)
+  expect(values.get('key-0')).toBe('last')
+})

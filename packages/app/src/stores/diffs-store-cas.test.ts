@@ -22,7 +22,7 @@ function diff(sha: string): DiffsPayload {
 describe.each(['local', 'rpc'] as const)('%s diff fetch observations', (backend) => {
   it.each(['cold load', 'refresh'] as const)('keeps the newer stored head after a slow %s and an unrelated read', async (operation) => {
     const server = createCacheRepositories(createStorage({ driver: memoryDriver() }))
-    // The native endpoint rejects a mismatched expected head atomically. This fixture
+    // The native endpoint rejects a mismatched expected revision atomically. This fixture
     // mirrors that wire contract; no real network or timing-dependent sleep is used.
     const call = vi.fn(async (_name: string, args: { method: string, key: string, values: unknown[] }) => {
       const { method, key, values } = args
@@ -34,7 +34,7 @@ describe.each(['local', 'rpc'] as const)('%s diff fetch observations', (backend)
         return server.diffs.touch(key)
       if (method === 'putDiff') {
         const current = await server.diffs.get(key)
-        if ((current?.headSha ?? null) !== values[2])
+        if ((current?.revision ?? null) !== values[2])
           throw new Error('The cached diff changed. Reload before saving.')
         return server.diffs.putDiff(key, values[0] as DiffsPayload, values[1] as string)
       }
@@ -54,9 +54,11 @@ describe.each(['local', 'rpc'] as const)('%s diff fetch observations', (backend)
     }
     const snapshots = { get: async () => undefined, headSha: async () => undefined, put: vi.fn(async () => {}) }
     const store = createDiffsStore(source, { cache, snapshots })
+    let observedRevision: string | null = null
     if (operation === 'refresh') {
       await server.diffs.putDiff('race', diff('old'), 'old')
       await store.load()
+      observedRevision = (await server.diffs.getMeta('race'))!.revision!
     }
     const running = operation === 'refresh' ? store.refresh() : store.load()
     await fetching.promise
@@ -81,7 +83,7 @@ describe.each(['local', 'rpc'] as const)('%s diff fetch observations', (backend)
       const writes = call.mock.calls.filter(([, args]) => args.method === 'putDiff')
       expect(writes).toHaveLength(1)
       expect(writes[0][0]).toBe(LOCAL_RPC.cacheDiff)
-      expect(writes[0][1].values[2]).toBe(operation === 'refresh' ? 'old' : null)
+      expect(writes[0][1].values[2]).toBe(observedRevision)
     }
   })
 })
@@ -90,21 +92,71 @@ it('propagates unrelated RPC failures and never retries a stale write when the w
   const fallback = createCacheRepositories(createStorage({ driver: memoryDriver() })).diffs
   const call = vi.fn().mockRejectedValueOnce(new Error('Storage unavailable'))
   const cache = createRpcDiffCache({ call }, fallback)
-  await expect(cache.putDiff('race', diff('old'), 'old', { expectedHeadSha: null })).rejects.toThrow('Storage unavailable')
+  await expect(cache.putDiff('race', diff('old'), 'old', { expectedRevision: null })).rejects.toThrow('Storage unavailable')
   expect(call).toHaveBeenCalledOnce()
 
   call.mockReset().mockRejectedValueOnce(new Error('The cached diff changed. Reload before saving.')).mockResolvedValueOnce(undefined)
-  await expect(cache.putDiff('race', diff('old'), 'old', { expectedHeadSha: 'old' })).rejects.toThrow('cached diff changed')
+  await expect(cache.putDiff('race', diff('old'), 'old', { expectedRevision: 'old' })).rejects.toThrow('cached diff changed')
   expect(call.mock.calls.map(([, args]) => args.method)).toEqual(['putDiff', 'get'])
 })
 
 it('requires an operation snapshot for RPC writes and captures updateDiff locally', async () => {
   const fallback = createCacheRepositories(createStorage({ driver: memoryDriver() })).diffs
-  const observed: PrCacheEntry = { key: 'race', diff: diff('old'), headSha: 'old', analyzedBy: {}, lastViewedAt: 0, sizeBytes: 0 }
+  const observed: PrCacheEntry = { key: 'race', diff: diff('old'), headSha: 'old', revision: 'old-revision', analyzedBy: {}, lastViewedAt: 0, sizeBytes: 0 }
   const call = vi.fn().mockResolvedValueOnce(observed).mockResolvedValueOnce({ ...observed, headSha: 'new' })
   const cache = createRpcDiffCache({ call }, fallback)
-  await expect(cache.putDiff('race', diff('old'), 'old')).rejects.toThrow('head observed before fetching')
+  await expect(cache.putDiff('race', diff('old'), 'old')).rejects.toThrow('revision observed before fetching')
   expect(call).not.toHaveBeenCalled()
   await cache.updateDiff('race', existing => ({ diff: existing!.diff, headSha: 'new' }))
-  expect(call.mock.calls[1][1].values[2]).toBe('old')
+  expect(call.mock.calls[1][1].values[2]).toBe('old-revision')
+})
+
+describe.each(['local', 'rpc'] as const)('%s full diff revisions', (backend) => {
+  it.each(['base', 'metadata'] as const)('preserves a newer same-head %s snapshot after a deferred refresh', async (change) => {
+    const server = createCacheRepositories(createStorage({ driver: memoryDriver() }))
+    const call = vi.fn(async (_name: string, args: { method: string, key: string, values: unknown[] }) => {
+      const { method, key, values } = args
+      if (method === 'get')
+        return server.diffs.get(key)
+      if (method === 'getMeta')
+        return server.diffs.getMeta(key)
+      if (method === 'touch')
+        return server.diffs.touch(key)
+      if (method === 'putDiff')
+        return server.diffs.putDiff(key, values[0] as DiffsPayload, values[1] as string, { expectedRevision: values[2] as string | null })
+      throw new Error(`Unexpected cache method: ${method}`)
+    })
+    const cache = backend === 'rpc'
+      ? { ...server, diffs: createRpcDiffCache({ call } as Pick<LocalRpc, 'call'>, server.diffs) }
+      : server
+    const original = { ...diff('head'), base: { sha: 'base-1', ref: 'main' } }
+    await server.diffs.putDiff('race', original, 'head')
+    const observed = await cache.diffs.getMeta('race')
+    expect(observed?.revision).toBe((await cache.diffs.get('race'))?.revision)
+    const fetching = deferred<void>()
+    const fetched = deferred<DiffsPayload>()
+    const store = createDiffsStore({
+      key: async () => 'race',
+      fetch: () => {
+        fetching.resolve()
+        return fetched.promise
+      },
+    }, { cache })
+    const running = store.refresh()
+    await fetching.promise
+    const fresh = change === 'base'
+      ? { ...original, base: { sha: 'base-2', ref: 'release' } }
+      : { ...original, title: 'New title', description: 'New description' }
+    const winner = await server.diffs.putDiff('race', fresh, 'head')
+    expect(winner.revision).not.toBe(observed?.revision)
+    await cache.diffs.get('race')
+    await cache.diffs.getMeta('race')
+    fetched.resolve(original)
+    await running
+    expect(store.error).toBeUndefined()
+    expect(store.diff).toEqual(fresh)
+    expect(await server.diffs.get('race')).toEqual(winner)
+    if (backend === 'rpc')
+      expect(call.mock.calls.find(([, args]) => args.method === 'putDiff')?.[1].values[2]).toBe(observed?.revision)
+  })
 })

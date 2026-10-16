@@ -5,6 +5,7 @@ import type { DiffsPayload } from '../types/diff'
 import type { ReviewMarks } from './review-marks'
 import type { LlmSession, PersistedGroupSource, PrCacheBody, PrCacheEntry, PrCacheMeta } from './schema'
 import * as v from 'valibot'
+import { computeContentHash } from '../patch-parser'
 import { createFileContentCache } from './file-content-cache'
 import { PrCacheBodySchema, PrCacheMetaSchema } from './schema'
 import { storageTransaction } from './transaction'
@@ -26,10 +27,12 @@ export interface CacheBudget {
 }
 
 export interface PutDiffOptions {
+  /** Complete snapshot revision observed before fetching (`null` for a cache miss). Required for RPC writes. */
+  expectedRevision?: string | null
   /**
    * Head observed before this operation fetched its diff (`null` for a cache miss).
    * A conflicting write returns the stored winner instead; a removed winner rejects.
-   * RPC-backed writes require this observation, while local writes may omit the guard.
+   * Legacy local callers may still use this narrower head-only guard.
    */
   expectedHeadSha?: string | null
   /**
@@ -104,8 +107,8 @@ function split(entry: PrCacheEntry): { meta: PrCacheMeta, body: PrCacheBody } {
 }
 
 function join(meta: PrCacheMeta, body: PrCacheBody): PrCacheEntry {
-  const { key, headSha, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed } = meta
-  return { key, headSha, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed, ...body }
+  const { key, headSha, revision, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed } = meta
+  return { key, headSha, revision, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed, ...body }
 }
 
 /**
@@ -125,6 +128,13 @@ function join(meta: PrCacheMeta, body: PrCacheBody): PrCacheEntry {
  * transaction and keep a conflicting stored winner unchanged. A missing winner
  * MUST NOT resurrect a removed diff (R11 review finding 15, 16 Oct 2026).
  */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] diff-cache-guards-complete-snapshots
+ * get and getMeta MUST preserve an opaque full-diff revision. Writes with an
+ * expectedRevision MUST keep the stored winner when any diff field changed after
+ * observation, including base-only or metadata-only changes at the same head
+ * (R13 review finding 8, 16 Oct 2026).
+ */
 export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budget: CacheBudget = {}): DiffCache {
   const maxBytes = budget.maxBytes ?? DEFAULT_MAX_BUDGET_BYTES
   const maxEntries = budget.maxEntries ?? DEFAULT_MAX_ENTRY_COUNT
@@ -135,9 +145,23 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     return storageTransaction(storage, `diff:${key}`, task)
   }
 
+  async function revisionOf(entry: Pick<PrCacheEntry, 'diff' | 'headSha'>): Promise<string> {
+    return computeContentHash(JSON.stringify({ diff: entry.diff, headSha: entry.headSha }))
+  }
+
   async function getMeta(key: string): Promise<PrCacheMeta | undefined> {
     const result = v.safeParse(PrCacheMetaSchema, await storage.getItem(`${META_PREFIX}${key}`))
-    return result.success ? result.output : undefined
+    if (!result.success)
+      return undefined
+    const meta = result.output
+    // Legacy entries have no token. Derive one from their complete body rather than
+    // treating a cached head as a complete snapshot or an existing entry as a miss.
+    if (meta.revision === undefined) {
+      const body = await getBody(key)
+      if (body)
+        meta.revision = await revisionOf({ diff: body.diff, headSha: meta.headSha })
+    }
+    return meta
   }
 
   async function getBody(key: string): Promise<PrCacheBody | undefined> {
@@ -151,12 +175,14 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     return meta && body ? join(meta, body) : undefined
   }
 
-  async function write(entry: PrCacheEntry): Promise<void> {
-    const { meta, body } = split(entry)
+  async function write(entry: PrCacheEntry): Promise<PrCacheEntry> {
+    const saved = { ...entry, revision: await revisionOf(entry) }
+    const { meta, body } = split(saved)
     await Promise.all([
       storage.setItem(`${META_PREFIX}${entry.key}`, meta),
       storage.setItem(`${BODY_PREFIX}${entry.key}`, body),
     ])
+    return saved
   }
 
   function updateMeta(key: string, patch: (meta: PrCacheMeta) => PrCacheMeta): Promise<void> {
@@ -255,8 +281,7 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
       sizeBytes: computeEntrySizeBytes(diff, analyzedBy, llmSession),
       changedSinceReviewed: existing ? await changedSinceReviewed(existing, diff) : [],
     }
-    await write(next)
-    return next
+    return write(next)
   }
 
   return {
@@ -266,10 +291,11 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
       await exclusive(entry.key, () => write(entry))
       await enforceBudget()
     },
-    async putDiff(key, diff, headSha, { viewed = true, expectedHeadSha } = {}) {
+    async putDiff(key, diff, headSha, { viewed = true, expectedHeadSha, expectedRevision } = {}) {
       const { entry, written } = await exclusive(key, async () => {
         const existing = await get(key)
-        if (expectedHeadSha !== undefined && expectedHeadSha !== (existing?.headSha ?? null)) {
+        if ((expectedRevision !== undefined && expectedRevision !== (existing?.revision ?? null))
+          || (expectedHeadSha !== undefined && expectedHeadSha !== (existing?.headSha ?? null))) {
           if (existing)
             return { entry: existing, written: false }
           throw new Error('The cached diff changed. Reload before saving.')

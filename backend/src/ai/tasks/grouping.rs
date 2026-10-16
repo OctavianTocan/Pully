@@ -1,5 +1,5 @@
 //! Grouping generation, reconciliation and the chat-bound persistence capability.
-use super::{add_usage, array, iso, locale, obj, string, strings, update_diff};
+use super::{add_usage, array, iso, locale, obj, string, strings, update_diff, update_diff_async};
 use crate::ai::{
     check, prepare_structured_answer, provider, record, Run, StructuredAnswerPreparation,
 };
@@ -32,7 +32,6 @@ pub(super) async fn analyze(
     heading: &str,
 ) -> Result<(String, Value)> {
     let r = &run.request;
-    let key = text(r, "key");
     let diff = &entry["diff"];
     job["schema"] = grouping_schema();
     job["prompt"] = json!(format!("{heading}\nRead the diff. Group files by intent, with at most one child level. Every changed path must appear exactly once. Labels must be at most four words and distinct at a glance: no two groups, and no two children, start with the same words. A child label must never repeat its parent label, since the phone shows Parent › Child and cuts long labels. Explain the change overall and summarize each file."));
@@ -67,19 +66,21 @@ pub(super) async fn analyze(
         );
     }
     let result = grouped_result(diff, &serde_json::from_str(&answer)?, r, &usage, false)?;
-    update_diff(state, key, &entry["headSha"], run, |e| {
+    let saved_result = result.clone();
+    let head = entry["headSha"].clone();
+    update_diff_async(state, run, &entry["headSha"], move |e| {
         let mut previous = e
             .get("llmSession")
             .cloned()
             .unwrap_or(json!({"messages":[],"chatStartIndex":0}));
         archive(&mut previous);
         let transcript = vec![
-            json!({"role":"assistant","content":[{"type":"text","text":serde_json::to_string(&result)?}],"timestamp":now_ms()}),
+            json!({"role":"assistant","content":[{"type":"text","text":serde_json::to_string(&saved_result)?}],"timestamp":now_ms()}),
         ];
         e["llmSession"] = json!({"messages":transcript,"chatStartIndex":1,"archive":previous["archive"].as_array().cloned().unwrap_or_default()});
-        crate::review::set_llm_analysis(e, result.clone(), entry["headSha"].clone());
+        crate::review::set_llm_analysis(e, saved_result, head);
         Ok(())
-    })?;
+    }).await?;
     Ok((serde_json::to_string(&result)?, usage))
 }
 

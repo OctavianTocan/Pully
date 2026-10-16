@@ -1,5 +1,7 @@
 //! Sandboxed CLI transport. Permission flags are defense in depth, never the sandbox.
 //! Only the job folder is writable. Login state is copied in a separate, non-agent container.
+#[cfg(test)]
+mod lifecycle_tests;
 mod schema;
 mod stream;
 

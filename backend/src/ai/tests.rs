@@ -161,7 +161,13 @@ async fn shutdown_cancels_pending_http_llm_run_before_server_drain() {
     tokio::time::timeout(Duration::from_secs(2), shutdown(&state))
         .await
         .unwrap();
-    assert!(state.jobs.handles.lock().unwrap().is_empty());
+    assert!(state
+        .jobs
+        .handles
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|h| h.is_finished()));
     // Keep all slots held until after drain: cancellation must release the HTTP waiter.
     drop(held_slots);
     std::fs::remove_dir_all(root).unwrap();
@@ -472,7 +478,7 @@ async fn analysis_completion_already_lists_all_eligible_followups() {
     let wait = handle(&state, "ai-task-wait", json!({"id":"test","after":0}));
     tokio::pin!(wait);
     assert!(futures_util::poll!(wait.as_mut()).is_pending());
-    finish_success(&state, &analysis, "analysis".into(), json!({}));
+    finish_success(&state, &analysis, "analysis".into(), json!({})).await;
     assert_eq!(wait.await.unwrap().unwrap()["status"], "done");
     let listed = handle(&state, "ai-task-list", json!({"key":"posted:fixture"}))
         .await
@@ -503,10 +509,9 @@ async fn current_posted_tour_is_kept_without_starting_followup_work() {
     for locale in [Value::Null, json!("en")] {
         let mut analysis = run();
         Arc::get_mut(&mut analysis).unwrap().request = json!({"kind":"analyze","key":"posted:fixture","locale":locale,"model":{"engine":"pi"},"then":["tour"]});
-        finish_success(&state, &analysis, "analysis".into(), json!({}));
+        finish_success(&state, &analysis, "analysis".into(), json!({})).await;
         assert_eq!(snapshot(&analysis, 0.0)["status"], "done");
         assert!(state.jobs.runs.lock().unwrap().is_empty());
-        assert!(state.jobs.handles.lock().unwrap().is_empty());
         assert_eq!(state.jobs.provider_slots.available_permits(), 3);
         assert_eq!(
             state
@@ -530,8 +535,155 @@ async fn stopped_analysis_cannot_register_followups_or_publish_done() {
     Arc::get_mut(&mut analysis).unwrap().request =
         json!({"kind":"analyze","key":"test","model":{"engine":"pi"},"then":["tour","brief"]});
     cancel(&analysis);
-    finish_success(&state, &analysis, "analysis".into(), json!({}));
+    finish_success(&state, &analysis, "analysis".into(), json!({})).await;
     assert_eq!(snapshot(&analysis, 0.0)["status"], "cancelled");
     assert!(state.jobs.runs.lock().unwrap().is_empty());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ai_storage_rpc_transactions_yield_under_contention() {
+    use crate::store::test_support::HeldLock;
+    let root = std::env::temp_dir().join(format!("pulls-ai-storage-rpc-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    state.host.storage.set("diff:test", &json!({"headSha":"head","diff":{"title":"Fixture"},"llmSession":{"messages":[{"role":"user","content":"Why?"}],"chatStartIndex":0}})).unwrap();
+    for (name, args) in [
+        ("ask-threads", json!({"key":"test"})),
+        (
+            "ask-thread-close",
+            json!({"key":"test","threadId":"thread"}),
+        ),
+        ("inbox-chat", json!({})),
+        ("inbox-chat-clear", json!({})),
+    ] {
+        HeldLock::storage(&state.host.storage)
+            .assert_yields(handle(&state, name, args))
+            .await
+            .unwrap()
+            .unwrap();
+    }
+    let changed = HeldLock::storage(&state.host.storage)
+        .assert_yields(change_chat(&state, "test", None))
+        .await
+        .unwrap();
+    assert_eq!(changed["cleared"], 1);
+    shutdown(&state).await;
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ai_storage_admission_keeps_dedup_poll_cancel_and_shutdown_responsive() {
+    use crate::store::test_support::HeldLock;
+    let root = std::env::temp_dir().join(format!(
+        "pulls-ai-storage-admission-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let held = HeldLock::storage(&state.host.storage);
+    let request = json!({"kind":"inbox","key":"inbox","question":"Why?","model":{"engine":"pi"}});
+    let mut admission = Box::pin(start_async(&state, request.clone(), true));
+    assert!(futures_util::poll!(&mut admission).is_pending());
+    let id = tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            let id = state
+                .jobs
+                .runs
+                .try_lock()
+                .ok()
+                .and_then(|runs| runs.keys().next().cloned());
+            if let Some(id) = id {
+                break id;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("admission did not reserve a run without its storage lock");
+    let joined = tokio::time::timeout(Duration::from_secs(1), start_async(&state, request, true))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(joined, id);
+    let pending = tokio::time::timeout(
+        Duration::from_secs(1),
+        handle(&state, "ai-task-wait", json!({"id":id,"after":-1})),
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .unwrap();
+    assert_eq!(pending["status"], "running");
+    let stopped = tokio::time::timeout(
+        Duration::from_secs(1),
+        handle(&state, "ai-task-cancel", json!({"id":id})),
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .unwrap();
+    assert_eq!(stopped, true);
+    begin_shutdown(&state);
+    assert!(start_async(&state, json!({}), true).await.is_err());
+    let error = held.assert_yields(admission).await.unwrap_err();
+    assert_eq!(error.to_string(), "Stopped.");
+    assert_eq!(
+        snapshot(&lookup(&state, &id).unwrap(), -1.0)["status"],
+        "cancelled"
+    );
+    assert!(
+        tasks::inbox(state.host.storage.get("inbox-chat").unwrap())["turns"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(state.jobs.provider_slots.available_permits(), 3);
+    shutdown(&state).await;
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn ai_storage_followup_reads_yield_before_completion() {
+    use crate::store::test_support::HeldLock;
+    let root = std::env::temp_dir().join(format!(
+        "pulls-ai-storage-followup-{}",
+        uuid::Uuid::new_v4()
+    ));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    state
+        .host
+        .storage
+        .set("diff:test", &json!({"diff":{"head":{"sha":"head"}}}))
+        .unwrap();
+    state
+        .host
+        .storage
+        .set(
+            "tour:test",
+            &json!({"entries":[{"headSha":"head","locale":"en"}]}),
+        )
+        .unwrap();
+    let mut analysis = run();
+    Arc::get_mut(&mut analysis).unwrap().request =
+        json!({"kind":"analyze","key":"test","then":["tour"],"model":{"engine":"pi"}});
+    state
+        .jobs
+        .runs
+        .lock()
+        .unwrap()
+        .insert("test".into(), analysis.clone());
+    let held = HeldLock::storage(&state.host.storage);
+    let mut completion = Box::pin(finish_success(
+        &state,
+        &analysis,
+        "Analysis".into(),
+        json!({}),
+    ));
+    assert!(futures_util::poll!(&mut completion).is_pending());
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    assert_eq!(snapshot(&analysis, -1.0)["status"], "running");
+    held.assert_yields(completion).await;
+    assert_eq!(snapshot(&analysis, -1.0)["status"], "done");
+    assert_eq!(state.jobs.runs.lock().unwrap().len(), 1);
+    shutdown(&state).await;
     std::fs::remove_dir_all(root).unwrap();
 }

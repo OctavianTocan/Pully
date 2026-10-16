@@ -436,65 +436,13 @@ async fn fetch_my_pulls(state: &AppState, args: &Value) -> Result<Value> {
     let orgs = github::pages(state, "/user/orgs", None)
         .await
         .unwrap_or_default();
-    let mut owners = vec![login.to_string()];
-    owners.extend(
-        orgs.iter()
-            .filter_map(|o| o["login"].as_str().map(str::to_string)),
-    );
-    let roles = vec![
-        ("review-requested", format!("review-requested:{login}")),
-        ("authored", format!("author:{login}")),
-        ("involved", format!("involves:{login}")),
-        (
-            "owned",
-            owners
-                .iter()
-                .map(|o| format!("user:{o}"))
-                .collect::<Vec<_>>()
-                .join(" "),
-        ),
-    ];
-    let mut seen = HashSet::new();
-    let mut pulls = vec![];
-    for (role, query) in roles {
-        for page in 1..=10 {
-            let v = get(
-                state,
-                &format!(
-                    "/search/issues?q={}&per_page=100&page={page}",
-                    enc(&format!("is:pr is:{st} sort:updated-desc {query}"))
-                ),
-            )
-            .await?;
-            ensure!(
-                v["incomplete_results"] != true && v["total_count"].as_u64().unwrap_or(0) <= 1000,
-                "GitHub inbox search is incomplete; narrow the source before loading"
-            );
-            let items = v["items"]
-                .as_array()
-                .context("Invalid inbox search response")?;
-            for p in items {
-                let repo_url = s(p, "repository_url");
-                let names = repo_url.trim_start_matches("https://api.github.com/repos/");
-                let Some((owner, repo)) = names.split_once('/') else {
-                    continue;
-                };
-                let id = format!("{names}#{}", p["number"]);
-                if !seen.insert(id) {
-                    continue;
-                }
-                let mut item = json!({"owner":owner,"repo":repo,"number":p["number"],"title":p["title"],"author":p["user"]["login"].as_str().unwrap_or("ghost"),"isDraft":p["draft"].as_bool().unwrap_or(false),"updatedAt":p["updated_at"],"commentsCount":p["comments"],"labels":p["labels"].as_array().unwrap_or(&vec![]).iter().map(|l|l["name"].clone()).collect::<Vec<_>>(),"state":st,"role":role,"url":p["html_url"],"requestedFromMe":role=="review-requested"});
-                if st == "closed" {
-                    item["closedAt"] = p["closed_at"].clone();
-                    item["merged"] = json!(p["pull_request"]["merged_at"].is_string());
-                }
-                pulls.push(item)
-            }
-            if items.len() < 100 {
-                break;
-            }
-        }
-    }
+    let mut pulls = inbox_window(
+        st,
+        login,
+        &orgs,
+        |path| async move { get(state, &path).await },
+    )
+    .await?;
     let _ = enrich(state, &mut pulls).await;
     if st == "open" {
         let _ = native_stacks(state, &mut pulls).await;
@@ -521,6 +469,75 @@ async fn fetch_my_pulls(state: &AppState, args: &Value) -> Result<Value> {
     let v = json!({"pulls":pulls,"fetchedAt":now(),"refreshing":false});
     state.host.storage.set_async(&cachekey, &v).await?;
     Ok(v)
+}
+
+/// @cc [owner:OctavianTocan,label:product;architecture] rust-inbox-preserves-role-windows
+/// Inbox searches MUST return at most the latest 100 matches per role and MUST NOT
+/// reject that window because the provider reports more than 1000 total matches.
+/// Genuinely incomplete responses MUST fail (16 Oct 2026 parity request; R13 finding 9;
+/// former my-pulls SEARCH_LIMIT).
+async fn inbox_window<F, Fut>(
+    st: &str,
+    login: &str,
+    orgs: &[Value],
+    mut request: F,
+) -> Result<Vec<Value>>
+where
+    F: FnMut(String) -> Fut,
+    Fut: std::future::Future<Output = Result<Value>>,
+{
+    let mut owners = vec![login.to_string()];
+    owners.extend(
+        orgs.iter()
+            .filter_map(|o| o["login"].as_str().map(str::to_string)),
+    );
+    let roles = vec![
+        ("review-requested", format!("review-requested:{login}")),
+        ("authored", format!("author:{login}")),
+        ("involved", format!("involves:{login}")),
+        (
+            "owned",
+            owners
+                .iter()
+                .map(|o| format!("user:{o}"))
+                .collect::<Vec<_>>()
+                .join(" "),
+        ),
+    ];
+    let mut seen = HashSet::new();
+    let mut pulls = vec![];
+    for (role, query) in roles {
+        let v = request(format!(
+            "/search/issues?q={}&per_page=100&page=1",
+            enc(&format!("is:pr is:{st} sort:updated-desc {query}"))
+        ))
+        .await?;
+        ensure!(
+            v["incomplete_results"] != true,
+            "GitHub inbox search is incomplete; retry later"
+        );
+        let items = v["items"]
+            .as_array()
+            .context("Invalid inbox search response")?;
+        for p in items.iter().take(100) {
+            let repo_url = s(p, "repository_url");
+            let names = repo_url.trim_start_matches("https://api.github.com/repos/");
+            let Some((owner, repo)) = names.split_once('/') else {
+                continue;
+            };
+            let id = format!("{names}#{}", p["number"]);
+            if !seen.insert(id) {
+                continue;
+            }
+            let mut item = json!({"owner":owner,"repo":repo,"number":p["number"],"title":p["title"],"author":p["user"]["login"].as_str().unwrap_or("ghost"),"isDraft":p["draft"].as_bool().unwrap_or(false),"updatedAt":p["updated_at"],"commentsCount":p["comments"],"labels":p["labels"].as_array().unwrap_or(&vec![]).iter().map(|l|l["name"].clone()).collect::<Vec<_>>(),"state":st,"role":role,"url":p["html_url"],"requestedFromMe":role=="review-requested"});
+            if st == "closed" {
+                item["closedAt"] = p["closed_at"].clone();
+                item["merged"] = json!(p["pull_request"]["merged_at"].is_string());
+            }
+            pulls.push(item)
+        }
+    }
+    Ok(pulls)
 }
 
 async fn enrich(state: &AppState, pulls: &mut [Value]) -> Result<()> {

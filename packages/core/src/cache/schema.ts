@@ -60,6 +60,8 @@ export const PrCacheMetaSchema = v.object({
   key: v.string(),
   ref: SourceRefSchema,
   headSha: v.string(),
+  /** Opaque identity of the complete diff snapshot, captured separately by each fetch. */
+  revision: v.optional(v.string()),
   title: v.string(),
   label: v.optional(v.string()),
   url: v.optional(v.string()),
@@ -90,7 +92,7 @@ export const PrCacheBodySchema = v.object({
 export type PrCacheBody = v.InferOutput<typeof PrCacheBodySchema>
 
 /** One cached diff as callers see it; stored as a `PrCacheMeta` plus a `PrCacheBody`. */
-export type PrCacheEntry = Pick<PrCacheMeta, 'key' | 'headSha' | 'lastViewedAt' | 'sizeBytes' | 'sharedComment' | 'changedSinceReviewed'> & PrCacheBody
+export type PrCacheEntry = Pick<PrCacheMeta, 'key' | 'headSha' | 'revision' | 'lastViewedAt' | 'sizeBytes' | 'sharedComment' | 'changedSinceReviewed'> & PrCacheBody
 
 /**
  * Per-file "reviewed" mark, keyed by the file's `sha` (see FileChangeSchema) rather

@@ -602,6 +602,13 @@ fn review_data() -> Schema {
 fn cache_values(args: &mut Value) -> std::result::Result<(), ()> {
     let method = args["method"].as_str().ok_or(())?.to_owned();
     let values = args["values"].as_array_mut().ok_or(())?;
+    if method == "putDiff"
+        && values
+            .first()
+            .is_some_and(|diff| diff["ref"]["kind"] == "posted")
+    {
+        return Err(());
+    }
     // JSON encodes undefined array entries as null. These three optional tuple
     // positions are the existing HTTP representation of clearing/omitting them.
     let schemas = match method.as_str() {
