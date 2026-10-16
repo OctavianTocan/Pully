@@ -94,6 +94,8 @@ class MentionsTest {
     fun aGithubLinkIntoAnotherRepositoryStaysAWebLink() {
         assertEquals(CodePlace("src/parser.ts", 3), linkPlaceOf("https://github.com/O/R/blob/abc/src/parser.ts#L3", resolve, "o/r"))
         assertNull(linkPlaceOf("https://github.com/bob/lib/blob/abc/src/parser.ts#L3", resolve, "o/r"))
+        // A file of the same repository that the change does not touch opens in the app too (N20, rule 158).
+        assertEquals(CodePlace("src/config.ts", 12), linkPlaceOf("https://github.com/o/r/blob/abc/src/config.ts#L12", resolve, "o/r"))
         assertEquals(listOf<CodePlace>(), mentionedPlaces("[parser](https://github.com/bob/lib/blob/abc/src/parser.ts#L3)", resolve, "o/r"))
     }
 

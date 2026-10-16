@@ -34,7 +34,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -61,7 +60,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -99,6 +97,8 @@ import com.octaviantocan.pulls.ui.ai.askSelectionOf
 import com.octaviantocan.pulls.ui.ai.githubBlobUrl
 import com.octaviantocan.pulls.ui.ai.lineRangeLabel
 import com.octaviantocan.pulls.ui.ai.linesPhrase
+import com.octaviantocan.pulls.ui.design.FieldStyle
+import com.octaviantocan.pulls.ui.design.FieldText
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -790,25 +790,18 @@ private fun DiffBar(
                 ) {
                     FloatIcon(Lu.close, "Deselect the lines", { ui.drafts.remove(file.path); ui.selectionStart.remove(file.path) }, flat = true, size = 40.dp, iconSize = 20.dp, tint = c.muted)
                     if (canComment) {
-                        BasicTextField(
+                        FieldText(
                             value = text,
-                            onValueChange = { text = it },
-                            singleLine = true,
+                            onChange = { text = it },
+                            placeholder = "",
                             enabled = !busy,
-                            textStyle = PullsType.base.copy(color = c.text),
-                            cursorBrush = SolidColor(c.accentTeal),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = { send() }),
                             modifier = Modifier.weight(1f),
-                            decorationBox = { inner ->
-                                Box(contentAlignment = Alignment.CenterStart) {
-                                    if (text.isEmpty() && lines != null && linesLabel != null) FitText(listOf("Comment on $lines", linesLabel), PullsType.base, c.muted)
-                                    inner()
-                                }
-                            },
+                            placeholderContent = { if (lines != null && linesLabel != null) FitText(listOf("Comment on $lines", linesLabel), FieldStyle, c.muted) },
                         )
                     } else {
-                        Box(Modifier.weight(1f)) { if (linesLabel != null) FitText(listOf(linesLabel), PullsType.base, c.muted) }
+                        Box(Modifier.weight(1f)) { if (linesLabel != null) FitText(listOf(linesLabel), FieldStyle, c.muted) }
                     }
                     if (canComment) SendButton({ send() }, "Send comment", enabled = text.isNotBlank() && !busy, busy = busy)
                 }

@@ -1595,7 +1595,7 @@ Source: walkthrough. Checked by: review.
 
 #### 148. A pull request row is a state tile, a title and one meta line.
 
-On the left is a square tinted with the state's colour, carrying the state's mark: open, draft, merged or closed. A draft differs from an open pull request by that tile, never by "[draft]" in its title. Beside it is the title, at most two lines, and under the title one line: the number, the stack place or Jev's risk word, the author, then checks, diffstat and age in their columns. A tour row carries its ring in the same tile. This is Claude's own list of pull requests (N2, N4). This replaces "under its number" in rule 111: the stack place now follows the number on the meta line.
+On the left is a square tinted with the state's colour, carrying the state's mark: open, draft, merged or closed. A draft differs from an open pull request by that tile, never by "[draft]" in its title. Beside it is the title, wrapped whole as rule 2 says, and under the title one line: the number, the stack place or Jev's risk word, the author, then checks, diffstat and age in their columns. A tour row carries its ring in the same tile. This is Claude's own list of pull requests (N2, N4). This replaces "under its number" in rule 111: the stack place now follows the number on the meta line.
 
 Check: a draft and an open row differ by the tile alone, and no row has a second line under its title except labels on a repository page.
 

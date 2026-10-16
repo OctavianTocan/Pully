@@ -50,7 +50,7 @@ import com.octaviantocan.pulls.ui.design.t
 /*
  * The one pull request row of the Inbox, Tours and a repository's page, after Claude's own list of pull requests
  * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a small tinted square with the pull request's state on the left, the
- * title at most two lines beside it, and one line under the title that starts with the number and then carries the
+ * whole title beside it, and one line under the title that starts with the number and then carries the
  * author, the checks, the coloured diffstat and the age, each in a column of its own that does not move when a digit
  * or a name's length changes (rules 13, 15 and 36; N35).
  */
@@ -119,9 +119,9 @@ internal fun RowTile(fill: Color, modifier: Modifier = Modifier, content: @Compo
 }
 
 /**
- * The frame every pull request row shares: [tile], then [title] at most two lines (a one-line title cut short reads
- * badly, N4), [under] for what a page adds (a repository's labels), and the one [meta] line. A hairline over the row
- * starts and ends on the page's 16dp margins, so the first row's is the heading's underline (rule 75).
+ * The frame every pull request row shares: [tile], then the whole [title], wrapped and never cut (rule 2), [under] for
+ * what a page adds (a repository's labels), and the one [meta] line. A hairline over the row starts and ends on the
+ * page's 16dp margins, so the first row's is the heading's underline (rule 75).
  */
 @Composable
 internal fun PullRowFrame(
@@ -144,7 +144,7 @@ internal fun PullRowFrame(
     ) {
         tile()
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = PullsType.base, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, style = PullsType.base, color = c.text)
             under?.invoke()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = meta)
         }

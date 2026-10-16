@@ -150,12 +150,13 @@ fun githubPlaceOf(destination: String, repo: String? = null): CodePlace? {
 private val GITHUB_BLOB = Regex("""^https://github\.com/([^/\s]+)/([^/\s]+)/blob/[^/\s]+/([^#?\s]+?)(?:#L(\d+)(?:-L?\d+)?)?$""")
 
 /**
- * Where a link in AI text goes in the code: any path in the repository, or a GitHub link to a file this change touches
- * in this [repo] (a GitHub link to any other file stays a web link). Null for a web link.
+ * Where a link in AI text goes in the code: any path in the repository, or a GitHub link to a file of this [repo],
+ * changed or not, which opens in the app at the head commit ("code links never leave the app", rule 158; N20). With no
+ * [repo] to compare against, only a GitHub link to a file this change touches is a place; any other stays a web link.
  */
 fun linkPlaceOf(destination: String, resolve: (String) -> String?, repo: String? = null): CodePlace? =
     codePlaceOf(destination)?.let { it.copy(path = resolve(it.path) ?: it.path) }
-        ?: githubPlaceOf(destination, repo)?.let { place -> resolve(place.path)?.let { place.copy(path = it) } }
+        ?: githubPlaceOf(destination, repo)?.let { place -> resolve(place.path)?.let { place.copy(path = it) } ?: place.takeIf { repo != null } }
 
 /**
  * The place backticked code names, so `key.ts`, `src/cache/key.ts:42` and `src/a.ts#L12` are mentions too: a file this

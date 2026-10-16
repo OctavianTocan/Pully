@@ -27,7 +27,7 @@ pill takes the row (rule 114; H19).
 A pull request row is the same in the Inbox, Tours, a repository and search, after
 Claude's own list: a tinted square tile with the state's mark on the left (open, draft,
 merged and closed each in its own colour; a tour's ring in the tile on Tours), the title
-beside it at most two lines, and one meta line under the title that starts with the
+beside it, wrapped whole (`android-whole-identifiers`), and one meta line under the title that starts with the
 number and carries the author, checks, coloured diffstat and age, in fixed columns that
 do not move when a digit or a name's length changes (rules 13, 15 and 36). A draft is told
 apart by its tile's colour and no title says "[draft]". A context-free count ("7

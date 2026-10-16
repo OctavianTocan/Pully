@@ -42,10 +42,12 @@ import com.octaviantocan.pulls.ui.design.bleed
 @Composable
 internal fun FileViewSheet(session: ReviewSession, ui: DiffUi, place: Focus, onClose: () -> Unit) {
     val c = LocalPullsColors.current
-    var attempt by remember(place.path) { mutableIntStateOf(0) }
-    var text by remember(place.path) { mutableStateOf<String?>(null) }
-    var error by remember(place.path) { mutableStateOf<String?>(null) }
-    LaunchedEffect(place.path, attempt) {
+    // Read at the head the review shows: when a new commit arrives the file is read again at it, never left at the old one.
+    val version = "${session.key}@${session.opened?.headSha}"
+    var attempt by remember(place.path, version) { mutableIntStateOf(0) }
+    var text by remember(place.path, version) { mutableStateOf<String?>(null) }
+    var error by remember(place.path, version) { mutableStateOf<String?>(null) }
+    LaunchedEffect(place.path, version, attempt) {
         val key = session.key ?: return@LaunchedEffect
         error = null
         runCatching { session.repo.fullFile(key, place.path) }

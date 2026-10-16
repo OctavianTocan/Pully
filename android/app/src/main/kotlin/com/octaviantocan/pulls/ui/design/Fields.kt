@@ -130,7 +130,9 @@ private class FieldScroll {
  * The one text field: [FieldStyle] words in the text ink, the placeholder in the same style in the muted ink, the teal
  * cursor. Words that run past the field's edge fade into [fade], its background, on the side where they are hidden, as a
  * list fades under a pinned edge (N9): sideways in a one-line field, up and down in one whose [maxLines] it scrolls
- * within. [modifier] is the field's own, so a `focusRequester` or `onFocusChanged` on it reaches the field.
+ * within. [placeholderContent] draws the empty field's words in place of [placeholder] where they need more than one
+ * string, such as the diff's comment bar choosing the wording that fits. [modifier] is the field's own, so a
+ * `focusRequester` or `onFocusChanged` on it reaches the field.
  */
 @Composable
 fun FieldText(
@@ -147,6 +149,7 @@ fun FieldText(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     fade: Color = LocalPullsColors.current.raised,
+    placeholderContent: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
     // The field keeps its own cursor and composition; the text is the caller's, so a text set from outside (a clear,
@@ -200,7 +203,10 @@ fun FieldText(
                 ),
                 contentAlignment = if (sideways) Alignment.CenterStart else Alignment.TopStart,
             ) {
-                if (value.isEmpty()) Text(placeholder, style = style, color = c.muted, maxLines = if (sideways) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                if (value.isEmpty()) {
+                    if (placeholderContent != null) placeholderContent()
+                    else Text(placeholder, style = style, color = c.muted, maxLines = if (sideways) 1 else Int.MAX_VALUE, overflow = TextOverflow.Ellipsis)
+                }
                 inner()
             }
         },
