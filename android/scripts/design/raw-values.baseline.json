@@ -9,7 +9,6 @@
   "radius": {
     "ui/ai/AiParts.kt": 4,
     "ui/ai/Analyze.kt": 1,
-    "ui/ai/Critique.kt": 1,
     "ui/design/Components.kt": 9,
     "ui/design/Kit.kt": 5,
     "ui/home/ProfileStats.kt": 1,

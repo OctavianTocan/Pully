@@ -136,3 +136,12 @@ A pull request keeps its earlier chats. With nothing typed, the field's button o
 on a sheet built from the shared searchable list, newest first, each its first question,
 when and how many questions; a tap brings one back and the open chat takes its place in the
 list (Tavi's idea, recording 15 Oct 15:37, 17:19 to 17:48; L36).
+
+@cc [owner:OctavianTocan,label:design;product] ai-review-sheet-is-plain
+The AI review's findings sheet starts with "AI review (11)" in the sheets' one heading,
+the count in parentheses, and folds nothing (rule 141). Bug, Risk and Nit are one
+segmented pill, the kit's capsule, with All first; there is no Select all. The summary sits
+in one white card and the findings are rows of one white card, never a box inside a box,
+each with the Files sheet's check on its first line, and "Post N selected as a review"
+posts the ticked ones ("no boxes inside boxes", recording of 16 Oct 12:10, 18:24 to 19:43,
+N36, Tavi's decision).
