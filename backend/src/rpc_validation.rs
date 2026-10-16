@@ -1,6 +1,7 @@
 //! The declared browser/native RPC schemas, translated from the shared client
 //! contract. Parse before dispatch: defaults, trims and unknown-field stripping
 //! are part of the contract, not just type checks.
+use crate::js_whitespace as js_space;
 use anyhow::{bail, Result};
 use serde_json::{json, Map, Value};
 
@@ -51,9 +52,6 @@ fn lens() -> Schema {
 }
 fn valid_object_key(key: &str) -> bool {
     !matches!(key, "__proto__" | "prototype" | "constructor")
-}
-fn js_space(c: char) -> bool {
-    matches!(c, '\u{0009}'..='\u{000d}' | '\u{0020}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}')
 }
 impl Schema {
     fn parse(&self, input: &Value) -> std::result::Result<Value, ()> {

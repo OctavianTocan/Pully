@@ -252,11 +252,11 @@ fn store_preanalysis_diff(
 /// including lock acquisition, off async workers while preserving cache-miss behavior
 /// (Tavi, 16 Oct 2026, fix each CE review finding; round 10 performance finding).
 async fn preanalysis_cached_entry(state: &Arc<AppState>, key: &str) -> Option<Value> {
-    let stored_state = state.clone();
-    let stored_key = format!("diff:{key}");
-    tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key))
+    state
+        .host
+        .storage
+        .get_async(&format!("diff:{key}"))
         .await
-        .ok()?
         .ok()
         .flatten()
 }

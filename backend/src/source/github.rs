@@ -206,13 +206,15 @@ pub async fn pages(state: &AppState, path: &str, field: Option<&str>) -> Result<
     let mut all = vec![];
     for page in 1..=100 {
         let sep = if path.contains('?') { '&' } else { '?' };
-        let v = get(state, &format!("{path}{sep}per_page=100&page={page}")).await?;
-        let xs = field
-            .map_or(&v, |k| &v[k])
-            .as_array()
-            .context("GitHub returned an invalid page")?;
-        all.extend(xs.iter().cloned());
-        if xs.len() < 100 {
+        let mut v = get(state, &format!("{path}{sep}per_page=100&page={page}")).await?;
+        let xs = match field {
+            Some(key) => v.get_mut(key).and_then(Value::as_array_mut),
+            None => v.as_array_mut(),
+        }
+        .context("GitHub returned an invalid page")?;
+        let count = xs.len();
+        all.append(xs);
+        if count < 100 {
             return Ok(all);
         }
     }
@@ -557,11 +559,20 @@ async fn refreshed_snapshot(
     if cached_revisions_changed(diff, &pr) {
         return changed.await.map(Some);
     }
+    let description = json!(pr["body"].as_str().unwrap_or(""));
+    let state = json!(rest_pr_state(pr));
+    if diff.get("title") == Some(&pr["title"])
+        && diff.get("description") == Some(&description)
+        && diff.get("updatedAt") == Some(&pr["updated_at"])
+        && diff.get("pullRequest").and_then(|pull| pull.get("state")) == Some(&state)
+    {
+        return Ok(None);
+    }
     let mut next = diff.clone();
     next["title"] = pr["title"].clone();
-    next["description"] = json!(pr["body"].as_str().unwrap_or(""));
+    next["description"] = description;
     next["updatedAt"] = pr["updated_at"].clone();
-    next["pullRequest"]["state"] = json!(rest_pr_state(pr));
+    next["pullRequest"]["state"] = state;
     Ok((next != *diff).then_some(next))
 }
 
@@ -583,6 +594,43 @@ fn cached_revisions_changed(diff: &Value, pr: &Value) -> bool {
 #[cfg(test)]
 mod warmer_tests {
     use super::*;
+    #[tokio::test]
+    async fn unchanged_metadata_preserves_missing_versus_null_fields() {
+        let pr = json!({"title":null,"body":null,"updated_at":null,"head":{"sha":"h"},"base":{"sha":"b"}});
+        let complete = json!({"title":null,"description":"","updatedAt":null,"head":{"sha":"h"},"pullRequest":{"baseSha":"b","state":"open"},"files":[]});
+        assert!(refreshed_snapshot(&complete, &pr, async {
+            panic!("unchanged revisions must not fetch")
+        })
+        .await
+        .unwrap()
+        .is_none());
+        for field in ["title", "description", "updatedAt"] {
+            let mut missing = complete.clone();
+            missing.as_object_mut().unwrap().remove(field);
+            let next = refreshed_snapshot(&missing, &pr, async {
+                panic!("unchanged revisions must not fetch")
+            })
+            .await
+            .unwrap()
+            .unwrap();
+            assert_eq!(next, complete);
+        }
+        let mut missing = complete.clone();
+        missing["pullRequest"]
+            .as_object_mut()
+            .unwrap()
+            .remove("state");
+        assert_eq!(
+            refreshed_snapshot(&missing, &pr, async {
+                panic!("unchanged revisions must not fetch")
+            })
+            .await
+            .unwrap()
+            .unwrap(),
+            complete
+        );
+    }
+
     #[test]
     fn rest_state_retains_literal_types_and_precedence() {
         let values = [

@@ -76,12 +76,7 @@ impl Palette {
     }
 }
 
-// ECMAScript String.trim, including BOM but excluding Unicode NEXT LINE.
-fn js_whitespace(ch: char) -> bool {
-    matches!(ch, '\u{0009}'..='\u{000d}' | '\u{0020}' | '\u{00a0}' | '\u{1680}'
-        | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}'
-        | '\u{205f}' | '\u{3000}' | '\u{feff}')
-}
+use crate::js_whitespace;
 
 pub(super) fn render(args: &Value) -> Result<Value> {
     let source = args["source"]

@@ -69,7 +69,12 @@ pub(super) fn draw(source: &str, palette: Palette) -> Result<String> {
     let width = 560.0;
     let height = 320.0;
     let canvas_width = left + width + 30.0;
-    let canvas_height = top + height + 100.0 + if chart.series.len() > 1 { 35.0 } else { 0.0 };
+    let legend_columns = 5;
+    let canvas_height = if chart.series.len() > 1 {
+        top + height + 110.0 + chart.series.len().div_ceil(legend_columns) as f64 * 22.0
+    } else {
+        top + height + 100.0
+    };
     let mut svg = format!("<svg xmlns=\"{SVG_NS}\" width=\"{canvas_width}\" height=\"{canvas_height}\" viewBox=\"0 0 {canvas_width} {canvas_height}\"><rect width=\"{canvas_width}\" height=\"{canvas_height}\" fill=\"{}\"/><defs></defs>", palette.bg);
     let point = |category: f64, value: f64| {
         let ratio = ((value - min) / (max - min)).clamp(0.0, 1.0);
@@ -243,7 +248,7 @@ pub(super) fn draw(source: &str, palette: Palette) -> Result<String> {
         // Wrap legends so large-but-bounded series counts remain visible.
         let mut bars = 0;
         let mut lines = 0;
-        let cols = 5;
+        let cols = legend_columns;
         for (index, series) in chart.series.iter().enumerate() {
             let (name, count) = if series.bar {
                 bars += 1;
@@ -266,18 +271,6 @@ pub(super) fn draw(source: &str, palette: Palette) -> Result<String> {
                 12.0,
             )?;
         }
-        let new_height = top + height + 110.0 + chart.series.len().div_ceil(cols) as f64 * 22.0;
-        svg = svg
-            .replacen(
-                &format!("height=\"{canvas_height}\""),
-                &format!("height=\"{new_height}\""),
-                1,
-            )
-            .replacen(
-                &format!("viewBox=\"0 0 {canvas_width} {canvas_height}\""),
-                &format!("viewBox=\"0 0 {canvas_width} {new_height}\""),
-                1,
-            );
     }
     svg.push_str("</svg>");
     native_svg(&svg, palette, DiagramKind::XYChart)
@@ -426,6 +419,39 @@ fn series_color(index: usize, palette: Palette) -> Result<String> {
 mod tests {
     use super::*;
     use roxmltree::Document;
+
+    #[test]
+    fn canvas_height_accounts_for_all_legend_rows() {
+        for title in [false, true] {
+            for count in [1usize, 2, 5, 6] {
+                let mut source = String::from("xychart\n");
+                if title {
+                    source.push_str("title \"Chart\"\n");
+                }
+                for _ in 0..count {
+                    source.push_str("bar [1, 2]\n");
+                }
+                let output = draw(&source, Palette::new(false)).unwrap();
+                let doc = Document::parse(&output).unwrap();
+                let top = if title { 65 } else { 30 };
+                let expected = top
+                    + 320
+                    + if count > 1 {
+                        110 + count.div_ceil(5) * 22
+                    } else {
+                        100
+                    };
+                assert_eq!(
+                    doc.root_element().attribute("height").unwrap(),
+                    expected.to_string()
+                );
+                assert_eq!(
+                    doc.root_element().attribute("viewBox").unwrap(),
+                    format!("0 0 700 {expected}")
+                );
+            }
+        }
+    }
 
     #[test]
     fn mixed_chart_preserves_titles_categories_series_and_transparency() {

@@ -97,6 +97,10 @@ pub(crate) fn decode_component(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
+// ECMAScript String.trim includes BOM and excludes Unicode NEXT LINE.
+pub(crate) fn js_whitespace(c: char) -> bool {
+    matches!(c, '\u{0009}'..='\u{000d}' | '\u{0020}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' | '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}' | '\u{feff}')
+}
 pub fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v.get(key).and_then(Value::as_str).unwrap_or("")
 }
