@@ -15,8 +15,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 53
-        versionName = "0.39.0"
+        versionCode = 54
+        versionName = "0.40.0"
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
@@ -46,22 +46,34 @@ kotlin {
     jvmToolchain(21)
 }
 
-/** Copies `android/CHANGELOG.md` into the app's assets, where the What's new sheet reads it. */
+/**
+ * Copies `android/CHANGELOG.md` into the app's assets, where the What's new sheet reads it, and `android/changelog/`,
+ * the pictures and GIFs its sections show, beside it as `changelog/<version>/<name>`.
+ */
 abstract class ChangelogAsset : DefaultTask() {
     @get:InputFile
     abstract val source: RegularFileProperty
+
+    @get:InputDirectory
+    @get:Optional
+    abstract val pictures: DirectoryProperty
 
     @get:OutputDirectory
     abstract val output: DirectoryProperty
 
     @TaskAction
     fun copy() {
-        source.get().asFile.copyTo(output.get().file("changelog.md").asFile, overwrite = true)
+        val out = output.get().asFile
+        out.deleteRecursively()
+        source.get().asFile.copyTo(File(out, "changelog.md"), overwrite = true)
+        pictures.orNull?.asFile?.takeIf { it.isDirectory }?.copyRecursively(File(out, "changelog"), overwrite = true)
     }
 }
 
 val changelogAsset = tasks.register<ChangelogAsset>("changelogAsset") {
     source.set(rootProject.layout.projectDirectory.file("CHANGELOG.md"))
+    val pictures = rootProject.layout.projectDirectory.dir("changelog")
+    if (pictures.asFile.isDirectory) this.pictures.set(pictures)
 }
 
 /**
@@ -139,6 +151,7 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("io.coil-kt.coil3:coil-svg:3.3.0")
+    implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("com.caverock:androidsvg-aar:1.4")
     implementation("org.commonmark:commonmark:0.24.0")
     implementation("org.commonmark:commonmark-ext-gfm-tables:0.24.0")

@@ -1,6 +1,25 @@
 package com.octaviantocan.pulls.ui.update
 
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
+import coil3.ImageLoader
+import coil3.compose.AsyncImage
+import coil3.gif.AnimatedImageDecoder
+import coil3.gif.GifDecoder
+import coil3.network.NetworkHeaders
+import coil3.network.httpHeaders
+import coil3.request.ImageRequest
+import com.octaviantocan.pulls.core.ChangelogPicture
+import com.octaviantocan.pulls.core.UpdateManifest
+import com.octaviantocan.pulls.core.compareVersions
+import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.update.AppVersion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,7 +105,7 @@ internal fun UpdateGate(onLeave: () -> Unit) {
             ) {
                 Text("Pulls ${offer.versionName} is ready", style = PullsType.xxl, color = c.text)
                 Text("Update to keep using Pulls. This is what it brings.", Modifier.padding(top = 8.dp), style = PullsType.read, color = c.muted)
-                ChangelogEntries(entries, Modifier.padding(top = 20.dp))
+                ChangelogEntries(entries, Modifier.padding(top = 20.dp), offer)
             }
             UpdateFooter(offer.versionName) {
                 // The changelog was read here, so the What's new sheet does not open with it again after the install.
@@ -144,11 +163,15 @@ private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
  * Versions as the changelog writes them, each its own block as good release notes are (J6): the number in Mona Sans
  * as a small header, the newest one tagged New, the summary as the headline, then the bullets one to a line with a
  * dot and room between them, under their `### New` or `### Fixed` heading when the section has those. A hairline
- * parts one version from the next. No card around them: a sheet's body is its list (rule 79).
+ * parts one version from the next. No card around them: a sheet's body is its list (rule 79). Each picture or GIF
+ * shows under the line it follows (Tavi, 16 Oct 10:49). The pictures of the versions this build carries come from its
+ * assets; on the update screen, those of a version not installed yet come from the server next to [offer]'s APK.
  */
 @Composable
-internal fun ChangelogEntries(entries: List<ChangelogEntry>, modifier: Modifier = Modifier) {
+internal fun ChangelogEntries(entries: List<ChangelogEntry>, modifier: Modifier = Modifier, offer: UpdateManifest? = null) {
     val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val pictures = remember(offer) { ChangelogPictures(context, offer) }
     Column(modifier.fillMaxWidth().padding(top = 8.dp)) {
         if (entries.isEmpty()) Text("Nothing is written down for this version.", style = PullsType.read, color = c.muted)
         entries.forEachIndexed { index, entry ->
@@ -164,16 +187,61 @@ internal fun ChangelogEntries(entries: List<ChangelogEntry>, modifier: Modifier 
                 if (entry.summary.isNotBlank()) {
                     Text(plainChangelogText(entry.summary), Modifier.padding(top = 6.dp), style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)
                 }
+                entry.picturesAfter(-1).forEach { ChangelogPictureView(pictures, entry.version, it, Modifier.padding(top = 14.dp)) }
+                // Pictures point at a bullet by its place in the whole section, across the groups.
+                var at = 0
                 entry.groups.forEach { group ->
                     val title = group.title
                     if (title != null) Text(title, Modifier.padding(top = 18.dp), style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.muted)
                     Column(Modifier.padding(top = if (title != null) 8.dp else 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        group.items.forEach { ChangelogItem(it) }
+                        group.items.forEach { item ->
+                            val index = at++
+                            ChangelogItem(item)
+                            entry.picturesAfter(index).forEach { ChangelogPictureView(pictures, entry.version, it, Modifier.padding(start = 18.dp)) }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Where a changelog's pictures load from. A version this build carries has its pictures in the assets (the build
+ * copies `android/changelog/` there); a newer one, read on the update screen before it is installed, has them on the
+ * server beside its APK, asked for with the same Access headers as the update itself.
+ */
+internal class ChangelogPictures(context: Context, offer: UpdateManifest?) {
+    private val installed = AppVersion.name(context)
+    private val serverDir = offer?.apkUrl?.substringBeforeLast('/', "")?.takeIf { it.isNotBlank() }
+    private val headers = ServerStore.load(context).headers()
+
+    fun request(context: Context, version: String, path: String): ImageRequest {
+        val local = serverDir == null || compareVersions(version, installed) <= 0
+        val builder = ImageRequest.Builder(context).data(if (local) "file:///android_asset/$path" else "$serverDir/$path")
+        if (!local && headers.isNotEmpty()) builder.httpHeaders(NetworkHeaders.Builder().apply { headers.forEach { (name, value) -> set(name, value) } }.build())
+        return builder.build()
+    }
+}
+
+/**
+ * One picture under its line: the whole width of the text, its corners rounded and a hairline round it so a light
+ * screenshot does not melt into the sheet, never taller than most of the screen. A GIF plays on a loop.
+ */
+@Composable
+private fun ChangelogPictureView(pictures: ChangelogPictures, version: String, picture: ChangelogPicture, modifier: Modifier = Modifier) {
+    val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val request = remember(version, picture.path) { pictures.request(context, version, picture.path) }
+    val loader = remember(context) {
+        ImageLoader.Builder(context).components { add(if (Build.VERSION.SDK_INT >= 28) AnimatedImageDecoder.Factory() else GifDecoder.Factory()) }.build()
+    }
+    val shape = RoundedCornerShape(PullsRadius.xl)
+    AsyncImage(
+        request, contentDescription = picture.alt, imageLoader = loader,
+        modifier = modifier.padding(top = 4.dp).fillMaxWidth().heightIn(max = 420.dp).clip(shape).border(1.dp, c.borderMute, shape),
+        contentScale = ContentScale.Fit,
+    )
 }
 
 /** The newest version's mark: one word in the accent's wash. */

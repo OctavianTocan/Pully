@@ -28,6 +28,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,13 +94,17 @@ private fun BriefBlockView(session: ReviewSession, block: BriefBlock, onOpen: (B
         is BriefBlock.Callout -> CalloutView(block)
         is BriefBlock.KeyValues -> Column(Modifier.fillMaxWidth()) {
             block.rows.forEachIndexed { index, (label, value) ->
-                Row(
+                // One paragraph, the label and then its value running on after it, never two columns where the value
+                // wraps into a narrow one (recording of 16 Oct 12:10, 19:49 to 20:16; N37).
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(color = c.muted)) { append(label) }
+                        append("  ")
+                        append(value)
+                    },
                     Modifier.fillMaxWidth().then(if (index > 0) Modifier.hairline(c.borderMute) else Modifier).padding(vertical = 9.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(label, Modifier.weight(0.4f), style = PullsType.sm, color = c.muted)
-                    Text(value, Modifier.weight(0.6f), style = PullsType.sm, color = c.text)
-                }
+                    style = PullsType.sm, color = c.text,
+                )
             }
         }
         // The Markdown view already draws a table, scrolling sideways when it is wide.
@@ -176,16 +183,15 @@ private fun CalloutView(block: BriefBlock.Callout) {
 @Composable
 private fun FindingView(block: BriefBlock.Finding, onOpen: (BriefTarget) -> Unit) {
     val c = LocalPullsColors.current
-    val (label, tint) = when (block.severity) {
-        FindingSeverity.Bug -> "Bug" to StatusColors.red(c.dark)
-        FindingSeverity.Risk -> "Risk" to StatusColors.amberText(c.dark)
-        FindingSeverity.Nit -> "Nit" to c.muted
+    val severity = when (block.severity) {
+        FindingSeverity.Bug -> "bug"
+        FindingSeverity.Risk -> "risk"
+        FindingSeverity.Nit -> "nit"
     }
     Column(Modifier.fillMaxWidth().hairline(c.borderMute).padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(label, style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = tint)
-            Text(block.title, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
-        }
+        // The severity and the title are one sentence, as on the review's findings, so a long title wraps under the word
+        // and not into a column beside it (N37).
+        FindingHeading(severity, block.title)
         if (block.text.isNotBlank()) Markdown(block.text, style = PullsType.sm.copy(color = c.text))
         block.target?.let { TargetLink(it, onOpen) }
     }

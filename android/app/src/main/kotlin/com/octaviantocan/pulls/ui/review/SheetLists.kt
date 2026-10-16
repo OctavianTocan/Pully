@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -52,7 +54,6 @@ import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.home.StatusColors
-import com.octaviantocan.pulls.ui.home.compactCount
 import com.octaviantocan.pulls.ui.home.DiffCounts
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.foundation.layout.Spacer
@@ -275,13 +276,20 @@ internal fun ColumnScope.FilesList(
     var all by remember(sections) { mutableStateOf(false) }
     var budget = if (searching || all) Int.MAX_VALUE else FIRST_ROWS
     var first = true
-    shown.forEach { section ->
+    shown.forEachIndexed { index, section ->
         // A sheet's heading folds nothing (M7): every section is open, under a plain heading with its + and − (L20).
         val closed = false
+        // Sections that share a "Prefix › " are named once over them, and each heading says only the rest (N34).
+        val shared = section.heading
+        val opens = shared != null && opensHeading(section, shown.getOrNull(index - 1))
+        if (opens) Text(
+            shared!!, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (first) 12.dp else 24.dp).semantics { heading() },
+            style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted,
+        )
         if (section.label != null) {
             val adds = section.files.sumOf { it.additions }
             val dels = section.files.sumOf { it.deletions }
-            SheetHeading(section.label, first = first, extra = { SectionChanges(adds, dels) })
+            SheetHeading(section.name ?: section.label, first = first || opens, extra = { SectionChanges(adds, dels) })
         }
         first = false
         // The files sit in a card under their heading.
@@ -340,10 +348,11 @@ internal fun JevMark(priority: String, trailingDot: Boolean) {
 }
 
 /**
- * A section's heading that folds it: the one fold heading the Inbox uses (J18), with its name, how many files, and a
- * chevron that turns as it folds. It draws the one hairline under it on a sheet too, as fold headings do everywhere
- * ("there's no horizontal line under Failing, Passing, Skipped, which is how these usually look": recording 15 Oct
- * 15:37, 08:11; L12), and no background.
+ * A section's heading that folds it: the one fold heading the Inbox uses (J18), with its name, how many files in
+ * parentheses after it, and a chevron right beside them that turns as it folds (N1). Its + and − sit at the right edge
+ * in the columns of the files' own (N35). It draws the one hairline under it ("there's no horizontal line under
+ * Failing, Passing, Skipped, which is how these usually look": recording 15 Oct 15:37, 08:11; L12), and no background.
+ * Pages only: a sheet heads its sections with the plain `SheetHeading` (rule 141).
  */
 @Composable
 internal fun FoldHeading(
@@ -362,17 +371,10 @@ internal fun FoldHeading(
 )
 
 /**
- * A file section's + and − numbers on its heading, in the files' own green and red at the meta size, so a group says
- * how big it is before it is opened ("I wish they had ... the diff numbers", recording 15 Oct 15:37, 10:56 to 11:04;
- * L20).
+ * A file section's + and − numbers on its heading, so a group says how big it is before it is opened ("I wish they
+ * had ... the diff numbers", recording 15 Oct 15:37, 10:56 to 11:04; L20). They are the rows' own [DiffCounts], in the
+ * same fixed columns, so every number of a list sits in one column whatever its digits (recording 16 Oct 12:10, 18:03
+ * to 18:21; N35).
  */
 @Composable
-private fun SectionChanges(adds: Int, dels: Int) {
-    val c = LocalPullsColors.current
-    val mono = PullsType.sm.copy(fontFamily = PullsType.mono, fontFeatureSettings = "tnum")
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("+${compactCount(adds)}", style = mono, color = StatusColors.green(c.dark), maxLines = 1, softWrap = false)
-        Text("−${compactCount(dels)}", style = mono, color = StatusColors.red(c.dark), maxLines = 1, softWrap = false)
-    }
-}
-
+private fun SectionChanges(adds: Int, dels: Int) = DiffCounts(adds, dels)

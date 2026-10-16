@@ -95,6 +95,17 @@ data class PullsColors(
 
     /** `op-mute`: tertiary text. */
     val mute: Color get() = faint
+
+    /**
+     * A pull request's state, the ink of the tile that leads its row and, at a low alpha, the tile's fill: open in the
+     * status green, a draft in the muted grey so it reads apart from an open one at a glance, merged in purple and
+     * closed in the error red, as GitHub colours them ("drafts should look different… use colour": recording 16 Oct
+     * 12:10, 01:23 to 03:05; N4). Derived from the palette, so every colour theme has them.
+     */
+    val stateOpen: Color get() = success
+    val stateDraft: Color get() = muted
+    val stateMerged: Color get() = purple
+    val stateClosed: Color get() = error
 }
 
 val LightPullsColors = PullsColors(
@@ -209,35 +220,36 @@ object PullsFonts {
 
 /**
  * The prototype's type scale: 15/20 for lists and meta, 17 for row titles and body copy, 26 for page
- * titles, 20 for section headings. [sm] and [xs] step down a notch from 768dp up, as before.
+ * titles, 20 for section headings. [sm] and [xs] step down a notch from 768dp up, as before. The words are set in the
+ * face the reader chose in Settings, Geist until they pick another ([AppFonts], N10), so each role is read afresh.
  */
 object PullsType {
     /** Set by `PullsTheme` from the window width (the unfolded Fold is ~840dp wide). */
     var wide by androidx.compose.runtime.mutableStateOf(false)
         internal set
-    val xs: TextStyle get() = if (wide) TextStyle(fontFamily = PullsFonts.sans, fontSize = 12.sp, lineHeight = 16.sp) else TextStyle(fontFamily = PullsFonts.sans, fontSize = 13.sp, lineHeight = 18.sp)
-    val sm: TextStyle get() = if (wide) TextStyle(fontFamily = PullsFonts.sans, fontSize = 14.sp, lineHeight = 20.sp) else TextStyle(fontFamily = PullsFonts.sans, fontSize = 15.sp, lineHeight = 21.sp)
-    val base = TextStyle(fontFamily = PullsFonts.sans, fontSize = 16.sp, lineHeight = 22.sp)
-    val lg = TextStyle(fontFamily = PullsFonts.sans, fontSize = 18.sp, lineHeight = 26.sp)
-    val xl = TextStyle(fontFamily = PullsFonts.sans, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Medium)
-    val xxl = TextStyle(fontFamily = PullsFonts.sans, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.26).sp)
+    val xs: TextStyle get() = if (wide) TextStyle(fontFamily = AppFonts.family, fontSize = 12.sp, lineHeight = 16.sp) else TextStyle(fontFamily = AppFonts.family, fontSize = 13.sp, lineHeight = 18.sp)
+    val sm: TextStyle get() = if (wide) TextStyle(fontFamily = AppFonts.family, fontSize = 14.sp, lineHeight = 20.sp) else TextStyle(fontFamily = AppFonts.family, fontSize = 15.sp, lineHeight = 21.sp)
+    val base: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 16.sp, lineHeight = 22.sp)
+    val lg: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 18.sp, lineHeight = 26.sp)
+    val xl: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Medium)
+    val xxl: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.26).sp)
 
     /** `.body`: 17/25. */
-    val body = TextStyle(fontFamily = PullsFonts.sans, fontSize = 17.sp, lineHeight = 25.sp)
+    val body: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 17.sp, lineHeight = 25.sp)
 
     /** `.p16` and `.tp`: 16/24, the reading size of summaries, descriptions and tour text. */
-    val read = TextStyle(fontFamily = PullsFonts.sans, fontSize = 16.sp, lineHeight = 24.sp)
+    val read: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 16.sp, lineHeight = 24.sp)
 
     /** `.pr .tt`: 17/22, a row's title. */
-    val row = TextStyle(fontFamily = PullsFonts.sans, fontSize = 17.sp, lineHeight = 22.sp)
+    val row: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 17.sp, lineHeight = 22.sp)
 
     /** `.pr .num` and the PR number in headings: Mona Sans 15/22 semibold. */
-    val num = TextStyle(fontFamily = PullsFonts.display, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
+    val num: TextStyle get() = TextStyle(fontFamily = PullsFonts.display, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
 
     /** `text-micro` 10px, `text-mini` 11px, `text-compact` 12px. */
-    val micro = TextStyle(fontFamily = PullsFonts.sans, fontSize = 10.sp, lineHeight = 14.sp)
-    val mini = TextStyle(fontFamily = PullsFonts.sans, fontSize = 11.sp, lineHeight = 16.sp)
-    val compact = TextStyle(fontFamily = PullsFonts.sans, fontSize = 12.sp, lineHeight = 18.sp)
+    val micro: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 10.sp, lineHeight = 14.sp)
+    val mini: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 11.sp, lineHeight = 16.sp)
+    val compact: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 12.sp, lineHeight = 18.sp)
     /** The code face the reader chose (Geist Mono until they pick another); see [CodeFonts]. */
     val mono: FontFamily get() = CodeFonts.family
     val display: FontFamily = PullsFonts.display

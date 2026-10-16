@@ -103,7 +103,7 @@ const FileList = defineComponent({
 
 const Diagram = defineComponent({
   name: 'Diagram',
-  description: 'A Mermaid diagram of the code as it is after the change: flowchart TD or sequenceDiagram, at most 10 nodes, labels under 25 characters. Use only when shape is the point.',
+  description: 'A Mermaid diagram of the code as it is after the change: flowchart TD or sequenceDiagram, at most 10 nodes, labels under 25 characters. Use only when shape is the point. caption, when given, is one short sentence under 60 characters that names what the diagram shows; the app prints it above the diagram, so it never repeats the text around it.',
   props: z.object({ mermaid: z.string(), caption: z.string().optional() }),
   component: 'Diagram',
 })

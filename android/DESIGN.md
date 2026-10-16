@@ -1573,6 +1573,244 @@ Check: open Profile: the numbers and both graphs are there; open it again: they 
 
 Source: walkthrough. Checked by: review.
 
+### Rules 146 to 173, from the walkthrough of 0.38.0 on 2026-10-16
+
+The recording of 16 Oct at 12:10 (N1 to N39, in `/mnt/project-files/design/feedback-2026-10-16-0.38.0.md`). He named shadcn's AI components (shadcn.io/ai) as the model for Ask: their behaviour, written in Kotlin.
+
+#### 146. A fold heading reads "Name (count) ⌄".
+
+The count sits in parentheses right after the name, and the chevron right after the count, all on the name's line, as Claude's own lists write "Done (44) ⌃". A long name is cut at its end so the count and the chevron stay whole. Anything else the heading carries, such as a section's + and −, sits at the right edge (N1, N35: "we swap it everywhere").
+
+Check: on the Inbox and the Overview's Files groups, every chevron sits right after its "(n)".
+
+Source: walkthrough. Checked by: review.
+
+#### 147. Numbers in a list line up in one column.
+
+Every count, diffstat and age in a list sits right-aligned in a column of fixed width, in tabular figures, so one more digit never moves a column. A heading's + and − use the rows' columns (N35: "those two are rules").
+
+Check: draw a vertical line through the +, the − and the age on the Inbox and on the Files sheet; each is straight.
+
+Source: walkthrough. Checked by: review.
+
+#### 148. A pull request row is a state tile, a title and one meta line.
+
+On the left is a square tinted with the state's colour, carrying the state's mark: open, draft, merged or closed. A draft differs from an open pull request by that tile, never by "[draft]" in its title. Beside it is the title, wrapped whole as rule 2 says, and under the title one line: the number, the stack place or Jev's risk word, the author, then checks, diffstat and age in their columns. A tour row carries its ring in the same tile. This is Claude's own list of pull requests (N2, N4). This replaces "under its number" in rule 111: the stack place now follows the number on the meta line.
+
+Check: a draft and an open row differ by the tile alone, and no row has a second line under its title except labels on a repository page.
+
+Source: walkthrough. Checked by: review.
+
+#### 149. Every field is the kit's one field.
+
+Search pills, Ask bars, sheet searches, Commands and the fields in sheet cards are all `FieldText`, framed by `FieldFrame`. They share one height, one inset, one text style, the muted placeholder in that style, the teal cursor and the same distance from a button at the end. On a page the frame is the pill; on a sheet it has the cards' corner and sits under the ✕ as rule 141 says. This carries rule 132 from the pills to every field (N6: "go through the entire project and standardize this stuff").
+
+Check: a raw text field anywhere but the kit fails the bans check; compare Home's search, the Tour's Ask bar, the Ask sheet's field and Commands' search side by side.
+
+Source: walkthrough. Checked by: bans, review.
+
+#### 150. No Ask button: the ✕ becomes Send.
+
+Home's search has only its ✕. While the text ends in "?", the ✕ fades into the primary Send circle, which asks the question, and it turns back when the "?" goes (N8: no "Ask" button "anywhere").
+
+Check: type "what changed", then "?": the ✕ becomes Send. Delete the "?": the ✕ comes back.
+
+Source: walkthrough. Checked by: review.
+
+#### 151. Text fades where a field hides it.
+
+Words that have scrolled past an edge of a field fade into the field at that edge: start and end for one line, top and bottom for several. An edge with nothing hidden has no fade (N9).
+
+Check: type past the end of Home's search: the start fades and the end does not; move the cursor to the start and they swap.
+
+Source: walkthrough. Checked by: review.
+
+#### 152. The app's words have a font setting too.
+
+Settings has a Fonts section with App font and Code font, each a page of faces shown in themselves. The app font sets every type role but the numbers' face and the code face, and Geist stays the default (N10).
+
+Check: choose System serif: every screen's words change at once, and numbers and code keep their faces.
+
+Source: walkthrough. Checked by: review.
+
+#### 153. Older models are older within their tier.
+
+A model goes under "Older models" only when a newer version of its own tier is listed or it is from an older generation. Its tier is its name less the maker and the version (Opus, Sol, Astra, Luna), so a lineup that shares a version number keeps each tier's newest at the top (N7: Sol, Astra and Luna are the new lineup). This replaces "of each family" in rule 89.
+
+Check: Codex lists GPT-6.1 Sol, GPT-6 Astra and GPT-6 Luna first, and GPT-6 Sol under Older models.
+
+Source: walkthrough. Checked by: review.
+
+#### 154. Pseudocode is code.
+
+Pseudocode sits in the code well in the code face, its keywords a little heavier, with a guide line for each indent level, lines that wrap under their own indent and the copy button every AI code block has (N13: "I still don't like the pseudo code", N18).
+
+Check: open a tour stop with pseudocode: it reads as code, nothing is cut off, and Copy shows the toast.
+
+Source: walkthrough. Checked by: review.
+
+#### 155. A flow is steps on a rail.
+
+Each part of a flow is a numbered card on a rail, and each hop is the rail with an arrowhead and what moves along it beside it (N19).
+
+Check: a flow shows numbered cards joined by arrows down one rail.
+
+Source: walkthrough. Checked by: review.
+
+#### 156. A call tree reads at a glance.
+
+A call tree sits in a well, with guide lines that end in a dot at each row. A chain such as `A → B → C` puts each step on its own line with its arrow in a column under the name (N16: "really easy and nice to look at").
+
+Check: a chain of three calls stands as three aligned lines.
+
+Source: walkthrough. Checked by: review.
+
+#### 157. The app finds the names the AI did not link.
+
+Inline code or a code-shaped word that names a changed file, such as `PrTourScreen`, is a link that opens that file, whether the AI linked it or not (N17).
+
+Check: a file's name in a tour is teal and opens the file.
+
+Source: walkthrough. Checked by: review.
+
+#### 158. Code links never leave the app.
+
+A code link opens in Pulls, never on GitHub: a file in the diff opens at its line, near the top and scrolled to its left edge, and a file outside the diff opens on a sheet, read at the head commit and scrolled to the line (N20, N21).
+
+Check: tap an "In the code" row for a file outside the diff: a sheet opens at the line and no browser opens.
+
+Source: walkthrough. Checked by: review.
+
+#### 159. The Tour's ⋯ is the tour's.
+
+On the Tour, ⋯ opens at once on the tour's own things: Model and Effort, Analyze options, Regenerate tour, Ask about this tour and Switch to the diff, with the pull request's actions one row away (N22, N23).
+
+Check: on the Tour, tap ⋯: the sheet is up at once and starts with the model.
+
+Source: walkthrough. Checked by: review.
+
+#### 160. Commands follow the page.
+
+Commands opens with "Suggested", the page's own actions (Ask and Switch to the diff on a tour; Review files, Ask, Leave a comment and Approve on the Overview; the next file and Mark reviewed on the diff), and General comes last (N14).
+
+Check: pull for Commands on the Tour, the Overview and the diff: each starts with its own Suggested.
+
+Source: walkthrough. Checked by: review.
+
+#### 161. Tour stops fold.
+
+Tapping a stop's title folds it to the title, so a long tour scrolls fast, and the fold stays for the session. Going to a stop opens it (N15).
+
+Check: fold a stop, leave the Tour and come back: it is still folded.
+
+Source: walkthrough. Checked by: review.
+
+#### 162. One Ask bar.
+
+The Tour and the Overview ask through one bar. Empty, it shows the history button; once something is typed, Send. Sending carries on the last conversation and opens the sheet, and a tap on the empty bar opens the conversation there is. The dim behind the focused bar covers the header too (N24, N28, N29).
+
+Check: on the Tour, focus the bar: the header dims, and typing turns the history button into Send.
+
+Source: walkthrough. Checked by: review.
+
+#### 163. Ask reads like a chat app.
+
+The Ask sheet opens tall at once and may be dragged to half. A streaming answer is followed only while the reader is at its end, and a drag up stops the following; a sent question goes to the top of the sheet; a round button returns to the end. The field floats over the conversation, which shows through under it, with no band (N25, N26, N27; shadcn's Conversation).
+
+Check: scroll up while an answer streams: the sheet stays where you are.
+
+Source: walkthrough. Checked by: review.
+
+#### 164. A caption is one sentence beside its kind.
+
+A sketch's or a diagram's kind and its caption are one paragraph above it, and the caption is one short sentence (N33).
+
+Check: a diagram's caption wraps under the word Diagram, not beside it.
+
+Source: walkthrough. Checked by: review.
+
+#### 165. Conversation starts with what people said.
+
+The description is in the Summary tab, so Conversation does not open with it again. With nothing said, it reads "Nobody has commented yet." (N30).
+
+Check: the first item in Conversation is never the description.
+
+Source: walkthrough. Checked by: review.
+
+#### 166. A bot is whatever GitHub says is a bot.
+
+People and Bots split on GitHub's own data: the actor's Bot type or a login ending in "[bot]", never a list of names (N31).
+
+Check: no list of bot logins exists in the app or the server.
+
+Source: walkthrough. Checked by: review.
+
+#### 167. The Overview's bottom row is Ask and one round button.
+
+The bottom row is the one Ask bar, "Ask about this pull request", and beside it a round primary button with no words: an arrow to the review, a tick to approve. ⋯ is only in the header (N32: "like the Tour").
+
+Check: there is no text button and no ⋯ at the bottom of the Overview or its opening page.
+
+Source: walkthrough. Checked by: review.
+
+#### 168. Only the branch lines scroll away.
+
+As the Overview scrolls, the repository, author, branch, stack and Jev lines go up under the title. The title folds to one line and stays with the Changes, Commits, Files and Checks row and the tabs (N38).
+
+Check: scrolled to the end, the title, the numbers row and the tabs are still on screen.
+
+Source: walkthrough. Checked by: review.
+
+#### 169. A long list shows a few rows, then "Show N more".
+
+A long list on the Overview (file groups, a group's files, what needs a person) shows its first five rows, then a hairline and "Show N more ⌄", which opens the rest in place. It is not a fold, and a single hidden row is shown rather than offered (N5, Claude's lists).
+
+Check: no Overview list shows more than six rows before "Show N more".
+
+Source: walkthrough. Checked by: review.
+
+#### 170. Say a shared group name once.
+
+File groups in a row that start with the same "Prefix › " sit under one line saying the Prefix, and each says only the rest, on the Overview and on the Files sheet. The AI is asked for short names that never repeat their parent's (N34).
+
+Check: no two group headings in a row start with the same words.
+
+Source: walkthrough. Checked by: review.
+
+#### 171. The AI review sheet is a plain sheet.
+
+"AI review (n)" is the sheet's heading; one capsule switches All, Bug, Risk and Nit; each finding is one row with the Files sheet's check. There is no Select all and no card inside a card (N36).
+
+Check: the findings sheet has one level of cards and no Select all.
+
+Source: walkthrough. Checked by: review.
+
+#### 172. Two texts never stand in columns.
+
+When two texts sit side by side and one could wrap, they become one paragraph that runs on under the first: a path after "Worth a look ·", a brief's label and its value, a finding's kind and title (N37: "almost a rule I personally have").
+
+Check: no row holds a label beside text that wraps into a narrow column.
+
+Source: walkthrough. Checked by: review.
+
+#### 173. The pull request's ⋯ is short.
+
+⋯ on a pull request offers Leave a comment, the decisions (approve, merge, close) and Review with AI, with GitHub and Analyze. It has no Model or Analyze options rows, no Checks tile and no Review progress, since the checks are pinned at the top (N39).
+
+Check: the ⋯ sheet fits on one screen with none of those rows.
+
+Source: walkthrough. Checked by: review.
+
+### Rule 174, from Tavi's message of 2026-10-16
+
+#### 174. The changelog shows what changed.
+
+Tavi: "From now on let's make sure we have images in the changelog too, showing the stuff, or little gifs if its animated." Every changelog section from 0.40.0 on has at least one picture of what changed, a short GIF where it moves, on its own line under the bullet it shows. The update screen, What's new and the version page in Settings show each picture under its bullet, full width with the cards' corner. Pictures live in `android/changelog/<version>/`.
+
+Check: open What's new on 0.40.0: the bullets have their pictures, and the GIFs move.
+
+Source: answers. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:

@@ -101,4 +101,21 @@ class AiCodeTest {
             plainAnswer("The **gate** in [`OjinAgentMount.tsx`](src/OjinAgentMount.tsx#L12) waits.\n```ts\nconst a = 1\n```"),
         )
     }
+
+    @Test
+    fun aCallChainSplitsIntoItsStepsAtSpacedArrows() {
+        // N16: each step of `AskPill → openAsk → AskSheet` stands on a line of its own; `a->b` in code stays one name.
+        assertEquals(listOf("AskPill", "openAsk", "Ask Sheet"), callChain("AskPill → openAsk → Ask Sheet"))
+        assertEquals(listOf("onReached", "recordReached"), callChain("onReached -> recordReached"))
+        assertEquals(listOf("p->next"), callChain("p->next"))
+        assertEquals(listOf("pages.last() == Tour"), callChain("pages.last() == Tour"))
+    }
+
+    @Test
+    fun aCaptionIsItsFirstSentence() {
+        // N33: "One runtime step, in the order it runs. The second drain has no delay check." stood in two lines.
+        assertEquals("One runtime step, in the order it runs.", firstSentence("One runtime step, in the order it runs. The second drain has no delay check."))
+        assertEquals("Write path after this change", firstSentence(" Write path after this change "))
+        assertEquals("", firstSentence(""))
+    }
 }

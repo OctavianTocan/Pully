@@ -69,3 +69,17 @@ The chat instructions MUST offer answers the same native forms a tour stop has, 
 same fence syntax word for word (`NATIVE_FORMS`), prose first and at most two visuals in
 one answer ("so it can build interfaces that are as clean as it wants right here too to
 reply to me", recording 15 Oct 2026 15:37, L34).
+
+@cc [owner:OctavianTocan,label:product] engine-bots-from-github-data
+An overview marks an author or actor as a bot (`PrActor.bot`) only from GitHub's own data:
+its GraphQL type is `Bot`, or its login ends in `[bot]`. A login MUST NOT be matched
+against a list of names, so a new app (chatgpt-codex-connector, devin-ai-integration,
+github-actions) is a bot from its first comment and a person is never one for their name
+("tell people from bots properly, without banning names", recording of 16 Oct 12:10,
+16:02 to 16:21, N31).
+
+@cc [owner:OctavianTocan,label:product] engine-group-labels-read-apart
+The grouping instructions MUST ask for short labels that read apart: no two groups and no
+two children start with the same words, and a child's label never repeats its parent's,
+since the phone shows a child as "Parent › Child" and cuts a long label (four rows of
+"Wayland capture producer › …", recording of 16 Oct 12:10, 17:41 to 18:02, N34).

@@ -14,6 +14,8 @@ export type CheckBucket = 'failing' | 'pending' | 'passing' | 'skipped'
 export interface PrActor {
   login: string
   avatarUrl?: string
+  /** An app or bot, not a person: set only when GitHub says so (see `isBotActor`), so People and Bots split on its data, never on a list of names (N31). */
+  bot?: boolean
 }
 
 export interface PrCheck {
@@ -188,8 +190,19 @@ export interface PrOverview {
 const BUCKET_ORDER: CheckBucket[] = ['failing', 'pending', 'passing', 'skipped']
 const PUSH_PERMISSIONS = new Set(['ADMIN', 'MAINTAIN', 'WRITE'])
 
+/**
+ * Whether GitHub's own data says an account is an app or a bot rather than a person: its GraphQL type is `Bot` (every
+ * GitHub App, such as `chatgpt-codex-connector`, `devin-ai-integration` or `github-actions`), or its login ends in
+ * `[bot]`, as the REST API writes an app's account. No login is ever matched against a list of names (N31).
+ * @param raw An author or actor from a GraphQL answer.
+ * @returns `true` for an app or bot.
+ */
+export function isBotActor(raw: Pick<RawActor, '__typename' | 'login'> | null | undefined): boolean {
+  return raw?.__typename === 'Bot' || /\[bot\]$/i.test(raw?.login ?? '')
+}
+
 function actor(raw: RawActor | null | undefined): PrActor | undefined {
-  return raw?.login ? { login: raw.login, avatarUrl: raw.avatarUrl ?? undefined } : undefined
+  return raw?.login ? { login: raw.login, avatarUrl: raw.avatarUrl ?? undefined, bot: isBotActor(raw) || undefined } : undefined
 }
 
 function gitActor(raw: RawGitActor | null | undefined): PrCommit['author'] {

@@ -237,8 +237,21 @@ describe('bans', () => {
     assert.deepEqual(Object.keys(scan('// ban-ok:\nActionButton("a") {}')), ['legacy-kit'])
   })
 
+  it('keeps Compose\'s text fields in the kit\'s one field (N6)', () => {
+    const source = [
+      'BasicTextField(value = v, onValueChange = {})',
+      'OutlinedTextField(v, {})',
+      'FieldText(v, {}, "Find")',
+      'SheetSearch(v, {}, "Find a file")',
+      'BasicTextField(v, {}) // ban-ok: edited where it stands',
+    ].join('\n')
+    assert.deepEqual(scan(source)['text-field'], { 'ui/x/Screen.kt': 2 })
+    assert.deepEqual(scan('BasicTextField(value = v, onValueChange = {})', 'ui/design/Fields.kt')['text-field'], undefined)
+    assert.deepEqual(scan('BasicTextField(value = v, onValueChange = {})', 'ui/design/Kit.kt')['text-field'], { 'ui/design/Kit.kt': 1 })
+  })
+
   it('declares the rules DESIGN.md lists for it', () => {
-    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73, 100])
+    assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73, 100, 149])
   })
 })
 
@@ -619,5 +632,22 @@ describe('changelog', () => {
     assert.match(checkChangelog('## 0.2.0\n\nA summary.\n', '0.2.0').join('\n'), /at least one bullet/)
     assert.match(checkChangelog(`## 0.2.0\n\n${'A long summary. '.repeat(5)}\n\n- a\n`, '0.2.0').join('\n'), /Keep it to 70/)
     assert.match(checkChangelog('## 0.1.0\n\nOld.\n\n- a\n\n## 0.2.0\n\nNew.\n\n- b\n', '0.2.0').join('\n'), /Newest first/)
+  })
+
+  it('needs pictures from 0.40.0 on, each named, present and small', () => {
+    const sized = sizes => path => sizes[path]
+    const section = picture => `## 0.40.0\n\nNew rows.\n\n- Rows have a state tile.\n${picture}\n`
+    const good = section('![The Inbox rows](changelog/0.40.0/inbox-rows.png)')
+    assert.deepEqual(parseChangelog(good)[0].pictures, [{ alt: 'The Inbox rows', path: 'changelog/0.40.0/inbox-rows.png', placed: true }])
+    const rows = { 'changelog/0.40.0/rows.png': 1 }
+    assert.match(checkChangelog(section('  ![Rows](changelog/0.40.0/rows.png)'), '0.40.0', sized(rows)).join('\n'), /unindented line under a bullet/)
+    assert.match(checkChangelog('## 0.40.0\n\nNew rows.\n![Rows](changelog/0.40.0/rows.png)\n\n- a\n', '0.40.0', sized(rows)).join('\n'), /unindented line under a bullet/)
+    assert.deepEqual(checkChangelog(good, '0.40.0', sized({ 'changelog/0.40.0/inbox-rows.png': 1000 })), [])
+    assert.match(checkChangelog(section(''), '0.40.0', sized({})).join('\n'), /needs at least one picture/)
+    assert.deepEqual(checkChangelog('## 0.39.0\n\nOld.\n\n- a\n', '0.39.0', sized({})), [])
+    assert.match(checkChangelog(section('![Rows](pics/rows.png)'), '0.40.0', sized({})).join('\n'), /must be changelog\/0\.40\.0/)
+    assert.match(checkChangelog(section('![](changelog/0.40.0/rows.png)'), '0.40.0', sized({ 'changelog/0.40.0/rows.png': 1 })).join('\n'), /needs words/)
+    assert.match(checkChangelog(section('![Rows](changelog/0.40.0/rows.png)'), '0.40.0', sized({})).join('\n'), /is not in android/)
+    assert.match(checkChangelog(section('![Rows](changelog/0.40.0/rows.gif)'), '0.40.0', sized({ 'changelog/0.40.0/rows.gif': 3e6 })).join('\n'), /under 2 MB/)
   })
 })

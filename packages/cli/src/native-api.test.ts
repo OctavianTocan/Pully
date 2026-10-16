@@ -172,6 +172,26 @@ describe('past versions', () => {
     }
   })
 
+  it('serves a changelog\'s pictures by version and name, and nothing else under changelog/', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pulls-review-android-'))
+    mkdirSync(join(dir, 'changelog', '0.40.0'), { recursive: true })
+    writeFileSync(join(dir, 'changelog', '0.40.0', 'inbox-rows.png'), 'png')
+    writeFileSync(join(dir, 'changelog', '0.40.0', 'ask-send.gif'), 'gif')
+    vi.stubEnv('PULLS_REVIEW_ANDROID_DIR', dir)
+    try {
+      const png = await get('/android/changelog/0.40.0/inbox-rows.png')
+      expect(png?.headers.get('Content-Type')).toBe('image/png')
+      expect(await png?.text()).toBe('png')
+      expect((await get('/android/changelog/0.40.0/ask-send.gif'))?.headers.get('Content-Type')).toBe('image/gif')
+      expect((await get('/android/changelog/0.40.0/missing.png'))?.status).toBe(404)
+      expect(await get('/android/changelog/0.40.0/notes.txt')).toBeUndefined()
+      expect(await get('/android/changelog/0.40.0/..%2F..%2Flatest.json.png')).toBeUndefined()
+    }
+    finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('answers an empty list while no past version is built, so the phone does not read it as the server failing', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'pulls-review-android-'))
     vi.stubEnv('PULLS_REVIEW_ANDROID_DIR', dir)

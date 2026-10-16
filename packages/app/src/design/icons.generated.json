@@ -333,6 +333,98 @@
         }
       ]
     },
+    "pr-open": {
+      "stroke": 1.8,
+      "paths": [
+        {
+          "d": "M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        },
+        {
+          "d": "M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        },
+        {
+          "d": "M13 6h3a2 2 0 0 1 2 2v7",
+          "fill": false
+        },
+        {
+          "d": "M6 9v12",
+          "fill": false
+        }
+      ]
+    },
+    "pr-draft": {
+      "stroke": 1.8,
+      "paths": [
+        {
+          "d": "M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        },
+        {
+          "d": "M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        },
+        {
+          "d": "M18 6V5",
+          "fill": false
+        },
+        {
+          "d": "M18 11v-1",
+          "fill": false
+        },
+        {
+          "d": "M6 9v12",
+          "fill": false
+        }
+      ]
+    },
+    "pr-merged": {
+      "stroke": 1.8,
+      "paths": [
+        {
+          "d": "M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        },
+        {
+          "d": "M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        },
+        {
+          "d": "M6 21V9a9 9 0 0 0 9 9",
+          "fill": false
+        }
+      ]
+    },
+    "pr-closed": {
+      "stroke": 1.8,
+      "paths": [
+        {
+          "d": "M3,6a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        },
+        {
+          "d": "M6 9v12",
+          "fill": false
+        },
+        {
+          "d": "m21 3-6 6",
+          "fill": false
+        },
+        {
+          "d": "m21 9-6-6",
+          "fill": false
+        },
+        {
+          "d": "M18 11.5V15",
+          "fill": false
+        },
+        {
+          "d": "M15,18a3,3 0 1,0 6,0a3,3 0 1,0 -6,0",
+          "fill": false
+        }
+      ]
+    },
     "search": {
       "stroke": 2,
       "paths": [
