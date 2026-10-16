@@ -16,6 +16,32 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.42.0
+
+Faster pull requests, a tour you can watch being written, AI costs.
+
+### New
+
+- Stats has an AI usage section: the tokens tours, summaries, analysis and Ask used, what they cost, and which models cost the most. A run whose engine reports no price shows a dash instead of $0.00.
+![The AI usage section in Stats, with tokens, spend, each feature and each model](changelog/0.42.0/ai-usage.png)
+- While a tour is written, its sheet rests at the bottom of the page as a lip you can pull back up, the sections fill in at the top as they are written, and sections still to come show a loader.
+![A tour being written: sections with loaders and the lip at the bottom](changelog/0.42.0/tour-writing.png)
+- Tap any finished step in the tour's work log to see more about it, and the log now keeps every step.
+- Settings has a GitHub links page that shows what Android has turned on, what to turn on, and why a link tapped in Chrome stays in Chrome.
+![The GitHub links page with each address On or Off and the button to Android's page](changelog/0.42.0/github-links.png)
+- Touch Profile's graphs: a tap or a drag reads out a day or a month.
+- Back on the Inbox asks before Pulls closes.
+
+### Better
+
+- Pull requests at the top of the Inbox load before you tap them, and any row starts loading as your finger lands.
+- Profile and Stats show their numbers at once, even after a restart.
+- A shared link closes the sheet that was open, smoothly, and leaves nothing open when you come back.
+- The first swipe on a sheet scrolls it.
+- Pinch zoom is smooth, and a swipe between files never stops halfway.
+- Holding a pull request shows a card for it and its actions in two groups.
+- The "No tour yet" sheet drops its explanation line and sits at the right gap.
+
 ## 0.40.0
 
 New rows, one Ask bar and a tour that reads like code.

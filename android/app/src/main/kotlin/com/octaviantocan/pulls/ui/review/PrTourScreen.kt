@@ -133,10 +133,22 @@ internal fun PrTourScreen(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     var sections by remember { mutableStateOf(false) }
+    // While the tour is written, its plan and each stop already written show under the progress, in the places the stops
+    // will take, so nothing moves when they come and the page is never scrolled for the reader ("start creating some
+    // previews of what it's gonna build under it while it does it ... without moving me", recording 15 Oct 15:37, 13:47
+    // to 14:05; L26). The finished tour then takes their places without rising in again.
+    val preview = if (tour == null) session.taskFor("tour")?.takeIf { it.running }?.let { tourPreview(it.activities) } else null
+    val writing = tour == null && (running || tourComing(session))
+    // The strip's sections: the tour's stops, or the plan's while it is written, so the picker is there from the plan on
+    // and fills in as each section is written ("this should be already here and it should fill as the AI writes it":
+    // recording 16 Oct 13:06, 07:15 to 07:28; O17).
+    val titles = tour?.stops?.map { it.title } ?: preview?.planned?.map { it.first }.orEmpty()
+    val shownCount = titles.size
 
     // The stop you are on: the last whose top has passed 64dp plus a fifth of the screen (at most 120dp), or the last at the end.
-    val current by remember(n) {
+    val current by remember(shownCount) {
         derivedStateOf {
+            val n = shownCount
             if (n == 0) 0 else {
                 val info = listState.layoutInfo
                 val threshold = with(density) { 64.dp.toPx() } + minOf(with(density) { 120.dp.toPx() }, info.viewportSize.height * 0.2f)
@@ -150,7 +162,7 @@ internal fun PrTourScreen(
         }
     }
     // The ring: how far the reading line has gone through the stops, moving with the scroll and full at the end.
-    val progress by remember(n) {
+    val reading by remember(n) {
         derivedStateOf {
             val info = listState.layoutInfo
             val line = with(density) { 64.dp.toPx() } + minOf(with(density) { 120.dp.toPx() }, info.viewportSize.height * 0.2f)
@@ -166,6 +178,8 @@ internal fun PrTourScreen(
             )
         }
     }
+    // While the tour is written the ring is how much of it is written.
+    val progress = if (preview != null && shownCount > 0) preview.written.size.toFloat() / shownCount else reading
     LaunchedEffect(current, n) {
         if (n > 0 && current in 1..n) onReached(current, n, stops[current - 1].title)
     }
@@ -195,9 +209,9 @@ internal fun PrTourScreen(
     }
     // `tour.event`: started on the first stop shown, next as the reader reads on, finished at the last, skipped when the
     // page goes before then. Only stop numbers, never what a stop says.
-    val reading = remember(tour?.generatedAt) { TourReading() }
-    LaunchedEffect(current, n) { if (n > 0 && current in 1..n) reading.at(current, n) }
-    DisposableEffect(reading) { onDispose { reading.leave() } }
+    val readingLog = remember(tour?.generatedAt) { TourReading() }
+    LaunchedEffect(current, n) { if (n > 0 && current in 1..n) readingLog.at(current, n) }
+    DisposableEffect(readingLog) { onDispose { readingLog.leave() } }
     // Pick up where the reader left off, once for each tour. Coming back from a place the tour opened (a file, GitHub)
     // finds the list where it was, kept by the review's saveable state, and must not be moved to the top of its stop (J35).
     var resumedFor by rememberSaveable { mutableStateOf<String?>(null) }
@@ -211,11 +225,6 @@ internal fun PrTourScreen(
     // A tour seen for the first time brings its stops onto the page one after another, rising into place (K14); one
     // already seen, or a card scrolled back into view, is simply there.
     var arrivedFor by rememberSaveable { mutableStateOf<String?>(null) }
-    // While the tour is written, its plan and each stop already written show under the progress, in the places the stops
-    // will take, so nothing moves when they come and the page is never scrolled for the reader ("start creating some
-    // previews of what it's gonna build under it while it does it ... without moving me", recording 15 Oct 15:37, 13:47
-    // to 14:05; L26). The finished tour then takes their places without rising in again.
-    val preview = if (tour == null) session.taskFor("tour")?.takeIf { it.running }?.let { tourPreview(it.activities) } else null
     var previewed by rememberSaveable { mutableStateOf(false) }
     if (preview != null && !previewed) previewed = true
     val arriving = tour != null && tour.generatedAt != arrivedFor && !previewed
@@ -238,7 +247,7 @@ internal fun PrTourScreen(
         Box(Modifier.fillMaxSize().background(c.base)) {
             // The capsule header is the review's, over all three views (rule 93); the strip starts under it.
             Column(Modifier.fillMaxSize()) {
-                if (n > 0 && current in 1..n) {
+                if (shownCount > 0 && current in 1..shownCount) {
                     // The ring, the stop you are on and the chevron, each in its own column so the title never runs under
                     // the ring; no "2 of 4" (rule 97). Tapping it opens the sections.
                     Row(
@@ -252,7 +261,7 @@ internal fun PrTourScreen(
                         // One line with an ellipsis, or two whole lines: never a line cut in half. Reading on brings the next stop's
                         // name up from below and scrolling back brings the last one down, with the cards (rule 105).
                         LabelSwitch(current, Modifier.weight(1f), order = { it }, vertical = true) { at ->
-                            Text(stops.getOrNull(at - 1)?.title.orEmpty(), Modifier.fillMaxWidth(), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(titles.getOrNull(at - 1).orEmpty(), Modifier.fillMaxWidth(), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                         LuIcon(Lu.chevd, tint = c.muted, size = 20.dp)
                     }
@@ -284,11 +293,11 @@ internal fun PrTourScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        item(key = "intro") { Intro(session, head, tour, running, preview, onProgress) }
-                        if (preview != null) itemsIndexed(preview.planned, key = { index, _ -> "stop:$index" }) { index, (title, purpose) ->
+                        item(key = "intro") { Intro(session, head, tour, running, preview) }
+                        if (preview != null) itemsIndexed(preview.planned, key = { index, _ -> "stop:$index" }) { index, (title, _) ->
                             val written = preview.written[index]
                             if (written != null) StopCard(session, written, onOpenSource, folded = folds.folded(index), onFold = { folds.toggle(index) })
-                            else PlannedStop(title, purpose, next = (0 until index).all { it in preview.written })
+                            else PlannedStop(title, next = (0 until index).all { it in preview.written })
                         }
                         itemsIndexed(stops, key = { index, _ -> "stop:$index" }) { index, stop ->
                             Box(Modifier.arrive(index, play = arriving)) { StopCard(session, stop, onOpenSource, folded = folds.folded(index), onFold = { folds.toggle(index) }) }
@@ -307,6 +316,7 @@ internal fun PrTourScreen(
             LaunchedEffect(askFocused, askText.isEmpty(), tour != null) { onAskDim(tour != null && askFocused, askText.isEmpty()) }
             DisposableEffect(Unit) { onDispose { onAskDim(false, true) } }
             if (tour != null) SearchDim(askFocused, askText.isEmpty())
+            if (writing) WritingLip(session, onProgress, Modifier.align(Alignment.BottomCenter))
             if (tour != null) AskBar(
                 askText, { askText = it }, "Ask about this tour", onSend = onAsk,
                 modifier = Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
@@ -317,7 +327,7 @@ internal fun PrTourScreen(
         }
     }
 
-    if (sections) SectionsSheet(stops, current, onPick = { index ->
+    if (sections) SectionsSheet(titles, current, writing = preview?.let { p -> titles.indices.filterNot { it in p.written }.toSet() }, onPick = { index ->
         sections = false
         // A folded stop picked from the sections opens, so the reader lands on what they asked for (N15).
         folds.unfold(index)
@@ -356,26 +366,18 @@ private fun Card(content: @Composable () -> Unit) {
 
 /** The tour's own card: its title and overview, a note when it was written for an older commit, and the way to make a new one. */
 @Composable
-private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Boolean, preview: TourPreview? = null, onProgress: () -> Unit = {}) {
+private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Boolean, preview: TourPreview? = null) {
     val c = LocalPullsColors.current
     Card {
         when {
-            // The work log lives in the tour icon's sheet, not here: one line of a fixed height says the tour is being
-            // written and opens that sheet again, so nothing on the page moves as the log changes (M12).
+            // No "Writing the tour" line on the page: the work log's sheet rests at the foot of the page as a lip while the
+            // tour is written ([WritingLip]), so the page never looks finished before it is (recording 16 Oct 13:06, 05:38
+            // to 06:00 and 07:08 to 07:15; O13). Until the plan comes, the card holds its place with a loader.
             tour == null && (running || tourComing(session)) -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    Modifier.fillMaxWidth().cueClickable(role = Role.Button, onClickLabel = "Show the progress", onClick = onProgress),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    com.octaviantocan.pulls.ui.design.BreathingDot()
-                    Text("Writing the tour", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1)
-                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
-                }
                 if (preview != null) {
                     Text(preview.title, style = PullsType.xxl, color = c.text)
                     if (preview.overview.isNotBlank()) Markdown(preview.overview, style = PullsType.read.copy(color = c.text))
-                }
+                } else LoadingLines(title = true)
             }
             // A tour that failed says why; so does an analysis that was to write one. Another analysis's failure is not the tour's.
             tour == null -> TourEmpty(
@@ -411,19 +413,80 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
 }
 
 /**
- * A stop the plan names that is not written yet: its title and purpose in the quiet colours, in a card the shape of the
- * stop it will become. The one being written next breathes.
+ * A stop the plan names that is not written yet, in a card the shape of the stop it will become: its title, and a
+ * loader where its words will be, not the title and purpose greyed out ("instead of being greyed out, maybe just have a
+ * loader": recording 16 Oct 13:06, 06:48 to 06:55; O16). The one being written next says so.
  */
 @Composable
-private fun PlannedStop(title: String, purpose: String, next: Boolean) {
+internal fun PlannedStop(title: String, next: Boolean) {
     val c = LocalPullsColors.current
     Card {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = PullsType.xxl, color = c.muted)
-            if (purpose.isNotBlank()) Text(purpose, style = PullsType.read, color = c.faint)
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(title, style = PullsType.xxl, color = c.text)
             if (next) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 com.octaviantocan.pulls.ui.design.BreathingDot()
                 Text("Writing this stop", style = PullsType.sm, color = c.muted)
+            }
+            LoadingLines()
+        }
+    }
+}
+
+/** Skeleton lines where words are still coming: a title bar first when [title], then three lines of text. */
+@Composable
+private fun LoadingLines(title: Boolean = false) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (title) com.octaviantocan.pulls.ui.design.Skeleton(Modifier.fillMaxWidth(0.7f).height(20.dp))
+        com.octaviantocan.pulls.ui.design.Skeleton(Modifier.fillMaxWidth())
+        com.octaviantocan.pulls.ui.design.Skeleton(Modifier.fillMaxWidth(0.92f))
+        com.octaviantocan.pulls.ui.design.Skeleton(Modifier.fillMaxWidth(0.6f))
+    }
+}
+
+/**
+ * The tour's work log as a sheet resting at the foot of the page while the tour is written: the panel's top edge with its
+ * handle, and the step it is on. Pulling it up or tapping it opens the work log's sheet; pulling that sheet down puts it
+ * back here, so it can always be pulled up again ("there should be like a little lip at the bottom ... you can pull it
+ * back up": recording 16 Oct 13:06, 05:38 to 06:00 and 07:08 to 07:15; O13).
+ */
+@Composable
+internal fun WritingLip(session: ReviewSession, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    val c = LocalPullsColors.current
+    val density = LocalDensity.current
+    val task = session.taskFor("tour")?.takeIf { it.running } ?: session.taskFor("analyze")?.takeIf { it.running }
+    val step = task?.activities?.lastOrNull { !com.octaviantocan.pulls.data.isTourPreview(it) && it.id != "tour-write" }
+    var pulled by remember { mutableFloatStateOf(0f) }
+    val lift = with(density) { 24.dp.toPx() }
+    val shape = RoundedCornerShape(topStart = com.octaviantocan.pulls.ui.design.PullsRadius.sheet, topEnd = com.octaviantocan.pulls.ui.design.PullsRadius.sheet)
+    Column(
+        modifier.fillMaxWidth()
+            .stayOnPull()
+            .graphicsLayer { translationY = minOf(0f, pulled) / 3f }
+            .floatShadow(shape, PullsShadow.Note)
+            .clip(shape).background(c.paper)
+            .draggable(
+                rememberDraggableState { delta -> pulled += delta },
+                Orientation.Vertical,
+                onDragStarted = { pulled = 0f },
+                onDragStopped = { velocity ->
+                    // Up past a little way, or thrown up, opens the sheet; anything else leaves the lip where it is.
+                    if (pulled < -lift || velocity < -with(density) { PullsMotion.Fling.toPx() }) onOpen()
+                    pulled = 0f
+                },
+            )
+            .cueClickable(role = Role.Button, onClickLabel = "Show the progress", onClick = onOpen)
+            .navigationBarsPadding(),
+    ) {
+        Box(Modifier.padding(top = 10.dp, bottom = 12.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(CircleShape).background(c.grabber))
+        Row(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            com.octaviantocan.pulls.ui.design.BreathingDot()
+            Column(Modifier.weight(1f)) {
+                Text("Writing the tour", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1)
+                if (step != null) Text(com.octaviantocan.pulls.ui.ai.stepTitle(step), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -498,14 +561,17 @@ internal class TourFolds private constructor() {
  * title wraps with the same padding as every other sheet. Tapping one closes the sheet and scrolls there.
  */
 @Composable
-internal fun SectionsSheet(stops: List<TourStop>, current: Int, onPick: (Int) -> Unit, onClose: () -> Unit) {
+internal fun SectionsSheet(titles: List<String>, current: Int, writing: Set<Int>? = null, onPick: (Int) -> Unit, onClose: () -> Unit) {
     val c = LocalPullsColors.current
     PullsSheet(onClose, "Sections") {
         SheetCard(Modifier.padding(bottom = 16.dp)) {
-            stops.forEachIndexed { index, stop ->
+            titles.forEachIndexed { index, title ->
                 val number = index + 1
-                SheetRow(stop.title, { onPick(index) }, first = index == 0, icon = {
+                SheetRow(title, { onPick(index) }, first = index == 0, icon = {
                     when {
+                        // While the tour is written, a section still to come breathes until it is written (O17).
+                        writing != null && index in writing -> com.octaviantocan.pulls.ui.design.BreathingDot()
+                        writing != null -> LuIcon(Lu.okc, tint = c.accentTeal, size = 20.dp)
                         number < current -> LuIcon(Lu.okc, tint = c.accentTeal, size = 20.dp)
                         else -> Box(Modifier.size(15.dp).border(1.5.dp, if (number == current) c.accentTeal else c.faint, CircleShape))
                     }

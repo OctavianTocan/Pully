@@ -52,6 +52,7 @@ import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.SheetTopGap
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.review.EffortPage
 import com.octaviantocan.pulls.ui.review.ModelCatalogs
@@ -203,26 +204,23 @@ private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, o
         }
         return
     }
-    Text(
-        "Pulls reads the change and the code around it, then walks you through it section by section.",
-        Modifier.padding(horizontal = 4.dp),
-        style = PullsType.read, color = c.muted,
-    )
+    // No line of what a tour is: the sheet's title and Generate say it ("this is unnecessary": recording 16 Oct 13:06,
+    // 05:22 to 05:31; O12). The first card sits the sheets' own gap under the ✕ (O11).
     // A tour that failed says why here, where it was asked for; so does an analysis that was to write one.
     val failed = session.taskFor("tour")?.takeIf { it.status == "failed" }?.error
         ?: session.taskFor("analyze")?.takeIf { it.status == "failed" && "tour" in it.then }?.error
     val unloaded = session.loadError?.takeIf { session.key == null }
-    if (unloaded != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)) { ErrorBox("The pull request did not load", unloaded) }
-    else if (failed != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)) { ErrorBox("The tour could not be written", failed) }
+    val problem = unloaded?.let { "The pull request did not load" to it } ?: failed?.let { "The tour could not be written" to it }
+    if (problem != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = SheetTopGap)) { ErrorBox(problem.first, problem.second) }
     // The effort sits under the model as a row of its own, where the tour is set up ("I would maybe put the effort level
     // here in this menu", recording 15 Oct 15:37, 13:10 to 13:17; L25).
-    ModelCard(session, onModel, Modifier.padding(top = 16.dp), onEffort = onEffort)
+    ModelCard(session, onModel, onEffort = onEffort, gap = if (problem != null) 16.dp else SheetTopGap)
     CtaButton("Generate tour", { if (session.key != null) onGenerate() else waiting = true }, Modifier.fillMaxWidth().padding(top = 16.dp))
 }
 
 /** The row that names the model an analysis or a tour runs with; a tap opens the model page. The Tour's sheet shows it too. */
 @Composable
-internal fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Modifier = Modifier, onEffort: (() -> Unit)? = null) {
+internal fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Modifier = Modifier, onEffort: (() -> Unit)? = null, gap: androidx.compose.ui.unit.Dp = 12.dp) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val messages = LocalMessages.current
@@ -238,7 +236,7 @@ internal fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Mo
     val efforts = model?.efforts.orEmpty()
     // With its own Effort row the Model row names the model alone; a model with one effort has no choice to offer.
     val effortRow = onEffort != null && efforts.size > 1
-    SheetCard(modifier) {
+    SheetCard(modifier, gap = gap) {
         SheetRow("Model", onModel, first = true, iconless = true) {
             val label = if (effortRow) analysisModelLabel(config, catalog, "", messages).substringBefore(" · ") else analysisModelLabel(config, catalog, session.settings.effort, messages)
             Text(label, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)

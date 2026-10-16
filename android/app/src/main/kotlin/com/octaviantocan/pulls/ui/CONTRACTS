@@ -56,3 +56,13 @@ about this tour, Switch to the diff, Regenerate tour and the next and previous s
 pull request's Overview, Review files, Ask, Leave a comment and Approve; on the Diff, the
 next and previous file, Mark reviewed and Find a file. The other groups follow, and General
 is always last (circled General, recording of 16 Oct 12:10, 08:31 to 09:04, N14).
+
+@cc [owner:OctavianTocan,label:product;motion] nav-link-closes-what-was-open
+A pull request link that arrives (shared to Pulls or tapped in another app) first sends any
+open sheet down the way a sheet closes and closes Settings, then opens the pull request, so
+going back finds the Inbox with nothing left open (recording 16 Oct 13:06, 00:35 to 01:20 and 02:41 to 02:44;
+O1, O4, rule 175).
+
+@cc [owner:OctavianTocan,label:product] nav-back-asks-before-closing
+Back on the Inbox MUST NOT close Pulls at once: it asks "Close Pulls?" with Close Pulls and
+Stay (recording 16 Oct 13:06, 02:47 to 02:55; O5, rule 176).

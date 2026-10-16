@@ -1811,6 +1811,130 @@ Check: open What's new on 0.40.0: the bullets have their pictures, and the GIFs 
 
 Source: answers. Checked by: review.
 
+### Rules 175 to 189, from the walkthrough of 0.39.0 on 2026-10-16
+
+The recording of 16 Oct at 13:06 (O1 to O22, in `/mnt/project-files/design/feedback-2026-10-16-0.39.0.md`), read from the transcript and the frames.
+
+#### 175. A link that arrives closes what was open.
+
+A pull request link shared to Pulls, or tapped in another app, first sends any open sheet down the way a sheet closes, then opens the pull request on top of the Inbox. Settings is closed too, so coming back from the pull request finds the Inbox, not a sheet left open (O1: "instead of going down nicely", O4: "I don't think that's good").
+
+Check: open Profile, share a pull request link to Pulls: Profile slides down, then the pull request opens. Open Settings, tap a link in WhatsApp, go back: the Inbox shows with no sheet.
+
+Source: walkthrough. Checked by: review.
+
+#### 176. Back on the Inbox asks before Pulls closes.
+
+Back on the Inbox, the page Pulls closes from, opens a small sheet, "Close Pulls?", with Close Pulls and Stay; it never closes the app on the first press (O5).
+
+Check: press Back on the Inbox: the sheet asks; Stay keeps Pulls open, Close Pulls closes it.
+
+Source: walkthrough. Checked by: review.
+
+#### 177. A setting Android owns says where it stands and how to change it.
+
+Where a choice belongs to Android and Pulls cannot make it (which app opens github.com links), the row says On or Off from Android's own answer and opens a page that lists each part of that answer, says in one sentence what to turn on, has one button to Android's page, and explains what Android does not allow, such as a link tapped inside a browser staying there. Pulls never shows such a setting as a switch it cannot keep (O2, O3).
+
+Check: in Settings, GitHub links says Off while any address is off; its page lists Open supported links and each address, and coming back from Android's page shows the new answer.
+
+Source: walkthrough. Checked by: review.
+
+#### 178. Numbers are there at once.
+
+A page of numbers (Profile's year on GitHub, Stats) shows the last answer the moment it opens, kept on the phone between launches, and refreshes underneath; Pulls asks for both a moment after it starts, so even a first open has today's numbers. A first open on a new phone holds the cards' places until they come (O6, O10; rule 145).
+
+Check: open Profile and Stats after a restart: both show numbers at once.
+
+Source: walkthrough. Checked by: review.
+
+#### 179. A graph answers a finger.
+
+Touching a graph reads it out: a tap or a drag along Profile's days or months shows that day's or month's count in the big number's place, with a tick as the finger crosses each one, and a tap on the same one again puts the total back (O7: "I would like to interact with it somehow").
+
+Check: drag along the day grid: the number follows the finger, day by day.
+
+Source: walkthrough. Checked by: review.
+
+#### 180. A sheet's first swipe scrolls it.
+
+A swipe up on a sheet at its normal height lifts it and carries on into its content in the same movement, so the first swipe on a long sheet scrolls it instead of stopping at the tall height (O8: "a little hard to scroll down ... just at the start").
+
+Check: open Settings and throw it upward once: it lifts and its rows scroll.
+
+Source: walkthrough. Checked by: review.
+
+#### 181. Stats shows what the AI used and cost.
+
+Stats has an AI usage section: tokens in, out and from cache, and the spend, then a table by feature (tours, summaries, analysis, AI review, Ask) and a card per model with its runs, a bar for its share and its tokens and cost. A cost the engine never reported shows "–", never $0.00, with one line saying some runs were not priced (O9).
+
+Check: after a Codex run, Stats shows its tokens and "–" for its cost, and a Claude Code run shows a price.
+
+Source: walkthrough. Checked by: review.
+
+#### 182. No line explains what a button already says.
+
+A sheet holds only what does something: no sentence under the title saying what the sheet is for when its title and its button say it ("No tour yet" and Generate tour). The first card sits at the sheets' gap under the ✕ (O11, O12; rule 141).
+
+Check: open "No tour yet": the model card is the first thing under the ✕, with the same air as Settings' first card.
+
+Source: walkthrough. Checked by: review.
+
+#### 183. Work in progress rests at the foot of the page.
+
+While a tour is written, its work log's sheet can be pulled down but not away: it rests at the foot of the Tour as a lip, the sheet's top edge with its handle, "Writing the tour" and the step it is on, and a pull up or a tap opens the sheet again. The page itself has no "Writing the tour" card, so it never looks finished before it is. The lip goes when the tour is there (O13). This replaces the one quiet line of rule 144.
+
+Check: tap Generate tour, pull the sheet down: the lip stays at the bottom; pull it up: the log is back.
+
+Source: walkthrough. Checked by: review.
+
+#### 184. A work log grows downward, and every step opens.
+
+The tour's work log lists every step, the newest at the bottom, with no "+4 more" squeezing older ones away. A tap on any finished step opens what is known about it: how long it took, what it read or found, and the rest of a title cut at two lines (O14, O15).
+
+Check: watch a tour being written: the log only grows; tap "Wrote the answer": it opens.
+
+Source: walkthrough. Checked by: review.
+
+#### 185. What is still being written shows a loader, and the picker fills in.
+
+A tour section not written yet shows its title and a shimmering loader where its words will go, never grey text. The section picker at the top is there from the plan on: its ring fills as sections are written, and the Sections sheet marks each one still to come with the live dot until it is written (O16, O17; rule 85).
+
+Check: while a tour is written, the strip is at the top and its ring grows with each section; unwritten cards shimmer.
+
+Source: walkthrough. Checked by: review.
+
+#### 186. A hold menu names what it holds and groups its actions.
+
+Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pulls does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). A tour's hold menu has the same card (O19: "too bland").
+
+Check: hold an Inbox row: the card and two groups; hold a Tours row: the same card.
+
+Source: walkthrough. Checked by: review.
+
+#### 187. A pull request is on its way before it is tapped.
+
+The Inbox asks for its top pull requests once it shows, and for any row the moment a finger lands on it, so a tap opens the pull request and its files at once instead of the skeleton (O20).
+
+Check: open the Inbox, wait a moment, tap the first row: its files are there with no skeleton.
+
+Source: walkthrough. Checked by: review.
+
+#### 188. Pinch zoom eases.
+
+The code's size follows two fingers smoothly: each frame it moves part of the way to where the fingers have taken it, laid out again at most once a frame, so it never jumps in steps (O21; rule 93).
+
+Check: pinch the Diff slowly and quickly: the text grows smoothly and the line under the fingers stays there.
+
+Source: walkthrough. Checked by: review.
+
+#### 189. A file swipe never stops halfway.
+
+Letting go of a swipe between files carries the row on to the next file at once, at the speed it was thrown, before the new file is laid out; it never waits between the two (O22; rule 105).
+
+Check: swipe between files several times: no swipe pauses mid-way.
+
+Source: walkthrough. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -1894,8 +2018,11 @@ Run before showing any new screen.
 59. Open a tour with pseudocode, a call tree, a file tree and a long file name under "In the code": pseudocode reads as plain wrapped steps, trees and flows are drawn, and no reason is squeezed (rule 95, L27).
 60. Ask a question and watch it work: its newest lines of thinking and the answer appear as they are written, and the chips include the files it read (rule 99).
 61. Open the Claude Code model sheet: names carry their version and older ones sit under "Older models"; in Settings the Effort row under Model names its level with Recommended on the CLI's default (rules 89 and 142).
+62. Open a sheet, share a pull request link to Pulls, then go back: the sheet slid down, the pull request opened, and Back lands on the Inbox with no sheet; Back again asks before Pulls closes (rules 175 and 176).
+63. Generate a tour and pull its sheet down: a lip stays at the foot of the Tour, the section strip fills in as sections are written, unwritten cards shimmer, and every finished step in the log opens (rules 183 to 185).
+64. Restart Pulls and open Profile, Stats and the first Inbox row: each shows at once, with no skeleton (rules 178 and 187).
 
-The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) the checks from Tavi's answers (28 to 31), the checks from the second walkthrough (32 to 43) the checks from his comments and notes of the same day (44 to 47) the check from his answer on the search pill (48), the checks from his ideas for Home (49 and 51), the check from his message on updates (50) the check from his message on motion (52), the check for Jev (53), the check for huge pull requests (54) and the checks from the audit of the second walkthrough (55 to 61). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
+The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) the checks from Tavi's answers (28 to 31), the checks from the second walkthrough (32 to 43) the checks from his comments and notes of the same day (44 to 47) the check from his answer on the search pill (48), the checks from his ideas for Home (49 and 51), the check from his message on updates (50) the check from his message on motion (52), the check for Jev (53), the check for huge pull requests (54) the checks from the audit of the second walkthrough (55 to 61) and the checks from the walkthrough of 0.39.0 (62 to 64). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
 
 ## Enforcement
 

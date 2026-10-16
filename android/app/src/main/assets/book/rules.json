@@ -1591,5 +1591,140 @@
       "review"
     ],
     "text": "Tavi: \"From now on let's make sure we have images in the changelog too, showing the stuff, or little gifs if its animated.\" Every changelog section from 0.40.0 on has at least one picture of what changed, a short GIF where it moves, on its own line under the bullet it shows. The update screen, What's new and the version page in Settings show each picture under its bullet, full width with the cards' corner. Pictures live in `android/changelog/<version>/`.\n\nCheck: open What's new on 0.40.0: the bullets have their pictures, and the GIFs move."
+  },
+  {
+    "n": 175,
+    "title": "A link that arrives closes what was open.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A pull request link shared to Pulls, or tapped in another app, first sends any open sheet down the way a sheet closes, then opens the pull request on top of the Inbox. Settings is closed too, so coming back from the pull request finds the Inbox, not a sheet left open (O1: \"instead of going down nicely\", O4: \"I don't think that's good\").\n\nCheck: open Profile, share a pull request link to Pulls: Profile slides down, then the pull request opens. Open Settings, tap a link in WhatsApp, go back: the Inbox shows with no sheet."
+  },
+  {
+    "n": 176,
+    "title": "Back on the Inbox asks before Pulls closes.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Back on the Inbox, the page Pulls closes from, opens a small sheet, \"Close Pulls?\", with Close Pulls and Stay; it never closes the app on the first press (O5).\n\nCheck: press Back on the Inbox: the sheet asks; Stay keeps Pulls open, Close Pulls closes it."
+  },
+  {
+    "n": 177,
+    "title": "A setting Android owns says where it stands and how to change it.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Where a choice belongs to Android and Pulls cannot make it (which app opens github.com links), the row says On or Off from Android's own answer and opens a page that lists each part of that answer, says in one sentence what to turn on, has one button to Android's page, and explains what Android does not allow, such as a link tapped inside a browser staying there. Pulls never shows such a setting as a switch it cannot keep (O2, O3).\n\nCheck: in Settings, GitHub links says Off while any address is off; its page lists Open supported links and each address, and coming back from Android's page shows the new answer."
+  },
+  {
+    "n": 178,
+    "title": "Numbers are there at once.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A page of numbers (Profile's year on GitHub, Stats) shows the last answer the moment it opens, kept on the phone between launches, and refreshes underneath; Pulls asks for both a moment after it starts, so even a first open has today's numbers. A first open on a new phone holds the cards' places until they come (O6, O10; rule 145).\n\nCheck: open Profile and Stats after a restart: both show numbers at once."
+  },
+  {
+    "n": 179,
+    "title": "A graph answers a finger.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Touching a graph reads it out: a tap or a drag along Profile's days or months shows that day's or month's count in the big number's place, with a tick as the finger crosses each one, and a tap on the same one again puts the total back (O7: \"I would like to interact with it somehow\").\n\nCheck: drag along the day grid: the number follows the finger, day by day."
+  },
+  {
+    "n": 180,
+    "title": "A sheet's first swipe scrolls it.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A swipe up on a sheet at its normal height lifts it and carries on into its content in the same movement, so the first swipe on a long sheet scrolls it instead of stopping at the tall height (O8: \"a little hard to scroll down ... just at the start\").\n\nCheck: open Settings and throw it upward once: it lifts and its rows scroll."
+  },
+  {
+    "n": 181,
+    "title": "Stats shows what the AI used and cost.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Stats has an AI usage section: tokens in, out and from cache, and the spend, then a table by feature (tours, summaries, analysis, AI review, Ask) and a card per model with its runs, a bar for its share and its tokens and cost. A cost the engine never reported shows \"–\", never $0.00, with one line saying some runs were not priced (O9).\n\nCheck: after a Codex run, Stats shows its tokens and \"–\" for its cost, and a Claude Code run shows a price."
+  },
+  {
+    "n": 182,
+    "title": "No line explains what a button already says.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A sheet holds only what does something: no sentence under the title saying what the sheet is for when its title and its button say it (\"No tour yet\" and Generate tour). The first card sits at the sheets' gap under the ✕ (O11, O12; rule 141).\n\nCheck: open \"No tour yet\": the model card is the first thing under the ✕, with the same air as Settings' first card."
+  },
+  {
+    "n": 183,
+    "title": "Work in progress rests at the foot of the page.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "While a tour is written, its work log's sheet can be pulled down but not away: it rests at the foot of the Tour as a lip, the sheet's top edge with its handle, \"Writing the tour\" and the step it is on, and a pull up or a tap opens the sheet again. The page itself has no \"Writing the tour\" card, so it never looks finished before it is. The lip goes when the tour is there (O13). This replaces the one quiet line of rule 144.\n\nCheck: tap Generate tour, pull the sheet down: the lip stays at the bottom; pull it up: the log is back."
+  },
+  {
+    "n": 184,
+    "title": "A work log grows downward, and every step opens.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The tour's work log lists every step, the newest at the bottom, with no \"+4 more\" squeezing older ones away. A tap on any finished step opens what is known about it: how long it took, what it read or found, and the rest of a title cut at two lines (O14, O15).\n\nCheck: watch a tour being written: the log only grows; tap \"Wrote the answer\": it opens."
+  },
+  {
+    "n": 185,
+    "title": "What is still being written shows a loader, and the picker fills in.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A tour section not written yet shows its title and a shimmering loader where its words will go, never grey text. The section picker at the top is there from the plan on: its ring fills as sections are written, and the Sections sheet marks each one still to come with the live dot until it is written (O16, O17; rule 85).\n\nCheck: while a tour is written, the strip is at the top and its ring grows with each section; unwritten cards shimmer."
+  },
+  {
+    "n": 186,
+    "title": "A hold menu names what it holds and groups its actions.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pulls does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). A tour's hold menu has the same card (O19: \"too bland\").\n\nCheck: hold an Inbox row: the card and two groups; hold a Tours row: the same card."
+  },
+  {
+    "n": 187,
+    "title": "A pull request is on its way before it is tapped.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The Inbox asks for its top pull requests once it shows, and for any row the moment a finger lands on it, so a tap opens the pull request and its files at once instead of the skeleton (O20).\n\nCheck: open the Inbox, wait a moment, tap the first row: its files are there with no skeleton."
+  },
+  {
+    "n": 188,
+    "title": "Pinch zoom eases.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The code's size follows two fingers smoothly: each frame it moves part of the way to where the fingers have taken it, laid out again at most once a frame, so it never jumps in steps (O21; rule 93).\n\nCheck: pinch the Diff slowly and quickly: the text grows smoothly and the line under the fingers stays there."
+  },
+  {
+    "n": 189,
+    "title": "A file swipe never stops halfway.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Letting go of a swipe between files carries the row on to the next file at once, at the speed it was thrown, before the new file is laid out; it never waits between the two (O22; rule 105).\n\nCheck: swipe between files several times: no swipe pauses mid-way."
   }
 ]

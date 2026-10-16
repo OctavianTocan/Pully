@@ -616,7 +616,7 @@
     "declarations": [
       {
         "file": "ui/design/Sheet.kt",
-        "line": 111,
+        "line": 112,
         "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls\nunder the header, which stays put. Every sheet rests at two heights and slides between them (rule 77):\nits normal height, which is its content up to half the screen, and its tall height near the top of the\nscreen, which a short sheet reaches too: the room under its content is the sheet's own paper. [full]\nmakes the body fill the sheet (chat, Commands); its normal height is then half the screen, and its\n[footer] stays on screen at either height, floating over the body, which runs on under it and dissolves into the\npaper as the Tour's page does under its Ask bar ([aboveFooter] floats just over the footer, as Ask's\nscroll-to-the-end button). [expandable] off keeps a sheet at its normal height. [back] swaps the close X for a back\narrow. [tall] opens it at its tall height (Commands, whose search takes the keyboard; Ask).\n\nThe sheet is the kit's own window, not Material's. It rises from below the screen on a spring with a little bounce\nwhile fading in through a 2px blur, and leaves in 350ms on the smooth-out curve (rule 73, H3). It follows a finger:\ndragged up from its normal height it goes to the tall one, down from the tall height to the normal one, and down\nfrom the normal height it closes, settling on the same spring at the speed it was let go. Only a drag that starts\nwith the content at its top moves the sheet: scrolling the content back up to its top, or a fling that runs into\nit, never takes the sheet down with it (H2). A sheet is always a bottom sheet, wherever it was opened from (H6).\nA field that takes the keyboard lifts it to the tall height, so the field never sits behind the keyboard.",
         "params": [
           {
@@ -676,7 +676,7 @@
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 140,
+        "line": 141,
         "doc": "",
         "params": [
           {
@@ -736,7 +736,7 @@
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 165,
+        "line": 166,
         "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\nenough to see which way it went: forward from the right, ← to the right (H1). [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nAt its normal height the panel grows or shrinks to the next page's height as the body slides. [heading] draws a\npage's title itself where plain text is not enough (the pull request's name and number); [title] is still its name.",
         "params": [
           {

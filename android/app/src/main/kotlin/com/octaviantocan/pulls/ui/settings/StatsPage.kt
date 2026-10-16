@@ -217,7 +217,7 @@ private fun StatsBody(summary: AnalyticsSummary, settings: AppSettings) {
  * cost (Codex, a proxy) is not shown as free: its cost reads "–" and a line under the card says so.
  */
 @Composable
-private fun AiUsage(summary: AnalyticsSummary, locale: Locale) {
+internal fun AiUsage(summary: AnalyticsSummary, locale: Locale) {
     if (summary.totals.aiRuns == 0L) return
     val c = LocalPullsColors.current
     val tasks = summary.tasks

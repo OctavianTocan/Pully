@@ -108,7 +108,7 @@ fun PullsApp(initialTarget: String?) {
     PageBack(pageMotion, enabled = stack.size > 1) { nav.back() }
     // Back on the Inbox asks before Pulls closes, rather than leaving at once (O5).
     var leaving by remember { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(enabled = stack.size == 1) { leaving = true }
+    androidx.activity.compose.BackHandler(enabled = stack.size == 1) { leaving = true } // motion-ok: on the Inbox there is no page behind to move; Back opens the "Close Pulls?" sheet
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     // Every code view reads `PullsType.mono`, which follows this.
     if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont) com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont

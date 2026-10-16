@@ -272,15 +272,18 @@ A comment card or a stats row never touches the diff: at least 24dp above the di
 edge (rule 40).
 
 @cc [owner:OctavianTocan,label:product] tour-starts-from-its-icon
-With no tour, the tour icon opens a "No tour yet" sheet with one line on what a tour is,
-the Model row (a page of the same sheet) and Generate tour; while one is written it opens
+With no tour, the tour icon opens a "No tour yet" sheet with the Model row (a page of the
+same sheet) and Generate tour, the model card the sheets' gap under the ✕ and no line on
+what a tour is (Tavi's decision, recording 16 Oct 13:06, 05:12 to 05:31; O11, O12); while one is written it opens
 that sheet again on the progress, over the Tour page. With a tour the icon opens the Tour
 page, its dot breathing while a new one is written (rule 113; M12).
 
 @cc [owner:OctavianTocan,label:product] tour-generate-opens-the-work
 Generate tour keeps the sheet open and shows the running work log in it in the same frame,
-with the Tour page behind it; the sheet may be closed, and the tour icon or the one
-"Writing the tour" line on the Tour page opens it again. The page shows no work log of its
+with the Tour page behind it. Pulled down, it rests at the foot of the Tour page as a lip,
+its top edge with the handle, "Writing the tour" and the step it is on, and a pull up, a tap
+on the lip or the tour icon opens it again; the page has no "Writing the tour" card (Tavi's
+decision, recording 16 Oct 13:06, 05:38 to 06:00 and 07:08 to 07:15; O13, rule 183). The page shows no work log of its
 own, so nothing on it moves as the log changes, and the sheet closes when the tour is there
 ("for that bottom sheet to stay open and for us to see this there", recording 16 Oct
 09:50, 05:03 to 05:45; M12, Tavi's decision, replacing closing the sheet of J28). A tap
@@ -452,8 +455,7 @@ The "No tour yet" sheet has the effort as a row of its own under Model (recordin
 15:37, 13:10 to 13:17; L25).
 
 @cc [owner:OctavianTocan,label:product;motion] tour-previews-while-writing
-While a tour is written its plan and each stop already written show under the "Writing the
-tour" line, in the places the stops will take, and the page is never scrolled for the reader (Tavi's idea,
+While a tour is written its plan and each stop already written show under the tour's card, in the places the stops will take, and the page is never scrolled for the reader (Tavi's idea,
 recording 15 Oct 15:37, 13:47 to 14:05; L26).
 
 @cc [owner:OctavianTocan,label:design] tour-sketches-read-cleanly
@@ -503,3 +505,29 @@ A place opened in the diff or its sheet lands with its line near the top and the
 scrolled back to its left edge, never at the top of the file or cut off on the left; a
 line the rows do not hold lands on the nearest one (recording of 16 Oct 12:10, 10:11 to
 10:13, N21).
+
+@cc [owner:OctavianTocan,label:product;design] tour-unwritten-shows-a-loader
+A tour section not written yet shows its title in the text colour and a shimmering loader
+where its words will go, never its title and purpose greyed out; the card before the plan
+arrives holds its place with the same loader (recording 16 Oct 13:06, 06:48 to 06:55; O16, rule 185).
+
+@cc [owner:OctavianTocan,label:product] tour-strip-fills-while-writing
+The Tour strip and its Sections sheet are there from the plan on, while the tour is
+written: the ring shows how much is written, and each section still to come carries the
+live dot in the sheet until it is written (recording 16 Oct 13:06, 07:15 to 07:28; O17, rule 185).
+
+@cc [owner:OctavianTocan,label:product;motion] pr-warm-before-tap
+The Inbox asks for its top pull requests once it shows, and for a row the moment a finger
+lands on it, so a tap opens the pull request and its files without the skeleton; a page
+opened while that ask is out waits for it rather than asking again (recording 16 Oct 13:06, 09:09 to 09:17;
+O20, rule 187).
+
+@cc [owner:OctavianTocan,label:motion] diff-pinch-eases
+A pinch moves the code's size part of the way to the fingers each frame, laid out at most
+once a frame, so the text grows and shrinks smoothly and never in steps; it is still the
+font that changes, never a picture of the page (M9; recording 16 Oct 13:06, 09:22 to 09:30; O21, rule 188).
+
+@cc [owner:OctavianTocan,label:motion] diff-file-swipe-glides-on-release
+Letting go of a file swipe carries the row on to the file it chose at once, at the speed it
+was thrown, before the new file is laid out; the row MUST NOT stand still between two files
+(recording 16 Oct 13:06, 09:36 to 09:43; O22, rules 105 and 189).
