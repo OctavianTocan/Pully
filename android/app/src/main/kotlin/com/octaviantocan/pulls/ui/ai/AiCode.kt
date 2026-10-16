@@ -576,7 +576,7 @@ private fun FlowNode(number: Int, name: String, last: Boolean) {
                 if (!last) drawLine(rail, Offset(x, size.height / 2), Offset(x, size.height), stroke)
             }
             Box(Modifier.size(FLOW_RAIL).clip(CircleShape).background(c.accentWash), contentAlignment = Alignment.Center) {
-                Text("$number", style = PullsType.xs.copy(fontWeight = FontWeight.SemiBold), color = c.accentWashInk)
+                Text("$number", style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold), color = c.accentWashInk)
             }
         }
         Box(
