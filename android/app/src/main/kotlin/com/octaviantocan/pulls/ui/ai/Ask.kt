@@ -106,7 +106,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                         val activities = if (running && task != null) task.activities else turn.activities.ifEmpty { task?.activities.orEmpty() }
                         val outcome = turn.outcome ?: if (task != null && !task.running) outcomeOf(task) else "done"
                         val stop = guardedStop(session, listOf("ask"), running && task != null) { task?.let { session.cancelTask(it.id) } }
-                        AiActivityLogFull(activities, running, Modifier.fillMaxWidth(), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, hint = true, onStop = stop)
+                        AiActivityLogFull(activities, running, Modifier.fillMaxWidth(), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, onStop = stop)
                     }
                     val answer = turn.answer ?: task?.result?.takeIf { task.status == "done" }
                     val error = turn.error ?: task?.takeIf { it.status == "failed" || it.status == "cancelled" }?.let { if (it.status == "cancelled") t("ask.stopped") else it.error }
@@ -120,7 +120,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
             if (pending != null) {
                 val sentAt = remember(pending.first) { System.currentTimeMillis() }
                 UserBubble(pending.first)
-                AiActivityLogFull(emptyList(), running = true, startedAt = sentAt, compact = true, hint = true)
+                AiActivityLogFull(emptyList(), running = true, startedAt = sentAt, compact = true)
             }
             if (!asking) {
                 followError?.let { Text(it, style = PullsType.sm, color = c.error) }

@@ -48,9 +48,10 @@ a dot-folder (`.agents`, `.github`) keeps its dot. A file the pull request chang
 in the app; any other opens on GitHub at the head commit, never a 404 (rule 124; J36).
 
 @cc [owner:OctavianTocan,label:product] ai-code-works-like-the-diff
-A code block in a tour or an answer is the diff's code view: syntax colours (pseudocode
-too), sideways scroll and pinch zoom. Inline code shows as code and never with its
-backticks (rule 95; F59, F63).
+A code block in a tour or an answer is the diff's code view: syntax colours, sideways
+scroll and pinch zoom. Inline code shows as code and never with its backticks. Pseudocode
+is not code: it reads as wrapped steps (`tour-sketches-read-cleanly`; rule 95; F59, F63,
+L27).
 
 @cc [owner:OctavianTocan,label:product] ai-structures-are-drawn
 A flow, a call tree and a file tree are drawn by the app from structured data, never

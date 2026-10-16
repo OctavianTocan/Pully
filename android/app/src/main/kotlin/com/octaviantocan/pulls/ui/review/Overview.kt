@@ -44,7 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.SoftChip
@@ -838,8 +837,8 @@ fun Conversation(overview: PrOverview) {
                 trailing = { Text(prTimeAgo(overview.createdAt), style = PullsType.sm, color = c.muted, maxLines = 1) },
             ) {
                 overview.author?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
-                // A long name wraps whole in its column; the age stays at the right edge (rules 2 and 91).
-                Text(overview.author?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text)
+                // A name keeps to one line and gives way at its end; the age stays at the right edge (rules 91 and 111).
+                Text(overview.author?.login ?: "ghost", Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (descriptionOpen) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) {
                 if (overview.bodyHTML.isNotBlank()) PrHtml(overview.bodyHTML)
@@ -923,11 +922,11 @@ private fun CommentCard(item: PrTimelineItem) {
                 else -> t("overview.timeline.reviewed") to c.muted
             }
             val hidden = minimized?.let { t("overview.timeline.hidden", "reason" to it) }
-            // The name, the decision and a hidden note read as one line that wraps whole, so none of them is ever cut; the
-            // age stays at the right edge (rules 2 and 91).
+            // The name, the decision and a hidden note read as one line; when they run long the decision wraps under the
+            // name, which is never broken inside, and the age stays at the right edge (rules 91 and 111).
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = c.text)) { append(softBreaks(item.actor?.login ?: "ghost")) }
+                    withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = c.text)) { append(item.actor?.login ?: "ghost") }
                     verb?.let { (words, color) -> append("  "); withStyle(SpanStyle(color = color)) { append(words) } }
                     hidden?.let { append("  "); withStyle(SpanStyle(color = c.muted)) { append(it) } }
                 },
