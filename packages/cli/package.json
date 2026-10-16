@@ -46,6 +46,7 @@
     "beautiful-mermaid": "catalog:frontend",
     "devframe": "catalog:frontend",
     "h3": "catalog:frontend",
+    "jose": "catalog:frontend",
     "unstorage": "catalog:frontend"
   },
   "devDependencies": {

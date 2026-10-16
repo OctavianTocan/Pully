@@ -26,12 +26,25 @@ by hand. Adding a `CONTRACTS` file needs no other change for it to show there
 
 @cc [owner:OctavianTocan,label:security;architecture] phone-api-one-account
 The phone's API (`POST /api/rpc` and `GET /android/*`) stays behind Cloudflare Access with
-the headers the phone is given in Settings, as before. The server has one account, seeded
-from the environment, with no sign-up and no GitHub connection; the phone signs in to it
-with email and password once and stays signed in until Sign out. The account's own
-methods (its keys, synced settings and posted diffs) MUST need that session; the rest of
-the phone API is reached as before. This replaces "no login" by Tavi's decision of 16 Oct
-12:40 and 12:47 (plan "Posted diffs"). Google sign-in MAY come later.
+the headers the phone is given in Settings, as before. The phone signs in once and stays
+signed in until Sign out: with Google (see `google-sign-in-same-account`), or with email and
+password for the one test account seeded from the environment. Nobody can make an account
+with a password, and there is no GitHub connection. The account's own methods (its keys,
+synced settings and posted diffs) MUST need that session; the rest of the phone API is
+reached as before. This replaces "no login" by Tavi's decision of 16 Oct 12:40 and 12:47
+(plan "Posted diffs"); Google accounts and the password kept for test users are his of
+16 Oct 16:52.
+
+@cc [owner:OctavianTocan,label:security;product] google-sign-in-same-account
+Google sign-in makes the email's account the first time and signs in to it after, with no
+step to create it, and MUST be refused, with no account made, for every email but
+tocanoctavian@gmail.com and addresses at @octaviantocan.com (Tavi, 16 Oct 16:52: "The
+Google sign-in should be restricted to tocanoctavian@gmail.com and emails with a
+@octaviantocan.com domain"). The server MUST check the Google ID token's signature against
+Google's keys, its issuer, that it was made out to the server's web client ID
+(`PULLY_GOOGLE_CLIENT_ID`) and has not expired, and that its email is verified; anything
+else is refused with no session. An account Google made never takes a password. Without
+that client ID the server takes no Google sign-in and the phone shows no Google button.
 
 @cc [owner:OctavianTocan,label:security] agent-api-needs-a-key
 `/api/v1/*` is the only part of the server meant to sit outside Cloudflare Access, and it

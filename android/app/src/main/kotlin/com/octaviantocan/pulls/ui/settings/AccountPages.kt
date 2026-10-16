@@ -1,15 +1,24 @@
 package com.octaviantocan.pulls.ui.settings
 
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -29,8 +39,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.data.Account
 import com.octaviantocan.pulls.data.AgentKey
+import com.octaviantocan.pulls.data.GoogleSignIn
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerError
 import com.octaviantocan.pulls.data.ServerStore
@@ -43,11 +55,14 @@ import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.ModalReveal
+import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
+import com.octaviantocan.pulls.ui.home.DrawableIcon
 import com.octaviantocan.pulls.ui.review.copyText
 import java.time.Instant
 import java.time.ZoneId
@@ -71,7 +86,7 @@ internal fun AccountCheck() {
 internal suspend fun checkAccount(context: Context) {
     Account.load(context)
     val repo = Repo(context)
-    val has = try {
+    val status = try {
         repo.accountStatus()
     } catch (e: CancellationException) {
         throw e
@@ -79,8 +94,8 @@ internal suspend fun checkAccount(context: Context) {
         // An older server has no accounts to ask about; an unreachable one is asked again on the next return.
         return
     }
-    Account.noteServer(context, has)
-    if (!has || Account.email == null) return
+    Account.noteServer(context, status)
+    if (!status.hasAccount || Account.email == null) return
     try {
         if (repo.accountEmail() == null) Account.signedOut(context) else SettingsSync.sync(context)
     } catch (e: CancellationException) {
@@ -92,10 +107,9 @@ internal suspend fun checkAccount(context: Context) {
 }
 
 /**
- * The sign-in page: while the server has an account and this phone is not signed in to it, it covers the app, as the
- * update screen does ("it actually should get a sign in screen, but once you sign in it's just signed in": Tavi, 16 Oct
- * 12:47). Email and password, one button, and what went wrong under it. There is no sign-up: the server's account is
- * the only one. Back leaves Pully.
+ * The sign-in page: while the server takes a sign-in and this phone is not signed in, it covers the app, as the update
+ * screen does ("it actually should get a sign in screen, but once you sign in it's just signed in": Tavi, 16 Oct
+ * 12:47). Back leaves Pully.
  */
 @Composable
 internal fun SignInGate(onLeave: () -> Unit) {
@@ -105,62 +119,116 @@ internal fun SignInGate(onLeave: () -> Unit) {
     ) { SignInPage() }
 }
 
+/**
+ * The heading at the top and everything to do at the bottom, under the thumb, as Zillow and Detail lay theirs out
+ * (Appllama, 16 Oct): Continue with Google first, then "or" and the email field alone; Continue shows the password
+ * under it, for the test account (Tavi, 16 Oct 16:52). Without Google on the server the email is the page's one action.
+ */
 @Composable
 internal fun SignInPage() {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val motion = rememberMotionEnabled()
     val server = remember { ServerStore.load(context).url.removePrefix("https://").removePrefix("http://").trimEnd('/') }
+    val googleClientId = Account.googleClientId
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var asked by remember { mutableStateOf(false) }
     var shown by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf<SignInWay?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
-    val ready = email.isNotBlank() && password.isNotEmpty() && !busy
-    fun submit() {
-        if (!ready) return
-        busy = true
+    val ready = busy == null && email.isNotBlank() && (!asked || password.isNotEmpty())
+    fun signIn(way: SignInWay, attempt: suspend (Repo) -> Pair<String, String>?) {
+        if (busy != null) return
+        busy = way
         problem = null
         scope.launch {
             try {
-                val (session, signedAs) = Repo(context).signIn(email.trim(), password)
-                Account.signedIn(context, session, signedAs)
-                SettingsSync.sync(context)
+                attempt(Repo(context))?.let { (session, signedAs) ->
+                    Account.signedIn(context, session, signedAs)
+                    SettingsSync.sync(context)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 problem = e.message ?: "Pully could not sign in."
             }
-            busy = false
+            busy = null
         }
+    }
+    fun next() {
+        if (!ready) return
+        if (!asked) {
+            asked = true
+            return
+        }
+        signIn(SignInWay.Password) { it.signIn(email.trim(), password) }
+    }
+    fun google(clientId: String) = signIn(SignInWay.Google) { repo ->
+        // Closing Google's account sheet is not a failure: the page stays as it was.
+        GoogleSignIn.idToken(context, clientId)?.let { repo.signInWithGoogle(it) }
     }
     Column(
         Modifier.fillMaxSize().background(c.base).padding(top = headerTopPadding()).imePadding().navigationBarsPadding()
             .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
     ) {
-        Text("Sign in to Pully", style = PullsType.xxl, color = c.text)
-        Text(
-            if (server.isBlank()) "Sign in with the account's email and password." else "Sign in with the account on $server.",
-            Modifier.padding(top = 8.dp), style = PullsType.read, color = c.muted,
-        )
-        SheetCard(Modifier.padding(top = 12.dp)) {
-            SheetField("Email", email, { email = it }, placeholder = "you@example.com", first = true, keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
-            SheetField(
-                "Password", password, { password = it }, secret = !shown, keyboardType = KeyboardType.Password, imeAction = ImeAction.Go, onGo = ::submit,
-                trailing = {
-                    Text(
-                        if (shown) "Hide" else "Show",
-                        Modifier.cueClickable(role = Role.Button) { shown = !shown }.padding(horizontal = 8.dp, vertical = 10.dp),
-                        style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
-                    )
-                },
+        // Pully's own mark over the heading, as Zillow's sits over its welcome.
+        DrawableIcon(R.drawable.ic_stat_pulls, tint = c.text, size = 40.dp)
+        Text("Sign in to Pully", Modifier.padding(top = 24.dp), style = PullsType.xxl, color = c.text)
+        if (server.isNotBlank()) Text("Your account on $server.", Modifier.padding(top = 8.dp), style = PullsType.read, color = c.muted)
+        Spacer(Modifier.weight(1f))
+        if (googleClientId != null) {
+            CtaButton(
+                if (busy == SignInWay.Google) "Signing in…" else "Continue with Google", { google(googleClientId) },
+                Modifier.fillMaxWidth(), enabled = busy == null,
+                leading = { DrawableIcon(R.drawable.ic_si_google, tint = c.onCta, size = 18.dp) },
             )
+            Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f).height(1.dp).background(c.borderMute))
+                Text("or", Modifier.padding(horizontal = 12.dp), style = PullsType.sm, color = c.faint)
+                Box(Modifier.weight(1f).height(1.dp).background(c.borderMute))
+            }
+        }
+        SheetCard {
+            SheetField(
+                "Email", email, { email = it }, placeholder = "you@example.com", first = true, keyboardType = KeyboardType.Email,
+                imeAction = if (asked) ImeAction.Next else ImeAction.Go, onGo = ::next,
+            )
+            AnimatedVisibility(
+                asked,
+                enter = if (motion) fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + expandVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) else EnterTransition.None,
+                exit = ExitTransition.None,
+            ) {
+                SheetField(
+                    "Password", password, { password = it }, secret = !shown, keyboardType = KeyboardType.Password, imeAction = ImeAction.Go, onGo = ::next,
+                    trailing = {
+                        Text(
+                            if (shown) "Hide" else "Show",
+                            Modifier.cueClickable(role = Role.Button) { shown = !shown }.padding(horizontal = 8.dp, vertical = 10.dp),
+                            style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
+                        )
+                    },
+                )
+            }
         }
         problem?.let { Text(it, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), style = PullsType.sm, color = c.error) }
-        Spacer(Modifier.weight(1f))
-        CtaButton(if (busy) "Signing in…" else "Sign in", ::submit, Modifier.fillMaxWidth(), enabled = ready)
+        val label = when {
+            busy == SignInWay.Password -> "Signing in…"
+            asked -> "Sign in"
+            else -> "Continue"
+        }
+        // With Google on the page, Google is the one main action and the email's button is the quiet one.
+        if (googleClientId != null) {
+            CtaButton(label, ::next, Modifier.fillMaxWidth().padding(top = 12.dp), container = c.paper2, contentColor = c.text, enabled = ready)
+        } else {
+            CtaButton(label, ::next, Modifier.fillMaxWidth().padding(top = 12.dp), enabled = ready)
+        }
     }
 }
+
+/** Which way the page is signing in, so only that button says "Signing in…". */
+private enum class SignInWay { Password, Google }
 
 /** What the account pages share while Settings is open: the keys as last listed, the one opened, and a key just made. */
 internal object AccountUi {

@@ -127,9 +127,11 @@ Object) step by step. Contract:
 
 Agents post a diff and get back a link that shows it as a pull request page (Tavi, 16 Oct 12:24, 12:40 and 12:47).
 
-- The server has one account, `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`, seeded on first use. There is no
-  sign-up. The phone signs in once (`account-sign-in`) and sends its session as `X-Pully-Session`; only the account's
-  methods need it. Passwords are PBKDF2 hashes, sessions and keys SHA-256 hashes.
+- Accounts: Google sign-in (`account-google-sign-in`, on when `PULLY_GOOGLE_CLIENT_ID` is set) makes an allowed
+  email's account the first time; `google-sign-in.ts` checks the ID token with `jose` and holds the allow-list. The
+  one test account, `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`, is seeded on first use and is the only one
+  with a password (`account-sign-in`); nobody signs up with one. The phone sends its session as `X-Pully-Session`;
+  only the account's methods need it. Passwords are PBKDF2 hashes, sessions and keys SHA-256 hashes.
 - API keys (`pully_` and 32 letters) are made and revoked on the phone. `/api/v1/*` takes `Authorization: Bearer`, is
   the only path meant to sit outside Cloudflare Access, and reaches only its account's posted diffs.
 - A post stores what the agent sent: the patch gzipped in chunks (`posted-patch:`), its words (`posted-diff:`) and its

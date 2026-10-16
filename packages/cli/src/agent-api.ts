@@ -15,6 +15,8 @@ import { serverSession } from './server-session'
 export interface AccountEnvironment {
   PULLY_ACCOUNT_EMAIL?: string
   PULLY_ACCOUNT_PASSWORD?: string
+  /** The web client ID Google signs the phone in for (Google Cloud, Credentials); Google sign-in is off without it. */
+  PULLY_GOOGLE_CLIENT_ID?: string
   /** Where links point, such as `https://prs.octaviantocan.com`; the request's own origin when unset. */
   PULLY_PUBLIC_URL?: string
 }

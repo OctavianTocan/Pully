@@ -87,12 +87,16 @@ feature and a card per model with its share. A cost no engine reported shows "â€
 $0.00 (recording 16 Oct 13:06, 04:18 to 04:48; O9, rule 181).
 
 @cc [owner:OctavianTocan,label:product;security] settings-sign-in-page
-While the server has an account and the phone is not signed in to it, a sign-in page with
-email and password covers the app, as the update screen does; signed in, it stays signed in
-until Sign out on the Account page. A server with no account, an older server or one that
-cannot be reached MUST NOT bring the page up, and a session the server no longer knows
-brings it back ("it actually should get a sign in screen, but once you sign in it's just
-signed in": Tavi, 16 Oct 12:47). There is no sign-up.
+While the server takes a sign-in and the phone is not signed in, a sign-in page covers the
+app, as the update screen does; signed in, it stays signed in until Sign out on the Account
+page. A server with no way to sign in, an older server or one that cannot be reached MUST
+NOT bring the page up, and a session the server no longer knows brings it back ("it
+actually should get a sign in screen, but once you sign in it's just signed in": Tavi,
+16 Oct 12:47). The page leads with Continue with Google; under it the email field stands
+alone, and Continue shows the password field under it, for the test account. It has no
+sign-up (Tavi, 16 Oct 16:52: "you should add the Google button, and then, under an email,
+only an email field. If they put in their email and they press Continue, then they can put
+in the password as well"). Closing Google's account sheet changes nothing.
 
 @cc [owner:OctavianTocan,label:product;security] settings-agent-keys-on-the-phone
 Settings has an Account section with the signed-in email and an Agent keys page. The page

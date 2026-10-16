@@ -13,6 +13,7 @@ import { accountServices, handleAgentRequest } from './agent-api'
 import { ingestAnalytics, track } from './analytics'
 import { resolveGithubToken } from './credentials'
 import { githubStats } from './github-stats'
+import { googleAllowed, googleEmail } from './google-sign-in'
 import { highlightLines, pierreTheme } from './highlight'
 import { NO_CHECKOUT } from './host'
 import { NATIVE_REVIEW, sessionPatches } from './native-review'
@@ -180,17 +181,22 @@ type AccountServicesOf = Awaited<ReturnType<typeof accountServices>>
 
 interface AccountContext extends AccountServicesOf {
   host: ServerHost
+  /** The web client ID Google tokens must be for; undefined while Google sign-in is off. */
+  googleClientId: string | undefined
   accountId: string
   session: string
 }
 
 /**
  * The phone's calls that belong to the signed-in account (plan 13): `account-sign-in` takes an email and a password,
- * every other one needs the session it answered, in `X-Pully-Session`. The rest of the phone API stays as it was.
+ * `account-google-sign-in` a Google ID token (making that email's account the first time), and every other one needs
+ * the session either answered, in `X-Pully-Session`. `account-status` names the Google client ID when Google sign-in is on. The rest of the phone API stays as it was.
  */
 const ACCOUNT_CALLS: Record<string, { open?: true, run: (context: AccountContext, args: Record<string, unknown>) => Promise<Response> }> = {
   'account-sign-in': { open: true, run: signIn },
-  'account-status': { open: true, run: async ({ hasAccount }) => Response.json({ result: { hasAccount } }) },
+  'account-google-sign-in': { open: true, run: googleSignIn },
+  // `hasAccount` asks the phone to sign in: true when it can, with the test account's password or with Google.
+  'account-status': { open: true, run: async ({ hasAccount, googleClientId }) => Response.json({ result: { hasAccount: hasAccount || !!googleClientId, googleClientId } }) },
   'account-sign-out': {
     run: async ({ accounts, session }) => {
       await accounts.signOut(session)
@@ -228,13 +234,25 @@ const ACCOUNT_CALLS: Record<string, { open?: true, run: (context: AccountContext
 
 async function signIn(context: AccountContext, args: Record<string, unknown>): Promise<Response> {
   if (!context.hasAccount)
-    return Response.json({ error: 'This server has no account yet. Set PULLY_ACCOUNT_EMAIL and PULLY_ACCOUNT_PASSWORD on it.' }, { status: 401 })
+    return Response.json({ error: 'Email and password is only for the test account, and this server has none. Sign in with Google.' }, { status: 401 })
   const signed = await context.accounts.signIn(textOf(args.email), textOf(args.password))
   if ('error' in signed) {
     return signed.error === 'wait'
       ? Response.json({ error: 'Too many wrong passwords. Wait 15 minutes, then try again.' }, { status: 429 })
       : Response.json({ error: 'That email and password don\'t match.' }, { status: 401 })
   }
+  return Response.json({ result: { session: signed.session, email: signed.account.email } })
+}
+
+async function googleSignIn(context: AccountContext, args: Record<string, unknown>): Promise<Response> {
+  if (!context.googleClientId)
+    return Response.json({ error: 'This server has no Google sign-in. Set PULLY_GOOGLE_CLIENT_ID on it.' }, { status: 401 })
+  const email = await googleEmail(textOf(args.idToken), context.googleClientId)
+  if (!email)
+    return Response.json({ error: 'Google could not confirm that sign-in. Try again.' }, { status: 401 })
+  if (!googleAllowed(email))
+    return Response.json({ error: `${email} can't sign in to Pully. Pick another Google account.` }, { status: 403 })
+  const signed = await context.accounts.signInWithGoogle(email)
   return Response.json({ result: { session: signed.session, email: signed.account.email } })
 }
 
@@ -245,7 +263,8 @@ async function accountCall(call: (typeof ACCOUNT_CALLS)[string], host: ServerHos
   if (!call.open && !account)
     return Response.json({ error: 'Sign in first.' }, { status: 401 })
   try {
-    return await call.run({ ...services, host, accountId: account?.id ?? '', session: session ?? '' }, input)
+    const googleClientId = process.env.PULLY_GOOGLE_CLIENT_ID?.trim() || undefined
+    return await call.run({ ...services, host, googleClientId, accountId: account?.id ?? '', session: session ?? '' }, input)
   }
   catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 })
