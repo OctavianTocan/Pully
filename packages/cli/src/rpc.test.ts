@@ -1,3 +1,4 @@
+import type { AiTaskSnapshot } from '@pulls.review/core/local-rpc'
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -113,5 +114,18 @@ describe('local RPC', () => {
     expect(v.safeParse(argsOf(LOCAL_RPC.askThreads), { key }).success).toBe(false)
     expect(v.safeParse(argsOf(LOCAL_RPC.aiTaskStart), { kind: 'tour', key, model: { engine: 'claude-code' }, locale: 'en' }).success).toBe(false)
     expect(v.safeParse(argsOf(LOCAL_RPC.aiTaskList), { key: 'github-pr:a/b/1' }).success).toBe(true)
+  })
+
+  it('leaves out of the page\'s task listings and waits the work the phone runs on a posted diff', async () => {
+    type Tasks = NonNullable<Parameters<typeof localRpcFunctions>[0]['tasks']>
+    const posted = { id: 't1', key: 'posted:k3T9xQ2mLp0a', title: 'Secret plans' } as AiTaskSnapshot
+    const pull = { id: 't2', key: 'github-pr:a/b/1', title: 'Fix it' } as AiTaskSnapshot
+    const fake: Pick<Tasks, 'listAll' | 'wait'> = { listAll: () => [posted, pull], wait: async id => id === 't1' ? posted : pull }
+    const tasks = fake as Tasks
+    const functions = localRpcFunctions({ cwd: repo, driver: memoryDriver(), env: {}, tasks })
+
+    expect(await call(functions, LOCAL_RPC.aiTaskListAll, {})).toEqual([pull])
+    expect(await call(functions, LOCAL_RPC.aiTaskWait, { id: 't2', after: 0 })).toBe(pull)
+    await expect(call(functions, LOCAL_RPC.aiTaskWait, { id: 't1', after: 0 })).rejects.toThrow('only in the Pully app')
   })
 })

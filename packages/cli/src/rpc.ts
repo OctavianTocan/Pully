@@ -44,6 +44,13 @@ const PRIVATE_KEY = /^(?:account[:-]|agent-key:|posted-(?:diff|agent|patch):)|(?
 const POSTED_KEY = /^posted:/i
 const ONLY_IN_THE_APP = 'Posted diffs open only in the Pully app.'
 
+/** [item] when it is not about a posted diff; one the phone started on a posted diff refuses. */
+function notPosted<T extends { key?: string }>(item: T): T {
+  if (item.key && POSTED_KEY.test(item.key))
+    throw new Error(ONLY_IN_THE_APP)
+  return item
+}
+
 /** A diff key the page may name: any but a posted diff's. */
 const pageKey = v.pipe(v.string(), v.check(key => !POSTED_KEY.test(key), ONLY_IN_THE_APP))
 
@@ -206,10 +213,10 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       type: 'query',
       args: [v.object({ id: v.string(), after: v.number() })],
       returns: trusted<AiJobSnapshot>(),
-      handler: ({ id, after }) => waitAiJob(id, after),
+      handler: async ({ id, after }) => notPosted(await waitAiJob(id, after)),
     }),
     defineRpcFunction({ name: LOCAL_RPC.aiJobCancel, type: 'action', args: [v.object({ id: v.string() })], returns: v.boolean(), handler: ({ id }) => cancelAiJob(id) }),
-    defineRpcFunction({ name: LOCAL_RPC.aiJobList, type: 'query', handler: () => listAiJobs() }),
+    defineRpcFunction({ name: LOCAL_RPC.aiJobList, type: 'query', handler: () => listAiJobs().filter(job => !POSTED_KEY.test(job.key ?? '')) }),
     defineRpcFunction({
       name: LOCAL_RPC.myPullsCached,
       type: 'query',
@@ -234,11 +241,11 @@ export function localRpcFunctions({ cwd, driver, env, tasks: givenTasks }: Local
       type: 'query',
       args: [v.object({ id: v.string(), after: v.number() })],
       returns: trusted<AiTaskSnapshot>(),
-      handler: ({ id, after }) => tasks.wait(id, after),
+      handler: async ({ id, after }) => notPosted(await tasks.wait(id, after)),
     }),
     defineRpcFunction({ name: LOCAL_RPC.aiTaskCancel, type: 'action', args: [v.object({ id: v.string() })], returns: v.boolean(), handler: ({ id }) => tasks.cancel(id) }),
     defineRpcFunction({ name: LOCAL_RPC.aiTaskList, type: 'query', args: [diffKey], returns: trusted<AiTaskSnapshot[]>(), handler: ({ key }) => tasks.list(key) }),
-    defineRpcFunction({ name: LOCAL_RPC.aiTaskListAll, type: 'query', args: [v.object({})], returns: trusted<AiTaskSnapshot[]>(), handler: () => tasks.listAll() }),
+    defineRpcFunction({ name: LOCAL_RPC.aiTaskListAll, type: 'query', args: [v.object({})], returns: trusted<AiTaskSnapshot[]>(), handler: () => tasks.listAll().filter(task => !POSTED_KEY.test(task.key)) }),
     defineRpcFunction({ name: LOCAL_RPC.askThreads, type: 'query', args: [diffKey], returns: trusted<AiAskThread[]>(), handler: ({ key }) => tasks.threads(key) }),
     defineRpcFunction({ name: LOCAL_RPC.inboxChat, type: 'query', args: [v.object({})], returns: trusted<AiInboxChat>(), handler: () => tasks.inboxChat() }),
     defineRpcFunction({ name: LOCAL_RPC.inboxChatClear, type: 'action', args: [v.object({})], returns: v.void(), handler: () => tasks.clearInboxChat() }),

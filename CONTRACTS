@@ -35,7 +35,8 @@ the phone API is reached as before. This replaces "no login" by Tavi's decision 
 
 @cc [owner:OctavianTocan,label:security] agent-api-needs-a-key
 `/api/v1/*` is the only part of the server meant to sit outside Cloudflare Access, and it
-MUST answer 401 to every call without a valid account key. A key reaches only its own
+MUST answer 401 to every call without a valid account key, whatever the path's case or
+doubled slashes (`/API/v1`, `//api//v1`; Tavi, 16 Oct 14:32). A key reaches only its own
 account's posted diffs: no phone method, no GitHub token, no AI run, no other account
 (Tavi, 16 Oct 12:47: "that endpoint doesn't really allow them to do anything unless they
 pass a valid API key").
