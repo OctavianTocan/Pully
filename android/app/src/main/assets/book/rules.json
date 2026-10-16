@@ -53,7 +53,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Sections, not stops. Buttons name their effect. Cites say where they lead and are tappable. Every paragraph is labelled (Summary / Description)."
+    "text": "Sections, not stops. Buttons name their effect. Cites say where they lead and are tappable. The summary and the description are told apart by the link that switches them (rule 138), never by a word over the text.\n\nChanged on 2026-10-16 to match later decisions (M6, rule 138). The canvas said: \"Every paragraph is labelled (Summary / Description).\""
   },
   {
     "n": 7,
@@ -81,7 +81,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Full-width lines, hunk expanders, word highlights, line numbers. Add/remove backgrounds clearly visible. Inline thread cards on their line. Files via a drawer or menu plus ‹ ›, never snapped tabs or horizontal swipe."
+    "text": "Full-width lines, hunk expanders, word highlights, line numbers. Add/remove backgrounds clearly visible. Inline thread cards on their line. Files via a drawer or menu plus ‹ ›, and a swipe on the code moves to the next or previous file (rule 93).\n\nChanged on 2026-10-16 to match later decisions (rule 93). The canvas said: \"Files via a drawer or menu plus ‹ ›, never snapped tabs or horizontal swipe.\""
   },
   {
     "n": 10,
@@ -157,7 +157,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Swipe left archives, swipe right opens the review, as full Mail-style gestures. No reveal-then-tap. Blur the displaced row content slightly. Keep clearance from anything revealed."
+    "text": "Swipe right opens the review, as a full Mail-style gesture; a swipe left moves the page, not the row (rule 143). No reveal-then-tap. Blur the displaced row content slightly. Keep clearance from anything revealed.\n\nChanged on 2026-10-16 to match later decisions (M4, rule 143). The canvas said: \"Swipe left archives, swipe right opens the review, as full Mail-style gestures.\""
   },
   {
     "n": 18,
@@ -252,13 +252,13 @@
   },
   {
     "n": 28,
-    "title": "Summary / Description are underline tabs.",
+    "title": "The Overview's tabs are underline tabs.",
     "source": "canvas",
     "checkedBy": [
       "bans",
       "review"
     ],
-    "text": "Pills are spent on chips, branches and cites."
+    "text": "Summary and Conversation are underline tabs; the summary and the description switch with a link (rule 138). Pills are spent on chips, branches and cites.\n\nChanged on 2026-10-16 to match later decisions (K23, K29, M6, rule 138). The canvas said: \"Summary / Description are underline tabs.\""
   },
   {
     "n": 29,
@@ -267,7 +267,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Checks, GitHub, Analyze again; Approve, Request changes, Squash and merge, Merge when checks pass, Convert to draft, Close. Reachable from the PR, diff and tour headers."
+    "text": "Checks, GitHub, Analyze options, Review with AI and Leave a comment; Approve, Request changes, the merge, Merge when checks pass, Convert to draft and Close sit a page in, under \"Approve, merge or close\" (rule 116). Reachable from the PR, diff and tour headers.\n\nChanged on 2026-10-16 to match later decisions (J29, rule 116). The canvas said: \"Checks, GitHub, Analyze again; Approve, Request changes, Squash and merge, Merge when checks pass, Convert to draft, Close.\""
   },
   {
     "n": 30,
@@ -276,7 +276,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "“✦ Ask | ⋯” in a floating capsule beside the primary button. Never a second Ask inside a comment card. A sparkle alone is not a label: AI actions get a word or a real icon."
+    "text": "“Ask | ⋯” in a floating capsule beside the primary button. Never a second Ask inside a comment card. AI actions are named by a word; no icon marks them (rule 48).\n\nChanged on 2026-10-16 to match later decisions (rule 37 withdrawn, rule 48). The canvas said: \"“✦ Ask | ⋯” … A sparkle alone is not a label: AI actions get a word or a real icon.\""
   },
   {
     "n": 31,
@@ -289,12 +289,12 @@
   },
   {
     "n": 32,
-    "title": "Both swipes.",
+    "title": "One swipe on a row.",
     "source": "canvas",
     "checkedBy": [
       "review"
     ],
-    "text": "Right = Review (accent). Left = Archive (dark). Both commit, both blur the displaced row."
+    "text": "Right = Review (accent): it commits and blurs the displaced row. Left moves the Inbox on to Tours; Archive is only in a row's hold actions (rule 143).\n\nChanged on 2026-10-16 to match later decisions (M4, rule 143). The canvas said: \"Both swipes. Right = Review (accent). Left = Archive (dark). Both commit, both blur the displaced row.\""
   },
   {
     "n": 33,
@@ -385,7 +385,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "N of M · title · ring is a sticky strip under the header; it updates as the next section reaches the top. The count exists only there, never inline above a section title."
+    "text": "Ring · title · chevron is a sticky strip under the header; it updates as the next section reaches the top. No count is shown, there or above a section title (rule 97).\n\nChanged on 2026-10-16 to match later decisions (F61, rule 97). The canvas said: \"N of M · title · ring is a sticky strip … The count exists only there, never inline above a section title.\""
   },
   {
     "n": 43,
@@ -457,7 +457,7 @@
       "bans",
       "review"
     ],
-    "text": "A screen that looks like the old app is a defect. Seen on:\n\n- Settings: font, spacing and pills differ from the rest, and it has the old icons. The sheet is a greyer cream than the Inbox, its close button is a bare ✕, and its segmented controls are the reverse of the Inbox capsule (rule 70). Its model selector must be the mobile one already made. Today it is a cramped dropdown that reads \"Default (reco…\" with \"Default\" shown twice.\n- The Commands menu: flat rows straight on the cream with no cards, small grey icons, and rows cut by an ellipsis.\n- The screen behind the project name: a breadcrumb, bare icons, a bordered filter box and select, and a loading spinner, with none of the round shadowed buttons.\n- The file switcher in the Diff: plain grey counts that should be coloured as in the diff, a font that differs from the file name above it, and different files cut to the identical text.\n- The toolbar that floats over a selected diff line, with a cut label and the sparkle (rule 48).\n\nReuse the components already built for mobile (model selector, sheets) instead of rebuilding a web version. The profile sheet is the reference for right.\n\nCheck: for every screen reachable from the main flow, ask \"does this look like the old app?\" before shipping."
+    "text": "A screen that looks like the old app is a defect. Seen on:\n\n- Settings: font, spacing and pills differ from the rest, and it has the old icons. The sheet is a greyer cream than the Inbox, its close button is a bare ✕, and its segmented controls are the reverse of the Inbox capsule (rule 70). Its model selector must be the mobile one already made. Today it is a cramped dropdown that reads \"Default (reco…\" with \"Default\" shown twice.\n- The Commands menu: flat rows straight on the cream with no cards, small grey icons, and rows cut by an ellipsis.\n- The screen behind the project name: a breadcrumb, bare icons, a bordered filter box and select, and a loading spinner, with none of the round shadowed buttons.\n- The file switcher in the Diff: plain grey counts that should be coloured as in the diff, a font that differs from the file name above it, and different files cut to the identical text.\n- The toolbar that floats over a selected diff line, with a cut label and the sparkle (rule 48).\n\nReuse the components already built for mobile (model selector, sheets) instead of rebuilding a web version. The profile sheet is the reference for right. The same kind of thing is the same component everywhere: Ask's progress is the Tour's, an empty chat looks like a full one, and every searchable list on a sheet is the one `SearchList` (L31, L35, L36; J18).\n\nCheck: for every screen reachable from the main flow, ask \"does this look like the old app?\" before shipping."
   },
   {
     "n": 50,
@@ -495,7 +495,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "The project heading on Tours looks tappable and does nothing: tapping it lights a grey press highlight across the heading and then nothing opens. It should open the project. On the Overview, the project name at the end of the meta line opens a screen in the old style, so the project destination must be in the new style (rule 49). The author name on the Overview does respond to a tap, which is right, and the branch chip copies the branch name. This is rule 4's \"tappable rows look tappable\", run the other way."
+    "text": "The project heading on Tours looks tappable and does nothing: tapping it lights a grey press highlight across the heading and then nothing opens. It should open the project. On the Overview, the project name at the end of the meta line opens a screen in the old style, so the project destination must be in the new style (rule 49). The author name on the Overview is plain text and opens nothing, since a tap on it opening the project surprised him (L21); the branch chip copies the branch name. A link or a picture inside text opens its link, even in text you can edit, and a picture is as sharp as on GitHub (L14, L15). A name or photo that stands for something opens it, so there is no separate \"Open …\" row (H23). This is rule 4's \"tappable rows look tappable\", run the other way."
   },
   {
     "n": 54,
@@ -522,7 +522,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tours rows do nothing when swiped. They get a cancel on one side and open on the other, and tap still opens. This follows rules 15, 17 and 32: one row anatomy, both swipes, blur the displaced row. Today a Tours row is a robot icon in a ring, a one-line title cut with an ellipsis, and \"Writing · about a minute\" under it."
+    "text": "Tours rows mirror the Inbox's: a swipe left opens the tour, a swipe right moves back to the Inbox, a tap opens and a hold opens the row's actions (Open, Stop or Remove) (M4, rule 143). This follows rules 15, 17 and 32: one row anatomy, blur the displaced row. Today a Tours row is a robot icon in a ring, a one-line title cut with an ellipsis, and \"Writing · about a minute\" under it."
   },
   {
     "n": 57,
@@ -531,7 +531,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "The Overview has three tabs: Summary, Description and Conversation (with a count). The canvas rules name only Summary and Description. Swiping left and right changes between them, with easy, clean swipes. Rule 9 still holds: files in the diff are never switched by horizontal swipe."
+    "text": "The Overview has two tabs, Summary and Conversation, with no counts (K29, rule 91); the summary and the description switch with a link (rule 138). Swiping left and right changes between them, with easy, clean swipes. On the Diff a swipe moves between files (rule 93)."
   },
   {
     "n": 58,
@@ -540,7 +540,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Two bottom sheets cannot be pulled fully up. The ⋯ sheet is cut off at \"Close pull request\", with Review with AI, Review through a lens, Commands and Refresh below the fold, and the Select model sheet is cut off after Sonnet 5.5. The Ask sheet is nearly full height, so sheets are not all one height. Rule 5 prefers sheets over pages, so a sheet has to behave like a full surface when its content needs it. Sheets at their normal height are fine, the profile sheet included."
+    "text": "Two bottom sheets cannot be pulled fully up. The ⋯ sheet is cut off at \"Close pull request\", with Review with AI, Review through a lens, Commands and Refresh below the fold (all since replaced: one Review with AI row, no Commands row, no Refresh; rules 52, 61 and 117), and the Select model sheet is cut off after Sonnet 5.5. The Ask sheet is nearly full height, so sheets are not all one height. Rule 5 prefers sheets over pages, so a sheet has to behave like a full surface when its content needs it. Every sheet, the profile sheet included, can be lifted to the tall height (rule 77 replaced this rule's exemption for the profile sheet)."
   },
   {
     "n": 59,
@@ -567,7 +567,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "- The current one is in the wrong style. Make a new design in the same style as everything else, and make it nice.\n- It may hold too many things. \"Review with AI\" and \"Review through lens\" need a decision.\n- Tentative, not a rule yet: open it on pull down.\n- Settled (J30): the ⋯ sheet has no Commands row, since a pull down opens Commands on every page (rule 117). The profile sheet keeps its Commands page."
+    "text": "- The current one is in the wrong style. Make a new design in the same style as everything else, and make it nice.\n- It held too many things. Settled (0.21.0): Review through a lens is gone and ⋯ has one Review with AI row.\n- Pulling any page down opens it (rule 117).\n- Settled (J30, H22): neither the ⋯ sheet nor the profile sheet has a Commands row, since a pull down opens Commands on every page."
   },
   {
     "n": 62,
@@ -594,7 +594,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tapping a line of the diff opens a comment and in-review control at the bottom that is not liked. Two things appear together: a pill reading \"Comment · In review ✕\" between a round ‹ button and a round teal › button, and a small white toolbar floating over the selected line (rule 49). The words sit in a pill, so it reads as a label and not as a field you can type in. It used to be a bar you could just type in, which is better, and the buttons can be integrated into it. It is also missing its shadow (rule 45). A few variants are to be tried, so treat the form as open. This is the app-side counterpart of rule 10."
+    "text": "Tapping a line of the diff opens a comment and in-review control at the bottom that is not liked. Two things appear together: a pill reading \"Comment · In review ✕\" between a round ‹ button and a round teal › button, and a small white toolbar floating over the selected line (rule 49). The words sit in a pill, so it reads as a label and not as a field you can type in. It used to be a bar you could just type in, which is better, and the buttons can be integrated into it. It is also missing its shadow (rule 45). A few variants are to be tried, so treat the form as open. This is the app-side counterpart of rule 10.\nReplaced by rule 94, which settled the form: the bar."
   },
   {
     "n": 65,
@@ -652,12 +652,12 @@
   },
   {
     "n": 71,
-    "title": "A live indicator may have shimmer bars under it.",
+    "title": "A live indicator stands alone.",
     "source": "answers",
     "checkedBy": [
       "review"
     ],
-    "text": "Rule 43 says no shimmer bars standing in for content. Tavi confirmed that bars are fine next to a live indicator, as in Perplexity's \"Thinking…\", where three grey bars sit under the mark and the word, the second and third a little shorter than the first. So the live indicator stays, and grey bars may sit under it as a hint of where the output will arrive. Bars never replace the indicator and never stand alone. Rule 51's skeletons for pages and lists whose shape is known are unchanged. The canvas text of rule 43 is unchanged.\n\nCheck: while AI work runs there is a live indicator on screen. Any bars sit under it."
+    "text": "Rule 43 says no shimmer bars standing in for content. On 14 Oct Tavi allowed grey bars under a live indicator, as in Perplexity's \"Thinking…\"; on 15 Oct he saw them under Ask's steps and called them awful (L33: \"the loader belongs in the button\"). So no grey bars sit under a live indicator anywhere, and the answer simply arrives where it goes. Rule 51's skeletons for pages and lists whose shape is known are unchanged. The canvas text of rule 43 is unchanged.\n\nCheck: while AI work runs there is a live indicator on screen and no grey bars under it."
   },
   {
     "n": 72,
@@ -666,7 +666,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tavi asked for the AI's thinking text to look more like Perplexity's. While work runs there is one line, a present-tense verb and the elapsed seconds (\"Working 12s\"; \"Thinking\" before the first step), the verb in the muted colour and the seconds in the faint one, in tabular digits, shimmering together. The shimmer leaves the text at full strength and dims a tilted band to a third of its opacity as it sweeps left to right, 1200ms a pass; with system animations off nothing sweeps. Each step is one plain sentence about the task, never the tool, in regular weight and never italic, after a 16dp icon of what that step does, in the muted colour, in a 28dp column: a page for reading a file, a magnifier for a search, a terminal for a command, a pen for an edit, a light bulb for thinking, a pen on a line for writing, a cog for a status line and a wrench for any other tool. A failed step shows a red ✕ in a circle and a warning an amber refresh, in the same colour as their sentence. This replaces the earlier dot: Tavi asked for \"its own specific icon to the left, not a bullet point\". The live orb sits under the newest line on the icons' column at 16dp. When the line is replaced by another, the old one leaves upward through a 2px blur while the new one rises in from below, 150ms ease-in-out, 8dp of travel, a 50ms gap (transitions.dev, Thinking states). When work ends the shimmer stops and the line becomes \"Worked for 2m 3s\", a button with a chevron, right when folded and down when open, whose steps open under it with no line beside them: the icons make the column. The sizes taken from screenshots are estimates, not measured on a device.\n\nCheck: start an analysis and watch it. One header line with the time, a dim band passing through it. Each step line has the icon of what it does, and none is italic. When the work ends, the shimmer stops and the line goes to the past tense with a chevron. With animations off nothing sweeps."
+    "text": "Tavi asked for the AI's thinking text to look more like Perplexity's. While work runs there is one line, a present-tense verb and the elapsed seconds (\"Working 12s\"; \"Thinking\" before the first step), the verb in the muted colour and the seconds in the faint one, in tabular digits, shimmering together. The shimmer leaves the text at full strength and dims a tilted band to a third of its opacity as it sweeps left to right, 1200ms a pass; with system animations off nothing sweeps. Each step is one plain sentence about the task, never the tool, in regular weight and never italic, after a 16dp icon of what that step does, in the muted colour, in a 28dp column: a page for reading a file, a magnifier for a search, a terminal for a command, a pen for an edit, a light bulb for thinking, a pen on a line for writing, a cog for a status line and a wrench for any other tool. A failed step shows a red ✕ in a circle and a warning an amber refresh, in the same colour as their sentence. This replaces the earlier dot: Tavi asked for \"its own specific icon to the left, not a bullet point\". The live orb sits under the newest line on the icons' column at 16dp; in Ask it is not under the steps but turns in the field's button where Send was, and a tap on it stops the answer (L31, L33). When the line is replaced by another, the old one leaves upward through a 2px blur while the new one rises in from below, 150ms ease-in-out, 8dp of travel, a 50ms gap (transitions.dev, Thinking states). When work ends the shimmer stops and the line becomes \"Worked for 2m 3s\", a button with a chevron, right when folded and down when open, whose steps open under it with no line beside them: the icons make the column. The sizes taken from screenshots are estimates, not measured on a device.\n\nCheck: start an analysis and watch it. One header line with the time, a dim band passing through it. Each step line has the icon of what it does, and none is italic. When the work ends, the shimmer stops and the line goes to the past tense with a chevron. With animations off nothing sweeps."
   },
   {
     "n": 73,
@@ -713,7 +713,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Every sheet rests at its normal height (its content, at most half the screen) or at the tall height near the top, and slides between them. A sheet whose content is short, the profile sheet included, can still be lifted to the tall height: the room under its content is the sheet's paper. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text. The chat opens at its normal height too, with no keyboard (\"it goes into this text mode immediately\" was jarring). Commands is the exception: it opens at its tall height and its search takes the keyboard as soon as it rests, so a command can be typed at once (J11, as it used to). Tapping a field, or lifting the sheet, brings the keyboard up and moves the sheet to the tall height on the same spring as a sheet let go, never popping there (J10); lowering it puts the keyboard away.\nIt replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.\n\nCheck: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it."
+    "text": "Every sheet rests at its normal height (its content, at most half the screen) or at the tall height near the top, and slides between them. A sheet whose content is short, the profile sheet included, can still be lifted to the tall height: the room under its content is the sheet's paper. A quick throw goes to the next stop, a slow release to the nearest one, a long drag down closes. The grab bar (the lip) at the top is the handle. This holds for every sheet, the profile sheet included. The header is fixed and the content scrolls under it through the edge fade of rule 74, so the ✕ never overlaps text. The chat opens at its normal height too, with no keyboard (\"it goes into this text mode immediately\" was jarring). Commands is the exception: it opens at its tall height and its search takes the keyboard as the sheet rises, not after it rests, so a command can be typed at once (J11, K5). Tapping a field, or lifting the sheet, brings the keyboard up and moves the sheet to the tall height on the same spring as a sheet let go, never popping there (J10); lowering it puts the keyboard away.\nIt replaces the profile sheet's exemption in rule 58, which Tavi gave when he did not yet know he could not pull it up.\n\nCheck: open every sheet. It rests at the stop it should and can go to the other one. The header stays put and nothing is sliced under it."
   },
   {
     "n": 78,
@@ -722,7 +722,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Language from Settings, Select model from the Analyze card, Effort from the model list: the new content slides sideways inside the same sheet. The sheet and its lip stay still, the header stays fixed, the ✕ becomes ←, and back returns to where you were with the scroll position kept. The parent never closes and reopens. This is how Claude's app does it. Switching an engine inside a picker changes its list in place and does not close the sheet.\nIt makes rule 66 exact for sheets.\n\nCheck: open a page inside a sheet and go back. Only the content moved, the sheet did not blink, and the list is where you left it."
+    "text": "Language from Settings, Select model from the \"No tour yet\" sheet, Effort from its row under Model (rule 142): the new content slides sideways inside the same sheet. The sheet and its lip stay still, the header stays fixed, the ✕ becomes ←, and back returns to where you were with the scroll position kept. The parent never closes and reopens. This is how Claude's app does it. Switching an engine inside a picker changes its list in place and does not close the sheet.\nIt makes rule 66 exact for sheets.\n\nCheck: open a page inside a sheet and go back. Only the content moved, the sheet did not blink, and the list is where you left it."
   },
   {
     "n": 79,
@@ -731,7 +731,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Commits are a plain list in a sheet. Files and Checks sit in the raised cards every other sheet uses, one card under each heading (J24, which replaced \"no panel inside the panel\" for those two). Rows are bigger (at least 60dp) with whole titles that wrap, as rows are everywhere else. No instruction names a key a phone does not have (\"shift-click\"). Checks lists failed first, then running, then passed, and a row taps through to the check.\n\nCheck: open each of the three sheets. Whole titles and rows as big as in the Inbox; Files and Checks in cards under their headings."
+    "text": "Files, Commits and Checks sit in the raised cards every other sheet uses, one card under each plain heading (J24, which replaced \"no panel inside the panel\"; K29; rules 139 and 141). Rows are bigger (at least 60dp) with whole titles that wrap, as rows are everywhere else. No instruction names a key a phone does not have (\"shift-click\"). Checks lists failed first, then running, then passed, and a row taps through to the check.\n\nCheck: open each of the three sheets. Whole titles and rows as big as in the Inbox, in cards under their headings."
   },
   {
     "n": 80,
@@ -740,7 +740,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "When a screen shows part of something, such as one commit of six, it says so where the reader already looks, never in a box over the page (K25: \"I don't like that box\"): the Commits number on the Overview reads just \"3\" (or \"12–15\" for a range) in the link colour, so it fits its cell, and the file pill on the Diff reads \"Commit 3 of 6\" where the folder was. Both lead back: the Commits number opens the Commits sheet, whose first row is \"All commits\".\n\nCheck: pick one commit. The diff says which commit it shows, and the Commits number opens the way back."
+    "text": "When a screen shows part of something, such as one commit of six, it says so where the reader already looks, never in a box over the page (K25: \"I don't like that box\"): the Commits number on the Overview reads just \"3\" (or \"12–15\" for a range) in the link colour, so it fits its cell, and the file pill on the Diff reads \"Only commit 3\" (or \"Only commits 4–6\") where the folder was, never \"Commit 3 of 6\", which reads like a page count (L11). Both lead back: the Commits number opens the Commits sheet, whose first row is \"All commits\", a range held on the sheet is named at its top, and tapping the chosen commit again goes back to all commits (L11).\n\nCheck: pick one commit. The diff says which commit it shows, and the Commits number opens the way back."
   },
   {
     "n": 81,
@@ -762,12 +762,12 @@
   },
   {
     "n": 83,
-    "title": "Edit where it is. Confirm with a toast.",
+    "title": "Short text is edited where it is. Confirm with a toast.",
     "source": "overhaul",
     "checkedBy": [
       "review"
     ],
-    "text": "Text you own is edited where it is: tapping the title or description of your own pull request turns it into a field, and leaving it saves. There is no \"Edit\" button. A control that copies or toggles keeps its face: copying the branch shows a small toast (\"Branch name copied\") and the pill goes on showing the branch.\n\nCheck: tap the title of your own PR. Tap the branch pill. Neither changes what is around it."
+    "text": "The title of your own pull request is edited where it is: a tap turns it into a field and leaving it saves. The description, which runs long, opens on a tall sheet with a proper text field and Save, and the page never scrolls under it (L13). There is no \"Edit\" button. A control that copies or toggles keeps its face: copying the branch shows a small toast (\"Branch name copied\") and the pill goes on showing the branch.\n\nCheck: tap the title of your own PR: it edits in place. Tap its description: its sheet opens. Tap the branch pill: it stays the branch and a toast says it was copied."
   },
   {
     "n": 84,
@@ -776,7 +776,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A send button is grey and does nothing until the field has text.\n\nCheck: open every composer empty. The send button is disabled."
+    "text": "A send button never sends an empty field. With nothing typed it is grey, or in Ask it is the button that opens the pull request's earlier chats (L36).\n\nCheck: open every composer empty. Send is grey, or in Ask it opens the chat history."
   },
   {
     "n": 85,
@@ -785,7 +785,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Every skeleton bar carries a shimmer: a soft band, about 40% of the bar's width, sweeps left to right every 1200ms on a linear curve, in light and dark. With the system setting \"Remove animations\" the bar sits still. A skeleton that does not move is a defect. Under a live indicator the bars of rule 71 do the same.\n\nCheck: put each skeleton on screen for three seconds. The light visibly passes through it."
+    "text": "Every skeleton bar carries a shimmer: a soft band, about 40% of the bar's width, sweeps left to right every 1200ms on a linear curve, in light and dark. With the system setting \"Remove animations\" the bar sits still. A skeleton that does not move is a defect. No bars sit under a live indicator (rule 71).\n\nCheck: put each skeleton on screen for three seconds. The light visibly passes through it."
   },
   {
     "n": 86,
@@ -803,7 +803,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Stop is the orb: tapping where the orb is stops the run, and there is no second Stop pill or second icon. A repeat action is the try-again arrow with an accessibility label, not the word Redo. A control that explains itself in a line of its own (\"The Analyze button runs the last choice\") goes, which is rule 1.\nRule 63 holds: a second quick tap never cancels.\n\nCheck: look at the Analyzing card and the result. Each job has one control."
+    "text": "Stop is the orb: tapping where the orb is stops the run, and there is no second Stop pill or second icon. A repeat action is the try-again arrow with an accessibility label, not the word Redo. A control that explains itself in a line of its own (\"The Analyze button runs the last choice\") goes, which is rule 1.\nRule 63 holds: a second quick tap never cancels. The control that started the work shows it: while an answer is on its way the orb sits in the field's button where Send was, and nothing else on the screen says that work is waiting (L33).\n\nCheck: start a tour and ask a question. Each job has one control, and the orb is it."
   },
   {
     "n": 88,
@@ -812,7 +812,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Opening a PR from a row, going between Overview tabs and returning all slide the new page in from the side it belongs to, with the numbers of rule 73 for \"page side by side\" (250ms, 8dp, a fade, 3px of blur). Swiping between Summary and Description moves the whole section with the finger, as a page. Opening from a swiped row uses the same slide as opening by a tap.\nIt extends rule 57.\n\nCheck: open a PR from a row by tap and by swipe, then swipe between tabs. A slide every time and the section follows the finger."
+    "text": "Opening a PR from a row and returning slide the new page in from the side it belongs to, with the numbers of rule 73 (250ms, 8dp, a fade, 3px of blur). The Overview's tabs are pages side by side: they follow the finger and slide whole, with no fade (rule 107). Opening from a swiped row uses the same slide as opening by a tap.\nIt extends rule 57.\n\nCheck: open a PR from a row by tap and by swipe, then swipe between tabs. A slide every time and the section follows the finger."
   },
   {
     "n": 89,
@@ -821,7 +821,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A list of models or engines shows the few most people want, newest first, and puts the rest below the Effort row under a small \"Older models\" heading, in a card of their own that is always there to scroll to, never folded (Claude's picker lists them the same way, under \"Other models\"; he called a fold inside the list \"not how it looked in the video\"). A row is a name only, with no ID line and no description unless the name alone is not enough. The recommended choice carries a \"Recommended\" pill (26dp tall, 13sp medium, a neutral grey with dark text, as Claude's is; the teal wash was \"the wrong color\") and the selected one a plain, larger ✓, never the word \"Default\" beside a check. The footnote under a list is tiny, as in Claude's (13sp, the one place that goes below rule 14's floor, because he asked for it). There is no custom model ID field. \"Newest first\" is read from the version in the name: the newest version of each family (Opus, Sonnet, Fable, GPT) from the newest generation, the default and any alias such as \"Opus (1M context)\"; every other version goes below the Effort row. The model in use is never hidden: it is in one list or the other. A Codex name loses the hyphens between its words (\"GPT-5.1 Codex Max\"). Claude Code lists its models by family alone (\"Opus\"), with the version only in the description, so the row takes the version from there (\"Opus 5.5\") and sorts by it. Claude Code's recommended effort is the CLI's own default for that model, and the Effort row names the level that will run. Pi is the exception to \"Older models\": it serves many providers' models through one endpoint, every one of them a current choice, so its list has no \"Older models\" and is instead a card per provider under the same small heading, named the way the provider writes itself (\"AGY\", \"Claude\", \"Codex\", \"xAI\"), the default's provider first and each newest first (`modelSections`). The server takes the route word off each name (\"Claude Opus 5\", never \"Claude Claude Opus 5\"), lists a model once per provider and leaves out models that make images, speech or embeddings (K1 to K4).\nF34 stays: tapping Quick, Standard or Deep on the Analyze sheet starts the analysis. (The first digest read this as choosing a model. The recording at 13:17 to 13:41 shows him tapping a preset, finding it started at once, and calling it awesome. Choosing a model only saves it.)\n\nCheck: open the model sheet for each engine beside Claude's. The same shape."
+    "text": "A list of models or engines shows the few most people want, newest first, and puts the rest under a small \"Older models\" heading at the end of the list, in a card of their own that is always there to scroll to, never folded (Claude's picker lists them the same way, under \"Other models\"; he called a fold inside the list \"not how it looked in the video\"). A row is a name only, with no ID line and no description unless the name alone is not enough. The recommended choice carries a \"Recommended\" pill (26dp tall, 13sp medium, a neutral grey with dark text, as Claude's is; the teal wash was \"the wrong color\") and the selected one a plain, larger ✓, never the word \"Default\" beside a check. The footnote under a list is tiny, as in Claude's (13sp, the one place that goes below rule 14's floor, because he asked for it). There is no custom model ID field. \"Newest first\" is read from the version in the name: the newest version of each family (Opus, Sonnet, Fable, GPT) from the newest generation, the default and any alias such as \"Opus (1M context)\"; every other version goes under \"Older models\". Effort is not in the list: it is its own row under Model (M2, rule 142). The model in use is never hidden: it is in one list or the other. A Codex name loses the hyphens between its words (\"GPT-5.1 Codex Max\"). Claude Code lists its models by family alone (\"Opus\"), with the version only in the description, so the row takes the version from there (\"Opus 5.5\") and sorts by it. Claude Code's recommended effort is the CLI's own default for that model, and the Effort row names the level that will run. Pi is the exception to \"Older models\": it serves many providers' models through one endpoint, every one of them a current choice, so its list has no \"Older models\" and is instead a card per provider under the same small heading, named the way the provider writes itself (\"AGY\", \"Claude\", \"Codex\", \"xAI\"), the default's provider first and each newest first (`modelSections`). The server takes the route word off each name (\"Claude Opus 5\", never \"Claude Claude Opus 5\"), lists a model once per provider and leaves out models that make images, speech or embeddings (K1 to K4).\nF34 stays: tapping Quick, Standard or Deep on the Analyze options page starts the analysis. (The first digest read this as choosing a model. The recording at 13:17 to 13:41 shows him tapping a preset, finding it started at once, and calling it awesome. Choosing a model only saves it.)\n\nCheck: open the model sheet for each engine beside Claude's. The same shape."
   },
   {
     "n": 90,
@@ -830,7 +830,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A path shows its end, because the end is what tells files apart: \"…/domains/practice/components\". Folders are dropped from the front whole, never cut in the middle of a name. Tapping the path line shows the whole path. The file name comes first. People's names and titles wrap whole (rule 2) and are not cut with an ellipsis.\n\nCheck: put a long path on a file row and in the diff header. The end of the path is readable, the whole path is one tap away and no name is cut."
+    "text": "A path shows its end, because the end is what tells files apart: \"…/domains/practice/components\". Folders are dropped from the front whole, never cut in the middle of a name. Tapping the path line shows the whole path. The file name comes first. Titles wrap whole (rule 2); people's names keep to one line and give way only at their end (rule 111).\n\nCheck: put a long path on a file row and in the diff header. The end of the path is readable, the whole path is one tap away and no name is cut."
   },
   {
     "n": 91,
@@ -839,7 +839,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. \"commented\" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name, and a long name wraps onto a second line rather than push them or be cut (\"align these always\").\nPushed commits are not in the Conversation, and since K29 they have no tab either: the Commits number opens a sheet built like Files (\"just show a bottom sheet like the files\"), with \"Find a commit\", \"All commits\" first, then the commits oldest first and numbered under a fold heading for each day. A tap opens the diff of that commit alone (K25), a long-press stretches the range from the last one tapped and leaves the sheet open. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs are Summary and Conversation, carry no counts, and sit from the start of the line a word's room apart, not spread over the width (K7).\n\nCheck: open a Conversation with ten comments. Every one folds and unfolds, none says \"commented\", the ages are in one column, and no commit is in it. Tap Commits: a sheet with a search, every commit numbered."
+    "text": "Each comment in Conversation folds. A folded comment is the name, the age and a chevron on one line, with its first line dimmed under it. The first comment starts open. Bot comments, such as CodeRabbit's, start folded. \"commented\" is never written, because it can only be a comment. The age and the chevron sit at the right edge of every header, so they line up from one comment to the next whatever the length of the name (\"align these always\"); a long name keeps to one line and gives way at its end rather than push them (rule 111).\nPushed commits are not in the Conversation, and since K29 they have no tab either: the Commits number opens a sheet built like Files (\"just show a bottom sheet like the files\"), with \"Find a commit\", \"All commits\" first, then the commits oldest first and numbered under a plain heading for each day (rule 141). A tap opens the diff of that commit alone (K25), a long-press stretches the range from the last one tapped and leaves the sheet open. Commits GitHub did not send are named in one row that opens them on GitHub. The tabs are Summary and Conversation, carry no counts, and sit from the start of the line a word's room apart, not spread over the width (K7).\n\nCheck: open a Conversation with ten comments. Every one folds and unfolds, none says \"commented\", the ages are in one column, and no commit is in it. Tap Commits: a sheet with a search, every commit numbered."
   },
   {
     "n": 92,
@@ -857,11 +857,11 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the first file a swipe right goes back to the Overview; past the last file there is nothing, so the page stays where it is and never opens the Tour (K26). The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button and the capsule are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff. The Overview's last tab is an end too: a swipe left there goes nowhere (K8). A pinch makes the code's text bigger or smaller as the fingers move: the code is laid out again at each size and still fills the page, never a picture of it scaled into a corner (M9). The line under the fingers stays there while they move and after they lift, and the page does not pan with them (L17).\nAa opens \"Text and tools\" as a bottom sheet, and every choice in it shows what it does instead of describing it (\"why am I not seeing what these do\"): the layout first, as the two small diffs of rule 81 (Split only on a screen 640dp or wider; on a phone it is shown dim with \"wider screens\"), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.\n\nCheck: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you."
+    "text": "A swipe left or right on the code goes to the next or previous file, like the ‹ › buttons, and the page follows the finger. This reverses the \"never switched by horizontal swipe\" half of rule 9, as he asked. On code wider than the screen a swipe first scrolls the code, and changes file only once the code is at its edge; on wrapped code, and anywhere off the code (the note, the counts line, a thread card), it changes file at once. Two fingers pinch, a held finger selects, and nothing changes file while lines are selected. From the first file a swipe right goes back to the Overview; past the last file there is nothing, so the page stays where it is and never opens the Tour (K26). The capsule keeps its shape on the Diff, the Overview and the Tour: three view icons and one corner slot, which is ⋯ on the Overview and the Tour and Aa on the Diff. Swiping between the three never moves the header: the back button and the capsule are drawn once over all three pages, so only what is under them changes, and the selected segment of the capsule slides to its new place. From the Tour a swipe right goes back to the Diff. The Overview's last tab is an end too: a swipe left there goes nowhere (K8). A pinch makes the code's text bigger or smaller as the fingers move: the code is laid out again at each size and still fills the page, never a picture of it scaled into a corner (M9). The line under the fingers stays there while they move and after they lift, and the page does not pan with them (L17).\nAa opens \"Text and tools\" as a bottom sheet, and every choice in it shows what it does instead of describing it (\"why am I not seeing what these do\"): the layout first, as the two small diffs of rule 81 (Split can be picked on any phone; a file with only one side falls back to unified, H10), the code size capsule over a sample that resizes and shows wrapping, the code font as a page inside the sheet, wrap long lines and review comments as switches, then the file's own actions (copy the path, open it on GitHub, load the whole file) and one row to the pull request's ⋯ actions.\n\nCheck: swipe between files and between views. The header is the same pixels throughout. Swipe on code wider than the screen: it scrolls first. Open Aa: the diff layout is the first thing, and every choice changes a sample in front of you."
   },
   {
     "n": 94,
-    "title": "One way to start a comment, one sheet to write it in.",
+    "title": "One way to start a comment, one bar to write it in.",
     "source": "overhaul",
     "checkedBy": [
       "review"
@@ -875,7 +875,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A code block in a tour or an answer is the diff's code view: syntax colours, sideways scroll, pinch zoom. A flow is drawn by the app from structured data, never printed as text. A table keeps a readable width for each column (the description never below about 230dp) and scrolls sideways with a fade at its edge. Inline code shows as code and never with its backticks. Pseudocode is coloured like code, from the same palette. A call tree and a file tree are drawn as trees with guide lines, and a file in a tree that the pull request changes opens it. A flow line that does not parse stays as words in its place while the rest of the flow is drawn. In a tour's \"In the code\" list the place sits on its own line and its reason under it at the full width, so a long file name never squeezes the reason into a narrow column (24:30 in the second walkthrough).\n\nCheck: open a tour with a code block, a flow and a table. The code scrolls and zooms, the flow is drawn, no column is squeezed to four characters."
+    "text": "A code block in a tour or an answer is the diff's code view: syntax colours, sideways scroll, pinch zoom. A flow is drawn by the app from structured data, never printed as text. A table keeps a readable width for each column (the description never below about 230dp) and scrolls sideways with a fade at its edge. Inline code shows as code and never with its backticks. Pseudocode reads as plain steps that wrap under their indent, never as coloured code cut at both edges, and a code block carries no \"Code\" or \"text\" label (L27, L30). A caption under code says what the code does and why, not a label for it (L29). A call tree and a file tree are drawn as trees with guide lines, and a file in a tree that the pull request changes opens it. A flow line that does not parse stays as words in its place while the rest of the flow is drawn. In a tour's \"In the code\" list the place sits on its own line and its reason under it at the full width, so a long file name never squeezes the reason into a narrow column (24:30 in the second walkthrough).\n\nCheck: open a tour with a code block, pseudocode, a flow and a table. The code scrolls and zooms, the pseudocode wraps as steps, the flow is drawn, no column is squeezed to four characters."
   },
   {
     "n": 96,
@@ -884,7 +884,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Every mention of a file, line, symbol or dimension, in a note, the summary, a finding, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline, all in the one face of the text around them, whether the AI wrote them in backticks or not (K16: \"some are monospace font and some are not\"). They look like what they are and sit on the text line (rule 39). A file name or `path:line` in backticks is a link when it names a changed file, and a mention of a file the pull request does not change opens it on GitHub. What is posted to GitHub links each cite to the file at the head commit.\nHe called F43 \"super, super, super important\", so the analysis, tour, Ask and review instructions all say it and a check makes sure.\n\nCheck: tap every cite in an analysis, a file note, a finding and an answer on lines. Each scrolls to its place."
+    "text": "Every mention of a file, line, symbol or dimension, in a note, the summary, a finding, a tour or an answer, is a link that scrolls to that place. Cites are teal text with no underline, all in the one face of the text around them, whether the AI wrote them in backticks or not (K16: \"some are monospace font and some are not\"). They look like what they are and sit on the text line (rule 39). A file name or `path:line` in backticks is a link when it names a changed file, and a mention of a file the pull request does not change opens it on GitHub. What is posted to GitHub links each cite to the file at the head commit. In a tour, a file or line opens that file's diff on a sheet over the tour, at the line, and the tour stays where it was (L28).\nHe called F43 \"super, super, super important\", so the analysis, tour, Ask and review instructions all say it and a check makes sure.\n\nCheck: tap every cite in an analysis, a file note, a finding and an answer on lines. Each scrolls to its place; in a tour each opens its file's diff on a sheet."
   },
   {
     "n": 97,
@@ -930,7 +930,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A list that can run long (the files, the repositories) has a search field at the top of its sheet (`SheetSearch`: 48dp, the card radius, the float shadow, ✕ to clear), and a row matches when every word typed is in it. The files are one sheet, opened from the Files cell on the Overview and from the file name in the Diff, with the file on screen marked. Sections of files fold under their headings, on the Overview and in the sheet, and a fold is kept while the pull request is open. A pull request with more than 80 files opens with every section folded (in the sheet, the section holding the file on screen stays open), so 80,000 changed lines start as a short list of headings, and the sheet shows the first 300 rows with a row to show all of them. A search opens every section it finds something in.\n\nCheck: open a pull request of a few hundred files. Headings first, each opens and folds, the search finds a file by two words of its path, and nothing stutters."
+    "text": "A list that can run long (the files, the repositories, the themes, a model list of more than 8, earlier chats; L4, L23, L36) has a search field at the top of its sheet (`SheetSearch`: 48dp, the card radius, the float shadow, ✕ to clear), and a row matches when every word typed is in it. The files are one sheet, opened from the Files cell on the Overview and from the file name in the Diff, with the file on screen marked. Sections of files fold under their headings on the Overview, and a fold is kept while the pull request is open; in the sheet they sit under plain headings and nothing folds (M7, rule 141). A pull request with more than 80 files opens on the Overview with every section folded, so 80,000 changed lines start as a short list of headings, and the sheet shows the first 300 rows with a row to show all of them.\n\nCheck: open a pull request of a few hundred files. Headings first on the Overview, each opens and folds, the Files sheet's search finds a file by two words of its path, and nothing stutters."
   },
   {
     "n": 102,
@@ -939,7 +939,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A file row on the Overview takes the gestures of the Inbox rows (rule 56): a swipe right opens it, as it opens a pull request row, a swipe left marks it reviewed (or not reviewed), a tap opens it and a long-press opens its actions (open, mark reviewed, copy the path, ask about the file). The checkbox sits on the first line of text. The file name comes first, its folder under it cut from the front (rule 90), the counts at the right, and the AI's note in two lines at most.\n\nCheck: swipe a file both ways, tap it and hold it. The swipe blurs the row like the Inbox's, and the box lines up with the name."
+    "text": "A file row on the Overview swipes both ways, as an Inbox row no longer does (rule 143): a swipe right opens it, as it opens a pull request row, a swipe left marks it reviewed (or not reviewed), a tap opens it and a long-press opens its actions (open, mark reviewed, copy the path, ask about the file). The checkbox sits on the first line of text. The file name comes first, its folder under it cut from the front (rule 90), the counts at the right, and the AI's note in two lines at most.\n\nCheck: swipe a file both ways, tap it and hold it. The swipe blurs the row like the Inbox's, and the box lines up with the name."
   },
   {
     "n": 103,
@@ -967,7 +967,7 @@
       "motion",
       "review"
     ],
-    "text": "Tavi: \"Most transition animations don't seem to naturally follow the movement you're doing. For instance, when I swipe in the PR home to move between the tabs, the direction of the transition does not go into the tab we're going to.\" Everything moves the way the person moved it. A thing dragged by a finger follows the finger, and when the finger lets go it either settles back where it was or carries on the way the finger went; it never springs back toward the finger's start before going on. The next tab, file, view or page comes in from the right and the one left behind leaves to the left; the previous one comes from the left. Pages sit where the controls show them: tabs in their order, the review's views in the capsule's order (Overview, Changes, Tour), the stack of pages by depth. Back always goes backward, whichever view or page it lands on. A back swipe moves the page with the finger and then carries it on that way, so a swipe from the right edge sends it left. The tab underline and the capsule's pill slide to the new place, and the underline leans toward the next tab while the finger drags. A label that names where you are (the file between ‹ and ›, the Tour's stop) changes the same way: the next file from the right, the next stop rising from below. Commands, pulled down from the Inbox, is a sheet like any other and rises from the bottom (H6); a sheet thrown down carries on down. Nothing that belongs to a page pops while the page slides: it slides with it. A quick throw of 500dp/s counts as a swipe however short it is, and a throw back against the drag cancels it.\n\nCheck: on the Overview drag between tabs slowly and let go short, then far, then throw: the rows and the underline go toward the tab you went to, or back where they were, never the other way first. Swipe between files and past the last one, use ‹ ›, the capsule and Back, back-swipe from each edge, pull Commands down and close it."
+    "text": "Tavi: \"Most transition animations don't seem to naturally follow the movement you're doing. For instance, when I swipe in the PR home to move between the tabs, the direction of the transition does not go into the tab we're going to.\" Everything moves the way the person moved it. A thing dragged by a finger follows the finger, and when the finger lets go it either settles back where it was or carries on the way the finger went; it never springs back toward the finger's start before going on. The next tab, file, view or page comes in from the right and the one left behind leaves to the left; the previous one comes from the left. Pages sit where the controls show them: tabs in their order, the review's views in the capsule's order (Overview, Changes, Tour), the stack of pages by depth. Back always goes backward, whichever view or page it lands on. A back swipe moves the page with the finger and then carries it on that way, so a swipe from the right edge sends it left. The tab underline and the capsule's pill slide to the new place, and the underline leans toward the next tab while the finger drags. A label that names where you are (the file between ‹ and ›, the Tour's stop) changes the same way: the next file from the right, the next stop rising from below. Commands, pulled down from the Inbox, is a sheet like any other and rises from the bottom (H6); a sheet thrown down carries on down. Nothing that belongs to a page pops while the page slides: it slides with it. A quick throw of 500dp/s counts as a swipe once the finger has taken the page part of the way, so a nudge never turns a page by itself (L6); a third of the way over is enough without a throw (L18), and a throw back against the drag cancels it.\n\nCheck: on the Overview drag between tabs slowly and let go short, then far, then throw: the rows and the underline go toward the tab you went to, or back where they were, never the other way first. Swipe between files and past the last one, use ‹ ›, the capsule and Back, back-swipe from each edge, pull Commands down and close it."
   },
   {
     "n": 106,
@@ -986,7 +986,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tavi, on Inbox and Tours: \"It should move like screens side by side\", as Grok's Ask, Imagine and Build do, and on Summary and Commits: \"pages next to each other just slide, no fade.\" Screens that sit beside each other (the Inbox and Tours, a repository's pull requests and its tours, the Overview's tabs, the Diff's files) move the whole width of the screen with a gap between them, and nothing fades or blurs. The Diff's files have no gap: they touch, edge to edge, so a swipe between them is one smooth sheet of code (M10). The Overview's tabs are drawn before the first drag, so the first swipe from Summary to Conversation moves as smoothly as the way back (M8). The Inbox and Tours, a repository's two lists and the Overview's three tabs follow a drag anywhere nothing else takes it, and settle on the nearer screen or go on the way a throw went (`SidePages`); both screens are in view during the move, and the tab marker moves with them, frame for frame (J15). On the Overview that includes the title, the meta, the branch row and the numbers, which sit over the three tabs as one head (J21, which replaced H32's \"a sideways drag on the title does nothing\"); only the branch row's own sideways scroll and a file row's swipe keep their drags. The Diff's files sit side by side the same way: during a swipe, an arrow or a pick from the Files sheet, the file on screen and the one it goes to are both in view, moving together, and a file picked from far away still arrives from beside the current one, never through a blank page (J25). The glide settles on a critically damped spring with no snap at the end (J7). A sheet's own pages (Settings to What's new, Code font, Language) travel a third of the sheet's width in 350ms and blur, so the way they go is plain (H1, H4).\n\nCheck: tap Tours and drag back to the Inbox from the chips; swipe Summary to Commits and back, once on the rows and once on the title; swipe between files; open Settings, go to What's new and back. The screens move whole side by side, nothing fades, the tab marker keeps up, and Back goes right."
+    "text": "Tavi, on Inbox and Tours: \"It should move like screens side by side\", as Grok's Ask, Imagine and Build do, and on Summary and Commits: \"pages next to each other just slide, no fade.\" Screens that sit beside each other (the Inbox and Tours, a repository's pull requests and its tours, the Overview's tabs, the Diff's files) move the whole width of the screen with a gap between them, and nothing fades or blurs. The Diff's files have no gap: they touch, edge to edge, so a swipe between them is one smooth sheet of code (M10). The Overview's tabs are drawn before the first drag, so the first swipe from Summary to Conversation moves as smoothly as the way back (M8). The Inbox and Tours, a repository's two lists and the Overview's two tabs follow a drag anywhere nothing else takes it, and settle on the nearer screen or go on the way a throw went (`SidePages`); both screens are in view during the move, and the tab marker moves with them, frame for frame (J15). On the Overview that includes the title, the meta, the branch row and the numbers, which sit over the two tabs as one head (J21, which replaced H32's \"a sideways drag on the title does nothing\"); only the branch row's own sideways scroll and a file row's swipe keep their drags. The Diff's files sit side by side the same way: during a swipe, an arrow or a pick from the Files sheet, the file on screen and the one it goes to are both in view, moving together, and a file picked from far away still arrives from beside the current one, never through a blank page (J25). The glide settles on a critically damped spring with no snap at the end (J7). A sheet's own pages (Settings to What's new, Code font, Language) travel a third of the sheet's width in 350ms and blur, so the way they go is plain (H1, H4).\n\nCheck: tap Tours and drag back to the Inbox from the chips; swipe Summary to Conversation and back, once on the rows and once on the title; swipe between files; open Settings, go to What's new and back. The screens move whole side by side, nothing fades, the tab marker keeps up, and Back goes right."
   },
   {
     "n": 108,
@@ -1013,7 +1013,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tapping the title puts the caret where the finger landed, not before the first letter (H34). While the title is edited it is underlined in the accent and the rest of the page fades to a quarter, so it is plain that the page is now about the field (H35); the description's field fades the page around it the same way. Leaving the field brings the page back.\n\nCheck: tap in the middle of a pull request's title: the caret is there, the page behind fades, and tapping the empty page saves and brings it back."
+    "text": "Tapping the title puts the caret where the finger landed, not before the first letter (H34). While the title is edited it is underlined in the accent and the rest of the page fades to a quarter, so it is plain that the page is now about the field (H35). The description is edited on its own tall sheet (rule 83), so the page behind it dims as under any sheet. Leaving the field brings the page back.\n\nCheck: tap in the middle of a pull request's title: the caret is there, the page behind fades, and tapping the empty page saves and brings it back."
   },
   {
     "n": 111,
@@ -1040,7 +1040,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tavi: \"What if we only generate the Tour when you tap on the Tour icon. We pop a bottom sheet with a 'There's no tour currently. Do you wanna generate one?' and a model selector every time you tap on the tour and there's no tour. Then we can completely take it out of the PR page.\" The Overview has no Analyze card and nothing that asks for an analysis: the page is the pull request. Tapping the tour icon in the header when there is no tour, and none is being written, opens a sheet titled \"No tour yet\" with one line on what a tour is, the Model row (its page slides in inside the same sheet, rule 78), and Generate tour. Generate closes the sheet and opens the Tour page on the work log: \"Reading the change\" while the analysis that comes first runs, then \"Building the tour\". With a tour, or one on its way, the icon opens the Tour page as before, and its dot breathes while one is written. The other analysis passes stay in ⋯, under Analyze options. This replaces rule 19's \"visible way in\" on the Overview and rule 86's Analyze card.\n\nCheck: open a pull request with no tour. The Summary starts with the description. Tap the tour icon: the sheet says there is no tour yet and names the model; Generate tour opens the Tour page on its work log. Go back and tap the icon again: the Tour page opens, not the sheet."
+    "text": "Tavi: \"What if we only generate the Tour when you tap on the Tour icon. We pop a bottom sheet with a 'There's no tour currently. Do you wanna generate one?' and a model selector every time you tap on the tour and there's no tour. Then we can completely take it out of the PR page.\" The Overview has no Analyze card and nothing that asks for an analysis: the page is the pull request. Tapping the tour icon in the header when there is no tour, and none is being written, opens a sheet titled \"No tour yet\" with one line on what a tour is, the Model row (its page slides in inside the same sheet, rule 78), the Effort row under it (L25), and Generate tour. Generate keeps the sheet open and shows the work log in it, with the Tour page behind: \"Reading the change\" while the analysis that comes first runs, then \"Building the tour\" (rule 144). With a tour, or one on its way, the icon opens the Tour page as before, and its dot breathes while one is written. The other analysis passes stay in ⋯, under Analyze options. This replaces rule 19's \"visible way in\" on the Overview and rule 86's Analyze card.\n\nCheck: open a pull request with no tour. The Summary starts with the description. Tap the tour icon: the sheet says there is no tour yet and names the model; Generate tour keeps the sheet open on its work log. Once the tour is there, tap the icon again: the Tour page opens, not the sheet."
   },
   {
     "n": 114,
@@ -1085,7 +1085,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tavi, on swiping from the Inbox to Tours and back: \"It brings me back to the top. It should keep me where I left off.\" Pages that sit side by side keep their scroll and what is open while the other is on screen: the Inbox and Tours, a repository's lists, the Overview's tabs, and each file of the Diff (J9). The Overview's head lifts with whichever tab is in view and the other tabs follow it, so a tab never opens with the head half gone.\n\nCheck: scroll the Inbox down, swipe to Tours and back: the Inbox is where it was. Do the same on Summary and Commits."
+    "text": "Tavi, on swiping from the Inbox to Tours and back: \"It brings me back to the top. It should keep me where I left off.\" Pages that sit side by side keep their scroll and what is open while the other is on screen: the Inbox and Tours, a repository's lists, the Overview's tabs, and each file of the Diff (J9). The Overview's head lifts with whichever tab is in view and the other tabs follow it, so a tab never opens with the head half gone.\n\nCheck: scroll the Inbox down, swipe to Tours and back: the Inbox is where it was. Do the same on Summary and Conversation."
   },
   {
     "n": 119,
@@ -1094,7 +1094,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tavi: \"Collapsible sections differ... one component, used everywhere.\" A heading that folds rows away is the Inbox's (`GroupHeading`) wherever it is: the name, the count, the chevron that turns as it folds, a line under it while folded, and the rows leaving and coming back with motion. The Overview's file sections and the Files sheet use it; on a sheet the rows sit in a card under it, which folds away (J18).\n\nCheck: fold a repository on the Inbox, a section on the Overview and one in the Files sheet: the same heading, the same turn and the same motion."
+    "text": "Tavi: \"Collapsible sections differ... one component, used everywhere.\" A heading that folds rows away is the Inbox's (`GroupHeading`) wherever it is: the name, the count, the chevron that turns as it folds, a line under it while folded, and the rows leaving and coming back with motion. The Inbox, Tours and the Overview's file sections use it. Sheets do not fold: they use the plain heading of rule 141 (M7). The chevrons of a list's headings share one x whatever the name's length, because each heading takes the full width (L3, L12).\n\nCheck: fold a repository on the Inbox and a section on the Overview: the same heading, the same turn and the same motion, and the chevrons in one column."
   },
   {
     "n": 120,
@@ -1112,7 +1112,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Tavi: \"It did not give me any feedback for quite a while.\" Anything that starts AI work shows its running work log, the first line and its clock, in the same frame as the tap, before the server answers. A page opened by that tap (Generate tour opens the Tour) never shows its \"nothing yet\" state first (J28, J31).\n\nCheck: tap Generate tour: the Tour page opens on \"Reading the change\" with its clock running."
+    "text": "Tavi: \"It did not give me any feedback for quite a while.\" Anything that starts AI work shows its running work log, the first line and its clock, in the same frame as the tap, before the server answers. The sheet or page that shows the work (Generate tour's own sheet, rule 144) never shows its \"nothing yet\" state first (J28, J31).\n\nCheck: tap Generate tour: the sheet shows \"Reading the change\" with its clock running in the same frame."
   },
   {
     "n": 122,
@@ -1121,7 +1121,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "When AI work ends, the page goes straight from the work log to what the work made. When one pass leads to another (the first analysis to the tour), it goes straight to the next pass's log. Neither the empty page nor the start page shows in between (J34).\n\nCheck: generate a tour and watch the end: the log turns into the tour, with no \"Take a tour\" page between."
+    "text": "When AI work ends, the page goes straight from the work log to what the work made. When one pass leads to another (the first analysis to the tour), it goes straight to the next pass's log. Neither the empty page nor the start page shows in between (J34).\n\nCheck: generate a tour and watch the end: the sheet closes on the finished tour, with no \"Take a tour\" page between."
   },
   {
     "n": 123,
@@ -1175,7 +1175,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "What one screen has already loaded is never fetched again before another shows it: the profile photo in the profile sheet is the one the header drew (J8), and a pull request opened from the Inbox shows its branches from the Inbox row, with the title and the size, before GitHub answers (J13).\n\nCheck: open the profile sheet: the photo is there with it. Open a pull request: the branch row is there in the first frame."
+    "text": "What one screen has already loaded is never fetched again before another shows it: the profile photo in the profile sheet is the one the header drew (J8), and a pull request opened from the Inbox shows its branches from the Inbox row, with the title and the size, before GitHub answers (J13). The model sheet shows the names it last had at once, even after a restart, and refreshes them quietly (L22).\n\nCheck: open the profile sheet: the photo is there with it. Open a pull request: the branch row is there in the first frame."
   },
   {
     "n": 129,
@@ -1202,7 +1202,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A bar that names the page, like the Diff's counts line (+3 −0, threads, Reviewed) and its bottom bar, stays in place while the pages slide under it; only its words change, coming in the way the pages went (K9: \"that top part I don't think needs to be transitioned\"). A swipe always ends on a page: a gesture cut short still lets go, so no two pages stay side by side (K10).\n\nCheck: swipe between files. The counts bar does not move, its numbers change. Swipe and lift a second finger halfway: the files settle."
+    "text": "A bar that names the page, like the Diff's counts line (+3 −0, threads, Reviewed) and its bottom bar, stays in place while the pages slide under it; only its words change, coming in the way the pages went (K9: \"that top part I don't think needs to be transitioned\"). Pulling a page down for Commands moves the page, not the bars pinned to the bottom: Ask and Review stay where they are (L9). A swipe always ends on a page: a gesture cut short still lets go, so no two pages stay side by side (K10).\n\nCheck: swipe between files. The counts bar does not move, its numbers change. Swipe and lift a second finger halfway: the files settle."
   },
   {
     "n": 132,
@@ -1229,7 +1229,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "A tour seen for the first time brings its stops in one after another, each fading in and rising into place; one seen before, or a card scrolled back into view, is simply there (K14: \"an animation of the things actually appearing on the page\").\n\nCheck: open a freshly written tour. The stops come in one by one. Leave and come back: they are already there."
+    "text": "A tour seen for the first time brings its stops in one after another, each fading in and rising into place; one seen before, or a card scrolled back into view, is simply there (K14: \"an animation of the things actually appearing on the page\"). Content that arrives never moves the reader: a streaming answer follows the end only while the reader is at the end and stops the moment they scroll up (L32), and the stops of a tour being written show under its progress without moving the page (L26).\n\nCheck: open a freshly written tour. The stops come in one by one. Leave and come back: they are already there."
   },
   {
     "n": 135,
@@ -1238,7 +1238,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "When a scroll stops with a folded heading cut by the top of the list, the list settles so the heading is whole or gone, never half under the chips (K19).\n\nCheck: on Home, fold a project and scroll so its heading is half under the chips; let go. It settles whole or out of view."
+    "text": "Every heading, open or folded, sticks whole at the top of the list when it gets there, and the next slides up under it and takes its place, so none is ever half under the chips (K19, L2).\n\nCheck: on Home, scroll past a project, open and folded: its heading sticks whole until the next one takes its place."
   },
   {
     "n": 136,
@@ -1247,7 +1247,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Archive and editing the title or description are for pull requests the viewer opened: on someone else's there is no Archive swipe or row (K20) and the title and description are plain text (K21). Restoring an archived one is always there.\n\nCheck: open a pull request someone else opened. Its title does not edit, and its Inbox row does not swipe to Archive."
+    "text": "Archive and editing the title or description are for pull requests the viewer opened: on someone else's there is no Archive in its hold actions (K20) and the title and description are plain text (K21). Restoring an archived one is always there.\n\nCheck: open a pull request someone else opened. Its title does not edit. Hold its Inbox row: no Archive."
   },
   {
     "n": 137,
@@ -1256,7 +1256,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "While a pull request opens, the page is drawn with its own header, numbers line, tabs and bottom bar in their places, with bars where a number is not known yet; the button counts the files the Inbox knew of. When the page arrives only words fill in: nothing moves, no \"0\" turns into 50 (K22).\n\nCheck: open a pull request from the Inbox. Nothing shifts as it loads."
+    "text": "While a pull request opens, the page is drawn with its own header, numbers line, tabs and bottom bar in their places, with bars where a number is not known yet; the button counts the files the Inbox knew of. When the page arrives only words fill in: nothing moves, no \"0\" turns into 50 (K22). What has shown stays until something newer replaces it, and the main action is never greyed while the rest arrives (L5).\n\nCheck: open a pull request from the Inbox. Nothing shifts as it loads."
   },
   {
     "n": 138,
@@ -1310,7 +1310,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "No row archives on a swipe; Archive is only in a row's hold actions (M4: \"I don't think we need archive at all\"). On the Inbox a swipe right opens the review and a swipe left moves on to Tours. On Tours it is the mirror: a swipe left opens the tour, from the right edge, and a swipe right moves back to the Inbox; holding a tour row opens its actions.\n\nCheck: swipe an Inbox row left: Tours comes in. Swipe a Tours row right: the Inbox comes back. Swipe a Tours row left: the tour opens."
+    "text": "No row archives on a swipe; Archive is only in a row's hold actions (M4: \"I don't think we need archive at all\"). On the Inbox a swipe right opens the review and a swipe left moves on to Tours. On Tours it is the mirror: a swipe left opens the tour, from the right edge, and a swipe right moves back to the Inbox; holding a tour row opens its actions. Once a swipe has taken a drag, letting go is not a tap: a short sideways drag springs the row back and opens nothing (L16).\n\nCheck: swipe an Inbox row left: Tours comes in. Swipe a Tours row right: the Inbox comes back. Swipe a Tours row left: the tour opens."
   },
   {
     "n": 144,
@@ -1319,7 +1319,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "Generate tour keeps its sheet open and shows the work log there, with the Tour page behind it; the sheet can be closed, and the tour icon or the one quiet line on the Tour opens it again. The page shows no work log of its own, so nothing on it moves while the tour is written, and it has no Ask bar until there is a tour. The sheet closes when the tour is there. A tap that comes before the pull request has loaded waits for it, so a button never looks dead (M11, M12).\n\nCheck: tap Generate tour: the sheet stays and the log starts in it. Close it and tap the tour icon: it comes back on the log. The Tour behind has one \"Writing the tour\" line and no Ask bar."
+    "text": "Generate tour keeps its sheet open and shows the work log there, with the Tour page behind it; the sheet can be closed, and the tour icon or the one quiet line on the Tour opens it again. The page shows no work log of its own, so nothing on it moves while the tour is written, and it has no Ask bar until there is a tour. The sheet closes when the tour is there. While the tour is written its plan and each stop already written show under the progress, in the places the stops will take (L26). A tap that comes before the pull request has loaded waits for it, so a button never looks dead (M11, M12).\n\nCheck: tap Generate tour: the sheet stays and the log starts in it. Close it and tap the tour icon: it comes back on the log. The Tour behind has one \"Writing the tour\" line and no Ask bar."
   },
   {
     "n": 145,

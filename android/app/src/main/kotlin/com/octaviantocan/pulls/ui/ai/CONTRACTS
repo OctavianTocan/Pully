@@ -61,7 +61,9 @@ to 10:07, N20; rule 124; J36).
 A code block in a tour or an answer is the diff's code view: syntax colours, sideways
 scroll and pinch zoom, and a copy button at its top corner that shows the copied toast, as
 on a web code block (recording of 16 Oct 12:10, 09:51 to 09:55, N18). Inline code shows as
-code and never with its backticks (rule 95; F59, F63).
+code and never with its backticks. Pseudocode sits in the same code well with its own copy
+button: Tavi changed this at 08:16 of the same recording (N13, "I still don't like the
+pseudo code"), replacing L27's wrapped steps (rules 95 and 154; F59, F63).
 
 @cc [owner:OctavianTocan,label:product] ai-structures-are-drawn
 A flow, a call tree and a file tree are drawn by the app from structured data, never

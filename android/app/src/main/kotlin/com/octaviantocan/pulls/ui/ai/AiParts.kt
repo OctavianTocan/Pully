@@ -87,7 +87,6 @@ import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
 import com.octaviantocan.pulls.ui.design.softBlur
@@ -400,8 +399,7 @@ private fun Modifier.fadeTop(height: Dp): Modifier = graphicsLayer { compositing
  * steps under it, each after the icon of what it did (older ones behind "+n more"), and the live orb
  * on the icons' column. When the work stops the orb finishes its turn and settles before it leaves. Once settled: a "Worked for
  * … · Ran 3 commands" button that unfolds the steps. [outcome] is `done`, `failed` or `stopped`.
- * [hint] puts three grey bars under the orb while it runs, a sign of where the answer will arrive
- * (rule 71): they sit under the live mark and never stand in for it. A screen that draws the orb
+ * No grey bars sit under the orb (rule 71, L33). A screen that draws the orb
  * itself, where the log is replaced when the work ends, passes `mark = false` and puts
  * [AiLiveMark] in a place that stays. With [onStop] (from `guardedStop`) the orb is the Stop button
  * at the end of the shimmering line instead (rule 87): there is never a Stop pill beside the log.
@@ -416,7 +414,6 @@ internal fun AiActivityLogFull(
     outcome: String = "done",
     compact: Boolean = false,
     workingVerb: String? = null,
-    hint: Boolean = false,
     mark: Boolean = true,
     onStop: (() -> Unit)? = null,
 ) {
@@ -472,20 +469,20 @@ internal fun AiActivityLogFull(
             }
         }
         // One call site for both states, so the orb that was running is the one that settles.
-        if (mark) AiLiveMark(running, hint, orb = onStop == null)
+        if (mark) AiLiveMark(running, orb = onStop == null)
         if (!running && !compact && (activities.isNotEmpty() || startedAt != null)) Spacer(Modifier.fillMaxWidth().height(1.dp).background(c.border))
     }
 }
 
 /**
  * The live mark of AI work, for a [ColumnScope]: the orb under the newest line, centred on the icons'
- * column (10dp in), and with [hint] the three grey bars of rule 71 under it. When [active] turns false
+ * column (10dp in), with nothing under it (rule 71). When [active] turns false
  * the orb finishes its turn, settles into its tick and stays a moment before it leaves; a mark that is
  * first drawn inactive never shows one. It has to stay in one place of the composition for the orb that
  * ran to be the one that settles.
  */
 @Composable
-internal fun ColumnScope.AiLiveMark(active: Boolean, hint: Boolean = false, orb: Boolean = true) {
+internal fun ColumnScope.AiLiveMark(active: Boolean, orb: Boolean = true) {
     val motion = rememberMotionEnabled()
     var lingering by remember { mutableStateOf(false) }
     LaunchedEffect(active) {
@@ -495,24 +492,16 @@ internal fun ColumnScope.AiLiveMark(active: Boolean, hint: Boolean = false, orb:
             lingering = false
         }
     }
-    // What sits below it glides up as the orb and the bars leave, instead of jumping.
+    // What sits below it glides up as the orb leaves, instead of jumping.
     val leave = if (motion) fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + shrinkVertically(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) else ExitTransition.None
-    // Without [orb] the Stop button elsewhere is the orb, and only the bars are drawn here.
+    // Without [orb] the Stop button elsewhere is the orb, and nothing is drawn here.
     if (orb) AnimatedVisibility(active || lingering, enter = EnterTransition.None, exit = leave) {
         Orb(Modifier.padding(start = 2.dp), size = 16.dp, done = !active)
-    }
-    AnimatedVisibility(active && hint, exit = leave) {
-        Column(Modifier.padding(start = STEP_INDENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            HINT_BAR_WIDTHS.forEach { width -> Skeleton(Modifier.fillMaxWidth(width).height(14.dp)) }
-        }
     }
 }
 
 /** How long the orb stays after the work stops: its last turn (1600ms) and the settle. */
 private const val ORB_LINGER_MS = 2300L
-
-/** The three hint bars of rule 71, the second and third a little shorter than the first. */
-private val HINT_BAR_WIDTHS = listOf(1f, 0.86f, 0.7f)
 
 /**
  * What failed, in the kit's words: the title in the error colour and the reason under it, selectable, with no box,

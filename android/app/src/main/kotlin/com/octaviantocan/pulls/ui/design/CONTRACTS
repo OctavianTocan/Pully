@@ -7,8 +7,9 @@ the way (rule 105; motion check).
 @cc [owner:OctavianTocan,label:motion] kit-drags-carry-on-or-settle
 A page, row or sheet let go after a drag settles back where it was or carries on the way
 the finger went, at the speed it was thrown; it never springs toward the start first. A
-throw of 500dp/s counts as a swipe however short, and a throw back against the drag
-cancels it (rule 105).
+throw of 500dp/s counts as a swipe once the finger has taken the page part of the way, so
+a nudge never turns a page by itself (L6, `kit-side-pages-slide-whole`), and a throw back
+against the drag cancels it (rule 105).
 
 @cc [owner:OctavianTocan,label:motion] kit-side-pages-slide-whole
 `SidePages` and `FilePages` move pages that sit side by side the whole width with

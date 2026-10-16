@@ -49,6 +49,7 @@ New rows, one Ask bar and a tour that reads like code.
 
 - The dim behind the Ask bar covers the top bar too.
 - The Tour's ⋯ opens at once.
+- No grey bars under the thinking line in Ask.
 
 ## 0.39.0
 

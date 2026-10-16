@@ -43,7 +43,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.GithubAvatar
 import com.octaviantocan.pulls.ui.design.SoftChip
@@ -911,17 +910,14 @@ private fun CommentCard(item: PrTimelineItem) {
                 else -> t("overview.timeline.reviewed") to c.muted
             }
             val hidden = minimized?.let { t("overview.timeline.hidden", "reason" to it) }
-            // The name, the decision and a hidden note read as one line that wraps whole, so none of them is ever cut; the
-            // age stays at the right edge (rules 2 and 91).
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Medium, color = c.text)) { append(softBreaks(item.actor?.login ?: "ghost")) }
-                    verb?.let { (words, color) -> append("  "); withStyle(SpanStyle(color = color)) { append(words) } }
-                    hidden?.let { append("  "); withStyle(SpanStyle(color = c.muted)) { append(it) } }
-                },
-                Modifier.weight(1f, fill = false),
-                style = PullsType.sm,
-            )
+            // The name, the decision and a hidden note read as one line. When they run long the decision moves under the
+            // name; the name keeps to one line and gives way only at its end, and the age stays at the right edge
+            // (rules 91 and 111).
+            FlowRow(Modifier.weight(1f, fill = false), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(item.actor?.login ?: "ghost", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                verb?.let { (words, color) -> Text(words, style = PullsType.sm, color = color) }
+                hidden?.let { Text(it, style = PullsType.sm, color = c.muted) }
+            }
         }
         if (body.isNotBlank() && !collapsed) Box(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 12.dp)) { PrHtml(body) }
         if (collapsed && body.isNotBlank()) FoldedLine(remember(body) { commentPreview(body) })
