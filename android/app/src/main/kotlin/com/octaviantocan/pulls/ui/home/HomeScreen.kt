@@ -847,8 +847,10 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
     ) {
         Column(Modifier.width(52.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("#${pull.number}", style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = c.text, maxLines = 1)
-            StackTag(pull)
-            if (risk) RiskTag(pull)
+            // A stacked row's column already holds its place in the stack, and a third line would make it taller, so
+            // there the risk is the stack mark turning amber when it is high.
+            StackTag(pull, risk = risk)
+            if (risk && pull.stack == null) RiskTag(pull)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(title, style = PullsType.row, color = c.text)
@@ -892,15 +894,19 @@ private val JEV_RISK_SHORT = listOf("Trivial", "Low", "Medium", "High")
  * there are, counted from the bottom as GitHub does (H16). The PR page's mark and Stack sheet show the whole stack.
  */
 @Composable
-private fun StackTag(pull: PullRow) {
+private fun StackTag(pull: PullRow, risk: Boolean = false) {
     val stack = pull.stack ?: return
     val c = LocalPullsColors.current
     val place = stackPlace(stack)
+    val jev = pull.jev?.takeIf { risk }
+    val high = jev != null && jev.riskLevel == JEV_RISK_WORDS.lastIndex
     Row(
-        Modifier.semantics(mergeDescendants = true) { contentDescription = place?.let { "Layer ${stack.position} of ${stack.size} in a stack" } ?: "In a stack" },
+        Modifier.semantics(mergeDescendants = true) {
+            contentDescription = (place?.let { "Layer ${stack.position} of ${stack.size} in a stack" } ?: "In a stack") + (jev?.let { ", ${it.riskWords}" } ?: "")
+        },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        LuIcon(Lu.layers, tint = c.muted, size = 14.dp)
+        LuIcon(Lu.layers, tint = if (high) c.amber else c.muted, size = 14.dp)
         place?.let { Text(it, style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false) }
     }
 }

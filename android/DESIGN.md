@@ -1508,7 +1508,7 @@ Source: walkthrough. Checked by: review.
 
 #### 140. Jev stays out of the rows until it is asked for.
 
-An Inbox row shows nothing from Jev unless the list is sorted Riskiest first or grouped by kind, and then only one short risk word under the number, in its column, so the row is no taller than without it. There is no kind and risk line under the title (M1: "do not run it by default", rows "way too tall"). This replaces the third line of the Jev entry in the decision log.
+An Inbox row shows nothing from Jev unless the list is sorted Riskiest first or grouped by kind, and then only one short risk word under the number, in its column, so the row is no taller than without it; a stacked row, whose column holds "2/10", shows it only as the stack mark turning amber when the risk is high. There is no kind and risk line under the title (M1: "do not run it by default", rows "way too tall"). This replaces the third line of the Jev entry in the decision log.
 
 Check: open the Inbox on Recently updated: no row says Feature, Fix or a risk. Sort Riskiest first: a risk word sits under each number and the rows keep their height.
 

@@ -67,7 +67,7 @@ and Access token.
   `$PULLS_REVIEW_ANDROID_DIR/past/` (`<version>.apk` and `index.json`), which the server serves at
   `/android/past/`. The first run builds about forty versions, one Gradle build each; `--list` shows what it
   would build from which commit, and naming versions rebuilds just those.
-- `publish-apk.sh` writes `past/index.json` and starts it in the background after every publish (one run at a time,
+- `publish-apk.sh` writes `past/index.json` and starts it in the background after every publish (one run at a time, a later publish queued behind it,
   `flock` on `past/.lock`, log in `past/build.log`), so the slider fills in newest first without holding up the
   publish. While nothing is built the server answers an empty list. A checkout gets `android/local.properties`
   copied in, so the builds find the SDK without `ANDROID_HOME`.

@@ -124,6 +124,8 @@ private fun Modifier.hatch(bg: Color, stripe: Color): Modifier = this.background
 internal class HScroll {
     var offset by mutableFloatStateOf(0f)
     var max = 0f
+    /** The width the code is shown in, as last laid out, so a pinch can work out the reach at a new size. */
+    var viewport = 0
 }
 
 /** Threads and AI content at one place in the file. Selected lines have nothing under them: the bar comments on them (rule 94). */
@@ -427,6 +429,7 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
                 Modifier.layout { measurable, constraints ->
                     val placeable = measurable.measure(Constraints(minHeight = constraints.minHeight, maxHeight = constraints.maxHeight))
                     val viewport = constraints.maxWidth
+                    scroll.viewport = viewport
                     scroll.max = maxOf(scroll.max, (placeable.width - viewport + 16).toFloat())
                     layout(viewport, placeable.height) { placeable.place(-scroll.offset.toInt(), 0) }
                 },

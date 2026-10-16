@@ -504,6 +504,7 @@ private class KeepUnderFingers(val state: LazyListState, val ui: DiffUi, val fil
     private var at = Offset.Zero
     private var scroll: HScroll? = null
     private var offset = 0f
+    private var reach = 0f
     private var cellStart = 0f
 
     override fun begin(at: Offset) {
@@ -525,17 +526,21 @@ private class KeepUnderFingers(val state: LazyListState, val ui: DiffUi, val fil
         cellStart = if (right) (width - half) / 2f + half else 0f
         scroll = ui.scrolls[file.path to if (!split) 0 else if (right) 2 else 1]
         offset = scroll?.offset ?: 0f
+        reach = scroll?.max ?: 0f
     }
 
     override fun step(from: Float, to: Float) {
         val scale = to / from
         if (row >= 0) state.requestScrollToItem(row, -rowTopAfterZoom(at.y - before, within, scale, grows).roundToInt())
         val s = scroll ?: return
-        // The widest line is measured again at the new size; a smaller code must not keep the old, longer reach.
-        s.max = 0f
+        // The widest line grows and shrinks with the text, so its reach is worked out at the new size and the scroll kept
+        // inside it: zooming out at a line's far end must not leave blank space where the code was. Lines measured
+        // later can still only lengthen it.
+        val wide = reach + s.viewport - 16
+        s.max = (wide * scale - s.viewport + 16).coerceAtLeast(0f)
         val digits = lineDigits(ui, file)
         fun codeStart(zoom: Float) = cellStart + with(density) { (gutterWidth(digits, zoom) + 2.dp).toPx() }
-        s.offset = codeScrollAfterZoom(offset, codeStart(from), codeStart(to), at.x, at.x, scale)
+        s.offset = codeScrollAfterZoom(offset, codeStart(from), codeStart(to), at.x, at.x, scale).coerceIn(0f, s.max)
     }
 }
 

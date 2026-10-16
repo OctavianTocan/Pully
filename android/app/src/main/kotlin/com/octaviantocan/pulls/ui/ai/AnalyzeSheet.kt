@@ -100,7 +100,7 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: An
         }
     }
     // While the tour is written the sheet stays open on its progress and says so (M12).
-    val title: (AnalyzePage) -> String = { if (it == AnalyzePage.Tour && tourComing(session)) "Writing the tour" else it.title() }
+    val title: @Composable (AnalyzePage) -> String = { if (it == AnalyzePage.Tour && tourComing(session)) "Writing the tour" else it.title() }
     PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = title) { current ->
         AnalyzePageContent(
             session, current, custom, onPage = { page = it }, onClose = onClose, onTour = onTour,
@@ -183,10 +183,14 @@ internal fun ColumnScope.AnalyzePageContent(
 private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, onEffort: () -> Unit, onGenerate: () -> Unit) {
     val c = LocalPullsColors.current
     var waiting by remember { mutableStateOf(false) }
-    LaunchedEffect(waiting, session.key) {
-        if (waiting && session.key != null) {
+    LaunchedEffect(waiting, session.key, session.loadError) {
+        if (!waiting) return@LaunchedEffect
+        if (session.key != null) {
             waiting = false
             onGenerate()
+        } else if (session.loadError != null) {
+            // The pull request did not load, so there is nothing to wait for: Generate comes back with the reason.
+            waiting = false
         }
     }
     if (waiting || tourComing(session)) {
@@ -207,7 +211,9 @@ private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, o
     // A tour that failed says why here, where it was asked for; so does an analysis that was to write one.
     val failed = session.taskFor("tour")?.takeIf { it.status == "failed" }?.error
         ?: session.taskFor("analyze")?.takeIf { it.status == "failed" && "tour" in it.then }?.error
-    if (failed != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)) { ErrorBox("The tour could not be written", failed) }
+    val unloaded = session.loadError?.takeIf { session.key == null }
+    if (unloaded != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)) { ErrorBox("The pull request did not load", unloaded) }
+    else if (failed != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)) { ErrorBox("The tour could not be written", failed) }
     // The effort sits under the model as a row of its own, where the tour is set up ("I would maybe put the effort level
     // here in this menu", recording 15 Oct 15:37, 13:10 to 13:17; L25).
     ModelCard(session, onModel, Modifier.padding(top = 16.dp), onEffort = onEffort)

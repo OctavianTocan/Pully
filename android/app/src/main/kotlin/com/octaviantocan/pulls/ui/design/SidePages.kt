@@ -192,7 +192,7 @@ fun <S> SidePages(
 ) {
     val index = pages.indexOf(target).coerceAtLeast(0)
     val state = rememberSidePages(index, pages.size, { onPage(pages[it]) })
-    SidePages(state, pages, modifier, content)
+    SidePages(state, pages, modifier, content = content)
 }
 
 /**

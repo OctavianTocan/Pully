@@ -41,6 +41,7 @@ import java.util.Locale
 
 /** The signed-in user's year on GitHub, as the server's `github-stats` answers it (M5). Counts only. */
 internal data class GithubStats(
+    val login: String,
     val total: Int,
     val commits: Int,
     val pullRequests: Int,
@@ -71,7 +72,8 @@ internal data class GithubStats(
             fun int(key: String) = (o[key] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0
             val first = (o["firstDay"] as? JsonPrimitive)?.content?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
             val days = (o["days"] as? JsonArray).orEmpty().map { (it as? JsonPrimitive)?.content?.toIntOrNull() ?: 0 }
-            return GithubStats(int("total"), int("commits"), int("pullRequests"), int("reviews"), int("streak"), int("longestStreak"), first, days)
+            val login = (o["login"] as? JsonPrimitive)?.content.orEmpty()
+            return GithubStats(login, int("total"), int("commits"), int("pullRequests"), int("reviews"), int("streak"), int("longestStreak"), first, days)
         }
     }
 }
@@ -88,11 +90,12 @@ private object StatsMemory {
  * show at once, and a first open holds the cards' places until they come.
  */
 @Composable
-internal fun ColumnScope.ProfileStats() {
+internal fun ColumnScope.ProfileStats(onLogin: (String) -> Unit = {}) {
     val context = LocalContext.current
     val repo = remember { Repo(context) }
     var stats by remember { mutableStateOf(StatsMemory.last) }
     var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(stats?.login) { stats?.login?.takeIf { it.isNotBlank() }?.let(onLogin) }
     LaunchedEffect(Unit) {
         runCatching { repo.call("github-stats", buildJsonObject { put("fresh", false) }) }
             .onSuccess { result -> GithubStats.parse(result)?.let { stats = it; StatsMemory.last = it } }

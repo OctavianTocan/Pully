@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
+import com.octaviantocan.pulls.core.pullKey
+import com.octaviantocan.pulls.core.runningTaskId
 import com.octaviantocan.pulls.ui.design.sideScrollFade
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -306,7 +308,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                     it.owner.equals(owner, ignoreCase = true) && it.repo.equals(repo, ignoreCase = true) &&
                         (query.isBlank() || "${it.prTitle} #${it.number}".lowercase().contains(query.trim().lowercase()))
                 }
-                RepoTours(mine, now, onOpen = { entry -> nav.openFrom(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"), "repo", true) }) { entry ->
+                RepoTours(mine, now, stoppable = { entry -> runningTaskId(workTasks, pullKey(entry.owner, entry.repo, entry.number), "tour") != null }, onOpen = { entry -> nav.openFrom(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"), "repo", true) }) { entry ->
                     dismissTour(entry, workTasks, tours, server, scope, toaster)
                 }
                 return@SidePages
@@ -435,9 +437,10 @@ data class Viewed(val additions: Int, val deletions: Int, val groups: Int, val h
 
 /** A repository's tours, as rows of the Tours tab without the headings: tap or swipe right to read, swipe left to remove. */
 @Composable
-private fun RepoTours(entries: List<TourEntry>, now: Long, onOpen: (TourEntry) -> Unit, onRemove: (TourEntry) -> Unit) {
+private fun RepoTours(entries: List<TourEntry>, now: Long, stoppable: (TourEntry) -> Boolean, onOpen: (TourEntry) -> Unit, onRemove: (TourEntry) -> Unit) {
     var held by remember { mutableStateOf<TourEntry?>(null) }
-    held?.let { entry -> TourActionsSheet(entry, stoppable = false, onOpen = { onOpen(entry) }, onDismiss = { onRemove(entry) }, onClose = { held = null }) }
+    // A tour still being written is stopped, not removed, as on Home's Tours.
+    held?.let { entry -> TourActionsSheet(entry, stoppable = stoppable(entry), onOpen = { onOpen(entry) }, onDismiss = { onRemove(entry) }, onClose = { held = null }) }
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
     if (entries.isEmpty()) {

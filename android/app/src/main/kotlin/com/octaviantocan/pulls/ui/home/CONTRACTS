@@ -128,7 +128,8 @@ checklist 53; architecture, Jev).
 @cc [owner:OctavianTocan,label:product;design] home-rows-carry-no-jev-line
 An Inbox row shows nothing from Jev unless the list is sorted Riskiest first or grouped by
 kind, and then only one short risk word under the number, in the number's column, so the
-row is no taller than without it. There is no "Feature · Medium risk" line under the title
+row is no taller than without it. A stacked row, whose column already holds "2/10", shows
+the risk only as its stack mark turning amber when the risk is high. There is no "Feature · Medium risk" line under the title
 ("do not run it by default", rows "way too tall": recording 16 Oct 09:50, 00:08 to 00:37;
 M1).
 
