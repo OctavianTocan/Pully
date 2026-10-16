@@ -253,7 +253,10 @@ class Repo(private val context: Context) {
     suspend fun repoInfo(): JsonObject = call("repo-info").jsonObject
 
     /** `analytics-summary`: what the server counted over the last [days] days (7, 30 or 90), for Settings, Stats. */
-    suspend fun analyticsSummary(days: Int): AnalyticsSummary = call("analytics-summary") { put("days", days) }.asAnalyticsSummary()
+    suspend fun analyticsSummary(days: Int): AnalyticsSummary = analyticsSummaryRaw(days).asAnalyticsSummary()
+
+    /** The answer as the server sent it, so the Stats page can keep it on the phone and open on it next time (O10). */
+    suspend fun analyticsSummaryRaw(days: Int): JsonElement = call("analytics-summary") { put("days", days) }
 }
 
 internal fun JsonElement.objects(): List<JsonObject> = (this as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }

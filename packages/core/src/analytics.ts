@@ -174,9 +174,12 @@ export interface AnalyticsSummary {
   /** Screens by time spent, most first. */
   screens: { screen: string, views: number, seconds: number }[]
   /** AI runs by engine and model, most runs first. */
-  engines: { engine: string, model: string, runs: number, failures: number, costUsd: number, tokensIn: number, tokensOut: number, medianMs: number }[]
-  /** AI runs by what they were for (analyze, review, ask, chat, tour, brief), most first. */
-  tasks: { task: string, runs: number, failures: number, costUsd: number }[]
+  engines: { engine: string, model: string, runs: number, failures: number, costUsd: number, tokensIn: number, tokensOut: number, cacheRead: number, priced: number, medianMs: number }[]
+  /**
+   * AI runs by what they were for (analyze, review, ask, chat, tour, brief), most first, with the tokens they spent.
+   * `priced` counts the runs whose engine reported a cost, so a cost of nothing reads as not reported, not as free (O9).
+   */
+  tasks: { task: string, runs: number, failures: number, costUsd: number, tokensIn: number, tokensOut: number, cacheRead: number, priced: number }[]
   /** Server calls and phone requests, slowest median first. */
   calls: { name: string, calls: number, failures: number, medianMs: number, p95Ms: number }[]
   /** Start and load times in milliseconds by app. */

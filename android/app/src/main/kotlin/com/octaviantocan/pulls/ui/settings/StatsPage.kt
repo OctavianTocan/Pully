@@ -36,7 +36,9 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AnalyticsSummary
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
+import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.engineName
+import com.octaviantocan.pulls.data.asAnalyticsSummary
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PillButton
@@ -55,8 +57,41 @@ import kotlinx.coroutines.CancellationException
 /** The ranges the server counts over, in days. */
 private val RANGES = listOf(7, 30, 90)
 
-/** The last answer for each range in this run, so the page opens on it at once and refreshes underneath (rule 128). */
-private val kept = HashMap<Int, AnalyticsSummary>()
+/**
+ * The last answer for each range, kept on the phone, so the page opens on it at once, after a restart too, and refreshes
+ * underneath (rule 128); [warm] fetches the first range as Pully starts, so a first open does not wait either ("still
+ * long loading times ... that should be snappy": recording 16 Oct 13:06, 04:49 to 04:55; O10).
+ */
+internal object StatsKeep {
+    private const val PREFS = "pulls-stats"
+    private val kept = HashMap<String, AnalyticsSummary>()
+    private var warmed = false
+
+    /** Kept per server, so another server's numbers never stand in for this one's. */
+    private fun key(context: android.content.Context, days: Int) = "${ServerStore.load(context).url} days:$days"
+
+    fun get(context: android.content.Context, days: Int): AnalyticsSummary? {
+        val key = key(context, days)
+        return kept[key] ?: runCatching {
+            context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(key, null)
+                ?.let { kotlinx.serialization.json.Json.parseToJsonElement(it).asAnalyticsSummary() }
+        }.getOrNull()?.also { kept[key] = it }
+    }
+
+    suspend fun fetch(context: android.content.Context, repo: Repo, days: Int): AnalyticsSummary {
+        val key = key(context, days)
+        val raw = repo.analyticsSummaryRaw(days)
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString(key, raw.toString()).apply()
+        return raw.asAnalyticsSummary().also { kept[key] = it }
+    }
+
+    /** Once per launch, in the background, when usage stats are on. */
+    suspend fun warm(context: android.content.Context) {
+        if (warmed || !AppSettings.get(context).usageStats) return
+        warmed = true
+        runCatching { fetch(context, Repo(context), RANGES.first()) }
+    }
+}
 
 private sealed interface StatsLoad {
     data object Waiting : StatsLoad
@@ -81,10 +116,10 @@ internal fun ColumnScope.StatsPage(settings: AppSettings) {
     var range by rememberSaveable { mutableIntStateOf(0) }
     var attempt by remember { mutableIntStateOf(0) }
     val days = RANGES[range]
-    var load by remember(days) { mutableStateOf<StatsLoad>(kept[days]?.let { StatsLoad.Ready(it) } ?: StatsLoad.Waiting) }
+    var load by remember(days) { mutableStateOf<StatsLoad>(StatsKeep.get(context, days)?.let { StatsLoad.Ready(it) } ?: StatsLoad.Waiting) }
     LaunchedEffect(days, attempt) {
         load = try {
-            StatsLoad.Ready(repo.analyticsSummary(days).also { kept[days] = it })
+            StatsLoad.Ready(StatsKeep.fetch(context, repo, days))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -122,6 +157,8 @@ private fun StatsBody(summary: AnalyticsSummary, settings: AppSettings) {
         StatLine(t("stats.errors"), StatsFormat.count(totals.errors, locale))
     }
 
+    AiUsage(summary, locale)
+
     if (summary.days.isNotEmpty()) {
         var series by rememberSaveable { mutableIntStateOf(0) }
         Group(t("stats.perDay")) {
@@ -141,16 +178,6 @@ private fun StatsBody(summary: AnalyticsSummary, settings: AppSettings) {
     StatsTable(
         t("stats.screens"), listOf(t("stats.views"), t("stats.time")),
         summary.screens.map { StatRow(StatsFormat.screen(it.screen), null, listOf(StatsFormat.count(it.views, locale), StatsFormat.seconds(it.seconds))) },
-    )
-    StatsTable(
-        t("stats.tasks"), listOf(t("stats.runs"), t("stats.failed"), t("stats.cost")),
-        summary.tasks.map { StatRow(it.task, null, listOf(StatsFormat.count(it.runs, locale), StatsFormat.count(it.failures, locale), StatsFormat.usd(it.costUsd))) },
-    )
-    StatsTable(
-        t("stats.engines"), listOf(t("stats.runs"), t("stats.failed"), t("stats.cost")),
-        summary.engines.map {
-            StatRow(engineName(it.engine), it.model.ifBlank { null }, listOf(StatsFormat.count(it.runs, locale), StatsFormat.count(it.failures, locale), StatsFormat.usd(it.costUsd)))
-        },
     )
     StatsTable(
         t("stats.slowest"), listOf(t("stats.calls"), t("stats.median"), t("stats.p95")),
@@ -184,6 +211,76 @@ private fun StatsBody(summary: AnalyticsSummary, settings: AppSettings) {
                     detail = listOf(problem.app, problem.message).filter { it.isNotBlank() }.joinToString(": ").ifBlank { null },
                 ) {
                     Text(StatsFormat.count(problem.count, locale), style = PullsType.num, color = LocalPullsColors.current.text)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * What the AI spent: the tokens and the cost over the range, then by feature (tours, summaries, analysis, Ask) and by
+ * model, each model with a bar of its share, the costliest first ("a section where we see all the usage and consumption
+ * that we've done of tokens by generating stuff through the tours and the summaries and the analysis and then a
+ * breakdown of which models cost more": recording 16 Oct 13:06, 04:18 to 04:48; O9). A run whose engine reported no
+ * cost (Codex, a proxy) is not shown as free: its cost reads "–" and a line under the card says so.
+ */
+@Composable
+internal fun AiUsage(summary: AnalyticsSummary, locale: Locale) {
+    if (summary.totals.aiRuns == 0L) return
+    val c = LocalPullsColors.current
+    val tasks = summary.tasks
+    val models = summary.engines.sortedWith(compareByDescending<AnalyticsSummary.EngineUse> { it.costUsd }.thenByDescending { it.tokens })
+    val unpriced = models.any { it.priced < it.runs }
+    fun cost(usd: Double, runs: Long, priced: Long) = if (priced == 0L && runs > 0L) "–" else StatsFormat.usd(usd)
+    Group(t("stats.aiUsage")) {
+        SheetCard {
+            val totals = summary.totals
+            val cacheRead = models.sumOf { it.cacheRead }
+            SheetRow(
+                t("stats.tokens"), null, first = true, iconless = true,
+                detail = listOfNotNull(
+                    "${StatsFormat.tokens(totals.tokensIn)} in",
+                    "${StatsFormat.tokens(totals.tokensOut)} out",
+                    cacheRead.takeIf { it > 0 }?.let { "${StatsFormat.tokens(it)} from cache" },
+                ).joinToString(" · "),
+            ) { Text(StatsFormat.tokens(totals.tokensIn + totals.tokensOut), style = PullsType.num, color = c.text, maxLines = 1) }
+            StatLine(t("stats.aiSpend"), cost(totals.costUsd, totals.aiRuns, models.sumOf { it.priced }))
+        }
+        if (unpriced) Text(t("stats.unpriced"), Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), style = PullsType.sm, color = c.muted)
+    }
+    StatsTable(
+        t("stats.byFeature"), listOf(t("stats.runs"), t("stats.tokens"), t("stats.cost")),
+        tasks.map { StatRow(StatsFormat.feature(it.task), null, listOf(StatsFormat.count(it.runs, locale), StatsFormat.tokens(it.tokens), cost(it.costUsd, it.runs, it.priced))) },
+    )
+    if (models.isEmpty()) return
+    // Each model's share of the spend, or of the tokens when nothing reported a cost, as a bar under its name.
+    val byCost = models.sumOf { it.costUsd } > 0.0
+    val whole = if (byCost) models.sumOf { it.costUsd } else models.sumOf { it.tokens }.toDouble().coerceAtLeast(1.0)
+    Group(t("stats.byModel")) {
+        SheetCard {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+                Spacer(Modifier.weight(1f))
+                listOf(t("stats.tokens"), t("stats.cost")).forEach { Text(it, Modifier.width(COLUMN), style = PullsType.sm, color = c.muted, textAlign = TextAlign.End, maxLines = 1) }
+            }
+            models.forEach { model ->
+                val share = ((if (byCost) model.costUsd else model.tokens.toDouble()) / whole).toFloat().coerceIn(0f, 1f)
+                Row(
+                    Modifier.fillMaxWidth().defaultMinSize(minHeight = 60.dp)
+                        .drawBehind { drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(model.model.ifBlank { engineName(model.engine) }, style = PullsType.row, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${engineName(model.engine)} · ${com.octaviantocan.pulls.ui.design.tc("stats.runsCount", model.runs.toInt())}", style = PullsType.sm, color = c.muted, maxLines = 1)
+                        Canvas(Modifier.fillMaxWidth().height(4.dp).semantics { contentDescription = "${Math.round(share * 100)}%" }) {
+                            val radius = CornerRadius(size.height / 2)
+                            drawRoundRect(c.paper2, cornerRadius = radius)
+                            if (share > 0f) drawRoundRect(c.accentTeal, size = Size((size.width * share).coerceAtLeast(size.height), size.height), cornerRadius = radius)
+                        }
+                    }
+                    Text(StatsFormat.tokens(model.tokens), Modifier.width(COLUMN), style = PullsType.num, color = c.text, textAlign = TextAlign.End, maxLines = 1)
+                    Text(cost(model.costUsd, model.runs, model.priced), Modifier.width(COLUMN), style = PullsType.num, color = c.text, textAlign = TextAlign.End, maxLines = 1)
                 }
             }
         }
@@ -298,6 +395,24 @@ internal object StatsFormat {
         value <= 0.0 -> "$0.00"
         value < 0.01 -> "<$0.01"
         else -> "$" + String.format(Locale.US, "%,.2f", value)
+    }
+
+    /** Tokens as a short count: 950, 12.4k, 3.1M. */
+    fun tokens(value: Long): String = when {
+        value < 1_000 -> value.toString()
+        value < 1_000_000 -> String.format(Locale.US, if (value < 100_000) "%.1fk" else "%.0fk", value / 1_000.0)
+        else -> String.format(Locale.US, "%.1fM", value / 1_000_000.0)
+    }
+
+    /** What a run was for, from the server's one word, as the feature it belongs to. */
+    fun feature(task: String): String = when (task) {
+        "tour" -> "Tours"
+        "brief" -> "Summaries"
+        "analyze" -> "Analysis"
+        "review" -> "AI review"
+        "ask" -> "Ask"
+        "chat" -> "Conversation"
+        else -> task.replaceFirstChar { it.titlecase() }
     }
 
     /** A time in seconds: whole seconds under a minute, whole minutes under an hour, then hours to a tenth. */

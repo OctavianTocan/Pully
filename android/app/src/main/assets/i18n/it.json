@@ -865,6 +865,12 @@
     "problems": "Errori e arresti anomali",
     "empty": "Ancora niente da contare. Usa l’app per un po’ e torna qui.",
     "loadFailed": "Impossibile caricare le statistiche.",
-    "download": "Scarica"
+    "download": "Scarica",
+    "aiUsage": "Uso dell’IA",
+    "tokens": "Token",
+    "unpriced": "Le esecuzioni segnate con – non hanno riportato un costo (Codex e i proxy non lo indicano).",
+    "byFeature": "Per funzione",
+    "byModel": "Per modello",
+    "runsCount": "{n} esecuzione | {n} esecuzioni"
   }
 }

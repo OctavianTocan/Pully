@@ -36,6 +36,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -196,12 +197,37 @@ private fun SheetHost(onClose: () -> Unit, onBack: (() -> Unit)? = null, panel: 
         }
     }
     val latestBack by rememberUpdatedState(onBack)
+    // A link from another app slides every open sheet down before its page opens, rather than leaving it over the new
+    // page or dropping it at once (O1, O4).
+    val latestDismiss by rememberUpdatedState(dismiss)
+    val opened = remember { Sheets.closeEpoch }
+    LaunchedEffect(Sheets.closeEpoch) { if (Sheets.closeEpoch != opened) latestDismiss() }
+    DisposableEffect(Unit) {
+        Sheets.open++
+        onDispose { Sheets.open-- }
+    }
     Dialog(
         onDismissRequest = { latestBack?.invoke() ?: dismiss() },
         properties = DialogProperties(dismissOnClickOutside = false, usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         SheetWindow()
         panel(position, dismiss)
+    }
+}
+
+/**
+ * Every sheet on screen, as one: how many are open, and a way to send them all down together. A link handed over by
+ * another app calls [closeAll] before its page opens, so a sheet never sits over a page it did not belong to.
+ */
+object Sheets {
+    internal var open by mutableIntStateOf(0)
+    internal var closeEpoch by mutableIntStateOf(0)
+
+    /** Slides every open sheet down and returns once they have gone; returns at once when none is open. */
+    suspend fun closeAll() {
+        if (open == 0) return
+        closeEpoch++
+        kotlinx.coroutines.delay(PullsMotion.MEDIUM.toLong() + 50)
     }
 }
 
@@ -563,7 +589,10 @@ internal class SheetScroll(
         scrolledContent = false
         if (!position.held) return Velocity.Zero
         position.settle(scope, available.y, speed, motion(), dismiss)
-        return available
+        // A throw upward that lifted the sheet carries on into its content, so one swipe both raises the sheet and
+        // scrolls what is in it: the first swipe on a long sheet no longer stops dead at the tall height ("it's a little
+        // hard to scroll down ... it's just at the start": recording 16 Oct 13:06, 03:24 to 03:33; O8).
+        return if (available.y < 0f) Velocity.Zero else available
     }
 }
 

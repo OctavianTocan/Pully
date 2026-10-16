@@ -865,6 +865,12 @@
     "problems": "Fehler und Abstürze",
     "empty": "Noch nichts gezählt. Nutze die App eine Weile und schau dann wieder vorbei.",
     "loadFailed": "Die Statistik konnte nicht geladen werden.",
-    "download": "Herunterladen"
+    "download": "Herunterladen",
+    "aiUsage": "KI-Nutzung",
+    "tokens": "Tokens",
+    "unpriced": "Mit – markierte Läufe haben keine Kosten gemeldet (Codex und Proxys nennen keine Kosten).",
+    "byFeature": "Nach Funktion",
+    "byModel": "Nach Modell",
+    "runsCount": "{n} Lauf | {n} Läufe"
   }
 }

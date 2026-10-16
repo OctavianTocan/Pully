@@ -300,8 +300,8 @@ class Tally {
   readonly devices = new Set<string>()
   readonly names = new Map<string, number>()
   readonly screens = new Map<string, { views: number, seconds: number }>()
-  readonly engines = new Map<string, { engine: string, model: string, runs: number, failures: number, costUsd: number, tokensIn: number, tokensOut: number, ms: number[] }>()
-  readonly tasks = new Map<string, { runs: number, failures: number, costUsd: number }>()
+  readonly engines = new Map<string, { engine: string, model: string, runs: number, failures: number, costUsd: number, tokensIn: number, tokensOut: number, cacheRead: number, priced: number, ms: number[] }>()
+  readonly tasks = new Map<string, { runs: number, failures: number, costUsd: number, tokensIn: number, tokensOut: number, cacheRead: number, priced: number }>()
   readonly calls = new Map<string, Bucket>()
   readonly speed = new Map<string, { metric: string, app: string, ms: number[] }>()
   readonly errors = new Map<string, { name: string, app: string, kind: string, message: string, count: number, lastAt: string }>()
@@ -359,22 +359,30 @@ class Tally {
     const engine = str(props.engine, 'unknown')
     const model = str(props.model, 'default')
     const key = `${engine}\u0000${model}`
-    const row = this.engines.get(key) ?? { engine, model, runs: 0, failures: 0, costUsd: 0, tokensIn: 0, tokensOut: 0, ms: [] }
+    const row = this.engines.get(key) ?? { engine, model, runs: 0, failures: 0, costUsd: 0, tokensIn: 0, tokensOut: 0, cacheRead: 0, priced: 0, ms: [] }
     const bad = failed(props)
     const cost = num(props.costUsd)
+    // An engine that says nothing about cost (Codex, a proxy) is not free: the run is counted as unpriced.
+    const priced = typeof props.costUsd === 'number' ? 1 : 0
     row.runs++
     row.failures += bad ? 1 : 0
     row.costUsd += cost
     row.tokensIn += num(props.tokensIn)
     row.tokensOut += num(props.tokensOut)
+    row.cacheRead += num(props.cacheRead)
+    row.priced += priced
     if (num(props.ms) > 0)
       row.ms.push(num(props.ms))
     this.engines.set(key, row)
     const task = str(props.task, 'other')
-    const kind = this.tasks.get(task) ?? { runs: 0, failures: 0, costUsd: 0 }
+    const kind = this.tasks.get(task) ?? { runs: 0, failures: 0, costUsd: 0, tokensIn: 0, tokensOut: 0, cacheRead: 0, priced: 0 }
     kind.runs++
     kind.failures += bad ? 1 : 0
     kind.costUsd += cost
+    kind.tokensIn += num(props.tokensIn)
+    kind.tokensOut += num(props.tokensOut)
+    kind.cacheRead += num(props.cacheRead)
+    kind.priced += priced
     this.tasks.set(task, kind)
     this.totals.aiRuns++
     this.totals.aiFailures += bad ? 1 : 0
@@ -427,8 +435,8 @@ class Tally {
       totals: { ...this.totals, sessions: this.sessions.size, devices: this.devices.size, costUsd: cents(this.totals.costUsd) },
       days: [...this.perDay.values()].map(row => ({ day: row.day, sessions: row.sessions.size, prsOpened: row.prsOpened, filesReviewed: row.filesReviewed, aiRuns: row.aiRuns, costUsd: cents(row.costUsd) })),
       screens: [...this.screens].map(([screen, row]) => ({ screen, views: row.views, seconds: Math.round(row.seconds) })).sort((a, b) => b.seconds - a.seconds || b.views - a.views),
-      engines: [...this.engines.values()].map(row => ({ engine: row.engine, model: row.model, runs: row.runs, failures: row.failures, costUsd: cents(row.costUsd), tokensIn: row.tokensIn, tokensOut: row.tokensOut, medianMs: quantile(row.ms, 0.5) })).sort((a, b) => b.runs - a.runs),
-      tasks: [...this.tasks].map(([task, row]) => ({ task, runs: row.runs, failures: row.failures, costUsd: cents(row.costUsd) })).sort((a, b) => b.runs - a.runs),
+      engines: [...this.engines.values()].map(row => ({ engine: row.engine, model: row.model, runs: row.runs, failures: row.failures, costUsd: cents(row.costUsd), tokensIn: row.tokensIn, tokensOut: row.tokensOut, cacheRead: row.cacheRead, priced: row.priced, medianMs: quantile(row.ms, 0.5) })).sort((a, b) => b.runs - a.runs),
+      tasks: [...this.tasks].map(([task, row]) => ({ task, runs: row.runs, failures: row.failures, costUsd: cents(row.costUsd), tokensIn: row.tokensIn, tokensOut: row.tokensOut, cacheRead: row.cacheRead, priced: row.priced })).sort((a, b) => b.runs - a.runs),
       calls: [...this.calls].map(([name, row]) => ({ name, calls: row.calls, failures: row.failures, medianMs: quantile(row.ms, 0.5), p95Ms: quantile(row.ms, 0.95) })).sort((a, b) => b.medianMs - a.medianMs),
       speed: [...this.speed.values()].map(row => ({ metric: row.metric, app: row.app, count: row.ms.length, medianMs: quantile(row.ms, 0.5), p95Ms: quantile(row.ms, 0.95) })),
       github: { ...this.github },

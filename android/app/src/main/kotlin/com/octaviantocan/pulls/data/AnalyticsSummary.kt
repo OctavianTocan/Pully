@@ -28,8 +28,13 @@ data class AnalyticsSummary(
     )
     data class Day(val day: String, val sessions: Long, val prsOpened: Long, val filesReviewed: Long, val aiRuns: Long, val costUsd: Double)
     data class ScreenTime(val screen: String, val views: Long, val seconds: Double)
-    data class EngineUse(val engine: String, val model: String, val runs: Long, val failures: Long, val costUsd: Double, val tokensIn: Long, val tokensOut: Long, val medianMs: Double)
-    data class TaskUse(val task: String, val runs: Long, val failures: Long, val costUsd: Double)
+    /** [priced]: how many of the runs reported a cost; fewer than [runs] means the cost shown is not all of it (O9). */
+    data class EngineUse(val engine: String, val model: String, val runs: Long, val failures: Long, val costUsd: Double, val tokensIn: Long, val tokensOut: Long, val medianMs: Double, val cacheRead: Long = 0, val priced: Long = runs) {
+        val tokens: Long get() = tokensIn + tokensOut
+    }
+    data class TaskUse(val task: String, val runs: Long, val failures: Long, val costUsd: Double, val tokensIn: Long = 0, val tokensOut: Long = 0, val cacheRead: Long = 0, val priced: Long = runs) {
+        val tokens: Long get() = tokensIn + tokensOut
+    }
     data class CallTime(val name: String, val calls: Long, val failures: Long, val medianMs: Double, val p95Ms: Double)
     data class Speed(val metric: String, val app: String, val count: Long, val medianMs: Double, val p95Ms: Double)
     data class GitHub(val calls: Long = 0, val failures: Long = 0, val lowestRateLeft: Long? = null)
@@ -60,9 +65,17 @@ fun JsonElement.asAnalyticsSummary(): AnalyticsSummary {
         days = o.arr("days").map { AnalyticsSummary.Day(it.s("day"), it.n("sessions"), it.n("prsOpened"), it.n("filesReviewed"), it.n("aiRuns"), it.f("costUsd")) },
         screens = o.arr("screens").map { AnalyticsSummary.ScreenTime(it.s("screen"), it.n("views"), it.f("seconds")) },
         engines = o.arr("engines").map {
-            AnalyticsSummary.EngineUse(it.s("engine"), it.s("model"), it.n("runs"), it.n("failures"), it.f("costUsd"), it.n("tokensIn"), it.n("tokensOut"), it.f("medianMs"))
+            AnalyticsSummary.EngineUse(
+                it.s("engine"), it.s("model"), it.n("runs"), it.n("failures"), it.f("costUsd"), it.n("tokensIn"), it.n("tokensOut"), it.f("medianMs"),
+                cacheRead = it.n("cacheRead"), priced = it.l("priced") ?: it.n("runs"),
+            )
         },
-        tasks = o.arr("tasks").map { AnalyticsSummary.TaskUse(it.s("task"), it.n("runs"), it.n("failures"), it.f("costUsd")) },
+        tasks = o.arr("tasks").map {
+            AnalyticsSummary.TaskUse(
+                it.s("task"), it.n("runs"), it.n("failures"), it.f("costUsd"), it.n("tokensIn"), it.n("tokensOut"),
+                cacheRead = it.n("cacheRead"), priced = it.l("priced") ?: it.n("runs"),
+            )
+        },
         calls = o.arr("calls").map { AnalyticsSummary.CallTime(it.s("name"), it.n("calls"), it.n("failures"), it.f("medianMs"), it.f("p95Ms")) },
         speed = o.arr("speed").map { AnalyticsSummary.Speed(it.s("metric"), it.s("app"), it.n("count"), it.f("medianMs"), it.f("p95Ms")) },
         github = AnalyticsSummary.GitHub(g.n("calls"), g.n("failures"), g.l("lowestRateLeft")),

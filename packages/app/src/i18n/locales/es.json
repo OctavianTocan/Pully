@@ -865,6 +865,12 @@
     "problems": "Errores y cierres",
     "empty": "Aún no hay nada contado. Usa la app un rato y vuelve.",
     "loadFailed": "No se pudieron cargar las estadísticas.",
-    "download": "Descargar"
+    "download": "Descargar",
+    "aiUsage": "Uso de IA",
+    "tokens": "Tokens",
+    "unpriced": "Las ejecuciones con – no informaron coste (Codex y los proxies no dicen cuánto cuesta una ejecución).",
+    "byFeature": "Por función",
+    "byModel": "Por modelo",
+    "runsCount": "{n} ejecución | {n} ejecuciones"
   }
 }

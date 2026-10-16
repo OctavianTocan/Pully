@@ -163,10 +163,12 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     val task = tour ?: session.taskFor("analyze") ?: return
     val kind = if (tour != null) "tour" else "analyze"
     val stop = guardedStop(session, listOf(kind), task.running) { session.cancelTask(task.id) }
-    // The newest three steps, and no "Wrote 3 of 6 stops" line: the stops appear on the page as they are written (K13).
+    // Every step, the log growing downward in the sheet, with no "+4 more" squeezing the older ones away ("this could just
+    // go down": recording 16 Oct 13:06, 06:02 to 06:30; O14). No "Wrote 3 of 6 stops" line: the stops appear on the
+    // page as they are written (K13).
     AiActivityLogFull(
         task.activities.filterNot { it.id == "tour-write" || isTourPreview(it) }, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 },
-        compact = true, workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop,
+        compact = true, workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop, everyStep = true,
     )
 }
 
