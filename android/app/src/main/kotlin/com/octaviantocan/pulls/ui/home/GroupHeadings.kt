@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -137,12 +136,14 @@ internal fun PinnedHeadings(
 
 /**
  * `.grp`: the one heading that folds a run of rows, wherever there is one: the Inbox and Tours repositories, the
- * Overview's file sections and the Files sheet's (J18). It is the repository name over its rows, and how many there are. A tap on the heading folds the rows away or opens
- * them again; a tap on the name itself opens the repository (Tavi, 14 Oct). It looks like the Files headings that fold
- * (rule 70). The one line under a heading is its first row's own (rule 75), so a folded heading and the pinned one,
- * which have no row of their own under them, draw it. While a search runs nothing folds (rule 101): [onFold] is null.
- * A kind's heading has nothing of its own to open: with [onOpen] null the name is part of the heading's target. On a
- * sheet, whose rows sit in cards, it has no line and no [background] of its own.
+ * Overview's file sections (J18). It is the name, how many rows it holds in parentheses right after it on the same
+ * baseline, and the chevron right beside that, the way Claude's own lists head a section ("Done (44) ⌃": recording
+ * 16 Oct 12:10, 00:08 to 00:47 and 01:54 to 02:13, N1; "counts of what is inside a fold are in parentheses", 18:03 to
+ * 18:21, N35). A tap on the heading folds the rows away or opens them again; a tap on the name itself opens the
+ * repository (Tavi, 14 Oct). The one line under a heading is its first row's own (rule 75), so a folded heading and the
+ * pinned one, which have no row of their own under them, draw it. While a search runs nothing folds (rule 101):
+ * [onFold] is null. A kind's heading has nothing of its own to open: with [onOpen] null the name is part of the
+ * heading's target. [extra] sits at the right edge, in its own fixed columns, for the + and − of a file section.
  */
 @Composable
 internal fun GroupHeading(
@@ -160,6 +161,7 @@ internal fun GroupHeading(
     val c = LocalPullsColors.current
     val turn by animateFloatAsState(if (folded) -90f else 0f, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = "fold")
     val inset = with(LocalDensity.current) { 16.dp.toPx() }
+    val words = PullsType.sm.copy(fontWeight = FontWeight.Medium)
     Row(
         modifier
             .fillMaxWidth()
@@ -168,27 +170,29 @@ internal fun GroupHeading(
             .then(if (onFold != null) Modifier.cueClickable(Cue.Toggle, role = Role.Button, onClickLabel = if (folded) "Show $label" else "Hide $label", onClick = onFold) else Modifier)
             .padding(start = 8.dp, end = 16.dp, top = if (first) 6.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // The name and its count take the row up to the chevron, so every heading's chevron sits on one line at the
-        // right edge whatever the name's length (recording 15 Oct 15:37, 02:16 to 02:37; L3).
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            // The name keeps its own target, padded so it is easy to hit; its text still starts on the rows' 16dp line and
-            // sits 18dp under the rows above and 6dp over its own, as the heading did before it folded.
-            Text(
-                label,
-                Modifier.weight(1f, fill = false).clip(RoundedCornerShape(PullsRadius.md))
-                    .then(if (onOpen != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen) else Modifier)
-                    .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 6.dp),
-                style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
-                color = c.muted,
-                // A long name ends in … on its one line; the count and the chevron never wrap or get cut (K24).
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text("$count", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.faint, maxLines = 1, softWrap = false)
+        // The name, its count and the chevron sit together on the left; only a name too long for the row gives way, at
+        // its end, so the count and the chevron are never cut and never wrap (K24).
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f, fill = false)) {
+                // The name keeps its own target, padded so it is easy to hit; its text still starts on the rows' 16dp line
+                // and sits 18dp under the rows above and 6dp over its own, as the heading did before it folded.
+                Text(
+                    label,
+                    Modifier.weight(1f, fill = false).alignByBaseline().clip(RoundedCornerShape(PullsRadius.md))
+                        .then(if (onOpen != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen) else Modifier)
+                        .padding(start = 8.dp, end = 4.dp, top = 10.dp, bottom = 6.dp),
+                    style = words,
+                    color = c.muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // "(2)" on the name's own baseline, in its words, so name and count read as one phrase (N1).
+                Text("($count)", Modifier.alignByBaseline(), style = words.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
+            }
+            // Centred on the words, which sit 2dp low in the name's padded target.
+            if (onFold != null) LuIcon(Lu.chevd, Modifier.padding(start = 4.dp, top = 5.dp).rotate(turn), tint = c.faint, size = 18.dp)
         }
-        if (extra != null) { extra(); Spacer(Modifier.width(8.dp)) }
-        if (onFold != null) LuIcon(Lu.chevd, Modifier.rotate(turn), tint = c.faint, size = 18.dp)
+        if (extra != null) { Spacer(Modifier.width(12.dp)); extra() }
     }
 }

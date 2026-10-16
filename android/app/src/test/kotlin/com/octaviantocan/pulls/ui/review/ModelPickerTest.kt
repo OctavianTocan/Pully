@@ -67,6 +67,34 @@ class ModelPickerTest {
         assertEquals(listOf("GPT-5.1-Codex-Max", "GPT-5.1"), names(groups.older))
     }
 
+    /** Codex's lineup is three tiers that share a version: each tier's newest is current (recording 16 Oct 12:10, 04:13 to 04:31; N7). */
+    @Test fun codexKeepsTheNewestOfEachTier() {
+        val codex = listOf(
+            model("gpt-6.1-sol", "GPT-6.1 Sol", isDefault = true),
+            model("gpt-6-astra", "GPT-6 Astra"),
+            model("gpt-6-sol", "GPT-6 Sol"),
+            model("gpt-6-luna", "GPT-6 Luna"),
+            model("gpt-5.6-sol", "GPT-5.6 Sol"),
+            model("gpt-5.6-terra", "GPT-5.6 Terra"),
+            model("gpt-5.6-luna", "GPT-5.6 Luna"),
+        )
+        val groups = groupModels(codex)
+        assertEquals(listOf("GPT-6.1 Sol", "GPT-6 Astra", "GPT-6 Luna"), names(groups.recent))
+        assertEquals(listOf("GPT-6 Sol", "GPT-5.6 Sol", "GPT-5.6 Terra", "GPT-5.6 Luna"), names(groups.older))
+    }
+
+    @Test fun aTierIsTheModelLessItsMakerAndVersion() {
+        assertEquals("sol", modelTier(model("x", "GPT-6.1 Sol")))
+        assertEquals("astra", modelTier(model("gpt-6-astra", "GPT-6 Astra")))
+        assertEquals("opus", modelTier(model("claude-opus-4-1", "Opus")))
+        assertEquals("opus", modelTier(model("x", "Opus 5.5")))
+        assertEquals("codex", modelTier(model("x", "GPT-5.1-Codex-Max")))
+        assertEquals("", modelTier(model("x", "GPT-5.5")))
+        assertEquals("gemini flash", modelTier(model("x", "Gemini 3.8 Flash")))
+        assertEquals("sonnet", modelTier(model("sonnet", "Sonnet", "Sonnet 5.5 · Efficient for routine tasks")))
+        assertEquals("", modelTier(model("opus[1m]", "Opus (1M context)")))
+    }
+
     /** Pi lists several providers' models: a section per provider, in the server's order, and nothing folded (K2, K3). */
     @Test fun piShowsASectionPerProviderAndNoOlderModels() {
         fun pi(id: String, name: String, group: String?, isDefault: Boolean = false) = CliModel(id, name, null, emptyList(), null, isDefault, group)

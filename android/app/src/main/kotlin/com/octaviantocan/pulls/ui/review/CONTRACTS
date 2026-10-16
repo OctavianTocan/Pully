@@ -336,6 +336,15 @@ The Pi list has no "Older models" section; it is grouped by provider ("this list
 sense to have a older models", recording 15 Oct 13:54, 00:29; K3). Claude Code and Codex
 keep the short list first and the rest under "Older models" of rule 89.
 
+@cc [owner:OctavianTocan,label:product] models-older-by-tier
+A model goes under "Older models" only when a newer version of its own tier is listed, or
+it is from an older generation than the newest on the list: the tier is the model's name
+less its maker and version ("GPT-6 Sol" is Sol, "Opus 4.1" is Opus). Codex's GPT-6.1 Sol,
+GPT-6 Astra and GPT-6 Luna are all current; GPT-6 Sol and the GPT-5.6 models are older. The
+default and aliases are never older (`modelTier`, `groupModels`). Tavi decided this in the
+recording of 16 Oct 12:10, 04:13 to 04:31 (the lineup is Sol, Astra and Luna; N7),
+replacing one newest model per maker's family.
+
 @cc [owner:OctavianTocan,label:product;design] models-recommended-and-tick
 The recommended choice carries the grey "Recommended" pill and the selected one a plain,
 larger ✓; "Default" is never written beside a check. There is no custom model ID field

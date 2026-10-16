@@ -47,7 +47,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -73,7 +72,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -84,8 +82,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -556,7 +552,11 @@ fun PillButton(
     }
 }
 
-/** `.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right. */
+/**
+ * `.ask`: the raised pill that holds a one-line question or comment at the bottom of a page, its action inside at the
+ * right. It is the kit's one field in its page frame, so it has Home's search pill's height, padding and words (rule
+ * 132; N6).
+ */
 @Composable
 fun PillInput(
     value: String,
@@ -568,28 +568,11 @@ fun PillInput(
     onSend: () -> Unit = {},
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
-    val c = LocalPullsColors.current
-    Row(
-        modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 18.dp, end = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            enabled = enabled,
-            singleLine = true,
-            textStyle = PullsType.base.copy(color = c.text),
-            cursorBrush = SolidColor(c.accentTeal),
+    FieldFrame(FieldPlace.Page, modifier, button = trailing != null) {
+        FieldText(
+            value, onChange, placeholder, Modifier.weight(1f), enabled = enabled,
             keyboardOptions = KeyboardOptions(imeAction = imeAction, autoCorrectEnabled = false),
             keyboardActions = KeyboardActions(onSend = { onSend() }, onGo = { onSend() }),
-            modifier = Modifier.weight(1f),
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) Text(placeholder, style = PullsType.base, color = c.muted, maxLines = 1)
-                    inner()
-                }
-            },
         )
         trailing?.invoke(this)
     }
@@ -678,24 +661,15 @@ fun SheetField(
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (label != null) Text(label, style = PullsType.sm, color = c.muted)
-            BasicTextField(
-                value = value,
-                onValueChange = onChange,
+            // The kit's one field, so its words, placeholder and scrolling edge are every field's (N6, N9).
+            FieldText(
+                value, onChange, placeholder, Modifier.fillMaxWidth(),
                 enabled = enabled,
                 singleLine = minLines <= 1,
                 minLines = minLines,
-                textStyle = PullsType.row.copy(color = c.text),
-                cursorBrush = SolidColor(c.accentTeal),
-                visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+                secret = secret,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = keyboardType == KeyboardType.Text),
                 keyboardActions = KeyboardActions(onGo = { onGo?.invoke() }, onDone = { onGo?.invoke() }),
-                modifier = Modifier.fillMaxWidth(),
-                decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.TopStart) {
-                        if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.faint)
-                        inner()
-                    }
-                },
             )
         }
         trailing?.invoke()
@@ -733,38 +707,29 @@ fun SheetHeading(label: String, modifier: Modifier = Modifier, first: Boolean = 
 }
 
 /**
- * `.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,
- * white with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over
- * it: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.
+ * `.find`: the search field at the top of a sheet's list (Repositories, Files, Commands). It is the kit's one field in its
+ * sheet frame, made like the cards under it, white with their 16dp corners and their soft shadow, so it reads as part of
+ * the list and not as a pill floating over it: the magnifier, the placeholder in the muted ink, and ✕ to clear once
+ * something is typed. The keyboard's [imeAction] runs [onAction], or puts the keyboard away when there is none.
  */
 @Composable
-fun SheetSearch(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
-    val c = LocalPullsColors.current
+fun SheetSearch(
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    imeAction: ImeAction = ImeAction.Search,
+    onAction: (() -> Unit)? = null,
+) {
     val focus = LocalFocusManager.current
-    val shape = RoundedCornerShape(PullsRadius.card)
-    Row(
-        modifier.fillMaxWidth().height(48.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 14.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        LuIcon(Lu.search, tint = c.muted, size = 20.dp)
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = PullsType.row.copy(color = c.text),
-            cursorBrush = SolidColor(c.accentTeal),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),
-            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
-            modifier = Modifier.weight(1f),
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.muted, maxLines = 1)
-                    inner()
-                }
-            },
+    val act = { if (onAction != null) onAction() else focus.clearFocus() }
+    FieldFrame(FieldPlace.Sheet, modifier, search = true, button = value.isNotEmpty()) {
+        FieldText(
+            value, onChange, placeholder, Modifier.weight(1f),
+            keyboardOptions = KeyboardOptions(imeAction = imeAction, autoCorrectEnabled = false),
+            keyboardActions = KeyboardActions(onSearch = { act() }, onGo = { act() }, onDone = { act() }, onSend = { act() }),
         )
-        if (value.isNotEmpty()) FloatIcon(Lu.close, "Clear", { onChange("") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)
+        if (value.isNotEmpty()) FieldClear({ onChange("") })
     }
 }
 

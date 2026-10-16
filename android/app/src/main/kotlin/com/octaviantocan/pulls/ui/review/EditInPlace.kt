@@ -3,6 +3,7 @@ package com.octaviantocan.pulls.ui.review
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.PullsSheet
+import com.octaviantocan.pulls.ui.design.FieldText
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -165,7 +166,7 @@ internal fun EditableText(
         // motion-ok: Back leaves the field with what it had before, the way Escape would; no page moves, so none follows the finger.
         BackHandler { editing = false; gotFocus = false; draft = TextFieldValue(shown) }
         LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-        BasicTextField(
+        BasicTextField( // ban-ok: the page's own text edited where it stands, its caret where the finger went down, which the kit's field does not place
             value = draft,
             onValueChange = { draft = if (multiline) it else it.copy(text = it.text.replace("\n", "")) },
             textStyle = textStyle.copy(color = c.text),
@@ -226,12 +227,12 @@ internal fun EditableInSheet(
     val toaster = LocalToaster.current
     val scope = rememberCoroutineScope()
     var shown by remember(value) { mutableStateOf(value) }
-    var draft by remember { mutableStateOf(TextFieldValue(value)) }
+    var draft by remember { mutableStateOf(value) }
     var open by remember { mutableStateOf(false) }
     fun finish() {
         if (!open) return
         open = false
-        val next = draft.text
+        val next = draft
         if (next == shown) return
         val before = shown
         shown = next
@@ -247,7 +248,8 @@ internal fun EditableInSheet(
     Box(
         modifier.fillMaxWidth().then(
             if (canEdit) Modifier.cueClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onClickLabel = "Edit $title") {
-                draft = TextFieldValue(shown, TextRange(shown.length))
+                // The kit's field opens with the cursor at the end of the text it is given.
+                draft = shown
                 open = true
             } else Modifier,
         ),
@@ -261,23 +263,18 @@ internal fun EditableInSheet(
             footer = { CtaButton("Save", ::finish, Modifier.fillMaxWidth()) },
         ) {
             LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-            BasicTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                textStyle = PullsType.read.copy(color = c.text),
-                cursorBrush = SolidColor(c.accentTeal),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(focus),
-                decorationBox = { inner ->
-                    Box(
-                        Modifier.fillMaxWidth().defaultMinSize(minHeight = 240.dp).clip(RoundedCornerShape(PullsRadius.card)).background(c.raised).padding(16.dp),
-                        contentAlignment = Alignment.TopStart,
-                    ) {
-                        if (draft.text.isEmpty() && placeholder.isNotEmpty()) Text(placeholder, style = PullsType.read, color = c.muted)
-                        inner()
-                    }
-                },
-            )
+            // The kit's one field (N6) in a white card as tall as a page of text; its words fade where they scroll.
+            Box(
+                Modifier.fillMaxWidth().padding(top = 8.dp).defaultMinSize(minHeight = 240.dp).clip(RoundedCornerShape(PullsRadius.card)).background(c.raised).padding(16.dp),
+                contentAlignment = Alignment.TopStart,
+            ) {
+                FieldText(
+                    draft, { draft = it }, placeholder, Modifier.fillMaxWidth().focusRequester(focus),
+                    singleLine = false,
+                    style = PullsType.read,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                )
+            }
         }
     }
 }

@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
+import com.octaviantocan.pulls.ui.design.SheetSearch
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -121,31 +121,10 @@ private fun BookIndex(book: BookData, open: (String) -> Unit) {
     }
 }
 
+/** The book's search: the kit's own sheet search, as every list with a search has (N6). */
 @Composable
 private fun SearchField(query: String, onChange: (String) -> Unit) {
-    val c = LocalPullsColors.current
-    val shape = RoundedCornerShape(PullsRadius.full)
-    BasicTextField(
-        value = query,
-        onValueChange = onChange,
-        singleLine = true,
-        textStyle = PullsType.row.copy(color = c.text),
-        cursorBrush = SolidColor(c.accentTeal),
-        modifier = Modifier.fillMaxWidth(),
-        decorationBox = { field ->
-            Row(
-                Modifier.fillMaxWidth().height(44.dp).floatShadow(shape).clip(shape).background(c.raised).padding(horizontal = PullsSpace.x4),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2),
-            ) {
-                LuIcon(Lu.search, tint = c.faint, size = 20.dp)
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("Search the book", style = PullsType.row, color = c.faint)
-                    field()
-                }
-            }
-        },
-    )
+    SheetSearch(query, onChange, "Search the book")
 }
 
 /** A page, then the pager: the pages before and after it in `book.json`. */

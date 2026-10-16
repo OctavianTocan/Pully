@@ -4,7 +4,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 1019,
+        "line": 984,
         "doc": "`.dot`: the live marker, a 10dp accent dot that breathes. [delayMs] staggers a row of them (typing dots start 150ms apart).",
         "params": [
           {
@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 240,
+        "line": 236,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -87,7 +87,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 486,
+        "line": 482,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -124,7 +124,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 517,
+        "line": 513,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -175,7 +175,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 195,
+        "line": 191,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -225,7 +225,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 223,
+        "line": 219,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -290,7 +290,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 1036,
+        "line": 1001,
         "doc": "`.okd`: a 14dp green dot with a white tick, for a finished step.",
         "params": [
           {
@@ -313,7 +313,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 914,
+        "line": 879,
         "doc": "`.orb`: the live mark for AI work. While it works, a comet ring turns round a breathing dot. When\n[done] turns true the ring finishes the turn it is on and then settles into a still wash with a\ntick (rule 72); one that starts out done is already still. [idle] is the same still wash with a small\ndot instead of the tick, for work that has not run, or did not finish, so a tick never claims\nsomething that was not done. [stop] turns the breathing dot into a small square, because the orb is\nthen the Stop button (rule 87). No robot, compass or sparkle: those marks were dropped (rule 48).",
         "params": [
           {
@@ -351,7 +351,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 1030,
+        "line": 995,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -374,7 +374,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 540,
+        "line": 536,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -411,7 +411,7 @@
       {
         "file": "ui/design/Kit.kt",
         "line": 560,
-        "doc": "`.ask`: the 52dp raised pill that holds a one-line question or comment, its action inside at the right.",
+        "doc": "`.ask`: the raised pill that holds a one-line question or comment at the bottom of a page, its action inside at the\nright. It is the kit's one field in its page frame, so it has Home's search pill's height, padding and words (rule\n132; N6).",
         "params": [
           {
             "name": "value",
@@ -451,7 +451,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun PillInput(\n    value: String,\n    onChange: (String) -> Unit,\n    placeholder: String,\n    modifier: Modifier = Modifier,\n    enabled: Boolean = true,\n    imeAction: ImeAction = ImeAction.Send,\n    onSend: () -> Unit = {},\n    trailing: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().height(52.dp).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised).padding(start = 18.dp, end = 6.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(10.dp),\n    ) {\n        BasicTextField(\n            value = value,\n            onValueChange = onChange,\n            enabled = enabled,\n            singleLine = true,\n            textStyle = PullsType.base.copy(color = c.text),\n            cursorBrush = SolidColor(c.accentTeal),\n            keyboardOptions = KeyboardOptions(imeAction = imeAction, autoCorrectEnabled = false),\n            keyboardActions = KeyboardActions(onSend = { onSend() }, onGo = { onSend() }),\n            modifier = Modifier.weight(1f),\n            decorationBox = { inner ->\n                Box(contentAlignment = Alignment.CenterStart) {\n                    if (value.isEmpty()) Text(placeholder, style = PullsType.base, color = c.muted, maxLines = 1)\n                    inner()\n                }\n            },\n        )\n        trailing?.invoke(this)\n    }\n}"
+        "source": "@Composable\nfun PillInput(\n    value: String,\n    onChange: (String) -> Unit,\n    placeholder: String,\n    modifier: Modifier = Modifier,\n    enabled: Boolean = true,\n    imeAction: ImeAction = ImeAction.Send,\n    onSend: () -> Unit = {},\n    trailing: (@Composable RowScope.() -> Unit)? = null,\n) {\n    FieldFrame(FieldPlace.Page, modifier, button = trailing != null) {\n        FieldText(\n            value, onChange, placeholder, Modifier.weight(1f), enabled = enabled,\n            keyboardOptions = KeyboardOptions(imeAction = imeAction, autoCorrectEnabled = false),\n            keyboardActions = KeyboardActions(onSend = { onSend() }, onGo = { onSend() }),\n        )\n        trailing?.invoke(this)\n    }\n}"
       }
     ]
   },
@@ -460,7 +460,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 599,
+        "line": 582,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -483,7 +483,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 997,
+        "line": 962,
         "doc": "The tour ring: a grey track and an accent arc for [n] of [of] stops, moving to a new count over 400ms.",
         "params": [
           {
@@ -509,7 +509,7 @@
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 1004,
+        "line": 969,
         "doc": "The tour ring filled to [fraction] (0 to 1) as given, for a ring that follows the tour's scroll without jumps (rule 97).",
         "params": [
           {
@@ -536,7 +536,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 817,
+        "line": 782,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -566,7 +566,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 778,
+        "line": 743,
         "doc": "The list a sheet picks from, with a [SheetSearch] over it once it is longer than [searchFrom] rows: themes, models,\npast chats. Most sheets are easier with a search (\"most bottom sheets that we have actually benefit a lot from\nsearch\": recording 15 Oct 15:37, 12:28 to 12:36; L4, L23, L36), so every picking list is this one component. [group]\nsplits the rows under small headings in their order, each run in its own card; [row] draws one, told whether it is\nthe first in its card. [text] is what a search matches, every word in any order (rule 101).",
         "receiver": "ColumnScope",
         "params": [
@@ -778,7 +778,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 607,
+        "line": 590,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper, [gap] below what comes before it.",
         "params": [
           {
@@ -805,7 +805,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 657,
+        "line": 640,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -871,7 +871,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun SheetField(\n    label: String?,\n    value: String,\n    onChange: (String) -> Unit,\n    modifier: Modifier = Modifier,\n    placeholder: String = \"\",\n    first: Boolean = false,\n    enabled: Boolean = true,\n    minLines: Int = 1,\n    secret: Boolean = false,\n    keyboardType: KeyboardType = KeyboardType.Text,\n    imeAction: ImeAction = ImeAction.Default,\n    onGo: (() -> Unit)? = null,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }\n            .padding(start = 16.dp, end = if (trailing != null) 8.dp else 16.dp, top = 10.dp, bottom = 10.dp),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n            if (label != null) Text(label, style = PullsType.sm, color = c.muted)\n            BasicTextField(\n                value = value,\n                onValueChange = onChange,\n                enabled = enabled,\n                singleLine = minLines <= 1,\n                minLines = minLines,\n                textStyle = PullsType.row.copy(color = c.text),\n                cursorBrush = SolidColor(c.accentTeal),\n                visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,\n                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = keyboardType == KeyboardType.Text),\n                keyboardActions = KeyboardActions(onGo = { onGo?.invoke() }, onDone = { onGo?.invoke() }),\n                modifier = Modifier.fillMaxWidth(),\n                decorationBox = { inner ->\n                    Box(contentAlignment = Alignment.TopStart) {\n                        if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.faint)\n                        inner()\n                    }\n                },\n            )\n        }\n        trailing?.invoke()\n    }\n}"
+        "source": "@Composable\nfun SheetField(\n    label: String?,\n    value: String,\n    onChange: (String) -> Unit,\n    modifier: Modifier = Modifier,\n    placeholder: String = \"\",\n    first: Boolean = false,\n    enabled: Boolean = true,\n    minLines: Int = 1,\n    secret: Boolean = false,\n    keyboardType: KeyboardType = KeyboardType.Text,\n    imeAction: ImeAction = ImeAction.Default,\n    onGo: (() -> Unit)? = null,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.fillMaxWidth().drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }\n            .padding(start = 16.dp, end = if (trailing != null) 8.dp else 16.dp, top = 10.dp, bottom = 10.dp),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n            if (label != null) Text(label, style = PullsType.sm, color = c.muted)\n            // The kit's one field, so its words, placeholder and scrolling edge are every field's (N6, N9).\n            FieldText(\n                value, onChange, placeholder, Modifier.fillMaxWidth(),\n                enabled = enabled,\n                singleLine = minLines <= 1,\n                minLines = minLines,\n                secret = secret,\n                keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = keyboardType == KeyboardType.Text),\n                keyboardActions = KeyboardActions(onGo = { onGo?.invoke() }, onDone = { onGo?.invoke() }),\n            )\n        }\n        trailing?.invoke()\n    }\n}"
       }
     ]
   },
@@ -880,7 +880,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 722,
+        "line": 696,
         "doc": "A heading over a card on a sheet, the one kind every sheet uses: the Settings sheet's small muted words and nothing\nelse, no count, no chevron and no line under it, and it folds nothing (\"we get rid of this number, we get rid of this\ndivider, we get rid of this chevron, we keep them consistent\": recording 16 Oct 09:50, 02:55 to 04:05; M7). [extra]\nsits at its end, for the + and − a group of files shows (L20). [first] is the heading right under the ✕ or a search.",
         "params": [
           {
@@ -912,7 +912,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 617,
+        "line": 600,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline. [detail] is a second, muted line under the label.",
         "params": [
           {
@@ -973,8 +973,8 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 740,
-        "doc": "`.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,\nwhite with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over\nit: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.",
+        "line": 715,
+        "doc": "`.find`: the search field at the top of a sheet's list (Repositories, Files, Commands). It is the kit's one field in its\nsheet frame, made like the cards under it, white with their 16dp corners and their soft shadow, so it reads as part of\nthe list and not as a pill floating over it: the magnifier, the placeholder in the muted ink, and ✕ to clear once\nsomething is typed. The keyboard's [imeAction] runs [onAction], or puts the keyboard away when there is none.",
         "params": [
           {
             "name": "value",
@@ -992,9 +992,19 @@
             "name": "modifier",
             "type": "Modifier",
             "default": "Modifier"
+          },
+          {
+            "name": "imeAction",
+            "type": "ImeAction",
+            "default": "ImeAction.Search"
+          },
+          {
+            "name": "onAction",
+            "type": "(() -> Unit)?",
+            "default": "null"
           }
         ],
-        "source": "@Composable\nfun SheetSearch(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {\n    val c = LocalPullsColors.current\n    val focus = LocalFocusManager.current\n    val shape = RoundedCornerShape(PullsRadius.card)\n    Row(\n        modifier.fillMaxWidth().height(48.dp).floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 14.dp, end = 4.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(10.dp),\n    ) {\n        LuIcon(Lu.search, tint = c.muted, size = 20.dp)\n        BasicTextField(\n            value = value,\n            onValueChange = onChange,\n            singleLine = true,\n            textStyle = PullsType.row.copy(color = c.text),\n            cursorBrush = SolidColor(c.accentTeal),\n            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),\n            keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),\n            modifier = Modifier.weight(1f),\n            decorationBox = { inner ->\n                Box(contentAlignment = Alignment.CenterStart) {\n                    if (value.isEmpty()) Text(placeholder, style = PullsType.row, color = c.muted, maxLines = 1)\n                    inner()\n                }\n            },\n        )\n        if (value.isNotEmpty()) FloatIcon(Lu.close, \"Clear\", { onChange(\"\") }, flat = true, size = 40.dp, iconSize = 18.dp, tint = c.muted)\n    }\n}"
+        "source": "@Composable\nfun SheetSearch(\n    value: String,\n    onChange: (String) -> Unit,\n    placeholder: String,\n    modifier: Modifier = Modifier,\n    imeAction: ImeAction = ImeAction.Search,\n    onAction: (() -> Unit)? = null,\n) {\n    val focus = LocalFocusManager.current\n    val act = { if (onAction != null) onAction() else focus.clearFocus() }\n    FieldFrame(FieldPlace.Sheet, modifier, search = true, button = value.isNotEmpty()) {\n        FieldText(\n            value, onChange, placeholder, Modifier.weight(1f),\n            keyboardOptions = KeyboardOptions(imeAction = imeAction, autoCorrectEnabled = false),\n            keyboardActions = KeyboardActions(onSearch = { act() }, onGo = { act() }, onDone = { act() }, onSend = { act() }),\n        )\n        if (value.isNotEmpty()) FieldClear({ onChange(\"\") })\n    }\n}"
       }
     ]
   },
@@ -1003,7 +1013,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 1047,
+        "line": 1012,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
@@ -1039,7 +1049,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 298,
+        "line": 294,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -1074,7 +1084,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 501,
+        "line": 497,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -1109,7 +1119,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 858,
+        "line": 823,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -1131,7 +1141,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 325,
+        "line": 321,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.\n[spread] lays the labels across the whole width, the first at the start and the last at the end with even gaps\nbetween. When they do not fit with 16dp between them the labels step down to body size (15sp), and only when they\nstill do not fit does the row keep a 24dp gap and scroll sideways; a label is never cut.\n\nThe underline is one stroke that slides from tab to tab when the selection changes (250ms smooth-out), and leans\ntoward a neighbour by [pull] (-1 to 1, toward the next tab when positive) while a finger drags the page under it, so\nit moves the way the page does (rule 105).",
         "params": [
           {
