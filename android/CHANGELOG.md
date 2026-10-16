@@ -24,6 +24,7 @@ The app is called Pully now.
 
 - Pully is the name under the icon on your home screen, on the update screen and in update notifications.
 - Search, Ask, Commands, Settings and the AI's notes on a file say Pully, and so does the web app's header and tab title.
+![The web app's header with the Pully name at its top left](changelog/0.41.0/web-header.png)
 - Nothing to reinstall: this update replaces the app you have, with your sign-in and settings kept.
 
 ## 0.40.0
