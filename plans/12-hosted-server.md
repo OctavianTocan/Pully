@@ -71,6 +71,9 @@ Each step is one pull request and keeps the CLI's behaviour unless it says other
   in the CLI), analytics (append and read a day), the curated lenses (bundled as text at
   build), highlighting (Shiki's JavaScript regex engine instead of `createRequire`),
   `setInterval` (a host schedule), `Buffer` and `readline` (Web streams).
+- Process-wide services become per host: the my-pulls store (`setMyPullsStore`), Jev's
+  classifier and its file ratings (`sharedFileAttention`). Until then a process serves one
+  host.
 
 ### 4. The Worker and the Durable Object
 

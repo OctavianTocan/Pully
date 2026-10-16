@@ -10,7 +10,8 @@ export interface HostFile {
  * What the server needs from the machine it runs on (`plans/12-hosted-server.md`). The phone's
  * API and the server session reach storage, the checkout and served files only through this, so
  * the same handlers run in the CLI on a computer (`nodeHost`) and, later, on a hosted server.
- * This module MUST NOT import a Node builtin.
+ * This module MUST NOT import a Node builtin. A process serves one host: the my-pulls store,
+ * Jev's classifier and its file ratings are still process-wide until plan 12's step 3.
  */
 export interface ServerHost {
   /** The server's store: the fs driver under the checkout's git folder on a computer. */

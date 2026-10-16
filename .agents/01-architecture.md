@@ -116,7 +116,8 @@ Object) step by step. Contract:
   store reach the machine only through a `ServerHost`: its store (an unstorage driver), an
   optional checkout and the Android updater's files. The CLI builds one per process
   (`nodeHost`, over `<git-common-dir>/pulls-review`); a test or a hosted server passes its
-  own. `serverSession(host)` is one session per host.
+  own. `serverSession(host)` is one session per host, but a process serves one host: the
+  my-pulls store, Jev's classifier and its file ratings are still process-wide.
 - `host.ts` MUST NOT import a Node builtin.
 - A host without a checkout opens GitHub sources only. Every local route (`local-diff`,
   `repo-info`, the `source-*` methods, whole files of a local diff) answers `NO_CHECKOUT`;
