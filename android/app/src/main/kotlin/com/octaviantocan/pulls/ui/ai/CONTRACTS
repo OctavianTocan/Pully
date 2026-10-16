@@ -145,3 +145,8 @@ in one white card and the findings are rows of one white card, never a box insid
 each with the Files sheet's check on its first line, and "Post N selected as a review"
 posts the ticked ones ("no boxes inside boxes", recording of 16 Oct 12:10, 18:24 to 19:43,
 N36, Tavi's decision).
+
+@cc [owner:OctavianTocan,label:design] ai-brief-rows-are-sentences
+In the brief, a label and its value, and a finding's severity and its title, are one
+paragraph that wraps as a sentence, never two columns where one wraps into a narrow one
+(recording of 16 Oct 12:10, 19:49 to 20:16; N37).
