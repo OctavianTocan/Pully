@@ -114,13 +114,26 @@ reviewed (or not), a tap opens it and a hold opens its actions. Its checkbox sit
 first line of text (rule 102; F44, F46).
 
 @cc [owner:OctavianTocan,label:product] pr-conversation-folds
-Every comment in Conversation folds; the first starts open and bot comments start folded.
+Every comment in Conversation folds; a person's starts open and a bot's starts folded.
 "commented" is never written, and the age and chevron line up at the right of every
 header (rule 91; F72).
 
 @cc [owner:OctavianTocan,label:product] pr-conversation-narrows
 When both people and bots spoke, chips narrow the Conversation to All, People or Bots
 with their counts, and a narrowed list shows all of its comments (rule 129; J19).
+
+@cc [owner:OctavianTocan,label:product] pr-conversation-skips-the-description
+Conversation MUST NOT show the pull request's description as its first comment: Summary
+already shows it, so the tab starts with what was said after it, and one muted line says
+so when nobody has commented ("the first comment is just the PR's description", recording
+of 16 Oct 12:10, 15:44 to 16:01, N30, Tavi's decision).
+
+@cc [owner:OctavianTocan,label:product] pr-bots-are-githubs-word
+People and Bots split on GitHub's own data: an author is a bot when the server marks it
+(`bot`, from its GraphQL type `Bot`) or its login ends in "[bot]". The app MUST NOT keep a
+list of bot names, so chatgpt-codex-connector, devin-ai-integration and github-actions are
+bots and a person is never one for their name ("without banning names", recording of
+16 Oct 12:10, 16:02 to 16:21, N31).
 
 @cc [owner:OctavianTocan,label:product;design] pr-checks-read-cleanly
 Checks lists failed first, then running, then passed; a row taps through to the check.
