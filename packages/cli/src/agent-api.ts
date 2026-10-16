@@ -24,7 +24,7 @@ export interface AccountEnvironment {
 export interface AccountServices {
   accounts: Accounts
   posted: PostedStore
-  /** Whether the environment names an account; without one nobody can sign in. */
+  /** Whether the environment names the test account, the only one that signs in with a password. */
   hasAccount: boolean
 }
 
