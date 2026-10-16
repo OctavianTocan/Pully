@@ -64,6 +64,18 @@ impl AppState {
         }))
     }
 }
+pub fn encode_component(s: &str) -> String {
+    let mut out = String::new();
+    for b in s.bytes() {
+        if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
+}
+
 pub fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v.get(key).and_then(Value::as_str).unwrap_or("")
 }
@@ -167,6 +179,52 @@ mod timestamp_tests {
             (u64::MAX, "584556019-04-03T14:25:51.615Z"),
         ] {
             assert_eq!(iso_ms(ms), expected);
+        }
+    }
+}
+
+#[cfg(test)]
+mod shared_value_tests {
+    #[test]
+    fn component_encoding_retains_wire_and_storage_spelling() {
+        assert_eq!(super::encode_component(""), "");
+        assert_eq!(
+            super::encode_component("AZaz09-_.!~*'()"),
+            "AZaz09-_.!~*'()"
+        );
+        assert_eq!(
+            super::encode_component("a/b %é😀"),
+            "a%2Fb%20%25%C3%A9%F0%9F%98%80"
+        );
+        for byte in 0..=127u8 {
+            let expected = if byte.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&byte) {
+                (byte as char).to_string()
+            } else {
+                format!("%{byte:02X}")
+            };
+            assert_eq!(
+                super::encode_component(&(byte as char).to_string()),
+                expected
+            );
+        }
+    }
+    #[test]
+    fn shared_string_lookup_preserves_missing_and_non_string_fallbacks() {
+        for value in [
+            serde_json::json!(null),
+            serde_json::json!(false),
+            serde_json::json!(4),
+            serde_json::json!("x"),
+            serde_json::json!([]),
+            serde_json::json!({}),
+            serde_json::json!({"key":null}),
+            serde_json::json!({"key":3}),
+            serde_json::json!({"key":"value"}),
+        ] {
+            assert_eq!(
+                super::text(&value, "key"),
+                value["key"].as_str().unwrap_or("")
+            );
         }
     }
 }

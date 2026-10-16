@@ -10,25 +10,11 @@ mod grouping;
 mod lists;
 mod local;
 mod patch;
+pub use crate::{encode_component as enc, text as s};
 pub use github::{refresh_cached as refresh_cached_pr, token as github_token};
 pub use grouping::groups;
 pub use local::search as search_local;
 pub use patch::{parse_patch, parse_patch_untruncated};
-pub fn s<'a>(v: &'a Value, k: &str) -> &'a str {
-    v[k].as_str().unwrap_or("")
-}
-pub fn enc(s: &str) -> String {
-    s.as_bytes()
-        .iter()
-        .map(|b| {
-            if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(b) {
-                (*b as char).to_string()
-            } else {
-                format!("%{b:02X}")
-            }
-        })
-        .collect()
-}
 
 pub fn serialize_ref(r: &Value) -> Result<String> {
     Ok(match s(r, "kind") {

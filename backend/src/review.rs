@@ -850,8 +850,11 @@ async fn file_content(state: &Arc<crate::AppState>, args: &Value) -> Result<Valu
     if diff["ref"]["kind"] == "posted" || diff["ref"]["kind"] == "paste" {
         bail!("This diff has no full files, only its patch.");
     }
-    let file = array(&diff["files"])
-        .into_iter()
+    let file = diff["files"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+        .iter()
         .find(|f| f["path"] == path);
     let Some(file) = file else {
         if !diff["head"]["sha"].is_string() || path.split('/').any(|p| p == "..") {
@@ -906,7 +909,10 @@ fn diff_patches(state: &crate::AppState, args: &Value) -> Result<Value> {
             bail!("This diff changed. Reopen it before loading patches.");
         }
     }
-    let files = array(&entry["diff"]["files"]);
+    let files = entry["diff"]["files"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
     let mut found = serde_json::Map::new();
     for path in paths.iter().filter_map(Value::as_str) {
         if let Some(file) = files.iter().find(|file| file["path"] == path) {
@@ -994,7 +1000,10 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
             let shas = if args["shas"].is_array() {
                 array(&args["shas"])
             } else {
-                array(&e["diff"]["files"])
+                e["diff"]["files"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
                     .iter()
                     .map(|f| f["sha"].clone())
                     .collect()
@@ -1043,7 +1052,10 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
                 state.host.storage.update(&format!("diff:{key}"), |old| {
                     let mut e = old.context("Open the diff first.")?;
                     validate_posted_provenance(key, &e)?;
-                    let touched: HashSet<_> = array(&e["diff"]["files"])
+                    let touched: HashSet<_> = e["diff"]["files"]
+                        .as_array()
+                        .map(Vec::as_slice)
+                        .unwrap_or_default()
                         .iter()
                         .filter(|f| shas.contains(text(&f["sha"])))
                         .map(|f| text(&f["path"]).to_owned())
@@ -1099,7 +1111,7 @@ fn handle_storage(state: &Arc<crate::AppState>, name: &str, args: Value) -> Resu
                 if !args["owner"].is_string() || !args["repo"].is_string() {
                     bail!("That needs an owner and a repo.");
                 }
-                Ok(json!(entries.iter().filter(|e|e["diff"]["ref"]["kind"]=="github-pr"&&e["diff"]["ref"]["owner"]==args["owner"]&&e["diff"]["ref"]["repo"]==args["repo"]).map(|e|{let m=metadata(e);let ai=e["analyzedBy"].get("llm").or_else(||e["analyzedBy"].get("web-llm"));json!({"number":text(&e["diff"]["ref"]["number"]).parse::<u64>().unwrap_or(0),"additions":m["additions"],"deletions":m["deletions"],"files":array(&e["diff"]["files"]).len(),"groups":ai.map(|a|array(&a["groups"]).len()).unwrap_or_else(||array(&crate::source::groups(&e["diff"])).len()),"hasAiResult":ai.is_some()})}).collect::<Vec<_>>()))
+                Ok(json!(entries.iter().filter(|e|e["diff"]["ref"]["kind"]=="github-pr"&&e["diff"]["ref"]["owner"]==args["owner"]&&e["diff"]["ref"]["repo"]==args["repo"]).map(|e|{let m=metadata(e);let ai=e["analyzedBy"].get("llm").or_else(||e["analyzedBy"].get("web-llm"));json!({"number":text(&e["diff"]["ref"]["number"]).parse::<u64>().unwrap_or(0),"additions":m["additions"],"deletions":m["deletions"],"files":e["diff"]["files"].as_array().map_or(0, Vec::len),"groups":ai.map(|a|array(&a["groups"]).len()).unwrap_or_else(||array(&crate::source::groups(&e["diff"])).len()),"hasAiResult":ai.is_some()})}).collect::<Vec<_>>()))
             }
         }
         _ => unreachable!(),

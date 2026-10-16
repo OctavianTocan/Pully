@@ -754,7 +754,9 @@ pub async fn prepare_review(app: &Arc<AppState>, diff: &Value, wait_ms: u64) {
     let Ok((keys, pull_version, id)) = tokio::task::spawn_blocking(move || {
         let keys = prep_svc.file_keys(&prep_diff);
         prep_svc.hydrate_files(&keys, |key| {
-            prep_app.host.storage
+            prep_app
+                .host
+                .storage
                 .get(&format!("jev-file:{key}"))
                 .ok()
                 .flatten()

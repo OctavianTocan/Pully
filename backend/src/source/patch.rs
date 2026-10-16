@@ -1,6 +1,7 @@
 use regex::Regex;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::sync::OnceLock;
 pub fn hash(s: &str) -> String {
     hex::encode(Sha256::digest(s.as_bytes()))
 }
@@ -40,8 +41,9 @@ fn unquote(s: &str) -> String {
     }
     String::from_utf8_lossy(&out).into()
 }
-fn hr() -> Regex {
-    Regex::new(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@.*$").unwrap()
+fn hr() -> &'static Regex {
+    static HEADER: OnceLock<Regex> = OnceLock::new();
+    HEADER.get_or_init(|| Regex::new(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@.*$").unwrap())
 }
 pub fn hunks(text: &str) -> Vec<Value> {
     let lines: Vec<_> = text.split('\n').collect();
@@ -137,7 +139,8 @@ fn parse_patch_with_limit(text: &str, max_file_bytes: Option<usize>) -> Vec<Valu
         if git {
             let names = ls[0].trim_start_matches("diff --git ");
             if names.starts_with('"') {
-                let tokens = Regex::new(r#""(?:[^"\\]|\\.)*""#).unwrap();
+                static TOKENS: OnceLock<Regex> = OnceLock::new();
+                let tokens = TOKENS.get_or_init(|| Regex::new(r#""(?:[^"\\]|\\.)*""#).unwrap());
                 let found = tokens.find_iter(names).nth(1);
                 if let Some(m) = found {
                     path = unquote(m.as_str());

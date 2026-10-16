@@ -1,6 +1,7 @@
 //! Atomic JSON storage. Reads the TypeScript unstorage flat-key layout directly.
 //! Rust diff records use `diff:`; legacy `pr-meta:` + `pr-body:` records are joined
 //! on read and retained, so upgrading never destructively rewrites the old cache.
+use crate::encode_component as encode;
 use anyhow::{bail, Context, Result};
 use serde_json::Value;
 use std::{
@@ -75,17 +76,6 @@ pub(crate) struct DiffSnapshot {
     pub size_bytes: u64,
 }
 static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RootLock>>>> = OnceLock::new();
-fn encode(s: &str) -> String {
-    let mut out = String::new();
-    for b in s.bytes() {
-        if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) {
-            out.push(b as char);
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
 fn decode(s: &str) -> Option<String> {
     let bytes = s.as_bytes();
     let mut out = Vec::new();

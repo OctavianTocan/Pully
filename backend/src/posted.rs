@@ -1,5 +1,5 @@
 //! Account-owned, compressed agent diffs. Storage is compatible with the original flat-key layout.
-use crate::{source::parse_patch_untruncated, store::Store};
+use crate::{source::parse_patch_untruncated, store::Store, text};
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
@@ -35,9 +35,6 @@ fn refuse<T>(status: u16, message: impl Into<String>) -> Result<T> {
         message: message.into(),
     }
     .into())
-}
-fn text<'a>(v: &'a Value, k: &str) -> &'a str {
-    v[k].as_str().unwrap_or("")
 }
 fn bounded(v: &Value, limit: usize) -> Option<String> {
     v.as_str()

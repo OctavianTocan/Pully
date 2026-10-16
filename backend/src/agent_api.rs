@@ -197,17 +197,49 @@ pub async fn handle(app: Arc<AppState>, request: Request, path: &str) -> Respons
     let normalized = normalized_path(path);
     let route = normalized.get(7..).unwrap_or("").trim_end_matches('/');
     let method = request.method().as_str().to_owned();
-    let result: anyhow::Result<Response>=async {
- if route=="/me"&&method=="GET"{return Ok(Json(json!({"account":caller.account.email,"key":caller.key.name})).into_response())}
- if route=="/diffs"&&method=="GET"{return Ok(Json(json!({"diffs":app.posted.list_async(&caller.account.id).await?.into_iter().map(|m|described(m,&origin)).collect::<Vec<_>>()})).into_response())}
- let id=route.strip_prefix("/diffs/").filter(|id|!id.is_empty()&&!id.contains('/'));
- if (route=="/diffs"&&method=="POST")||(id.is_some()&&method=="PUT"){
- if let Some(wait)=limit(&app.host.storage.root().to_string_lossy(),&caller.key.id){let mut r=fail(429,format!("This key made {POSTS_PER_HOUR} posts in the last hour. Try again in {} minutes.",wait.div_ceil(60)));r.headers_mut().insert("retry-after",wait.to_string().parse().unwrap());return Ok(r)}
- let (patch,fields)=match read_post(request).await{Ok(v)=>v,Err(r)=>return Ok(r)};
- let saved=app.posted.save_async(&caller.account.id,&caller.key.name,id,patch.as_deref(),&fields).await?;let m=&saved["meta"];return Ok((if id.is_some(){StatusCode::OK}else{StatusCode::CREATED},Json(json!({"id":m["id"],"url":url(&origin,&m["id"]),"version":m["version"],"files":m["files"],"warnings":saved["warnings"]}))).into_response())}
- if let Some(id)=id {if method=="GET"{let Some(found)=app.posted.read_async(&caller.account.id,id).await? else{return Ok(fail(404,"There is no posted diff with that id."))};let mut answer=described(found["meta"].clone(),&origin);answer["patch"]=found["patch"].clone();if let Some(fields)=found["agent"].as_object(){for (k,v) in fields{answer[k]=v.clone();}}return Ok(Json(answer).into_response())}if method=="DELETE"{return Ok(if app.posted.remove_async(&caller.account.id,id).await?{StatusCode::NO_CONTENT.into_response()}else{fail(404,"There is no posted diff with that id.")})}}
- Ok(fail(404,"There is no such call. The API has GET /api/v1/me, GET and POST /api/v1/diffs, and GET, PUT and DELETE /api/v1/diffs/<id>."))
- }.await;
+    let id = route
+        .strip_prefix("/diffs/")
+        .filter(|id| !id.is_empty() && !id.contains('/'));
+    let result: anyhow::Result<Response> = async {
+        match (method.as_str(), route, id) {
+            ("GET", "/me", _) => Ok(Json(json!({"account":caller.account.email,"key":caller.key.name})).into_response()),
+            ("GET", "/diffs", _) => Ok(Json(json!({"diffs":app.posted.list_async(&caller.account.id).await?.into_iter().map(|m|described(m,&origin)).collect::<Vec<_>>()})).into_response()),
+            ("POST", "/diffs", _) | ("PUT", _, Some(_)) => {
+                if let Some(wait) = limit(&app.host.storage.root().to_string_lossy(), &caller.key.id) {
+                    let mut response = fail(429, format!("This key made {POSTS_PER_HOUR} posts in the last hour. Try again in {} minutes.", wait.div_ceil(60)));
+                    response.headers_mut().insert("retry-after", wait.to_string().parse().unwrap());
+                    return Ok(response);
+                }
+                let (patch, fields) = match read_post(request).await {
+                    Ok(value) => value,
+                    Err(response) => return Ok(response),
+                };
+                let saved = app.posted.save_async(&caller.account.id, &caller.key.name, id, patch.as_deref(), &fields).await?;
+                let meta = &saved["meta"];
+                let status = if id.is_some() { StatusCode::OK } else { StatusCode::CREATED };
+                Ok((status, Json(json!({"id":meta["id"],"url":url(&origin,&meta["id"]),"version":meta["version"],"files":meta["files"],"warnings":saved["warnings"]}))).into_response())
+            }
+            ("GET", _, Some(id)) => {
+                let Some(found) = app.posted.read_async(&caller.account.id, id).await? else {
+                    return Ok(fail(404, "There is no posted diff with that id."));
+                };
+                let mut answer = described(found["meta"].clone(), &origin);
+                answer["patch"] = found["patch"].clone();
+                if let Some(fields) = found["agent"].as_object() {
+                    for (key, value) in fields {
+                        answer[key] = value.clone();
+                    }
+                }
+                Ok(Json(answer).into_response())
+            }
+            ("DELETE", _, Some(id)) => Ok(if app.posted.remove_async(&caller.account.id, id).await? {
+                StatusCode::NO_CONTENT.into_response()
+            } else {
+                fail(404, "There is no posted diff with that id.")
+            }),
+            _ => Ok(fail(404, "There is no such call. The API has GET /api/v1/me, GET and POST /api/v1/diffs, and GET, PUT and DELETE /api/v1/diffs/<id>.")),
+        }
+    }.await;
     match result {
         Ok(r) => r,
         Err(e) => {

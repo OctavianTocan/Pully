@@ -186,9 +186,13 @@ pub fn groups(diff: &Value) -> Value {
     let rules = compiled_rules();
     let mut buckets: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut bypath = BTreeMap::new();
-    for f in diff["files"].as_array().unwrap_or(&vec![]) {
+    for f in diff["files"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default()
+    {
         let p = s(f, "path");
-        bypath.insert(p.to_string(), f.clone());
+        bypath.insert(p.to_string(), f);
         let key = if f["isBinary"] == true {
             if rules
                 .iter()
