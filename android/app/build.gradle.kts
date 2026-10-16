@@ -15,8 +15,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 58
-        versionName = "0.44.0"
+        versionCode = 59
+        versionName = "0.45.0"
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
@@ -146,6 +146,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.work:work-runtime:2.12.0")
+    // Google sign-in: Credential Manager and Google's ID token credential for it.
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")

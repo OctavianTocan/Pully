@@ -55,4 +55,11 @@ class AccountTest {
         assertEquals(emptyList(), SettingsSync.newer(mapOf("theme" to 30L, "sounds" to 5L, "codeZoom" to 40L), remote))
         assertNull(SettingsSync.SYNCED.firstOrNull { it == "usageStats" || it == "updateNotifications" })
     }
+
+    @Test
+    fun settingsFromAnotherAccountGiveWayToTheNewOnes() {
+        val times = mapOf("theme" to 200L, "sounds" to 0L, "codeZoom" to 1L)
+        assertEquals(mapOf("theme" to 1L, "codeZoom" to 1L), SettingsSync.disowned("ana@octaviantocan.com", times))
+        assertEquals(emptyMap(), SettingsSync.disowned(null, times))
+    }
 }

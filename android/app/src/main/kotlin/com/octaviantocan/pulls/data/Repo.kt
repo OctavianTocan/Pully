@@ -210,10 +210,21 @@ class Repo(private val context: Context) {
         return o.s("session") to o.s("email")
     }
 
+    /** Signs in with the ID token Google gave for the server's client: the session and the account's email. */
+    suspend fun signInWithGoogle(idToken: String): Pair<String, String> {
+        if (!carriesSecrets(ServerStore.load(context).url))
+            throw IllegalStateException("Pully signs in only over HTTPS. Change the server address in Settings, Server to start with https://.")
+        val o = call("account-google-sign-in") { put("idToken", idToken) }.jsonObject
+        return o.s("session") to o.s("email")
+    }
+
     suspend fun signOut() { call("account-sign-out") }
 
-    /** Whether the server has an account to sign in to; asked without a session, so a server never set up locks nobody out. */
-    suspend fun accountStatus(): Boolean = call("account-status").jsonObject.b("hasAccount")
+    /**
+     * Whether the server has an account to sign in to, and the client ID Google signs in for when it takes Google
+     * sign-in; asked without a session, so a server never set up locks nobody out.
+     */
+    suspend fun accountStatus(): AccountStatus = call("account-status").jsonObject.let { AccountStatus(it.b("hasAccount"), it.sOrNull("googleClientId")) }
 
     /** The signed-in account's email, or null when the session is not one the server knows. */
     suspend fun accountEmail(): String? = (call("account-me") as? JsonObject)?.s("email")?.ifBlank { null }

@@ -15,6 +15,8 @@ import { serverSession } from './server-session'
 export interface AccountEnvironment {
   PULLY_ACCOUNT_EMAIL?: string
   PULLY_ACCOUNT_PASSWORD?: string
+  /** The web client ID Google signs the phone in for (Google Cloud, Credentials); Google sign-in is off without it. */
+  PULLY_GOOGLE_CLIENT_ID?: string
   /** Where links point, such as `https://prs.octaviantocan.com`; the request's own origin when unset. */
   PULLY_PUBLIC_URL?: string
 }
@@ -22,7 +24,7 @@ export interface AccountEnvironment {
 export interface AccountServices {
   accounts: Accounts
   posted: PostedStore
-  /** Whether the environment names an account; without one nobody can sign in. */
+  /** Whether the environment names the test account, the only one that signs in with a password. */
   hasAccount: boolean
 }
 

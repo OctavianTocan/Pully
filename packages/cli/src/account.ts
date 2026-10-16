@@ -1,9 +1,9 @@
 import type { Storage } from 'unstorage'
 
 /**
- * The server's accounts (plan 13). There is one, seeded from the environment
- * (`PULLY_ACCOUNT_EMAIL`, `PULLY_ACCOUNT_PASSWORD`), and no way to sign up. It signs in with
- * an email and a password, makes the API keys agents post diffs with, and keeps the phone's
+ * The server's accounts (plan 13). A test account is seeded from the environment
+ * (`PULLY_ACCOUNT_EMAIL`, `PULLY_ACCOUNT_PASSWORD`) and is the only one with a password; nobody can sign up
+ * with one. Everyone else signs in with Google, which makes their account the first time. An account makes the API keys agents post diffs with, and keeps the phone's
  * settings. Everything here uses Web Crypto and the host's store only, so it runs on a
  * computer and on a hosted server alike.
  */
@@ -25,7 +25,8 @@ interface PasswordHash {
 }
 
 interface StoredAccount extends Account {
-  password: PasswordHash
+  /** Only the seeded test account has one; an account Google made signs in with Google only. */
+  password?: PasswordHash
   createdAt: string
 }
 
@@ -140,6 +141,8 @@ export interface Accounts {
   /** Creates the environment's account if it is missing, and takes a changed password. A no-op without both values. */
   seed: (env: AccountEnv) => Promise<Account | undefined>
   signIn: (email: string, password: string, now?: number) => Promise<SignIn>
+  /** A session for the account of an email Google proved, making the account the first time. */
+  signInWithGoogle: (email: string, now?: number) => Promise<{ session: string, account: Account }>
   /** The account a session token belongs to; `undefined` for a missing, signed-out or unknown one. */
   bySession: (token: string | undefined) => Promise<Account | undefined>
   signOut: (token: string) => Promise<void>
@@ -181,6 +184,12 @@ export function createAccounts(storage: Storage): Accounts {
       .map(item => ({ hash: item.key.slice(item.key.lastIndexOf(':') + 1), key: item.value! }))
   }
 
+  async function startSession(account: StoredAccount, now: number): Promise<{ session: string, account: Account }> {
+    const session = randomId(43)
+    await storage.setItem(`${SESSION}${await sha256(session)}`, { accountId: account.id, createdAt: new Date(now).toISOString() } satisfies StoredSession)
+    return { session, account: publicAccount(account) }
+  }
+
   return {
     async seed(env) {
       const email = env.PULLY_ACCOUNT_EMAIL?.trim()
@@ -189,7 +198,7 @@ export function createAccounts(storage: Storage): Accounts {
         return undefined
       const existing = await byEmail(email)
       if (existing) {
-        if (!await checkPassword(password, existing.password))
+        if (!existing.password || !await checkPassword(password, existing.password))
           await storage.setItem(`${ACCOUNT}${existing.id}`, { ...existing, password: await hashPassword(password) })
         return publicAccount(existing)
       }
@@ -207,16 +216,24 @@ export function createAccounts(storage: Storage): Accounts {
         return { error: 'wait' }
       const account = await byEmail(who)
       // An unknown email is checked against a throwaway hash too, so it takes as long as a wrong password.
-      const right = account ? await checkPassword(password, account.password) : (await hashPassword(password), false)
+      const right = account?.password ? await checkPassword(password, account.password) : (await hashPassword(password), false)
       if (!account || !right) {
         failures.set(who, [...recent, now])
         return { error: 'wrong' }
       }
       failures.delete(who)
-      const session = randomId(43)
-      await storage.setItem(`${SESSION}${await sha256(session)}`, { accountId: account.id, createdAt: new Date(now).toISOString() } satisfies StoredSession)
-      return { session, account: publicAccount(account) }
+      return startSession(account, now)
     },
+
+    signInWithGoogle: (email, now = Date.now()) => oneAtATime(`account:${normalEmail(email)}`, async () => {
+      let account = await byEmail(email)
+      if (!account) {
+        account = { id: randomId(16), email: normalEmail(email), createdAt: new Date(now).toISOString() }
+        await storage.setItem(`${ACCOUNT}${account.id}`, account)
+        await storage.setItem(`${ACCOUNT_EMAIL}${normalEmail(email)}`, account.id)
+      }
+      return startSession(account, now)
+    }),
 
     async bySession(token) {
       if (!token)

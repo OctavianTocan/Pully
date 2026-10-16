@@ -25,6 +25,9 @@ data class PostedRow(
     val deletions: Int,
 )
 
+/** What the server says about its account: whether it has one, and the client ID for Google sign-in, null when off. */
+data class AccountStatus(val hasAccount: Boolean, val googleClientId: String? = null)
+
 /** One setting as the account keeps it: its value and when it was changed, so the newer of two phones wins. */
 data class SyncedSetting(val value: JsonElement, val at: Long)
 
@@ -42,9 +45,9 @@ internal fun JsonObject.asSyncedSettings(): Map<String, SyncedSetting> =
 
 /**
  * The phone's account (plan 13): the session it signed in with, kept until Sign out ("once you sign in it's just signed
- * in", Tavi, 16 Oct 12:47), and whether the server has an account at all. The session rides on every call as
- * `X-Pully-Session`, next to the Access headers. A server with no account yet asks for no sign-in, so the app never
- * locks out a server that has not been set up.
+ * in", Tavi, 16 Oct 12:47), whether the server takes a sign-in at all (with Google or the test account's password), and
+ * its Google client ID. The session rides on every call as `X-Pully-Session`, next to the Access headers. A server with
+ * no way to sign in asks for none, so the app never locks out a server that has not been set up.
  */
 object Account {
     private const val PREFS = "pully-account"
@@ -59,8 +62,12 @@ object Account {
     /** The server [session] came from; the session goes to that server only. */
     private var server: String? = null
 
-    /** `true` once the server said it has an account, `false` once it said it has none, null before it was asked. */
+    /** `true` once the server said it takes a sign-in, `false` once it said it takes none, null before it was asked. */
     var serverHasAccount by mutableStateOf<Boolean?>(null)
+        private set
+
+    /** The client ID the server takes Google sign-in for; null while the server has none, so the page hides the button. */
+    var googleClientId by mutableStateOf<String?>(null)
         private set
 
     fun load(context: Context) {
@@ -75,6 +82,7 @@ object Account {
             prefs.edit().putString("server", server).apply()
         }
         serverHasAccount = if (prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null
+        googleClientId = prefs.getString("googleClientId", null)
         loaded = true
     }
 
@@ -108,9 +116,11 @@ object Account {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("session").remove("email").remove("server").apply()
     }
 
-    fun noteServer(context: Context, hasAccount: Boolean) {
-        serverHasAccount = hasAccount
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("hasAccount", hasAccount).apply()
+    fun noteServer(context: Context, status: AccountStatus) {
+        serverHasAccount = status.hasAccount
+        googleClientId = status.googleClientId
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("hasAccount", status.hasAccount).putString("googleClientId", status.googleClientId).apply()
     }
 }
 

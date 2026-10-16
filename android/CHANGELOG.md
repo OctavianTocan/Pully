@@ -16,6 +16,17 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.45.0
+
+Sign in to Pully with Google, no account to create first.
+
+### New
+
+- The sign-in page leads with Continue with Google. Pick your Google account in the sheet that opens and you are in; the first time, Pully makes your account then and there.
+![The sign-in page with Continue with Google, then the email field alone](changelog/0.45.0/google-sign-in.png)
+- Google sign-in is open to tocanoctavian@gmail.com and anyone at octaviantocan.com. Other Google accounts are turned away.
+- Under it the email field stands alone. Continue brings up the password, for the test account; nobody can make an account with a password.
+
 ## 0.44.0
 
 A pull request now shows its latest description the moment it opens.
