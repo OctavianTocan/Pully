@@ -368,26 +368,41 @@ class ReviewSession(
         }
     }
 
-    /** The newest `pr-text` answer: laid over an overview older than it, whichever arrives first. */
+    /**
+     * Each reload is numbered as it is asked for, and an answer is as new as its ask: one asked later saw GitHub at
+     * least as late. [freshText] is the newest `pr-text` answer, [shownText] the ask whose title and description are
+     * on screen (0: a kept copy) and [shownFull] the ask of the whole overview on screen, so an answer that arrives
+     * late never puts back what a newer one replaced.
+     */
+    private var asks = 0L
     private var freshText: JsonObject? = null
+    private var freshTextAsk = 0L
+    private var shownText = 0L
+    private var shownFull = 0L
     private var overviewAsk: Job? = null
     private var overviewAskedAt = 0L
 
     fun reloadOverview() {
         val pull = pull ?: return
+        val ask = ++asks
         // The title and description alone answer well before the whole overview, so one edited since the copy on
         // screen was fetched (an agent just changed it, then sent the link) is in place at once rather than after
         // GitHub's slow answer, which kept the old one up ("the description was not updated", Tavi, 16 Oct 13:52).
         scope.launch {
-            runCatching { repo.prText(pull) }.getOrNull()?.let { text ->
-                freshText = text
-                withNewerText(overview, text)?.let(::showOverview)
-            }
+            val text = runCatching { repo.prText(pull) }.getOrNull() ?: return@launch
+            if (ask <= freshTextAsk) return@launch
+            freshText = text
+            freshTextAsk = ask
+            if (ask > shownText) withText(overview, text)?.let { showOverview(it); shownText = ask }
         }
         // Nothing on screen yet: the copy the server stored as it refreshed shows at once, until GitHub's own arrives.
         if (overview == null) scope.launch {
             runCatching { repo.storedOverview(pull) }.getOrNull()?.let { stored ->
-                if (overview == null) { overview = withNewerText(stored, freshText) ?: stored; overviewStored = true }
+                if (overview != null) return@let
+                val withFresh = withText(stored, freshText)
+                overview = withFresh ?: stored
+                shownText = if (withFresh != null) freshTextAsk else 0
+                overviewStored = true
             }
         }
         // One asked for a moment ago is still the newest there is: coming back to the app and the link that brought it
@@ -397,7 +412,12 @@ class ReviewSession(
         overviewAskedAt = now
         overviewAsk = scope.launch {
             runCatching { repo.overview(pull) }.onSuccess {
-                showOverview(withNewerText(it, freshText) ?: it)
+                if (ask < shownFull) return@onSuccess
+                // A newer title and description than this answer's stay on screen over it.
+                val newer = freshText.takeIf { freshTextAsk > ask }?.let { text -> withText(it, text) }
+                showOverview(newer ?: it)
+                shownFull = ask
+                shownText = if (newer != null) freshTextAsk else ask
                 overviewStored = false
                 overviewError = null
             }.onFailure { overviewError = it.message }

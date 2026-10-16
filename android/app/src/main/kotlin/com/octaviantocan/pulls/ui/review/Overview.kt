@@ -257,22 +257,34 @@ fun parsePrOverviewData(element: JsonElement?): PrOverviewData? {
 private fun JsonObject?.orEmpty(): JsonObject = this ?: JsonObject(emptyMap())
 
 /**
- * A `pr-overview` answer with the title and description of a `pr-text` answer put in, when that text is newer than the
- * overview's own (by GitHub's `updatedAt`); null when it is not, or when either is missing. A kept overview then shows
- * a description edited since it was fetched while the whole overview is still on its way.
+ * A `pr-overview` answer with the title and description of a `pr-text` answer put in, and the merge commit text the
+ * server prefilled from the old ones rewritten to match; null when either answer is missing its part. Which of two
+ * answers is newer is the caller's to know, by when each was asked for: GitHub's `updatedAt` counts whole seconds, so
+ * an edit can share it with the copy it replaced.
  */
-fun withNewerText(answer: JsonObject?, text: JsonObject?): JsonObject? {
+fun withText(answer: JsonObject?, text: JsonObject?): JsonObject? {
     val overview = answer?.objOrNull("overview") ?: return null
-    val textAt = text?.strOrNull("updatedAt")?.takeIf { it.isNotBlank() } ?: return null
-    val shownAt = overview.strOrNull("updatedAt").orEmpty()
-    // GitHub writes `updatedAt` as ISO 8601 UTC, so the later time is the larger string.
-    if (shownAt.isNotBlank() && textAt <= shownAt) return null
+    if (text == null || listOf("title", "body", "bodyHTML").none { text[it] is JsonPrimitive }) return null
+    val oldTitle = overview.strOrNull("title").orEmpty()
+    val oldBody = overview.strOrNull("body").orEmpty()
+    val newTitle = text.strOrNull("title") ?: oldTitle
+    val newBody = (text["body"] as? JsonPrimitive)?.contentOrNull ?: oldBody
     val patched = buildMap {
         putAll(overview)
-        for (field in listOf("title", "body", "bodyHTML")) text[field]?.let { put(field, it) }
-        put("updatedAt", JsonPrimitive(textAt))
+        for (field in listOf("title", "body", "bodyHTML", "updatedAt")) (text[field] as? JsonPrimitive)?.let { put(field, it) }
     }
-    return JsonObject(answer + ("overview" to JsonObject(patched)))
+    // `defaultMergeCommit` on the server: a title is the PR's with ` (#n)`, a message the PR's body or its title.
+    val number = overview["number"]?.let { (it as? JsonPrimitive)?.intOrNull }
+    val defaults = answer.objOrNull("defaultCommits")?.mapValues { (_, value) ->
+        val commit = value as? JsonObject ?: return@mapValues value
+        val title = commit.strOrNull("title").orEmpty()
+        val body = (commit["body"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        JsonObject(commit + mapOf(
+            "title" to JsonPrimitive(if (oldTitle.isNotEmpty() && title == "$oldTitle (#$number)") "$newTitle (#$number)" else title),
+            "body" to JsonPrimitive(when { body.isNotEmpty() && body == oldBody -> newBody; oldTitle.isNotEmpty() && body == oldTitle -> newTitle; else -> body }),
+        ))
+    }
+    return JsonObject(answer + ("overview" to JsonObject(patched)) + (defaults?.let { mapOf("defaultCommits" to JsonObject(it)) } ?: emptyMap()))
 }
 
 fun parsePrOverview(o: JsonObject): PrOverview? {
