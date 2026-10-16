@@ -87,6 +87,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -706,6 +707,32 @@ fun matchesSearch(text: String, query: String): Boolean =
     query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.all { text.lowercase().contains(it) }
 
 /**
+ * The air between a sheet's ✕ and the first thing under it, a search or a heading: the Settings sheet's, so a field
+ * never sits tight under the ✕ ("the gap between ... the closing button and the first field, it's too small":
+ * recording 16 Oct 09:50, 03:18 to 03:27; M7).
+ */
+val SheetTopGap = 20.dp
+
+/**
+ * A heading over a card on a sheet, the one kind every sheet uses: the Settings sheet's small muted words and nothing
+ * else, no count, no chevron and no line under it, and it folds nothing ("we get rid of this number, we get rid of this
+ * divider, we get rid of this chevron, we keep them consistent": recording 16 Oct 09:50, 02:55 to 04:05; M7). [extra]
+ * sits at its end, for the + and − a group of files shows (L20). [first] is the heading right under the ✕ or a search.
+ */
+@Composable
+fun SheetHeading(label: String, modifier: Modifier = Modifier, first: Boolean = false, extra: (@Composable RowScope.() -> Unit)? = null) {
+    val c = LocalPullsColors.current
+    Row(
+        modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (first) 12.dp else 24.dp, bottom = 2.dp).semantics { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(label, Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        extra?.invoke(this)
+    }
+}
+
+/**
  * `.find`: the search field at the top of a sheet's list (Repositories, Files). It is made like the cards under it,
  * white with their 16dp corners and their soft shadow, so it reads as part of the list and not as a pill floating over
  * it: a 48dp row with the magnifier, the placeholder in the muted ink, and ✕ to clear once something is typed.
@@ -761,7 +788,7 @@ fun <T> ColumnScope.SearchList(
 ) {
     val c = LocalPullsColors.current
     var query by remember { mutableStateOf("") }
-    if (items.size > searchFrom) SheetSearch(query, { query = it }, placeholder, modifier.padding(top = 8.dp, bottom = 2.dp))
+    if (items.size > searchFrom) SheetSearch(query, { query = it }, placeholder, modifier.padding(top = SheetTopGap, bottom = 2.dp))
     val found = if (query.isBlank()) items else items.filter { matchesSearch(text(it), query) }
     if (found.isEmpty() && items.isNotEmpty()) {
         Text(empty, Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
@@ -769,7 +796,7 @@ fun <T> ColumnScope.SearchList(
     }
     val runs = if (group == null) listOf(null to found) else searchRuns(found, group)
     runs.forEach { (label, rows) ->
-        if (label != null) Text(label, Modifier.padding(start = 4.dp, top = 18.dp), style = PullsType.sm, color = c.muted)
+        if (label != null) SheetHeading(label)
         SheetCard(gap = if (label != null) 8.dp else 12.dp) {
             rows.forEachIndexed { index, item -> row(item, index == 0) }
         }

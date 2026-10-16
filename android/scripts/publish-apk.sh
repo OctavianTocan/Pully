@@ -7,9 +7,9 @@
 # version it has not installed, and this version's summary sentence as `notes`, which the
 # notification and apps older than 0.17.0 show. A notes argument replaces the summary.
 #
-# Once past versions have been built (android/scripts/build-past-ui.py, which makes `past/`), each publish also
-# builds the version this one replaces, so the Past versions slider in Settings stays complete. That runs after
-# the update is out, and a failure there does not fail the publish.
+# Each publish also builds, in the background, every past version not built yet (android/scripts/build-past-ui.py,
+# into `past/`), so the Past versions slider in Settings stays complete. That runs after the update is out, and a
+# failure there does not fail the publish.
 #
 #   android/scripts/publish-apk.sh [public-base-url] [notes]
 set -euo pipefail
@@ -64,6 +64,13 @@ if not notes:
 json.dump({"versionCode": int(code), "versionName": name, "sha256": sha, "apkUrl": url, "notes": notes, "changelog": changelog}, open(path, "w"), indent=2)
 EOF
 echo "published $name ($code) sha256=$sha -> $out"
-if [ -d "$out/past" ]; then
-  PULLS_REVIEW_ANDROID_DIR="$out" python3 scripts/build-past-ui.py || echo "warning: some past versions did not build; see above" >&2
-fi
+# Past versions (Settings, Advanced): every publish builds the versions not built yet, newest first, in the background
+# so the publish is not held up; the slider fills in as each one lands. Only one such run at a time: a publish during a
+# run waits for the lock and then makes its own pass, so the version it just replaced is built too. Each pass appends
+# to past/build.log. Before this ran on every publish, past/ was never made and the page said "The server did not
+# answer" (recording 16 Oct 09:50, 01:09 to 01:14; M3).
+mkdir -p "$out/past"
+PULLS_REVIEW_ANDROID_DIR="$out" python3 scripts/build-past-ui.py --index >/dev/null
+echo "--- $(date -u +%FT%TZ) publish of $name" >> "$out/past/build.log"
+nohup flock "$out/past/.lock" env PULLS_REVIEW_ANDROID_DIR="$out" nice python3 scripts/build-past-ui.py >> "$out/past/build.log" 2>&1 &
+echo "building past versions in the background; log: $out/past/build.log"

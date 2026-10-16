@@ -36,30 +36,34 @@ stacks a letter to a line. A stacked pull request shows "2/10" with the layers m
 its number, not beside the name (rule 111; H15, H16, H28).
 
 @cc [owner:OctavianTocan,label:product;motion] home-swipes-commit
-On the Inbox a swipe right opens the review and a swipe left archives, each as a full
-gesture that commits on release, with the displaced row blurred a little (no more than
-the canvas's 1.3px) and nothing to tap after. A tap opens the pull request (rules 17 and
-32; F6).
+On the Inbox a swipe right opens the review as a full gesture that commits on release,
+with the displaced row blurred a little (no more than the canvas's 1.3px) and nothing to
+tap after. A tap opens the pull request (rules 17 and 32; F6). No row archives on a swipe:
+Archive is only in the hold actions. Tavi decided this in the recording of 16 Oct 09:50,
+01:18 to 01:40 ("I don't think we need archive at all"; M4), replacing the left swipe to
+archive.
 
 @cc [owner:OctavianTocan,label:product;security] home-archive-only-your-own
-A pull request the person did not open has no Archive: no swipe left to archive and no
-Archive in its hold actions (recording 15 Oct 13:54, 09:42 to 09:53; K20).
+A pull request the person did not open has no Archive in its hold actions (recording
+15 Oct 13:54, 09:42 to 09:53; K20).
 
 @cc [owner:OctavianTocan,label:product;motion] home-left-swipe-goes-to-tours
-A row with nothing on its left, someone else's pull request, does not take a left swipe:
-the swipe moves the Inbox on to Tours, so the pages move from anywhere on the list
-("we can actually allow this swipe, but from anywhere": recording 15 Oct 15:37, 01:28 to
-01:50; L1).
+No Inbox row takes a left swipe: the swipe moves the Inbox on to Tours, so the pages move
+from anywhere on the list ("we can actually allow this swipe, but from anywhere":
+recording 15 Oct 15:37, 01:28 to 01:50; L1; every row since M4).
 
 @cc [owner:OctavianTocan,label:product] home-hold-opens-actions
 Holding a pull request row opens a sheet of its actions (Open on GitHub, Copy link, Start
 a tour, Open repository and, for the person's own, Archive), with the app's one hold
 feel (H17; rule 120).
 
-@cc [owner:OctavianTocan,label:product] home-tours-rows-swipe-like-inbox
-Tours rows take the Inbox's gestures: a swipe each way, a tap that opens, the same row
-anatomy. A finished tour's ring is a filled tick and nothing says "Read" (rules 56 and
-111; H27).
+@cc [owner:OctavianTocan,label:product;motion] home-tours-rows-swipe-like-inbox
+Tours rows mirror the Inbox's: a swipe to the left opens the tour from the right edge, a
+swipe to the right is left free so it moves Tours back to the Inbox, a tap opens and a hold
+opens the row's actions (Open the tour, Stop or Remove). The same row anatomy; a finished
+tour's ring is a filled tick and nothing says "Read" (rules 56 and 111; H27). Tavi decided
+the direction in the recording of 16 Oct 09:50, 01:40 to 02:04 (M4): the right swipe used
+to open the review and the left one to remove.
 
 @cc [owner:OctavianTocan,label:design] home-group-heading-lines
 A repository heading has one hairline under it and none above, so the first heading has
@@ -109,10 +113,25 @@ name opens the profile), no server address under the name, no Check out a branch
 Refresh (H21 to H24; F15, F17). It is the reference for the right style and MUST NOT
 regress (DESIGN.md Keep as is).
 
+@cc [owner:OctavianTocan,label:product;design] home-profile-shows-github-year
+Under the photo and name the profile sheet shows the person's last year on GitHub: the
+contributions as a number over a grid of the last half year's days, commits, pull
+requests, reviews and the day streak, and the year as monthly bars. The numbers are counts
+only, come from the server's `github-stats`, and show at once from the last answer with no
+loading screen (recording 16 Oct 09:50, 02:06 to 02:16; M5).
+
 @cc [owner:OctavianTocan,label:product] home-jev-asked-only-when-sorted
 The Inbox asks for Jev's kinds and risk (`classify: true`) only while it is sorted
 Riskiest first or grouped by kind; with neither picked nothing is asked (DESIGN.md
 checklist 53; architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;design] home-rows-carry-no-jev-line
+An Inbox row shows nothing from Jev unless the list is sorted Riskiest first or grouped by
+kind, and then only one short risk word under the number, in the number's column, so the
+row is no taller than without it. A stacked row, whose column already holds "2/10", shows
+the risk only as its stack mark turning amber when the risk is high. There is no "Feature · Medium risk" line under the title
+("do not run it by default", rows "way too tall": recording 16 Oct 09:50, 00:08 to 00:37;
+M1).
 
 @cc [owner:OctavianTocan,label:product;motion] home-pull-for-commands
 Pulling the Inbox down past its top says "Pull for commands", then "Release for commands",

@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -163,7 +164,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Font(Main),
     Sound(Main),
     Model(Main),
-    Effort(Model),
+    Effort(Main),
     WhatsNew(Main),
     Stats(Main),
 }
@@ -216,8 +217,8 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
         SettingsPage.PastVersions -> PastVersionsPage()
         SettingsPage.Font -> CodeFontPage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Sound -> SoundPage(settings, onDone = { onPage(SettingsPage.Main) })
-        SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) }, onEffort = { onPage(SettingsPage.Effort) })
-        SettingsPage.Effort -> EffortPage(settings, onBack = { onPage(SettingsPage.Model) })
+        SettingsPage.Model -> ModelPage(settings, onDone = { onPage(SettingsPage.Main) })
+        SettingsPage.Effort -> EffortPage(settings, onBack = { onPage(SettingsPage.Main) })
         SettingsPage.WhatsNew -> {
             val context = LocalContext.current
             ChangelogEntries(remember { WhatsNew.all(context) })
@@ -238,10 +239,10 @@ internal fun LayoutChoices(settings: AppSettings, modifier: Modifier = Modifier)
     }
 }
 
-/** A small muted heading above a card. */
+/** A small muted heading above a card: the heading every sheet uses (M7). */
 @Composable
 internal fun Group(title: String, content: @Composable () -> Unit) {
-    Text(title, Modifier.padding(start = 16.dp, top = 24.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = LocalPullsColors.current.muted)
+    com.octaviantocan.pulls.ui.design.SheetHeading(title)
     content()
 }
 
@@ -356,9 +357,22 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     }
     Group(t("settings.llm.title")) {
         SheetCard {
+            // The effort is a row of its own right under the model, not at the foot of the model list, which Pi's long
+            // list made a scroll away ("just make it another row right under that": recording 16 Oct 09:50, 00:44 to
+            // 01:04; M2). A model with one effort has nothing to choose, so it has no Effort row.
+            val model = AiSettingsLogic.current(catalog, config.model)
+            val effortRow = (model?.efforts?.size ?: 0) > 1
             SheetRow("Model", { open(SettingsPage.Model) }, first = true, icon = { EngineMark(config.engine, size = 22.dp) }) {
-                Text(analysisModelLabel(config, catalog, settings.effort, messages), Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted)
+                val label = analysisModelLabel(config, catalog, settings.effort, messages)
+                Text(if (effortRow) label.substringBefore(" · ") else label, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+            if (effortRow) {
+                val effort = settings.effort.ifBlank { model?.defaultEffort.orEmpty() }
+                SheetRow("Effort", { open(SettingsPage.Effort) }, iconless = true) {
+                    if (effort.isNotBlank()) Text(AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
+                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+                }
             }
         }
     }

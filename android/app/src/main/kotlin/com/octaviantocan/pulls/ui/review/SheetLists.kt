@@ -68,6 +68,8 @@ import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.TOUCH
 import com.octaviantocan.pulls.ui.design.SheetSearch
+import com.octaviantocan.pulls.ui.design.SheetHeading
+import com.octaviantocan.pulls.ui.design.SheetTopGap
 import com.octaviantocan.pulls.ui.design.matchesSearch
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SheetCard
@@ -158,10 +160,9 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
     var query by remember { mutableStateOf("") }
-    val folds = remember { mutableStateMapOf<String, Boolean>() }
-    // The search, or the air in its place, keeps the first heading clear of the sheet's ✕ (K28).
-    if (checks.size > 1) SheetSearch(query, { query = it }, "Find a check", Modifier.padding(top = 8.dp, bottom = 6.dp))
-    else Spacer(Modifier.height(8.dp))
+    // The search, or the air in its place, keeps the first heading clear of the sheet's ✕ (K28, M7).
+    if (checks.size > 1) SheetSearch(query, { query = it }, "Find a check", Modifier.padding(top = SheetTopGap, bottom = 6.dp))
+    else Spacer(Modifier.height(SheetTopGap))
     if (checks.isEmpty()) Text("No checks have run.", Modifier.padding(vertical = 16.dp, horizontal = 4.dp), style = PullsType.row, color = c.muted)
     val searching = query.isNotBlank()
     val found = if (searching) checks.filter { matchesSearch(listOfNotNull(it.group, it.name).joinToString(" / "), query) } else checks
@@ -172,15 +173,10 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
     BUCKET_ORDER.forEach { (bucket, label) ->
         val group = found.filter { it.bucket == bucket }
         if (group.isEmpty()) return@forEach
-        // Passing and skipped checks fold away by default once there is something failing or running to look at.
-        val closed = !searching && (folds[bucket] ?: (bucket in QUIET_BUCKETS && found.any { it.bucket !in QUIET_BUCKETS }))
-        FoldHeading(label, group.size, first, closed, onClick = if (searching) null else ({ folds[bucket] = !closed }))
+        // A plain heading as on every sheet, and the checks under it always shown: failing first (M7).
+        SheetHeading(label, first = first)
         first = false
-        AnimatedVisibility(
-            visible = !closed,
-            enter = expandVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeIn(tween(PullsMotion.FAST)),
-            exit = shrinkVertically(tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut)) + fadeOut(tween(PullsMotion.FAST)),
-        ) {
+        run {
             SheetCard(gap = 6.dp) {
                 group.forEachIndexed { index, check ->
                     // The name on top; where it runs, whether it is required and what it said share one line under it.
@@ -201,8 +197,6 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
     if (hidden > 0 && !searching) SheetCard(Modifier.padding(top = 12.dp)) { ListRow("$hidden more on GitHub", first = true, onClick = { uri.openUri("$url/checks") }) }
 }
 
-/** States whose checks need nothing from you, folded when others do. */
-private val QUIET_BUCKETS = setOf("passing", "skipped")
 
 /** The state of one check as a mark: a red cross, an amber dot that breathes, a green tick, a grey dash. */
 @Composable
@@ -220,8 +214,8 @@ private fun CheckMark(bucket: String) {
 
 /**
  * The changed files in the order the page lists them, with their reviewed mark; a row opens the file's diff. A search
- * field narrows them by name, the sections fold like the Overview's (they share the folds), and [current], the file
- * the diff is on, is marked and its section open.
+ * field narrows them by name, the sections sit under plain headings and fold nothing, as on every sheet (M7), and
+ * [current], the file the diff is on, is marked.
  */
 @Composable
 internal fun FilesSheet(session: ReviewSession, ui: DiffUi, current: String?, onOpen: (String) -> Unit, onClose: () -> Unit) {
@@ -229,12 +223,9 @@ internal fun FilesSheet(session: ReviewSession, ui: DiffUi, current: String?, on
     val total = session.files.size
     com.octaviantocan.pulls.ui.TrackSearch("files", query, if (query.isBlank()) 0 else session.files.count { matchesSearch(it.path, query) })
     PullsSheet(onClose, "Files", expandable = true) {
-        if (total > 1) SheetSearch(query, { query = it }, "Find a file", Modifier.padding(top = 8.dp, bottom = 6.dp))
+        if (total > 1) SheetSearch(query, { query = it }, "Find a file", Modifier.padding(top = SheetTopGap, bottom = 6.dp))
         FilesList(
             fileSections(session, ui), query, current, state = session::reviewState, attention = session.attention,
-            // The section of the file the diff is on starts open, whatever the size of the change.
-            folded = { section -> ui.folds[section.label.orEmpty()] ?: (total > FOLD_ABOVE && section.files.none { it.path == current }) },
-            onFold = { section, fold -> ui.folds[section.label.orEmpty()] = fold },
             onToggle = { file, reviewed -> session.setReviewed(listOf(file.sha), reviewed) },
             onOpen = { path -> onOpen(path); onClose() },
         )
@@ -270,8 +261,6 @@ internal fun ColumnScope.FilesList(
     query: String,
     current: String?,
     state: (ReviewFile) -> ReviewState,
-    folded: (FileSection) -> Boolean,
-    onFold: (FileSection, Boolean) -> Unit,
     onToggle: (ReviewFile, Boolean) -> Unit,
     onOpen: (String) -> Unit,
     attention: Map<String, String> = emptyMap(),
@@ -287,17 +276,15 @@ internal fun ColumnScope.FilesList(
     var budget = if (searching || all) Int.MAX_VALUE else FIRST_ROWS
     var first = true
     shown.forEach { section ->
-        // A search opens every section it found something in; otherwise a heading folds its files away.
-        val closed = section.label != null && !searching && folded(section)
+        // A sheet's heading folds nothing (M7): every section is open, under a plain heading with its + and − (L20).
+        val closed = false
         if (section.label != null) {
-            FoldHeading(
-                section.label, section.files.size, first, closed,
-                changes = section.files.sumOf { it.additions } to section.files.sumOf { it.deletions },
-                onClick = if (searching) null else ({ onFold(section, !closed) }),
-            )
+            val adds = section.files.sumOf { it.additions }
+            val dels = section.files.sumOf { it.deletions }
+            SheetHeading(section.label, first = first, extra = { SectionChanges(adds, dels) })
         }
         first = false
-        // The files sit in a card under their heading, which folds it away and opens it again as the Inbox's do (J18, J24).
+        // The files sit in a card under their heading.
         val files = if (budget > 0) section.files.take(budget) else emptyList()
         AnimatedVisibility(
             visible = !closed && files.isNotEmpty(),

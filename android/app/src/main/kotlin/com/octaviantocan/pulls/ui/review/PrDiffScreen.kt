@@ -234,7 +234,7 @@ private class FileSlide(start: String) {
 
 /**
  * The files side by side, as `SidePages` sets the Inbox and Tours (rule 107): the file on screen and the next one move
- * together the whole width with a gap between them, the next arriving from the edge as this one leaves, and nothing
+ * together the whole width, edge to edge with no gap, like one strip (M10), the next arriving from the edge as this one leaves, and nothing
  * fades. A drag moves both with the finger and letting go settles on the nearer, or goes on the way a throw went (rule
  * 105); past the first or the last file the page follows the finger alone and leaves with the view on that side. Each
  * file keeps its place in its list, so coming back to one finds it where it was left.
@@ -266,7 +266,6 @@ private fun FilePages(
     val swipeFrom = with(density) { 64.dp.toPx() }
     val fling = with(density) { PullsMotion.Fling.toPx() }
     val range = with(density) { PullsMotion.FingerRange.toPx() }
-    val gap = with(density) { PullsMotion.PageGap.toPx() }
     val count = files.size
 
     fun glideTo(to: String, speed: Float = 0f) {
@@ -330,8 +329,9 @@ private fun FilePages(
         }
         val at = order(slide.current)
         if (at < 0) return
-        // A file moves by its width and the gap to the next, so the finger divides by both and the files stay under it.
-        val next = slide.at - rest / (width + gap)
+        // Files touch, like one strip, so a file moves by its width alone and stays under the finger ("there's still a
+        // gap": recording 16 Oct 09:50, 04:27 to 04:41; M10).
+        val next = slide.at - rest / width
         val lo = if (at > 0) -1f else 0f
         val hi = if (at in 0 until count - 1) 1f else 0f
         val held = next.coerceIn(lo, hi)
@@ -367,7 +367,7 @@ private fun FilePages(
             else -> 0
         }
         val to = files.getOrNull(order(slide.current) + step)?.path ?: slide.current
-        val speed = if (width > 0) (-velocity / (width + gap)).takeIf { it.isFinite() } ?: 0f else 0f
+        val speed = if (width > 0) (-velocity / width).takeIf { it.isFinite() } ?: 0f else 0f
         if (to == target.path) {
             glideTo(to, speed)
         } else {
@@ -400,7 +400,7 @@ private fun FilePages(
             Box(Modifier.fillMaxSize().pageSlide(edge)) {
                 for (file in shown) {
                     key(file.path) {
-                        Box(Modifier.fillMaxSize().graphicsLayer { translationX = slide.place(file.path) * (size.width + PullsMotion.PageGap.toPx()) }) {
+                        Box(Modifier.fillMaxSize().graphicsLayer { translationX = slide.place(file.path) * size.width }) {
                             FilePage(session, ui, file, current = file.path == target.path, onAsk, tail = BAR_ROOM + bottom)
                         }
                     }
@@ -447,7 +447,7 @@ private fun FilePage(
         Modifier.fillMaxSize()
             .edgeFade(top = PullsMotion.EdgeTop, color = c.base, topStrength = under, topInset = { counts })
             .edgeFade(bottom = PullsMotion.EdgeBottom, color = c.raised)
-            .pinchToZoomCode(session.settings) { end -> keepUnderFingers(listState, ui, file, end, density) },
+            .pinchToZoomCode(session.settings, remember(listState, file.path) { KeepUnderFingers(listState, ui, file, density) }),
         state = listState,
         contentPadding = PaddingValues(top = COUNTS_HEIGHT + COUNTS_AIR),
     ) {
@@ -490,30 +490,58 @@ private fun codeHasRoom(ui: DiffUi, file: ReviewFile, dx: Float, across: Float):
 }
 
 /**
- * A pinch has laid the code out at its new size: scroll the list so the row that was under the fingers is under them
- * again, at the same point of it, and scroll the code sideways so the same character is too (rule 93's pinch). A row of
- * code grows with the zoom; a note or a thread keeps its size. Wrapped code has no sideways scroll to fix.
+ * Holds the code under the fingers while a pinch lays it out at each new size (rule 93's pinch): as the pinch starts it
+ * reads the row and the point of it under the fingers, and after each size it scrolls the list so that point is under
+ * them again, and the code sideways so the same character is too. A row of code grows with the zoom; a note or a thread
+ * keeps its size. Wrapped code has no sideways scroll to fix. Each step is reckoned from the start, so a step that comes
+ * before the last layout still lands right.
  */
-private fun keepUnderFingers(state: LazyListState, ui: DiffUi, file: ReviewFile, end: PinchEnd, density: Density) {
-    val info = state.layoutInfo
-    val before = info.beforeContentPadding
-    val at = end.content.y - before
-    info.visibleItemsInfo.firstOrNull { at >= it.offset && at < it.offset + it.size }?.let { row ->
-        val grows = row.contentType == "line" || row.contentType == "split"
-        val top = rowTopAfterZoom(end.screen.y - before, at - row.offset, end.scale, grows)
-        state.requestScrollToItem(row.index, -top.roundToInt())
+private class KeepUnderFingers(val state: LazyListState, val ui: DiffUi, val file: ReviewFile, val density: Density) : PinchKeeper {
+    private var row = -1
+    private var within = 0f
+    private var grows = false
+    private var before = 0
+    private var at = Offset.Zero
+    private var scroll: HScroll? = null
+    private var offset = 0f
+    private var reach = 0f
+    private var cellStart = 0f
+
+    override fun begin(at: Offset) {
+        this.at = at
+        val info = state.layoutInfo
+        before = info.beforeContentPadding
+        val y = at.y - before
+        val hit = info.visibleItemsInfo.firstOrNull { y >= it.offset && y < it.offset + it.size }
+        row = hit?.index ?: -1
+        within = hit?.let { y - it.offset } ?: 0f
+        grows = hit?.contentType == "line" || hit?.contentType == "split"
+        scroll = null
+        if (ui.session.settings.codeWrap || file.isBinary) return
+        // In split view each half scrolls on its own and the right one starts past the 2dp between them.
+        val width = info.viewportSize.width.toFloat()
+        val split = effectiveSplit(ui.session.settings.layout, file, ui.widthDp)
+        val right = split && at.x >= width / 2f
+        val half = with(density) { 2.dp.toPx() }
+        cellStart = if (right) (width - half) / 2f + half else 0f
+        scroll = ui.scrolls[file.path to if (!split) 0 else if (right) 2 else 1]
+        offset = scroll?.offset ?: 0f
+        reach = scroll?.max ?: 0f
     }
-    if (ui.session.settings.codeWrap || file.isBinary || end.from == end.to) return
-    // In split view each half scrolls on its own and the right one starts past the 2dp between them.
-    val width = info.viewportSize.width.toFloat()
-    val split = effectiveSplit(ui.session.settings.layout, file, ui.widthDp)
-    val right = split && end.content.x >= width / 2f
-    val scroll = ui.scrolls[file.path to if (!split) 0 else if (right) 2 else 1] ?: return
-    val digits = lineDigits(ui, file)
-    val half = with(density) { 2.dp.toPx() }
-    val cellStart = if (right) (width - half) / 2f + half else 0f
-    fun codeStart(zoom: Float) = cellStart + with(density) { (gutterWidth(digits, zoom) + 2.dp).toPx() }
-    scroll.offset = codeScrollAfterZoom(scroll.offset, codeStart(end.from), codeStart(end.to), end.content.x, end.screen.x, end.scale)
+
+    override fun step(from: Float, to: Float) {
+        val scale = to / from
+        if (row >= 0) state.requestScrollToItem(row, -rowTopAfterZoom(at.y - before, within, scale, grows).roundToInt())
+        val s = scroll ?: return
+        // The widest line grows and shrinks with the text, so its reach is worked out at the new size and the scroll kept
+        // inside it: zooming out at a line's far end must not leave blank space where the code was. Lines measured
+        // later can still only lengthen it.
+        val wide = reach + s.viewport - 16
+        s.max = (wide * scale - s.viewport + 16).coerceAtLeast(0f)
+        val digits = lineDigits(ui, file)
+        fun codeStart(zoom: Float) = cellStart + with(density) { (gutterWidth(digits, zoom) + 2.dp).toPx() }
+        s.offset = codeScrollAfterZoom(offset, codeStart(from), codeStart(to), at.x, at.x, scale).coerceIn(0f, s.max)
+    }
 }
 
 /**
@@ -942,7 +970,7 @@ internal fun FileDiffSheet(session: ReviewSession, ui: DiffUi, place: Focus, onC
     PullsSheet(onClose, file.path.substringAfterLast('/'), expandable = false) {
         Box(Modifier.fillMaxWidth().height(height).bleed(16.dp).clipToBounds().background(c.raised)) {
             LazyColumn(
-                Modifier.fillMaxSize().pinchToZoomCode(session.settings) { end -> keepUnderFingers(listState, ui, file, end, density) },
+                Modifier.fillMaxSize().pinchToZoomCode(session.settings, remember(listState, file.path) { KeepUnderFingers(listState, ui, file, density) }),
                 state = listState,
             ) { fileDiffItems(session, ui, file, tail = 24.dp) }
         }

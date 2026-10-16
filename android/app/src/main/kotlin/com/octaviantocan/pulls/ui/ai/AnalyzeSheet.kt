@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.MutableState
@@ -66,7 +67,7 @@ internal enum class AnalyzePage(val parent: AnalyzePage?) {
     Tour(null),
     Custom(Main),
     Model(Main),
-    Effort(Model),
+    Effort(Main),
     TourEffort(Tour),
 }
 
@@ -98,7 +99,9 @@ internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: An
             else -> start
         }
     }
-    PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = { it.title() }) { current ->
+    // While the tour is written the sheet stays open on its progress and says so (M12).
+    val title: @Composable (AnalyzePage) -> String = { if (it == AnalyzePage.Tour && tourComing(session)) "Writing the tour" else it.title() }
+    PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = title) { current ->
         AnalyzePageContent(
             session, current, custom, onPage = { page = it }, onClose = onClose, onTour = onTour,
             onModelDone = { if (start == AnalyzePage.Model) onClose() else page = parent(AnalyzePage.Model) ?: AnalyzePage.Main },
@@ -147,9 +150,9 @@ internal fun ColumnScope.AnalyzePageContent(
     }
 
     when (current) {
-        AnalyzePage.Main -> AnalyzeMain(session, onRun = ::run, onCustom = { onPage(AnalyzePage.Custom) }, onModel = { onPage(AnalyzePage.Model) })
+        AnalyzePage.Main -> AnalyzeMain(session, onRun = ::run, onCustom = { onPage(AnalyzePage.Custom) }, onModel = { onPage(AnalyzePage.Model) }, onEffort = { onPage(AnalyzePage.Effort) })
+        // Generate keeps the sheet open and shows the tour being written in it, with the Tour behind it filling in (M12).
         AnalyzePage.Tour -> TourStart(session, onModel = { onPage(AnalyzePage.Model) }, onEffort = { onPage(AnalyzePage.TourEffort) }) {
-            onClose()
             generateTour(session, context)
             onTour()
         }
@@ -163,28 +166,58 @@ internal fun ColumnScope.AnalyzePageContent(
             }
             CtaButton("Analyze", { run(choice) }, Modifier.fillMaxWidth().padding(top = 16.dp))
         }
-        AnalyzePage.Model -> ModelPage(settings, onDone = onModelDone, onEffort = { onPage(AnalyzePage.Effort) })
-        AnalyzePage.Effort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Model) })
+        AnalyzePage.Model -> ModelPage(settings, onDone = onModelDone)
+        AnalyzePage.Effort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Main) })
         AnalyzePage.TourEffort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Tour) })
     }
 }
 
 /**
  * What the tour icon opens while the pull request has no tour (rule 113): that there is none yet, the model that would
- * write it, and Generate. Nothing on the Overview offers a tour; this sheet is the one way in, every time.
+ * write it, and Generate. Nothing on the Overview offers a tour; this sheet is the one way in, every time. Once Generate
+ * is tapped the sheet stays open and shows the tour being written, the same work log the page used to show; it may be
+ * closed, and the tour icon or the line on the Tour opens it again (M12). A tap before the pull request has loaded waits
+ * for it instead of doing nothing, so the button never looks dead (M11).
  */
 @Composable
 private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, onEffort: () -> Unit, onGenerate: () -> Unit) {
     val c = LocalPullsColors.current
+    var waiting by remember { mutableStateOf(false) }
+    LaunchedEffect(waiting, session.key, session.loadError) {
+        if (!waiting) return@LaunchedEffect
+        if (session.key != null) {
+            waiting = false
+            onGenerate()
+        } else if (session.loadError != null) {
+            // The pull request did not load, so there is nothing to wait for: Generate comes back with the reason.
+            waiting = false
+        }
+    }
+    if (waiting || tourComing(session)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(bottom = 8.dp)) {
+            if (waiting) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.octaviantocan.pulls.ui.design.BreathingDot()
+                Text("Getting the pull request ready", style = PullsType.sm, color = c.muted)
+            }
+            else TourRunning(session, Modifier)
+        }
+        return
+    }
     Text(
         "Pulls reads the change and the code around it, then walks you through it section by section.",
         Modifier.padding(horizontal = 4.dp),
         style = PullsType.read, color = c.muted,
     )
+    // A tour that failed says why here, where it was asked for; so does an analysis that was to write one.
+    val failed = session.taskFor("tour")?.takeIf { it.status == "failed" }?.error
+        ?: session.taskFor("analyze")?.takeIf { it.status == "failed" && "tour" in it.then }?.error
+    val unloaded = session.loadError?.takeIf { session.key == null }
+    if (unloaded != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)) { ErrorBox("The pull request did not load", unloaded) }
+    else if (failed != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = 12.dp)) { ErrorBox("The tour could not be written", failed) }
     // The effort sits under the model as a row of its own, where the tour is set up ("I would maybe put the effort level
     // here in this menu", recording 15 Oct 15:37, 13:10 to 13:17; L25).
     ModelCard(session, onModel, Modifier.padding(top = 16.dp), onEffort = onEffort)
-    CtaButton("Generate tour", onGenerate, Modifier.fillMaxWidth().padding(top = 16.dp), enabled = session.key != null)
+    CtaButton("Generate tour", { if (session.key != null) onGenerate() else waiting = true }, Modifier.fillMaxWidth().padding(top = 16.dp))
 }
 
 /** The row that names the model an analysis or a tour runs with; a tap opens the model page. */
@@ -223,7 +256,7 @@ private fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Mod
 
 /** The first page: the presets, Custom, and the model they will run with. */
 @Composable
-private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoice) -> Unit, onCustom: () -> Unit, onModel: () -> Unit) {
+private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoice) -> Unit, onCustom: () -> Unit, onModel: () -> Unit, onEffort: () -> Unit) {
     val last = session.settings.analyzeChoice
     SheetCard {
         AnalyzePreset.entries.forEachIndexed { index, preset ->
@@ -231,7 +264,8 @@ private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoic
         }
         ChoiceRow("Custom", if (last.preset == null) last.summary() else "Pick the passes yourself.", selected = last.preset == null, first = false, onClick = onCustom)
     }
-    ModelCard(session, onModel)
+    // The effort under the model here too, as in Settings and the tour's sheet (M2).
+    ModelCard(session, onModel, onEffort = onEffort)
 }
 
 /** A choice with a line of what it does, and a tick on the one the button runs. The Review sheet's lenses use it too (rule 70). */

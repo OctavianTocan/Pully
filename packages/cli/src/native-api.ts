@@ -10,6 +10,7 @@ import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { serializeRef, staticCredentials } from '@pulls.review/core/types'
 import { ingestAnalytics, track } from './analytics'
 import { resolveGithubToken } from './credentials'
+import { githubStats } from './github-stats'
 import { highlightLines, pierreTheme } from './highlight'
 import { NO_CHECKOUT } from './host'
 import { NATIVE_REVIEW, sessionPatches } from './native-review'
@@ -79,10 +80,10 @@ async function readJsonUpTo(request: NativeRequest, limit: number): Promise<unkn
   }
 }
 
-async function androidFile(host: ServerHost, name: string, type: string): Promise<Response> {
+async function androidFile(host: ServerHost, name: string, type: string, missing?: () => Response): Promise<Response> {
   const file = await host.androidFile?.(name)
   if (!file)
-    return Response.json({ error: 'No Android build has been published.' }, { status: 404 })
+    return missing?.() ?? Response.json({ error: 'No Android build has been published.' }, { status: 404 })
   return new Response(file.body, {
     headers: {
       'Content-Type': type,
@@ -112,6 +113,7 @@ function nativeCall(name: string, host: ServerHost, args: unknown): Promise<Resp
     'repo-viewed': repoViewed,
     'mermaid-svg': (_host, input) => mermaidSvg(input),
     'review-comment': (_host, input) => reviewComment(input),
+    'github-stats': (_host, input) => profileStats(input),
   }
   const call = calls[name]
   if (call)
@@ -137,8 +139,9 @@ function androidRoute(host: ServerHost, path: string): Promise<Response> | undef
     return androidFile(host, 'latest.json', 'application/json')
   if (path === '/android/pulls.apk')
     return androidFile(host, 'pulls.apk', APK)
+  // None built yet is an empty list, so the phone says there are none instead of "The server did not answer" (M3).
   if (path === '/android/past/index.json')
-    return androidFile(host, 'past/index.json', 'application/json')
+    return androidFile(host, 'past/index.json', 'application/json', () => Response.json({ versions: [] }, { headers: { 'Cache-Control': 'no-store' } }))
   const past = /^\/android\/past\/(\d+\.\d+\.\d+)\.apk$/.exec(path)
   return past ? androidFile(host, `past/${past[1]}.apk`, APK) : undefined
 }
@@ -337,6 +340,17 @@ async function repoViewed(host: ServerHost, input: unknown): Promise<Response> {
     }
   }))
   return Response.json({ result: viewed })
+}
+
+/** `github-stats`: the signed-in user's year on GitHub for the profile sheet (M5); `fresh` skips the few minutes' reuse. */
+async function profileStats(input: unknown): Promise<Response> {
+  const fresh = (input as { fresh?: unknown } | undefined)?.fresh === true
+  try {
+    return Response.json({ result: await githubStats(fresh) })
+  }
+  catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 502 })
+  }
 }
 
 /** The web tokens: `bg-base`, `color-base`, the green primary, `color-muted`, `border-base`. */

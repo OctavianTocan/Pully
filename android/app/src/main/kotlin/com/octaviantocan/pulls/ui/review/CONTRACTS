@@ -53,11 +53,13 @@ A tour starts from the tour icon, and the other passes sit in ⋯ under Analyze 
 @cc [owner:OctavianTocan,label:design;product] pr-summary-switch-is-not-a-pill
 The author's description and the AI's summary are not switched by a pill ("I don't like
 this"). When the text changes it fades, which he liked (recording 15 Oct 13:54, 10:07 to
-10:20; K23).
+10:20; K23). The switch is the link alone, "Show the AI summary" or "Show the
+description", with no word naming the text above it (recording 16 Oct 09:50, 02:31 to
+02:55; M6).
 
 @cc [owner:OctavianTocan,label:product] pr-commits-and-checks-are-sheets
 Commits is not a tab: tapping Commits opens a sheet like Files, with a "Find a commit"
-search and fold headings, and Checks is a sheet made the same way ("all of these
+search and plain headings, and Checks is a sheet made the same way ("all of these
 components are things that we use everywhere", recording 15 Oct 13:54, 13:25 to 14:03;
 K29).
 
@@ -96,10 +98,10 @@ Each of the Overview's tabs keeps its scroll and what is open while another is o
 screen, and the head lifts with whichever tab is in view (rule 118; J9).
 
 @cc [owner:OctavianTocan,label:product] pr-files-fold-and-search
-The files are grouped under fold headings on the Overview and in the Files sheet, and a
-fold is kept while the pull request is open. Over 80 files every section starts folded.
-The Files sheet has a search where a row matches when every typed word is in it, and a
-search opens every section it finds something in (rules 101 and 119).
+The files are grouped under fold headings on the Overview, and a fold is kept while the
+pull request is open. Over 80 files every section starts folded. The Files sheet groups
+them under the sheets' plain headings with nothing folded (M7), and has a search where a
+row matches when every typed word is in it (rules 101 and 119).
 
 @cc [owner:OctavianTocan,label:design] pr-counts-sit-side-by-side
 The +N −N of a file row, a file section heading and the Files sheet sit side by side on
@@ -168,8 +170,10 @@ where they are; only their text changes. They MUST NOT slide with the code (reco
 15 Oct 13:54, 03:39 to 04:08; K9).
 
 @cc [owner:OctavianTocan,label:motion] diff-files-sit-side-by-side
-Files sit side by side: during a swipe, an arrow or a pick from the Files sheet, the file
-on screen and the next are both in view and move together; a file picked from far away
+Files sit side by side, edge to edge with no gap between them: during a swipe, an arrow
+or a pick from the Files sheet, the file on screen and the next are both in view, touching,
+and move together ("there's a gap in the middle", recording 16 Oct 09:50, 04:27 to 04:41;
+M10); a file picked from far away
 still arrives from beside the current one, never through a blank page; each file keeps
 its scroll (rules 107 and 118; J25).
 
@@ -215,11 +219,13 @@ A review thread is a card under its line in the code, and an Ask about lines sho
 them the way the chat shows it, the answer as plain text with no box (rules 9, 94 and 99).
 
 @cc [owner:OctavianTocan,label:product;motion] diff-pinch-keeps-the-line
-A pinch scales the code about the point where the fingers met and MUST NOT pan with them:
-a pinch that dragged the page let it spring back when the fingers lifted ("I can move the
-page and then it sticks again", recording 15 Oct 15:37, 09:58 to 10:11; L17, replacing
-the panning of F53). When they lift the size is kept and the line that was under them stays
-there. The code is not re-laid out on every frame (rule 93). The Tour's code is the same.
+A pinch changes the code's text size as the fingers move: the code is laid out again at
+each size, its lines wrapping and the page still filling the screen, and MUST NOT be a
+picture of the page scaled down into a corner ("before it scaled the font and the lines",
+recording 16 Oct 09:50, 04:11 to 04:26; M9, Tavi's decision, replacing the scaled picture
+of rule 93). The line under the fingers stays there while they move and after they lift,
+and a pinch MUST NOT pan with them (recording 15 Oct 15:37, 09:58 to 10:11; L17). The
+Tour's code is the same.
 
 @cc [owner:OctavianTocan,label:product] diff-text-and-tools-shows-itself
 Aa opens "Text and tools" as a bottom sheet in which every choice shows what it does:
@@ -242,16 +248,19 @@ A comment card or a stats row never touches the diff: at least 24dp above the di
 edge (rule 40).
 
 @cc [owner:OctavianTocan,label:product] tour-starts-from-its-icon
-With no tour and none being written, the tour icon opens a "No tour yet" sheet with one
-line on what a tour is, the Model row (a page of the same sheet) and Generate tour. With
-a tour, or one on its way, the icon opens the Tour page, its dot breathing while one is
-written (rule 113).
+With no tour, the tour icon opens a "No tour yet" sheet with one line on what a tour is,
+the Model row (a page of the same sheet) and Generate tour; while one is written it opens
+that sheet again on the progress, over the Tour page. With a tour the icon opens the Tour
+page, its dot breathing while a new one is written (rule 113; M12).
 
 @cc [owner:OctavianTocan,label:product] tour-generate-opens-the-work
-Generate tour closes the sheet and opens the Tour page on its running work log in the
-same frame ("it immediately takes me there, which is amazing"), and the log turns into
-the tour with nothing between (rules 121 and 122; J28, J34; recording 15 Oct 13:54,
-05:12 to 05:21).
+Generate tour keeps the sheet open and shows the running work log in it in the same frame,
+with the Tour page behind it; the sheet may be closed, and the tour icon or the one
+"Writing the tour" line on the Tour page opens it again. The page shows no work log of its
+own, so nothing on it moves as the log changes, and the sheet closes when the tour is there
+("for that bottom sheet to stay open and for us to see this there", recording 16 Oct
+09:50, 05:03 to 05:45; M12, Tavi's decision, replacing closing the sheet of J28). A tap
+before the pull request has loaded waits for it and never leaves a dead button (M11).
 
 @cc [owner:OctavianTocan,label:motion] tour-stops-arrive-with-motion
 When a tour is drawn its stops come onto the page with motion, one after another, not
@@ -271,8 +280,9 @@ The "Ask about this tour" bar is the same component as Home's search pill and be
 same: focusing it dims the page behind it (recording 15 Oct 13:54, 05:42 to 05:58; K12).
 
 @cc [owner:OctavianTocan,label:product] tour-ask-needs-a-tour
-While there is no tour yet, the Tour page offers no "Ask about this tour", and it has no
-big Stop button of its own (recording 14 Oct 19:19, 00:14 to 00:24; rule 87).
+While there is no tour yet, and while the first one is written, the Tour page offers no
+"Ask about this tour", and it has no big Stop button of its own (recording 14 Oct 19:19,
+00:14 to 00:24; rule 87; recording 16 Oct 09:50, 05:20; M12).
 
 @cc [owner:OctavianTocan,label:product] tour-ask-bar-lets-go
 Tapping outside the Ask bar lets go of it: no caret keeps blinking in a bar that is not
@@ -389,8 +399,8 @@ The "No tour yet" sheet has the effort as a row of its own under Model (recordin
 15:37, 13:10 to 13:17; L25).
 
 @cc [owner:OctavianTocan,label:product;motion] tour-previews-while-writing
-While a tour is written its plan and each stop already written show under the progress, in
-the places the stops will take, and the page is never scrolled for the reader (Tavi's idea,
+While a tour is written its plan and each stop already written show under the "Writing the
+tour" line, in the places the stops will take, and the page is never scrolled for the reader (Tavi's idea,
 recording 15 Oct 15:37, 13:47 to 14:05; L26).
 
 @cc [owner:OctavianTocan,label:design] tour-sketches-read-cleanly

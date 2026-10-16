@@ -196,6 +196,11 @@ def build(item: dict, dest: Path) -> None:
         git("worktree", "add", "--detach", str(checkout), commit)
         try:
             android = checkout / "android"
+            # local.properties is not in git, so a checkout has none; without it the build cannot find the SDK unless
+            # ANDROID_HOME is set.
+            local = ANDROID / "local.properties"
+            if local.exists():
+                shutil.copy(local, android / "local.properties")
             patch(android, name, code)
             subprocess.run(["./gradlew", "-q", "--no-daemon", ":app:assembleDebug"], cwd=android, check=True)
             apk = android / "app/build/outputs/apk/debug/app-debug.apk"
@@ -267,9 +272,12 @@ def main(args: list[str]) -> int:
     else:
         wanted = [item for item in known if item["versionName"] != current and not (dest / f"{item['versionName']}.apk").exists()]
     failed = []
-    for item in wanted:
+    # The newest first, and the index written after each one, so the slider fills in while the rest still build.
+    write_index(dest)
+    for item in reversed(wanted):
         try:
             build(item, dest)
+            write_index(dest)
         except (subprocess.CalledProcessError, SystemExit, OSError) as error:
             print(f"{item['versionName']} did not build: {error}", file=sys.stderr)
             failed.append(item["versionName"])

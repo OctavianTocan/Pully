@@ -194,11 +194,16 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     }
     fun toChanges() { if (diffPath == null) openDiff(null) else switchTo(PrView.Diff) }
     followQueuedTour(session)
-    // The tour icon is the one way to a tour (rule 113): with none written or on its way it asks whether to write one,
-    // with the model that would; otherwise it opens the tour, or the work that is writing it.
+    // The tour icon is the one way to a tour (rule 113): with none written it asks whether to write one, with the model
+    // that would; while one is written it opens that sheet again on the progress, over the Tour (M12); otherwise it
+    // opens the tour.
     fun openTour() {
-        if (session.tour == null && !tourComing(session)) sheet = "tour" else switchTo(PrView.Tour)
+        if (session.tour != null) { switchTo(PrView.Tour); return }
+        if (tourComing(session)) switchTo(PrView.Tour)
+        sheet = "tour"
     }
+    // The sheet that shows the tour being written closes once the tour is there (M12).
+    LaunchedEffect(session.tour != null) { if (session.tour != null && sheet == "tour") sheet = null }
     fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
         askBehind = null
         ask = AskRequest(
@@ -328,6 +333,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                                     onChanges = ::toChanges,
                                     onOpenSource = { source -> openSource(session, source, uri::openUri, inSheet = true) },
                                     onAsk = { question -> openAsk(forTour = true, initial = question) },
+                                    onProgress = { sheet = "tour" },
                                 )
                             }
                         }

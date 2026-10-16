@@ -14,7 +14,9 @@ cancels it (rule 105).
 `SidePages` and `FilePages` move pages that sit side by side the whole width with
 nothing fading or blurring, both pages in view while they move, and settle on
 `PullsMotion.PageSpring`, critically damped with no snap at the end (rule 107; H20, H36,
-J7). A page moves exactly as far as the finger, and a quick flick turns the page only once
+J7). The Overview's pages are drawn before the first drag, so the first swipe from Summary
+to Conversation moves as smoothly as the way back and never pops or holds at its start
+(recording 16 Oct 09:50, 03:29 to 03:53; M8). A page moves exactly as far as the finger, and a quick flick turns the page only once
 the finger has moved it part of the way, so a page never "swipes by itself" (recording
 15 Oct 15:37, 04:12 to 04:31; L6).
 
@@ -137,15 +139,22 @@ Copying shows the dark toast and leaves the copied control unchanged (rule 83; F
 @cc [owner:OctavianTocan,label:product;design] kit-picking-lists-search
 A sheet that picks from a list (themes, earlier chats, models) has a search over it once the
 list is long. The plain lists (themes, earlier chats) are the one `SearchList` component, and
-its groups keep the list's order; the model list, which folds older models and splits Pi's by
+its groups keep the list's order; the model list, which lists older models under a heading and splits Pi's by
 provider, uses the same `SheetSearch` and matching ("most bottom sheets that we have actually
 benefit a lot from search", recording 15 Oct 15:37, 12:26 to 12:36; L4, L23, L36).
 
 @cc [owner:OctavianTocan,label:design] kit-fold-headings-line-up
-Every fold heading, on a page or a sheet, has its chevron on one line at the right edge
-whatever its name's length, and the hairline under it ("these chevrons are not aligned,
-there's no horizontal line under Failing, Passing, Skipped", recording 15 Oct 15:37, 08:05
-to 08:21; L3, L12).
+Every fold heading on a page has its chevron on one line at the right edge whatever its
+name's length, and the hairline under it ("these chevrons are not aligned", recording
+15 Oct 15:37, 08:05 to 08:21; L3, L12). Sheets have no fold headings (kit-sheet-headings).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-headings
+Every bottom sheet heads its sections with the one `SheetHeading`, the small muted heading
+of the Settings sheet: no line under it, no count and no chevron, and nothing folds. Checks,
+Commits, Files, the model list and the rest use it ("it has to be the same logic everywhere",
+recording 16 Oct 09:50, 02:55 to 03:27 and 03:54 to 04:05; M7, Tavi's decision, replacing
+the fold headings of L12 on sheets). A sheet's first field sits `SheetTopGap` under the ✕,
+more than before (M7).
 
 @cc [owner:OctavianTocan,label:design] kit-tab-marks-sit-centred
 A capsule tab's mark and word sit centred in the tab with room either side; a word too long

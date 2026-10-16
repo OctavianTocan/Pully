@@ -37,7 +37,16 @@ Settings, Advanced, Past versions has a dev-only slider over every version of th
 oldest on the left. It rests on the running version, so the app MUST always run the
 newest UI unless an older one is opened from there. An older version opens as that
 version's own build from git, beside this app, never as a mode of this one (Tavi,
-15 Oct: "a dev-only slider ... by default the app just has latest changes").
+15 Oct: "a dev-only slider ... by default the app just has latest changes"). While the
+server has built none yet the page says so and that it builds them after each update,
+newest first; only a failed request says the server could not be reached (recording
+16 Oct 09:50, 01:09 to 01:14; M3).
+
+@cc [owner:OctavianTocan,label:product] settings-effort-under-model
+Settings has an Effort row of its own right under Model whenever the chosen model has
+more than one effort, and the model list has no effort at its bottom, so nobody scrolls
+past every model to reach it. The Analyze sheet shows Effort the same way ("put effort as
+an option here", recording 16 Oct 09:50, 00:44 to 01:04; M2).
 
 @cc [owner:OctavianTocan,label:product;security] settings-usage-stats-drops-queue
 The main Settings page has a Usage stats switch, on by default, with a Stats row beside

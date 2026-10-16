@@ -12,6 +12,31 @@ section here; `pnpm run android:design` fails when the version has none. The app
 file, and android/scripts/publish-apk.sh puts it in latest.json.
 -->
 
+## 0.39.0
+
+Your GitHub year on Profile, plain sheets and a calmer Inbox.
+
+### New
+
+- Profile shows your last year on GitHub: contributions over your recent days, commits, pull requests, reviews, your streak and the year month by month.
+- Effort has its own row under Model in Settings and in Analyze, so you no longer scroll past every model to change it.
+- Generate tour keeps its sheet open and shows the tour being written there. Close it whenever you like; the tour icon brings it back.
+
+### Changed
+
+- Inbox rows no longer show Jev's kind and risk. Sorting by risk shows one short risk word under the number instead, and rows keep their height.
+- Rows no longer archive on a swipe; Archive is in the hold menu. On Tours a swipe left opens the tour and a swipe right goes back to the Inbox.
+- Sheets head their sections the way Settings does, with no lines, numbers or arrows, and their search sits further from the close button.
+- The summary switch is just the link, with no word before it.
+- Pinching the diff makes the text bigger or smaller again, instead of shrinking the whole page.
+- Files touch edge to edge as you swipe between them.
+
+### Fixed
+
+- The first swipe from Summary to Conversation no longer jumps.
+- Past versions says none are built yet instead of saying the server did not answer, and the server now builds them after each update.
+- Generate tour no longer looks broken when tapped before the pull request has loaded.
+
 ## 0.38.0
 
 GitHub links open in Pulls: tap one, share it, or select it.

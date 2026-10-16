@@ -90,17 +90,23 @@ internal fun ColumnScope.ProfilePageContent(
 private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShowClosed: (Boolean) -> Unit, choices: List<RepoChoice>, onRepos: () -> Unit) {
     val c = LocalPullsColors.current
     val uri = LocalUriHandler.current
+    // The Inbox names you only from pull requests you opened; the server's GitHub sign-in names you otherwise.
+    var statsLogin by remember { mutableStateOf<String?>(null) }
+    val you = viewer ?: statsLogin
     // You, and a tap on you opens your GitHub profile (H23): no row of its own, no server address under the name (H24).
     Row(
         Modifier.padding(top = 10.dp).clip(RoundedCornerShape(PullsRadius.lg))
-            .then(if (viewer != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open your GitHub profile") { uri.openUri("https://github.com/$viewer") } else Modifier)
+            .then(if (you != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open your GitHub profile") { uri.openUri("https://github.com/$you") } else Modifier)
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (viewer != null) GithubAvatar(viewer, size = 52.dp) else ProfileDot(size = 52.dp)
-        Text(viewer ?: "Pulls", style = PullsType.xl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
+        if (you != null) GithubAvatar(you, size = 64.dp) else ProfileDot(size = 64.dp)
+        Text(you ?: "Pulls", style = PullsType.xxl.copy(fontWeight = FontWeight.SemiBold), color = c.text, maxLines = 1)
     }
-    // The card sits close under you (H21).
+    // Your year on GitHub, between you and the settings: the sheet is a profile, not only switches (M5).
+    ProfileStats(onLogin = { statsLogin = it })
+    // The card sits under its heading, below the numbers.
+    com.octaviantocan.pulls.ui.design.SheetHeading("Inbox")
     SheetCard(gap = 6.dp) {
         SheetRow("Repositories", onRepos, first = true, iconless = true) {
             val on = choices.count { it.shown }
@@ -119,7 +125,7 @@ private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
     val c = LocalPullsColors.current
     var query by remember { mutableStateOf("") }
     val choices = repoChoices(pulls, settings.hiddenRepos, query)
-    SheetSearch(query, { query = it }, "Find a repository", Modifier.padding(top = 14.dp))
+    SheetSearch(query, { query = it }, "Find a repository", Modifier.padding(top = com.octaviantocan.pulls.ui.design.SheetTopGap))
     if (choices.isEmpty()) {
         Text(
             if (query.isBlank()) "No repositories yet. They appear once you have a pull request." else "No repository matches “${query.trim()}”.",

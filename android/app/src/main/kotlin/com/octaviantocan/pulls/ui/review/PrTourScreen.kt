@@ -71,7 +71,6 @@ import com.octaviantocan.pulls.ui.ai.Glossary
 import com.octaviantocan.pulls.ui.ai.Sources
 import com.octaviantocan.pulls.ui.ai.TourBlockView
 import com.octaviantocan.pulls.ui.ai.TourEmpty
-import com.octaviantocan.pulls.ui.ai.TourRunning
 import com.octaviantocan.pulls.ui.ai.tourComing
 import com.octaviantocan.pulls.ui.ai.startTour
 import com.octaviantocan.pulls.ui.design.FloatIcon
@@ -113,6 +112,7 @@ internal fun PrTourScreen(
     onChanges: () -> Unit,
     onOpenSource: (TourSource) -> Unit,
     onAsk: (String?) -> Unit,
+    onProgress: () -> Unit = {},
 ) {
     val c = LocalPullsColors.current
     val scope = rememberCoroutineScope()
@@ -250,7 +250,7 @@ internal fun PrTourScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        item(key = "intro") { Intro(session, head, tour, running, preview) }
+                        item(key = "intro") { Intro(session, head, tour, running, preview, onProgress) }
                         if (preview != null) itemsIndexed(preview.planned, key = { index, _ -> "stop:$index" }) { index, (title, purpose) ->
                             val written = preview.written[index]
                             if (written != null) StopCard(session, written, onOpenSource)
@@ -265,10 +265,11 @@ internal fun PrTourScreen(
                 }
             }
             // The Ask pill is Home's search pill: the same face and size, and the page dims behind it while it waits (K12).
+            // There is nothing to ask about before the tour is written, so there is no pill until then (M12).
             var askText by remember { mutableStateOf("") }
             var askFocused by remember { mutableStateOf(false) }
-            SearchDim(askFocused, askText.isEmpty())
-            AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
+            if (tour != null) SearchDim(askFocused, askText.isEmpty())
+            if (tour != null) AskPill(askText, { askText = it }, { askFocused = it }, Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp), onAsk)
         }
     }
 
@@ -309,12 +310,22 @@ private fun Card(content: @Composable () -> Unit) {
 
 /** The tour's own card: its title and overview, a note when it was written for an older commit, and the way to make a new one. */
 @Composable
-private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Boolean, preview: TourPreview? = null) {
+private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Boolean, preview: TourPreview? = null, onProgress: () -> Unit = {}) {
     val c = LocalPullsColors.current
     Card {
         when {
+            // The work log lives in the tour icon's sheet, not here: one line of a fixed height says the tour is being
+            // written and opens that sheet again, so nothing on the page moves as the log changes (M12).
             tour == null && (running || tourComing(session)) -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                TourRunning(session, Modifier)
+                Row(
+                    Modifier.fillMaxWidth().cueClickable(role = Role.Button, onClickLabel = "Show the progress", onClick = onProgress),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    com.octaviantocan.pulls.ui.design.BreathingDot()
+                    Text("Writing the tour", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1)
+                    LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+                }
                 if (preview != null) {
                     Text(preview.title, style = PullsType.xxl, color = c.text)
                     if (preview.overview.isNotBlank()) Markdown(preview.overview, style = PullsType.read.copy(color = c.text))

@@ -14,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -24,6 +26,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.octaviantocan.pulls.sound.Haptics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -174,7 +177,8 @@ fun Modifier.sideSwipe(state: SidePagesState): Modifier = draggable(
  * is just past the right edge, a drag anywhere the screens do not use themselves moves both with the finger, and
  * letting go settles on the nearer one, or on the next one the way a throw went (rule 105). A change of [target] from
  * elsewhere, a tab, glides the row there. Nothing fades or blurs: the screens only move. [pages] is the order they sit
- * in and [onPage] takes the one a swipe settled on. Only the screens in view are composed, but each keeps what it
+ * in and [onPage] takes the one a swipe settled on. Only the screens in view are composed (and, with `warm`, the ones
+ * beside them), but each keeps what it
  * remembers, its scroll above all, while it is out of view: coming back finds it where it was left (J9). A swipe that a
  * screen takes itself (a row's swipe) does not move the pages.
  */
@@ -188,20 +192,29 @@ fun <S> SidePages(
 ) {
     val index = pages.indexOf(target).coerceAtLeast(0)
     val state = rememberSidePages(index, pages.size, { onPage(pages[it]) })
-    SidePages(state, pages, modifier, content)
+    SidePages(state, pages, modifier, content = content)
 }
 
-/** [SidePages] on a [state] the screen holds, so its header and tabs can follow and move the same pages. */
+/**
+ * [SidePages] on a [state] the screen holds, so its header and tabs can follow and move the same pages. With [warm],
+ * the pages beside the one at rest are built too, off screen, once the screen has drawn its first frame: a swipe then
+ * starts on a page that is already there. Built in the drag's first frame instead, a heavy page (the Conversation)
+ * held the page still and then jumped it to the finger ("from summary to conversation ... there is a bit of
+ * resistance at the start ... it pops a bit": recording 16 Oct 09:50, 03:29 to 03:53; M8).
+ */
 @Composable
 fun <S> SidePages(
     state: SidePagesState,
     pages: List<S>,
     modifier: Modifier = Modifier,
+    warm: Boolean = false,
     content: @Composable (S) -> Unit,
 ) {
     // Each page's remembered state (its list's scroll, a field) outlives its leaving the screen.
     val saved = rememberSaveableStateHolder()
-    val shown by remember(pages) { derivedStateOf { pages.indices.filter { abs(it - state.at) < 1f } } }
+    var drawn by remember { mutableStateOf(false) }
+    if (warm) LaunchedEffect(Unit) { withFrameNanos { }; drawn = true }
+    val shown by remember(pages) { derivedStateOf { pages.indices.filter { abs(it - state.at).let { d -> d < 1f || (drawn && d <= 1f) } } } }
     Box(
         modifier
             .clipToBounds()
@@ -210,7 +223,9 @@ fun <S> SidePages(
     ) {
         for (page in shown) {
             key(pages[page]) {
-                Box(Modifier.fillMaxSize().graphicsLayer { translationX = (page - state.at) * (size.width + PullsMotion.PageGap.toPx()) }) {
+                // A page built ahead, wholly off screen, is not read out.
+                val away by remember(page) { derivedStateOf { abs(page - state.at) >= 1f } }
+                Box(Modifier.fillMaxSize().graphicsLayer { translationX = (page - state.at) * (size.width + PullsMotion.PageGap.toPx()) }.then(if (away) Modifier.clearAndSetSemantics { } else Modifier)) {
                     saved.SaveableStateProvider(pages[page].toString()) { content(pages[page]) }
                 }
             }
