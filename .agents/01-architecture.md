@@ -134,11 +134,12 @@ Agents post a diff and get back a link that shows it as a pull request page (Tav
   the only path meant to sit outside Cloudflare Access, and reaches only its account's posted diffs.
 - A post stores what the agent sent: the patch gzipped in chunks (`posted-patch:`), its words (`posted-diff:`) and its
   groups, tour, brief and review (`posted-agent:`). Opening one parses it again into a `posted` ref
-  (`/-/<id>`, no base, head or commits) and writes the agent's results into the usual caches, so the page and the
-  phone draw them like their own. `SERVER_CACHE_BUDGET` keeps `posted:` keys, so links last forever; only DELETE
+  (`/-/<id>`, no base, head or commits) and writes the agent's results into the usual caches, so the phone draws
+  them like its own. `SERVER_CACHE_BUDGET` keeps `posted:` keys, so links last forever; only DELETE
   removes one. `PULLY_PUBLIC_URL` names the link's host.
-- The phone lists them in the Inbox under "Posted by agents"; the web opens `/-/<id>` through `source-fetch` with the
-  target `posted:<id>`. The agents' skill is `skills/post-diff-to-pully/SKILL.md`.
+- The phone lists them in the Inbox under "Posted by agents" and opens them. The web never does: its RPC refuses a
+  `posted:` target or key and hides their records, and `/-/<id>` there only says to open it in the app (Tavi, 16 Oct
+  14:17). The agents' skill is `skills/post-diff-to-pully/SKILL.md`.
 - The account also keeps the phone's synced settings, newest change of each one winning.
 
 ## The phone reads the server's store (`packages/cli/src/pr-store.ts`, `stored-diff.ts`)
