@@ -156,6 +156,8 @@ internal fun GroupHeading(
     modifier: Modifier = Modifier,
     line: Boolean = folded,
     background: Color = LocalPullsColors.current.base,
+    /** The name's colour: muted, or a group's own colour, as the Inbox gives the diffs agents posted (plan 13). */
+    tint: Color = LocalPullsColors.current.muted,
     extra: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
@@ -183,12 +185,12 @@ internal fun GroupHeading(
                         .then(if (onOpen != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label", onClick = onOpen) else Modifier)
                         .padding(start = 8.dp, end = 4.dp, top = 10.dp, bottom = 6.dp),
                     style = words,
-                    color = c.muted,
+                    color = tint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 // "(2)" on the name's own baseline, in its words, so name and count read as one phrase (N1).
-                Text("($count)", Modifier.alignByBaseline(), style = words.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
+                Text("($count)", Modifier.alignByBaseline(), style = words.copy(fontFeatureSettings = "tnum"), color = tint, maxLines = 1, softWrap = false)
             }
             // Centred on the words, which sit 2dp low in the name's padded target.
             if (onFold != null) LuIcon(Lu.chevd, Modifier.padding(start = 4.dp, top = 5.dp).rotate(turn), tint = c.faint, size = 18.dp)

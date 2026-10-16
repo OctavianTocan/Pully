@@ -7,6 +7,8 @@ import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { createStorage } from 'unstorage'
 import memoryDriver from 'unstorage/drivers/memory'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createAccounts } from './account'
+import { createPostedStore } from './posted'
 import { localRpcFunctions } from './rpc'
 
 let repo: string
@@ -63,5 +65,26 @@ describe('local RPC', () => {
 
     await call(functions, LOCAL_RPC.storageSetItems, { items: [{ key: 'a', value: '1' }, { key: 'b', value: '2' }] })
     expect(await call(functions, LOCAL_RPC.storageGetItems, { keys: ['b', 'missing', 'a'] })).toEqual(['2', null, '1'])
+  })
+
+  it('opens a posted diff for the page at /-/<id>, and only one the account has', async () => {
+    const driver = memoryDriver()
+    const env = { PULLY_ACCOUNT_EMAIL: 'tavi@example.com', PULLY_ACCOUNT_PASSWORD: 'correct horse' }
+    const storage = createStorage({ driver })
+    const account = await createAccounts(storage).seed(env)
+    const { meta } = await createPostedStore(storage, createCacheRepositories(storage)).save({
+      accountId: account!.id,
+      keyName: 'Laptop',
+      patch: 'diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-one\n+two\n',
+      fields: { title: 'Two' },
+    })
+    const functions = localRpcFunctions({ cwd: repo, driver, env })
+
+    const diff = await call(functions, LOCAL_RPC.sourceFetch, { target: `posted:${meta.id}` }) as { title: string, head?: unknown, files: { path: string }[] }
+    expect(diff).toMatchObject({ title: 'Two', files: [{ path: 'a.ts' }] })
+    expect(diff.head).toBeUndefined()
+    expect(await call(functions, LOCAL_RPC.sourceKey, { target: `posted:${meta.id}` })).toBe(`posted:${meta.id}`)
+    expect(await call(functions, LOCAL_RPC.sourceFingerprint, { target: `posted:${meta.id}` })).toBe('v1')
+    await expect(call(functions, LOCAL_RPC.sourceFetch, { target: 'posted:nothinghere' })).rejects.toThrow('no posted diff')
   })
 })

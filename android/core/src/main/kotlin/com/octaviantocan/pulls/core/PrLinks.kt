@@ -51,6 +51,12 @@ sealed class OpenTarget {
         override val label = "Worktree"
         override val serverTarget = ""
     }
+
+    /** A diff an agent posted to the server with the account's key (plan 13), by the id in its `/-/<id>` link. */
+    data class Posted(val id: String) : OpenTarget() {
+        override val label = "Posted diff"
+        override val serverTarget = "-/$id"
+    }
 }
 
 object PrLinks {
@@ -72,11 +78,14 @@ object PrLinks {
     )
     private val branchPath = Regex("""(?:https?://)?[^/\s]+/branch/(.+?)(?:\?|#|$)""")
     private val bareBranch = Regex("""^branch/(.+)$""")
+    /** A posted diff's link, `https://<server>/-/<id>`, on whatever host the server names itself (`PULLY_PUBLIC_URL`). */
+    private val postedPath = Regex("""(?:^|https?://)(?:[A-Za-z0-9.-]+(?::\d+)?)?/-/([0-9A-Za-z]{6,32})(?=[/?#\s]|$)""")
 
     /** The first pull request or branch this text names, or null. */
     fun parse(raw: String): OpenTarget? {
         val text = raw.trim()
         if (text.isEmpty() || text.startsWith("diff --git")) return null
+        postedPath.find(text)?.let { return OpenTarget.Posted(it.groupValues[1]) }
         githubPull.find(text)?.let { match ->
             return OpenTarget.Pull(match.groupValues[1], match.groupValues[2], match.groupValues[3].toInt(), "github.com")
         }

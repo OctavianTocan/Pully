@@ -136,3 +136,38 @@ background, newest first, adding each to the index as it is built (recording 16 
 contributions per day, streaks, followers and repositories), reused for a few minutes and
 fetched with the server's own GitHub token; no repository name, title or text is in it
 (recording 16 Oct 2026 09:50, 02:06 to 02:16; M5).
+
+@cc [owner:OctavianTocan,label:product;security] server-account-from-the-environment
+The account is `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`, seeded on first use and
+updated when they change; there is no way to sign up. Without them `account-status`
+answers `hasAccount: false` and nobody can sign in. After five wrong passwords in fifteen
+minutes sign-in waits, even for the right one (Tavi, 16 Oct 12:40: "you don't need to add
+any register functionality ... you can just seed the database").
+
+@cc [owner:OctavianTocan,label:product;architecture] server-posted-diffs-kept-forever
+A posted diff is stored as the agent sent it, the patch and its fields, and everything
+else is worked out again from them; the cache budget MUST NOT evict it and only a DELETE
+removes it, with everything kept under its key (Tavi, 16 Oct 12:40: "Link is actually
+forever", "store what the agent gave us as opposed to the final result").
+
+@cc [owner:OctavianTocan,label:product] server-posted-links-from-the-environment
+The link a post answers is `PULLY_PUBLIC_URL` (such as `https://prs.octaviantocan.com`)
+followed by `/-/<id>`, or the request's own origin when it is unset (Tavi, 16 Oct 12:40:
+"the domain should probably just be like an environment variable").
+
+@cc [owner:OctavianTocan,label:security] server-posted-refuses-secrets
+A post whose added lines look like a key or token, or that adds a `.env` file, is refused
+with 422 naming the file, line and kind, never the secret itself, unless the agent says
+`allowSecrets` (plan "Posted diffs", Safety).
+
+@cc [owner:OctavianTocan,label:product] server-agent-results-checked
+An agent MAY send its own groups, tour, brief and review with a post (Tavi, 16 Oct 12:40:
+"the agent can actually add its own grouping and tour"). Each is checked against its
+schema and against the diff: a path the diff does not have is dropped with a warning in
+the answer, and a part that does not fit is left out with a warning, so the post itself
+still goes through.
+
+@cc [owner:OctavianTocan,label:product] server-settings-newer-wins
+The account's synced settings are merged one setting at a time: a value replaces the
+kept one only when its time is newer, so two phones never undo each other's other
+choices. At most 200 settings of 8 KB in all are kept (Tavi, 16 Oct 12:47).

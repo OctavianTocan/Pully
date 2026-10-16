@@ -69,3 +69,17 @@ page of faces drawn in themselves. The app font sets every role of the type scal
 numbers' Mona Sans and the code face; the code font sets the code face alone. Geist stays
 the default. Tavi asked for this in the recording of 16 Oct 12:10, 06:29 to 06:42 (a font
 for the app as well as for code; N10), moving Code font out of the Code section.
+
+@cc [owner:OctavianTocan,label:product;security] settings-sign-in-page
+While the server has an account and the phone is not signed in to it, a sign-in page with
+email and password covers the app, as the update screen does; signed in, it stays signed in
+until Sign out on the Account page. A server with no account, an older server or one that
+cannot be reached MUST NOT bring the page up, and a session the server no longer knows
+brings it back ("it actually should get a sign in screen, but once you sign in it's just
+signed in": Tavi, 16 Oct 12:47). There is no sign-up.
+
+@cc [owner:OctavianTocan,label:product;security] settings-agent-keys-on-the-phone
+Settings has an Account section with the signed-in email and an Agent keys page. The page
+lists each key by its name and first letters, makes a key from a name and shows the new key
+once with Copy, and revokes one from its own page, which says what revoking does first
+("please make sure this is possible from the phone": Tavi, 16 Oct 12:47).

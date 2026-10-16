@@ -168,6 +168,9 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     Effort(Main),
     WhatsNew(Main),
     Stats(Main),
+    Account(Main),
+    AgentKeys(Main),
+    AgentKey(AgentKeys),
 }
 
 /** The page's name in usage stats: `settings` for the main page, `settings-<page>` for one inside it. */
@@ -188,6 +191,9 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.Effort -> "Effort"
     SettingsPage.WhatsNew -> "What's new"
     SettingsPage.Stats -> t("stats.title")
+    SettingsPage.Account -> "Account"
+    SettingsPage.AgentKeys -> "Agent keys"
+    SettingsPage.AgentKey -> AccountUi.opened?.name ?: "Agent key"
 }
 
 /**
@@ -227,6 +233,9 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
             ChangelogEntries(remember { WhatsNew.all(context) })
         }
         SettingsPage.Stats -> StatsPage(settings)
+        SettingsPage.Account -> AccountPage()
+        SettingsPage.AgentKeys -> AgentKeysPage(open = onPage)
+        SettingsPage.AgentKey -> AgentKeyPage(onDone = { onPage(SettingsPage.AgentKeys) })
     }
 }
 
@@ -270,6 +279,8 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
     val systemDark = isSystemInDarkTheme()
     val zoomIndex = ZOOMS.indexOfFirst { kotlin.math.abs(settings.codeZoom - it.second) < 0.04f }.coerceAtLeast(0)
 
+    // Who is signed in and the keys agents post with, first: the phone is where they are made (Tavi, 16 Oct 12:47).
+    AccountGroup(open)
     Group("Appearance") {
         Box(Modifier.padding(top = 10.dp)) {
             val themes = listOf("system", "light", "dark")

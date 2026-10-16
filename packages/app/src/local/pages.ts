@@ -9,6 +9,8 @@ export type LocalPage
     | { kind: 'branch', branch: string }
     | { kind: 'worktree' }
     | { kind: 'commit', sha: string }
+    /** A diff an agent posted with the account's key (plan 13): only its patch, so no branches or commits. */
+    | { kind: 'posted', id: string }
 
 export const RepoInfoSchema = v.object({
   currentBranch: v.optional(v.string()),
@@ -33,6 +35,8 @@ export function routeForPage(page: LocalPage): string {
       return '/worktree'
     case 'commit':
       return `/commit/${page.sha}`
+    case 'posted':
+      return `/-/${page.id}`
   }
 }
 
@@ -51,6 +55,8 @@ export async function targetFor(page: LocalPage, rpc: LocalRpc): Promise<string>
       return ''
     case 'commit':
       return page.sha
+    case 'posted':
+      return `posted:${page.id}`
   }
 }
 
@@ -62,5 +68,6 @@ export function localRoutes(component: () => Promise<RouteComponent>): RouteReco
     { path: '/branch/:branch(.+)', component, props: route => ({ page: { kind: 'branch', branch: param(route, 'branch') } satisfies LocalPage }) },
     { path: '/worktree', component, props: { page: { kind: 'worktree' } satisfies LocalPage } },
     { path: '/commit/:sha', component, props: route => ({ page: { kind: 'commit', sha: param(route, 'sha') } satisfies LocalPage }) },
+    { path: '/-/:id([0-9A-Za-z]{6,32})', component, props: route => ({ page: { kind: 'posted', id: param(route, 'id') } satisfies LocalPage }) },
   ]
 }

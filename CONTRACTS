@@ -24,11 +24,27 @@ listed on the UI Book's Contracts page, sorted by area, with nothing left out or
 by hand. Adding a `CONTRACTS` file needs no other change for it to show there
 (message 15 Oct, "a section under the UI book for code contracts").
 
-@cc [owner:OctavianTocan,label:security;architecture] phone-api-no-login
-The phone's API (`POST /api/rpc` and `GET /android/*` on the server) has no sign-in, by
-the owner's decision. The phone MUST NOT grow a login screen, account, OAuth flow or user
-token of its own; who may reach the server is decided by the network it sits on and,
-optionally, the Cloudflare Access headers the phone is given in Settings.
+@cc [owner:OctavianTocan,label:security;architecture] phone-api-one-account
+The phone's API (`POST /api/rpc` and `GET /android/*`) stays behind Cloudflare Access with
+the headers the phone is given in Settings, as before. The server has one account, seeded
+from the environment, with no sign-up and no GitHub connection; the phone signs in to it
+with email and password once and stays signed in until Sign out. The account's own
+methods (its keys, synced settings and posted diffs) MUST need that session; the rest of
+the phone API is reached as before. This replaces "no login" by Tavi's decision of 16 Oct
+12:40 and 12:47 (plan "Posted diffs"). Google sign-in MAY come later.
+
+@cc [owner:OctavianTocan,label:security] agent-api-needs-a-key
+`/api/v1/*` is the only part of the server meant to sit outside Cloudflare Access, and it
+MUST answer 401 to every call without a valid account key. A key reaches only its own
+account's posted diffs: no phone method, no GitHub token, no AI run, no other account
+(Tavi, 16 Oct 12:47: "that endpoint doesn't really allow them to do anything unless they
+pass a valid API key").
+
+@cc [owner:OctavianTocan,label:security] account-secrets-kept-as-hashes
+The server keeps the account's password only as a salted PBKDF2 hash, and its sessions and
+API keys only as SHA-256 hashes. A key is shown once, when it is made; afterwards only its
+name and first letters are shown. None of them MAY be written into an answer, an error, a
+log line or a usage event.
 
 @cc [owner:OctavianTocan,label:security] github-token-stays-on-server
 The GitHub token is resolved on the server and used only there. It MUST NOT be sent to

@@ -13,6 +13,16 @@ class PrLinksTest {
     }
 
     @Test
+    fun parsesPostedDiffLinksOnAnyServer() {
+        val target = PrLinks.parse("https://prs.octaviantocan.com/-/k3T9xQ2mLp0a")
+        assertEquals(OpenTarget.Posted("k3T9xQ2mLp0a"), target)
+        assertEquals("-/k3T9xQ2mLp0a", target?.serverTarget)
+        assertEquals(OpenTarget.Posted("k3T9xQ2mLp0a"), PrLinks.parse("Here it is: http://localhost:8792/-/k3T9xQ2mLp0a?x=1"))
+        assertEquals(OpenTarget.Posted("k3T9xQ2mLp0a"), PrLinks.parse("prs.example.com/-/k3T9xQ2mLp0a"))
+        assertNull(PrLinks.parse("/-/ab"))
+    }
+
+    @Test
     fun parsesServerAndShortForms() {
         assertEquals(
             OpenTarget.Pull("antfu", "pulls.review", 62),

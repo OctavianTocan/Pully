@@ -96,6 +96,7 @@ function createAppWithRefRoutes(host: ServerHost): H3 {
       method: event.req.method,
       json: () => event.req.json(),
       body: event.req.body,
+      headers: event.req.headers,
     }, host)
     if (native)
       return native

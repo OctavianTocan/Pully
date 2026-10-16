@@ -36,7 +36,7 @@ function lineAnchor(selection: AskSelection): string {
  */
 export function githubBlobUrl(diff: DiffsPayload, file: FileChange, selection: AskSelection): string | undefined {
   const { ref } = diff
-  if (ref.kind === 'paste' || ref.kind === 'local')
+  if (ref.kind === 'paste' || ref.kind === 'local' || ref.kind === 'posted')
     return
   const isOld = selection.side === 'deletions'
   const sha = isOld ? diff.base?.sha : diff.head?.sha

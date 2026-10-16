@@ -6,6 +6,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.ui.design.Messages
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.floatOrNull
 
 /**
  * The web app's local preferences (`state/settings.ts`, `state/layout.ts`, `state/dark.ts`,
@@ -88,14 +93,14 @@ class AppSettings private constructor(private val context: Context) {
     var hiddenRepos by mutableStateOf(prefs.getStringSet("hiddenRepos", null)?.toSet() ?: emptySet())
         private set
 
-    fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply(); changed("theme", value) }
-    fun updateColorTheme(value: String) { colorTheme = value; prefs.edit().putString("colorTheme", value).apply(); changed("colorTheme", value) }
-    fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply(); changed("locale", value) }
-    fun updateLayout(value: String) { layout = value; prefs.edit().putString("layout", value.uppercase()).apply(); changed("layout", value) }
-    fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply(); changed("autoRefresh", value) }
-    fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply(); changed("showThreads", value) }
-    fun updateAnalyzeChoice(value: AnalyzeChoice) { analyzeChoice = value; prefs.edit().putString("analyzeChoice", value.encode()).apply() }
-    fun updateEffort(value: String) { effort = value; prefs.edit().putString("effort", value).apply(); changed("effort", value.ifBlank { "default" }) }
+    fun updateTheme(value: String) { theme = value; prefs.edit().putString("theme", value).apply(); changed("theme", value); touched("theme") }
+    fun updateColorTheme(value: String) { colorTheme = value; prefs.edit().putString("colorTheme", value).apply(); changed("colorTheme", value); touched("colorTheme") }
+    fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply(); changed("locale", value); touched("locale") }
+    fun updateLayout(value: String) { layout = value; prefs.edit().putLayout(value).apply(); changed("layout", value); touched("layout") }
+    fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply(); changed("autoRefresh", value); touched("autoRefresh") }
+    fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply(); changed("showThreads", value); touched("showThreads") }
+    fun updateAnalyzeChoice(value: AnalyzeChoice) { analyzeChoice = value; prefs.edit().putString("analyzeChoice", value.encode()).apply(); touched("analyzeChoice") }
+    fun updateEffort(value: String) { effort = value; prefs.edit().putString("effort", value).apply(); changed("effort", value.ifBlank { "default" }); touched("effort") }
     /**
      * Changes the code size on screen without saving it: a pinch calls this as the fingers move, so the code is laid
      * out again at each size, and [updateCodeZoom] once when they lift (M9).
@@ -105,12 +110,13 @@ class AppSettings private constructor(private val context: Context) {
     fun updateCodeZoom(value: Float) {
         codeZoom = value.coerceIn(MIN_ZOOM, MAX_ZOOM)
         prefs.edit().putFloat("codeZoom", codeZoom).apply()
+        touched("codeZoom")
     }
 
-    fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply(); changed("codeWrap", value) }
-    fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply(); changed("sounds", value) }
-    fun updateHaptics(value: Boolean) { haptics = value; prefs.edit().putBoolean("haptics", value).apply(); changed("haptics", value) }
-    fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply(); changed("soundMaterial", value) }
+    fun updateCodeWrap(value: Boolean) { codeWrap = value; prefs.edit().putBoolean("codeWrap", value).apply(); changed("codeWrap", value); touched("codeWrap") }
+    fun updateSounds(value: Boolean) { sounds = value; prefs.edit().putBoolean("sounds", value).apply(); changed("sounds", value); touched("sounds") }
+    fun updateHaptics(value: Boolean) { haptics = value; prefs.edit().putBoolean("haptics", value).apply(); changed("haptics", value); touched("haptics") }
+    fun updateSoundMaterial(value: String) { soundMaterial = value; prefs.edit().putString("soundMaterial", value).apply(); changed("soundMaterial", value); touched("soundMaterial") }
     fun updateUpdateNotifications(value: Boolean) { updateNotifications = value; prefs.edit().putBoolean("updateNotifications", value).apply(); changed("updateNotifications", value) }
 
     /** Turns usage stats on or off. Off drops the queue at once and is not itself sent; on is the first event sent again. */
@@ -124,11 +130,74 @@ class AppSettings private constructor(private val context: Context) {
     fun setRepoShown(repo: String, shown: Boolean) {
         hiddenRepos = if (shown) hiddenRepos - repo else hiddenRepos + repo
         prefs.edit().putStringSet("hiddenRepos", hiddenRepos).apply()
+        touched("hiddenRepos")
     }
 
-    fun updateAppFont(value: String) { appFont = value; prefs.edit().putString("appFont", value).apply(); changed("appFont", value) }
+    fun updateAppFont(value: String) { appFont = value; prefs.edit().putString("appFont", value).apply(); changed("appFont", value); touched("appFont") }
 
-    fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply(); changed("codeFont", value) }
+    fun updateCodeFont(value: String) { codeFont = value; prefs.edit().putString("codeFont", value).apply(); changed("codeFont", value); touched("codeFont") }
+
+    /** The layout as the web stores it, in capitals. */
+    private fun android.content.SharedPreferences.Editor.putLayout(value: String) = putString("layout", value.uppercase())
+
+    /** A setting the account keeps (plan 13) changed here: [SettingsSync] sends it on. */
+    private fun touched(key: String) = SettingsSync.touched(context, key)
+
+    /** A synced setting's value as the account keeps it; null for one that does not travel. */
+    fun syncedValue(name: String): JsonElement? = when (name) {
+        "theme" -> JsonPrimitive(theme)
+        "colorTheme" -> JsonPrimitive(colorTheme)
+        "locale" -> JsonPrimitive(locale)
+        "layout" -> JsonPrimitive(layout)
+        "autoRefresh" -> JsonPrimitive(autoRefresh)
+        "showThreads" -> JsonPrimitive(showThreads)
+        "effort" -> JsonPrimitive(effort)
+        "analyzeChoice" -> JsonPrimitive(analyzeChoice.encode())
+        "codeZoom" -> JsonPrimitive(codeZoom)
+        "codeWrap" -> JsonPrimitive(codeWrap)
+        "appFont" -> JsonPrimitive(appFont)
+        "codeFont" -> JsonPrimitive(codeFont)
+        "sounds" -> JsonPrimitive(sounds)
+        "haptics" -> JsonPrimitive(haptics)
+        "soundMaterial" -> JsonPrimitive(soundMaterial)
+        "hiddenRepos" -> JsonArray(hiddenRepos.sorted().map(::JsonPrimitive))
+        else -> null
+    }
+
+    /**
+     * Takes a setting another phone changed later than this one: saved and shown at once, without counting it as a change
+     * made here or sending it back. False for a name or a value this version does not know, which is left as it is.
+     */
+    fun applySynced(name: String, value: JsonElement): Boolean {
+        val text = (value as? JsonPrimitive)?.takeIf { it.isString }?.content
+        val flag = (value as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull
+        val number = (value as? JsonPrimitive)?.takeIf { !it.isString }?.floatOrNull
+        val edit = prefs.edit()
+        when (name) {
+            "theme" -> { theme = text?.takeIf { it in listOf("system", "light", "dark") } ?: return false; edit.putString(name, theme) }
+            "colorTheme" -> { colorTheme = text ?: return false; edit.putString(name, colorTheme) }
+            "locale" -> { locale = text?.takeIf { code -> Messages.LOCALES.any { it.first == code } } ?: return false; edit.putString(name, locale) }
+            "layout" -> { layout = text?.takeIf { it == "split" || it == "unified" } ?: return false; edit.putLayout(layout) }
+            "autoRefresh" -> { autoRefresh = flag ?: return false; edit.putBoolean(name, autoRefresh) }
+            "showThreads" -> { showThreads = flag ?: return false; edit.putBoolean(name, showThreads) }
+            "effort" -> { effort = text ?: return false; edit.putString(name, effort) }
+            "analyzeChoice" -> { analyzeChoice = AnalyzeChoice.decode(text ?: return false); edit.putString(name, analyzeChoice.encode()) }
+            "codeZoom" -> { codeZoom = number?.coerceIn(MIN_ZOOM, MAX_ZOOM) ?: return false; edit.putFloat(name, codeZoom) }
+            "codeWrap" -> { codeWrap = flag ?: return false; edit.putBoolean(name, codeWrap) }
+            "appFont" -> { appFont = text ?: return false; edit.putString(name, appFont) }
+            "codeFont" -> { codeFont = text ?: return false; edit.putString(name, codeFont) }
+            "sounds" -> { sounds = flag ?: return false; edit.putBoolean(name, sounds) }
+            "haptics" -> { haptics = flag ?: return false; edit.putBoolean(name, haptics) }
+            "soundMaterial" -> { soundMaterial = text ?: return false; edit.putString(name, soundMaterial) }
+            "hiddenRepos" -> {
+                hiddenRepos = (value as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content }?.toSet() ?: return false
+                edit.putStringSet(name, hiddenRepos)
+            }
+            else -> return false
+        }
+        edit.apply()
+        return true
+    }
 
     /** `settings.change`: which setting and its new value, only ever a fixed choice or on and off. */
     private fun changed(key: String, value: Any) =

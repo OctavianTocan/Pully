@@ -165,3 +165,11 @@ buttons should be stuck at the bottom even if I'm starting to pull", recording 1
 A drag a row's swipe has taken is never also a tap: a short sideways drag springs the row
 back and opens nothing, so a row never comes back pulled aside or animating (recording
 15 Oct 15:37, 09:28 to 09:44; L16).
+
+@cc [owner:OctavianTocan,label:product;design] home-posted-group
+The diffs agents posted to the account are one group of their own at the top of the Inbox,
+"Posted by agents", its heading in the magenta accent, foldable like the others. Its rows
+are the Inbox's row with a magenta terminal tile, who posted it, the + and − and the age;
+a tap opens the diff and a hold offers Open and Delete. There MUST NOT be a chip, filter
+or tag for them ("we are definitely not adding any more chips ... You just group them,
+maybe somewhere specific, and you can maybe color the group": Tavi, 16 Oct 12:47).

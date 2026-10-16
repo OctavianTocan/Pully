@@ -107,6 +107,8 @@ async function sourceOfKey(host: ServerHost, key: string): Promise<{ source: Dif
     return { source: createLocalSource({ cwd: checkoutOf(host), target: ref.target }), entry }
   if (ref.kind === 'paste')
     throw new Error('A pasted diff has no full files.')
+  if (ref.kind === 'posted')
+    throw new Error('A posted diff has no full files, only the patch the agent sent.')
   return { source: createGithubSource(ref, staticCredentials(await resolveGithubToken(process.env))), entry }
 }
 
