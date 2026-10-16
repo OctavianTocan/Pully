@@ -393,3 +393,14 @@ required live workflow deliberately in an appropriate environment. Native
 Mermaid/Shiki-replacement output is not byte-identical to upstream JavaScript
 libraries. No performance benchmark or complete end-to-end parity claim is made.
 Start on localhost with a separate cache.
+
+## Published native CI verification, 16 October 2026
+
+[Bounded native CI](https://github.com/OctavianTocan/pulls.review/actions/runs/38954719782)
+passed on `d9615aae6b4bdbf53133e3c903c7f74906c17ea7` in 2 minutes 8 seconds.
+It compiled the complete locked native backend and passed presentation, lens,
+RPC, native-source and synthetic Docker-cancellation fixtures, followed by all
+three offline HTTP smoke scripts. This was one Ubuntu runner with two Cargo
+workers and a 15-minute job limit. No live provider, real Docker or device
+verification is inferred. The subsequent publication commit changes only
+documentation; the tested runtime source is unchanged.
