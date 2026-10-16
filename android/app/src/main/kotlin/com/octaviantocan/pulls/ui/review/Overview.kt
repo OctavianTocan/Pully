@@ -256,6 +256,25 @@ fun parsePrOverviewData(element: JsonElement?): PrOverviewData? {
 
 private fun JsonObject?.orEmpty(): JsonObject = this ?: JsonObject(emptyMap())
 
+/**
+ * A `pr-overview` answer with the title and description of a `pr-text` answer put in, when that text is newer than the
+ * overview's own (by GitHub's `updatedAt`); null when it is not, or when either is missing. A kept overview then shows
+ * a description edited since it was fetched while the whole overview is still on its way.
+ */
+fun withNewerText(answer: JsonObject?, text: JsonObject?): JsonObject? {
+    val overview = answer?.objOrNull("overview") ?: return null
+    val textAt = text?.strOrNull("updatedAt")?.takeIf { it.isNotBlank() } ?: return null
+    val shownAt = overview.strOrNull("updatedAt").orEmpty()
+    // GitHub writes `updatedAt` as ISO 8601 UTC, so the later time is the larger string.
+    if (shownAt.isNotBlank() && textAt <= shownAt) return null
+    val patched = buildMap {
+        putAll(overview)
+        for (field in listOf("title", "body", "bodyHTML")) text[field]?.let { put(field, it) }
+        put("updatedAt", JsonPrimitive(textAt))
+    }
+    return JsonObject(answer + ("overview" to JsonObject(patched)))
+}
+
 fun parsePrOverview(o: JsonObject): PrOverview? {
     if (o.str("id").isEmpty()) return null
     val head = o.objOrNull("head").orEmpty()

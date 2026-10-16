@@ -4,7 +4,7 @@ import { Diagnostic } from 'nostics'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { staticCredentials } from '../../types/source'
 import { createGithubClient, GithubApiError } from './client'
-import { assessMergeability, defaultMergeCommit, fetchPullRequestOverview, isBotActor, parseChecks, parsePullRequestOverview, parseTimeline } from './overview'
+import { assessMergeability, defaultMergeCommit, fetchPullRequestOverview, fetchPullRequestText, isBotActor, parseChecks, parsePullRequestOverview, parseTimeline } from './overview'
 import { cancelAutoMerge, changePullRequestState, enableAutoMerge, mergePullRequest, updatePullRequestBranch, updatePullRequestText } from './overview-actions'
 
 function rawPullRequest(overrides: Partial<RawPullRequest> = {}): RawPullRequest {
@@ -321,6 +321,25 @@ describe('fetchPullRequestOverview', () => {
   it('throws a 404 when the PR is missing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(graphqlResponse(rawData(null))))
     const error = await fetchPullRequestOverview(createGithubClient(staticCredentials('token')), 'o', 'r', 7).catch(err => err)
+    expect(error).toBeInstanceOf(GithubApiError)
+    expect(error.status).toBe(404)
+  })
+})
+
+describe('fetchPullRequestText', () => {
+  it('asks for the title and description alone', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(graphqlResponse({ repository: { pullRequest: { title: 'Add widgets', body: 'New text', bodyHTML: '<p>New text</p>', updatedAt: '2026-10-16T13:50:00Z' } } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await fetchPullRequestText(createGithubClient(staticCredentials('token')), 'o', 'r', '7')
+    expect(result).toEqual({ title: 'Add widgets', body: 'New text', bodyHTML: '<p>New text</p>', updatedAt: '2026-10-16T13:50:00Z' })
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body)
+    expect(body.variables).toEqual({ owner: 'o', repo: 'r', number: 7 })
+    expect(body.query).not.toContain('timelineItems')
+  })
+
+  it('throws a 404 when the PR is missing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(graphqlResponse({ repository: { pullRequest: null } })))
+    const error = await fetchPullRequestText(createGithubClient(staticCredentials('token')), 'o', 'r', 7).catch(err => err)
     expect(error).toBeInstanceOf(GithubApiError)
     expect(error.status).toBe(404)
   })

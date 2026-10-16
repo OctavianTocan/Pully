@@ -1,8 +1,8 @@
 import type { ChecksStatus, ReviewDecision } from '../../types/pull-request-list'
 import type { GithubClient } from './client'
-import type { RawActor, RawCheckContext, RawGitActor, RawOverviewData, RawPullRequest, RawRepositoryOverview, RawRequestedReviewer, RawTimelineNode } from './overview-query'
+import type { RawActor, RawCheckContext, RawGitActor, RawOverviewData, RawPullRequest, RawRepositoryOverview, RawRequestedReviewer, RawTextData, RawTimelineNode } from './overview-query'
 import { GithubApiError } from './client'
-import { PULL_REQUEST_OVERVIEW_QUERY } from './overview-query'
+import { PULL_REQUEST_OVERVIEW_QUERY, PULL_REQUEST_TEXT_QUERY } from './overview-query'
 
 export type PrOverviewState = 'open' | 'draft' | 'closed' | 'merged'
 export type MergeMethod = 'merge' | 'squash' | 'rebase'
@@ -535,6 +535,26 @@ export async function fetchPullRequestOverview(client: GithubClient, owner: stri
   if (!overview)
     throw new GithubApiError(404, `Pull request ${owner}/${repo}#${number} not found`)
   return overview
+}
+
+/** A pull request's title and description as GitHub holds them now, with the `updatedAt` they were read at. */
+export type PrText = Pick<PrOverview, 'title' | 'body' | 'bodyHTML'> & { updatedAt: string }
+
+/**
+ * Loads only a PR's title and description, which answers well before the full overview does.
+ * @param client The GitHub client to query with; needs a token (GraphQL rejects anonymous calls).
+ * @param owner Repository owner.
+ * @param repo Repository name.
+ * @param number PR number.
+ * @returns The title, the description in Markdown and as GitHub renders it, and the PR's `updatedAt`.
+ * @throws GithubApiError 404 when the PR does not exist.
+ */
+export async function fetchPullRequestText(client: GithubClient, owner: string, repo: string, number: string | number): Promise<PrText> {
+  const data = await client.graphql<RawTextData>(PULL_REQUEST_TEXT_QUERY, { owner, repo, number: Number(number) })
+  const pr = data.repository?.pullRequest
+  if (!pr)
+    throw new GithubApiError(404, `Pull request ${owner}/${repo}#${number} not found`)
+  return { title: pr.title, body: pr.body, bodyHTML: pr.bodyHTML, updatedAt: pr.updatedAt }
 }
 
 export type MergeBlocker = 'draft' | 'conflicts' | 'blocked' | 'behind' | 'checking'

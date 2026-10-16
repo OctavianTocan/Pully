@@ -368,22 +368,45 @@ class ReviewSession(
         }
     }
 
+    /** The newest `pr-text` answer: laid over an overview older than it, whichever arrives first. */
+    private var freshText: JsonObject? = null
+    private var overviewAsk: Job? = null
+    private var overviewAskedAt = 0L
+
     fun reloadOverview() {
         val pull = pull ?: return
+        // The title and description alone answer well before the whole overview, so one edited since the copy on
+        // screen was fetched (an agent just changed it, then sent the link) is in place at once rather than after
+        // GitHub's slow answer, which kept the old one up ("the description was not updated", Tavi, 16 Oct 13:52).
+        scope.launch {
+            runCatching { repo.prText(pull) }.getOrNull()?.let { text ->
+                freshText = text
+                withNewerText(overview, text)?.let(::showOverview)
+            }
+        }
         // Nothing on screen yet: the copy the server stored as it refreshed shows at once, until GitHub's own arrives.
         if (overview == null) scope.launch {
             runCatching { repo.storedOverview(pull) }.getOrNull()?.let { stored ->
-                if (overview == null) { overview = stored; overviewStored = true }
+                if (overview == null) { overview = withNewerText(stored, freshText) ?: stored; overviewStored = true }
             }
         }
-        scope.launch {
+        // One asked for a moment ago is still the newest there is: coming back to the app and the link that brought it
+        // back both ask, and one answer serves the two.
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (overviewAsk?.isActive == true && now - overviewAskedAt < OVERVIEW_ASKED_RECENTLY_MS) return
+        overviewAskedAt = now
+        overviewAsk = scope.launch {
             runCatching { repo.overview(pull) }.onSuccess {
-                overview = it
+                showOverview(withNewerText(it, freshText) ?: it)
                 overviewStored = false
                 overviewError = null
-                rememberedAs?.let { name -> recent[name]?.let { before -> recent[name] = before.copy(overview = it) } }
             }.onFailure { overviewError = it.message }
         }
+    }
+
+    private fun showOverview(value: JsonObject) {
+        overview = value
+        rememberedAs?.let { name -> recent[name]?.let { before -> recent[name] = before.copy(overview = value) } }
     }
 
     /**
@@ -593,6 +616,7 @@ class ReviewSession(
         /** How many pull requests at the top of the Inbox are warmed once it has shown (O20). */
         const val WARM_TOP = 4
         private const val ATTENTION_EVERY_MS = 3_000L
+        private const val OVERVIEW_ASKED_RECENTLY_MS = 2_000L
         private const val ATTENTION_FOR_MS = 120_000L
         /** The tasks the server starts with Jev's read of the diff (`TRIAGED` in the server's `tasks.ts`). */
         private val JEV_TASKS = setOf("analyze", "critique", "tour", "brief")

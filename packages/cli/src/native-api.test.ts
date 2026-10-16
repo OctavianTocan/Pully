@@ -111,6 +111,17 @@ describe('pr-overview cached', () => {
   })
 })
 
+describe('pr-text', () => {
+  it('answers the title and description alone, from one small GitHub query', async () => {
+    github.mockImplementation(async () => Response.json({ data: { repository: { pullRequest: { title: 'T', body: 'Edited', bodyHTML: '<p>Edited</p>', updatedAt: '2026-10-16T13:50:00Z' } } } }))
+    const { status, body } = await call('pr-text', { owner: 'acme', repo: 'app', number: 9 })
+    expect(status).toBe(200)
+    expect(body.result).toEqual({ title: 'T', body: 'Edited', bodyHTML: '<p>Edited</p>', updatedAt: '2026-10-16T13:50:00Z' })
+    expect(github).toHaveBeenCalledOnce()
+    expect(JSON.parse(String(github.mock.calls[0]![1]!.body)).query).toContain('PullRequestText')
+  })
+})
+
 describe('chat history', () => {
   const analysis = [{ role: 'user', content: 'Group this', timestamp: 1 }, { role: 'assistant', content: [{ type: 'text', text: 'Grouped.' }], timestamp: 2 }]
   const turn = (question: string, at: number) => [

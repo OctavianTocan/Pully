@@ -336,3 +336,46 @@ class GroupNavTest {
     @Suppress("unused")
     private val unusedJson = JsonObject(emptyMap())
 }
+
+/** A description edited since the overview on screen was fetched is put in from `pr-text` (Tavi, 16 Oct 13:52). */
+class NewerTextTest {
+    private fun answer(updatedAt: String?): JsonObject {
+        val at = updatedAt?.let { ",\"updatedAt\":\"$it\"" }.orEmpty()
+        return Json.parseToJsonElement("{\"overview\":{\"id\":\"PR_1\",\"number\":1,\"title\":\"Old\",\"body\":\"Old text\",\"bodyHTML\":\"<p>Old text</p>\"$at},\"storedAt\":4}") as JsonObject
+    }
+    private val text = Json.parseToJsonElement("""{"title":"New","body":"New text","bodyHTML":"<p>New text</p>","updatedAt":"2026-10-16T13:50:00Z"}""") as JsonObject
+
+    @Test
+    fun putsInANewerDescription() {
+        val patched = parsePrOverviewData(withNewerText(answer("2026-10-16T12:00:00Z"), text))!!.overview
+        assertEquals("New", patched.title)
+        assertEquals("New text", patched.body)
+        assertEquals("<p>New text</p>", patched.bodyHTML)
+        assertEquals("PR_1", patched.id)
+    }
+
+    @Test
+    fun keepsTheRestOfTheAnswer() {
+        val patched = withNewerText(answer("2026-10-16T12:00:00Z"), text)!!
+        assertEquals("4", patched["storedAt"].toString())
+        assertEquals("\"2026-10-16T13:50:00Z\"", (patched["overview"] as JsonObject)["updatedAt"].toString())
+    }
+
+    @Test
+    fun putsTextIntoAnOverviewWithNoTime() {
+        assertEquals("New", parsePrOverviewData(withNewerText(answer(null), text))!!.overview.title)
+    }
+
+    @Test
+    fun leavesAnOverviewAsNewOrNewer() {
+        assertNull(withNewerText(answer("2026-10-16T13:50:00Z"), text))
+        assertNull(withNewerText(answer("2026-10-16T14:00:00Z"), text))
+    }
+
+    @Test
+    fun needsBoth() {
+        assertNull(withNewerText(null, text))
+        assertNull(withNewerText(answer("2026-10-16T12:00:00Z"), null))
+        assertNull(withNewerText(answer("2026-10-16T12:00:00Z"), Json.parseToJsonElement("""{"title":"New"}""") as JsonObject))
+    }
+}

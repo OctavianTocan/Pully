@@ -284,3 +284,23 @@ export interface RawRepositoryOverview {
 export interface RawOverviewData {
   repository: RawRepositoryOverview | null
 }
+
+/**
+ * A pull request's title and description alone: a small query that answers well before the overview's, so a page
+ * showing a kept overview can put an edited description in place at once.
+ */
+export const PULL_REQUEST_TEXT_QUERY = `
+query PullRequestText($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      title
+      body
+      bodyHTML
+      updatedAt
+    }
+  }
+}`
+
+export interface RawTextData {
+  repository: { pullRequest: { title: string, body: string, bodyHTML: string, updatedAt: string } | null } | null
+}

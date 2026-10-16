@@ -15,6 +15,7 @@ import {
   fetchOpenPullRequests,
   fetchPullRequestOverview,
   fetchPullRequestStack,
+  fetchPullRequestText,
   mergePullRequest,
   updatePullRequestBranch,
   updatePullRequestText,
@@ -223,6 +224,15 @@ export const NATIVE_REVIEW: Record<string, Handler> = {
     const overview = await fetchPullRequestOverview(await client(), pull.owner, pull.repo, pull.number)
     // A failed write only costs the next cached open; the phone still gets the overview.
     return storeOverview(storage, pull, overview).catch(() => overviewValue(overview))
+  },
+
+  /**
+   * The PR's title and description as GitHub holds them now, with its `updatedAt`. It answers well before
+   * `pr-overview` does, so a page showing a kept overview puts an edited description in place at once.
+   */
+  'pr-text': async function (_host, args) {
+    const { owner, repo, number } = pullOf(args)
+    return fetchPullRequestText(await client(), owner, repo, number)
   },
 
   /** Hunks of a stored diff's files, for the ones a lite `github-pr` answer left out (`patchOmitted`). */

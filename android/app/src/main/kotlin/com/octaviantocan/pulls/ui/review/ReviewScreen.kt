@@ -522,6 +522,15 @@ private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOv
             session.reloadOverview()
         }
     }
+    // A link to this pull request while it is on screen opens nothing new, so the page reads it again; one that came
+    // before this page did is not read twice.
+    val reopened = com.octaviantocan.pulls.ui.IncomingLinks.reopened
+    val seen = remember(session) { reopened }
+    LaunchedEffect(reopened) {
+        if (reopened == null || reopened === seen || reopened.target.serverTarget != session.target.serverTarget) return@LaunchedEffect
+        top.polls = 0
+        session.reloadOverview()
+    }
     val stale = isStale(session, overview)
     // A reload that fails leaves the page stale, so it is tried a few more times, and again when the app comes back.
     LaunchedEffect(stale, session.settings.autoRefresh, session.selection, returns) {

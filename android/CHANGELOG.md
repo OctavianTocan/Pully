@@ -16,6 +16,16 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.44.0
+
+A pull request now shows its latest description the moment it opens.
+
+### Fixed
+
+- A pull request opened again, or from a link an agent sent after changing it, shows the title and description GitHub holds now within a moment, instead of the copy from your last visit until everything else loads.
+![A pull request whose description changes from the copy kept on the phone to the one just written](changelog/0.44.0/fresh-description.gif)
+- Tapping a link to the pull request already on screen reads it again, so a change made meanwhile shows without leaving the page.
+
 ## 0.43.0
 
 Agents can post a diff to Pully and hand you a link to review.
