@@ -76,6 +76,27 @@ pub fn encode_component(s: &str) -> String {
     out
 }
 
+pub(crate) fn decode_component(s: &str) -> Option<String> {
+    let bytes = s.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if i + 2 >= bytes.len() {
+                return None;
+            }
+            let high = (bytes[i + 1] as char).to_digit(16)? as u8;
+            let low = (bytes[i + 2] as char).to_digit(16)? as u8;
+            out.push(high * 16 + low);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
 pub fn text<'a>(v: &'a Value, key: &str) -> &'a str {
     v.get(key).and_then(Value::as_str).unwrap_or("")
 }
@@ -185,6 +206,29 @@ mod timestamp_tests {
 
 #[cfg(test)]
 mod shared_value_tests {
+    #[test]
+    fn component_decoding_preserves_strict_single_pass_semantics() {
+        for (input, expected) in [
+            ("", ""),
+            ("a+b", "a+b"),
+            ("%252F", "%2F"),
+            ("é😀", "é😀"),
+            ("%c3%a9%F0%9F%98%80", "é😀"),
+            ("%00", "\0"),
+        ] {
+            assert_eq!(super::decode_component(input).as_deref(), Some(expected));
+        }
+        for input in ["%", "%1", "%zz", "%FF", "%C3", "%C3%28"] {
+            assert_eq!(super::decode_component(input), None);
+        }
+        for byte in 0..=127u8 {
+            let value = (byte as char).to_string();
+            assert_eq!(
+                super::decode_component(&super::encode_component(&value)),
+                Some(value)
+            );
+        }
+    }
     #[test]
     fn component_encoding_retains_wire_and_storage_spelling() {
         assert_eq!(super::encode_component(""), "");

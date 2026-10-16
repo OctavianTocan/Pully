@@ -1,7 +1,7 @@
 //! Atomic JSON storage. Reads the TypeScript unstorage flat-key layout directly.
 //! Rust diff records use `diff:`; legacy `pr-meta:` + `pr-body:` records are joined
 //! on read and retained, so upgrading never destructively rewrites the old cache.
-use crate::encode_component as encode;
+use crate::{decode_component as decode, encode_component as encode};
 use anyhow::{bail, Context, Result};
 use serde_json::Value;
 use std::{
@@ -76,26 +76,6 @@ pub(crate) struct DiffSnapshot {
     pub size_bytes: u64,
 }
 static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RootLock>>>> = OnceLock::new();
-fn decode(s: &str) -> Option<String> {
-    let bytes = s.as_bytes();
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            if i + 2 >= bytes.len() {
-                return None;
-            }
-            let high = (bytes[i + 1] as char).to_digit(16)? as u8;
-            let low = (bytes[i + 2] as char).to_digit(16)? as u8;
-            out.push(high * 16 + low);
-            i += 3;
-        } else {
-            out.push(bytes[i]);
-            i += 1;
-        }
-    }
-    String::from_utf8(out).ok()
-}
 impl Store {
     pub(crate) async fn transaction<T: Send + 'static>(
         &self,
@@ -210,14 +190,14 @@ impl Store {
             .strip_prefix("pr-meta:")
             .or_else(|| key.strip_prefix("pr-body:"))
         {
-            if let Some(entry) = self.raw_get(&format!("diff:{scope}"))? {
+            if let Some(mut entry) = self.raw_get(&format!("diff:{scope}"))? {
                 return Ok(Some(if key.starts_with("pr-meta:") {
                     crate::review::metadata(&entry)
                 } else {
                     let mut body = serde_json::Map::new();
                     for name in ["diff", "analyzedBy", "reviews", "llmSession"] {
-                        if let Some(v) = entry.get(name) {
-                            body.insert(name.into(), v.clone());
+                        if let Some(v) = entry.get_mut(name) {
+                            body.insert(name.into(), v.take());
                         }
                     }
                     Value::Object(body)

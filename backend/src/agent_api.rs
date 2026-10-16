@@ -81,24 +81,7 @@ fn described(mut meta: Value, origin: &str) -> Value {
     meta
 }
 fn decode(value: &str) -> Result<String, ()> {
-    let mut out = vec![];
-    let b = value.as_bytes();
-    let mut i = 0;
-    while i < b.len() {
-        if b[i] == b'%' {
-            if i + 2 >= b.len() {
-                return Err(());
-            }
-            let h = (b[i + 1] as char).to_digit(16).ok_or(())?;
-            let l = (b[i + 2] as char).to_digit(16).ok_or(())?;
-            out.push((h * 16 + l) as u8);
-            i += 3;
-        } else {
-            out.push(b[i]);
-            i += 1;
-        }
-    }
-    String::from_utf8(out).map_err(|_| ())
+    crate::decode_component(value).ok_or(())
 }
 fn header(headers: &HeaderMap, name: &str) -> Result<Option<String>, ()> {
     headers

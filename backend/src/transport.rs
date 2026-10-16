@@ -522,19 +522,8 @@ async fn static_file(
             response
                 .headers_mut()
                 .insert(header::CONTENT_TYPE, mime.parse().unwrap());
-            if android {
-                response.headers_mut().insert(
-                    header::CACHE_CONTROL,
-                    header::HeaderValue::from_static("no-store"),
-                );
-            }
             response
         }
-        Ok(None) if path == "/android/past/index.json" => (
-            [(header::CACHE_CONTROL, "no-store")],
-            Json(json!({"versions":[]})),
-        )
-            .into_response(),
         Ok(None) => error(StatusCode::NOT_FOUND, "File not found."),
         Err(_) => error(StatusCode::BAD_REQUEST, "Invalid asset path."),
     }
@@ -695,16 +684,16 @@ async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Re
                         args["items"]
                             .as_array()
                             .context("items must be an array")?
-                            .clone()
+                            .as_slice()
                     } else {
-                        vec![args.clone()]
+                        std::slice::from_ref(&args)
                     };
                     if items.len() > 200 {
                         bail!("Too many storage writes")
                     }
                     let mut changes = Vec::new();
                     for item in items {
-                        let key = required(&item, "key")?.replace(['/', '\\'], ":");
+                        let key = required(item, "key")?.replace(['/', '\\'], ":");
                         if private_key(&key) {
                             bail!("That key is not the page's to change.");
                         }

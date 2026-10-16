@@ -363,12 +363,14 @@ impl Accounts {
     fn stored_keys(&self, account_id: &str) -> Result<Vec<(String, StoredKey)>> {
         let mut out = Vec::new();
         for name in self.store.keys("agent-key:")? {
-            if let Some(value) = self.store.get(&name)? {
-                if let Ok(key) = serde_json::from_value::<StoredKey>(value) {
-                    if key.account_id == account_id {
-                        out.push((name, key));
-                    }
-                }
+            let Some(value) = self.store.get(&name)? else {
+                continue;
+            };
+            let Ok(key) = serde_json::from_value::<StoredKey>(value) else {
+                continue;
+            };
+            if key.account_id == account_id {
+                out.push((name, key));
             }
         }
         Ok(out)
