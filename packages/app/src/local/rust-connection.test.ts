@@ -60,6 +60,57 @@ describe('rust browser trust lifecycle', () => {
     expect(location.reload).not.toHaveBeenCalled()
   })
 
+  it.each(['headers', 'body'])('honors the caller trust deadline while waiting for %s', async (phase) => {
+    let signal!: AbortSignal
+    const blocked = () => new Promise<never>((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+    })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(json({ backend: 'rust' }))
+      .mockImplementationOnce((_url, options) => {
+        signal = options.signal
+        return phase === 'headers' ? blocked() : Promise.resolve({ ok: true, status: 200, json: blocked })
+      }))
+    const { client } = (await connectRust())!
+    const trusted = client.ensureTrusted(2000)
+    const rejected = expect(trusted).rejects.toMatchObject({ name: 'TimeoutError' })
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(signal.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await rejected
+    expect(signal.aborted).toBe(true)
+  })
+
+  it('bounds other trust requests and leaves long-running RPCs independent', async () => {
+    const signals: AbortSignal[] = []
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(json({ backend: 'rust' }))
+      .mockImplementation((_url, options) => new Promise((_resolve, reject) => {
+        signals.push(options.signal)
+        options.signal?.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+      }))
+    vi.stubGlobal('fetch', fetch)
+    const { client, rpc } = (await connectRust())!
+    const authCode = expect(client.requestAuthCode()).rejects.toMatchObject({ name: 'TimeoutError' })
+    const trustCode = client.requestTrustWithCode('code')
+    void rpc.call(LOCAL_RPC.githubAuthenticated)
+    await vi.advanceTimersByTimeAsync(10_000)
+    await authCode
+    expect(await trustCode).toBe(false)
+    expect(signals.slice(0, 2).every(signal => signal.aborted)).toBe(true)
+    expect(signals[2]).toBeUndefined()
+  })
+
+  it('clears a successful trust request deadline after reading its body', async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(json({ backend: 'rust' })).mockResolvedValueOnce(json({ trusted: true }))
+    vi.stubGlobal('fetch', fetch)
+    const { client } = (await connectRust())!
+    expect(await client.ensureTrusted(2000)).toBe(true)
+    const signal = fetch.mock.calls[1][1].signal
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(signal.aborted).toBe(false)
+  })
+
   it('waits until a disconnected tab is visible before reloading', async () => {
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce(json({ backend: 'rust' }))

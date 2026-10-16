@@ -11,7 +11,7 @@ export interface PrOverviewStore {
   readonly number: number
   /** Unset until the first load lands, unless this session already loaded it once. */
   readonly overview: PrOverview | undefined
-  /** `false` when there is no token to load the overview with; unset until known. */
+  /** `false` when GitHub authentication is unavailable; unset until known. */
   readonly available: boolean | undefined
   /** Loading with nothing to show yet. */
   readonly isLoading: boolean
@@ -104,6 +104,11 @@ function revalidateDelay(overview: PrOverview): number | undefined {
  * @param opts Credentials and hooks.
  * @returns The reactive store.
  */
+/**
+ * @cc [owner:OctavianTocan,label:security;product] pr-overview-uses-delegated-authentication
+ * Overview loading and refresh MUST accept delegated GitHub authentication without
+ * requiring the server token in the page (R14 finding 2, 16 Oct 2026).
+ */
 export function createPrOverviewStore(params: { owner: string, repo: string, number: number | string }, opts: PrOverviewStoreOptions): PrOverviewStore {
   const { owner, repo } = params
   const number = Number(params.number)
@@ -163,7 +168,7 @@ export function createPrOverviewStore(params: { owner: string, repo: string, num
 
   async function load() {
     try {
-      available.value = !!(await client.token())
+      available.value = client.authenticated ? await client.authenticated() : !!(await client.token())
     }
     catch {
       available.value = false

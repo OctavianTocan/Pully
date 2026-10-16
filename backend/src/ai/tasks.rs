@@ -449,6 +449,24 @@ fn update_diff(
     state.host.storage.update(&format!("diff:{key}"),|old|{check(run)?;let mut old=old.context("This diff is no longer cached; open it again.")?;if &old["headSha"]!=head{bail!("The pull request changed while the model was working. Run again on the current head.")};f(&mut old)?;old["sizeBytes"]=json!(serde_json::to_vec(&old)?.len());Ok(old)})?;
     Ok(())
 }
+/// @cc [owner:OctavianTocan,label:product] rust-agent-manifest-keeps-rename-origin
+/// Every shared task manifest MUST retain previousPath when present, including pure
+/// renames with no textual hunks (R14 review #8, 16 Oct 2026).
+fn prompt_heading(diff: &Value) -> Result<String> {
+    let manifest: Vec<Value> = diff["files"].as_array().into_iter().flatten().map(|file| {
+        let mut entry = json!({"path":file["path"],"status":file["status"],"additions":file["additions"],"deletions":file["deletions"]});
+        if let Some(previous) = file.get("previousPath").filter(|p| p.is_string()) {
+            entry["previousPath"] = previous.clone();
+        }
+        entry
+    }).collect();
+    Ok(format!(
+        "Title: {}\nDescription: {}\nFiles: {}",
+        text(diff, "title"),
+        text(diff, "description"),
+        serde_json::to_string(&manifest)?
+    ))
+}
 pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(String, Value)> {
     let r = &run.request;
     let kind = text(r, "kind");
@@ -491,13 +509,7 @@ pub(super) async fn perform(state: &Arc<AppState>, run: &Arc<Run>) -> Result<(St
         system_for(diff),
         locale(r)
     ));
-    let manifest:Vec<Value>=diff["files"].as_array().into_iter().flatten().map(|f|json!({"path":f["path"],"status":f["status"],"additions":f["additions"],"deletions":f["deletions"]})).collect();
-    let heading = format!(
-        "Title: {}\nDescription: {}\nFiles: {}",
-        text(diff, "title"),
-        text(diff, "description"),
-        serde_json::to_string(&manifest)?
-    );
+    let heading = prompt_heading(diff)?;
     let mut session = entry
         .get("llmSession")
         .cloned()

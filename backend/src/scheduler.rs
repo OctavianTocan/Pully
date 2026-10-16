@@ -58,7 +58,8 @@ where
     let key = source::serialize_ref(&r)?;
     let stored_state = state.clone();
     let stored_key = format!("diff:{key}");
-    let before = tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
+    let before =
+        tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
     let version = version(pull);
     if before.is_none() {
         let stored_state = state.clone();
@@ -259,6 +260,95 @@ async fn preanalysis_cached_entry(state: &Arc<AppState>, key: &str) -> Option<Va
         .ok()
         .flatten()
 }
+async fn preanalyze_head(
+    state: &Arc<AppState>,
+    engine: &str,
+    model: &Option<String>,
+    pull: Value,
+    reference: Value,
+    key: String,
+) -> Result<()> {
+    let _pin = review::pin_diff(state, &key).await?;
+    let stored_state = state.clone();
+    let stored_key = format!("diff:{key}");
+    let before =
+        tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
+    let expected_head = &pull["headSha"];
+    if before
+        .as_ref()
+        .is_none_or(|e| e["headSha"] != pull["headSha"])
+    {
+        let diff = source::fetch(state, &reference).await?;
+        let stored_state = state.clone();
+        let stored_key = key.clone();
+        let captured_head = expected_head.clone();
+        tokio::task::spawn_blocking(move || {
+            store_preanalysis_diff(
+                &stored_state,
+                &stored_key,
+                &captured_head,
+                &diff,
+                before.as_ref(),
+            )
+        })
+        .await??;
+    }
+    let mut selected = json!({"engine":engine});
+    if let Some(model) = model {
+        selected["model"] = json!(model);
+    }
+    let id = ai::handle(
+        state,
+        "ai-task-start",
+        json!({"key":key,"kind":"analyze","model":selected,"locale":"en","expectedHeadSha":expected_head}),
+    ).await.context("AI unavailable")??;
+    let mut rev = 0;
+    loop {
+        let run = ai::handle(state, "ai-task-wait", json!({"id":id,"after":rev}))
+            .await
+            .context("AI unavailable")??;
+        if run["status"] != "running" {
+            anyhow::ensure!(run["status"] == "done", "Preanalysis did not complete");
+            return Ok(());
+        }
+        rev = run["rev"].as_u64().unwrap_or(rev);
+    }
+}
+// The worker retains attempted across rounds. Inject the listed heads and the
+// fetch/AI attempt so failure retention can be checked without providers or timers.
+async fn preanalysis_round<F, Fut>(
+    state: &Arc<AppState>,
+    attempted: &mut HashSet<String>,
+    list: Vec<Value>,
+    mut attempt: F,
+) where
+    F: FnMut(Value, Value, String) -> Fut,
+    Fut: Future<Output = Result<()>>,
+{
+    for pull in list {
+        let r = reference(&pull);
+        let Ok(key) = source::serialize_ref(&r) else {
+            continue;
+        };
+        let before = preanalysis_cached_entry(state, &key).await;
+        if !needs_analysis(&pull, before.as_ref()) {
+            continue;
+        }
+        let id = format!("{key}@{}", text(&pull, "headSha"));
+        if !attempted.insert(id) {
+            continue;
+        }
+        let started = now_ms();
+        let result = attempt(pull, r, key).await;
+        let _ = state
+            .analytics
+            .record(
+                "preanalyze.run",
+                json!({"status":if result.is_ok(){"done"}else{"failed"},"ms":now_ms()-started}),
+            )
+            .await;
+    }
+}
 pub async fn preanalyze(state: Arc<AppState>, engine: String, model: Option<String>) {
     let mut attempted = HashSet::new();
     let mut interval = tokio::time::interval(Duration::from_secs(600));
@@ -268,71 +358,10 @@ pub async fn preanalyze(state: Arc<AppState>, engine: String, model: Option<Stri
         let Ok(list) = pulls(&state).await else {
             continue;
         };
-        for pull in list {
-            let r = reference(&pull);
-            let Ok(key) = source::serialize_ref(&r) else {
-                continue;
-            };
-            let before = preanalysis_cached_entry(&state, &key).await;
-            if !needs_analysis(&pull, before.as_ref()) {
-                continue;
-            }
-            let id = format!("{key}@{}", text(&pull, "headSha"));
-            if !attempted.insert(id) {
-                continue;
-            }
-            let started = now_ms();
-            let result = async {
-                let _pin = review::pin_diff(&state, &key).await?;
-                let stored_state = state.clone();
-                let stored_key = format!("diff:{key}");
-                let before = tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
-                let expected_head = &pull["headSha"];
-                if before
-                    .as_ref()
-                    .is_none_or(|e| e["headSha"] != pull["headSha"])
-                {
-                    let diff = source::fetch(&state, &r).await?;
-                    let stored_state = state.clone();
-                    let stored_key = key.clone();
-                    let captured_head = expected_head.clone();
-                    tokio::task::spawn_blocking(move || {
-                        store_preanalysis_diff(&stored_state, &stored_key, &captured_head, &diff, before.as_ref())
-                    }).await??;
-                }
-                let mut selected = json!({"engine":engine});
-                if let Some(m) = &model {
-                    selected["model"] = json!(m);
-                }
-                let id = ai::handle(
-                    &state,
-                    "ai-task-start",
-                    json!({"key":key,"kind":"analyze","model":selected,"locale":"en","expectedHeadSha":expected_head}),
-                )
-                .await
-                .context("AI unavailable")??;
-                let mut rev = 0;
-                loop {
-                    let run = ai::handle(&state, "ai-task-wait", json!({"id":id,"after":rev}))
-                        .await
-                        .context("AI unavailable")??;
-                    if run["status"] != "running" {
-                        anyhow::ensure!(run["status"] == "done", "Preanalysis did not complete");
-                        break;
-                    }
-                    rev = run["rev"].as_u64().unwrap_or(rev);
-                }
-                Ok::<_, anyhow::Error>(())
-            }
-            .await;
-            let _ = state
-                .analytics
-                .record(
-                    "preanalyze.run",
-                    json!({"status":if result.is_ok(){"done"}else{"failed"},"ms":now_ms()-started}),
-                )
-                .await;
-        }
+        preanalysis_round(&state, &mut attempted, list, |pull, r, key| {
+            preanalyze_head(&state, &engine, &model, pull, r, key)
+        })
+        .await;
     }
 }
 #[cfg(test)]
@@ -342,7 +371,7 @@ mod tests {
         json!({"owner":"owner","repo":"repo","number":number,"headSha":"a","updatedAt":"now","state":"open"})
     }
     fn diff(pull: &Value) -> Value {
-        json!({"ref":reference(pull),"title":"PR","files":[],"head":{"sha":pull["headSha"]}})
+        json!({"ref":reference(pull),"title":"PR","files":[],"head":{"sha":pull["headSha"],"ref":"feature"}})
     }
     fn seed_viewed(state: &AppState, count: usize) {
         for i in 0..count {
@@ -411,6 +440,43 @@ mod tests {
     }
     fn overview(pull: &Value) -> Value {
         json!({"overview":{"head":{"oid":pull["headSha"]},"title":"Refreshed title","body":"Refreshed body","state":"OPEN","updatedAt":"later"}})
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn failed_preanalysis_head_is_attempted_once_until_a_new_push() {
+        let root =
+            std::env::temp_dir().join(format!("pulls-preanalysis-round-{}", uuid::Uuid::new_v4()));
+        let state = AppState::new(root.clone(), root.clone()).unwrap();
+        let mut requested = pull(1);
+        requested["requestedFromMe"] = json!(true);
+        let key = source::serialize_ref(&reference(&requested)).unwrap();
+        let mut attempted = HashSet::new();
+        let mut calls = Vec::new();
+        for head in ["a", "a", "b", "b"] {
+            requested["headSha"] = json!(head);
+            preanalysis_round(
+                &state,
+                &mut attempted,
+                vec![requested.clone(), pull(2)],
+                |pull, r, actual_key| {
+                    assert_eq!(actual_key, key);
+                    assert_eq!(r, reference(&pull));
+                    calls.push(text(&pull, "headSha").to_owned());
+                    std::future::ready(Err(anyhow::anyhow!("offline AI failure")))
+                },
+            )
+            .await;
+            assert_eq!(calls.len(), if head == "a" { 1 } else { 2 });
+        }
+        assert_eq!(calls, ["a", "b"]);
+        assert_eq!(attempted.len(), 2);
+        assert!(state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .is_none());
+        drop(state);
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[tokio::test(flavor = "current_thread")]
     async fn preanalysis_eligibility_read_yields_and_preserves_cache_semantics() {
@@ -899,7 +965,10 @@ mod tests {
             let mut p = pull(1);
             p["requestedFromMe"] = json!(true);
             let key = source::serialize_ref(&reference(&p)).unwrap();
-            review::put_diff_if_unchanged(&state, &key, &diff(&p), None, false).unwrap();
+            let seeded =
+                review::put_diff_if_unchanged(&state, &key, &diff(&p), None, false).unwrap();
+            crate::rpc_validation::cache_entry(&seeded)
+                .expect("the warming fixture must be a canonical cache entry");
             let analysis = json!({"overallSummary":"Analysis of A","groups":[],"source":"llm","schemaVersion":1,"generatedAt":"2026-10-16T00:00:00.000Z"});
             let save_args =
                 json!({"key":key,"method":"setAnalyzedResult","values":["llm",analysis]});
@@ -916,7 +985,9 @@ mod tests {
                     .unwrap()
                     .as_ref()
             ));
-            let history = json!({"messages":[{"role":"assistant","content":"Analysis of A"}],"chatStartIndex":1,"archive":[{"id":"prior","messages":[{"role":"user","content":"Keep this history"}]}]});
+            let history = json!({"messages":[{"role":"assistant","content":"Analysis of A"}],"chatStartIndex":1,"archive":[{"id":"prior","archivedAt":1,"messages":[{"role":"user","content":"Keep this history"}]}]});
+            crate::rpc_validation::cache_session(&history)
+                .expect("the retained history fixture must be a canonical session");
             state
                 .host
                 .storage

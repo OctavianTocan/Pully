@@ -880,6 +880,9 @@ fn browser_cache_admission_and_saved_reads_reject_posted_aliases() {
     for method in ["get", "getMeta", "touch"] {
         assert!(cache_diff(&state, &json!({"method":method,"key":"paste:alias"})).is_err());
     }
+    // The alias is also malformed; a schema miss must never bypass its provenance
+    // guard and permit a fresh public payload to replace the private stored entry.
+    assert!(cache_diff(&state, &json!({"method":"putDiff","key":"paste:alias","values":[{"ref":{"kind":"paste","hash":"alias"},"title":"Public","files":[]},"",null]})).is_err());
     assert!(review_state(&state, &json!({"key":"paste:alias"})).is_err());
     assert!(entry(&state, "paste:alias").is_err());
     std::fs::remove_dir_all(root).unwrap();
@@ -927,5 +930,155 @@ async fn browser_growth_keeps_posted_entries_and_active_pins() {
         .get("diff:posted:owned")
         .unwrap()
         .is_some());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn browser_cache_invalid_entries_are_misses_that_fresh_fetches_can_replace() {
+    let root = std::env::temp_dir().join(format!("cache-invalid-entry-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    let key = "paste:recover";
+    let diff = json!({"ref":{"kind":"paste","hash":"recover"},"title":"Fresh","description":"Valid","head":{"sha":"head","ref":"branch"},"files":[{"path":"a.rs","sha":"file","status":"modified","additions":1,"deletions":0,"isBinary":false,"hunks":[{"header":"@@ -0,0 +1 @@","patch":"+new","oldStart":0,"oldLines":0,"newStart":1,"newLines":1}]}]});
+    let mut valid = next_diff(key, &diff, None, &HashSet::new(), false);
+    valid["analyzedBy"]["llm"] =
+        json!({"groups":[],"schemaVersion":1,"source":"llm","generatedAt":"today"});
+    valid["llmSession"] =
+        json!({"messages":[{"role":"user","content":"Question"}],"chatStartIndex":0,"archive":[]});
+    valid["reviews"] = json!({"threads":[],"summaries":[]});
+    valid["sharedComment"] = json!({"id":1,"url":"https://example.test/comment"});
+    for path in [
+        "/key",
+        "/sizeBytes",
+        "/diff/files",
+        "/diff/files/0/hunks/0/patch",
+        "/diff/description",
+        "/analyzedBy/llm/generatedAt",
+        "/llmSession/messages/0/role",
+        "/llmSession/archive",
+        "/reviews/threads",
+        "/sharedComment/url",
+    ] {
+        let mut malformed = valid.clone();
+        *malformed.pointer_mut(path).unwrap() = Value::Null;
+        state
+            .host
+            .storage
+            .set(&format!("diff:{key}"), &malformed)
+            .unwrap();
+        for method in ["get", "getMeta", "touch"] {
+            assert!(
+                cache_diff(&state, &json!({"method":method,"key":key}))
+                    .unwrap()
+                    .is_null(),
+                "{path}: {method}"
+            );
+        }
+        assert_eq!(
+            state
+                .host
+                .storage
+                .get(&format!("diff:{key}"))
+                .unwrap()
+                .unwrap(),
+            malformed
+        );
+        let replaced = cache_diff(
+            &state,
+            &json!({"method":"putDiff","key":key,"values":[diff,"head",null]}),
+        )
+        .unwrap();
+        assert_eq!(replaced["diff"], diff);
+        assert_eq!(replaced["analyzedBy"], json!({}));
+        assert!(replaced.get("llmSession").is_none());
+        assert!(replaced["revision"].is_string());
+        assert_eq!(
+            cache_diff(&state, &json!({"method":"get","key":key})).unwrap(),
+            replaced
+        );
+        let meta = cache_diff(&state, &json!({"method":"getMeta","key":key})).unwrap();
+        assert_eq!(meta["revision"], replaced["revision"]);
+        crate::rpc_validation::cache_meta(&meta).unwrap();
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn browser_cache_projects_all_reply_paths_and_clears_optional_comments() {
+    let root = std::env::temp_dir().join(format!("cache-entry-replies-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    let key = "paste:replies";
+    let diff = json!({"ref":{"kind":"paste","hash":"replies"},"title":"Valid","files":[]});
+    let mut saved = put_diff(&state, key, &diff).unwrap();
+    saved["serverOnly"] = json!(true);
+    saved["llmAnalyzedHeadSha"] = Value::Null;
+    state
+        .host
+        .storage
+        .set(&format!("diff:{key}"), &saved)
+        .unwrap();
+    let expected = crate::rpc_validation::cache_entry(&with_revision(saved.clone())).unwrap();
+    assert_eq!(
+        cache_diff(&state, &json!({"method":"get","key":key})).unwrap(),
+        expected
+    );
+    // A stale CAS returns the validated winner, not the raw persisted document.
+    assert_eq!(
+        cache_diff(
+            &state,
+            &json!({"method":"putDiff","key":key,"values":[diff,"","stale"]})
+        )
+        .unwrap(),
+        expected
+    );
+    assert_eq!(
+        state
+            .host
+            .storage
+            .get(&format!("diff:{key}"))
+            .unwrap()
+            .unwrap(),
+        saved
+    );
+    cache_diff(&state, &json!({"method":"setSharedComment","key":key,"values":[{"id":1,"url":"https://example.test/comment"}]})).unwrap();
+    cache_diff(
+        &state,
+        &json!({"method":"setSharedComment","key":key,"values":[null]}),
+    )
+    .unwrap();
+    let cleared = cache_diff(&state, &json!({"method":"get","key":key})).unwrap();
+    assert!(cleared.is_object());
+    assert!(cleared.get("sharedComment").is_none());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn browser_cache_session_cas_compares_the_canonical_observation() {
+    let root = std::env::temp_dir().join(format!("cache-session-shape-{}", uuid::Uuid::new_v4()));
+    let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
+    let key = "paste:session-shape";
+    let diff = json!({"ref":{"kind":"paste","hash":"session-shape"},"title":"Valid","files":[]});
+    let mut saved = put_diff(&state, key, &diff).unwrap();
+    saved["llmSession"] = serde_json::from_str(r#"{"chatStartIndex":0,"archive":[],"messages":[{"content":"Question","role":"user"}],"legacy":true}"#).unwrap();
+    state
+        .host
+        .storage
+        .set(&format!("diff:{key}"), &saved)
+        .unwrap();
+    let observed = cache_diff(&state, &json!({"method":"get","key":key})).unwrap();
+    let expected = serde_json::to_string(&observed["llmSession"]).unwrap();
+    let next = json!({"messages":[{"role":"user","content":"New question"}],"chatStartIndex":0});
+    cache_diff(
+        &state,
+        &json!({"method":"setLlmSession","key":key,"values":[next,expected]}),
+    )
+    .unwrap();
+    let current = cache_diff(&state, &json!({"method":"get","key":key})).unwrap();
+    assert_eq!(current["llmSession"]["messages"], next["messages"]);
+    assert_eq!(current["llmSession"]["archive"], json!([]));
+    assert!(cache_diff(
+        &state,
+        &json!({"method":"setLlmSession","key":key,"values":[next,expected]})
+    )
+    .is_err());
     std::fs::remove_dir_all(root).unwrap();
 }

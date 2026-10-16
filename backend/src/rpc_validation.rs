@@ -599,6 +599,66 @@ fn review_data() -> Schema {
         ),
     ])
 }
+// The common fields of PrCacheEntrySchema and PrCacheMetaSchema in core/cache/schema.ts.
+fn cache_fields() -> Vec<(&'static str, Schema)> {
+    vec![
+        ("key", Str),
+        ("headSha", Str),
+        ("revision", opt(Str)),
+        ("lastViewedAt", Number),
+        ("sizeBytes", Number),
+        (
+            "sharedComment",
+            opt(obj(vec![("id", Number), ("url", Str)])),
+        ),
+        ("changedSinceReviewed", opt(strings())),
+    ]
+}
+
+/// Parse the canonical browser entry, including its persisted, versioned body.
+/// Internal server-only provenance fields remain in storage, not in this projection.
+pub(crate) fn cache_entry(value: &Value) -> Result<Value> {
+    let mut fields = cache_fields();
+    fields.extend([
+        ("diff", diff()),
+        (
+            "analyzedBy",
+            obj(vec![("llm", opt(grouped())), ("web-llm", opt(grouped()))]),
+        ),
+        ("reviews", opt(review_data())),
+        ("llmSession", opt(session())),
+    ]);
+    obj(fields)
+        .parse(value)
+        .map_err(|_| anyhow::anyhow!("Invalid cached diff entry."))
+}
+
+pub(crate) fn cache_session(value: &Value) -> Result<Value> {
+    nullable(session())
+        .parse(value)
+        .map_err(|_| anyhow::anyhow!("Invalid cached chat session."))
+}
+
+pub(crate) fn cache_meta(value: &Value) -> Result<Value> {
+    let mut fields = cache_fields();
+    fields.extend([
+        ("ref", source_ref()),
+        ("title", Str),
+        ("label", opt(Str)),
+        ("url", opt(Str)),
+        (
+            "pullRequestState",
+            opt(Pick(&["open", "closed", "merged", "draft"])),
+        ),
+        ("additions", Number),
+        ("deletions", Number),
+        ("fileShas", strings()),
+    ]);
+    obj(fields)
+        .parse(value)
+        .map_err(|_| anyhow::anyhow!("Invalid cached diff metadata."))
+}
+
 fn cache_values(args: &mut Value) -> std::result::Result<(), ()> {
     let method = args["method"].as_str().ok_or(())?.to_owned();
     let values = args["values"].as_array_mut().ok_or(())?;

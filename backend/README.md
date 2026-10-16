@@ -18,7 +18,6 @@ and separate GitHub Action. No Cloudflare deployment is part of this change.
 Earlier validation below is historical; fresh compile/check and review evidence
 for the rebased revision is recorded separately when completed.
 
-
 `pulls-review-server` is the local/self-hosted server implementation. It serves
 the existing Vue web build and Android RPC interface. The local web connection
 adapter detects Rust and uses HTTP; a native devframe-compatible WebSocket

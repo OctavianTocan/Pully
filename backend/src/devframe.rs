@@ -9,6 +9,7 @@ use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 
 const MAX_RPC_BYTES: usize = MAX_CACHE_RPC_BYTES;
+const MAX_AUTH_BYTES: usize = 4 * 1024 * 1024;
 
 pub(super) async fn metadata() -> Json<Value> {
     Json(json!({"backend":"websocket","websocket":{"path":"__ws"},"jsonSerializableMethods":[]}))
@@ -136,7 +137,16 @@ pub(super) async fn connect(
             .filter(|token| valid_token(&state.auth, token))
             .cloned()
     };
-    ws.max_message_size(MAX_RPC_BYTES)
+    // Axum fixes decoder limits at upgrade time. Code exchange may authorize
+    // this socket, but the browser reconnects with its issued token before large
+    // RPCs. Both frame and aggregate limits must bound unfinished fragments.
+    let budget = if state.no_auth || token.is_some() {
+        MAX_RPC_BYTES
+    } else {
+        MAX_AUTH_BYTES
+    };
+    ws.max_message_size(budget)
+        .max_frame_size(budget)
         .on_upgrade(move |socket| serve(socket, state, token))
 }
 fn authentication(
@@ -218,7 +228,7 @@ async fn serve(socket: WebSocket, state: HttpState, mut token: Option<String>) {
                     _ => break,
                 };
                 let authorized = state.no_auth || token.as_deref().is_some_and(|token| valid_token(&state.auth, token));
-                let budget = if authorized { MAX_RPC_BYTES } else { 4 * 1024 * 1024 };
+                let budget = if authorized { MAX_RPC_BYTES } else { MAX_AUTH_BYTES };
                 let Ok(q) = decode_with_budget(&raw, budget) else { break; };
                 if q["t"] != "q" { continue; }
                 let id = q["i"].clone();
@@ -603,6 +613,117 @@ assert.equal(reply.e.message, 'Open the diff first.');"#,
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    // Raw frames exercise Axum/Tungstenite's buffering before a completed
+    // Message reaches serve(); a decoder-only test cannot catch this regression.
+    #[tokio::test]
+    async fn upgrade_limits_bound_unfinished_auth_messages_and_allow_trusted_frames() {
+        use tokio::{
+            io::{AsyncReadExt, AsyncWriteExt},
+            net::TcpStream,
+        };
+        async fn connect(port: u16, query: &str) -> TcpStream {
+            let mut stream = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+            stream.write_all(format!("GET /__ws{query} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n").as_bytes()).await.unwrap();
+            let mut headers = Vec::new();
+            while !headers.ends_with(b"\r\n\r\n") {
+                assert!(headers.len() < 8192);
+                headers.push(stream.read_u8().await.unwrap());
+            }
+            assert!(
+                headers.starts_with(b"HTTP/1.1 101"),
+                "{}",
+                String::from_utf8_lossy(&headers)
+            );
+            stream
+        }
+        async fn frame_header(stream: &mut TcpStream, opcode: u8, length: usize) {
+            let mut header = vec![opcode];
+            if length < 126 {
+                header.push(0x80 | length as u8);
+            } else if length <= u16::MAX as usize {
+                header.push(0x80 | 126);
+                header.extend_from_slice(&(length as u16).to_be_bytes());
+            } else {
+                header.push(0x80 | 127);
+                header.extend_from_slice(&(length as u64).to_be_bytes());
+            }
+            header.extend_from_slice(&[0; 4]); // A valid all-zero client mask.
+            stream.write_all(&header).await.unwrap();
+        }
+        async fn send(stream: &mut TcpStream, opcode: u8, payload: &[u8]) {
+            frame_header(stream, opcode, payload.len()).await;
+            stream.write_all(payload).await.unwrap();
+        }
+        async fn receive(stream: &mut TcpStream) -> (u8, Vec<u8>) {
+            let opcode = stream.read_u8().await.unwrap();
+            let size = stream.read_u8().await.unwrap();
+            assert_eq!(size & 0x80, 0);
+            let length = match size {
+                126 => stream.read_u16().await.unwrap() as usize,
+                127 => stream.read_u64().await.unwrap() as usize,
+                n => n as usize,
+            };
+            assert!(length < 8192, "fixture responses remain small");
+            let mut payload = vec![0; length];
+            stream.read_exact(&mut payload).await.unwrap();
+            (opcode, payload)
+        }
+        async fn closed_before_final_frame(stream: &mut TcpStream) {
+            let outcome = tokio::time::timeout(Duration::from_secs(2), stream.read_u8())
+                .await
+                .expect("oversized unfinished input must be rejected without a final fragment");
+            match outcome {
+                Ok(opcode) => {
+                    assert_eq!(opcode & 0xf, 8, "only a close frame may follow rejection")
+                }
+                Err(error) => assert!(matches!(
+                    error.kind(),
+                    std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::ConnectionReset
+                )),
+            }
+        }
+        let root = std::env::temp_dir().join(format!("pulls-ws-budget-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(PathBuf::new(), root.clone()).unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let state = HttpState::new(app, "127.0.0.1", port, vec![], false, None).unwrap();
+        state.auth.lock().unwrap().code = "123456".into();
+        let server =
+            tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
+        let result = tokio::time::timeout(Duration::from_secs(10), async {
+            let mut unauthenticated = connect(port, "").await;
+            let chunk = vec![b'x'; MAX_AUTH_BYTES / 4];
+            for index in 0..4 {
+                send(&mut unauthenticated, if index == 0 { 1 } else { 0 }, &chunk).await;
+                send(&mut unauthenticated, 0x89, b"alive").await;
+                assert_eq!(receive(&mut unauthenticated).await, (0x8a, b"alive".to_vec()));
+            }
+            send(&mut unauthenticated, 0, b"x").await;
+            closed_before_final_frame(&mut unauthenticated).await;
+            let mut oversized_frame = connect(port, "").await;
+            frame_header(&mut oversized_frame, 1, MAX_AUTH_BYTES + 1).await;
+            closed_before_final_frame(&mut oversized_frame).await;
+
+            let mut exchange = connect(port, "").await;
+            let request = json!({"t":"q","i":1,"m":"anonymous:devframe:auth:exchange","a":[{"code":"123456"}]}).to_string();
+            send(&mut exchange, 0x81, request.as_bytes()).await;
+            let (_, answer) = receive(&mut exchange).await;
+            let answer: Value = serde_json::from_slice(&answer).unwrap();
+            let token = answer["r"]["authToken"].as_str().unwrap();
+            let mut trusted = connect(port, &format!("?devframe_auth_token={token}")).await;
+            // Above Tungstenite's default 16 MiB frame limit, but still bounded.
+            let request = json!({"t":"q","i":2,"m":"devframe:rpc:server-state:get","a":[],"padding":"x".repeat(17 * 1024 * 1024)}).to_string();
+            send(&mut trusted, 0x81, request.as_bytes()).await;
+            let (opcode, answer) = receive(&mut trusted).await;
+            assert_eq!(opcode, 0x81);
+            assert_eq!(serde_json::from_slice::<Value>(&answer).unwrap(), json!({"t":"s","i":2,"r":{}}));
+        }).await;
+        server.abort();
+        let _ = server.await;
+        std::fs::remove_dir_all(root).unwrap();
+        result.unwrap();
     }
 
     fn auth_fixture() -> Mutex<Auth> {

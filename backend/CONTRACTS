@@ -325,3 +325,21 @@ at most 8 KB and 64 KB in all (Tavi, 16 Oct 12:47).
 Authenticated browser cache RPCs MUST accept serialized supported source diffs above
 4 MiB while retaining finite wire and decoded-graph bounds; small authentication and
 analytics endpoints MUST keep their separate limits (R12 parity fix, 16 Oct 2026).
+
+@cc [owner:OctavianTocan,label:security] rust-websocket-preauth-buffer-bound
+WebSocket frame and unfinished-message buffering MUST use the small authentication
+budget until a verified upgrade-time credential grants the browser cache budget.
+Code exchange MUST remain usable by reconnecting with the issued token before large
+browser RPCs (R14 security finding 3, 16 Oct 2026; rust-browser-cache-transport-budget).
+
+@cc [owner:OctavianTocan,label:security] rust-agent-post-attempts-are-limited
+Invalid POST and PUT submissions MUST consume the authenticated agent key's hourly
+allowance before body or patch validation. An exhausted key MUST receive 429 with a
+positive Retry-After; another key and requests after the hourly window retain their
+allowance (R14 parity finding 6, 16 Oct 2026; original agent-API limit fixture).
+
+@cc [owner:OctavianTocan,label:security] rust-final-login-helper-is-cleaned
+Job cleanup MUST stop model and bootstrap containers before final credential
+persistence, then retry named-container removal after that final helper, including
+when Docker finishes creating after its client times out. Shutdown MUST await this
+cleanup before releasing the job folder (R14 reliability finding 7, 16 Oct 2026).

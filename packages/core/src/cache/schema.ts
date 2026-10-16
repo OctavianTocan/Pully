@@ -92,7 +92,11 @@ export const PrCacheBodySchema = v.object({
 export type PrCacheBody = v.InferOutput<typeof PrCacheBodySchema>
 
 /** One cached diff as callers see it; stored as a `PrCacheMeta` plus a `PrCacheBody`. */
-export type PrCacheEntry = Pick<PrCacheMeta, 'key' | 'headSha' | 'revision' | 'lastViewedAt' | 'sizeBytes' | 'sharedComment' | 'changedSinceReviewed'> & PrCacheBody
+export const PrCacheEntrySchema = v.object({
+  ...v.pick(PrCacheMetaSchema, ['key', 'headSha', 'revision', 'lastViewedAt', 'sizeBytes', 'sharedComment', 'changedSinceReviewed']).entries,
+  ...PrCacheBodySchema.entries,
+})
+export type PrCacheEntry = v.InferOutput<typeof PrCacheEntrySchema>
 
 /**
  * Per-file "reviewed" mark, keyed by the file's `sha` (see FileChangeSchema) rather

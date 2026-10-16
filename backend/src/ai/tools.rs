@@ -9,8 +9,8 @@ mod discussion;
 mod inbox;
 pub fn specs() -> Value {
     json!([
-    {"name":"read_file_diff","description":"Read changed files and their complete numbered hunks.","inputSchema":{"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"}}},"required":["paths"]}},
-    {"name":"read_hunks","description":"Read specific hunks by path#zero-based-index.","inputSchema":{"type":"object","properties":{"hunkIds":{"type":"array","items":{"type":"string"}}},"required":["hunkIds"]}},
+    {"name":"read_file_diff","description":"Read changed files and their numbered hunks. Follow the returned offset with the same paths to continue a bounded response.","inputSchema":{"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0,"description":"UTF-8 byte offset in this selection’s rendered output; use the exact continuation offset returned by the previous call (may resume within a line)."}},"required":["paths"]}},
+    {"name":"read_hunks","description":"Read specific hunks by path#zero-based-index. Follow the returned offset with the same hunkIds to continue a bounded response.","inputSchema":{"type":"object","properties":{"hunkIds":{"type":"array","items":{"type":"string"}},"offset":{"type":"integer","minimum":0,"description":"UTF-8 byte offset in this selection’s rendered output; use the exact continuation offset returned by the previous call (may resume within a line)."}},"required":["hunkIds"]}},
     {"name":"find_files","description":"Find paths at the captured head commit using a regular expression.","inputSchema":{"type":"object","properties":{"pattern":{"type":"string"}}}},
     {"name":"read_source","description":"Read source at the captured head commit, with line numbers.","inputSchema":{"type":"object","properties":{"path":{"type":"string"},"startLine":{"type":"integer"},"endLine":{"type":"integer"}},"required":["path"]}},
     {"name":"search_diff","description":"Search changed lines with a regular expression.","inputSchema":{"type":"object","properties":{"pattern":{"type":"string"},"added":{"type":"boolean"},"removed":{"type":"boolean"}},"required":["pattern"]}},
@@ -504,6 +504,77 @@ impl std::fmt::Write for BoundedOutput {
         Err(std::fmt::Error)
     }
 }
+const DIFF_OUTPUT_LIMIT: usize = 120_000;
+const CONTINUATION_RESERVE: usize = 256;
+/// @cc [owner:OctavianTocan,label:product;security] rust-diff-tools-have-exact-continuations
+/// Shared MCP/Pi diff reads MUST offer an exact continuation for every included byte,
+/// even within oversized lines, while keeping each reply and its notice within the
+/// existing byte cap (R14 review #9, 16 Oct 2026; agents-act-through-pr-tools).
+struct DiffPage {
+    output: BoundedOutput,
+    offset: usize,
+    skip: usize,
+    invalid_offset: bool,
+}
+impl DiffPage {
+    fn new(args: &Value) -> Result<Self> {
+        let offset = match args.get("offset") {
+            None => 0,
+            Some(offset) => usize::try_from(
+                offset
+                    .as_u64()
+                    .context("offset must be a nonnegative integer")?,
+            )
+            .context("offset is too large")?,
+        };
+        Ok(Self {
+            output: BoundedOutput {
+                text: String::with_capacity(DIFF_OUTPUT_LIMIT),
+                limit: DIFF_OUTPUT_LIMIT - CONTINUATION_RESERVE,
+                truncated: false,
+            },
+            offset,
+            skip: offset,
+            invalid_offset: false,
+        })
+    }
+    fn finish(mut self, name: &str) -> Result<String> {
+        anyhow::ensure!(
+            !self.invalid_offset,
+            "offset must be a UTF-8 byte boundary; use the returned continuation"
+        );
+        if self.output.truncated {
+            // Do not use BoundedOutput::finish: its marker replaces rendered bytes,
+            // whereas the next cursor must follow exactly the bytes returned here.
+            let next = self
+                .offset
+                .checked_add(self.output.text.len())
+                .context("offset is too large")?;
+            write!(
+                self.output.text,
+                "\n[Output continues; call {name} with the same selection and offset: {next}]\n"
+            )?;
+        }
+        Ok(self.output.text)
+    }
+}
+impl std::fmt::Write for DiffPage {
+    fn write_str(&mut self, value: &str) -> std::fmt::Result {
+        if self.invalid_offset {
+            return Err(std::fmt::Error);
+        }
+        if self.skip >= value.len() {
+            self.skip -= value.len();
+            return Ok(());
+        }
+        let Some(value) = value.get(self.skip..) else {
+            self.invalid_offset = true;
+            return Err(std::fmt::Error);
+        };
+        self.skip = 0;
+        self.output.write_str(value)
+    }
+}
 fn cap(mut out: String, limit: usize) -> String {
     if out.len() > limit {
         let mut end = limit;
@@ -570,7 +641,7 @@ pub async fn call(
             };
             let wanted =
                 optional_strings(args.get(field), field)?.context(format!("Missing {field}"))?;
-            let mut out = BoundedOutput::new(120_000);
+            let mut out = DiffPage::new(args)?;
             for item in wanted {
                 let selection = if name == "read_file_diff" {
                     Some((item.as_str(), None))
@@ -592,7 +663,15 @@ pub async fn call(
                         .peekable();
                     if index.is_none() {
                         found = true;
-                        if writeln!(out, "### {path} [{}]", text(f, "status")).is_err() {
+                        if write!(out, "### {path}").is_err() {
+                            break;
+                        }
+                        if let Some(previous) = f.get("previousPath").and_then(Value::as_str) {
+                            if write!(out, " (renamed from {previous})").is_err() {
+                                break;
+                            }
+                        }
+                        if writeln!(out, " [{}]", text(f, "status")).is_err() {
                             break;
                         }
                         if selected.peek().is_none()
@@ -623,7 +702,7 @@ pub async fn call(
                             })
                         };
                         if result.is_err() {
-                            return Ok(out.finish());
+                            return out.finish(name);
                         }
                     }
                 }
@@ -631,7 +710,7 @@ pub async fn call(
                     break;
                 }
             }
-            return Ok(out.finish());
+            return out.finish(name);
         }
 
         "search_diff" => {

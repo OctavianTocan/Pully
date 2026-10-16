@@ -84,23 +84,33 @@ impl Drop for Job {
         let name = self.name.clone();
         let login = self.login.lock().unwrap().clone();
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
-            let handle = runtime.spawn(async move {
-                // The Docker daemon can finish creating after its client is killed.
-                for wait in [0, 1, 9] {
-                    tokio::time::sleep(Duration::from_secs(wait)).await;
-                    remove_container(&name).await;
-                    remove_container(&format!("{name}-login")).await;
-                }
-                if let Some((binary, image)) = login {
-                    let _ = persist_login(&root, &name, &binary, &image).await;
-                }
-                let _ = tokio::fs::remove_dir_all(root).await;
-            });
+            let handle = runtime.spawn(cleanup_job(root, name, login, Duration::from_secs(30)));
             let mut handles = CLEANUPS.lock().unwrap();
             handles.retain(|h| !h.is_finished());
             handles.push(handle);
         }
     }
+}
+async fn cleanup_job(
+    root: PathBuf,
+    name: String,
+    login: Option<(String, String)>,
+    login_timeout: Duration,
+) {
+    // Stop model/bootstrap work before copying credentials. The final persistence
+    // helper can itself finish creating after a killed client, so no helper may
+    // be started after the delayed removal retries.
+    remove_container(&name).await;
+    remove_container(&format!("{name}-login")).await;
+    if let Some((binary, image)) = login {
+        let _ = persist_login_with_timeout(&root, &name, &binary, &image, login_timeout).await;
+    }
+    for wait in [0, 1, 9] {
+        tokio::time::sleep(Duration::from_secs(wait)).await;
+        remove_container(&name).await;
+        remove_container(&format!("{name}-login")).await;
+    }
+    let _ = tokio::fs::remove_dir_all(root).await;
 }
 async fn remove_container(name: &str) {
     let mut command = Command::new("docker");
@@ -380,6 +390,15 @@ async fn prepare_login(job: &Job, binary: &str, image: &str) -> Result<()> {
 // Refresh tokens remain useful across jobs without exposing the shared home to a model.
 // The lock and original fingerprint prevent an older concurrent run replacing a newer login.
 async fn persist_login(root: &Path, job_name: &str, binary: &str, image: &str) -> Result<()> {
+    persist_login_with_timeout(root, job_name, binary, image, Duration::from_secs(30)).await
+}
+async fn persist_login_with_timeout(
+    root: &Path,
+    job_name: &str,
+    binary: &str,
+    image: &str,
+    timeout: Duration,
+) -> Result<()> {
     if !root.join("work/state/auth-original").is_file() {
         return Ok(());
     }
@@ -399,7 +418,7 @@ async fn persist_login(root: &Path, job_name: &str, binary: &str, image: &str) -
         binary,
     ]);
     let result = tokio::time::timeout(
-        Duration::from_secs(30),
+        timeout,
         create_start(&mut create, &name, vec![], &mut |_| false),
     )
     .await;

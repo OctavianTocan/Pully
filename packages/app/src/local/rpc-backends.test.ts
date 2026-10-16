@@ -1,9 +1,10 @@
+import type { PrCacheEntry } from '@pulls.review/core/cache'
 import type { LocalRpc } from './connection'
-import { createReviewMarks } from '@pulls.review/core/cache'
+import { createCacheRepositories, createReviewMarks } from '@pulls.review/core/cache'
 import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { createStorage } from 'unstorage'
 import { describe, expect, it, vi } from 'vitest'
-import { createRpcCredentials, createRpcDriver } from './rpc-backends'
+import { createRpcCredentials, createRpcDiffCache, createRpcDriver } from './rpc-backends'
 
 it('delegates GitHub requests without retrieving server tokens', async () => {
   const call = vi.fn(async (method: string) => method === LOCAL_RPC.githubAuthenticated
@@ -172,4 +173,92 @@ it('keeps only acknowledged chunk observations after a partial bulk failure', as
   await driver.setItems!([...items, { key: 'key-0', value: 'last' }], {})
   expect(values.size).toBe(201)
   expect(values.get('key-0')).toBe('last')
+})
+
+it.each(['single', 'batch', 'has'] as const)('orders a deferred %s read before queued writes', async (kind) => {
+  const started = deferred()
+  const finish = deferred()
+  let stored = 'old'
+  const call = vi.fn(async (method: string, args: any) => {
+    if (method === LOCAL_RPC.storageGetItem || method === LOCAL_RPC.storageGetItems) {
+      const captured = stored
+      started.resolve()
+      await finish.promise
+      return method === LOCAL_RPC.storageGetItems ? [captured] : captured
+    }
+    const item = method === LOCAL_RPC.storageSetItems ? args.items[0] : args
+    if (item.expected !== stored)
+      throw new Error('The cached data changed on the server. Reload before saving.')
+    stored = item.value
+    return null
+  })
+  const driver = createRpcDriver({ call } as Pick<LocalRpc, 'call'>)
+  const reading = kind === 'batch'
+    ? driver.getItems!([{ key: 'key' }], {})
+    : kind === 'has' ? driver.hasItem!('key', {}) : driver.getItem('key', {})
+  await started.promise
+  const writing = kind === 'batch'
+    ? driver.setItems!([{ key: 'key', value: 'new' }], {})
+    : driver.setItem!('key', 'new', {})
+  await Promise.resolve()
+  expect(stored).toBe('old')
+  finish.resolve()
+  await Promise.all([reading, writing])
+  await driver.setItem!('key', 'last', {})
+  expect(stored).toBe('last')
+  expect(call.mock.calls.at(-1)).toEqual([LOCAL_RPC.storageSetItem, { key: 'key', value: 'last', expected: 'new' }])
+})
+
+function cacheEntry(): PrCacheEntry {
+  return {
+    key: 'paste:cache',
+    headSha: 'head',
+    revision: 'revision',
+    lastViewedAt: 1,
+    sizeBytes: 100,
+    diff: { ref: { kind: 'paste', hash: 'cache' }, title: 'Fresh diff', files: [] },
+    analyzedBy: {},
+  }
+}
+
+function rpcCache(call: ReturnType<typeof vi.fn>) {
+  return createRpcDiffCache({ call } as Pick<LocalRpc, 'call'>, createCacheRepositories(createStorage()).diffs)
+}
+
+it('normalizes null and malformed native cache reads to misses', async () => {
+  for (const reply of [null, { ...cacheEntry(), diff: { ...cacheEntry().diff, files: null } }, { ...cacheEntry(), llmSession: { messages: null, chatStartIndex: 0 } }]) {
+    const cache = rpcCache(vi.fn().mockResolvedValue(reply))
+    expect(await cache.get('paste:cache')).toBeUndefined()
+    expect(await cache.getMeta('paste:cache')).toBeUndefined()
+  }
+})
+
+it('parses valid native metadata and entry replies using the canonical schemas', async () => {
+  const entry = cacheEntry()
+  const meta = { key: entry.key, headSha: entry.headSha, revision: entry.revision, ref: entry.diff.ref, title: entry.diff.title, additions: 0, deletions: 0, fileShas: [], lastViewedAt: 1, sizeBytes: 100 }
+  const call = vi.fn().mockResolvedValueOnce({ ...entry, internal: true }).mockResolvedValueOnce({ ...meta, internal: true })
+  const cache = rpcCache(call)
+  expect(await cache.get(entry.key)).toEqual(entry)
+  expect(await cache.getMeta(entry.key)).toEqual(meta)
+})
+
+it('allows a fresh fetch to replace a malformed cache miss', async () => {
+  const fresh = cacheEntry()
+  const call = vi.fn()
+    .mockResolvedValueOnce({ ...fresh, diff: { ...fresh.diff, files: null } })
+    .mockResolvedValueOnce(fresh)
+  const cache = rpcCache(call)
+  const observed = await cache.get(fresh.key)
+  expect(await cache.putDiff(fresh.key, fresh.diff, fresh.headSha, { expectedRevision: observed?.revision ?? null })).toEqual(fresh)
+  expect(call.mock.calls[1][1].values[2]).toBeNull()
+})
+
+it('rejects malformed write replies and never installs a corrupt conflict winner', async () => {
+  const fresh = cacheEntry()
+  const malformed = { ...fresh, diff: { ...fresh.diff, files: null } }
+  const call = vi.fn().mockResolvedValueOnce(malformed)
+  const cache = rpcCache(call)
+  await expect(cache.putDiff(fresh.key, fresh.diff, fresh.headSha, { expectedRevision: null })).rejects.toThrow()
+  call.mockRejectedValueOnce(new Error('The cached diff changed. Reload before saving.')).mockResolvedValueOnce(malformed)
+  await expect(cache.putDiff(fresh.key, fresh.diff, fresh.headSha, { expectedRevision: null })).rejects.toThrow('The cached diff changed')
 })

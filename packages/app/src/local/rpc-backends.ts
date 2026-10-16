@@ -1,7 +1,8 @@
-import type { DiffCache, FileContentCache, PrCacheEntry, PrCacheMeta } from '@pulls.review/core/cache'
+import type { DiffCache, FileContentCache } from '@pulls.review/core/cache'
 import type { Credentials, DiffSource } from '@pulls.review/core/types'
 import type { Driver } from 'unstorage'
 import type { LocalRpc } from './connection'
+import { PrCacheEntrySchema, PrCacheMetaSchema } from '@pulls.review/core/cache'
 import { LOCAL_RPC } from '@pulls.review/core/local-rpc'
 import { DiffsPayloadSchema } from '@pulls.review/core/types'
 import * as v from 'valibot'
@@ -9,48 +10,50 @@ import * as v from 'valibot'
 /** The server's cache directory for collections without a dedicated native repository. */
 /**
  * @cc [owner:OctavianTocan,label:architecture] rpc-storage-mutations-use-acknowledged-values
- * Mutations from one driver MUST serialize before capturing their expected values,
- * so overlapping single and batch writes observe successful earlier writes. A failed
+ * Reads and mutations from one driver MUST serialize their RPCs and observations,
+ * so delayed reads cannot replace successful earlier writes with stale values. A failed
  * mutation MUST NOT advance the observation or prevent later writes, and external
  * conflicts MUST still reject. Repeated keys MUST coalesce to their final value and
  * bulk writes MUST use at most 200 items per acknowledged RPC batch
- * (R12 finding 4 and R13 findings 4/5, 16 Oct 2026).
+ * (R12 finding 4, R13 findings 4/5 and R14 finding 5, 16 Oct 2026).
  */
 export function createRpcDriver(rpc: Pick<LocalRpc, 'call'>): Driver {
   const observed = new Map<string, string | null>()
-  let mutations = Promise.resolve()
-  function mutate(change: () => Promise<void>): Promise<void> {
-    const result = mutations.then(change)
-    mutations = result.catch(() => {})
+  let pending = Promise.resolve()
+  function sequence<T>(operation: () => Promise<T>): Promise<T> {
+    const result = pending.then(operation)
+    pending = result.then(() => {}, () => {})
     return result
   }
-  async function read(key: string) {
-    const value = v.parse(v.nullable(v.string()), await rpc.call(LOCAL_RPC.storageGetItem, { key }))
-    observed.set(key, value)
-    return value
+  function read(key: string) {
+    return sequence(async () => {
+      const value = v.parse(v.nullable(v.string()), await rpc.call(LOCAL_RPC.storageGetItem, { key }))
+      observed.set(key, value)
+      return value
+    })
   }
   return {
     name: 'pulls-review-rpc',
     hasItem: async key => await read(key) !== null,
     getItem: read,
-    setItem: (key, value) => mutate(async () => {
+    setItem: (key, value) => sequence(async () => {
       await rpc.call(LOCAL_RPC.storageSetItem, { key, value, expected: observed.get(key) ?? null })
       observed.set(key, value)
     }),
-    removeItem: key => mutate(async () => {
+    removeItem: key => sequence(async () => {
       await rpc.call(LOCAL_RPC.storageRemoveItem, { key, expected: observed.get(key) ?? null })
       observed.set(key, null)
     }),
     getKeys: async base => v.parse(v.array(v.string()), await rpc.call(LOCAL_RPC.storageGetKeys, { base })),
-    getItems: async (items) => {
+    getItems: items => sequence(async () => {
       const values = v.parse(v.array(v.nullable(v.string())), await rpc.call(LOCAL_RPC.storageGetItems, { keys: items.map(item => item.key) }))
       return items.map((item, index) => {
         const value = values[index] ?? null
         observed.set(item.key, value)
         return { key: item.key, value }
       })
-    },
-    setItems: items => mutate(async () => {
+    }),
+    setItems: items => sequence(async () => {
       // Repeated file SHAs deliberately share one review mark. Keep the final
       // value per key, then respect the native endpoint's bounded batch size.
       const unique = [...new Map(items.map(item => [item.key, item])).values()]
@@ -124,24 +127,32 @@ export function createRpcSource(rpc: Pick<LocalRpc, 'call'>, pending: Promise<st
  * A conflict MUST return the winning stored entry
  * without retrying the stale write (R11 finding 15 and R13 finding 8, 16 Oct 2026).
  */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] rpc-diff-replies-use-canonical-schemas
+ * Cached entries and metadata MUST pass their canonical schemas before use. Null
+ * or malformed read results MUST become cache misses, while malformed putDiff
+ * replies MUST fail instead of installing invalid data (R14 finding 4, 16 Oct 2026).
+ */
 export function createRpcDiffCache(rpc: Pick<LocalRpc, 'call'>, fallback: DiffCache): DiffCache {
   const sessions = new Map<string, string>()
   const call = (method: string, key: string, ...values: unknown[]) => rpc.call(LOCAL_RPC.cacheDiff, { method, key, values })
   const cache: DiffCache = {
     ...fallback,
     async get(key) {
-      const entry = await call('get', key) as PrCacheEntry | undefined
+      const parsed = v.safeParse(PrCacheEntrySchema, await call('get', key))
+      const entry = parsed.success ? parsed.output : undefined
       sessions.set(key, JSON.stringify(entry?.llmSession ?? null))
       return entry
     },
     async getMeta(key) {
-      return await call('getMeta', key) as PrCacheMeta | undefined
+      const parsed = v.safeParse(PrCacheMetaSchema, await call('getMeta', key))
+      return parsed.success ? parsed.output : undefined
     },
     async putDiff(key, diff, headSha, options) {
       if (options?.expectedRevision === undefined)
         throw new Error('A diff write needs the revision observed before fetching.')
       try {
-        return await call('putDiff', key, diff, headSha, options.expectedRevision, options) as PrCacheEntry
+        return v.parse(PrCacheEntrySchema, await call('putDiff', key, diff, headSha, options.expectedRevision, options))
       }
       catch (error) {
         if (error instanceof Error && error.message === 'The cached diff changed. Reload before saving.') {

@@ -1,6 +1,7 @@
 use super::*;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
+use std::sync::OnceLock;
 fn glob(p: &str) -> String {
     let chars: Vec<_> = p.chars().collect();
     let mut s = String::from("^");
@@ -32,7 +33,8 @@ fn glob(p: &str) -> String {
     s
 }
 fn name_cmp(a: &str, b: &str) -> Ordering {
-    let re = regex::Regex::new(r"\d+|\D+").unwrap();
+    static TOKENS: OnceLock<regex::Regex> = OnceLock::new();
+    let re = TOKENS.get_or_init(|| regex::Regex::new(r"\d+|\D+").unwrap());
     let al = a.to_lowercase();
     let bl = b.to_lowercase();
     let aa: Vec<_> = re.find_iter(&al).map(|m| m.as_str()).collect();
@@ -80,10 +82,13 @@ fn stem(p: &str) -> &str {
 fn test_keys(p: &str) -> Vec<String> {
     let mut parts: Vec<_> = p.split('/').collect();
     let name = parts.pop().unwrap_or("");
-    let re = regex::Regex::new(
-        r"^(.+)\.(?:test|spec|stories|story)\.[^.]+$|^(.+)_test\.[^.]+$|^test_(.+)\.py$",
-    )
-    .unwrap();
+    static TEST_NAMES: OnceLock<regex::Regex> = OnceLock::new();
+    let re = TEST_NAMES.get_or_init(|| {
+        regex::Regex::new(
+            r"^(.+)\.(?:test|spec|stories|story)\.[^.]+$|^(.+)_test\.[^.]+$|^test_(.+)\.py$",
+        )
+        .unwrap()
+    });
     let td = parts
         .iter()
         .rposition(|p| ["__tests__", "test", "tests", "spec", "e2e"].contains(p));
@@ -153,21 +158,32 @@ fn area(p: &str) -> String {
         p[0].into()
     }
 }
+type CompiledRule = (String, String, Vec<regex::Regex>);
+/// @cc [owner:OctavianTocan,label:architecture] rust-grouping-reuses-static-matchers
+/// Grouping MUST reuse its immutable rule and name expressions across requests, rather
+/// than compiling them per file or comparison (R14 review #11, 16 Oct 2026).
+fn compiled_rules() -> &'static [CompiledRule] {
+    static RULES: OnceLock<Vec<CompiledRule>> = OnceLock::new();
+    RULES.get_or_init(|| {
+        let rules: Vec<(String, String, Vec<String>)> =
+            serde_json::from_str(include_str!("rules.json")).unwrap();
+        rules
+            .into_iter()
+            .map(|(key, category, patterns)| {
+                (
+                    key,
+                    category,
+                    patterns
+                        .iter()
+                        .map(|p| regex::Regex::new(&glob(p)).unwrap())
+                        .collect(),
+                )
+            })
+            .collect()
+    })
+}
 pub fn groups(diff: &Value) -> Value {
-    let rules: Vec<(String, String, Vec<String>)> =
-        serde_json::from_str(include_str!("rules.json")).unwrap();
-    let rules: Vec<_> = rules
-        .iter()
-        .map(|(k, c, p)| {
-            (
-                k,
-                c,
-                p.iter()
-                    .map(|p| regex::Regex::new(&glob(p)).unwrap())
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect();
+    let rules = compiled_rules();
     let mut buckets: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut bypath = BTreeMap::new();
     for f in diff["files"].as_array().unwrap_or(&vec![]) {
@@ -368,6 +384,29 @@ mod tests {
         );
         assert_eq!(a[1]["key"], "assets");
         assert_eq!(a[2]["key"], "other");
+    }
+    #[test]
+    fn repeated_grouping_reuses_compiled_rules() {
+        let rules = compiled_rules();
+        let files: Vec<_> = (0..32)
+            .rev()
+            .flat_map(|n| {
+                [
+                    json!({"path":format!("src/item{n}.rs")}),
+                    json!({"path":format!("src/item{n}.test.rs")}),
+                ]
+            })
+            .collect();
+        let diff = json!({"files":files});
+        let first = groups(&diff);
+        assert_eq!(first[0]["filePaths"].as_array().unwrap().len(), 64);
+        assert_eq!(first[0]["filePaths"][0], "src/item0.rs");
+        assert_eq!(first[0]["filePaths"][1], "src/item0.test.rs");
+        for _ in 0..3 {
+            assert_eq!(groups(&diff), first);
+            assert!(std::ptr::eq(rules, compiled_rules()));
+            assert!(std::ptr::eq(&rules[0].2[0], &compiled_rules()[0].2[0]));
+        }
     }
     #[test]
     fn split_large_code_areas() {

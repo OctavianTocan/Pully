@@ -186,7 +186,11 @@ async fn diff_tools_stop_at_the_shared_byte_budget() {
     ] {
         let result = call(None, &ctx, tool, &args).await.unwrap();
         assert!(result.len() <= 120_000);
-        assert!(result.ends_with(TRUNCATED));
+        if tool == "search_diff" {
+            assert!(result.ends_with(TRUNCATED));
+        } else {
+            assert!(result.contains("[Output continues;"));
+        }
         assert_eq!(result.matches("[a.rs#0]").count(), 1);
         assert_eq!(result.matches("[b.rs#0]").count(), 1);
         assert!(!result.contains("never.rs"));
@@ -355,5 +359,116 @@ fn tool_result_preserves_text_error_and_field_order() {
             tool_result(Err(anyhow::anyhow!(message.to_owned()))).to_string(),
             error.to_string()
         );
+    }
+}
+
+#[tokio::test]
+async fn shared_diff_tools_preserve_pure_rename_origin() {
+    let ctx = json!({"ref":{"kind":"posted"},"files":[
+        {"path":"new.rs","previousPath":"old.rs","status":"renamed","hunks":[]}
+    ]});
+    let args = json!({"paths":["new.rs"]});
+    let pi = call(None, &ctx, "read_file_diff", &args).await.unwrap();
+    let mcp = mcp(
+        None,
+        &ctx,
+        json!({"id":1,"method":"tools/call","params":{"name":"read_file_diff","arguments":args}}),
+    )
+    .await;
+    assert_eq!(mcp["result"]["content"][0]["text"], pi);
+    assert!(pi.starts_with("### new.rs (renamed from old.rs) [renamed]\n"));
+    assert!(pi.contains("No textual diff"));
+}
+
+#[tokio::test]
+async fn shared_diff_tools_continue_through_oversized_posted_hunks() {
+    let patch = format!(
+        "{}-{}\n+TAIL_SENTINEL\n",
+        "-old 🦀 text\n+new é text\n".repeat(3000),
+        "🦀".repeat(40_000)
+    );
+    let ctx = json!({"ref":{"kind":"posted"},"files":[
+        {"path":"a.rs","status":"modified","hunks":[{"header":"@@ -1 +1 @@","patch":patch}]}
+    ]});
+    let h = hunks(&ctx["files"][0]).next().unwrap();
+    let mut rendered = String::from("[a.rs#0] @@ -1 +1 @@\n");
+    for (sign, n, line) in numbered(&h) {
+        writeln!(rendered, "{sign}{n:5} | {}", line.get(1..).unwrap_or("")).unwrap();
+    }
+    for (tool, field, selection) in [
+        ("read_hunks", "hunkIds", "a.rs#0"),
+        ("read_file_diff", "paths", "a.rs"),
+    ] {
+        let listed = mcp(None, &ctx, json!({"id":1,"method":"tools/list"})).await;
+        let tools = specs_for(&ctx);
+        assert_eq!(listed["result"]["tools"], tools);
+        let spec = tools
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["name"] == tool)
+            .unwrap();
+        assert_eq!(spec["inputSchema"]["properties"]["offset"]["minimum"], 0);
+        let expected = if tool == "read_file_diff" {
+            format!("### a.rs [modified]\n{rendered}")
+        } else {
+            rendered.clone()
+        };
+        let mut joined = String::new();
+        let mut offset = 0;
+        let mut pages = 0;
+        loop {
+            let args = json!({field:[selection],"offset":offset});
+            let page = call(None, &ctx, tool, &args).await.unwrap();
+            let via_mcp = mcp(
+                None,
+                &ctx,
+                json!({"id":2,"method":"tools/call","params":{"name":tool,"arguments":args}}),
+            )
+            .await;
+            assert_eq!(via_mcp["result"]["content"][0]["text"], page);
+            assert!(page.len() <= DIFF_OUTPUT_LIMIT);
+            pages += 1;
+            if let Some((content, notice)) = page.rsplit_once("\n[Output continues; ") {
+                joined.push_str(content);
+                let next: usize = notice
+                    .split_once("offset: ")
+                    .unwrap()
+                    .1
+                    .trim_end_matches("]\n")
+                    .parse()
+                    .unwrap();
+                assert_eq!(next, offset + content.len());
+                assert!(next > offset);
+                offset = next;
+            } else {
+                joined.push_str(&page);
+                break;
+            }
+            assert!(pages < 8, "bounded fixture must make progress");
+        }
+        assert!(pages > 1);
+        assert_eq!(joined, expected);
+        assert!(joined.contains("-    1 | old 🦀 text"));
+        assert!(joined.contains("TAIL_SENTINEL"));
+        for offset in [json!(-1), json!(1.5), json!("1")] {
+            assert!(call(
+                None,
+                &ctx,
+                tool,
+                &json!({field:[selection],"offset":offset})
+            )
+            .await
+            .is_err());
+        }
+        let inside_unicode = expected.find('🦀').unwrap() + 1;
+        assert!(call(
+            None,
+            &ctx,
+            tool,
+            &json!({field:[selection],"offset":inside_unicode})
+        )
+        .await
+        .is_err());
     }
 }

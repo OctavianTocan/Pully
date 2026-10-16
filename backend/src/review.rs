@@ -664,6 +664,13 @@ fn valid_analysis(v: &Value) -> bool {
 /// Browser body mutations MUST update serialized byte accounting before publishing
 /// cache metadata and enforce the shared budget under its coordinator, preserving
 /// posted exclusions and active pins (R13 finding 3, 16 Oct 2026).
+/**
+ * @cc [owner:OctavianTocan,label:architecture;security] rust-browser-cache-validates-saved-entries
+ * Browser cache reads and mutation replies MUST validate canonical entry shapes.
+ * Invalid saved entries MUST behave as absent for reads and replacement revisions,
+ * but posted provenance MUST be checked before treating an entry as invalid or absent
+ * (R14 finding 4, 16 Oct 2026).
+ */
 fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
     let key = key(args)?;
     let method = text(&args["method"]);
@@ -672,24 +679,26 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
     match method {
         "get" | "getMeta" => {
             let saved = state.host.storage.get(&format!("diff:{key}"))?;
-            if let Some(saved) = &saved {
-                validate_posted_provenance(key, saved)?;
+            let Some(saved) = saved else {
+                return Ok(Value::Null);
+            };
+            validate_posted_provenance(key, &saved)?;
+            let Ok(mut parsed) = crate::rpc_validation::cache_entry(&saved) else {
+                return Ok(Value::Null);
+            };
+            let revision = json!(diff_revision(&saved));
+            if method == "getMeta" {
+                let mut meta = metadata(&parsed);
+                meta["revision"] = revision;
+                return crate::rpc_validation::cache_meta(&meta);
             }
-            return Ok(saved
-                .map(|saved| {
-                    if method == "getMeta" {
-                        let mut meta = metadata(&saved);
-                        meta["revision"] = json!(diff_revision(&saved));
-                        meta
-                    } else {
-                        with_revision(saved)
-                    }
-                })
-                .unwrap_or(Value::Null));
+            parsed["revision"] = revision;
+            return Ok(parsed);
         }
         "putDiff" => {
             let diff = v(0);
             valid_diff(&diff)?;
+            let diff = crate::rpc_validation::result("source-fetch", diff)?;
             anyhow::ensure!(
                 diff["ref"]["kind"] != "posted",
                 "Posted diffs open only in the Pully app."
@@ -709,6 +718,9 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
                 if let Some(saved) = &old {
                     validate_posted_provenance(key, saved)?;
                 }
+                // A corrupt/previous-shape body was a miss for the browser. Its
+                // refill must observe the same absence at the atomic CAS boundary.
+                let old = old.filter(|saved| crate::rpc_validation::cache_entry(saved).is_ok());
                 let current = old
                     .as_ref()
                     .map(|e| json!(diff_revision(e)))
@@ -719,15 +731,20 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
                 let mut next = next_diff(key, &diff, old, &marks, v(3)["viewed"] != false);
                 next["headSha"] = head;
                 update_entry_size(&mut next)?;
+                crate::rpc_validation::cache_entry(&next)?;
                 Ok(next)
             })?;
             enforce_diff_budget_locked(state, &mut cache)?;
-            return Ok(with_revision(result));
+            return crate::rpc_validation::cache_entry(&with_revision(result));
         }
         _ => {}
     }
     let mut cache = state.diff_cache.lock().unwrap();
-    if state.host.storage.get(&format!("diff:{key}"))?.is_none() {
+    let Some(saved) = state.host.storage.get(&format!("diff:{key}"))? else {
+        return Ok(Value::Null);
+    };
+    validate_posted_provenance(key, &saved)?;
+    if crate::rpc_validation::cache_entry(&saved).is_err() {
         return Ok(Value::Null);
     }
     state.host.storage.update(&format!("diff:{key}"), |old| {
@@ -768,9 +785,15 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
                 }
             }
             "setLlmSession" => {
-                let expected = v(1);
-                let actual = serde_json::to_string(e.get("llmSession").unwrap_or(&Value::Null))?;
-                if expected.as_str() != Some(&actual) {
+                let expected = v(1)
+                    .as_str()
+                    .and_then(|raw| serde_json::from_str::<Value>(raw).ok());
+                let actual = crate::rpc_validation::cache_session(
+                    e.get("llmSession").unwrap_or(&Value::Null),
+                )?;
+                // Reads project the canonical schema. Compare those values rather
+                // than property order or discarded legacy fields in stored JSON.
+                if expected.as_ref() != Some(&actual) {
                     bail!("The chat changed on the server. Reload before saving.");
                 }
                 let mut session = v(0);
@@ -793,7 +816,11 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
                 if !shared.is_null() && (!shared["id"].is_number() || !shared["url"].is_string()) {
                     bail!("Invalid shared comment.");
                 }
-                e["sharedComment"] = shared;
+                if shared.is_null() {
+                    e.as_object_mut().unwrap().remove("sharedComment");
+                } else {
+                    e["sharedComment"] = shared;
+                }
             }
             "setReviewData" => {
                 if !v(0)["threads"].is_array() || !v(0)["summaries"].is_array() {
@@ -804,6 +831,7 @@ fn cache_diff(state: &crate::AppState, args: &Value) -> Result<Value> {
             _ => bail!("Unknown diff cache operation."),
         }
         update_entry_size(&mut e)?;
+        crate::rpc_validation::cache_entry(&e)?;
         Ok(e)
     })?;
     enforce_diff_budget_locked(state, &mut cache)?;

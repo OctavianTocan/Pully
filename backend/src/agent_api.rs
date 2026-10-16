@@ -16,6 +16,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 pub const POSTS_PER_HOUR: usize = 120;
+const POST_WINDOW_MS: u64 = 3_600_000;
 static POSTS: OnceLock<Mutex<HashMap<String, Vec<u64>>>> = OnceLock::new();
 pub fn normalized_path(path: &str) -> String {
     let mut out = String::new();
@@ -38,18 +39,25 @@ fn fail(status: u16, error: impl Into<String>) -> Response {
         .into_response()
 }
 fn limit(root: &str, key: &str) -> Option<u64> {
-    let now = crate::now_ms();
     let mut map = POSTS
         .get_or_init(Default::default)
         .lock()
         .unwrap_or_else(|e| e.into_inner());
+    limit_at(&mut map, root, key, crate::now_ms())
+}
+fn limit_at(map: &mut HashMap<String, Vec<u64>>, root: &str, key: &str, now: u64) -> Option<u64> {
     map.retain(|_, v| {
-        v.retain(|at| now.saturating_sub(*at) < 3_600_000);
+        v.retain(|at| now.saturating_sub(*at) < POST_WINDOW_MS);
         !v.is_empty()
     });
     let recent = map.entry(format!("{root}:{key}")).or_default();
     if recent.len() >= POSTS_PER_HOUR {
-        Some((recent[0] + 3_600_000 - now).div_ceil(1000))
+        Some(
+            recent[0]
+                .saturating_add(POST_WINDOW_MS)
+                .saturating_sub(now)
+                .div_ceil(1000),
+        )
     } else {
         recent.push(now);
         None
@@ -214,6 +222,92 @@ pub async fn handle(app: Arc<AppState>, request: Request, path: &str) -> Respons
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn allowance_expires_exactly_at_one_hour_and_is_key_scoped() {
+        let mut map = HashMap::new();
+        let start = 10_000;
+        for _ in 0..POSTS_PER_HOUR {
+            assert_eq!(limit_at(&mut map, "root", "key", start), None);
+        }
+        assert_eq!(limit_at(&mut map, "root", "key", start), Some(3600));
+        assert_eq!(
+            limit_at(&mut map, "root", "key", start + POST_WINDOW_MS - 1),
+            Some(1)
+        );
+        assert_eq!(limit_at(&mut map, "root", "other-key", start), None);
+        assert_eq!(limit_at(&mut map, "other-root", "key", start), None);
+        assert_eq!(
+            limit_at(&mut map, "root", "key", start + POST_WINDOW_MS),
+            None
+        );
+        assert_eq!(
+            map.len(),
+            1,
+            "expired entries are evicted without a global reset"
+        );
+    }
+
+    #[tokio::test]
+    async fn invalid_posts_exhaust_the_key_before_post_or_put_validation() {
+        let root = std::env::temp_dir().join(format!("agent-post-limit-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        app.account_seed.set(true).unwrap();
+        let (account, _, limited) = app.accounts.fixture_for_test();
+        let other = app
+            .accounts
+            .create_key(&account.id, "Other fixture key")
+            .unwrap();
+        let request = |method: &str, path: &str, key: &str, patch: &str| {
+            Request::builder()
+                .method(method)
+                .uri(path)
+                .header("authorization", format!("Bearer {key}"))
+                .header("content-type", "text/plain")
+                .body(axum::body::Body::from(patch.to_owned()))
+                .unwrap()
+        };
+        for _ in 0..POSTS_PER_HOUR {
+            let response = handle(
+                app.clone(),
+                request("POST", "/api/v1/diffs", &limited.key, "not a diff"),
+                "/api/v1/diffs",
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        }
+        let patch = "diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-old\n+new\n";
+        let response = handle(
+            app.clone(),
+            request("POST", "/api/v1/diffs", &other.key, patch),
+            "/api/v1/diffs",
+        )
+        .await;
+        assert_eq!(
+            response.status(),
+            StatusCode::CREATED,
+            "another key retains its own allowance"
+        );
+        let saved: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 16_384).await.unwrap()).unwrap();
+        let update_path = format!("/api/v1/diffs/{}", saved["id"].as_str().unwrap());
+        for (method, path) in [("POST", "/api/v1/diffs"), ("PUT", update_path.as_str())] {
+            let response = handle(
+                app.clone(),
+                request(method, path, &limited.key, patch),
+                path,
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+            let retry: u64 = response.headers()["retry-after"]
+                .to_str()
+                .unwrap()
+                .parse()
+                .unwrap();
+            assert!((1..=3600).contains(&retry));
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn claims_every_spelling() {
         for path in [

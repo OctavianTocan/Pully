@@ -51,22 +51,26 @@ pub async fn git(root: &Path, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&git_bytes(root, args).await?).into())
 }
 async fn root(state: &AppState) -> Result<std::path::PathBuf> {
-    Ok(std::fs::canonicalize(
-        git(state.host.checkout()?, &["rev-parse", "--show-toplevel"])
-            .await?
-            .trim(),
-    )?)
+    let directory = git(state.host.checkout()?, &["rev-parse", "--show-toplevel"]).await?;
+    crate::store::blocking(move || Ok(std::fs::canonicalize(directory.trim())?)).await
 }
 async fn excluded_roots(state: &AppState, root: &Path) -> Result<Vec<std::path::PathBuf>> {
     let mut excluded = vec![
         state.host.storage.root().to_path_buf(),
         state.analytics.root().to_path_buf(),
     ];
+    let mut git_directories = vec![];
     for flag in ["--absolute-git-dir", "--git-common-dir"] {
         let directory = git(root, &["rev-parse", flag]).await?;
-        excluded.push(std::fs::canonicalize(root.join(directory.trim()))?);
+        git_directories.push(root.join(directory.trim()));
     }
-    Ok(excluded)
+    crate::store::blocking(move || {
+        for directory in git_directories {
+            excluded.push(std::fs::canonicalize(directory)?);
+        }
+        Ok(excluded)
+    })
+    .await
 }
 async fn rev(root: &Path, s: &str) -> Result<String> {
     ensure!(!s.starts_with('-') && !s.contains('\0'), "Invalid revision");
@@ -358,6 +362,29 @@ fn open_worktree_file(
     }
     Ok(Some(f))
 }
+/// @cc [owner:OctavianTocan,label:architecture;security] rust-worktree-search-open-off-runtime
+/// Working-tree search MUST offload containment, descriptor validation and metadata
+/// reads before starting asynchronous bounded content reads (16 Oct 2026 review
+/// fixes, R14 #12; engine-worktree-reads-stay-in-repository).
+async fn open_worktree_file_with<F>(
+    root: &Path,
+    path: &str,
+    excluded: &[std::path::PathBuf],
+    open: F,
+) -> Result<Option<(std::fs::File, u64)>>
+where
+    F: FnOnce(&Path, &str, &[std::path::PathBuf]) -> Result<Option<std::fs::File>> + Send + 'static,
+{
+    let (root, path, excluded) = (root.to_path_buf(), path.to_owned(), excluded.to_vec());
+    crate::store::blocking(move || {
+        let Some(file) = open(&root, &path, &excluded)? else {
+            return Ok(None);
+        };
+        let size = file.metadata()?.len();
+        Ok(Some((file, size)))
+    })
+    .await
+}
 pub async fn allowed_path(state: &AppState, path: &str) -> Result<bool> {
     if path.is_empty()
         || Path::new(path).is_absolute()
@@ -491,6 +518,234 @@ pub async fn info(state: &AppState) -> Result<Value> {
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
+
+    struct SourceIoFixture {
+        dir: std::path::PathBuf,
+        root: std::path::PathBuf,
+        excluded: Vec<std::path::PathBuf>,
+    }
+    impl SourceIoFixture {
+        fn new() -> Self {
+            let dir =
+                std::env::temp_dir().join(format!("pulls-source-io-{}", uuid::Uuid::new_v4()));
+            let root = dir.join("repo");
+            std::fs::create_dir_all(root.join("private")).unwrap();
+            std::fs::create_dir_all(root.join(".git")).unwrap();
+            std::fs::write(root.join("ok.rs"), b"needle\n").unwrap();
+            std::fs::write(root.join("readme.md"), b"needle\n").unwrap();
+            std::fs::write(root.join("private/chat.rs"), b"private").unwrap();
+            std::fs::write(root.join(".git/config"), b"private").unwrap();
+            std::fs::write(dir.join("secret.rs"), b"outside").unwrap();
+            std::os::unix::fs::symlink(dir.join("secret.rs"), root.join("escape.rs")).unwrap();
+            std::os::unix::fs::symlink(root.join("private/chat.rs"), root.join("private-link.rs"))
+                .unwrap();
+            std::os::unix::fs::symlink(root.join(".git/config"), root.join("git-link.rs")).unwrap();
+            let excluded = vec![root.join("private")];
+            Self {
+                dir,
+                root,
+                excluded,
+            }
+        }
+        fn paths() -> &'static [&'static str] {
+            &[
+                "z-missing.rs",
+                "ok.rs",
+                "readme.md",
+                "ok.rs",
+                "private/chat.rs",
+                "private-link.rs",
+                "escape.rs",
+                "git-link.rs",
+                ".git/config",
+                "../secret.rs",
+            ]
+        }
+    }
+    impl Drop for SourceIoFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    struct BlockedIo {
+        entered: Option<tokio::sync::oneshot::Sender<()>>,
+        release: std::sync::mpsc::Receiver<()>,
+        runtime_thread: std::thread::ThreadId,
+    }
+    impl BlockedIo {
+        fn wait(&mut self) {
+            assert_ne!(std::thread::current().id(), self.runtime_thread);
+            if let Some(entered) = self.entered.take() {
+                entered.send(()).unwrap();
+                // A regression cannot deadlock the test's single runtime thread.
+                self.release
+                    .recv_timeout(std::time::Duration::from_secs(2))
+                    .expect("runtime did not make progress while source I/O was blocked");
+            }
+        }
+    }
+    async fn while_source_io_is_blocked<F, Fut, T>(operation: F) -> T
+    where
+        F: FnOnce(BlockedIo) -> Fut,
+        Fut: std::future::Future<Output = Result<T>> + Send + 'static,
+        T: Send + 'static,
+    {
+        let (entered, waiting) = tokio::sync::oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::channel();
+        let task = tokio::spawn(operation(BlockedIo {
+            entered: Some(entered),
+            release: blocked,
+            runtime_thread: std::thread::current().id(),
+        }));
+        tokio::time::timeout(std::time::Duration::from_secs(2), waiting)
+            .await
+            .expect("source I/O did not start")
+            .expect("source I/O exited without reaching the blocking fixture");
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        assert!(!task.is_finished(), "source I/O did not remain blocked");
+        release.send(()).unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), task)
+            .await
+            .expect("source I/O did not finish")
+            .unwrap()
+            .unwrap()
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn tree_inventory_offloads_blocked_containment() {
+        let f = SourceIoFixture::new();
+        let (root, excluded) = (f.root.clone(), f.excluded.clone());
+        let paths = while_source_io_is_blocked(move |mut blocked| async move {
+            tree_inventory_with(
+                &root,
+                &excluded,
+                format!("{}\0", SourceIoFixture::paths().join("\0")),
+                move |root, path, excluded| {
+                    blocked.wait();
+                    visible_source_path(root, path, excluded)
+                },
+            )
+            .await
+        })
+        .await;
+        assert_eq!(paths, ["ok.rs", "readme.md", "z-missing.rs"]);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn search_inventory_offloads_blocked_containment() {
+        let f = SourceIoFixture::new();
+        for worktree in [true, false] {
+            let (root, excluded) = (f.root.clone(), f.excluded.clone());
+            let entries = while_source_io_is_blocked(move |mut blocked| async move {
+                let oid = "a".repeat(40);
+                let listing = SourceIoFixture::paths()
+                    .iter()
+                    .map(|path| {
+                        if worktree {
+                            format!("{path}\0")
+                        } else {
+                            format!("100644 blob {oid}\t{path}\0")
+                        }
+                    })
+                    .collect::<String>();
+                search_inventory_with(
+                    &root,
+                    &excluded,
+                    listing.into_bytes(),
+                    worktree,
+                    Some(&regex::Regex::new(r"\.rs$").unwrap()),
+                    move |root, path, excluded| {
+                        blocked.wait();
+                        visible_source_path(root, path, excluded)
+                    },
+                )
+                .await
+            })
+            .await;
+            assert_eq!(
+                entries
+                    .iter()
+                    .map(|entry| entry.path.as_str())
+                    .collect::<Vec<_>>(),
+                ["ok.rs", "z-missing.rs"]
+            );
+            for entry in entries {
+                assert_eq!(entry.blob, (!worktree).then(|| "a".repeat(40)));
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn worktree_search_offloads_blocked_open_and_metadata() {
+        use tokio::io::AsyncReadExt;
+        let f = SourceIoFixture::new();
+        let (root, excluded) = (f.root.clone(), f.excluded.clone());
+        let (file, size) = while_source_io_is_blocked(move |mut blocked| async move {
+            open_worktree_file_with(&root, "ok.rs", &excluded, move |root, path, excluded| {
+                blocked.wait();
+                open_worktree_file(root, path, excluded)
+            })
+            .await
+        })
+        .await
+        .unwrap();
+        assert_eq!(size, 7);
+        let mut bytes = vec![];
+        tokio::fs::File::from_std(file)
+            .take(SOURCE_BYTE_LIMIT as u64 + 1)
+            .read_to_end(&mut bytes)
+            .await
+            .unwrap();
+        assert_eq!(bytes, b"needle\n");
+        for path in [
+            "private/chat.rs",
+            "private-link.rs",
+            "escape.rs",
+            "git-link.rs",
+            "../secret.rs",
+        ] {
+            assert!(
+                open_worktree_file_with(&f.root, path, &f.excluded, open_worktree_file)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn offloaded_search_inventory_rejects_invalid_records() {
+        let f = SourceIoFixture::new();
+        for (listing, worktree, message) in [
+            (b"ok.rs".to_vec(), true, "Incomplete source inventory"),
+            (vec![0xff, 0], true, "unsupported paths"),
+            (
+                b"invalid\tok.rs\0".to_vec(),
+                false,
+                "Invalid source tree entry",
+            ),
+            (
+                b"100644 blob invalid\tok.rs\0".to_vec(),
+                false,
+                "Invalid source object ID",
+            ),
+        ] {
+            let error = search_inventory_with(
+                &f.root,
+                &f.excluded,
+                listing,
+                worktree,
+                None,
+                visible_source_path,
+            )
+            .await
+            .err()
+            .expect("invalid inventory was accepted");
+            assert!(error.to_string().contains(message), "{error}");
+        }
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn worktree_reads_offload_complete_containment_and_bounded_io() {
         let dir = std::env::temp_dir().join(format!("pulls-async-read-{}", uuid::Uuid::new_v4()));
@@ -587,22 +842,7 @@ pub async fn tree(state: &AppState, sha: &str) -> Result<Vec<String>> {
         let sha = rev(&root, sha).await?;
         git(&root, &["ls-tree", "-r", "-z", "--name-only", &sha]).await?
     };
-    let mut paths: Vec<String> = listing
-        .split('\0')
-        .filter(|p| !p.is_empty())
-        .filter(|p| {
-            let target = root.join(p);
-            !private_source_path(&root, &target, &excluded)
-                && std::fs::canonicalize(&target)
-                    .map(|target| {
-                        target.starts_with(&root) && !private_source_path(&root, &target, &excluded)
-                    })
-                    .unwrap_or(true)
-        })
-        .map(str::to_owned)
-        .collect();
-    paths.sort();
-    paths.dedup();
+    let paths = tree_inventory_with(&root, &excluded, listing, visible_source_path).await?;
     if sha.starts_with("worktree:") {
         ensure!(
             fetch_local(state, "").await?["head"]["sha"] == sha,
@@ -610,6 +850,33 @@ pub async fn tree(state: &AppState, sha: &str) -> Result<Vec<String>> {
         );
     }
     Ok(paths)
+}
+
+/// @cc [owner:OctavianTocan,label:architecture;security] rust-tree-inventory-off-runtime
+/// Local tree inventories MUST offload their complete containment/filtering pass,
+/// including filesystem checks, while retaining private-path exclusions and complete
+/// captured-revision checks (16 Oct 2026 review fixes, R14 #12).
+async fn tree_inventory_with<F>(
+    root: &Path,
+    excluded: &[std::path::PathBuf],
+    listing: String,
+    mut visible: F,
+) -> Result<Vec<String>>
+where
+    F: FnMut(&Path, &str, &[std::path::PathBuf]) -> bool + Send + 'static,
+{
+    let (root, excluded) = (root.to_path_buf(), excluded.to_vec());
+    crate::store::blocking(move || {
+        let mut paths: Vec<String> = listing
+            .split('\0')
+            .filter(|path| visible(&root, path, &excluded))
+            .map(str::to_owned)
+            .collect();
+        paths.sort();
+        paths.dedup();
+        Ok(paths)
+    })
+    .await
 }
 
 #[derive(Default)]
@@ -697,43 +964,63 @@ async fn search_inventory(
         let sha = rev(root, sha).await?;
         git_bytes(root, &["--no-replace-objects", "ls-tree", "-r", "-z", &sha]).await?
     };
-    // Fail rather than silently change a non-UTF-8 path into a different pathname.
-    let listing =
-        std::str::from_utf8(&listing).context("Source inventory contains unsupported paths")?;
-    ensure!(
-        listing.is_empty() || listing.ends_with('\0'),
-        "Incomplete source inventory"
-    );
-    let mut entries = vec![];
-    for (i, record) in listing.split_terminator('\0').enumerate() {
-        if i % 128 == 0 {
-            tokio::task::yield_now().await;
+    search_inventory_with(root, excluded, listing, worktree, glob, visible_source_path).await
+}
+
+/// @cc [owner:OctavianTocan,label:architecture;security] rust-search-inventory-off-runtime
+/// Local search inventories MUST offload their complete parsing, filtering and
+/// containment pass; Git subprocess waits MUST remain asynchronous, and invalid or
+/// incomplete inventories MUST still fail (16 Oct 2026 review fixes, R14 #12).
+async fn search_inventory_with<F>(
+    root: &Path,
+    excluded: &[std::path::PathBuf],
+    listing: Vec<u8>,
+    worktree: bool,
+    glob: Option<&regex::Regex>,
+    mut visible: F,
+) -> Result<Vec<SearchEntry>>
+where
+    F: FnMut(&Path, &str, &[std::path::PathBuf]) -> bool + Send + 'static,
+{
+    let (root, excluded, glob) = (root.to_path_buf(), excluded.to_vec(), glob.cloned());
+    crate::store::blocking(move || {
+        // Fail rather than silently change a non-UTF-8 path into a different pathname.
+        let listing =
+            std::str::from_utf8(&listing).context("Source inventory contains unsupported paths")?;
+        ensure!(
+            listing.is_empty() || listing.ends_with('\0'),
+            "Incomplete source inventory"
+        );
+        let mut entries = vec![];
+        for record in listing.split_terminator('\0') {
+            let (path, blob) = if worktree {
+                (record, None)
+            } else {
+                let (metadata, path) = record
+                    .split_once('\t')
+                    .context("Invalid source tree entry")?;
+                let fields: Vec<_> = metadata.split(' ').collect();
+                ensure!(fields.len() == 3, "Invalid source tree entry");
+                let oid = fields[2];
+                ensure!(
+                    (oid.len() == 40 || oid.len() == 64)
+                        && oid.bytes().all(|b| b.is_ascii_hexdigit()),
+                    "Invalid source object ID"
+                );
+                (path, (fields[1] == "blob").then(|| oid.to_owned()))
+            };
+            if glob.as_ref().is_none_or(|g| g.is_match(path)) && visible(&root, path, &excluded) {
+                entries.push(SearchEntry {
+                    path: path.to_owned(),
+                    blob,
+                });
+            }
         }
-        let (path, blob) = if worktree {
-            (record, None)
-        } else {
-            let (metadata, path) = record
-                .split_once('\t')
-                .context("Invalid source tree entry")?;
-            let fields: Vec<_> = metadata.split(' ').collect();
-            ensure!(fields.len() == 3, "Invalid source tree entry");
-            let oid = fields[2];
-            ensure!(
-                (oid.len() == 40 || oid.len() == 64) && oid.bytes().all(|b| b.is_ascii_hexdigit()),
-                "Invalid source object ID"
-            );
-            (path, (fields[1] == "blob").then(|| oid.to_owned()))
-        };
-        if glob.is_none_or(|g| g.is_match(path)) && visible_source_path(root, path, excluded) {
-            entries.push(SearchEntry {
-                path: path.to_owned(),
-                blob,
-            });
-        }
-    }
-    entries.sort_by(|a, b| a.path.cmp(&b.path));
-    entries.dedup_by(|a, b| a.path == b.path);
-    Ok(entries)
+        entries.sort_by(|a, b| a.path.cmp(&b.path));
+        entries.dedup_by(|a, b| a.path == b.path);
+        Ok(entries)
+    })
+    .await
 }
 
 /// @cc [owner:OctavianTocan,label:architecture;security] rust-local-search-batches-captured-source
@@ -783,9 +1070,10 @@ pub async fn search(
             if let Some(content) = snapshots[&entry.path].as_str() {
                 result.content(&entry.path, content, re, deadline);
             } else {
-                match open_worktree_file(&root, &entry.path, &excluded) {
-                    Ok(Some(file)) => {
-                        let size = file.metadata()?.len();
+                match open_worktree_file_with(&root, &entry.path, &excluded, open_worktree_file)
+                    .await
+                {
+                    Ok(Some((file, size))) => {
                         if size > SOURCE_BYTE_LIMIT.saturating_sub(result.bytes) as u64 {
                             result.fits(SOURCE_BYTE_LIMIT + 1);
                             break;

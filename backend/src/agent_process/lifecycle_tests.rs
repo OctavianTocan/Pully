@@ -8,7 +8,7 @@ fn fake_docker_cancellation_removes_late_containers() {
     let root = std::env::temp_dir().join(format!("pulls-fake-docker-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&root).unwrap();
     let mut children = Vec::new();
-    for phase in ["create", "start"] {
+    for phase in ["create", "start", "persist-create", "persist-start"] {
         let dir = root.join(phase);
         std::fs::create_dir_all(&dir).unwrap();
         let executable = dir.join("docker");
@@ -18,15 +18,23 @@ fn fake_docker_cancellation_removes_late_containers() {
 import os,sys,json,time,pathlib
 root=pathlib.Path(os.environ['PULLS_TEST_DOCKER_DIR']); args=sys.argv[1:]
 with (root/'calls').open('a') as f: f.write(json.dumps(args)+'\n')
+phase=os.environ['PULLS_TEST_DOCKER_PHASE']
 if args[0]=='rm':
  name=args[-1]; countfile=root/(name+'.count')
  count=int(countfile.read_text())+1 if countfile.exists() else 1
  countfile.write_text(str(count)); marker=root/(name+'.container')
  if marker.exists(): marker.unlink()
  # Simulate a daemon creating the container after the killed client and first removals.
- if count==2: marker.write_text('late daemon creation')
+ if phase.startswith('persist-'):
+  if (root/'persisting').exists() and name.endswith('-login'):
+   after=root/'persist-removals'; n=int(after.read_text())+1 if after.exists() else 1
+   after.write_text(str(n))
+   if n==1: marker.write_text('late persistence helper creation')
+ elif count==2: marker.write_text('late daemon creation')
  sys.exit(0)
-phase=os.environ['PULLS_TEST_DOCKER_PHASE']
+if phase.startswith('persist-') and args[0]==phase.removeprefix('persist-'):
+ (root/'persisting').write_text('ready')
+ while True: time.sleep(.05)
 if args[0]==phase:
  (root/'ready').write_text('ready')
  while True: time.sleep(.05)
@@ -79,6 +87,13 @@ async fn fake_docker_child() {
     let Some(dir) = std::env::var_os("PULLS_TEST_DOCKER_DIR").map(PathBuf::from) else {
         return;
     };
+    if std::env::var("PULLS_TEST_DOCKER_PHASE")
+        .unwrap()
+        .starts_with("persist-")
+    {
+        final_login_helper_cleanup(&dir).await;
+        return;
+    }
     let (cancel, receiver) = watch::channel(false);
     let task = tokio::spawn(run_agent_prepared(
         json!({"engine":"codex","prompt":"offline fixture"}),
@@ -130,4 +145,59 @@ async fn fake_docker_child() {
         assert!(!dir.join(format!("{name}.container")).exists());
     }
     assert!(!job.exists(), "shutdown must drain job-directory cleanup");
+}
+
+async fn final_login_helper_cleanup(dir: &Path) {
+    let name = format!("pulls-agent-{}", Uuid::new_v4());
+    let root = dir.join(&name);
+    tokio::fs::create_dir_all(root.join("work/state"))
+        .await
+        .unwrap();
+    tokio::fs::write(
+        root.join("work/state/auth-original"),
+        "synthetic-fingerprint",
+    )
+    .await
+    .unwrap();
+    // Exercise the exact Drop cleanup sequence with only the helper deadline
+    // shortened. The child PATH contains a synthetic Docker executable only.
+    let cleanup = tokio::spawn(cleanup_job(
+        root.clone(),
+        name.clone(),
+        Some(("codex".into(), "offline-fixture".into())),
+        Duration::from_millis(250),
+    ));
+    CLEANUPS.lock().unwrap().push(cleanup);
+    tokio::time::timeout(Duration::from_secs(15), shutdown_cleanup())
+        .await
+        .unwrap();
+    assert!(
+        dir.join("persisting").exists(),
+        "final persistence reached its create/start timeout"
+    );
+    let removals: usize = std::fs::read_to_string(dir.join("persist-removals"))
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(
+        removals >= 4,
+        "the final helper receives delayed retries after its first removal"
+    );
+    assert!(!dir.join(format!("{name}-login.container")).exists());
+    assert!(
+        !root.exists(),
+        "shutdown drains final-helper cleanup before releasing the job folder"
+    );
+    let calls: Vec<Value> = std::fs::read_to_string(dir.join("calls"))
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let create = calls.iter().position(|call| call[0] == "create").unwrap();
+    assert_eq!(
+        create, 2,
+        "model and bootstrap containers stop before final persistence"
+    );
+    assert_eq!(calls[0], json!(["rm", "--force", name]));
+    assert_eq!(calls[1], json!(["rm", "--force", format!("{name}-login")]));
 }

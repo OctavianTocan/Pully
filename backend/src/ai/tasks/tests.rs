@@ -628,3 +628,16 @@ async fn ai_storage_grouping_tool_transaction_yields_and_preserves_guards() {
     shutdown(&state).await;
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn shared_task_manifest_preserves_pure_rename_origin() {
+    let diff = json!({"title":"Rename", "files":[
+        {"path":"new.rs","previousPath":"old.rs","status":"renamed","hunks":[],"additions":0,"deletions":0},
+        {"path":"added.rs","status":"added","hunks":[]}
+    ]});
+    let heading = prompt_heading(&diff).unwrap();
+    let manifest: Value = serde_json::from_str(heading.split_once("\nFiles: ").unwrap().1).unwrap();
+    assert_eq!(manifest[0]["previousPath"], "old.rs");
+    assert_eq!(manifest[0]["path"], "new.rs");
+    assert!(manifest[1].get("previousPath").is_none());
+}
