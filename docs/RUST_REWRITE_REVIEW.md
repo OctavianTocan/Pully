@@ -334,7 +334,9 @@ separately above; no live integration result is inferred from them.
 
 These are five new full-scope CE reviews, separate from the earlier ten rounds.
 Each included eleven review lenses and one independent validation batch.
-All 56 validated findings were fixed; five rejected suggestions were not counted.
+Of 56 validated findings, 55 fixes remain applied. One broader-CI recommendation
+was not applied because it exceeds the approved branch-only workflow scope.
+Five rejected suggestions were not counted.
 A different-provider CLI was unavailable, so each used the local adversarial
 review fallback. These are scoped regression checks, not full-suite evidence.
 
@@ -358,12 +360,13 @@ review fallback. These are scoped regression checks, not full-suite evidence.
 
 Verification: cargo check --locked; cargo test --lib --no-run; 21 bounded Rust regression tests; 73 focused JS tests across7 files; core tsc + app vue-tsc; contract syntax; changed-file ESLint; git diff --check; cargo build --locked; offline HTTP/local/cache/review smoke; offline analytics smoke; hosted account/key/posted CRUD smoke.
 
-### R12: 10 fixes
+### R12: 9 fixes and one out-of-scope recommendation
 
 - Coordinate native and browser full-file cache writes
 - Allow cache writes for supported large diffs
 - Serialize overlapping cache writes before capturing CAS tokens
-- Run native checks on main pull requests
+- Not applied: run native checks on main pull requests. The workflow retains its
+  approved rewrite-branch-only trigger; bounded regression steps remain.
 - Isolate account storage from Tokio request workers
 - Restore authenticated posted-diff route coverage
 - Restore diff titles in task snapshots
@@ -441,3 +444,69 @@ passed, including signed-token rejection, concurrent signup, explicit password
 seeding, refresh coalescing/cooldown/recovery and key-document limits. Tests use
 a synthetic public fixture key, never a deployed credential. No real Google
 HTTPS verification, credential setup or Android device sign-in is claimed.
+
+## Five additional simplification passes after rebase
+
+These five passes are separate from the original five. Each used all three
+reuse, quality and efficiency personas and verified fixes before the next pass.
+Across them, 22 improvements were applied (6 reuse, 5 quality, 11 efficiency);
+five findings were skipped, withdrawn or duplicate. Safety checks were retained.
+
+### S11: reuse 2, quality 1, efficiency 3
+
+- Shared component encoding with source API alias retained and all-ASCII/Unicode equivalence fixtures
+- Shared string-field lookup with source API alias retained and JSON-kind equivalence fixtures
+- Expanded authenticated agent route dispatch with unchanged rate-limit ordering and responses
+- Borrowed read-only review file arrays instead of deep clones
+- Borrowed grouping file lookup values instead of deep clones
+- Cached unchanged hunk and quoted-name regular expressions in OnceLock
+
+Passed locked native build, scoped Rust regressions, all package typechecks,
+whole lint/contracts, Rust formatting and three offline HTTP smokes.
+
+### S12: reuse 0, quality 1, efficiency 2
+
+- Removed redundant second inbox-tool dispatch branch after unchanged initial two-tool allowlist
+- Compacted SSE input buffer once per chunk instead of once per line, preserving line/error ordering and scan cursor
+- Borrowed grouping coverage arrays and inbox skip list instead of repeated deep clones
+
+Passed locked native build, scoped Rust regressions, all package typechecks,
+whole lint/contracts, Rust formatting and three offline HTTP smokes.
+
+### S13: reuse 1, quality 2, efficiency 2
+
+- Shared strict percent decoder with agent Result adapter and UTF-8/malformed/single-pass fixtures
+- Removed unreachable Android response fragments after the dedicated Android handler return; original allowlist/handler retained
+- Flattened stored-key filtering without changing missing/decode/ownership checks
+- Borrowed already-owned browser storage-write arguments instead of cloning payloads
+- Moved fields from owned native diff into pr-body alias without deep clones
+
+Passed locked native build, scoped Rust regressions, all package typechecks,
+whole lint/contracts, Rust formatting and three offline HTTP smokes.
+
+### S14: reuse 2, quality 1, efficiency 2
+
+- Shared exact ECMAScript whitespace predicate while retaining every validation/trim call
+- Reused Store.get_async for preanalysis eligibility with unchanged failure suppression
+- Computed final XY canvas dimensions before SVG output; removed repaired-string replacements; background rect still validated and removed by native_svg
+- Returned early for unchanged refresh metadata using presence-aware comparisons, preserving missing versus null fields
+- Moved owned GitHub pagination array elements instead of cloning them; requests, errors, order and cap unchanged
+
+Passed locked native build, scoped Rust regressions, all package typechecks,
+whole lint/contracts, Rust formatting and three offline HTTP smokes.
+
+### S15: reuse 1, quality 0, efficiency 2
+
+- Shared UTF-16 truncation iterator preserving scalar boundaries, limit and iterator-consumption semantics
+- Computed multiple weighted analytics quantiles after one sort per row with unchanged target and rounding rules
+- Cached unchanged Android path allowlist regexes separately, preserving short-circuit ordering and all checks
+
+Passed locked native build, scoped Rust regressions, all package typechecks,
+whole lint/contracts, Rust formatting and three offline HTTP smokes.
+
+Final S15 code passed 29 targeted Rust tests. Earlier pass-specific counts
+are not summed as unique tests. Initial compile/format failures were corrected
+before their passes completed. No full test suite, real Google/provider/Docker
+integration, device verification or deployment is claimed. Final publication
+only changes documentation and restores the approved branch-only CI trigger
+after that checked source revision.

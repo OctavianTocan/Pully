@@ -4,18 +4,11 @@ on:
   push:
     branches:
       - feat/rust-backend-20261015
-      - main
     paths:
       - backend/src/**
       - backend/Cargo.toml
       - backend/Cargo.lock
       - backend/scripts/**
-      - .github/workflows/rust-backend-compile.yml
-
-  pull_request:
-    branches: [main]
-    paths:
-      - backend/**
       - .github/workflows/rust-backend-compile.yml
 
 permissions:
