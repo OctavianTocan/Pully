@@ -2,14 +2,7 @@ package com.octaviantocan.pulls.ui.review
 
 import com.octaviantocan.pulls.ui.home.stayOnPull
 import androidx.compose.ui.layout.layout
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.imePadding
-import com.octaviantocan.pulls.ui.design.SendButton
 import com.octaviantocan.pulls.ui.home.SearchDim
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.octaviantocan.pulls.data.JEV_FILE_WORDS
@@ -107,6 +100,7 @@ import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CodePlace
+import com.octaviantocan.pulls.ui.design.FieldHeight
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.IconSwap
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -116,7 +110,6 @@ import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
-import com.octaviantocan.pulls.ui.design.PullsShadow
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
@@ -863,7 +856,7 @@ internal fun reviewFilesLabel(files: Int?): String = if (files == null) "Review 
 
 /**
  * The bar's shape, which the opening page draws too, so it is in place before the pull request arrives (K22): the Tour's
- * Ask pill, asking about the pull request, and beside it a round button on the primary fill with an arrow, or a tick
+ * [AskBar], asking about the pull request, and beside it a round button on the primary fill with an arrow, or a tick
  * when it approves. The button has no words on it; [label] is what it says to a screen reader ("an Ask field and a round
  * button that goes to the review, no text, like the Tour", recording of 16 Oct 12:10, 16:40 to 17:05; N32). Sending a
  * question hands it to [onAsk], which opens the Ask sheet on it.
@@ -880,59 +873,11 @@ internal fun ReviewBar(
     onAsk: (question: String) -> Unit,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PrAskPill(text, onText, onFocus, Modifier.weight(1f), onAsk)
-        FloatIcon(if (approve) Lu.check else Lu.arrow, label, onClick, size = ASK_HEIGHT, iconSize = 22.dp, enabled = enabled, primary = true)
-    }
-}
-
-/** The pill and the round button beside it are one height, Home's search pill's. */
-private val ASK_HEIGHT = 54.dp
-
-/**
- * The Tour's Ask pill (`.tourask`, Home's 54dp search pill), asking about the pull request. Send shows inside it once
- * there is a question, so at rest the round button beside it is the only arrow in the row. A copy of the Tour's, which
- * is private to its page; the two SHOULD become one.
- */
-@Composable
-private fun PrAskPill(text: String, onText: (String) -> Unit, onFocus: (Boolean) -> Unit, modifier: Modifier, onAsk: (String) -> Unit) {
-    val c = LocalPullsColors.current
-    val focus = LocalFocusManager.current
-    val ready = text.isNotBlank()
-    fun send() {
-        val question = text.trim()
-        if (question.isEmpty()) return
-        onText("")
-        focus.clearFocus()
-        onAsk(question)
-    }
-    Row(
-        modifier.height(ASK_HEIGHT).floatShadow(CircleShape, PullsShadow.Search).clip(CircleShape).background(c.raised)
-            .padding(start = 20.dp, end = if (ready) 7.dp else 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        BasicTextField(
-            value = text,
-            onValueChange = onText,
-            singleLine = true,
-            textStyle = PullsType.lg.copy(color = c.text),
-            cursorBrush = SolidColor(c.accentTeal),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { send() }),
-            modifier = Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
-            decorationBox = { inner ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (text.isEmpty()) Text("Ask about this pull request", style = PullsType.lg, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    inner()
-                }
-            },
+    Box(modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        AskBar(
+            text, onText, "Ask about this pull request", onAsk, onFocus = onFocus,
+            trailing = { FloatIcon(if (approve) Lu.check else Lu.arrow, label, onClick, size = FieldHeight, iconSize = 22.dp, enabled = enabled, primary = true) },
         )
-        if (ready) SendButton({ send() }, "Send")
     }
 }
 

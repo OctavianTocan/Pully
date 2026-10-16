@@ -39,6 +39,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -274,13 +276,20 @@ internal fun ColumnScope.FilesList(
     var all by remember(sections) { mutableStateOf(false) }
     var budget = if (searching || all) Int.MAX_VALUE else FIRST_ROWS
     var first = true
-    shown.forEach { section ->
+    shown.forEachIndexed { index, section ->
         // A sheet's heading folds nothing (M7): every section is open, under a plain heading with its + and − (L20).
         val closed = false
+        // Sections that share a "Prefix › " are named once over them, and each heading says only the rest (N34).
+        val shared = section.heading
+        val opens = shared != null && opensHeading(section, shown.getOrNull(index - 1))
+        if (opens) Text(
+            shared!!, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = if (first) 12.dp else 24.dp).semantics { heading() },
+            style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted,
+        )
         if (section.label != null) {
             val adds = section.files.sumOf { it.additions }
             val dels = section.files.sumOf { it.deletions }
-            SheetHeading(section.label, first = first, extra = { SectionChanges(adds, dels) })
+            SheetHeading(section.name ?: section.label, first = first || opens, extra = { SectionChanges(adds, dels) })
         }
         first = false
         // The files sit in a card under their heading.
