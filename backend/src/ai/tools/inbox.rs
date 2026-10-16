@@ -87,7 +87,7 @@ pub(super) async fn call(
             let latest = crate::source::github_request(state, Method::GET, &prefix, None).await?;
             same_revisions(&initial, &latest)?;
             return inbox_details(&pr);
-        } else if name == "read_pull_request_diff" {
+        } else {
             let mut files = vec![];
             for page in 1..=30 {
                 let v = crate::source::github_request(
@@ -124,8 +124,6 @@ pub(super) async fn call(
             let latest = crate::source::github_request(state, Method::GET, &prefix, None).await?;
             same_revisions(&initial, &latest)?;
             json!(files)
-        } else {
-            bail!("Unknown inbox tool")
         }
     } else if name == "read_pull_request" {
         return inbox_details(pull);

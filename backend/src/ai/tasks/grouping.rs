@@ -139,9 +139,15 @@ fn coverage_error(diff: &Value, analysis: &Value) -> Option<String> {
     let mut seen = HashSet::new();
     let mut duplicates = HashSet::new();
     let mut unknown = HashSet::new();
-    for group in array(&analysis["groups"]) {
-        for node in std::iter::once(group.clone()).chain(array(&group["children"])) {
-            for path in array(&node["filePaths"]).iter().filter_map(Value::as_str) {
+    for group in analysis["groups"].as_array().into_iter().flatten() {
+        for node in std::iter::once(group).chain(group["children"].as_array().into_iter().flatten())
+        {
+            for path in node["filePaths"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+            {
                 if !expected.contains(path) {
                     unknown.insert(path.to_owned());
                 } else if !seen.insert(path.to_owned()) {

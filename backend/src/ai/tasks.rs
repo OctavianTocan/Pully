@@ -651,6 +651,7 @@ async fn perform_task(
         }
         "inbox" => {
             let mut pulls = vec![];
+            let skip = r["skip"].as_array().map(Vec::as_slice).unwrap_or_default();
             for status in ["open", "closed"] {
                 check(run)?;
                 let listed = crate::source::handle(state, "my-pulls", json!({"state":status}))
@@ -658,7 +659,7 @@ async fn perform_task(
                     .context("Inbox source unavailable")??;
                 for p in array(&listed) {
                     let repo = format!("{}/{}", text(&p, "owner"), text(&p, "repo"));
-                    if array(&r["skip"]).iter().any(|s| s == &repo) {
+                    if skip.iter().any(|s| s == &repo) {
                         continue;
                     }
                     if status == "closed" && !recently_closed(&p, now_ms()) {

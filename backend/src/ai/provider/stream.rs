@@ -27,14 +27,12 @@ impl CompletionStream {
             bail!("Pi response exceeded its size limit");
         }
         self.pending.extend_from_slice(chunk);
-        while let Some(offset) = self.pending[self.scan_from..]
-            .iter()
-            .position(|b| *b == b'\n')
-        {
-            let at = self.scan_from + offset;
-            let line: Vec<u8> = self.pending.drain(..=at).collect();
-            self.scan_from = 0;
-            let line = std::str::from_utf8(&line)
+        let mut pending = std::mem::take(&mut self.pending);
+        let mut consumed = 0;
+        let mut scan = self.scan_from;
+        while let Some(offset) = pending[scan..].iter().position(|b| *b == b'\n') {
+            let at = scan + offset;
+            let line = std::str::from_utf8(&pending[consumed..=at])
                 .map_err(|_| anyhow::anyhow!("Pi returned invalid stream encoding"))?
                 .trim_end_matches(['\r', '\n']);
             if line.is_empty() {
@@ -43,7 +41,11 @@ impl CompletionStream {
                 self.data
                     .push(data.strip_prefix(' ').unwrap_or(data).to_owned());
             }
+            consumed = at + 1;
+            scan = consumed;
         }
+        pending.drain(..consumed);
+        self.pending = pending;
         self.scan_from = self.pending.len();
         Ok(())
     }
