@@ -101,10 +101,11 @@ lists implemented operations and remaining verification limits.
   `fac9ff30`. The earlier partial harness excluded them and provides no renderer
   evidence; the final removal revision requires its own checks.
 
-The phone API and Android download routes have no application login. Browser
-terminal-code trust protects browser-only methods, not the phone API. Remote
-servers require a private network or an authenticated reverse proxy covering all
-routes; allowed origins are not authentication. Server-owned credentials never
+Account-specific phone methods require their own account session; other phone
+API and Android download routes retain their authenticated-proxy/private-network
+boundary. Browser terminal-code trust protects browser-only methods, not that
+phone boundary. Agent API routes additionally require an account-scoped key.
+Allowed origins are not authentication. Server-owned credentials never
 reach clients. Browser-used core, browser-only providers/renderers, and the
 separate GitHub Action remain TypeScript.
 
