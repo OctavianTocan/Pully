@@ -108,21 +108,23 @@ async fn run() -> Result<()> {
     } else {
         start_page(&app, args.target.as_deref(), args.worktree).await?
     };
+    let listener = tokio::net::TcpListener::bind((args.host.as_str(), args.port))
+        .await
+        .context("Unable to bind server address")?;
+    // Port zero asks the OS to choose a port. Browser origins must use that
+    // actual port, not the requested zero.
+    let port = listener.local_addr()?.port();
     let state = HttpState::new(
         app.clone(),
         &args.host,
-        args.port,
+        port,
         args.allow_origin,
         args.no_auth,
         args.assets,
     )?;
-    let listener = tokio::net::TcpListener::bind((args.host.as_str(), args.port))
-        .await
-        .context("Unable to bind server address")?;
     eprintln!(
-        "pulls.review Rust backend: http://{}:{}",
-        args.host,
-        listener.local_addr()?.port()
+        "pulls.review Rust backend: {}",
+        transport::http_origin(&args.host, port)
     );
     if args.host != "127.0.0.1" && args.host != "localhost" && args.host != "::1" {
         eprintln!("Keep the phone API behind an authenticated reverse proxy. Account methods additionally require a Pully session; /api/v1 requires an agent key.");
@@ -130,13 +132,15 @@ async fn run() -> Result<()> {
     state.print_code();
     if !args.no_open {
         open_browser(&format!(
-            "http://{}:{}{}",
-            if args.host == "0.0.0.0" {
-                "127.0.0.1"
-            } else {
-                &args.host
-            },
-            listener.local_addr()?.port(),
+            "{}{}",
+            transport::http_origin(
+                match args.host.as_str() {
+                    "0.0.0.0" => "127.0.0.1",
+                    "::" => "::1",
+                    host => host,
+                },
+                port,
+            ),
             page
         ))
         .await;

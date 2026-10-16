@@ -344,3 +344,14 @@ Job cleanup MUST stop model and bootstrap containers before final credential
 persistence, then retry named-container removal after that final helper, including
 when Docker finishes creating after its client times out. Shutdown MUST await this
 cleanup before releasing the job folder (R14 reliability finding 7, 16 Oct 2026).
+
+@cc [owner:OctavianTocan,label:architecture] rust-browser-origin-matches-listener
+Browser origin checks and startup URLs MUST use the actual bound port, including when
+port zero selects one, bracket IPv6 literals, and omit HTTP's default port like browser
+Origin headers (Tavi, 16 Oct 19:27 UTC, final operational setup/parity request).
+
+@cc [owner:OctavianTocan,label:architecture;security] rust-native-failures-reach-analytics
+Failed responses from account and general native RPC handlers MUST record one error.server event
+through the existing analytics privacy/opt-out boundary, without replacing dispatched
+RPC timing events or changing response bodies (Tavi, 16 Oct 19:27 UTC, operational
+parity request; main native-api.ts noteFailure behavior).

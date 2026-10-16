@@ -226,6 +226,18 @@ def enabled_smoke(root):
             {"name": "ui.tap", "app": "web", "props": {"id": "fixture-button"}}
             for _ in range(205)
         ]}) == (204, b""), "A capped batch should still be accepted")
+        # Account failures bypass dispatch, but still belong in server error totals.
+        for method, expected_status in (("account-me", 401), ("unknown-fixture", 404)):
+            status, _ = request("/api/rpc", {"name": method, "args": {}})
+            require(status == expected_status, "Failure fixture returned the wrong status")
+        failed = summary(request)
+        require(failed["totals"]["errors"] == 3, "Native and account failures must record server errors")
+        failures = [event for event in stored_events(analytics) if event["name"] == "error.server"]
+        require({event["props"]["method"] for event in failures} == {"account-me", "unknown-fixture"},
+                "Every response failure must be recorded once")
+        require(any(event["props"].get("message") == "Sign in first." for event in failures),
+                "Sanitized client-visible failure messages must reach Stats")
+
         capped = summary(request)
         tap = next(row for row in capped["names"] if row["name"] == "ui.tap")
         require(tap["count"] == 200, "Only the first 200 events in a batch may be stored")
@@ -239,6 +251,8 @@ def disabled_smoke(root):
         require(request("/api/events", {"events": [
             {"name": "pr.open", "app": "web", "props": {"number": 1}}
         ]}) == (204, b""), "Opt-out must retain the accepted HTTP contract")
+        require(request("/api/rpc", {"name": "account-me", "args": {}})[0] == 401,
+                "Opt-out failure fixture returned the wrong status")
         result = summary(request)
         require(result["totals"]["events"] == 0, "Opt-out must discard client and server events")
         # Cross the normal two-second flush interval to catch delayed writes.

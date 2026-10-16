@@ -95,9 +95,10 @@ The helper calls a separate ephemeral-port `/mcp` listener through
 `host.docker.internal`. It receives access only to its selected review context;
 it cannot invoke general RPC, storage, or credential methods. That listener
 binds `0.0.0.0` for Docker reachability. Restrict network access to the server and
-do not expose it through a public proxy. The phone API also has no application
-login, so a remote deployment needs private networking or authenticated proxy
-access to every route. See the [security notes](../../backend/README.md#security-and-network-access).
+do not expose it through a public proxy. General phone RPCs have no application
+login; account-owned methods additionally require a Pully session and `/api/v1`
+uses agent keys. A remote deployment still needs private networking or authenticated
+proxy access to every route. See the [security notes](../../backend/README.md#security-and-network-access).
 
 ## Add or remove a skill
 

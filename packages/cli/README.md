@@ -73,8 +73,9 @@ native options. `PULLS_REVIEW_AGENT_MCP_BINARY` remains available for the requir
 Linux Docker helper when the server runs on another platform.
 
 By default the server listens at `127.0.0.1:7390` and opens the review page. Browser
-access uses the terminal code. The native phone API intentionally has no login;
-restrict network access or use an authenticated reverse proxy before exposing it.
+access uses the terminal code. General native phone RPCs have no application login;
+account-owned methods additionally require a Pully session and `/api/v1` uses agent
+keys. Restrict network access or use an authenticated reverse proxy before exposing it.
 
 The native cache defaults to `<git-common-dir>/pulls-review-rust`. It does not use
 or migrate the former `.git/pulls-review` cache. Use a separate `--data-dir` when

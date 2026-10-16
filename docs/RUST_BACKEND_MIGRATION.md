@@ -74,7 +74,7 @@ counterparts.
 
 | Original backend responsibility                                          | Rust implementation                                                                                                                               | Differences / limits                                                                                                                                                                                                                                                                          |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Native Android `{name,args}` RPC and error/result envelopes              | Axum `POST /api/rpc`, explicit native method allowlist                                                                                            | Network-based access control, no added phone login. Unknown methods are rejected; raw storage/credential proxy stay browser-only.                                                                                                                                                             |
+| Native Android `{name,args}` RPC and error/result envelopes              | Axum `POST /api/rpc`, explicit native method allowlist                                                                                            | Network access control remains required; account, settings, keys and posted diffs additionally require a Pully session. Unknown methods are rejected; raw storage/credential proxy stay browser-only.                                                                                         |
 | Local web connection and terminal-code trust                             | HTTP backend detection/session endpoints and `POST /api/web-rpc`; devframe-compatible `/__connection.json` and `/__ws`                            | WebSocket transport implements the app's registered JSON/birpc methods and trust exchange, not arbitrary devframe plugins or executable structured-clone objects.                                                                                                                             |
 | Local web serving and CLI navigation                                     | Existing `PR_LOCAL` static build with HTML fallback; optional target, `--worktree`, browser launch, `--no-open`                                   | Node/pnpm builds the SPA; launcher supplies assets or direct Rust uses `--assets`. Route selection never changes checkout/index. `--agents` accepts only `docker`.                                                                                                                            |
 | Android artifact downloads                                               | Allowlisted files under `--android-dir`, with containment checks                                                                                  | No APK build, signing, publication, or update scheduler.                                                                                                                                                                                                                                      |
@@ -404,3 +404,43 @@ three offline HTTP smoke scripts. This was one Ubuntu runner with two Cargo
 workers and a 15-minute job limit. No live provider, real Docker or device
 verification is inferred. The subsequent publication commit changes only
 documentation; the tested runtime source is unchanged.
+
+## Final operational setup review, 16 October 2026
+
+This additional setup review compared the native implementation with main
+`c666dbcaa734081c3b26f4fb3e259ad8ab760a9b`; it is separate from the previously
+completed review and simplification rounds. Three independent read-only inspections
+covered installation/packaging and startup, Docker/provider/GitHub/storage lifecycle,
+and hosted accounts/Google/posted/browser/mobile contracts.
+
+Validated fixes:
+
+- **P2 startup:** `--port 0` now registers the actual bound port for browser origins.
+  IPv6 startup URLs/Host allowlists use bracketed literals, and HTTP port 80 origins
+  omit the default port as browsers do.
+- **P2 observability:** failed native/account RPC responses again record
+  `error.server`, including calls that bypass ordinary dispatch. Events use the
+  existing privacy and opt-out filter; response bodies and RPC timing stay intact.
+- **P3 UI parity:** with web assets configured, posted links reach the retained
+  localized Vue phone-only landing screen. Assetless servers retain the plain-text
+  explanation. Neither path reads posted content.
+- **P3 setup documentation:** account sessions and agent keys are distinguished from
+  general phone RPCs that still need network/proxy authentication.
+
+Bounded verification for these changes: locked offline native build, one focused
+origin-serialization unit fixture, all three offline HTTP smoke scripts (including
+new ephemeral-port, posted-page and failed-RPC telemetry regressions), 20 launcher
+fixtures, launcher syntax, contract format, Rust format and diff whitespace checks.
+The build retains the existing unused `DiffSnapshot.size_bytes` warning.
+
+The npm package still needs a separately built/installed native executable. CLI
+providers intentionally require Docker; a helper must match the image's architecture
+and runtime libraries (non-Linux hosts supply a Linux helper explicitly). Hosted
+operators need persistent storage, their public `--allow-origin`, authenticated TLS
+proxy protection, and an explicit HTTPS `PULLY_PUBLIC_URL` behind TLS termination.
+Rollback requires the separately preserved original cache and server checkout.
+
+No new setup blocker was confirmed in the remaining inspected source. This is not
+production runtime parity: no clean npm install/release, live provider or Google
+sign-in, real Docker/helper/shared-login execution, GitHub writes, Android device,
+or deployed proxy was exercised. Native CI's approved branch-only scope is unchanged.

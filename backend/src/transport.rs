@@ -71,7 +71,11 @@ impl HttpState {
             "localhost".into(),
             "127.0.0.1".into(),
             "[::1]".into(),
-            host.into(),
+            if let Ok(address) = host.parse::<std::net::Ipv6Addr>() {
+                format!("[{address}]")
+            } else {
+                host.into()
+            },
         ]);
         for origin in allow {
             let url = url::Url::parse(&origin).context("Invalid allowed origin")?;
@@ -89,7 +93,7 @@ impl HttpState {
             origins.insert(url.origin().ascii_serialization());
         }
         for host in &hosts {
-            origins.insert(format!("http://{host}:{port}"));
+            origins.insert(http_origin(host, port));
         }
         Ok(Self {
             app,
@@ -108,6 +112,20 @@ impl HttpState {
         }
     }
 }
+/// Serialize the origin like a browser: bracket IPv6 and omit HTTP's default port.
+pub fn http_origin(host: &str, port: u16) -> String {
+    let host = if let Ok(address) = host.parse::<std::net::Ipv6Addr>() {
+        format!("[{address}]")
+    } else {
+        host.to_owned()
+    };
+    if port == 80 {
+        format!("http://{host}")
+    } else {
+        format!("http://{host}:{port}")
+    }
+}
+
 fn same(a: &str, b: &str) -> bool {
     a.len() == b.len()
         && a.as_bytes()
@@ -134,8 +152,15 @@ fn trusted(state: &HttpState, headers: &HeaderMap) -> bool {
             })
         })
 }
+#[derive(Clone)]
+struct ErrorMessage(String);
 fn error(status: StatusCode, message: impl Into<String>) -> Response {
-    (status, Json(json!({"error":message.into()}))).into_response()
+    let message = message.into();
+    let mut response = (status, Json(json!({"error":message}))).into_response();
+    // Retain only the already client-visible error for the sanitized telemetry
+    // boundary; never consume or rebuild the outgoing response body.
+    response.extensions_mut().insert(ErrorMessage(message));
+    response
 }
 /// Never expose credentials in errors returned by a provider, Git, or an adapter.
 pub fn safe_error(error: &anyhow::Error) -> String {
@@ -282,7 +307,29 @@ async fn native(
     headers: HeaderMap,
     Json(rpc): Json<Rpc>,
 ) -> Response {
-    if let Some(response) = account::call(&state.app, &headers, &rpc.name, &rpc.args).await {
+    let name = rpc.name.clone();
+    let response = native_response(&state, &headers, rpc).await;
+    if !response.status().is_success() {
+        let message = response
+            .extensions()
+            .get::<ErrorMessage>()
+            .map(|m| m.0.as_str());
+        let _ = state
+            .app
+            .analytics
+            .record(
+                "error.server",
+                json!({
+                    "route": "rpc", "method": name.chars().take(64).collect::<String>(),
+                    "status": response.status().as_u16(), "message": message,
+                }),
+            )
+            .await;
+    }
+    response
+}
+async fn native_response(state: &HttpState, headers: &HeaderMap, rpc: Rpc) -> Response {
+    if let Some(response) = account::call(&state.app, headers, &rpc.name, &rpc.args).await {
         return response;
     }
     if !phone_allowed(&rpc.name) {
@@ -295,7 +342,7 @@ async fn native(
         return error(StatusCode::NOT_FOUND, crate::host::NO_CHECKOUT);
     }
     if let Err(response) =
-        account::authorize_posted(&state.app, &headers, &rpc.name, &rpc.args).await
+        account::authorize_posted(&state.app, headers, &rpc.name, &rpc.args).await
     {
         return response;
     }
@@ -307,7 +354,7 @@ async fn native(
         };
     }
     reply(match result {
-        Ok(value) => account::filter_owned(&state.app, &headers, value).await,
+        Ok(value) => account::filter_owned(&state.app, headers, value).await,
         Err(e) => Err(e),
     })
 }
@@ -466,7 +513,7 @@ async fn static_file(
     headers: HeaderMap,
 ) -> Response {
     let path = uri.path();
-    if path.starts_with("/-/") {
+    if path.starts_with("/-/") && state.assets.is_none() {
         return (
             [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
             "Posted diffs open only in the Pully app.",
@@ -935,6 +982,23 @@ fn agent_path(raw: &str) -> Option<String> {
 #[cfg(test)]
 mod privacy_tests {
     use super::*;
+    #[test]
+    fn listener_origins_match_browser_serialization() {
+        assert_eq!(http_origin("127.0.0.1", 7390), "http://127.0.0.1:7390");
+        assert_eq!(http_origin("::1", 7390), "http://[::1]:7390");
+        assert_eq!(http_origin("0:0:0:0:0:0:0:1", 7390), "http://[::1]:7390");
+        assert_eq!(http_origin("[::1]", 80), "http://[::1]");
+        let root = std::env::temp_dir().join(format!("pulls-origin-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(std::env::current_dir().unwrap(), root.clone()).unwrap();
+        let state = HttpState::new(app, "2001:db8::1", 80, vec![], false, None).unwrap();
+        assert!(state.hosts.contains("[2001:db8::1]"));
+        for origin in ["http://[2001:db8::1]", "http://[::1]", "http://localhost"] {
+            assert!(state.origins.contains(origin), "{origin}");
+        }
+        drop(state);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn claims_encoded_and_normalized_agent_paths() {
         for path in [

@@ -175,10 +175,11 @@ server lifetime, including failed attempts, and skips PRs over 300 changed files
 
 ## Security and network access
 
-- The native `POST /api/rpc` API and Android download routes have **no application
-  login**, matching the existing product contract. Anyone who can reach them can
-  invoke allowed methods, including GitHub writes using the server account. The
-  browser trust code does not protect the native API.
+- General native `POST /api/rpc` methods and Android download routes have **no
+  application login**. Anyone who can reach them can invoke allowed general methods,
+  including GitHub writes using the server account. Account-owned methods and posted
+  diff reads additionally require a Pully session; `/api/v1` requires an agent key.
+  The browser trust code does not protect the native API.
 - Keep the localhost default unless behind a private network or authenticated
   reverse proxy. For remote access, authenticate **all routes** at the proxy,
   use HTTPS, and add the public origin with `--allow-origin`. Existing Android

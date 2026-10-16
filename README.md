@@ -94,7 +94,8 @@ Android-device workflows remain untested; these bounded results do not establish
 complete end-to-end parity. The Vue/Android UIs, browser-used TypeScript core,
 and separate GitHub Action remain. See the [migration and rollback notes](./docs/RUST_BACKEND_MIGRATION.md).
 Keep remote access on a trusted network or behind an authenticated proxy: the
-phone API has no application login.
+general phone RPCs have no application login. Account-owned methods additionally
+require a Pully session, and `/api/v1` uses agent keys.
 
 ## Packages
 

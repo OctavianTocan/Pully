@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Bounded offline smoke; creates only a temporary Git repository/cache."""
-import http.cookiejar, json, os, pathlib, re, socket, subprocess, sys, tempfile, time, urllib.error, urllib.request
+import http.cookiejar, json, os, pathlib, re, subprocess, sys, tempfile, time, urllib.error, urllib.request
 binary = str(pathlib.Path(sys.argv[1] if len(sys.argv)>1 else 'backend/target/debug/pulls-review-server').resolve())
 with tempfile.TemporaryDirectory(prefix='pulls-rust-smoke-') as tmp:
     root=pathlib.Path(tmp); repo=root/'repo'; repo.mkdir()
     def git(*args): return subprocess.check_output(['git','-C',str(repo),*args],stderr=subprocess.DEVNULL)
     git('init'); (repo/'hello.txt').write_text('old\n'); git('add','.'); git('-c','user.name=Smoke','-c','user.email=smoke@example.invalid','commit','-m','fixture'); (repo/'hello.txt').write_text('new\n')
-    with socket.socket() as s:s.bind(('127.0.0.1',0)); port=s.getsockname()[1]
+    port=0
     assets=root/'assets'; assets.mkdir(); (assets/'index.html').write_text('<!doctype html><title>Smoke UI</title>')
     log=open(root/'server.log','w+')
     # Do not inherit provider or GitHub credentials into the fixture process.
@@ -26,13 +26,20 @@ with tempfile.TemporaryDirectory(prefix='pulls-rust-smoke-') as tmp:
     try:
         for _ in range(60):
             try:
-                if request('/health')[0]==200:break
+                bound=re.search(r'Rust backend: http://127\.0\.0\.1:(\d+)',(root/'server.log').read_text())
+                if bound:port=int(bound.group(1))
+                if port and request('/health')[0]==200:break
+                time.sleep(.05)
             except OSError:time.sleep(.05)
         else:raise AssertionError('Server did not become healthy')
+        assert request('/health',headers={'Origin':f'http://127.0.0.1:{port}'})[0]==200
         assert request('/api/backend')[1]['backend']=='rust'
         with opener.open(urllib.request.Request(f'http://127.0.0.1:{port}/',headers={'Accept':'text/html'}),timeout=5) as response:
             assert response.status==200 and b'Smoke UI' in response.read()
         with opener.open(urllib.request.Request(f'http://127.0.0.1:{port}/worktree',headers={'Accept':'text/html'}),timeout=5) as response:
+            assert response.status==200 and b'Smoke UI' in response.read()
+        # The retained Vue posted-link page only explains the phone-only workflow.
+        with opener.open(urllib.request.Request(f'http://127.0.0.1:{port}/-/Fixture123',headers={'Accept':'text/html'}),timeout=5) as response:
             assert response.status==200 and b'Smoke UI' in response.read()
         assert request('/api/web-rpc',{'name':'storage-get-keys','args':{}})[0]==401
         assert request('/api/rpc',{'name':'storage-get-keys','args':{}})[0]==404
