@@ -1,1 +1,8 @@
-{}
+{
+  "text-field": {
+    "ui/ai/Chat.kt": 1,
+    "ui/design/Components.kt": 1,
+    "ui/review/PrDiffScreen.kt": 1,
+    "ui/review/PrTourScreen.kt": 1
+  }
+}

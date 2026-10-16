@@ -95,6 +95,17 @@ data class PullsColors(
 
     /** `op-mute`: tertiary text. */
     val mute: Color get() = faint
+
+    /**
+     * A pull request's state, the ink of the tile that leads its row and, at a low alpha, the tile's fill: open in the
+     * status green, a draft in the muted grey so it reads apart from an open one at a glance, merged in purple and
+     * closed in the error red, as GitHub colours them ("drafts should look different… use colour": recording 16 Oct
+     * 12:10, 01:23 to 03:05; N4). Derived from the palette, so every colour theme has them.
+     */
+    val stateOpen: Color get() = success
+    val stateDraft: Color get() = muted
+    val stateMerged: Color get() = purple
+    val stateClosed: Color get() = error
 }
 
 val LightPullsColors = PullsColors(

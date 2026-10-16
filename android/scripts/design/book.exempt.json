@@ -45,7 +45,10 @@
     "tc": "An i18n lookup, not a visual component.",
     "sideFade": "A modifier: edgeFade for content that scrolls sideways, so what runs past an edge dissolves into the page (rule 74, J14). Its recipe is on the Motion page.",
     "sideScrollFade": "A modifier: sideFade driven by a row's own scroll, so an edge with nothing past it stays sharp (rule 74, J14). Its recipe is on the Motion page.",
-    "rememberSidePages": "The state of a row of side by side pages, hoisted so a header and tabs can follow and drag them (rules 107 and 118). It is not drawn; SidePages draws the pages."
+    "rememberSidePages": "The state of a row of side by side pages, hoisted so a header and tabs can follow and drag them (rules 107 and 118). It is not drawn; SidePages draws the pages.",
+    "FieldText": "The one text field every kit field is built on (N6, N9); the Pill input, Sheet search and Sheet field pages show it in each of its frames.",
+    "FieldFrame": "The white frame of the framed fields, a pill at the bottom of a page or a card's corner on a sheet (N6); the Pill input and Sheet search pages show both.",
+    "FieldClear": "The ✕ inside a field once something is typed; the Sheet search page's typed state shows it."
   },
   "components": {
     "toast": "ToastHost is one host for the whole app and draws at the bottom of the screen, so it cannot be measured inline. Its page shows the real one."

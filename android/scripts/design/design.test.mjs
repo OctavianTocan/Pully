@@ -237,6 +237,19 @@ describe('bans', () => {
     assert.deepEqual(Object.keys(scan('// ban-ok:\nActionButton("a") {}')), ['legacy-kit'])
   })
 
+  it('keeps Compose\'s text fields in the kit\'s one field (N6)', () => {
+    const source = [
+      'BasicTextField(value = v, onValueChange = {})',
+      'OutlinedTextField(v, {})',
+      'FieldText(v, {}, "Find")',
+      'SheetSearch(v, {}, "Find a file")',
+      'BasicTextField(v, {}) // ban-ok: edited where it stands',
+    ].join('\n')
+    assert.deepEqual(scan(source)['text-field'], { 'ui/x/Screen.kt': 2 })
+    assert.deepEqual(scan('BasicTextField(value = v, onValueChange = {})', 'ui/design/Fields.kt')['text-field'], undefined)
+    assert.deepEqual(scan('BasicTextField(value = v, onValueChange = {})', 'ui/design/Kit.kt')['text-field'], { 'ui/design/Kit.kt': 1 })
+  })
+
   it('declares the rules DESIGN.md lists for it', () => {
     assert.deepEqual(bans.RULES, [1, 5, 8, 10, 11, 22, 28, 38, 48, 49, 51, 52, 73, 100])
   })

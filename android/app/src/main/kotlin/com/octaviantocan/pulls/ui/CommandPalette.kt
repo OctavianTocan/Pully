@@ -34,7 +34,8 @@ import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalSheet
-import com.octaviantocan.pulls.ui.design.PillInput
+import com.octaviantocan.pulls.ui.design.SheetSearch
+import com.octaviantocan.pulls.ui.design.SheetTopGap
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
@@ -93,10 +94,12 @@ internal fun ColumnScope.CommandsPage(scope: PaletteScope?, onClearScope: () -> 
         if (command != null) onRun(command)
     }
 
-    PillInput(
+    // The search every sheet has, the same field at the same distance under the ✕, not a pill of its own (recording
+    // 16 Oct 12:10, 03:23 to 04:03; N6).
+    SheetSearch(
         query, { query = it }, t("palette.placeholder"),
-        Modifier.padding(top = 14.dp).focusRequester(focus).onFocusChanged { if (it.hasFocus) sheet?.lift() },
-        imeAction = ImeAction.Go, onSend = { run(first) },
+        Modifier.padding(top = SheetTopGap).focusRequester(focus).onFocusChanged { if (it.hasFocus) sheet?.lift() },
+        imeAction = ImeAction.Go, onAction = { run(first) },
     )
     if (scope != null) {
         Row(Modifier.padding(top = 12.dp)) { SoftChip(scope.label, selected = true, onClick = onClearScope) }
