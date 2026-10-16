@@ -71,16 +71,7 @@ private data class Layer(val screen: Screen, val depth: Int)
 fun PullsApp(initialTarget: String?) {
     val context = LocalContext.current
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
-    val stack = remember {
-        mutableStateListOf<Screen>(Screen.Home).apply {
-            // Same parsing as the home URL field: PRs, commits, compares, and repository links.
-            when (val link = initialTarget?.let(com.octaviantocan.pulls.ui.home.HomeLinks::parse)) {
-                is com.octaviantocan.pulls.ui.home.HomeLink.Target -> add(Screen.Review(link.target, from = "link"))
-                is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> add(Screen.Repo(link.owner, link.repo))
-                null -> {}
-            }
-        }
-    }
+    val stack = remember { mutableStateListOf<Screen>(Screen.Home).apply { initialTarget?.let(::linkScreen)?.let(::add) } }
     // The server is asked for a newer build on start and whenever the app comes back to the front, and an update
     // waiting on "Install unknown apps" carries on once that is allowed.
     val scope = rememberCoroutineScope()
@@ -121,6 +112,21 @@ fun PullsApp(initialTarget: String?) {
     // The inbox's tab, chip and search live above the screens, so they are still there after a review.
     val homeUi = remember { HomeUi() }
     val toaster = remember { Toaster() }
+    // A link Pulls was opened with that it cannot open says so, rather than leaving the reader on Home wondering.
+    LaunchedEffect(Unit) { if (initialTarget != null && linkScreen(initialTarget) == null) toaster.show(CANT_OPEN, cue = Cue.Error) }
+    // A link handed over while Pulls is open opens over the page on screen, unless that page is already it.
+    val arrival = IncomingLinks.pending
+    LaunchedEffect(arrival) {
+        if (arrival == null) return@LaunchedEffect
+        IncomingLinks.consume(arrival)
+        val screen = linkScreen(arrival.text)
+        val top = stack.last()
+        when {
+            screen == null -> toaster.show(CANT_OPEN, cue = Cue.Error)
+            screen == top || screen is Screen.Review && top is Screen.Review && screen.target.serverTarget == top.target.serverTarget -> {}
+            else -> stack.add(screen)
+        }
+    }
     // `KeyboardLayer.vue`'s always-on commands, and the app's own update.
     UseCommands {
         val group = messages.t("palette.group.general")
@@ -169,6 +175,18 @@ fun PullsApp(initialTarget: String?) {
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
         }
     }
+}
+
+private const val CANT_OPEN = "Pulls can't open that link"
+
+/**
+ * The page a link from another app opens: a pull request, commit or compare opens its review, a repository its page.
+ * `null` for anything else, an issue or a file included.
+ */
+private fun linkScreen(text: String): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parseShared(text)) {
+    is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link")
+    is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
+    null -> null
 }
 
 /** The screen's name in usage stats: a fixed word, never a title or a repository. */
