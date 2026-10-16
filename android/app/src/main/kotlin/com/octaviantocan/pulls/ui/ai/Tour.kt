@@ -36,7 +36,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -54,6 +53,7 @@ import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.ModalReveal
 import com.octaviantocan.pulls.ui.design.CodePlace
 import com.octaviantocan.pulls.ui.design.LocalCodeBlock
@@ -219,10 +219,9 @@ internal fun ProvideAiText(session: ReviewSession, open: (CodePlace) -> Unit, co
  */
 @Composable
 internal fun AiMarkdown(session: ReviewSession, source: String, modifier: Modifier = Modifier, style: TextStyle = PullsType.sm, maxLines: Int = Int.MAX_VALUE) {
-    val uri = LocalUriHandler.current
     val text = @Composable { if (maxLines == Int.MAX_VALUE) Markdown(source, modifier, style) else MarkdownPreview(source, modifier, style, maxLines) }
     if (LocalMentions.current != null) text()
-    else ProvideAiText(session, { place -> openSource(session, TourSource(place.path, place.line, ""), uri::openUri) }, text)
+    else ProvideAiText(session, { place -> openSource(session, TourSource(place.path, place.line, "")) }, text)
 }
 
 @Composable
@@ -358,14 +357,17 @@ private fun SvgView(svg: SVG, modifier: Modifier) {
 /**
  * Where to check the stop: each a tappable `file:line` on its own line, the reason under it at the full width of the card.
  * Side by side, a long file name left the reason a column three or four letters wide (F62). The name wraps between its
- * words, never cut (rule 2).
+ * words, never cut (rule 2). A long list shows its first [SOURCES_SHOWN], then a hairline and "Show N more", as the
+ * Overview's long lists do.
  */
 @Composable
 internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
     val c = LocalPullsColors.current
+    var all by remember(sources) { mutableStateOf(false) }
+    val shown = if (all) sources else sources.take(SOURCES_SHOWN)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text("In the code", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
-        sources.forEach { source ->
+        shown.forEach { source ->
             Column(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg))
                     .cueClickable(role = Role.Button, onClickLabel = "Open ${source.path}") { onOpen(source) }.padding(vertical = 8.dp),
@@ -379,8 +381,22 @@ internal fun Sources(sources: List<TourSource>, onOpen: (TourSource) -> Unit) {
                 if (source.why.isNotBlank()) Text(source.why, Modifier.fillMaxWidth(), style = PullsType.sm, color = c.muted)
             }
         }
+        if (shown.size < sources.size) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(c.borderMute))
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.lg))
+                    .cueClickable(role = Role.Button, onClickLabel = "Show every place") { all = true }.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("Show ${sources.size - shown.size} more", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
+                LuIcon(Lu.chevd, tint = c.muted, size = 16.dp)
+            }
+        }
     }
 }
+
+/** How many places "In the code" lists before "Show N more". */
+private const val SOURCES_SHOWN = 5
 
 @Composable
 internal fun Glossary(entries: List<Pair<String, String>>, modifier: Modifier) {

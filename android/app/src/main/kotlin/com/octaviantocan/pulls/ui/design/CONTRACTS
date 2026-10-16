@@ -165,3 +165,9 @@ for it ends in an ellipsis and never wraps out of sight (recording 15 Oct 15:37,
 A picture in Markdown is drawn from a load at the screen's density, as sharp as on GitHub,
 and a tap on it opens its link, or the picture itself, never what is under the text
 (recording 15 Oct 15:37, 09:10 to 09:28; L14, L15).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-footer-floats
+A full sheet's footer floats over its body: the body runs on under the footer and
+dissolves into the paper there, as a page does under its floating bar, and its end clears
+the footer so the last line can be scrolled above it. A full sheet never ends on a solid
+band of paper behind its footer (recording of 16 Oct 12:10, 13:06 to 13:16, N27).

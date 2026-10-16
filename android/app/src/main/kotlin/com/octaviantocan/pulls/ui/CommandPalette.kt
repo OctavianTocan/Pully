@@ -77,7 +77,7 @@ internal fun ColumnScope.CommandsPage(scope: PaletteScope?, onClearScope: () -> 
     val candidates = remember(scope) { Commands.all().filter { !it.hidden && (scope == null || it.id.startsWith(scope.prefix)) } }
     val ranked = remember(candidates, query) { CommandRank.rankItems(candidates, query) { "${it.title} ${it.keywords.orEmpty()} ${it.group.orEmpty()}" } }
     val results = ranked.take(LIMIT)
-    val sections = remember(results) { results.groupBy { it.group ?: general }.toList() }
+    val sections = remember(results, general) { commandSections(results, general) }
     val first = sections.firstOrNull()?.second?.firstOrNull()
     val expanded = remember { mutableStateListOf<String>() }
     val focus = remember { FocusRequester() }
@@ -105,7 +105,7 @@ internal fun ColumnScope.CommandsPage(scope: PaletteScope?, onClearScope: () -> 
         Text(t("palette.empty"), Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
     sections.forEach { (name, entries) ->
-        val all = query.isNotBlank() || name in expanded
+        val all = query.isNotBlank() || name in expanded || name == SUGGESTED
         val shown = if (all) entries else entries.take(PER_GROUP)
         Text(name, Modifier.padding(start = 16.dp, top = 24.dp), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.muted)
         SheetCard {
@@ -116,6 +116,20 @@ internal fun ColumnScope.CommandsPage(scope: PaletteScope?, onClearScope: () -> 
     if (ranked.size > LIMIT) {
         Text(LocalMessages.current.t("palette.more", "n" to ranked.size - LIMIT), Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.sm, color = c.muted)
     }
+}
+
+/** The group of the commands for the page on screen. */
+internal const val SUGGESTED = "Suggested"
+
+/**
+ * The groups Commands shows, in order: Suggested first, the commands of the page on screen (on the Tour its own
+ * actions, on a pull request its next steps), then the other groups as they came, and General last. A suggested command
+ * shows in Suggested only, not twice ("make Commands follow the page", recording of 16 Oct 12:10, 08:31 to 09:04, N14).
+ */
+internal fun commandSections(results: List<Command>, general: String): List<Pair<String, List<Command>>> {
+    val (suggested, rest) = results.partition { it.suggested }
+    val groups = rest.groupBy { it.group ?: general }.toList().sortedBy { (name) -> name == general }
+    return (if (suggested.isEmpty()) emptyList() else listOf(SUGGESTED to suggested)) + groups
 }
 
 /** One command: its whole title, wrapping rather than cut. */

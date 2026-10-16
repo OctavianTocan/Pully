@@ -220,9 +220,9 @@ private fun ColumnScope.TourStart(session: ReviewSession, onModel: () -> Unit, o
     CtaButton("Generate tour", { if (session.key != null) onGenerate() else waiting = true }, Modifier.fillMaxWidth().padding(top = 16.dp))
 }
 
-/** The row that names the model an analysis or a tour runs with; a tap opens the model page. */
+/** The row that names the model an analysis or a tour runs with; a tap opens the model page. The Tour's sheet shows it too. */
 @Composable
-private fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Modifier = Modifier, onEffort: (() -> Unit)? = null) {
+internal fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Modifier = Modifier, onEffort: (() -> Unit)? = null) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val messages = LocalMessages.current

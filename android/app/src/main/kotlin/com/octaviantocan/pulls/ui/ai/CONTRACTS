@@ -52,7 +52,10 @@ the code font while the next is not. They sit on the text line and never grow it
 @cc [owner:OctavianTocan,label:product] ai-links-read-from-the-root
 A link in AI text is read from the repository root: `./` and `../` never go above it, and
 a dot-folder (`.agents`, `.github`) keeps its dot. A file the pull request changes opens
-in the app; any other opens on GitHub at the head commit, never a 404 (rule 124; J36).
+in the app's diff; any other opens in the app too, read at the head commit in the same
+code view, and a link in AI text MUST NOT open GitHub. Tavi changed this from "any other
+opens on GitHub" ("In the code rows still open GitHub", recording of 16 Oct 12:10, 10:01
+to 10:07, N20; rule 124; J36).
 
 @cc [owner:OctavianTocan,label:product] ai-code-works-like-the-diff
 A code block in a tour or an answer is the diff's code view: syntax colours, sideways
@@ -110,9 +113,10 @@ names) scroll to their place, and two or three follow-up questions tap to send (
 F70).
 
 @cc [owner:OctavianTocan,label:product] ask-opens-without-the-keyboard
-The chat opens at its normal height with no keyboard; tapping the field brings the
-keyboard and lifts the sheet ("it goes into this text mode immediately" was jarring,
-rule 77).
+The chat opens at its tall height at once with no keyboard, and may still be dragged
+down to half; tapping the field brings the keyboard ("it goes into this text mode
+immediately" was jarring, rule 77). Tavi changed the opening height from the normal one
+to the tall one (recording of 16 Oct 12:10, 11:37 to 11:47, N25).
 
 @cc [owner:OctavianTocan,label:product] ask-send-needs-text
 Send does nothing until its field has text (rule 84; F65). With nothing typed the button is
@@ -143,8 +147,12 @@ and a tap on it stops the answer ("that should just be where the button is", rec
 
 @cc [owner:OctavianTocan,label:product;motion] ask-scroll-is-the-readers
 An answer being written MUST NOT scroll the reader back down once they have scrolled up;
-the sheet follows the end only while they are at it, and again when they return to it or
-ask again (recording 15 Oct 15:37, 16:14 to 16:23; L32).
+the sheet follows the end only while they are at it, and again when they let go at the
+end or tap the round scroll-to-the-end button that shows once they are away from it. Only
+the reader's own drags let go of the end. A question sent goes to the top of the sheet
+with its answer written under it, and the sheet does not follow the answer down, as
+shadcn's Conversation does (recording 15 Oct 15:37, 16:14 to 16:23; L32; strengthened by
+Tavi, recording of 16 Oct 12:10, 11:48 to 12:47, N26).
 
 @cc [owner:OctavianTocan,label:product] ask-answers-draw-like-tours
 Answers in Ask MAY use the tour's forms (tables, call trees, file trees, pseudocode, flows,
@@ -161,3 +169,16 @@ A pull request keeps its earlier chats. With nothing typed, the field's button o
 on a sheet built from the shared searchable list, newest first, each its first question,
 when and how many questions; a tap brings one back and the open chat takes its place in the
 list (Tavi's idea, recording 15 Oct 15:37, 17:19 to 17:48; L36).
+
+@cc [owner:OctavianTocan,label:design] ask-field-floats-over-the-chat
+Ask's field floats over the conversation, which runs on under it and dissolves into the
+paper as the Tour's page does under its Ask bar; there is no solid band of paper under
+the field ("a white band under the input", recording of 16 Oct 12:10, 13:06 to 13:16,
+N27).
+
+@cc [owner:OctavianTocan,label:product] tour-sheet-holds-tour-things
+On the Tour, ⋯ opens the tour's own sheet: Model with Effort as its own row under it
+(rule 142), Analyze options, then Regenerate tour, Ask about this tour and Switch to the
+diff, and last a row on to the pull request's actions. It opens in the frame of the tap,
+drawn from what the phone holds ("took far too long to open", recording of 16 Oct 12:10,
+10:37 to 10:43, N22; "on the Tour, ⋯ should hold tour things", 10:49 to 11:24, N23).

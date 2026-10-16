@@ -145,7 +145,9 @@ in the error colour). Leave a comment stays in the ⋯ sheet (rule 116; J29).
 
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-on-every-view
 The ⋯ sheet is reachable from the Overview, the Diff and the Tour of a pull request, and
-it holds no Commands row (rules 29 and 61; J30).
+it holds no Commands row (rules 29 and 61; J30). On the Tour, ⋯ opens the tour's own
+sheet and the pull request's sheet is its last row, by Tavi's change ("the pull request's
+sheet is not needed there", recording of 16 Oct 12:10, 10:49 to 11:24, N23).
 
 @cc [owner:OctavianTocan,label:design;motion] pr-header-never-shifts
 The header of the three views is drawn once: the back button and a capsule of three view
@@ -277,7 +279,22 @@ stops as a sheet with the read ones ticked. No "2 of 4" (rules 42 and 97; F60, F
 
 @cc [owner:OctavianTocan,label:product;design] tour-ask-bar-is-home-search
 The "Ask about this tour" bar is the same component as Home's search pill and behaves the
-same: focusing it dims the page behind it (recording 15 Oct 13:54, 05:42 to 05:58; K12).
+same: focusing it dims the page behind it, the review's header included (recording 15 Oct
+13:54, 05:42 to 05:58; K12; "the top bar stays bright", recording of 16 Oct 12:10, 14:15
+to 14:26, N29).
+
+@cc [owner:OctavianTocan,label:product] tour-ask-bar-continues-the-chat
+Empty, the Tour's Ask bar shows the Ask sheet's earlier-chats button; once something is
+typed it shows Send. Sending continues the last conversation and opens the Ask sheet on
+it, and a tap on the empty bar when a conversation exists opens the sheet on it. The bar
+is one component (`AskBar`) any page that asks reuses (recording of 16 Oct 12:10, 13:25 to
+14:15, N28). It never shows an empty white circle (11:27 to 11:33, N24).
+
+@cc [owner:OctavianTocan,label:product;motion] tour-stops-fold
+A tap on a stop's title or its chevron folds the stop to its title alone, and a tap again
+opens it; the folds of a tour are kept in memory for the session, and a stop picked from
+the sections or reached with Next stop opens (recording of 16 Oct 12:10, 09:07 to 09:16,
+N15).
 
 @cc [owner:OctavianTocan,label:product] tour-ask-needs-a-tour
 While there is no tour yet, and while the first one is written, the Tour page offers no
@@ -413,4 +430,13 @@ still don't like the pseudo code", recording of 16 Oct 12:10, 08:16 to 08:20, N1
 
 @cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
 A file or line the Tour names opens that one file's diff on a sheet over the Tour, at the
-line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28).
+line, and the Tour stays where it was (recording 15 Oct 15:37, 14:53 to 15:16; L28). A
+file the pull request does not change opens on the same sheet, read at the head commit
+through the path "Load the whole file" uses, scrolled to the line (recording of 16 Oct
+12:10, 10:01 to 10:07, N20).
+
+@cc [owner:OctavianTocan,label:product] diff-focus-lands-whole
+A place opened in the diff or its sheet lands with its line near the top and the code
+scrolled back to its left edge, never at the top of the file or cut off on the left; a
+line the rows do not hold lands on the nearest one (recording of 16 Oct 12:10, 10:11 to
+10:13, N21).
