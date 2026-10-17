@@ -206,7 +206,8 @@ recording of 17 Oct 13:26, 00:03 to 00:17, P1; rule 190).
 
 @cc [owner:OctavianTocan,label:product;design] home-stacks-are-one-row
 Two or more layers of one stack in the same Inbox section MUST be one row, where the first
-of them stood, with the bottom layer's title and number, the layers mark in its tile, the
+of them stood, with the bottom layer's title and number, the layers mark in a tile drawn
+as an outline, not filled, so it does not blend with the pull requests (Tavi, 17:54), the
 meta line's stack mark with the number of layers beside it and no words ("Just use the icon
 we were already using for stack and type a 3 next to it": Tavi, 17 Oct 17:51), their worst
 checks, summed + and − and newest age; a tap, swipe or

@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -136,6 +137,19 @@ private fun stateInk(state: PullState): Color {
     }
 }
 
+/**
+ * A stack row's tile: the row's square drawn as an outline in the bottom layer's state colour around the layers mark,
+ * so a stack does not read as one more pull request beside the filled tiles ("it blends too much with the PRs
+ * themselves": Tavi, 17 Oct 17:54; rule 202).
+ */
+@Composable
+private fun StackTile(ink: Color, modifier: Modifier) {
+    val shape = RoundedCornerShape(PullsRadius.lg)
+    Box(modifier.size(TILE).clip(shape).border(1.5.dp, ink.copy(alpha = 0.7f), shape), contentAlignment = Alignment.Center) {
+        LuIcon(Lu.layers, tint = ink, size = TILE_MARK)
+    }
+}
+
 /** The square at the head of a row, filled with [fill]: a pull request's state, or a tour's ring. */
 @Composable
 internal fun RowTile(fill: Color, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
@@ -229,10 +243,11 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
 }
 
 /**
- * `.stack`: the layers of one stack in the Inbox as one row (Tavi, 17 Oct 17:40; rule 202). The tile carries the layers
- * mark in the bottom layer's state colour, the title and number are the bottom layer's, the one that merges first, and
- * the meta line carries the stack mark with how many layers the row holds. The checks are the worst of the layers',
- * the + and − their sum and the age the newest. A tap or a hold opens the Stack sheet ([InboxStackSheet]).
+ * `.stack`: the layers of one stack in the Inbox as one row (Tavi, 17 Oct 17:40; rule 202). The tile is an outline
+ * ([StackTile]) around the layers mark in the bottom layer's state colour, the title and number are the bottom layer's,
+ * the one that merges first, and the meta line carries the stack mark with how many layers the row holds. The checks
+ * are the worst of the layers', the + and − their sum and the age the newest. A tap or a hold opens the Stack sheet
+ * ([InboxStackSheet]).
  */
 @Composable
 internal fun StackRowContent(layers: List<PullRow>, now: Long, repo: String? = null) {
@@ -248,9 +263,7 @@ internal fun StackRowContent(layers: List<PullRow>, now: Long, repo: String? = n
     PullRowFrame(
         AnnotatedString(bottom.title),
         tile = {
-            RowTile(ink.copy(alpha = if (c.dark) 0.18f else 0.12f), Modifier.semantics { contentDescription = "A stack of ${layers.size} pull requests" }) {
-                LuIcon(Lu.layers, tint = ink, size = TILE_MARK)
-            }
+            StackTile(ink, Modifier.semantics { contentDescription = "A stack of ${layers.size} pull requests" })
         },
     ) {
         RowNumber(bottom.number)
