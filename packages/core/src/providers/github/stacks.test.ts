@@ -70,6 +70,9 @@ describe('toStackEntry', () => {
       additions: 7,
       deletions: 1,
     })
+    expect(toStackEntry(pull(1, 'b', 'a', { author: { login: 'priya-s' } }), 1, false).author).toBe('priya-s')
+    // A deleted account has no author; the entry leaves it out.
+    expect(toStackEntry(pull(1, 'b', 'a', { author: null }), 1, false).author).toBeUndefined()
     expect(toStackEntry(pull(1, 'b', 'a', { isDraft: true }), 1, false).state).toBe('draft')
     expect(toStackEntry(pull(1, 'b', 'a', { state: 'MERGED', merged: true }), 1, false).state).toBe('merged')
     expect(toStackEntry(pull(1, 'b', 'a', { state: 'CLOSED', isDraft: true }), 1, false).state).toBe('closed')

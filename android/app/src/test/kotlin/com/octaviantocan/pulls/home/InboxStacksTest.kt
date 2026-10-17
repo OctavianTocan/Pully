@@ -43,4 +43,10 @@ class InboxStacksTest {
         assertEquals("", inboxStack(listOf(pull(242, "s", 2, base = "stack/one"), pull(243, "s", 3))).base)
         assertEquals(listOf(false, false), inboxStack(listOf(pull(241, "s", 1), pull(242, "s", 2))).entries.map { it.current })
     }
+
+    @Test
+    fun theSheetCountsTheWholeStackWhenOnlySomeLayersAreHere() {
+        // Layers 1 and 2 of a stack of 3 (the rows' size): the sheet reads 1/3 and 2/3, not 1/2 and 2/2.
+        assertEquals(3, inboxStack(listOf(pull(241, "s", 1), pull(242, "s", 2))).size)
+    }
 }

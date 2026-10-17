@@ -112,7 +112,7 @@ internal fun StackLayers(stack: PrStack, onOpen: (number: Int) -> Unit) {
     Column {
         val trunk = stack.base.isNotBlank()
         val layers = stack.entries.asReversed()
-        val top = stack.entries.maxOf { it.position }
+        val top = maxOf(stack.size, stack.entries.maxOf { it.position })
         layers.forEachIndexed { index, entry ->
             LayerRow(entry, top, first = index == 0, last = !trunk && index == layers.lastIndex, onOpen = if (entry.current) null else { { onOpen(entry.number) } })
         }

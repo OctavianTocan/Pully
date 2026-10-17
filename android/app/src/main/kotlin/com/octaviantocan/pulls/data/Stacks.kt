@@ -35,6 +35,8 @@ data class PrStack(
     val number: Int?,
     val base: String,
     val entries: List<StackEntry>,
+    /** How many layers the whole stack has when [entries] may hold only some of them; 0 when they are all of it. */
+    val size: Int = 0,
 ) {
     val current: StackEntry? get() = entries.firstOrNull { it.current }
 
