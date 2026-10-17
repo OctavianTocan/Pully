@@ -274,6 +274,12 @@ components:
     typography: "{typography.base}"
     rounded: "{rounded.full}"
     height: 52px
+  foot-pill:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.text}"
+    typography: "{typography.base}"
+    rounded: "{rounded.full}"
+    height: 52px
   sheet-field:
     textColor: "{colors.text}"
     typography: "{typography.row}"
@@ -394,6 +400,7 @@ The kit lives in `ui/design`. Use it before writing anything new. A new shared c
 - `cta-button`: the 52dp dark pill that carries the screen's one main action (rule 7: never an irreversible one).
 - `pill-button`: the quiet 44dp paper pill for the actions beside it (Retry, Stop, Rewrite).
 - `pill-input`: the 52dp raised pill that holds a one-line question or comment, its send circle inside at the right.
+- `foot-pill`: the one bar at the foot of the app, the search and Ask bars as one 52dp raised pill drawn once over the pages; a page says what it holds, and an Ask bar rests short, reading Ask (rules 196 to 198).
 - `sheet`, `sheet-card`, `sheet-row`, `sheet-field`, `quick-action`: the bottom sheet and what goes in it. A field in a sheet is a `sheet-field` in the white card, never a bordered input.
 - `toast`: one dark pill above the bottom bars, with an optional action such as Undo.
 - `orb`, `progress-ring`, `breathing-dot`, `pending-dot`, `ok-dot`: AI and progress marks (rules 18 and 43).
@@ -442,7 +449,7 @@ Source: canvas. Checked by: bans, review.
 
 #### 2. Complete identifiers, never truncated.
 
-PR titles wrap, never ellipsise. Repo + number always scannable. Branch means both ends: head → base. Diffstat always coloured.
+A PR title in a list row is one line that ends in an ellipsis (rule 195); on the pull request's own page it wraps whole. Repo + number always scannable. Branch means both ends: head → base. Diffstat always coloured.
 
 Source: canvas. Checked by: review.
 
@@ -1951,13 +1958,15 @@ Source: walkthrough. Checked by: review.
 
 The Overview's bar at the foot behaves exactly as the Tour's: empty, its button opens the earlier chats; typed, it sends. No highlighted button beside it, and nothing at the foot goes to the diff (P2: "this is another ask button ... same functionality"; rule 167).
 
-Check: on the Overview, the bar's button is grey or the history button until something is typed, and no button at the foot opens the diff.
+Since rule 197 the bar rests short, reading Ask, and shows its button once opened.
+
+Check: on the Overview, the opened bar's button is grey or the history button until something is typed, and no button at the foot opens the diff.
 
 Source: walkthrough. Checked by: review.
 
 #### 192. Every bar at the foot rests at one height.
 
-The Inbox's search, the Overview's and the Tour's Ask bars, the diff's file bar, a repository's search and a sheet's own field all rest 24dp over the navigation bar, 16dp in from the sides, through the one kit modifier (`floatingBar`). Opening a pull request never moves the bar down (P3: "it is on the homepage, but when I go to one of the PRs, it pushes it down").
+The Inbox's search, the Overview's and the Tour's Ask bars, the diff's file bar, a repository's search and a sheet's own field all rest 24dp over the navigation bar, 16dp in from the sides, through the one kit modifier (`floatingBar`), and since rule 196 the search and Ask bars are one pill drawn once over the pages. Opening a pull request never moves the bar down (P3: "it is on the homepage, but when I go to one of the PRs, it pushes it down").
 
 Check: put the Inbox, the Overview, the Tour, the Diff and the Ask sheet side by side: every bar's bottom edge is at the same height.
 
@@ -1979,6 +1988,58 @@ Check: tap the history button on the Tour: only Chats is on screen; pick a chat:
 
 Source: walkthrough. Checked by: review.
 
+### Rules 195 to 200, from the walkthrough of 0.47.0 on 2026-10-17
+
+The recording of 17 Oct at 14:45 (Q1 to Q7, in `/mnt/project-files/design/feedback-2026-10-17-0.47.0.md`), read from the transcript and a frame a second, more over the diff swipe.
+
+#### 195. A row is two lines, its tile nearly as tall.
+
+An Inbox, Tours or repository row is the title on one line, cut with an ellipsis, over the meta line. Never three lines: a repository row does not show its GitHub labels (Tavi's pick on 17 Oct). The state tile is nearly as tall as the two lines, with a little air above and below, and its mark grows with it (Q1: "rows should never have three lines ... the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and at the bottom"; Claude's own PR list).
+
+Check: a row whose title is longer than the screen is two lines, the title ending in an ellipsis, and the tile's top and bottom sit just inside the two lines.
+
+Source: walkthrough. Checked by: review.
+
+#### 196. One bar over every page.
+
+The search and Ask bars are one pill, drawn once over the pages at the foot (`FootBarLayer`): a page says what the pill holds and the pill stays put while the pages slide under it. Going from one page to the next changes only what is inside it, the words leaving with a blur fade and the next ones arriving, and its width eases to the new page's. A button beside it (the Inbox's sort) leaves or arrives beside it. A bar of its own shape, the diff's file bar, takes its place the same way (Q2: "one component that's kind of over the screen, and then we can swap the text inside it with that nice blur fade ... we want that kind of seamlessness when we go into a PR as well").
+
+Check: open a pull request from the Inbox: the pill never slides off with the Inbox; its words change in place and the sort button fades beside it.
+
+Source: walkthrough. Checked by: review.
+
+#### 197. Ask rests short.
+
+A page's Ask bar (the Overview, its opening page and the Tour) rests as a short pill, centred, that reads Ask, with no button. A tap opens it to the full width with the cursor in it and its button at the end; left empty, it goes short again (Q5: "let's not have this send button and let's just have like a shorter bar that says Ask. And when you tap on it ... it kind of expands ... and then obviously compacts back whenever you get out of that"). He called it a bit experimental.
+
+Check: on the Overview the bar reads Ask; a tap opens it with the keyboard; a tap on the page with nothing typed makes it short again.
+
+Source: walkthrough. Checked by: review.
+
+#### 198. A tap on the bar is the bar's.
+
+A tap anywhere on the pill, its edge and padding included, opens it or puts the cursor in its field. It never reaches what is under it (Q6: "I keep trying to tap on the ask about this pull request, and it keeps getting me to the description").
+
+Check: on the Overview with the description under the bar, tap the bar's edge: the bar opens and the Description sheet does not.
+
+Source: walkthrough. Checked by: review.
+
+#### 199. The editor opens where you tapped.
+
+A tap on the description opens its sheet with the cursor at the place in the text the tap was over, and the sheet shows that place, not the end (Q3: "it scrolls me all the way down instead of stopping where I was gonna edit").
+
+Check: tap the first paragraph of a long description: the sheet opens at its top with the cursor in that paragraph.
+
+Source: walkthrough. Checked by: review.
+
+#### 200. The description is written rendered.
+
+The description sheet's field reads its Markdown rendered while it is typed, as Obsidian's live preview does: headings and strong words heavier, emphasis slanted, code in the code face, links in the link ink, a list's dash as a bullet. The marks (#, **, `, a link's address) fold away on every line but the one the cursor is on, where they show quietly; HTML comments and tags are quiet. Every character stays, so what is saved is the Markdown (Q4: "It is fine to let me do markdown, but just render it immediately, basically. Something like Obsidian").
+
+Check: open a description with a heading, a list and code: no #, * or backtick shows away from the cursor's line.
+
+Source: walkthrough. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -1997,13 +2058,15 @@ These were liked in the walkthrough and must not regress:
 - The Tour's sections and the Glossary.
 - The commits, now a sheet opened from the Commits number (rules 91 and 139; K29).
 - The pull request tours ("starting to look really nice", P6).
+- Going between the Inbox and Tours, where the pill stays and only its words change ("really seamless", Q2).
+- The Inbox's sort button beside the search ("which I think is great", Q2).
 
 ## Checklist
 
 Run before showing any new screen.
 
 1. Each element: which fact does it convey? None means cut it.
-2. Each row: full title, repo, number, author, head and base, coloured diffstat, checks, age. Present, aligned, never one crammed line.
+2. Each row: the title on one line with an ellipsis, repo, number, author, head and base, coloured diffstat, checks, age. Present, aligned, never three lines.
 3. Each bottom button: reversible? If not, it goes behind ⋯.
 4. Each word: what a GitHub reviewer would say.
 5. Change one number's digit count and one author's length. If anything moves, fix the columns.
@@ -2142,3 +2205,4 @@ Every difference between this file and the rendered app, and how it was settled.
 - **2026-10-15, Jev's read shows, and Jev runs only when it is needed (rules 1, 14, 50, 53 and 72, 0.32.0). Asked by Tavi.** He wanted what Jev computes shown rather than kept on the server ("We can actually show all this stuff"), and Jev not run for every pull request and every file as they arrive, but when there is an analysis, as something the analysing model can use. The server no longer asks Jev about each listed pull request or each opened diff. It asks when a review of a whole diff starts (an analysis, Look for problems, a tour or a brief, and the server's own pre-analysis): it rates the files and sorts the pull request, waiting at most 20 seconds, with one line in the work log, "Finding the files that need a careful look", that shows only when there is something to rate (rule 72). The model then gets a `triage_files` tool, listed first and named in its instructions, that reads Jev's kind and risk and the files by priority with how sure Jev is, as a hint it must still check. The Inbox asks Jev about every open row only while it is sorted by risk or grouped by kind, which need all of them (`my-pulls-cached` with `classify`). On screen: a row Jev has read gets a third line with its kind, how sure in words rather than a number, and its risk in words, "High risk" in the amber the app gives warnings; the meta line has no room left for them (H15), and under a kind's heading the kind is not repeated. On a pull request a plain line under the branch says the same and how many files need a look, with nothing to tap (rule 53). Every rated file now says its rating: "Needs a look" in amber, "Worth a look" and "Skim" in the muted ink, where only the first showed before. My readings: words over percentages for sureness, since Tavi reads plain words best; and the third line on a row rather than a mark under the number, which has room for "2/10" but not for a risk. Open edges: no request reached TypeSafe from the sandbox, and the rows and lines were checked by compiling and unit tests, not on a phone. The web app shows none of Jev yet.
 - **2026-10-16, the walkthrough of 0.37.0 (rules 93, 107, 138, 139 and 140 to 145, 0.39.0). Asked by Tavi.** His recording of 16 Oct 09:50 has twelve points, M1 to M12, all built. Reversed on his word: the Jev line on Inbox rows (now one risk word under the number, only when sorted or grouped by Jev), the left swipe to archive, the right swipe on Tours rows that opened the review, the fold headings and counts on sheets (L12), the scaled picture during a pinch (back to laying the code out at each size, as before 0.25.0), the gap between the Diff's files, the word before the summary link, and closing the tour sheet on Generate (J28). My readings: the risk word is the one thing kept from Jev on a row, since sorting by risk without it would be blind; the sheets keep the + and − numbers on Files headings (L20), which are not a count; the profile's grid shows half a year so each day is big enough to see. Open edges: checked by compiling, unit tests and the design checks, not on a phone, so the pinch's smoothness on a huge file and the feel of the first tab swipe need a hand on the phone.
 - **2026-10-16, every rule checked against what came after it (no version). Asked by Tavi.** He asked whether every rule from his recordings had made it into the rules file, the contracts, this file and the UI Book. Each of rules 1 to 145, the Keep as is list and the checklist was read against the later rounds (F, H, J, K, L and M points), the contracts and the code, and the text that no longer held was rewritten: 40 rules (among them 6, 17, 28, 29, 30, 32, 42, 53, 56, 57, 61, 71, 77, 79, 80, 83, 84, 89, 91, 95, 96, 101, 105, 113, 119, 121, 135 and 136) and 13 checks. A canvas rule keeps its old words in a "The canvas said" note. His 0.33.0 recording (L1 to L36) had become contracts but no rules; its lessons are now in the rules they belong to (49, 53, 87, 95, 101, 119, 128, 131, 134, 137, 143 and 144), not new numbers, because the 0.38.0 round takes 146 on. Rule 71 is reversed on his word (L33: no grey bars under a live indicator), so Ask's last hint bars are gone from the code. The rules 115 to 129 got their own heading.
+- **2026-10-17, the walkthrough of 0.47.0 (rules 2, 191, 192 and 195 to 200, 0.48.0). Asked by Tavi.** His recording of 17 Oct 14:45 has seven points, Q1 to Q7, all built. Reversed on his word: PR titles in list rows wrap (rule 2), now one line with an ellipsis; the Overview's bar that opened the conversation on a tap (N28), now opening itself. My readings: the short Ask pill is centred and as wide as the word needs with room around it; the Inbox and a repository's search are different bars, so the words fade between them; the tapped place maps to the editor by its share of the text's height and lands at the start of that word. Q7, the diff's swipe back to the file the diff opened on, was a bug (the gesture kept the first file), not a rule. Open edges: checked by compiling, unit tests and Robolectric films on fake data, not on a phone, so the feel of the pill's width easing and of the live Markdown under a real keyboard needs a hand on the phone.

@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -34,6 +35,9 @@ import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
+import com.octaviantocan.pulls.ui.design.FootBarLayer
+import com.octaviantocan.pulls.ui.design.FootBars
+import com.octaviantocan.pulls.ui.design.LocalFootBars
 import com.octaviantocan.pulls.ui.design.PageBack
 import com.octaviantocan.pulls.ui.design.PageMotion
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -178,7 +182,9 @@ fun PullsApp(initialTarget: String?) {
         withFrameNanos { }
         if (stack.size == 1 && stack.first() == Screen.Home) Analytics.firstFrame()
     }
-    CompositionLocalProvider(LocalToaster provides toaster) {
+    // The one bar at the foot, over every page: pages say what it holds and it stays while they slide (Q2).
+    val footBars = remember { FootBars() }
+    CompositionLocalProvider(LocalToaster provides toaster, LocalFootBars provides footBars) {
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
             // the one under it slides away (rule 73), and back slides the other way, ranked by how deep the page is.
@@ -192,6 +198,7 @@ fun PullsApp(initialTarget: String?) {
                     Screen.Settings -> {}
                 }
             }
+            FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
             if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })

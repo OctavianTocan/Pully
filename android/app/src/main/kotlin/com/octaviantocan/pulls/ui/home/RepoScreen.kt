@@ -3,7 +3,6 @@ package com.octaviantocan.pulls.ui.home
 import com.octaviantocan.pulls.core.pullKey
 import com.octaviantocan.pulls.core.runningTaskId
 import com.octaviantocan.pulls.ui.design.sideScrollFade
-import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.SidePages
@@ -21,8 +20,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,7 +36,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.Lifecycle
@@ -57,7 +53,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -364,17 +359,16 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
         // `.search`: the list fades into the page under a floating search pill (its own `edgeFade`), as in the Inbox, and
         // nothing else sits behind the pill: it floats on its own shadow (rule 74).
         SearchPill(
-            query, { query = it }, if (tab == 1) "Search tours" else t("pulls.search"), null, {},
-            Modifier.align(Alignment.BottomCenter).floatingBar(),
+            "repo-search", query, { query = it }, if (tab == 1) "Search tours" else t("pulls.search"), null, {},
+            Modifier.align(Alignment.BottomCenter),
         )
     }
 }
 
 /**
- * One pull request, as an Inbox row (N4): its state's tile, the title, its labels, then the number, author, checks,
- * size and age on one line in fixed columns.
+ * One pull request, as an Inbox row (N4): its state's tile, the title, then the number, author, checks, size and age on
+ * one line in fixed columns. Its labels are not shown, so the row is two lines like every other (Tavi's pick, 17 Oct; Q1).
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: () -> Unit) {
     val c = LocalPullsColors.current
@@ -382,32 +376,11 @@ private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: ()
         AnnotatedString(pr.title),
         tile = { StateTile(pullStateOf(pr.state)) },
         modifier = modifier.cueClickable(role = Role.Button, onClickLabel = pr.title, onClick = onClick),
-        under = if (pr.labels.isEmpty()) null else ({
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                pr.labels.forEach { LabelChip(it) }
-            }
-        }),
     ) {
         RowNumber(pr.number)
         Text(pr.author?.login ?: "ghost", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         RowFacts({ ChecksMark(pr.checks) }, pr.additions, pr.deletions, compactAge(parseInstant(pr.updatedAt.ifBlank { pr.createdAt }), now))
     }
-}
-
-/** A GitHub label chip, colored from its own hex like the web's `labelStyle`. */
-@Composable
-private fun LabelChip(label: GhLabel) {
-    val c = LocalPullsColors.current
-    val colors = remember(label.color, c.dark) { LabelStyle.of(label.color, c.dark) }
-    val fg = colors?.let { Color(it.text) } ?: c.muted // raw-value-ok: the label's own colour from GitHub
-    val bg = colors?.let { Color(it.background) } ?: c.paper2 // raw-value-ok: the label's own colour from GitHub
-    Text(
-        label.name,
-        Modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 10.dp, vertical = 3.dp),
-        style = PullsType.sm.copy(fontWeight = FontWeight.Medium),
-        color = fg,
-        maxLines = 1,
-    )
 }
 
 /** `ViewedPullRequest`: the cached diff's size and grouping for a PR opened before. */

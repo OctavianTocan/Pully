@@ -49,14 +49,21 @@ import com.octaviantocan.pulls.ui.design.t
 
 /*
  * The one pull request row of the Inbox, Tours and a repository's page, after Claude's own list of pull requests
- * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a small tinted square with the pull request's state on the left, the
- * whole title beside it, and one line under the title that starts with the number and then carries the
- * author, the checks, the coloured diffstat and the age, each in a column of its own that does not move when a digit
- * or a name's length changes (rules 13, 15 and 36; N35).
+ * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a tinted square with the pull request's state on the left, nearly
+ * as tall as the row, the title beside it on one line, and one line under the title that starts with the number and
+ * then carries the author, the checks, the coloured diffstat and the age, each in a column of its own that does not
+ * move when a digit or a name's length changes (rules 13, 15 and 36; N35). Two lines, never three (Q1).
  */
 
-/** The state tile's side: Claude's square, a little under the 44dp touch size since the row is the target. */
-private val TILE = 36.dp
+/**
+ * The state tile's side: as tall as the row's two lines but for a little air above and below, as Claude's own list
+ * draws it ("the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and
+ * at the bottom": recording 17 Oct 14:45, 00:35 to 00:56; Q1).
+ */
+private val TILE = 42.dp
+
+/** The mark on the tile, grown with it. */
+internal val TILE_MARK = 24.dp
 
 /**
  * The number's column: "#999" fits; a longer one pushes only its own author along rather than being cut, while the
@@ -108,7 +115,7 @@ internal fun StateTile(state: PullState) {
         PullState.Closed -> Triple(c.stateClosed, Lu.prClosed, "Closed")
     }
     RowTile(ink.copy(alpha = if (c.dark) 0.18f else 0.12f), Modifier.semantics { contentDescription = word }) {
-        LuIcon(glyph, tint = ink, size = 20.dp)
+        LuIcon(glyph, tint = ink, size = TILE_MARK)
     }
 }
 
@@ -119,8 +126,9 @@ internal fun RowTile(fill: Color, modifier: Modifier = Modifier, content: @Compo
 }
 
 /**
- * The frame every pull request row shares: [tile], then the whole [title], wrapped and never cut (rule 2), [under] for
- * what a page adds (a repository's labels), and the one [meta] line. A hairline over the row starts and ends on the
+ * The frame every pull request row shares: [tile], then the [title] on one line, cut with an ellipsis where it runs
+ * long ("these things should never have three lines ... you can use ellipses", recording 17 Oct 14:45, 00:07 to 00:25;
+ * Q1, rule 2), [under] for what a page adds (a repository's labels), and the one [meta] line. A hairline over the row starts and ends on the
  * page's 16dp margins, so the first row's is the heading's underline (rule 75).
  */
 @Composable
@@ -144,7 +152,7 @@ internal fun PullRowFrame(
     ) {
         tile()
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = PullsType.base, color = c.text)
+            Text(title, style = PullsType.base, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             under?.invoke()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = meta)
         }
@@ -298,9 +306,9 @@ internal fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
         tile = {
             RowTile(c.sunken) {
                 when {
-                    entry.writingAt(now) -> Orb(size = 22.dp)
-                    entry.doneAt(now) -> OkDot(size = 20.dp)
-                    else -> ProgressRing(entry.reached, entry.stops, size = 22.dp)
+                    entry.writingAt(now) -> Orb(size = TILE_MARK)
+                    entry.doneAt(now) -> OkDot(size = TILE_MARK)
+                    else -> ProgressRing(entry.reached, entry.stops, size = TILE_MARK)
                 }
             }
         },

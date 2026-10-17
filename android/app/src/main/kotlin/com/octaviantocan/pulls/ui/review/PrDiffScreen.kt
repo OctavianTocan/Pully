@@ -1,9 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
 import com.octaviantocan.pulls.ui.design.bleed
-import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
-import com.octaviantocan.pulls.ui.home.stayOnPull
 import com.octaviantocan.pulls.sound.Haptics
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -98,6 +96,7 @@ import com.octaviantocan.pulls.ui.ai.lineRangeLabel
 import com.octaviantocan.pulls.ui.ai.linesPhrase
 import com.octaviantocan.pulls.ui.design.FieldStyle
 import com.octaviantocan.pulls.ui.design.FieldText
+import com.octaviantocan.pulls.ui.design.FootFree
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
@@ -257,7 +256,12 @@ private fun FilePages(
     val slide = remember { FileSlide(target.path) }
     val scope = rememberCoroutineScope()
     val motion = rememberMotionEnabled()
+    // The gesture's callbacks outlive the composition that made them (a remembered function reference kept the file the
+    // diff opened on, so a swipe back to that file read as "no change" and the row slid back: recording 17 Oct 14:45,
+    // 03:34 to 03:47; Q7). They read the file shown, the list and the page's callbacks through these, never directly.
     val latest by rememberUpdatedState(files)
+    val toPath by rememberUpdatedState(onPath)
+    val toOverview by rememberUpdatedState(onOverview)
     val order = { p: String -> latest.indexOfFirst { it.path == p } }
     // Past the first file: the page that leaves with the whole view, back to the Overview.
     val edge = rememberPageSlide(Unit, order = { 0 }, full = true)
@@ -336,12 +340,12 @@ private fun FilePages(
         // gap": recording 16 Oct 09:50, 04:27 to 04:41; M10).
         val next = slide.at - rest / width
         val lo = if (at > 0) -1f else 0f
-        val hi = if (at in 0 until count - 1) 1f else 0f
+        val hi = if (at in 0 until latest.size - 1) 1f else 0f
         val held = next.coerceIn(lo, hi)
         slide.at = held
         when {
-            held > 0f -> { slide.way = FORWARD; slide.other = files[at + 1].path }
-            held < 0f -> { slide.way = BACKWARD; slide.other = files[at - 1].path }
+            held > 0f -> { slide.way = FORWARD; slide.other = latest[at + 1].path }
+            held < 0f -> { slide.way = BACKWARD; slide.other = latest[at - 1].path }
             else -> slide.other = null
         }
         // Past the first file the page follows the finger alone, back toward the Overview; past the last it stays (K26).
@@ -353,7 +357,7 @@ private fun FilePages(
         if (edge.finger != 0f) {
             // A throw counts as well as a long drag, and the page goes on the finger's way with the whole view (rule 105).
             when (swipeStep(edge.finger, swipeFrom, velocity, fling)) {
-                BACKWARD -> { onOverview(); scope.launch { edge.leave(BACKWARD, velocity) } }
+                BACKWARD -> { toOverview(); scope.launch { edge.leave(BACKWARD, velocity) } }
                 else -> scope.launch { edge.release(0, velocity) }
             }
             return
@@ -369,9 +373,9 @@ private fun FilePages(
             backward && at < 0f -> -1
             else -> 0
         }
-        val to = files.getOrNull(order(slide.current) + step)?.path ?: slide.current
+        val to = latest.getOrNull(order(slide.current) + step)?.path ?: slide.current
         val speed = if (width > 0) (-velocity / width).takeIf { it.isFinite() } ?: 0f else 0f
-        if (to == target.path) {
+        if (to == shownPath) {
             glideTo(to, speed)
         } else {
             // A file that changes under the finger is felt like any page that does (rule 109, J20).
@@ -380,7 +384,7 @@ private fun FilePages(
             // for the screen to take the file up and standing still between the two meanwhile ("it stops a little in the
             // middle": recording 16 Oct 13:06, 09:36 to 09:43; O22).
             glideTo(to, speed)
-            onPath(to)
+            toPath(to)
         }
     }
 
@@ -395,9 +399,9 @@ private fun FilePages(
     Box(modifier) {
         Box(
             Modifier.fillMaxSize().clipToBounds().onSizeChanged { width = it.width }.fileSwipe(
-                enabled = { ui.drafts[target.path] == null && ui.dragSel == null && ui.selectionStart[target.path] == null },
-                onCode = { y -> onCodeRow(ui.lists[target.path], y, countsPx) },
-                codeHasRoom = { dx, across -> !session.settings.codeWrap && codeHasRoom(ui, target, dx, across) },
+                enabled = { ui.drafts[shownPath] == null && ui.dragSel == null && ui.selectionStart[shownPath] == null },
+                onCode = { y -> onCodeRow(ui.lists[shownPath], y, countsPx) },
+                codeHasRoom = { dx, across -> !session.settings.codeWrap && latest.firstOrNull { it.path == shownPath }?.let { codeHasRoom(ui, it, dx, across) } == true },
                 onDrag = ::dragBy,
                 onEnd = ::release,
             ),
@@ -419,7 +423,7 @@ private fun FilePages(
             onPrev = { files.getOrNull(index - 1)?.let { onPath(it.path) } },
             onNext = { files.getOrNull(index + 1)?.let { onPath(it.path) } },
             onFiles = onFiles,
-            modifier = Modifier.align(Alignment.BottomCenter).stayOnPull(),
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
@@ -767,8 +771,10 @@ private fun DiffBar(
         }
     }
 
+    // In the foot bar's place, so the Overview's pill gives way to it without the bar sliding off with the page (Q2).
+    FootFree("diff", modifier) {
     Row(
-        modifier.fillMaxWidth().floatingBar().padding(top = 12.dp),
+        Modifier.fillMaxWidth().padding(top = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedContent(
@@ -810,6 +816,7 @@ private fun DiffBar(
                 }
             }
         }
+    }
     }
     val held = ui.lineActions
     if (held != null && held.path == file.path) LineActionsSheet(session, ui, file, held, onAsk) { ui.lineActions = null }

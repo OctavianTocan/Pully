@@ -1,8 +1,8 @@
 package com.octaviantocan.pulls.ui.review
 
-import com.octaviantocan.pulls.ui.home.stayOnPull
 import androidx.compose.ui.layout.layout
 import com.octaviantocan.pulls.ui.home.SearchDim
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.octaviantocan.pulls.data.JEV_FILE_WORDS
 import com.octaviantocan.pulls.data.JEV_RISK_WORDS
@@ -130,7 +130,7 @@ import androidx.compose.foundation.layout.offset
  * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
  * who and when, the branches, a four-cell summary line, Summary / Commits / Conversation tabs, the AI's
  * status and the summary (the description until the AI writes one), the file list with its notes, and the Ask bar at
- * the foot, the Tour's own (P2). [onOpenAsk] opens the conversation there is, and [onAskHistory] the earlier chats.
+ * the foot, the Tour's own (P2). [onAskHistory] opens the earlier chats.
  */
 @Composable
 internal fun PrOverviewScreen(
@@ -144,11 +144,11 @@ internal fun PrOverviewScreen(
     onPane: (Int) -> Unit,
     onDiff: (path: String?) -> Unit,
     onAsk: (question: String) -> Unit,
-    onOpenAsk: () -> Unit,
     onAskHistory: () -> Unit,
     onSheet: (String) -> Unit,
     onCite: (Cite) -> Unit,
     onOpenRepo: (owner: String, repo: String) -> Unit,
+    askDraft: MutableState<String> = remember { mutableStateOf("") },
 ) {
     val c = LocalPullsColors.current
     val focusManager = LocalFocusManager.current
@@ -292,15 +292,15 @@ internal fun PrOverviewScreen(
             }
         }
         // The Ask field is Home's search pill, and the page dims behind it while it waits for its first letter (rule 132).
-        var askText by remember { mutableStateOf("") }
+        var askText by askDraft
         var askFocused by remember { mutableStateOf(false) }
         SearchDim(askFocused, askText.isEmpty())
         LaunchedEffect(session.key) { session.loadChatHistory() }
         ReviewBar(
-            askText, { askText = it }, onAsk, Modifier.align(Alignment.BottomCenter).stayOnPull().backUnless("").holdUnless(""),
+            askText, { askText = it }, onAsk, Modifier.align(Alignment.BottomCenter),
             onFocus = { askFocused = it },
             onOpenHistory = if (session.key != null && !session.chatHistory.isNullOrEmpty()) onAskHistory else null,
-            onTapEmpty = if (session.saved?.chat.isNullOrEmpty()) null else onOpenAsk,
+            veil = Modifier.backUnless("").holdUnless(""),
         )
     }
     }
@@ -808,12 +808,12 @@ private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modif
 // --- Bottom bar ---
 
 /**
- * `.vbar`: the Ask bar, the Tour's own and in the same place as every bar at a page's foot ([floatingBar]). Nothing
+ * `.vbar`: the Ask bar, the Tour's own, in the app's one foot pill (Q2), short and reading Ask until tapped (Q5). Nothing
  * beside it: the round arrow that went to the diff read as a second, highlighted Ask button ("this button should not
  * take you to the diff ... it should also not be highlighted. This is another ask button", recording of 17 Oct 13:26,
- * 00:25 to 00:48, P2). Empty, its button is the earlier chats when there are some and a tap on it opens the
- * conversation there is; typed, it sends, and [onAsk] opens the Ask sheet on the question. The diff is the header's,
- * and Approve is in ⋯ and Commands. The opening page draws it too, so it is in place before the pull request arrives (K22).
+ * 00:25 to 00:48, P2). Open and empty, its button is the earlier chats when there are some; typed, it sends, and [onAsk] opens the Ask sheet on the question. The diff is the header's,
+ * and Approve is in ⋯ and Commands. The opening page has it too, under the same key, so it is in place before the pull
+ * request arrives (K22) and nothing in it changes when it does.
  */
 @Composable
 internal fun ReviewBar(
@@ -823,13 +823,16 @@ internal fun ReviewBar(
     modifier: Modifier,
     onFocus: (Boolean) -> Unit = {},
     onOpenHistory: (() -> Unit)? = null,
-    onTapEmpty: (() -> Unit)? = null,
+    veil: Modifier = Modifier,
 ) {
     AskBar(
-        text, onText, "Ask about this pull request", onAsk, modifier.floatingBar(),
-        onFocus = onFocus, onOpenHistory = onOpenHistory, onTapEmpty = onTapEmpty,
+        ASK_PR, text, onText, "Ask about this pull request", onAsk, modifier,
+        onFocus = onFocus, onOpenHistory = onOpenHistory, veil = veil,
     )
 }
+
+/** The pull request's Ask bar, one bar on the opening page and the Overview (Q2). */
+internal const val ASK_PR = "ask-pr"
 
 /**
  * The numbers line as the opening page draws it, from what the Inbox row knew: the same four cells in the same places,

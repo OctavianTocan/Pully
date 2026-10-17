@@ -460,6 +460,13 @@
       "rounded": "full",
       "height": 52
     },
+    "foot-pill": {
+      "background": "raised",
+      "color": "text",
+      "typography": "base",
+      "rounded": "full",
+      "height": 52
+    },
     "sheet-field": {
       "color": "text",
       "typography": "row",

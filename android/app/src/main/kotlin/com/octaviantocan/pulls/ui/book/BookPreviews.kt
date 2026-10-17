@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +28,10 @@ import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.FloatIcon
+import com.octaviantocan.pulls.ui.design.FieldHeight
+import com.octaviantocan.pulls.ui.design.FieldText
+import com.octaviantocan.pulls.ui.design.FootPill
+import com.octaviantocan.pulls.ui.design.LocalFootBars
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
@@ -79,6 +84,7 @@ internal fun bookPreviews(id: String): List<BookVariant> = when (id) {
     "cta-button" -> ctaButtonVariants()
     "pill-button" -> pillButtonVariants()
     "pill-input" -> pillInputVariants()
+    "foot-pill" -> footPillVariants()
     "sheet" -> sheetVariants()
     "sheet-card" -> sheetCardVariants()
     "sheet-field" -> sheetFieldVariants()
@@ -196,6 +202,30 @@ private fun pillInputVariants() = listOf(
                 PillInput("", {}, "Comment on line 12…") { SendButton({}, "Send") }
             },
         ),
+    ),
+)
+
+/** The foot pill drawn where the page puts it: the Book is a page itself, so its pills never join the app's one bar. */
+@Composable
+private fun BookFootPill(compact: String?, placeholder: String, search: Boolean, trailing: (@Composable () -> Unit)? = null) {
+    CompositionLocalProvider(LocalFootBars provides null) {
+        FootPill("book", search = search, compact = compact, trailing = trailing) {
+            FieldText("", {}, placeholder, Modifier.weight(1f))
+        }
+    }
+}
+
+private fun footPillVariants() = listOf(
+    BookVariant(
+        "default",
+        listOf(
+            BookState("Search") { BookFootPill(null, "Search or ask Pully", search = true) { FloatIcon(Lu.sort, "Sort", {}, Modifier.padding(start = 10.dp), size = FieldHeight, iconSize = 22.dp) } },
+            BookState("Ask, open") { BookFootPill(null, "Ask about this pull request", search = false) },
+        ),
+    ),
+    BookVariant(
+        "short",
+        listOf(BookState("Ask, short") { BookFootPill("Ask", "Ask about this pull request", search = false) }),
     ),
 )
 

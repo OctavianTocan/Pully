@@ -58,6 +58,7 @@ private val SPECIMENS = listOf(
     Specimen("cta-button") { CtaButton("Approve", {}) },
     Specimen("pill-button") { PillButton("Retry", {}) },
     Specimen("pill-input") { PillInput("", {}, "Ask about this tour…") },
+    Specimen("foot-pill") { androidx.compose.runtime.CompositionLocalProvider(com.octaviantocan.pulls.ui.design.LocalFootBars provides null) { com.octaviantocan.pulls.ui.design.FootPill("book", compact = "Ask") {} } },
     Specimen("sheet-field") { SheetCard { SheetField("Title", "Fix the cache key", {}, first = true) } },
     Specimen("sheet-row") { SheetRow("Copy link", {}, first = true) },
     Specimen("quick-action") { QuickAction("Copy", {}, Modifier.fillMaxWidth()) { LuIcon(Lu.copy, size = 22.dp) } },
