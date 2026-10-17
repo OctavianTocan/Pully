@@ -373,6 +373,8 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     var held by remember { mutableStateOf<PullRow?>(null) }
     var heldTour by remember { mutableStateOf<Pair<TourEntry, Boolean>?>(null) }
     var heldPosted by remember { mutableStateOf<PostedRow?>(null) }
+    // The stack whose row was tapped: its layers are listed (rule 202).
+    var stackOpen by remember { mutableStateOf<List<PullRow>?>(null) }
     var searchFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     Box(Modifier.fillMaxSize().background(c.base)) {
@@ -396,6 +398,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onPress = { pull -> ReviewSession.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
                         posted = posted, onOpenPosted = { row -> nav.openFrom(OpenTarget.Posted(row.id), if (needle.isEmpty()) "inbox" else "search", false) },
                         onHoldPosted = { heldPosted = it },
+                        onStack = { stackOpen = it },
                     )
                 } else PullToCommands({ Commands.open() }, Modifier.fillMaxSize().padding(top = 10.dp)) {
                     ToursList(
@@ -447,6 +450,13 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                 onRepo = { nav.openRepo(pull.owner, pull.repo) },
                 onArchive = if (canArchive(pull, viewer, Triage.key(pull) in archived)) ({ archivePull(pull) }) else null,
                 onClose = { held = null },
+            )
+        }
+        stackOpen?.let { layers ->
+            InboxStackSheet(
+                layers, repo,
+                onOpen = { bottom, number -> nav.openFrom(OpenTarget.Pull(bottom.owner, bottom.repo, number, "github.com"), if (needle.isEmpty()) "inbox" else "search", false) },
+                onClose = { stackOpen = null },
             )
         }
         heldPosted?.let { row ->
@@ -599,9 +609,13 @@ internal fun InboxList(
     posted: List<PostedRow> = emptyList(),
     onOpenPosted: (PostedRow) -> Unit = {},
     onHoldPosted: (PostedRow) -> Unit = {},
+    /** A stack's row was tapped or held: its layers, bottom first, for the Stack sheet (rule 202). */
+    onStack: (List<PullRow>) -> Unit = {},
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
+    // A section's rows, each stack's layers folded into one (rule 202).
+    val rowsOf = remember(sections) { sections.associate { it.key to inboxItems(it.pulls) } }
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     // A search shows every heading it found something in, folded or not (rule 101).
@@ -609,7 +623,7 @@ internal fun InboxList(
     // Jev's read shows on a row only while he sorted by risk or grouped by kind, the only times Jev is asked (M1).
     val jevAsked = sort.needsJev || groupBy.needsJev
     val sectionOfRow = remember(sections, posted) {
-        posted.associate { postedKey(it) to POSTED_SECTION } + sections.flatMap { section -> section.pulls.map { Triage.key(it) to section.key } }.toMap()
+        posted.associate { postedKey(it) to POSTED_SECTION } + sections.flatMap { section -> rowsOf[section.key].orEmpty().map { it.key to section.key } }.toMap()
     }
     val postedShut = !searching && POSTED_SECTION in folded
     val postedLabel = "Posted by agents"
@@ -624,7 +638,7 @@ internal fun InboxList(
         var at = if (posted.isEmpty() || section.key == POSTED_SECTION) 0 else 1 + if (postedShut) 0 else posted.size
         for (each in sections) {
             if (each.key == section.key) break
-            at += 1 + if (isFolded(each)) 0 else each.pulls.size
+            at += 1 + if (isFolded(each)) 0 else rowsOf[each.key].orEmpty().size
         }
         onFold(section)
         // Folded from its pinned heading, the repository's rows leave from under it: bring its heading back to the top.
@@ -690,19 +704,33 @@ internal fun InboxList(
                                 onFold = if (searching) null else ({ fold(section) }), onOpen = open(section), modifier = Modifier.animateItem(),
                             )
                         }
-                        if (!shut) items(section.pulls, key = { Triage.key(it) }) { pull ->
-                            val key = Triage.key(pull)
-                            SwipeRow(
-                                label = "#${pull.number} ${pull.title}",
-                                onOpen = { onOpen(pull) },
-                                // No Archive swipe: a left swipe always goes on to Tours, and Archive is in the hold
-                                // actions (recording 16 Oct 09:50, 01:18 to 02:04; M4).
-                                onArchive = null,
-                                archived = key in archived,
-                                modifier = Modifier.animateItem(),
-                                onLongClick = { onHold(pull) },
-                                onPress = { onPress(pull) },
-                            ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)], repo = rowRepos["${pull.owner}/${pull.repo}"], risk = jevAsked) }
+                        if (!shut) items(rowsOf[section.key].orEmpty(), key = { it.key }) { item ->
+                            when (item) {
+                                is InboxItem.Stacked -> SwipeRow(
+                                    label = "Stack of ${item.layers.size}, #${item.bottom.number} ${item.bottom.title}",
+                                    // The stack's row opens its list of layers, by a tap, a swipe or a hold alike (rule 202).
+                                    onOpen = { onStack(item.layers) },
+                                    onArchive = null,
+                                    archived = false,
+                                    modifier = Modifier.animateItem(),
+                                    onLongClick = { onStack(item.layers) },
+                                ) { StackRowContent(item.layers, now, repo = rowRepos["${item.bottom.owner}/${item.bottom.repo}"]) }
+                                is InboxItem.Single -> {
+                                    val pull = item.pull
+                                    val key = Triage.key(pull)
+                                    SwipeRow(
+                                        label = "#${pull.number} ${pull.title}",
+                                        onOpen = { onOpen(pull) },
+                                        // No Archive swipe: a left swipe always goes on to Tours, and Archive is in the hold
+                                        // actions (recording 16 Oct 09:50, 01:18 to 02:04; M4).
+                                        onArchive = null,
+                                        archived = key in archived,
+                                        modifier = Modifier.animateItem(),
+                                        onLongClick = { onHold(pull) },
+                                        onPress = { onPress(pull) },
+                                    ) { PullRowContent(pull, now, dimmed = key in archived, work = work[pullKey(pull.owner, pull.repo, pull.number)], repo = rowRepos["${pull.owner}/${pull.repo}"], risk = jevAsked) }
+                                }
+                            }
                         }
                     }
                 }

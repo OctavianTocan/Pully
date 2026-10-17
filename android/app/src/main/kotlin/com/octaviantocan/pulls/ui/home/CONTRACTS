@@ -27,16 +27,19 @@ pill takes the row (rule 114; H19).
 A pull request row is the same in the Inbox, Tours, a repository and search, after
 Claude's own list: a tinted square tile with the state's mark on the left (open, draft,
 merged and closed each in its own colour; a tour's ring in the tile on Tours), nearly as
-tall as the row's two lines with a little air above and below, the title beside it on one
-line ending in an ellipsis when it runs long (`android-whole-identifiers`; Q1), and one meta line under the title that starts with the
+tall as a one-line title and the meta line with a little air above and below, and centred
+on the row when the title takes two, the title beside it on at most two lines ending in an
+ellipsis when it runs longer (`android-whole-identifiers`; Q1; rule 201), and one meta line under the title that starts with the
 number and carries the author, checks, coloured diffstat and age, in fixed columns that
 do not move when a digit or a name's length changes (rules 13, 15 and 36). A draft is told
 apart by its tile's colour and no title says "[draft]". A context-free count ("7
 sections") never replaces them. Tavi decided this in the recording of 16 Oct 12:10, 01:23
-to 03:05 (N4), replacing the number-first row. A row MUST NOT run to three lines, and a
-repository row does not show its labels (Tavi's pick on 17 Oct): "these
+to 03:05 (N4), replacing the number-first row. A row's title MUST NOT run to three lines,
+and a repository row does not show its labels (Tavi's pick on 17 Oct): "these
 things should never have three lines ... the icon gets squishy", with Claude's PR list as
-the reference for the tile's size (recording of 17 Oct 14:45, 00:03 to 00:59; Q1).
+the reference for the tile's size (recording of 17 Oct 14:45, 00:03 to 00:59; Q1). Tavi
+said on 17 Oct at 17:14 that he meant the title on two lines ("I meant the title should
+also be in two rows"), which replaced 0.48.0's one-line title.
 
 @cc [owner:OctavianTocan,label:design] home-no-avatars-on-rows
 A row carries the author's name in its own column and no avatar or initial. The reader's
@@ -200,3 +203,15 @@ The Inbox opens on the chip picked last (Waiting on you, Authored or All), kept 
 settings the account syncs; Show closed switches to All for the moment and does not change
 it ("whichever tab I clicked on last, when I open the app again, it uses that one",
 recording of 17 Oct 13:26, 00:03 to 00:17, P1; rule 190).
+
+@cc [owner:OctavianTocan,label:product;design] home-stacks-are-one-row
+Two or more layers of one stack in the same Inbox section MUST be one row, where the first
+of them stood, with the bottom layer's title and number, the layers mark in a tile drawn
+as an outline, not filled, so it does not blend with the pull requests (Tavi, 17:54), the
+meta line's stack mark with the number of layers beside it and no words ("Just use the icon
+we were already using for stack and type a 3 next to it": Tavi, 17 Oct 17:51), their worst
+checks, summed + and − and newest age; a tap, swipe or
+hold MUST open the Stack sheet listing its layers, each opening its pull request ("group
+them into one row, and make the stack the row, and when you tap it can show you which PRs
+are in there": Tavi, 17 Oct 17:40; rule 202). A stack with one layer in the section keeps
+that pull request's own row.

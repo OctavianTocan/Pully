@@ -16,6 +16,18 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.49.0
+
+Long titles get a second line, and a stack is one row in the Inbox.
+
+### Changed
+
+- In the Inbox, Tours and a repository's list, a long title wraps onto a second line and ends in an ellipsis only after that. A short title stays on one line, and the icon beside it stays the same size.
+![Inbox rows where long titles take two lines and short ones one](changelog/0.49.0/rows-two-lines.png)
+- The pull requests of one stack are now a single row in the Inbox, showing how many there are, their checks and their changes together. Tap it to see every pull request in the stack, from the top one down to the branch they merge into, and tap one to open it.
+![A stack of three pull requests as one Inbox row](changelog/0.49.0/stack-row.png)
+![The sheet listing the stack's three pull requests](changelog/0.49.0/stack-sheet.png)
+
 ## 0.48.0
 
 One bar at the foot of every page; descriptions read as you type.

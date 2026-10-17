@@ -367,7 +367,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
 
 /**
  * One pull request, as an Inbox row (N4): its state's tile, the title, then the number, author, checks, size and age on
- * one line in fixed columns. Its labels are not shown, so the row is two lines like every other (Tavi's pick, 17 Oct; Q1).
+ * one line in fixed columns. Its labels are not shown, so the row is no taller than any other (Tavi's pick, 17 Oct; Q1).
  */
 @Composable
 private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: () -> Unit) {

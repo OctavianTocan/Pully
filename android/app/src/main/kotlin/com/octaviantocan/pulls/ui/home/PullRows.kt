@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,21 +50,25 @@ import com.octaviantocan.pulls.ui.design.t
 
 /*
  * The one pull request row of the Inbox, Tours and a repository's page, after Claude's own list of pull requests
- * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a tinted square with the pull request's state on the left, nearly
- * as tall as the row, the title beside it on one line, and one line under the title that starts with the number and
- * then carries the author, the checks, the coloured diffstat and the age, each in a column of its own that does not
- * move when a digit or a name's length changes (rules 13, 15 and 36; N35). Two lines, never three (Q1).
+ * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a tinted square with the pull request's state on the left, the
+ * title beside it on at most two lines, and one line under the title that starts with the number and then carries the
+ * author, the checks, the coloured diffstat and the age, each in a column of its own that does not move when a digit or
+ * a name's length changes (rules 13, 15 and 36; N35). The title never runs to a third line (Q1; Tavi, 17 Oct 17:14).
  */
 
 /**
  * The state tile's side: as tall as the row's two lines but for a little air above and below, as Claude's own list
  * draws it ("the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and
- * at the bottom": recording 17 Oct 14:45, 00:35 to 00:56; Q1).
+ * at the bottom": recording 17 Oct 14:45, 00:35 to 00:56; Q1). That is a one-line title over the meta line; a title
+ * on two lines leaves the tile this size, centred.
  */
 private val TILE = 42.dp
 
 /** The mark on the tile, grown with it. */
 internal val TILE_MARK = 24.dp
+
+/** The most lines a row's title takes before it ends in an ellipsis (rule 201). */
+internal const val TITLE_LINES = 2
 
 /**
  * The number's column: "#999" fits; a longer one pushes only its own author along rather than being cut, while the
@@ -108,14 +113,40 @@ internal fun pullStateOf(state: String): PullState = when (state) {
 @Composable
 internal fun StateTile(state: PullState) {
     val c = LocalPullsColors.current
-    val (ink, glyph, word) = when (state) {
-        PullState.Open -> Triple(c.stateOpen, Lu.prOpen, "Open")
-        PullState.Draft -> Triple(c.stateDraft, Lu.prDraft, t("local.home.draft"))
-        PullState.Merged -> Triple(c.stateMerged, Lu.prMerged, "Merged")
-        PullState.Closed -> Triple(c.stateClosed, Lu.prClosed, "Closed")
+    val ink = stateInk(state)
+    val (glyph, word) = when (state) {
+        PullState.Open -> Lu.prOpen to "Open"
+        PullState.Draft -> Lu.prDraft to t("local.home.draft")
+        PullState.Merged -> Lu.prMerged to "Merged"
+        PullState.Closed -> Lu.prClosed to "Closed"
     }
     RowTile(ink.copy(alpha = if (c.dark) 0.18f else 0.12f), Modifier.semantics { contentDescription = word }) {
         LuIcon(glyph, tint = ink, size = TILE_MARK)
+    }
+}
+
+/** A state's own colour, for its tile's wash and mark. */
+@Composable
+private fun stateInk(state: PullState): Color {
+    val c = LocalPullsColors.current
+    return when (state) {
+        PullState.Open -> c.stateOpen
+        PullState.Draft -> c.stateDraft
+        PullState.Merged -> c.stateMerged
+        PullState.Closed -> c.stateClosed
+    }
+}
+
+/**
+ * A stack row's tile: the row's square drawn as an outline in the bottom layer's state colour around the layers mark,
+ * so a stack does not read as one more pull request beside the filled tiles ("it blends too much with the PRs
+ * themselves": Tavi, 17 Oct 17:54; rule 202).
+ */
+@Composable
+private fun StackTile(ink: Color, modifier: Modifier) {
+    val shape = RoundedCornerShape(PullsRadius.lg)
+    Box(modifier.size(TILE).clip(shape).border(1.5.dp, ink.copy(alpha = 0.7f), shape), contentAlignment = Alignment.Center) {
+        LuIcon(Lu.layers, tint = ink, size = TILE_MARK)
     }
 }
 
@@ -126,10 +157,12 @@ internal fun RowTile(fill: Color, modifier: Modifier = Modifier, content: @Compo
 }
 
 /**
- * The frame every pull request row shares: [tile], then the [title] on one line, cut with an ellipsis where it runs
- * long ("these things should never have three lines ... you can use ellipses", recording 17 Oct 14:45, 00:07 to 00:25;
- * Q1, rule 2), [under] for what a page adds (a repository's labels), and the one [meta] line. A hairline over the row starts and ends on the
- * page's 16dp margins, so the first row's is the heading's underline (rule 75).
+ * The frame every pull request row shares: [tile], then the [title] on at most two lines, cut with an ellipsis where it
+ * runs longer ("these things should never have three lines ... you can use ellipses", recording 17 Oct 14:45, 00:07 to
+ * 00:25; Q1, rule 2; "I meant the title should also be in two rows", Tavi 17 Oct 17:14, rule 201), [under] for what a
+ * page adds (a repository's labels), and the one [meta] line. The tile stays centred on the row whether the title takes
+ * one line or two. A hairline over the row starts and ends on the page's 16dp margins, so the first row's is the
+ * heading's underline (rule 75).
  */
 @Composable
 internal fun PullRowFrame(
@@ -152,7 +185,7 @@ internal fun PullRowFrame(
     ) {
         tile()
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = PullsType.base, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, style = PullsType.base, color = c.text, maxLines = TITLE_LINES, overflow = TextOverflow.Ellipsis)
             under?.invoke()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = meta)
         }
@@ -206,6 +239,53 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
             WorkMark(work)
         }
         RowFacts({ CheckMark(pull) }, pull.additions, pull.deletions, compactAge(pull.updatedAtMs, now))
+    }
+}
+
+/**
+ * `.stack`: the layers of one stack in the Inbox as one row (Tavi, 17 Oct 17:40; rule 202). The tile is an outline
+ * ([StackTile]) around the layers mark in the bottom layer's state colour, the title and number are the bottom layer's,
+ * the one that merges first, and the meta line carries the stack mark with how many layers the row holds. The checks
+ * are the worst of the layers', the + and − their sum and the age the newest. A tap or a hold opens the Stack sheet
+ * ([InboxStackSheet]).
+ */
+@Composable
+internal fun StackRowContent(layers: List<PullRow>, now: Long, repo: String? = null) {
+    val c = LocalPullsColors.current
+    val bottom = layers.first()
+    val ink = stateInk(bottom.pullState())
+    val requested = layers.any { it.requestedFromMe ?: (it.role == "review-requested") }
+    val worst = layers.firstOrNull { it.checks == "failure" || it.mergeable == "conflicting" }
+        ?: layers.firstOrNull { it.checks == "pending" }
+        ?: layers.firstOrNull { it.checks == "success" }
+        ?: bottom
+    val counted = layers.filter { it.additions != null }
+    PullRowFrame(
+        AnnotatedString(bottom.title),
+        tile = {
+            StackTile(ink, Modifier.semantics { contentDescription = "A stack of ${layers.size} pull requests" })
+        },
+    ) {
+        RowNumber(bottom.number)
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // The stack mark a lone layer carries, with how many layers the row holds ("Just use the icon we were already
+            // using for stack and type a 3 next to it": Tavi, 17 Oct 17:51).
+            Row(
+                Modifier.semantics(mergeDescendants = true) { contentDescription = "${layers.size} pull requests in a stack" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                LuIcon(Lu.layers, tint = c.muted, size = 14.dp)
+                Text("${layers.size}", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
+            }
+            if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
+            if (repo != null) Text(repo, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        }
+        RowFacts(
+            { CheckMark(worst) },
+            if (counted.isEmpty()) null else counted.sumOf { it.additions ?: 0 },
+            if (counted.isEmpty()) null else counted.sumOf { it.deletions ?: 0 },
+            compactAge(layers.mapNotNull { it.updatedAtMs }.maxOrNull(), now),
+        )
     }
 }
 

@@ -449,7 +449,7 @@ Source: canvas. Checked by: bans, review.
 
 #### 2. Complete identifiers, never truncated.
 
-A PR title in a list row is one line that ends in an ellipsis (rule 195); on the pull request's own page it wraps whole. Repo + number always scannable. Branch means both ends: head → base. Diffstat always coloured.
+A PR title in a list row takes at most two lines and ends in an ellipsis past them (rule 201); on the pull request's own page it wraps whole. Repo + number always scannable. Branch means both ends: head → base. Diffstat always coloured.
 
 Source: canvas. Checked by: review.
 
@@ -1994,9 +1994,9 @@ The recording of 17 Oct at 14:45 (Q1 to Q7, in `/mnt/project-files/design/feedba
 
 #### 195. A row is two lines, its tile nearly as tall.
 
-An Inbox, Tours or repository row is the title on one line, cut with an ellipsis, over the meta line. Never three lines: a repository row does not show its GitHub labels (Tavi's pick on 17 Oct). The state tile is nearly as tall as the two lines, with a little air above and below, and its mark grows with it (Q1: "rows should never have three lines ... the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and at the bottom"; Claude's own PR list).
+An Inbox, Tours or repository row is the title over the meta line, and a repository row does not show its GitHub labels (Tavi's pick on 17 Oct). The state tile is nearly as tall as a one-line title and the meta line, with a little air above and below, and its mark grows with it (Q1: "rows should never have three lines ... the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and at the bottom"; Claude's own PR list). Rule 201 changed the title: it was one line here, and now takes up to two.
 
-Check: a row whose title is longer than the screen is two lines, the title ending in an ellipsis, and the tile's top and bottom sit just inside the two lines.
+Check: a row with a short title is two lines and the tile's top and bottom sit just inside them.
 
 Source: walkthrough. Checked by: review.
 
@@ -2040,6 +2040,30 @@ Check: open a description with a heading, a list and code: no #, * or backtick s
 
 Source: walkthrough. Checked by: review.
 
+### Rule 201, from Tavi's message of 2026-10-17
+
+Tavi's message of 17 Oct at 17:14, after a canvas of five other row directions he turned down ("my issue with our current thing is not any of those").
+
+#### 201. A row's title takes two lines.
+
+A pull request or tour row's title wraps to a second line before it ends in an ellipsis, and never takes a third, so a row is at most the two title lines over the meta line. A short title stays one line. The tile keeps its size and sits centred on the row (Tavi: "I meant the title should also be in two rows. I think everything else is fine"). This replaces rule 195's one-line title.
+
+Check: in the Inbox, a title longer than the screen wraps to a second line and ends there in an ellipsis; a short one is one line; the tile is the same size in both rows.
+
+Source: answers. Checked by: review.
+
+### Rule 202, from Tavi's message of 2026-10-17
+
+Tavi's message of 17 Oct at 17:40: "since PR stacks are so common nowadays, I would actually group them into one row, and make the stack the row, and when you tap it can show you which PRs are in there and such."
+
+#### 202. A stack is one row in the Inbox.
+
+When two or more layers of one stack are in the same Inbox section, they are one row where the first of them stood: the layers mark in a tile drawn as an outline in the bottom layer's state colour rather than filled, so it does not blend with the pull requests around it (Tavi, 17:54: "it blends too much with the PRs themselves"); the bottom layer's title and number, the one that merges first; after the number, the stack mark a lone layer carries with how many layers there are beside it, and no words (Tavi, 17:51: "there's no need for it to say '3 layers'. Just use the icon we were already using for stack and type a 3 next to it"); the worst of their checks, the sum of their + and −, and the newest age. A tap, a swipe or a hold opens the Stack sheet the pull request page uses, top layer first down to the base branch, and a tap on a layer opens it. A stack with one layer in the section keeps that pull request's own row with its place in the stack. Tours and a repository's list are unchanged.
+
+Check: in the Inbox, three open layers of one stack are one row whose meta line shows the stack mark and a 3; tap it: the sheet lists the three, and tapping one opens that pull request.
+
+Source: answers. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -2066,7 +2090,7 @@ These were liked in the walkthrough and must not regress:
 Run before showing any new screen.
 
 1. Each element: which fact does it convey? None means cut it.
-2. Each row: the title on one line with an ellipsis, repo, number, author, head and base, coloured diffstat, checks, age. Present, aligned, never three lines.
+2. Each row: the title on at most two lines with an ellipsis, repo, number, author, head and base, coloured diffstat, checks, age. Present, aligned, the title never three lines.
 3. Each bottom button: reversible? If not, it goes behind ⋯.
 4. Each word: what a GitHub reviewer would say.
 5. Change one number's digit count and one author's length. If anything moves, fix the columns.

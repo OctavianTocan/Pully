@@ -82,8 +82,10 @@ and a path is cut from the left by whole folders (rules 2, 90 and 111; F23, F24,
 The one exception is a pull request's title pinned at the top of its scrolled Overview,
 which is one line and MAY end in an ellipsis (recording of 16 Oct 12:10, 20:34 to 21:03;
 N38, Tavi's decision), and a pull request's title on a list row (the Inbox, Tours, a
-repository), which is one line and MUST end in an ellipsis when it runs long, so a row is
-never three lines (recording of 17 Oct 14:45, 00:07 to 00:25; Q1, Tavi's decision).
+repository), which takes at most two lines and MUST end in an ellipsis when it runs
+longer, so the title is never three lines (recording of 17 Oct 14:45, 00:07 to 00:25; Q1;
+Tavi's message of 17 Oct 17:14, "I meant the title should also be in two rows", which
+replaced the one-line title of 0.48.0).
 
 @cc [owner:OctavianTocan,label:product] android-no-loading-screens
 No page or list shows a loading screen, a spinner page or "Loading..." text. What the app
