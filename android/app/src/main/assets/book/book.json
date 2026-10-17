@@ -95,6 +95,12 @@
       "component": "pill-input"
     },
     {
+      "id": "components/foot-pill",
+      "title": "Foot pill",
+      "group": "Components",
+      "component": "foot-pill"
+    },
+    {
       "id": "components/sheet-field",
       "title": "Sheet field",
       "group": "Components",
@@ -406,6 +412,31 @@
         {
           "id": "with-send",
           "title": "With send"
+        }
+      ]
+    },
+    "foot-pill": {
+      "composable": "FootPill",
+      "summary": "The one bar at the foot of the app: the search and Ask bars are one pill drawn over every page, and a page only says what it holds.",
+      "usage": [
+        "Give each bar a key: pages with the same key share the pill and nothing in it moves; a new key fades the words out blurred and the next ones in.",
+        "An Ask bar rests short, reading Ask, and opens to the full width with the cursor in it on a tap.",
+        "A button beside it, like the Inbox's sort, goes in trailing and leaves with its page."
+      ],
+      "rules": [
+        196,
+        197,
+        198
+      ],
+      "variants": [
+        {
+          "id": "default",
+          "title": "Default",
+          "default": true
+        },
+        {
+          "id": "short",
+          "title": "Short"
         }
       ]
     },

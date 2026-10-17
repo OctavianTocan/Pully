@@ -399,6 +399,15 @@
       "color": "text",
       "typography": "base"
     },
+    "foot-pill": {
+      "size": null,
+      "width": null,
+      "height": 52,
+      "rounded": 9999,
+      "background": "raised",
+      "color": "text",
+      "typography": "base"
+    },
     "sheet-field": {
       "size": null,
       "width": null,

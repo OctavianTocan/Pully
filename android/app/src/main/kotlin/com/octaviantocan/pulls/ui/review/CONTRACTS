@@ -27,7 +27,9 @@ caret where the finger landed; the text is underlined in the accent and the rest
 page fades to a quarter; leaving it saves. There is no Edit button (rules 83 and 110; F20,
 H34, H35). The description is edited on a sheet instead: a tap opens it in a proper text
 field and leaving the sheet saves; the page never scrolls under it (Tavi, recording 15 Oct
-15:37, 08:29 to 08:56; L13).
+15:37, 08:29 to 08:56; L13). The sheet MUST open with the cursor at the place in the text
+the tap was over, never at its end ("it scrolls me all the way down instead of stopping
+where I was gonna edit", recording 17 Oct 14:45, 01:51 to 01:59; Q3; rule 199).
 
 @cc [owner:OctavianTocan,label:product] pr-edit-blocks-the-page
 While the title or description is being edited, a tap anywhere else only leaves the
@@ -312,8 +314,9 @@ to 14:26, N29).
 Empty, the Tour's Ask bar shows the Ask sheet's earlier-chats button when the pull request
 has earlier chats, and the grey Send when it has none (recording of 17 Oct 13:26, 01:26 to
 01:43, P4); once something is typed it shows Send. Sending continues the last conversation
-and opens the Ask sheet on it, and a tap on the empty bar when a conversation exists opens
-the sheet on it. The earlier-chats button opens the Chats sheet alone, never the Ask sheet
+and opens the Ask sheet on it. A tap on the bar opens the bar itself, never the
+conversation (Tavi changed this on 17 Oct 14:45 with Q5; it opened the conversation before).
+The earlier-chats button opens the Chats sheet alone, never the Ask sheet
 under it, and a chat picked there opens Ask on that chat (01:45 to 01:57, P5). The bar is
 one component (`AskBar`) any page that asks reuses (recording of 16 Oct 12:10, 13:25 to
 14:15, N28). It never shows an empty white circle (11:27 to 11:33, N24). Tavi changed P4
@@ -405,7 +408,7 @@ Branches are squarish pills, head → base, and a tap copies one (rule 21).
 The bottom of the Overview, and of the page while it opens, is the Tour's Ask bar ("Ask
 about this pull request") with nothing beside it, and it behaves as the Tour's does: empty,
 its button opens the earlier chats; typed, it sends and opens the Ask sheet on the
-question; a tap on the empty bar opens the conversation there is. Nothing at the bottom
+question. Nothing at the bottom
 goes to the diff or is highlighted ("this button should not take you to the diff ... it
 should also not be highlighted. This is another ask button", recording of 17 Oct 13:26,
 00:25 to 00:48, P2); the diff is the header's and Approve is in ⋯ and Commands. The ⋯
@@ -552,3 +555,25 @@ response rows MUST remain uncached so later attempts can color them (repository 
 The repository, number, author and age MUST remain on one line. Variable names MUST
 yield at their ends while number and age retain their width (DESIGN.md rule 26;
 repository review 15 Oct 2026, finding 13).
+
+@cc [owner:OctavianTocan,label:product;design;motion] ask-bar-rests-short
+A page's Ask bar (the Overview, its opening page and the Tour) MUST rest as a short pill,
+centred, that reads Ask, with no button. A tap opens it to the full width with the cursor
+in its field and its button at the end; left with nothing typed, it goes short again
+("let's not have this send button and let's just have like a shorter bar that says Ask.
+And when you tap on it ... it kind of expands ... and then obviously compacts back
+whenever you get out of that", recording 17 Oct 14:45, 02:26 to 03:19; Q5; rule 197).
+
+@cc [owner:OctavianTocan,label:product;design] pr-description-written-rendered
+The description sheet's field MUST read its Markdown rendered while it is typed, as
+Obsidian's live preview does: headings and strong words heavier, emphasis slanted, code
+in the code face, links in the link ink and a list's dash as a bullet, with the marks
+folded away on every line but the cursor's. Every character MUST stay as typed, so what is
+saved is the Markdown ("It is fine to let me do markdown, but just render it immediately,
+basically. Something like Obsidian", recording 17 Oct 14:45, 02:00 to 02:25; Q4; rule 200).
+
+@cc [owner:OctavianTocan,label:product;motion] diff-swipe-back-lands
+A swipe toward the previous file MUST land on it, the file the diff was opened on
+included; it MUST NOT slide back to the file shown. The gesture reads the file on screen
+and the list as they are now, never as they were when the diff opened ("it takes me back
+to the one I was at already", recording 17 Oct 14:45, 03:34 to 03:47; Q7).

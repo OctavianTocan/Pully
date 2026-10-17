@@ -209,3 +209,19 @@ lift over the navigation bar, rising with the keyboard. A page MUST NOT set its 
 bottom padding for its bar, so opening a pull request never moves the bar ("the placement
 of the search and bottom bars and the buttons ... should be consistent throughout all of
 them", recording of 17 Oct 13:26, 00:49 to 01:26, P3; rule 192).
+
+@cc [owner:OctavianTocan,label:design;motion;architecture] kit-one-foot-bar
+The search and Ask bars MUST be one pill, `FootPill`, drawn once over the pages by
+`FootBarLayer` in the app's root; a page says what the pill holds and MUST NOT draw a pill
+of its own. Going from one page to another keeps the pill in place and changes only what is
+inside it, the words fading out blurred and the next ones in, its width easing to the new
+page's; a button beside it leaves or arrives with its page, and the diff's file bar takes
+its place through `FootFree` ("one component that's kind of over the screen, and then we
+can swap the text inside it with that nice blur fade ... we want that kind of seamlessness
+when we go into a PR as well", recording 17 Oct 14:45, 01:00 to 01:51; Q2; rule 196).
+
+@cc [owner:OctavianTocan,label:product] kit-foot-bar-owns-its-taps
+A tap anywhere on the foot pill, its edge and padding included, MUST open it or put the
+cursor in its field, and MUST NOT reach the page under it ("I keep trying to tap on the
+ask about this pull request, and it keeps getting me to the description", recording
+17 Oct 14:45, 03:00 to 03:10; Q6; rule 198).

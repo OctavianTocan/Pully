@@ -47,7 +47,9 @@
     "rememberSidePages": "The state of a row of side by side pages, hoisted so a header and tabs can follow and drag them (rules 107 and 118). It is not drawn; SidePages draws the pages.",
     "FieldText": "The one text field every kit field is built on (N6, N9); the Pill input, Sheet search and Sheet field pages show it in each of its frames.",
     "FieldFrame": "The white frame of the framed fields, a pill at the bottom of a page or a card's corner on a sheet (N6); the Pill input and Sheet search pages show both.",
-    "FieldClear": "The ✕ inside a field once something is typed; the Sheet search page's typed state shows it."
+    "FieldClear": "The ✕ inside a field once something is typed; the Sheet search page's typed state shows it.",
+    "FootBarLayer": "The host that draws the page's foot pill once over every page (rule 196), placed in PullsApp, not a visual component. The Foot pill page shows what it draws.",
+    "FootFree": "Hands a page's own bar, the diff's file bar, to the foot host in the pill's place (rule 196); it draws only what the page gives it."
   },
   "components": {
     "toast": "ToastHost is one host for the whole app and draws at the bottom of the screen, so it cannot be measured inline. Its page shows the real one."

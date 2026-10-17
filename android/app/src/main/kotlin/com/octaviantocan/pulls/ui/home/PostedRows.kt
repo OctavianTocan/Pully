@@ -110,7 +110,7 @@ internal fun PostedRowContent(row: PostedRow, now: Long) {
         AnnotatedString(row.title),
         tile = {
             RowTile(c.accentMagenta.copy(alpha = if (c.dark) 0.18f else 0.12f), Modifier.semantics { contentDescription = "Posted by an agent" }) {
-                LuIcon(Lu.terminal, tint = c.accentMagenta, size = 20.dp)
+                LuIcon(Lu.terminal, tint = c.accentMagenta, size = TILE_MARK)
             }
         },
     ) {

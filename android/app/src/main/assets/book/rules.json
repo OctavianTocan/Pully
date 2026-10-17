@@ -16,7 +16,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "PR titles wrap, never ellipsise. Repo + number always scannable. Branch means both ends: head → base. Diffstat always coloured."
+    "text": "A PR title in a list row is one line that ends in an ellipsis (rule 195); on the pull request's own page it wraps whole. Repo + number always scannable. Branch means both ends: head → base. Diffstat always coloured."
   },
   {
     "n": 3,
@@ -1743,7 +1743,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "The Overview's bar at the foot behaves exactly as the Tour's: empty, its button opens the earlier chats; typed, it sends. No highlighted button beside it, and nothing at the foot goes to the diff (P2: \"this is another ask button ... same functionality\"; rule 167).\n\nCheck: on the Overview, the bar's button is grey or the history button until something is typed, and no button at the foot opens the diff."
+    "text": "The Overview's bar at the foot behaves exactly as the Tour's: empty, its button opens the earlier chats; typed, it sends. No highlighted button beside it, and nothing at the foot goes to the diff (P2: \"this is another ask button ... same functionality\"; rule 167).\n\nSince rule 197 the bar rests short, reading Ask, and shows its button once opened.\n\nCheck: on the Overview, the opened bar's button is grey or the history button until something is typed, and no button at the foot opens the diff."
   },
   {
     "n": 192,
@@ -1752,7 +1752,7 @@
     "checkedBy": [
       "review"
     ],
-    "text": "The Inbox's search, the Overview's and the Tour's Ask bars, the diff's file bar, a repository's search and a sheet's own field all rest 24dp over the navigation bar, 16dp in from the sides, through the one kit modifier (`floatingBar`). Opening a pull request never moves the bar down (P3: \"it is on the homepage, but when I go to one of the PRs, it pushes it down\").\n\nCheck: put the Inbox, the Overview, the Tour, the Diff and the Ask sheet side by side: every bar's bottom edge is at the same height."
+    "text": "The Inbox's search, the Overview's and the Tour's Ask bars, the diff's file bar, a repository's search and a sheet's own field all rest 24dp over the navigation bar, 16dp in from the sides, through the one kit modifier (`floatingBar`), and since rule 196 the search and Ask bars are one pill drawn once over the pages. Opening a pull request never moves the bar down (P3: \"it is on the homepage, but when I go to one of the PRs, it pushes it down\").\n\nCheck: put the Inbox, the Overview, the Tour, the Diff and the Ask sheet side by side: every bar's bottom edge is at the same height."
   },
   {
     "n": 193,
@@ -1771,5 +1771,59 @@
       "review"
     ],
     "text": "The history button in an Ask bar opens the Chats sheet by itself, not the Ask sheet under it; picking a chat there opens Ask on that chat (P5: \"it's just the earlier chats that need to open\").\n\nCheck: tap the history button on the Tour: only Chats is on screen; pick a chat: Ask opens on it."
+  },
+  {
+    "n": 195,
+    "title": "A row is two lines, its tile nearly as tall.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "An Inbox, Tours or repository row is the title on one line, cut with an ellipsis, over the meta line. Never three lines. The state tile is nearly as tall as the two lines, with a little air above and below, and its mark grows with it (Q1: \"rows should never have three lines ... the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and at the bottom\"; Claude's own PR list).\n\nCheck: a row whose title is longer than the screen is two lines, the title ending in an ellipsis, and the tile's top and bottom sit just inside the two lines."
+  },
+  {
+    "n": 196,
+    "title": "One bar over every page.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The search and Ask bars are one pill, drawn once over the pages at the foot (`FootBarLayer`): a page says what the pill holds and the pill stays put while the pages slide under it. Going from one page to the next changes only what is inside it, the words leaving with a blur fade and the next ones arriving, and its width eases to the new page's. A button beside it (the Inbox's sort) leaves or arrives beside it. A bar of its own shape, the diff's file bar, takes its place the same way (Q2: \"one component that's kind of over the screen, and then we can swap the text inside it with that nice blur fade ... we want that kind of seamlessness when we go into a PR as well\").\n\nCheck: open a pull request from the Inbox: the pill never slides off with the Inbox; its words change in place and the sort button fades beside it."
+  },
+  {
+    "n": 197,
+    "title": "Ask rests short.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A page's Ask bar (the Overview, its opening page and the Tour) rests as a short pill, centred, that reads Ask, with no button. A tap opens it to the full width with the cursor in it and its button at the end; left empty, it goes short again (Q5: \"let's not have this send button and let's just have like a shorter bar that says Ask. And when you tap on it ... it kind of expands ... and then obviously compacts back whenever you get out of that\"). He called it a bit experimental.\n\nCheck: on the Overview the bar reads Ask; a tap opens it with the keyboard; a tap on the page with nothing typed makes it short again."
+  },
+  {
+    "n": 198,
+    "title": "A tap on the bar is the bar's.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A tap anywhere on the pill, its edge and padding included, opens it or puts the cursor in its field. It never reaches what is under it (Q6: \"I keep trying to tap on the ask about this pull request, and it keeps getting me to the description\").\n\nCheck: on the Overview with the description under the bar, tap the bar's edge: the bar opens and the Description sheet does not."
+  },
+  {
+    "n": 199,
+    "title": "The editor opens where you tapped.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A tap on the description opens its sheet with the cursor at the place in the text the tap was over, and the sheet shows that place, not the end (Q3: \"it scrolls me all the way down instead of stopping where I was gonna edit\").\n\nCheck: tap the first paragraph of a long description: the sheet opens at its top with the cursor in that paragraph."
+  },
+  {
+    "n": 200,
+    "title": "The description is written rendered.",
+    "source": "walkthrough",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "The description sheet's field reads its Markdown rendered while it is typed, as Obsidian's live preview does: headings and strong words heavier, emphasis slanted, code in the code face, links in the link ink, a list's dash as a bullet. The marks (#, **, `, a link's address) fold away on every line but the one the cursor is on, where they show quietly; HTML comments and tags are quiet. Every character stays, so what is saved is the Markdown (Q4: \"It is fine to let me do markdown, but just render it immediately, basically. Something like Obsidian\").\n\nCheck: open a description with a heading, a list and code: no #, * or backtick shows away from the cursor's line."
   }
 ]

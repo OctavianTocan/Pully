@@ -25,15 +25,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -132,7 +136,9 @@ private class FieldScroll {
  * list fades under a pinned edge (N9): sideways in a one-line field, up and down in one whose [maxLines] it scrolls
  * within. [placeholderContent] draws the empty field's words in place of [placeholder] where they need more than one
  * string, such as the diff's comment bar choosing the wording that fits. [modifier] is the field's own, so a
- * `focusRequester` or `onFocusChanged` on it reaches the field.
+ * `focusRequester` or `onFocusChanged` on it reaches the field. [live] styles the words from the text and the cursor
+ * without changing a character (the description's live Markdown, Q4), and [cursorAt] picks where the cursor starts once
+ * the words are first laid out, in place of the end (the place a tap was over, Q3).
  */
 @Composable
 fun FieldText(
@@ -150,13 +156,18 @@ fun FieldText(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     fade: Color = LocalPullsColors.current.raised,
     placeholderContent: (@Composable () -> Unit)? = null,
+    live: ((text: String, cursor: Int) -> AnnotatedString)? = null,
+    cursorAt: ((TextLayoutResult) -> Int?)? = null,
 ) {
     val c = LocalPullsColors.current
+    // In the foot bar's pill, a tap anywhere on the pill focuses this field (Q6).
+    val foot = LocalFootFocus.current
     // The field keeps its own cursor and composition; the text is the caller's, so a text set from outside (a clear,
     // a pasted link opened) puts the cursor at its end.
     var kept by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     val field = if (kept.text == value) kept else TextFieldValue(value, TextRange(value.length))
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    var placed by remember { mutableStateOf(false) }
     var window by remember { mutableStateOf(IntSize.Zero) }
     val scroll = remember { FieldScroll() }
     val sideways = singleLine || maxLines == 1
@@ -184,7 +195,7 @@ fun FieldText(
             kept = next
             if (next.text != value) onChange(next.text)
         },
-        modifier = modifier,
+        modifier = if (foot != null) modifier.focusRequester(foot) else modifier,
         enabled = enabled,
         textStyle = style.copy(color = c.text),
         keyboardOptions = keyboardOptions,
@@ -192,8 +203,20 @@ fun FieldText(
         singleLine = singleLine,
         maxLines = maxLines,
         minLines = minLines,
-        visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
-        onTextLayout = { layout = it },
+        visualTransformation = when {
+            secret -> PasswordVisualTransformation()
+            // Styled from the words and where the cursor is, character for character (live Markdown, Q4).
+            live != null -> VisualTransformation { words -> TransformedText(live(words.text, cursor), OffsetMapping.Identity) }
+            else -> VisualTransformation.None
+        },
+        onTextLayout = { result ->
+            layout = result
+            // Where the cursor starts, once the words are laid out: the place a tap on the shown text was over (Q3).
+            if (cursorAt != null && !placed) {
+                placed = true
+                cursorAt(result)?.let { at -> kept = TextFieldValue(value, TextRange(at.coerceIn(0, value.length))) }
+            }
+        },
         cursorBrush = SolidColor(c.accentTeal),
         decorationBox = { inner ->
             Box(

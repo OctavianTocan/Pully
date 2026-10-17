@@ -285,6 +285,62 @@
       }
     ]
   },
+  "foot-pill": {
+    "composable": "FootPill",
+    "declarations": [
+      {
+        "file": "ui/design/FootBar.kt",
+        "line": 112,
+        "doc": "A page's bar in the one pill: [content] is what sits in it, after a search glass when [search], with the pill's end\nmade for a round button when [button]. [trailing] sits beside the pill, as the Inbox's sort does, and leaves with the\npage. With [compact] the pill is short and reads that one word, centred, until a tap ([onExpand]) opens it to the full\nwidth with its field focused (\"a shorter bar that says Ask. And when you tap on it ... it kind of expands\", Q5).\n[veil] dims or holds the bar with its page. Outside a [FootBarLayer] the bar draws here, placed by [modifier].",
+        "params": [
+          {
+            "name": "key",
+            "type": "Any"
+          },
+          {
+            "name": "modifier",
+            "type": "Modifier",
+            "default": "Modifier"
+          },
+          {
+            "name": "search",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
+            "name": "button",
+            "type": "Boolean",
+            "default": "false"
+          },
+          {
+            "name": "compact",
+            "type": "String?",
+            "default": "null"
+          },
+          {
+            "name": "onExpand",
+            "type": "(() -> Unit)?",
+            "default": "null"
+          },
+          {
+            "name": "veil",
+            "type": "Modifier",
+            "default": "Modifier"
+          },
+          {
+            "name": "trailing",
+            "type": "(@Composable () -> Unit)?",
+            "default": "null"
+          },
+          {
+            "name": "content",
+            "type": "@Composable RowScope.() -> Unit"
+          }
+        ],
+        "source": "@Composable\nfun FootPill(\n    key: Any,\n    modifier: Modifier = Modifier,\n    search: Boolean = false,\n    button: Boolean = false,\n    compact: String? = null,\n    onExpand: (() -> Unit)? = null,\n    veil: Modifier = Modifier,\n    trailing: (@Composable () -> Unit)? = null,\n    content: @Composable RowScope.() -> Unit,\n) {\n    val bars = LocalFootBars.current\n    val slot = remember { FootSlot() }\n    val fill: FootSlot.() -> Unit = {\n        this.key = key\n        free = false\n        this.search = search\n        this.button = button\n        this.compact = compact\n        this.onExpand = onExpand\n        this.veil = veil\n        this.trailing = trailing\n        this.content = content\n    }\n    if (bars == null) {\n        slot.fill()\n        Box(modifier.floatingBar()) { PillBar(slot, rememberMotionEnabled()) }\n        return\n    }\n    SideEffect { slot.fill() }\n    Register(bars, slot)\n}"
+      }
+    ]
+  },
   "ok-dot": {
     "composable": "OkDot",
     "declarations": [

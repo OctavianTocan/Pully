@@ -3,7 +3,6 @@ package com.octaviantocan.pulls.ui.home
 import com.octaviantocan.pulls.core.pullKey
 import com.octaviantocan.pulls.core.runningTaskId
 import com.octaviantocan.pulls.ui.design.sideScrollFade
-import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.SidePages
@@ -364,8 +363,8 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
         // `.search`: the list fades into the page under a floating search pill (its own `edgeFade`), as in the Inbox, and
         // nothing else sits behind the pill: it floats on its own shadow (rule 74).
         SearchPill(
-            query, { query = it }, if (tab == 1) "Search tours" else t("pulls.search"), null, {},
-            Modifier.align(Alignment.BottomCenter).floatingBar(),
+            "repo-search", query, { query = it }, if (tab == 1) "Search tours" else t("pulls.search"), null, {},
+            Modifier.align(Alignment.BottomCenter),
         )
     }
 }

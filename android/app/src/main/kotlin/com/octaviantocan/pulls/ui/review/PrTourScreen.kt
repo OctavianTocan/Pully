@@ -44,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
-import com.octaviantocan.pulls.ui.design.floatingBar
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
@@ -309,9 +308,9 @@ internal fun PrTourScreen(
             }
             // The Ask bar is Home's search pill: the same face and size, and the page dims behind it while it waits (K12),
             // the review's header too (N29). There is nothing to ask about before the tour is written, so there is no
-            // bar until then (M12). Empty, its button is the earlier chats, and a tap on it opens the conversation there
-            // is; a question sent continues that conversation in the Ask sheet (N28). The earlier chats open on their own
-            // sheet, without the conversation under them (P5).
+            // bar until then (M12). It rests short, reading Ask, and a tap opens it (Q5); open and empty, its button is the
+            // earlier chats, and a question sent continues the conversation in the Ask sheet (N28). The earlier chats open
+            // on their own sheet, without the conversation under them (P5).
             var askText by remember { mutableStateOf("") }
             var askFocused by remember { mutableStateOf(false) }
             LaunchedEffect(askFocused, askText.isEmpty(), tour != null) { onAskDim(tour != null && askFocused, askText.isEmpty()) }
@@ -320,12 +319,11 @@ internal fun PrTourScreen(
             if (writing) WritingLip(session, onProgress, Modifier.align(Alignment.BottomCenter))
             LaunchedEffect(session.key) { session.loadChatHistory() }
             if (tour != null) AskBar(
-                askText, { askText = it }, "Ask about this tour", onSend = onAsk,
-                modifier = Modifier.align(Alignment.BottomCenter).stayOnPull().floatingBar(),
+                "ask-tour", askText, { askText = it }, "Ask about this tour", onSend = onAsk,
+                modifier = Modifier.align(Alignment.BottomCenter),
                 onFocus = { askFocused = it },
                 // Only when there are earlier chats to open (P4).
                 onOpenHistory = if (session.key != null && !session.chatHistory.isNullOrEmpty()) onAskHistory else null,
-                onTapEmpty = if (session.saved?.chat.isNullOrEmpty()) null else onOpenAsk,
             )
         }
     }

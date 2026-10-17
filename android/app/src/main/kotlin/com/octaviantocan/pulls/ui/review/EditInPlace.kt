@@ -1,5 +1,8 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.ui.design.markdownLive
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.IntSize
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.PullsSheet
@@ -206,7 +209,8 @@ internal fun EditableText(
 
 /**
  * Long text the viewer owns, edited on a sheet with a proper text field instead of in place: a tap on it at rest opens
- * the sheet with the caret at the end, and the page does not scroll or move under it. Leaving the sheet, by Save, ✕,
+ * the sheet with the caret at the place in the text the tap was over (Q3), its Markdown read as rendered while typed (Q4),
+ * and the page does not scroll or move under it. Leaving the sheet, by Save, ✕,
  * Back or a swipe down, saves a changed text, as leaving an in-place field does (rule 83). A link or a picture in the
  * text at rest opens itself and never the sheet. Tavi chose this for the description; the title stays in place ("if I
  * tap to edit it, you just open a bottom sheet with it in a nice like text editor ... the title, you can leave for
@@ -229,6 +233,9 @@ internal fun EditableInSheet(
     var shown by remember(value) { mutableStateOf(value) }
     var draft by remember { mutableStateOf(value) }
     var open by remember { mutableStateOf(false) }
+    // Where on the text at rest the tap was, as a share of its width and height, so the cursor starts there (Q3).
+    var tapped by remember { mutableStateOf<Offset?>(null) }
+    var restSize by remember { mutableStateOf(IntSize.Zero) }
     fun finish() {
         if (!open) return
         open = false
@@ -246,11 +253,19 @@ internal fun EditableInSheet(
         }
     }
     Box(
-        modifier.fillMaxWidth().then(
-            if (canEdit) Modifier.cueClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onClickLabel = "Edit $title") {
-                // The kit's field opens with the cursor at the end of the text it is given.
-                draft = shown
-                open = true
+        modifier.fillMaxWidth().onSizeChanged { restSize = it }.then(
+            if (canEdit) {
+                Modifier
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val at = awaitFirstDown(requireUnconsumed = false).position
+                            tapped = if (restSize.width > 0 && restSize.height > 0) Offset(at.x / restSize.width, at.y / restSize.height) else null
+                        }
+                    }
+                    .cueClickable(remember { MutableInteractionSource() }, null, role = Role.Button, onClickLabel = "Edit $title") {
+                        draft = shown
+                        open = true
+                    }
             } else Modifier,
         ),
     ) { display(shown) }
@@ -268,13 +283,31 @@ internal fun EditableInSheet(
                 Modifier.fillMaxWidth().padding(top = 8.dp).defaultMinSize(minHeight = 240.dp).clip(RoundedCornerShape(PullsRadius.card)).background(c.raised).padding(16.dp),
                 contentAlignment = Alignment.TopStart,
             ) {
+                // The Markdown reads rendered as it is typed, its marks folded away off the cursor's line (Q4), and the
+                // cursor starts at the same place in the text as the tap was on the page, not at its end ("it scrolls me
+                // all the way down instead of stopping where I was gonna edit": recording 17 Oct 14:45, 01:51 to 01:59; Q3).
+                val share = tapped
                 FieldText(
                     draft, { draft = it }, placeholder, Modifier.fillMaxWidth().focusRequester(focus),
                     singleLine = false,
                     style = PullsType.read,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    live = { words, cursor -> markdownLive(words, cursor, c) },
+                    cursorAt = share?.let { { layout -> cursorFor(layout, it) } },
                 )
             }
         }
     }
+}
+
+/**
+ * The place in [layout]'s words at the same share of its height as a tap was on the text at rest ([share], across and
+ * down), at the start of that line's word, so the cursor lands by what was tapped rather than at the end (Q3).
+ */
+internal fun cursorFor(layout: TextLayoutResult, share: Offset): Int {
+    val at = layout.getOffsetForPosition(Offset(share.x * layout.size.width, share.y * layout.size.height))
+    val text = layout.layoutInput.text.text
+    var start = at.coerceIn(0, text.length)
+    while (start > 0 && !text[start - 1].isWhitespace()) start--
+    return start
 }

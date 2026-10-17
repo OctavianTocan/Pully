@@ -26,13 +26,16 @@ pill takes the row (rule 114; H19).
 @cc [owner:OctavianTocan,label:product] home-one-row-anatomy
 A pull request row is the same in the Inbox, Tours, a repository and search, after
 Claude's own list: a tinted square tile with the state's mark on the left (open, draft,
-merged and closed each in its own colour; a tour's ring in the tile on Tours), the title
-beside it, wrapped whole (`android-whole-identifiers`), and one meta line under the title that starts with the
+merged and closed each in its own colour; a tour's ring in the tile on Tours), nearly as
+tall as the row's two lines with a little air above and below, the title beside it on one
+line ending in an ellipsis when it runs long (`android-whole-identifiers`; Q1), and one meta line under the title that starts with the
 number and carries the author, checks, coloured diffstat and age, in fixed columns that
 do not move when a digit or a name's length changes (rules 13, 15 and 36). A draft is told
 apart by its tile's colour and no title says "[draft]". A context-free count ("7
 sections") never replaces them. Tavi decided this in the recording of 16 Oct 12:10, 01:23
-to 03:05 (N4), replacing the number-first row.
+to 03:05 (N4), replacing the number-first row. A row MUST NOT run to three lines: "these
+things should never have three lines ... the icon gets squishy", with Claude's PR list as
+the reference for the tile's size (recording of 17 Oct 14:45, 00:03 to 00:59; Q1).
 
 @cc [owner:OctavianTocan,label:design] home-no-avatars-on-rows
 A row carries the author's name in its own column and no avatar or initial. The reader's

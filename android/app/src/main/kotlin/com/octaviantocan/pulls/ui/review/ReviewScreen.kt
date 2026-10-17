@@ -346,7 +346,6 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
                                 onDiff = { path -> if (path == null) toChanges() else openDiff(path) },
                                 onAsk = { question -> openAsk(forTour = false, initial = question) },
-                                onOpenAsk = { openAsk(forTour = false) },
                                 onAskHistory = { chats = false },
                                 onSheet = { name ->
                                     if (name == "stack") session.stack?.let { Analytics.track("stack.open", "size" to it.entries.size) }

@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.ui.home
 
 import com.octaviantocan.pulls.ui.design.sideScrollFade
-import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.sound.cueCombinedClickable
 import kotlinx.coroutines.CoroutineScope
 import com.octaviantocan.pulls.data.PullSizes
@@ -137,10 +136,9 @@ import com.octaviantocan.pulls.ui.design.SidePages
 import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.FloatIcon
-import com.octaviantocan.pulls.ui.design.FieldFrame
 import com.octaviantocan.pulls.ui.design.FieldHeight
-import com.octaviantocan.pulls.ui.design.FieldPlace
 import com.octaviantocan.pulls.ui.design.FieldText
+import com.octaviantocan.pulls.ui.design.FootPill
 import com.octaviantocan.pulls.ui.design.FloatButton
 import com.octaviantocan.pulls.ui.design.IconSwap
 import com.octaviantocan.pulls.sound.Emphasis
@@ -416,25 +414,18 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         }
         SearchDim(searchFocused, ui.search.isEmpty())
         // `.search`: the list fades into the page under this pill (`edgeFade` on the lists), and nothing else sits behind it.
-        Column(
-            Modifier.align(Alignment.BottomCenter).floatingBar(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            // Sort sits beside the search under the thumb, so it never hides past the chips' edge (rule 114). Tours has no
-            // order to choose, so the button leaves with the Inbox and the pill takes the row.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SearchPill(
-                    ui.search, { ui.search = it },
-                    if (ui.tab == 0) "Search or ask Pully" else "Search tours",
-                    openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
-                    onOpen = ::openSearch,
-                    modifier = Modifier.weight(1f),
-                    onFocus = { searchFocused = it },
-                    onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
-                )
-                SortButton(ui.tab == 0, sort, onClick = { sortOpen = true })
-            }
-        }
+        // Sort sits beside the search under the thumb, so it never hides past the chips' edge (rule 114). Tours has no
+        // order to choose, so the button leaves with the Inbox and the pill takes the row.
+        SearchPill(
+            "search", ui.search, { ui.search = it },
+            if (ui.tab == 0) "Search or ask Pully" else "Search tours",
+            openLabel = searchLink?.let { if (it is HomeLink.Repo) "Open ${it.owner}/${it.repo}" else "Open pull request" },
+            onOpen = ::openSearch,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            onFocus = { searchFocused = it },
+            onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
+            trailing = { SortButton(ui.tab == 0, sort, onClick = { sortOpen = true }) },
+        )
         if (ui.askOpen) {
             InboxAskSheet(inboxAsk, listed, openListed, onClose = { ui.askOpen = false })
         }
@@ -940,17 +931,29 @@ internal fun SearchDim(focused: Boolean, empty: Boolean) {
  * link or a number that names one pull request, an Open pill appears in it and the keyboard's action opens it, so no
  * separate field is needed. There is no Ask button (no "Ask" button "anywhere": recording 16 Oct 12:10, 05:03 to 05:47;
  * N8): with [onAsk], once the text ends in a question mark the ✕ turns into the send circle, which asks it, the one
- * fading into the other, and the keyboard's action asks whatever reads as a question.
+ * fading into the other, and the keyboard's action asks whatever reads as a question. It is the app's one foot pill
+ * ([FootPill]): Inbox and Tours share its [key], so only its words change between them, and [trailing] sits beside it (Q2).
  */
 @Composable
-internal fun SearchPill(value: String, onChange: (String) -> Unit, placeholder: String, openLabel: String?, onOpen: () -> Unit, modifier: Modifier = Modifier, onFocus: (Boolean) -> Unit = {}, onAsk: (() -> Unit)? = null) {
+internal fun SearchPill(
+    key: String,
+    value: String,
+    onChange: (String) -> Unit,
+    placeholder: String,
+    openLabel: String?,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+    onFocus: (Boolean) -> Unit = {},
+    onAsk: (() -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val c = LocalPullsColors.current
     val focus = LocalFocusManager.current
     val askable = onAsk != null && openLabel == null && value.isNotBlank()
     val question = askable && looksLikeQuestion(value)
     val asking = askable && endsInQuestion(value)
     val ask = { focus.clearFocus(); onAsk?.invoke(); Unit }
-    FieldFrame(FieldPlace.Page, modifier, search = true, button = value.isNotEmpty()) {
+    FootPill(key, modifier, search = true, button = value.isNotEmpty(), trailing = trailing) {
         FieldText(
             value, onChange, placeholder,
             Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
