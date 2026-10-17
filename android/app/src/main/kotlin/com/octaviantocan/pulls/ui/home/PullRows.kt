@@ -231,7 +231,7 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
 /**
  * `.stack`: the layers of one stack in the Inbox as one row (Tavi, 17 Oct 17:40; rule 202). The tile carries the layers
  * mark in the bottom layer's state colour, the title and number are the bottom layer's, the one that merges first, and
- * the author's column says how many layers the row holds. The checks are the worst of the layers',
+ * the meta line carries the stack mark with how many layers the row holds. The checks are the worst of the layers',
  * the + and − their sum and the age the newest. A tap or a hold opens the Stack sheet ([InboxStackSheet]).
  */
 @Composable
@@ -255,10 +255,17 @@ internal fun StackRowContent(layers: List<PullRow>, now: Long, repo: String? = n
     ) {
         RowNumber(bottom.number)
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // The stack mark a lone layer carries, with how many layers the row holds ("Just use the icon we were already
+            // using for stack and type a 3 next to it": Tavi, 17 Oct 17:51).
+            Row(
+                Modifier.semantics(mergeDescendants = true) { contentDescription = "${layers.size} pull requests in a stack" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                LuIcon(Lu.layers, tint = c.muted, size = 14.dp)
+                Text("${layers.size}", style = PullsType.sm.copy(fontFeatureSettings = "tnum"), color = c.muted, maxLines = 1, softWrap = false)
+            }
             if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
-            // The count stands where the author would: the names of every layer's author don't fit in it.
-            val count = "${layers.size} layers"
-            Text(if (repo != null) "$repo · $count" else count, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+            if (repo != null) Text(repo, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         }
         RowFacts(
             { CheckMark(worst) },
