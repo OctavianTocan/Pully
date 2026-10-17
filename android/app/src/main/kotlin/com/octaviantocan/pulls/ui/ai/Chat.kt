@@ -400,7 +400,8 @@ internal fun ChatHistorySheet(session: ReviewSession, onClose: () -> Unit, onRes
                     onClose()
                     session.chatChange = session.scope.launch {
                         runCatching { session.repo.restoreChat(key, chat.id) }.onFailure { ui.chatError = it.message }
-                        session.reloadSaved()
+                        // Ask opens on the chat picked, not on the one it replaces while the saved work is on its way.
+                        if (!session.reloadSavedNow() && ui.chatError == null) ui.chatError = "Couldn't load that chat"
                         onRestored()
                     }
                 }, first = first, iconless = true, detail = listOfNotNull(ago, asked).joinToString(" · "))

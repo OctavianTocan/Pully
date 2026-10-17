@@ -35,6 +35,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -145,15 +146,23 @@ class ReviewSession(
     var chatHistory by mutableStateOf<List<ChatHistoryEntry>?>(null)
         private set
     private var chatHistoryFor: String? = null
+    private var chatHistoryJob: Job? = null
 
-    /** Asks the server for [chatHistory] once per diff; [force] again, after a chat was put away or brought back. */
+    /**
+     * Asks the server for [chatHistory] until it answers once per diff; [force] again, after a chat was put away or
+     * brought back. A newer request cancels the one before, so a late answer never puts back an older list, and a failed
+     * one keeps the list there was rather than reading as no chats.
+     */
     fun loadChatHistory(force: Boolean = false) {
         val key = key ?: return
         if (!force && chatHistoryFor == key) return
-        chatHistoryFor = key
-        scope.launch {
-            val list = runCatching { repo.chatHistory(key) }.getOrNull()
-            if (this@ReviewSession.key == key) chatHistory = list ?: chatHistory ?: emptyList()
+        if (chatHistoryFor != key) chatHistory = null
+        chatHistoryJob?.cancel()
+        chatHistoryJob = scope.launch {
+            val list = runCatching { repo.chatHistory(key) }.getOrNull() ?: return@launch
+            if (!isActive || this@ReviewSession.key != key) return@launch
+            chatHistory = list
+            chatHistoryFor = key
         }
     }
 
@@ -363,12 +372,14 @@ class ReviewSession(
 
     fun reloadSaved() { scope.launch { reloadSavedNow() } }
 
-    private suspend fun reloadSavedNow() {
-        val fetched = fetchSaved() ?: return
+    /** Fetches the saved AI work again and shows it; false when asking failed and the old work still shows. */
+    suspend fun reloadSavedNow(): Boolean {
+        val fetched = fetchSaved() ?: return false
         saved = fetched.state
         keepTour(fetched)
         // A New chat or a chat brought back changes which chats are earlier ones.
         if (chatHistoryFor != null) loadChatHistory(force = true)
+        return true
     }
 
     /** Saved AI work as the server sent it, and whether it is the pull request's own rather than a commit range's. */
