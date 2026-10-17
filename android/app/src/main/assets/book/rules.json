@@ -1843,5 +1843,14 @@
       "review"
     ],
     "text": "When two or more layers of one stack are in the same Inbox section, they are one row where the first of them stood: the layers mark in a tile drawn as an outline in the bottom layer's state colour rather than filled, so it does not blend with the pull requests around it (Tavi, 17:54: \"it blends too much with the PRs themselves\"); the bottom layer's title and number, the one that merges first; after the number, the stack mark a lone layer carries with how many layers there are beside it, and no words (Tavi, 17:51: \"there's no need for it to say '3 layers'. Just use the icon we were already using for stack and type a 3 next to it\"); the worst of their checks, the sum of their + and −, and the newest age. A tap, a swipe or a hold opens the Stack sheet the pull request page uses, top layer first down to the base branch, and a tap on a layer opens it. A stack with one layer in the section keeps that pull request's own row with its place in the stack. Tours and a repository's list are unchanged.\n\nCheck: in the Inbox, three open layers of one stack are one row whose meta line shows the stack mark and a 3; tap it: the sheet lists the three, and tapping one opens that pull request."
+  },
+  {
+    "n": 203,
+    "title": "A Stack sheet layer reads like an Inbox row.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Each layer in the Stack sheet has its place in the stack in the leading column by the line (\"2/3\", counted from the bottom like the rows' stack mark), then its title over the Inbox rows' meta line: its number, its author, Merged or Closed when it is, its checks and its + and −. The sheet reads the same from a stack row and from a pull request's page.\n\nCheck: tap a stack row in the Inbox: every layer shows its place on the left and \"#number author\" under its title, the checks and + and − on the right."
   }
 ]

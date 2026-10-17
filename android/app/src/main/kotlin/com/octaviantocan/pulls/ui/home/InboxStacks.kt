@@ -80,6 +80,7 @@ internal fun inboxStack(layers: List<PullRow>): PrStack {
                 checks = pull.checks,
                 additions = pull.additions,
                 deletions = pull.deletions,
+                author = pull.author,
             )
         },
     )

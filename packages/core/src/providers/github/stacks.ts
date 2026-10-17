@@ -22,6 +22,8 @@ export interface StackEntry {
   position: number
   /** The pull request the stack was asked for. */
   current: boolean
+  /** The login that opened it; absent for a deleted account. */
+  author?: string
   headRef: string
   baseRef: string
   checks?: StackEntryChecks
@@ -47,7 +49,7 @@ const UP_FANOUT = 5
 /** Native stacks list at most this many entries; larger ones are cut, as GitHub's own map pages them. */
 const NATIVE_ENTRIES = 50
 
-const STACK_PULL_FIELDS = `number title state isDraft merged headRefName baseRefName isCrossRepository additions deletions
+const STACK_PULL_FIELDS = `number title state isDraft merged author { login } headRefName baseRefName isCrossRepository additions deletions
       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`
 
 /**
@@ -100,6 +102,7 @@ export interface RawStackPull {
   state: 'OPEN' | 'CLOSED' | 'MERGED'
   isDraft: boolean
   merged: boolean
+  author?: { login: string } | null
   headRefName: string
   baseRefName: string
   /** The head branch lives in a fork, so no branch of this repository is its head. */
@@ -143,6 +146,7 @@ export function toStackEntry(raw: RawStackPull, position: number, current: boole
     state: raw.merged || raw.state === 'MERGED' ? 'merged' : raw.state === 'CLOSED' ? 'closed' : raw.isDraft ? 'draft' : 'open',
     position,
     current,
+    author: raw.author?.login,
     headRef: raw.headRefName,
     baseRef: raw.baseRefName,
     // No commit node means the field was not asked for; a commit without a rollup has no checks.

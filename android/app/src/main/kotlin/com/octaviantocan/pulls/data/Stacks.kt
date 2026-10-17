@@ -24,6 +24,8 @@ data class StackEntry(
     val checks: String = "",
     val additions: Int? = null,
     val deletions: Int? = null,
+    /** The login that opened it; empty when unknown. */
+    val author: String = "",
 )
 
 /** A stack, [entries] bottom first; [base] is the trunk under the bottom layer. */
@@ -61,6 +63,7 @@ fun JsonElement.asPrStack(): PrStack? {
             checks = layer.s("checks"),
             additions = layer.i("additions"),
             deletions = layer.i("deletions"),
+            author = layer.s("author"),
         )
     }.sortedWith(compareBy({ it.position }, { it.number }))
     if (layers.size < 2) return null
