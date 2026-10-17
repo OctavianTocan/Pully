@@ -33,7 +33,7 @@ struct Args {
     /// Git repository to review. No branch switching or shell is used.
     #[arg(long, default_value = ".")]
     cwd: PathBuf,
-    /// Persistent cache (default: <git-common-dir>/pulls-review-rust).
+    /// Persistent cache (default: <git-common-dir>/pulls-review-rust, first seeded from a copy of pulls-review).
     #[arg(long, env = "PULLS_REVIEW_DATA_DIR")]
     data_dir: Option<PathBuf>,
     /// Existing PR_LOCAL web build output, built using pnpm build:local.
@@ -93,7 +93,15 @@ async fn run() -> Result<()> {
             .context(
                 "--cwd must name a Git repository (or pass --data-dir for a GitHub-only server)",
             )?;
-        cwd.join(common.trim()).join("pulls-review-rust")
+        let common = cwd.join(common.trim());
+        let root = common.join("pulls-review-rust");
+        if pulls_review_server::store::seed_from_legacy(&root, &common.join("pulls-review"))? {
+            eprintln!(
+                "Copied the TypeScript server's data into {}; the original is unchanged.",
+                root.display()
+            );
+        }
+        root
     };
     let app = AppState::from_host(pulls_review_server::host::ServerHost::new(
         pulls_review_server::store::Store::new(data)?,

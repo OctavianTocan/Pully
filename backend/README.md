@@ -151,7 +151,7 @@ devices, or deployment security.
 | `--host <HOST>`                | `127.0.0.1`                                                                                  |
 | `--port <PORT>`                | `7390`                                                                                       |
 | `--cwd <PATH>`                 | `.`; repository used by local source endpoints                                               |
-| `--data-dir <PATH>`            | `<git-common-dir>/pulls-review-rust`                                                         |
+| `--data-dir <PATH>`            | `<git-common-dir>/pulls-review-rust`, seeded once from a copy of `pulls-review`              |
 | `--assets <PATH>`              | Direct native: no web assets unless supplied; launcher sets `PULLS_REVIEW_WEB_DIR`           |
 | `--android-dir <PATH>`         | `$HOME/.local/share/pulls-review/android`; also `PULLS_REVIEW_ANDROID_DIR`                   |
 | `--allow-origin <ORIGIN>`      | Repeatable HTTP(S) origins, for example `https://review.example.com`                         |
@@ -297,7 +297,11 @@ The client never receives the key. Restart after changing TypeSafe configuration
 ## Storage, rendering, and rollback
 
 Rust uses a separate data directory by default. In an ordinary clone this is
-`.git/pulls-review-rust`; linked worktrees share the Git common directory. One
+`.git/pulls-review-rust`; linked worktrees share the Git common directory. When
+that directory does not exist and no `--data-dir` is given, startup first copies
+the TypeScript server's `.git/pulls-review` into it (copied aside, then renamed
+into place), so accounts, agent keys, posted diffs and review state carry over and
+the original stays untouched for rollback. One
 native process owns a data root via an exclusive lock. Never run a historical TypeScript
 server and Rust against the same live cache: the old server does not honor this lock.
 

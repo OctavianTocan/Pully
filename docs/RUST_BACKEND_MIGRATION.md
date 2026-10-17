@@ -210,7 +210,11 @@ Both use the Git **common directory**, which may be outside the checkout for
 linked worktrees. Resolve it with `git rev-parse --git-common-dir` from the actual
 reviewed repository; `.git` need not be a directory.
 
-To preserve existing local review history:
+Without `--data-dir`, the first Rust start whose `pulls-review-rust` does not
+exist yet copies `pulls-review` into it and never writes to the original. Stop the
+TypeScript server before that first start (a service restart does), so the copy is
+of a cache nobody is writing. The manual steps below remain for an explicit
+`--data-dir`:
 
 1. Stop TypeScript and all Rust servers using either data root. Wait for AI jobs
    if you need their results; restart does not resume active runs.

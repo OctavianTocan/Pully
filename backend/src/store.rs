@@ -8,7 +8,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs,
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock, Weak},
 };
 
@@ -514,6 +514,48 @@ impl Store {
         Ok(keys)
     }
 }
+/// @cc [owner:OctavianTocan,label:architecture] rust-store-seeds-from-legacy-cache
+/// When the default data root does not exist, startup MUST fill it with a copy of
+/// the TypeScript server's cache, so a deploy of the native server keeps accounts,
+/// agent keys, posted diffs and review state. The copy MUST NOT write to the
+/// original, which stays the rollback cache, and MUST only appear complete (copied
+/// aside, then renamed). Source: merging the rewrite auto-deploys the server
+/// (Tavi, 16 Oct 12:18), and posted links are kept forever (Tavi, 16 Oct 12:24).
+///
+/// Returns whether a copy was made.
+pub fn seed_from_legacy(root: &Path, legacy: &Path) -> Result<bool> {
+    if fs::symlink_metadata(root).is_ok() || !fs::symlink_metadata(legacy).is_ok_and(|m| m.is_dir())
+    {
+        return Ok(false);
+    }
+    let parent = root.parent().context("Data directory has no parent")?;
+    let staging = parent.join(format!(".pulls-review-seed-{}", uuid::Uuid::new_v4()));
+    // Copy aside and rename into place, so an interrupted copy never looks seeded.
+    let result = copy_tree(legacy, &staging).and_then(|()| Ok(fs::rename(&staging, root)?));
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+        // Another server seeded or created the root first.
+        if fs::symlink_metadata(root).is_ok() {
+            return Ok(false);
+        }
+    }
+    result.map(|()| true)
+}
+fn copy_tree(from: &Path, to: &Path) -> Result<()> {
+    fs::create_dir(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        let target = to.join(entry.file_name());
+        // Symlinks and special files are skipped; the store refuses symlinks anyway.
+        if kind.is_dir() {
+            copy_tree(&entry.path(), &target)?;
+        } else if kind.is_file() {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,6 +742,27 @@ mod tests {
         assert_eq!(a.get("review:a").unwrap(), Some(json!(1)));
         drop(a);
         fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn seeds_an_absent_root_from_the_legacy_cache_once() {
+        let base = std::env::temp_dir().join(format!("pulls-seed-{}", uuid::Uuid::new_v4()));
+        let (legacy, root) = (base.join("pulls-review"), base.join("pulls-review-rust"));
+        assert!(!seed_from_legacy(&root, &legacy).unwrap());
+        fs::create_dir_all(legacy.join("account")).unwrap();
+        fs::write(legacy.join("account").join("me"), b"{\"id\":1}").unwrap();
+        fs::write(legacy.join("review"), b"0").unwrap();
+        assert!(seed_from_legacy(&root, &legacy).unwrap());
+        let store = Store::new(root.clone()).unwrap();
+        assert_eq!(store.get("account:me").unwrap(), Some(json!({"id":1})));
+        store.set("account:me", &json!({"id":2})).unwrap();
+        assert_eq!(
+            fs::read(legacy.join("account").join("me")).unwrap(),
+            b"{\"id\":1}"
+        );
+        assert!(!seed_from_legacy(&root, &legacy).unwrap());
+        assert_eq!(store.get("account:me").unwrap(), Some(json!({"id":2})));
+        drop(store);
+        fs::remove_dir_all(base).unwrap();
     }
     #[test]
     fn flat_keys_and_atomic_updates() {

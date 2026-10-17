@@ -87,7 +87,8 @@ lists implemented operations and remaining verification limits.
   there is no host execution fallback. See [Docker setup](../docker/agents/README.md).
 - `store.rs` provides locked, atomic file replacement and serialized updates.
   Rust defaults to `<git-common-dir>/pulls-review-rust`, separate from the
-  historical TypeScript cache. An older server checkout and Rust must never
+  historical TypeScript cache; when absent it is seeded once from a copy of
+  that cache. An older server checkout and Rust must never
   share a live store. Native full-file
   caching has a persistent 500-entry / 25 MiB LRU; multi-key updates are not
   crash-atomic transactions. Use the documented backup/rollback procedure.

@@ -77,9 +77,10 @@ access uses the terminal code. General native phone RPCs have no application log
 account-owned methods additionally require a Pully session and `/api/v1` uses agent
 keys. Restrict network access or use an authenticated reverse proxy before exposing it.
 
-The native cache defaults to `<git-common-dir>/pulls-review-rust`. It does not use
-or migrate the former `.git/pulls-review` cache. Use a separate `--data-dir` when
-migrating or running a GitHub-only server, and never share a live cache with an old
+The native cache defaults to `<git-common-dir>/pulls-review-rust`. When that
+directory does not exist yet, the first start fills it with a copy of the former
+`.git/pulls-review` cache and leaves the original untouched. Use a separate
+`--data-dir` for a GitHub-only server, and never share a live cache with an old
 backend process. See the [native server guide](../../backend/README.md) and
 [migration guide](../../docs/RUST_BACKEND_MIGRATION.md) for runtime setup and limits.
 
