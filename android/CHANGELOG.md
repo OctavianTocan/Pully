@@ -16,6 +16,18 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.46.0
+
+A new server underneath, and AI findings post exactly as you picked.
+
+### Fixed
+
+- The line under a pull request's title stays on one line. A long repository or author name gives way at its end, so the number and age always show.
+![A pull request whose repository, number, author and age sit on one line, the long name ending in an ellipsis](changelog/0.46.0/meta-one-line.png)
+- Posting findings from an AI review posts exactly the ones you picked, for the commit on screen. If a newer review arrives meanwhile, it starts with nothing picked.
+- Colours fill in on very long files instead of leaving some lines plain.
+- Updates download only from your own server, never from a link elsewhere.
+
 ## 0.45.0
 
 Sign in to Pully with Google, no account to create first.

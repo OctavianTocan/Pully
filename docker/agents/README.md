@@ -1,61 +1,109 @@
 # Claude Code and Codex in Docker
 
-pulls.review runs its AI work (analysis, reviews, questions, the inbox chat) through the Claude Code
-and Codex CLIs. With `PULLS_REVIEW_AGENT_RUNTIME=docker` it runs them in the `pulls-review-agents`
-image instead of on the server itself, so they only see:
+The native Rust server uses the `pulls-review-agents` image for Claude Code and
+Codex jobs and model catalogs. Docker is required; there is no host execution
+fallback. Each job gets an isolated home, read-only inputs and a Linux native MCP
+helper, a read-only container root, dropped capabilities, and resource limits.
+Neither the checkout, host home, server store, GitHub token, nor shared sign-in
+volume is mounted into the model container. Scoped tools reach the Rust server
+using an expiring per-job capability. Separate helpers copy selected login fields
+and safely persist refreshed authentication.
 
-- the review skills in [`skills/`](./skills), and no other skill: on every start, the image replaces
-  `~/.claude/skills` and `~/.codex/skills` with exactly that folder;
-- the job's own temporary folder, the server's built code (read-only, for the pull request tools)
-  and the repository the server runs in (read-only, when a review reads it);
-- a Docker volume, `pulls-review-agents-home`, that keeps their sign-ins between runs.
+Stopping an AI task stops its container too. The server offers only curated
+review lenses from [`skills/`](./skills), the launcher's packaged copy, or an
+explicit `PULLS_REVIEW_SKILLS_DIR`; account-wide host skills are not offered. Pi
+uses a server-side OpenAI-compatible tool loop and does not need Docker.
 
-Stop on the phone stops the container too. The phone's Review sheet lists the same skills, by the
-`title` in each `SKILL.md`.
+The full locked Rust build, 16 native presentation tests, and two full-binary
+offline HTTP smokes passed. These checks do not verify live Docker, MCP-helper,
+authentication, or provider behavior. See the [native setup guide](../../backend/README.md)
+and [verification notes](../../docs/RUST_BACKEND_MIGRATION.md).
 
-In the container, Codex runs without a shell: its read-only sandbox needs Linux namespaces that a
-default container does not have, so it reads the change through the pull request tools, as Claude does.
+## Prepare the shared image and sign-ins
 
-## Set it up
-
-1. Install Docker: [Docker Desktop](https://docs.docker.com/desktop/) on macOS or Windows (WSL), or
-   Docker Engine on Linux (`curl -fsSL https://get.docker.com | sh`, then log out and in after
-   `sudo usermod -aG docker $USER`). Start it, and check that `docker info` answers.
+1. Install Docker: [Docker Desktop](https://docs.docker.com/desktop/) on macOS or
+   Windows (WSL), or [Docker Engine](https://docs.docker.com/engine/install/) on
+   Linux. Start it and check that `docker info` answers.
 2. From the repository root, run:
 
    ```sh
    docker/agents/setup.sh all
    ```
 
-   It builds the image, then signs in whatever is not signed in yet:
-   - Claude Code (`claude auth login`): open the link it prints, approve, and paste the code back.
-   - Codex (`codex login --device-auth`): open the link and enter the code it shows. If ChatGPT
-     refuses device codes, turn on device code sign-in under ChatGPT's Settings, Security, and run
-     `docker/agents/setup.sh login-codex` again.
-   - The GitHub CLI, which the pull request tools read files and discussions with: it copies the
-     sign-in of `gh` on this machine when there is one, or asks you to sign in.
+   It builds the image, then signs in whichever provider is not signed in yet:
+   - Claude Code (`claude auth login`): open the link it prints, approve, and paste
+     the code back.
+   - Codex (`codex login --device-auth`): open the link and enter the code it shows.
+     If ChatGPT refuses device codes, turn on device code sign-in under ChatGPT's
+     Settings, Security, and run `docker/agents/setup.sh login-codex` again.
 
-   It ends with `check`, which prints both versions and what is signed in.
+   It ends with `check`, which prints both provider versions and sign-in status.
+   This checks the image and saved provider logins, not native backend or
+   MCP-helper compatibility. To use just one provider, run `build` and its
+   `login-claude` or `login-codex` command instead of `all`.
 
-3. Build the server, then start it the way you always do, with the variable set:
+Server environment credentials take precedence over saved CLI sign-ins:
+`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` for Claude Code, and `OPENAI_API_KEY`
+for Codex. With those configured, `docker/agents/setup.sh build` is sufficient to
+prepare the image; `check` still reports saved CLI login status. Node remains in
+the image for the provider CLIs and the native server's login-copy helpers. The
+image does not build the Rust server or its Linux MCP helper.
 
-   ```sh
-   pnpm install
-   pnpm -F pulls.review run build
-   PULLS_REVIEW_AGENT_RUNTIME=docker node packages/cli/bin.mjs   # plus your usual flags
-   ```
+GitHub credentials belong to the server: it uses `PULLS_REVIEW_GITHUB_TOKEN`,
+`GITHUB_TOKEN`, or `GH_TOKEN`, falling back to the server account's GitHub CLI
+login. The agent image does not install the GitHub CLI or receive its sign-in.
 
-   (`--agents docker` does the same as the variable.) The server prints
-   `Claude Code and Codex run in the Docker image pulls-review-agents.` when it is on. The server
-   must run from this checkout: the containers mount its `packages/cli/dist` folder, and the phone's
-   list of skills is read from `docker/agents/skills`.
+## Start the native server
 
-Leave the variable out to run the CLIs on the server again; nothing else changes.
+From the repository root, using Rust/Cargo 1.99.0 (the verified toolchain):
+
+```sh
+pnpm install
+cargo build --locked --manifest-path backend/Cargo.toml
+pnpm -F pulls.review run build
+node packages/cli/bin.mjs --cwd /absolute/path/to/repository --no-open --no-warm
+```
+
+The JavaScript launcher runs only the native executable and supplies the packaged
+web assets and curated lenses. It can use the repository-local build above,
+`PULLS_REVIEW_SERVER_BIN`, or an installed `pulls-review-server` on `PATH`. The npm
+package does not install or compile a native executable for you; see the
+[launcher guide](../../packages/cli/README.md) for source installation and overrides.
+
+To run the native executable directly after the same build:
+
+```sh
+PULLS_REVIEW_SKILLS_DIR="$(pwd)/docker/agents/skills" \
+  ./backend/target/debug/pulls-review-server \
+  --cwd /absolute/path/to/repository \
+  --assets "$(pwd)/packages/cli/dist/client" \
+  --no-open --no-warm
+```
+
+Docker is the default. `--agents docker` or
+`PULLS_REVIEW_AGENT_RUNTIME=docker` is accepted explicitly; `host` is rejected.
+Set `PULLS_REVIEW_AGENT_IMAGE` to select a different existing image. The server
+does not pull an image automatically.
+
+On Linux, the running native executable is the default MCP helper. On macOS or
+Windows, set `PULLS_REVIEW_AGENT_MCP_BINARY` to a separately built Linux
+`pulls-review-server` compatible with the image's architecture and runtime
+libraries. The macOS/Windows server executable cannot run in that Linux image.
+Use an absolute helper path to avoid service working-directory ambiguity.
+
+The helper calls a separate ephemeral-port `/mcp` listener through
+`host.docker.internal`. It receives access only to its selected review context;
+it cannot invoke general RPC, storage, or credential methods. That listener
+binds `0.0.0.0` for Docker reachability. Restrict network access to the server and
+do not expose it through a public proxy. General phone RPCs have no application
+login; account-owned methods additionally require a Pully session and `/api/v1`
+uses agent keys. A remote deployment still needs private networking or authenticated
+proxy access to every route. See the [security notes](../../backend/README.md#security-and-network-access).
 
 ## Add or remove a skill
 
-1. Add a folder under [`skills/`](./skills) whose name is the skill's name (letters, digits, `-`,
-   `_` and `.`), holding a `SKILL.md` that starts with:
+1. Add a folder under [`skills/`](./skills), using letters, digits, `-`, or `_`
+   for its name. Put a `SKILL.md` inside it beginning with:
 
    ```md
    ---
@@ -65,13 +113,22 @@ Leave the variable out to run the CLIs on the server again; nothing else changes
    ---
    ```
 
-   Then the instructions for the reviewer. To remove a skill, delete its folder.
+   Follow it with instructions for the reviewer. To remove a skill, delete its
+   folder.
 
-2. Run `docker/agents/setup.sh build`. The next run in the container has exactly the new set.
+2. Run `pnpm -F pulls.review run build` to update the launcher's bundled
+   `dist/skills` copy. Rebuild with `docker/agents/setup.sh build` to update the
+   image's curated skills too. Its setup entrypoint replaces the shared home's
+   Claude/Codex skill folders with that set; isolated native jobs bypass this
+   entrypoint.
 
-The server reads the same folder for the phone's list straight away; restart it only if you also
-changed its code. A CLI installed from npm has no checkout, so it reads the copy its build put in
-`dist/skills`. To offer skills from another folder, set `PULLS_REVIEW_SKILLS_DIR` to it.
+The server reads the curated folder for its lens list, preserving front-matter
+`title` and `description`. The selected lens contributes its instruction body,
+without the front matter. Native jobs receive those instructions directly rather
+than mounting host skill folders. The launcher defaults to its own `dist/skills`;
+the direct native executable defaults to `<cwd>/docker/agents/skills`. Set
+`PULLS_REVIEW_SKILLS_DIR` to this project's curated folder when running the native
+executable directly against another repository.
 
 ## Other commands
 
@@ -80,9 +137,11 @@ changed its code. A CLI installed from npm has no checkout, so it reads the copy
 | `docker/agents/setup.sh build`        | Builds the image again, with the newest Claude Code and Codex. |
 | `docker/agents/setup.sh login-claude` | Signs Claude Code in again.                                    |
 | `docker/agents/setup.sh login-codex`  | Signs Codex in again.                                          |
-| `docker/agents/setup.sh login-github` | Signs the GitHub CLI in again.                                 |
-| `docker/agents/setup.sh check`        | Prints both versions and what is signed in.                    |
+| `docker/agents/setup.sh check`        | Prints versions and saved provider sign-in status.             |
 
-Pin a CLI version with `CLAUDE_CODE_VERSION=2.1.300 docker/agents/setup.sh build` (or `CODEX_VERSION`).
-Use another image name with `PULLS_REVIEW_AGENT_IMAGE`, for both `setup.sh` and the server.
-`docker volume rm pulls-review-agents-home` signs everything out.
+Pin a CLI version with `CLAUDE_CODE_VERSION=2.1.300 docker/agents/setup.sh build`
+(or `CODEX_VERSION`). Use another image name with `PULLS_REVIEW_AGENT_IMAGE` for
+both `setup.sh` and the server. Removing `pulls-review-agents-home` with
+`docker volume rm pulls-review-agents-home` deletes the image's saved sign-ins;
+it does not remove server environment credentials or the server account's `gh`
+login.

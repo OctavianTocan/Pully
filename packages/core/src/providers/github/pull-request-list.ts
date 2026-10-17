@@ -12,7 +12,7 @@ const PAGE_SIZE = 100
  * the opaque `next` continuation (a page number for REST, a cursor for GraphQL).
  */
 export async function fetchOpenPullRequests(client: GithubClient, owner: string, repo: string, next?: string): Promise<PullRequestListPage> {
-  return await client.token()
+  return (client.authenticated ? await client.authenticated() : !!await client.token())
     ? fetchViaGraphql(client, owner, repo, next)
     : fetchViaRest(client, owner, repo, next)
 }

@@ -24,6 +24,7 @@ export * from './cache/pull-request-list-cache'
 export * from './cache/review-marks'
 export * from './cache/schema'
 export * from './cache/tour-cache'
+export * from './cache/transaction'
 
 export interface CacheRepositories {
   diffs: DiffCache
@@ -36,12 +37,12 @@ export interface CacheRepositories {
 }
 
 /**
- * The budget for the server's on-disk cache (`pulls.review` keeps every open pull request
- * stored, plus what was opened). Every repositories object over that storage MUST use it:
- * each one enforces its own budget, so one built with the browser-sized default would evict
- * the server's entries and prune their review marks.
+ * The browser adapter's budget for RPC-backed legacy cache collections. Every repositories
+ * object over that storage MUST use it: each enforces its own budget, so the smaller
+ * browser default could evict shared entries and prune review marks. Native Rust diff
+ * and full-file caches enforce their own independent budgets.
  */
-export const SERVER_CACHE_BUDGET: CacheBudget = { maxBytes: 1024 * 1024 * 1024, maxEntries: 400, keep: key => key.startsWith('posted:') }
+export const SERVER_CACHE_BUDGET: CacheBudget = { maxBytes: 1024 * 1024 * 1024, maxEntries: 400, fileContentMaxBytes: 256 * 1024 * 1024, keep: key => key.startsWith('posted:') }
 
 /** Every collection shares one storage by key prefix (`pr-meta:*`, `review:*`, ...). */
 export function createCacheRepositories(storage: Storage, budget?: CacheBudget): CacheRepositories {
@@ -49,7 +50,7 @@ export function createCacheRepositories(storage: Storage, budget?: CacheBudget):
   return {
     diffs: createDiffCache(storage, reviewMarks, budget),
     reviewMarks,
-    fileContents: createFileContentCache(storage),
+    fileContents: createFileContentCache(storage, { maxBytes: budget?.fileContentMaxBytes }),
     pullRequestLists: createPullRequestListCache(storage),
     critiques: createCritiqueCache(storage),
     tours: createTourCache(storage),

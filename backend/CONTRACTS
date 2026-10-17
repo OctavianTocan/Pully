@@ -1,0 +1,357 @@
+@cc [owner:OctavianTocan,label:architecture] rust-backend-preserves-client-boundary
+The Rust rewrite MUST implement backend work without rewriting the web or Android UI.
+Transport adapters MAY change to connect those clients. Its migration notes MUST name
+remaining TypeScript runtime dependencies and unsupported features rather than claiming
+parity that is not implemented (Tavi, 15 Oct 2026 21:21 UTC, Rust rewrite request).
+
+@cc [owner:OctavianTocan,label:architecture] rust-verification-stays-lightweight
+Verification of this rewrite MUST prioritize compilation and bounded compatibility
+checks, not compute-intensive test suites or benchmarks (Tavi, 15 Oct 2026 21:21:47 UTC).
+
+@cc [owner:OctavianTocan,label:security] rust-native-and-browser-methods-separated
+The native HTTP API MUST keep storage and credential-proxy methods off its allowlist.
+Browser-only methods MUST require the terminal-code session unless the operator explicitly
+uses no-auth behind their authenticated proxy. Neither surface may return a GitHub token
+(server-phone-method-allowlist and root github-token-stays-on-server contracts).
+
+@cc [owner:OctavianTocan,label:security] rust-ai-capabilities-fail-closed
+CLI jobs MUST have only the preselected PR context and dedicated job folder. If the
+configured isolated runtime is unavailable the job MUST fail; it MUST NOT fall back to
+an unrestricted host process (root agents-act-through-pr-tools contract).
+
+@cc [owner:OctavianTocan,label:architecture] rust-source-snapshots-are-complete
+Source fetching MUST reject truncated or capped file inventories. GitHub PR base/head
+identities MUST be rechecked before publishing a fetched snapshot. Compare refs MUST
+resolve before pagination. Git output and network bodies MUST be bounded, and Git
+commands MUST time out without changing the checkout or index.
+
+@cc [owner:OctavianTocan,label:security] rust-local-source-excludes-server-state
+Working-tree source reads MUST exclude Git administration and the configured review
+and analytics data directories, including symlink aliases. AI source tools MUST NOT
+read the server's private state (agents-act-through-pr-tools; Rust review, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:architecture] rust-local-binary-identity-tracks-content
+Untracked binary changes MUST contribute their complete byte content to file and
+working-tree identities so changed files cannot retain stale review marks (Rust
+correctness review, 15 Oct 2026; data-file-marks-follow-the-head).
+
+@cc [owner:OctavianTocan,label:architecture] rust-inbox-refreshes-are-serialized
+Concurrent inbox refreshes MUST share a serialized refresh and recheck fresh state
+before fetching; an older overlapping result MUST NOT replace a newer snapshot
+(Rust correctness review, 15 Oct 2026; existing SWR cache behavior).
+
+@cc [owner:OctavianTocan,label:architecture] rust-backend-parity-is-observable
+The Rust backend MUST preserve the existing clients' backend wire contracts for model
+catalogs, streamed work, chat grouping, source tools, TypeSafe classification, compressed
+sharing, persistent full-file caching and periodic preanalysis. It MUST NOT substitute
+empty success responses for missing functionality (Tavi, 16 Oct 2026 05:01 UTC,
+"Continue until you've fixed all the parity gaps").
+
+@cc [owner:OctavianTocan,label:security] rust-container-tools-use-scoped-capabilities
+A Docker job MAY call the native server through a random, per-run tool capability.
+That capability MUST be valid only while its job is running, MUST be bound to the
+selected immutable review context, and MUST NOT grant general RPC, storage or GitHub
+credentials. Shared CLI login state MUST be copied as selected credential files into
+an isolated job home; unrelated shared settings and skills MUST NOT reach the job
+(Tavi's 16 Oct parity request; agents-act-through-pr-tools).
+
+@cc [owner:OctavianTocan,label:architecture;security] rust-openui-inert-wire-parity
+Brief parsing MUST preserve the locked OpenUI plain-tree behavior, including reactive
+syntax as inert AST and the distinction between generated validation and recovered
+saved trees. Input and expansion MUST be bounded; parsing MUST NOT execute actions,
+tool calls, expressions or JavaScript (Tavi's 16 Oct parity request; core briefTree
+and briefProblems contracts).
+
+@cc [owner:OctavianTocan,label:architecture] rust-background-does-not-mark-viewed
+Cache warming and preanalysis MUST NOT count as user views or overwrite a newly stored
+head. Preanalysis MUST be opt-in and attempt each requested PR head at most once per
+server lifetime, including failed attempts (Tavi's 16 Oct parity request; original
+preanalysis-commits-observed-head and server-store-answers-first contracts).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-ai-work-outlives-the-page
+Every Claude Code, Codex or Pi run a client starts is a server task. Reloading, closing a
+tab or a phone sleeping MUST NOT stop or lose it: `abort()` cancels (Stop), `detach()`
+only stops following. A running task doing the same work is joined, not started twice
+(architecture, AI work outlives the page).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-follow-ups-run-on-the-server
+What follows an analysis (`then`: tour, brief) is started by the server when the analysis
+succeeds, so a phone that is asleep or closed still gets its tour; a tour that is already
+current is not written again (architecture, AI work outlives the page).
+
+@cc [owner:OctavianTocan,label:product] server-chat-needs-no-analysis
+A chat with no saved analysis starts from the pull request itself with the same diff
+tools, so Ask works on a pull request that was never analysed (rule 62; architecture).
+
+@cc [owner:OctavianTocan,label:architecture;security] server-every-cli-through-start-agent
+Every CLI process the server starts, jobs and the model catalog alike, MUST go through
+`backend/src/agent_process.rs` and its Docker boundary. A CLI has only its job folder
+read-write; its selected PR inputs and native helper are read-only, and repository
+reads go through the PR tools. Stopping a run MUST kill its container. The native
+runtime is Docker-only and MUST fail closed rather than run on the host (architecture,
+Where the CLIs run; recording 14 Oct 19:19, 01:31; Tavi's 15 Oct 2026 Rust rewrite and
+16 Oct 2026 parity requests, replacing the former host-or-Docker runtime).
+
+@cc [owner:OctavianTocan,label:security] server-curated-skills-only
+Review lenses come only from the curated skills. The server MUST NOT offer the skills of
+the account it runs under (architecture, Where the CLIs run).
+
+@cc [owner:OctavianTocan,label:security] server-pi-has-only-pr-tools
+A Pi job gets exactly the PR tools the CLIs get over MCP and nothing more: no shell, files
+or web. Its endpoint and key come only from the environment, and without a base URL every
+Pi job fails with how to set it up (architecture, Pi).
+
+@cc [owner:OctavianTocan,label:security] server-phone-method-allowlist
+The phone may call only the methods allowed by `phone_allowed` in
+`backend/src/transport.rs` and their native dispatch handlers. Storage methods and
+anything that reads the GitHub token MUST stay off the list, and any other name answers
+404 "That method is not available to the app."
+
+@cc [owner:OctavianTocan,label:security] server-typesafe-key-never-echoed
+The TypeSafe key is read from the environment and sent only to TypeSafe. It MUST NOT be
+echoed in an answer, an error, a notice, a log line, a work log, an AI prompt or a PR
+payload; Jev's ratings reach an AI job through the PR payload, never the key
+(architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-jev-only-when-needed
+Jev is asked only when something needs it: when a review of a whole diff starts, and
+when a client asks `my-pulls-cached` with `classify: true`. Without a key, or once
+TypeSafe refuses it, Jev is off for the run and nothing fails toward a client
+(architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-my-pulls-never-waits-for-jev
+`my-pulls` MUST NOT wait for Jev, and an answer for an older head or title MUST NOT
+replace a newer one (architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;architecture] server-store-answers-first
+Opening a pull request MUST NOT wait on every page of its files. The server keeps the
+open pull requests stored and answers from the store when GitHub's head has not moved; a
+store write MUST NOT replace a head stored after it read, and warming MUST NOT count as a
+view (architecture, The phone reads the server's store; H14).
+
+@cc [owner:OctavianTocan,label:product] server-repositories-warm-ahead
+The server keeps the first page of each repository the Inbox shows most, so a
+repository's page opens at once (H14).
+
+@cc [owner:OctavianTocan,label:product] server-refreshes-by-itself
+The server notices new commits on its own, so an open pull request takes them without a
+Refresh (rule 52; H11).
+
+@cc [owner:OctavianTocan,label:product] server-stacks-from-branches
+A pull request's stack comes from GitHub's own stacks where the host has them, otherwise
+from branches in one repository (A sits on B when A's base is B's head); a fork's branch
+never counts and the default branch is always the bottom (DESIGN.md decision log,
+0.20.0).
+
+@cc [owner:OctavianTocan,label:product] server-ai-writes-links
+The analysis, tour, Ask and review instructions tell the model to write every place it
+names as a repository-relative link, and a check makes sure they do ("super, super,
+super important", rule 96; F43).
+
+@cc [owner:OctavianTocan,label:product;security] server-posted-links-point-at-the-head
+Text posted to GitHub (comments, reviews, shared results) has its links read from the
+repository root and rewritten to `github.com/{owner}/{repo}/blob/{headSha}/...` first,
+dot-folders kept, so no link 404s (rules 96 and 124; J36; architecture, Sharing).
+
+@cc [owner:OctavianTocan,label:product] server-catalog-text-models-only
+The model catalog lists each model once and only models that write text: image and other
+generation models (GPT Image, Grok Imagine Image) are left out, since Pulls never makes
+images (recording 15 Oct 13:54, 00:22 to 00:44; K2, K4).
+
+@cc [owner:OctavianTocan,label:product] server-follow-ups-by-a-small-model
+The follow-up questions under an Ask answer are written each turn by a small, fast model,
+not the one answering (rule 99; F70).
+
+@cc [owner:OctavianTocan,label:architecture] server-serves-the-android-build
+The server serves `/android/latest.json` and `/android/pulls.apk` from its Android folder
+with `Cache-Control: no-store`, and answers 404 when no build has been published.
+
+@cc [owner:OctavianTocan,label:product] server-new-chat-keeps-the-old-one
+The phone's "new chat" (`chat-clear`) MUST set the current chat aside in the diff's chat
+history, not throw it away, and a new analysis does the same with the chat after the old
+one. `chat-history` lists the earlier chats most recent first as `{ chats: [{ id, title,
+at, turns }] }`, and `chat-restore` puts one back as the current chat, setting the current
+one aside first when it asked anything; an unknown id fails with a plain error. None of
+them MAY change the analysis transcript before `chatStartIndex`. A diff keeps at most 30
+earlier chats ("make this button a chat history button ... a list of the chats for this PR
+that you've already gone into", recording 15 Oct 2026 15:37, L36).
+
+@cc [owner:OctavianTocan,label:product] server-tour-previews-reach-the-phone
+A tour's `tour-plan` and `tour-stop:<index>` work-log entries reach the phone through the
+task snapshots with their `text` whole: nothing between native tour generation and
+`ai-task-wait` MAY cut or drop it, since the phone builds its previews of the tour from
+that JSON (recording 15 Oct 2026 15:37, L26).
+
+@cc [owner:OctavianTocan,label:product] server-pi-effort-in-the-id
+A Pi model whose id names a reasoning effort (`gemini-3.8-flash-high`, `gpt-5.5(high)`,
+shown as "(High)") MUST offer that effort alone, as its default, and a run on it MUST NOT
+send a reasoning effort beside the id ("just assume that that's the reasoning effort, and
+when I select them, the only reasoning effort they have is that one", recording 15 Oct
+2026 15:37, L24).
+
+@cc [owner:OctavianTocan,label:security;product] server-posts-exact-critique
+Posting AI findings MUST retrieve the displayed variant and match its immutable
+content revision and expected head. Every selected ID MUST resolve before contacting
+GitHub; another result MUST NOT silently replace the selected review (repository
+review 15 Oct 2026, finding 8).
+
+@cc [owner:OctavianTocan,label:product] server-chat-state-is-complete
+The native saved chat response MUST return complete message text without silent
+truncation, including after clearing and restoring a conversation (repository review
+15 Oct 2026, finding 21; ask-streams-and-cites).
+
+@cc [owner:OctavianTocan,label:security] web-github-operations-stay-server-side
+The local web client MUST receive GitHub operation results, never the server's raw GitHub
+credential. Its GitHub transport MUST restrict requests to the GitHub API origin and MUST
+NOT follow redirects with server credentials (Tavi, 15 October 2026, fix the full-review
+findings, issue 5; github-token-stays-on-server).
+
+@cc [owner:OctavianTocan,label:architecture] web-cache-writes-preserve-server-state
+Local web diff mutations MUST execute through the shared server diff repository; raw
+browser writes MUST NOT replace its split metadata or body documents. Other browser
+cache writes MUST reject a changed last-observed value (Tavi, 15 October 2026, fix the
+full-review findings, issue 6; server-store-answers-first).
+
+@cc [owner:OctavianTocan,label:security] jobs-codex-pr-tools-only
+Every Codex job MUST disable shell_tool, unified_exec and view_image; repository reads
+go through the PR MCP tools (agents-act-through-pr-tools; review finding 2, 15 Oct 2026).
+The native runtime permits only isolated Docker jobs, with no host fallback (Tavi's
+15 Oct 2026 Rust rewrite and 16 Oct 2026 parity requests).
+
+@cc [owner:OctavianTocan,label:architecture] jobs-release-acquired-slots
+A job that acquired a concurrency slot MUST release it and settle even if temporary
+directory creation fails. Its execution timeout MUST exclude queue time
+(review findings 3 and 18, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:architecture] task-conversations-validate-storage
+Persisted question threads and inbox turns MUST be runtime-validated before use;
+malformed nested entries MUST NOT prevent valid conversation history from loading
+(engine-shapes-are-schemas; review finding 19, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:architecture] task-chat-history-serializes-writers
+Clearing or restoring a chat MUST cancel active replies and wait for their session
+writes before selecting the conversation; later chats MUST read the selected session
+(recording 15 Oct 2026 15:37, L36; review finding 28).
+
+@cc [owner:OctavianTocan,label:security] native-rpc-honors-declared-schemas
+Native calls MUST validate every declared argument before invoking its handler and
+pass the validator's transformed value. Declared return schemas MUST also be checked
+before sending a result (repository review 15 Oct 2026, finding 20).
+
+@cc [owner:OctavianTocan,label:architecture] preanalysis-commits-observed-head
+Preanalysis MUST save its diff, analysis and transcript only when the stored head has
+not changed since the run began. Its writes MUST NOT count as views
+(server-store-answers-first; review finding 4, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:architecture] server-session-shares-state
+RPCs, native requests, tasks and preanalysis MUST share the server's AppState storage
+and cache coordinator (server-ai-work-outlives-the-page; review finding 6, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:architecture] stored-opening-keeps-newer-heads
+A fetch MUST NOT replace a head stored since this opening observed the cache, including
+fresh and cold opens; it MUST return the winning stored diff instead
+(server-store-answers-first; review finding 22, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:security] engine-worktree-reads-stay-in-repository
+Working-tree reads MUST resolve the repository and target before checking containment,
+reject escaping file or directory symlinks, and check the opened descriptor where the OS
+supports it (requested review fixes, 15 Oct 2026, finding #9).
+
+@cc [owner:OctavianTocan,label:architecture] server-reaches-the-machine-through-its-host
+The phone API, the server session, the review routes and the PR store reach storage, the
+checkout and served files only through their the native host boundary, so the same code runs on a
+computer and on a hosted server (message 16 Oct 08:39, "where we want to host the server
+... to make sure that it's actually faster"; `plans/12-hosted-server.md`). The native host MUST NOT require a Node runtime. A host without a checkout answers `NO_CHECKOUT` on every local
+route and MUST NOT fall back to the server's working directory.
+
+
+@cc [owner:OctavianTocan,label:product] server-past-versions-answer-empty
+`GET /android/past/index.json` answers `{ "versions": [] }` while no past version is built,
+never a 404, so the phone says none are built yet rather than that the server did not
+answer. `publish-apk.sh` writes the index at once and builds the past versions in the
+background, newest first, adding each to the index as it is built (recording 16 Oct 2026
+09:50, 01:09 to 01:14; M3).
+
+
+@cc [owner:OctavianTocan,label:security;product] server-github-stats-counts-only
+`github-stats` answers the signed-in user's last year on GitHub as counts only (totals,
+contributions per day, streaks, followers and repositories), reused for a few minutes and
+fetched with the server's own GitHub token; no repository name, title or text is in it
+(recording 16 Oct 2026 09:50, 02:06 to 02:16; M5).
+
+
+@cc [owner:OctavianTocan,label:product;security] server-account-from-the-environment
+The password test account is `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`, seeded
+on first use and updated when they change; there is no password registration endpoint.
+Google sign-in follows `google-sign-in-same-account`; `account-status` answers
+`hasAccount: true` when either password seeding or the Google client ID is configured.
+After five wrong passwords in fifteen minutes password sign-in waits, even for the right one (Tavi, 16 Oct 12:40: "you don't need to add
+any register functionality ... you can just seed the database").
+
+
+@cc [owner:OctavianTocan,label:product;architecture] server-posted-diffs-kept-forever
+A posted diff is stored as the agent sent it, the patch and its fields, and everything
+else is worked out again from them; the cache budget MUST NOT evict it and only a DELETE
+removes it, with everything kept under its key (Tavi, 16 Oct 12:40: "Link is actually
+forever", "store what the agent gave us as opposed to the final result").
+
+
+@cc [owner:OctavianTocan,label:product] server-posted-links-from-the-environment
+The link a post answers is `PULLY_PUBLIC_URL` (such as `https://prs.octaviantocan.com`)
+followed by `/-/<id>`, or the request's own origin when it is unset (Tavi, 16 Oct 12:40:
+"the domain should probably just be like an environment variable").
+
+
+@cc [owner:OctavianTocan,label:security] server-posted-refuses-secrets
+A post whose added lines look like a key or token, or that adds a `.env` file, is refused
+with 422 naming the file, line and kind, never the secret itself, unless the agent says
+`allowSecrets` (plan "Posted diffs", Safety).
+
+
+@cc [owner:OctavianTocan,label:product] server-agent-results-checked
+An agent MAY send its own groups, tour, brief and review with a post (Tavi, 16 Oct 12:40:
+"the agent can actually add its own grouping and tour"). Each is checked against its
+schema and against the diff: a path the diff does not have is dropped with a warning in
+the answer, and a part that does not fit is left out with a warning, so the post itself
+still goes through.
+
+
+@cc [owner:OctavianTocan,label:product] server-settings-newer-wins
+The account's synced settings are merged one setting at a time: a value replaces the
+kept one only when its time is newer, so two phones never undo each other's other
+choices, and merges of one account run one at a time. At most 200 settings are kept, each
+at most 8 KB and 64 KB in all (Tavi, 16 Oct 12:47).
+
+@cc [owner:OctavianTocan,label:architecture] rust-browser-cache-transport-budget
+Authenticated browser cache RPCs MUST accept serialized supported source diffs above
+4 MiB while retaining finite wire and decoded-graph bounds; small authentication and
+analytics endpoints MUST keep their separate limits (R12 parity fix, 16 Oct 2026).
+
+@cc [owner:OctavianTocan,label:security] rust-websocket-preauth-buffer-bound
+WebSocket frame and unfinished-message buffering MUST use the small authentication
+budget until a verified upgrade-time credential grants the browser cache budget.
+Code exchange MUST remain usable by reconnecting with the issued token before large
+browser RPCs (R14 security finding 3, 16 Oct 2026; rust-browser-cache-transport-budget).
+
+@cc [owner:OctavianTocan,label:security] rust-agent-post-attempts-are-limited
+Invalid POST and PUT submissions MUST consume the authenticated agent key's hourly
+allowance before body or patch validation. An exhausted key MUST receive 429 with a
+positive Retry-After; another key and requests after the hourly window retain their
+allowance (R14 parity finding 6, 16 Oct 2026; original agent-API limit fixture).
+
+@cc [owner:OctavianTocan,label:security] rust-final-login-helper-is-cleaned
+Job cleanup MUST stop model and bootstrap containers before final credential
+persistence, then retry named-container removal after that final helper, including
+when Docker finishes creating after its client times out. Shutdown MUST await this
+cleanup before releasing the job folder (R14 reliability finding 7, 16 Oct 2026).
+
+@cc [owner:OctavianTocan,label:architecture] rust-browser-origin-matches-listener
+Browser origin checks and startup URLs MUST use the actual bound port, including when
+port zero selects one, bracket IPv6 literals, and omit HTTP's default port like browser
+Origin headers (Tavi, 16 Oct 19:27 UTC, final operational setup/parity request).
+
+@cc [owner:OctavianTocan,label:architecture;security] rust-native-failures-reach-analytics
+Failed responses from account and general native RPC handlers MUST record one error.server event
+through the existing analytics privacy/opt-out boundary, without replacing dispatched
+RPC timing events or changing response bodies (Tavi, 16 Oct 19:27 UTC, operational
+parity request; main native-api.ts noteFailure behavior).

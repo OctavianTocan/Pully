@@ -141,3 +141,25 @@ describe('parsePatch', () => {
     expect(files.map(f => f.path)).toEqual(['src/a.ts', 'src/b.ts', 'my dir/c.ts', 'tab\there'])
   })
 })
+
+it('keeps SQL-comment deletion and header-like additions inside a plain unified hunk', async () => {
+  const files = await parsePatch([
+    '--- old/query.sql\t2026-01-01',
+    '+++ new/query.sql\t2026-01-02',
+    '@@ -1,2 +1,2 @@',
+    '--- removed SQL comment',
+    '+++ added header-like source',
+    ' SELECT 1;',
+    '--- old/other.lua',
+    '+++ new/other.lua',
+    '@@ -1 +0,0 @@',
+    '--- removed Lua comment',
+    '\\ No newline at end of file',
+    '',
+  ].join('\n'))
+  expect(files.map(file => file.path)).toEqual(['new/query.sql', 'new/other.lua'])
+  expect(files[0]).toMatchObject({ additions: 1, deletions: 1 })
+  expect(files[0]!.hunks[0]!.patch).toBe('--- removed SQL comment\n+++ added header-like source\n SELECT 1;')
+  expect(files[1]).toMatchObject({ additions: 0, deletions: 1 })
+  expect(files[1]!.hunks[0]!.patch).toContain('--- removed Lua comment')
+})

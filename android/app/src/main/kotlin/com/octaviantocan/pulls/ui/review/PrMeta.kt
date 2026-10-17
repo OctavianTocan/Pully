@@ -5,8 +5,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -33,25 +32,23 @@ import com.octaviantocan.pulls.ui.home.compactAge
 
 /**
  * `.meta`: `dayflow #241 · author · 6h ago`, the repository and number first and the age last (rule 26, Row W). The
- * repository is a link and the author is plain text (L21). A name is never cut with an ellipsis (rule 2): when the parts do not fit one line,
- * the line breaks between them and each stays whole, and a name wider than the whole line wraps instead of being clipped. The page and the opening page draw it alike, so the line does not
- * change shape when the pull request arrives. A repository is only a link when [onOpenRepo] is given.
+ * repository is a link and the author is plain text (L21). Both yield at their ends so the metadata
+ * stays on one line (rule 26), keeping the number and age visible on both opening and loaded pages.
+ * A repository is only a link when [onOpenRepo] is given.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owner: String?, repo: String?, onOpenRepo: ((String, String) -> Unit)?) {
     val c = LocalPullsColors.current
     val sep = @Composable { Text("·", style = PullsType.sm, color = c.muted) }
-    FlowRow(
+    Row(
         Modifier.fillMaxWidth().padding(top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        itemVerticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (owner != null && repo != null) {
             Text(
-                repo, if (onOpenRepo != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $repo") { onOpenRepo(owner, repo) } else Modifier,
-                style = PullsType.sm, color = c.muted,
+                repo, Modifier.weight(1f, fill = false).then(if (onOpenRepo != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $repo") { onOpenRepo(owner, repo) } else Modifier),
+                style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
             )
         }
         Text(label, style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1, softWrap = false)
@@ -59,7 +56,7 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
             sep()
             // The author is a plain name: a tap that left for their GitHub profile surprised (recording 15 Oct 15:37,
             // 11:17 to 11:25; L21). The repository's name before it still opens the repository.
-            Text(login, style = PullsType.sm, color = c.muted)
+            Text(login, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         }
         createdAt?.let { iso ->
             val age = compactAge(prIsoMillis(iso), System.currentTimeMillis())

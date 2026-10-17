@@ -50,4 +50,17 @@ class ReviewModelsTest {
         assertEquals(listOf("What evicts entries?"), json("""{"threads":[],"chat":[],"aiGroups":[],"suggestions":["What evicts entries?"]}""").asSavedState().suggestions)
         assertEquals(emptyList(), json("""{"threads":[],"chat":[],"aiGroups":[]}""").asSavedState().suggestions)
     }
+
+    @Test
+    fun critiqueKeepsTheExactRevisionNeededForPosting() {
+        val state = json("""{"critique":{"summary":"S","findings":[],"headSha":"h1","variant":"h1:codex:security","revision":"content-hash","generatedAt":"2026-10-15"}}""").asSavedState()
+        assertEquals("h1", state.critique?.headSha)
+        assertEquals("h1:codex:security", state.critique?.variant)
+        assertEquals("content-hash", state.critique?.revision)
+        // Legacy responses still display, but cannot authorize posting an unidentified result.
+        val legacy = json("""{"summary":"S","findings":[]}""").jsonObject.asCritique()
+        assertNull(legacy.variant)
+        assertNull(legacy.revision)
+    }
+
 }

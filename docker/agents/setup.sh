@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the Docker image pulls.review runs Claude Code and Codex in, and signs them in, once, into the
-# home volume every run shares. Every command can be run again: a build reuses what has not changed,
+# shared login volume. Native jobs copy only selected login fields into an isolated home.
+# Every command can be run again: a build reuses what has not changed,
 # and a sign-in replaces the one before it.
 set -euo pipefail
 
@@ -15,7 +16,6 @@ Usage: docker/agents/setup.sh <command>
   build          build the $image image; again after changing skills/
   login-claude   sign Claude Code in, inside the container
   login-codex    sign Codex in, inside the container
-  login-github   sign the GitHub CLI in, which the pull request tools read with
   check          print both CLI versions and what is signed in
   all            build, sign in whatever is not signed in yet, then check
 EOF
@@ -39,7 +39,7 @@ need_terminal() {
   fi
 }
 
-# Runs a command in the image on the home volume, the way the pulls.review server does.
+# Runs setup commands in the image on the shared login volume. Model jobs never mount this volume.
 # Docker options come first, then the image and the command.
 in_container() {
   docker run --rm --init --pull never --mount "type=volume,source=$volume,target=/home/agent" "$@"
@@ -83,25 +83,10 @@ login_codex() {
   in_container -it "$image" codex login --device-auth
 }
 
-login_github() {
-  need_docker
-  local token=""
-  if command -v gh >/dev/null 2>&1; then
-    token="$(gh auth token 2>/dev/null || true)"
-  fi
-  if [ -n "$token" ] && printf '%s\n' "$token" | in_container -i "$image" gh auth login --hostname github.com --with-token; then
-    echo "Copied this machine's GitHub CLI sign-in into the container."
-    return
-  fi
-  need_terminal login-github
-  in_container -it "$image" gh auth login --hostname github.com --git-protocol https --web
-}
-
 signed_in() {
   case "$1" in
     claude) in_container "$image" claude auth status ;;
     codex) in_container "$image" codex login status ;;
-    github) in_container "$image" gh auth status ;;
   esac >/dev/null 2>&1
 }
 
@@ -109,7 +94,7 @@ check() {
   need_docker
   in_container "$image" sh -c 'echo "Claude Code $(claude --version)"; echo "Codex $(codex --version)"; echo "Skills: $(ls "$HOME/.claude/skills" | tr "\n" " ")"'
   local missing=0 name
-  for name in claude codex github; do
+  for name in claude codex; do
     if signed_in "$name"; then
       echo "$name: signed in"
     else
@@ -124,7 +109,6 @@ all() {
   build
   signed_in claude || login_claude
   signed_in codex || login_codex
-  signed_in github || login_github
   check
 }
 
@@ -132,7 +116,6 @@ case "${1:-}" in
   build) build ;;
   login-claude) login_claude ;;
   login-codex) login_codex ;;
-  login-github) login_github ;;
   check) check ;;
   all) all ;;
   help | -h | --help | "") usage ;;

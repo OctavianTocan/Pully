@@ -1,5 +1,5 @@
 import type { CacheRepositories, PrCacheEntry } from '@pulls.review/core/cache'
-import type { GroupedResult } from '@pulls.review/core/types'
+import type { GroupedResult, SharedAnalysisComment } from '@pulls.review/core/types'
 import type { MockedFunction } from 'vitest'
 import { computeEntrySizeBytes, createCacheRepositories } from '@pulls.review/core/cache'
 import { createGithubPullRequestSource, renderSharedAnalysisComment } from '@pulls.review/core/github'
@@ -7,9 +7,12 @@ import { staticCredentials } from '@pulls.review/core/types'
 import { createStorage } from 'unstorage'
 import memoryDriver from 'unstorage/drivers/memory'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { shallowRef } from 'vue'
 import fixture from '../../test/fixtures/synthetic/empty-group.json'
 import { resolveStoredTokenMeta } from '../composables/useGithubTokenMeta'
 import { createDiffsStore } from './diffs-store'
+import { createSharedAnalysisStore } from './shared-analysis-store'
+import { createWriteAccess } from './write-access'
 
 let cache: CacheRepositories
 
@@ -230,6 +233,93 @@ describe('?from=', () => {
 
     expect(store.shared!.notice).toContain('antfu')
     expect(store.shared!.candidates.map(c => c.login)).toEqual(['other'])
+  })
+})
+
+describe('discovery races', () => {
+  function comment(login: string): SharedAnalysisComment {
+    return { id: 1, login, url: 'https://github.com/o/r/pull/1#issuecomment-1', updatedAt: '', analysis: { headSha: diff.head!.sha, result: aiResult({ overallSummary: 'shared' }) } }
+  }
+
+  function setupDiscovery() {
+    const current = shallowRef<GroupedResult>()
+    const list = vi.fn<() => Promise<SharedAnalysisComment[]>>()
+    const applyResult = vi.fn(async (result: GroupedResult) => {
+      current.value = result
+    })
+    const shared = createSharedAnalysisStore({ list, upsert: vi.fn() }, {
+      cache,
+      access: createWriteAccess(async () => undefined),
+      getDiff: () => diff,
+      getCacheKey: () => CACHE_KEY,
+      getAiResult: () => current.value,
+      cachedComment: () => undefined,
+      applyResult,
+    })
+    return { ...shared, current, list, applyResult }
+  }
+
+  it.each([undefined, 'antfu'])('offers instead of overwriting an analysis completed during discovery from %s', async (from) => {
+    const pending = Promise.withResolvers<SharedAnalysisComment[]>()
+    const shared = setupDiscovery()
+    shared.list.mockReturnValueOnce(pending.promise)
+    const discovering = shared.discover(from)
+    await vi.waitFor(() => expect(shared.list).toHaveBeenCalledOnce())
+
+    const local = aiResult({ overallSummary: 'new paid analysis' })
+    shared.current.value = local
+    const login = from ?? 'github-actions[bot]'
+    pending.resolve([comment(login)])
+    await discovering
+
+    expect(shared.current.value).toBe(local)
+    expect(shared.applyResult).not.toHaveBeenCalled()
+    expect(shared.store.candidates.map(candidate => candidate.login)).toEqual([login])
+  })
+
+  it('does not offer unrelated candidates once a local analysis has completed', async () => {
+    const pending = Promise.withResolvers<SharedAnalysisComment[]>()
+    const shared = setupDiscovery()
+    shared.list.mockReturnValueOnce(pending.promise)
+    const discovering = shared.discover()
+    await vi.waitFor(() => expect(shared.list).toHaveBeenCalledOnce())
+
+    shared.current.value = aiResult()
+    pending.resolve([comment('other')])
+    await discovering
+
+    expect(shared.store.candidates).toEqual([])
+    expect(shared.applyResult).not.toHaveBeenCalled()
+  })
+
+  it('ignores a dismissed discovery when its comments arrive', async () => {
+    const pending = Promise.withResolvers<SharedAnalysisComment[]>()
+    const shared = setupDiscovery()
+    shared.list.mockReturnValueOnce(pending.promise)
+    const discovering = shared.discover()
+    await vi.waitFor(() => expect(shared.list).toHaveBeenCalledOnce())
+
+    shared.store.dismiss()
+    pending.resolve([comment('github-actions[bot]')])
+    await discovering
+
+    expect(shared.store.candidates).toEqual([])
+    expect(shared.applyResult).not.toHaveBeenCalled()
+  })
+
+  it('ignores an older discovery after a newer requested user has loaded', async () => {
+    const pending = Promise.withResolvers<SharedAnalysisComment[]>()
+    const shared = setupDiscovery()
+    shared.list.mockReturnValueOnce(pending.promise).mockResolvedValueOnce([comment('new-user')])
+    const oldDiscovery = shared.discover()
+    await vi.waitFor(() => expect(shared.list).toHaveBeenCalledOnce())
+
+    await shared.discover('new-user')
+    pending.resolve([comment('github-actions[bot]')])
+    await oldDiscovery
+
+    expect(shared.current.value?.sharedBy).toBe('new-user')
+    expect(shared.applyResult).toHaveBeenCalledOnce()
   })
 })
 

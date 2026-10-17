@@ -1,0 +1,48 @@
+[package]
+name = "pulls-review-server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+jsonwebtoken = { version = "9.3", default-features = false }
+pbkdf2 = "0.12"
+getrandom = "0.2"
+flate2 = "1"
+syntect = { version = "=5.3.0", default-features = false, features = [ "default-fancy" ] }
+two-face = { version = "=0.5.2", default-features = false, features = [ "syntect-fancy" ] }
+roxmltree = "0.20"
+mermaid-rs-renderer = { version = "=0.3.1", default-features = false }
+anyhow = "1"
+axum = { version = "0.8", features = [ "ws" ] }
+base64 = "0.22"
+clap = { version = "4", features = [
+  "derive",
+  "env"
+] }
+futures-util = "0.3"
+fs2 = "0.4"
+hex = "0.4"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "rustls-tls",
+  "stream"
+] }
+serde = { version = "1", features = [ "derive" ] }
+serde_json = { version = "1", features = [ "preserve_order" ] }
+sha2 = "0.10"
+tokio = { version = "1", features = [ "full" ] }
+tower-http = { version = "0.6", features = [
+  "fs",
+  "limit"
+] }
+uuid = { version = "1", features = [ "v4" ] }
+url = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = [ "test-util" ] }
+
+[profile.dev]
+debug = 0
+incremental = true

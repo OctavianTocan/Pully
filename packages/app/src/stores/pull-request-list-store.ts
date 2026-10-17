@@ -61,6 +61,7 @@ export function createPullRequestListStore(params: { owner: string, repo: string
   const viewed = shallowRef(new Map<number, ViewedPullRequest>())
   // Bumped by every first-page fetch so a slower, older response can't overwrite a newer list.
   let generation = 0
+  let loadingMore: Promise<void> | undefined
 
   function installFirstPage(page: PullRequestListPage) {
     items.value = page.items
@@ -133,28 +134,36 @@ export function createPullRequestListStore(params: { owner: string, repo: string
     }
   }
 
-  async function loadMore() {
+  function loadMore(): Promise<void> {
+    if (loadingMore)
+      return loadingMore
     const cursor = next.value
-    if (!cursor || isLoadingMore.value)
-      return
+    if (!cursor)
+      return Promise.resolve()
     const current = generation
     isLoadingMore.value = true
     error.value = undefined
-    try {
-      const page = await fetchOpenPullRequests(client, owner, repo, cursor)
-      // A refresh landed meanwhile: its first page supersedes this continuation.
-      if (current !== generation)
-        return
-      items.value = [...items.value, ...page.items]
-      totalCount.value = page.totalCount
-      next.value = page.next
-    }
-    catch (err) {
-      error.value = err instanceof Error ? err : new Error(String(err))
-    }
-    finally {
+    // Search and the virtualizer can request the same continuation concurrently.
+    // Every caller must wait for that page rather than spin while it is in flight.
+    loadingMore = (async () => {
+      try {
+        const page = await fetchOpenPullRequests(client, owner, repo, cursor)
+        // A refresh landed meanwhile: its first page supersedes this continuation.
+        if (current !== generation)
+          return
+        items.value = [...items.value, ...page.items]
+        totalCount.value = page.totalCount
+        next.value = page.next
+      }
+      catch (err) {
+        if (current === generation)
+          error.value = err instanceof Error ? err : new Error(String(err))
+      }
+    })().finally(() => {
+      loadingMore = undefined
       isLoadingMore.value = false
-    }
+    })
+    return loadingMore
   }
 
   async function loadAll() {

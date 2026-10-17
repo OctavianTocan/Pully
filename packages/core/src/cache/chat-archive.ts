@@ -89,12 +89,12 @@ export function restoreChat(session: LlmSession, id: string, now = Date.now()): 
   const chosen = session.archive?.find(chat => chat.id === id)
   if (!chosen)
     throw new Error('That chat is not in this pull request\'s history.')
-  const current = archiveChat(session, now)
+  const current = archiveChat({ ...session, archive: session.archive!.filter(chat => chat.id !== id) }, now)
   return {
     ...current,
     messages: [...current.messages, ...chosen.messages],
     // An empty list is written as such: left out, the cache would keep the stored archive with the chosen chat in it.
-    archive: (current.archive ?? []).filter(chat => chat.id !== id),
+    archive: current.archive ?? [],
     ...(chosen.suggestions?.length ? { suggestions: chosen.suggestions } : {}),
   }
 }

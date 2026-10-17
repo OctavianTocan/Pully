@@ -1,5 +1,11 @@
 # Plan 12: the server off the desk, on Cloudflare
 
+> Rust migration update, 16 October 2026: PR #50 retains this plan's product
+> contracts in the native backend. References below to `packages/cli/src` describe
+> the original TypeScript design; implementation now lives in `backend/src/host.rs`,
+> `account.rs`, `posted.rs`, `agent_api.rs` and `transport.rs`. The TypeScript server
+> has been removed. Cloudflare deployment remains separately approved work.
+
 Status: **step 1 built** (the host seam). Nothing is deployed; each step that creates
 or changes anything on Cloudflare waits for Tavi's go-ahead.
 

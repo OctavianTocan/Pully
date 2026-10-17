@@ -115,7 +115,9 @@ class ContractsTest {
     fun areasHavePlainNames() {
         assertEquals("Whole project", contractArea("").first)
         assertEquals("Pull request pages", contractArea("android/app/src/main/kotlin/com/octaviantocan/pulls/ui/review").first)
-        assertEquals("Server", contractArea("packages/cli").first)
+        assertEquals("Server", contractArea("backend").first)
+        assertEquals("Server launcher", contractArea("packages/cli").first)
+        assertTrue(contractArea("backend").second < contractArea("packages/cli").second)
         // Two directories may share an area, and rank with it.
         assertEquals(contractArea("android/app/src/main/kotlin/com/octaviantocan/pulls/ui/update"), contractArea("android/app/src/main/kotlin/com/octaviantocan/pulls/update"))
         assertEquals("Odd folder", contractArea("tools/odd-folder").first)

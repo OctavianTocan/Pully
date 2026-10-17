@@ -1,0 +1,72 @@
+name: Rust backend compile
+
+on:
+  push:
+    branches:
+      - feat/rust-backend-20261015
+    paths:
+      - backend/src/**
+      - backend/Cargo.toml
+      - backend/Cargo.lock
+      - backend/scripts/**
+      - .github/workflows/rust-backend-compile.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-backend-compile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Record compiler and revision
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          cargo --version
+      - name: Compile the complete native backend
+        run: cargo build --manifest-path backend/Cargo.toml --locked --jobs 2
+      - name: Check native presentation fixtures
+        run: |
+          cargo test --manifest-path backend/Cargo.toml --locked --lib presentation:: --jobs 2 -- --test-threads=2
+      - name: Check curated lens fixtures
+        run: |
+          cargo test --manifest-path backend/Cargo.toml --locked --lib ai::lenses:: --jobs 2 -- --test-threads=2
+      - name: Check RPC boundary fixtures
+        run: |
+          cargo test --manifest-path backend/Cargo.toml --locked --lib rpc_validation:: --jobs 2 -- --test-threads=2
+          cargo test --manifest-path backend/Cargo.toml --locked --lib numeric_wait_cursors --jobs 2 -- --test-threads=2
+      - name: Check native source snapshot fixtures
+        env:
+          PULLS_REVIEW_ANALYTICS: off
+        run: |
+          cargo test --manifest-path backend/Cargo.toml --locked --lib source::github::snapshot_tests:: --jobs 2 -- --test-threads=2
+          cargo test --manifest-path backend/Cargo.toml --locked --lib source::local::snapshot_tests:: --jobs 2 -- --test-threads=2
+      - name: Check offline cancellation cleanup
+        run: cargo test --manifest-path backend/Cargo.toml --locked --lib fake_docker_cancellation_removes_late_containers --jobs 2 -- --test-threads=1
+      - name: Run bounded offline HTTP smokes
+        run: |
+          python3 backend/scripts/smoke.py
+          python3 backend/scripts/analytics_smoke.py
+          python3 backend/scripts/hosted_smoke.py
+      # Keep the resolved public dependency lockfile recoverable without artifact
+      # storage, repository writes, credentials or running the built program.
+      - name: Record resolved dependency lockfile
+        if: always()
+        run: |
+          if [ -f backend/Cargo.lock ]; then
+            echo 'PULLS_RUST_LOCKFILE_BASE64_BEGIN'
+            base64 --wrap=76 backend/Cargo.lock
+            echo 'PULLS_RUST_LOCKFILE_BASE64_END'
+          fi

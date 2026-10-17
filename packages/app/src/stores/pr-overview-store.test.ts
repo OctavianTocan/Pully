@@ -1,4 +1,4 @@
-import type { PrOverview } from '@pulls.review/core/github'
+import type { GithubClient, PrOverview } from '@pulls.review/core/github'
 import { staticCredentials } from '@pulls.review/core/types'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
@@ -83,6 +83,25 @@ describe('createPrOverviewStore', () => {
     expect(store.mergeability?.ready).toBe(true)
     expect(mocks.fetchPullRequestOverview).toHaveBeenCalledWith(expect.anything(), 'o', 'r', pr.number)
     expect(storage.items.get(`pulls-review:overview:o/r#${pr.number}`)).toContain('Add things')
+  })
+
+  it('loads and refreshes through delegated authentication without a browser token', async () => {
+    const githubToken = vi.fn(async () => undefined)
+    const githubAuthenticated = vi.fn(async () => true)
+    const githubRequest = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(overview({ title: 'Delegated' }))))
+      .mockResolvedValueOnce(new Response(JSON.stringify(overview({ title: 'Refreshed' }))))
+    mocks.fetchPullRequestOverview.mockImplementation(async (client: GithubClient) => (await client.request('/overview-fixture')).json())
+    const store = createPrOverviewStore(params(), { credentials: { githubToken, githubAuthenticated, githubRequest }, storage: memoryStorage() })
+
+    await store.load()
+    expect(store.available).toBe(true)
+    expect(store.overview?.title).toBe('Delegated')
+    await store.refresh()
+    expect(store.overview?.title).toBe('Refreshed')
+    expect(githubAuthenticated).toHaveBeenCalledTimes(2)
+    expect(githubRequest).toHaveBeenCalledTimes(2)
+    expect(githubToken).not.toHaveBeenCalled()
   })
 
   it('renders a cached overview at once, then revalidates', async () => {

@@ -32,9 +32,13 @@ export function createSharedAnalysisStore(api: SharingApi, opts: SharedAnalysisS
   const isSharing = ref(false)
   const error = ref<Error>()
   const ownComment = ref<{ id: number, url: string }>()
+  let discoveryGeneration = 0
 
   async function apply(candidate: SharedAnalysisCandidate) {
+    const generation = ++discoveryGeneration
     await opts.applyResult({ ...candidate.result, sharedBy: candidate.login })
+    if (generation !== discoveryGeneration)
+      return
     candidates.value = []
     notice.value = undefined
   }
@@ -46,10 +50,12 @@ export function createSharedAnalysisStore(api: SharingApi, opts: SharedAnalysisS
    * unless it would replace a locally generated one.
    */
   async function discover(from?: string) {
+    const generation = ++discoveryGeneration
     await access.resolve()
+    if (generation !== discoveryGeneration)
+      return
     ownComment.value ??= opts.cachedComment()
-    const current = opts.getAiResult()
-    if (!from && current)
+    if (!from && opts.getAiResult())
       return
 
     let found
@@ -59,6 +65,10 @@ export function createSharedAnalysisStore(api: SharingApi, opts: SharedAnalysisS
     catch {
       return
     }
+    if (generation !== discoveryGeneration)
+      return
+    // A local analysis can finish while the comment request is in flight.
+    const current = opts.getAiResult()
     const viewer = access.viewerLogin.value
     const own = found.find(comment => comment.login === viewer)
     if (own)
@@ -98,6 +108,7 @@ export function createSharedAnalysisStore(api: SharingApi, opts: SharedAnalysisS
   }
 
   function dismiss() {
+    discoveryGeneration++
     candidates.value = []
     notice.value = undefined
   }

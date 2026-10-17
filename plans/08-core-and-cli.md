@@ -1,5 +1,7 @@
 # Plan 08: `@pulls.review/core` and the `@pulls.review/actions` CLI / GitHub Action
 
+> Historical implementation plan. The superseded TypeScript server and Node-only local provider were removed in the Rust cutover. See [the current architecture](../.agents/01-architecture.md) and [migration notes](../docs/RUST_BACKEND_MIGRATION.md); source paths below describe the earlier design.
+
 Status: **built**.
 
 ## Why

@@ -187,7 +187,7 @@ class DiffUi(val session: ReviewSession) {
             val missing = texts.filter { it !in have }
             if (missing.isEmpty()) return
             val next = have.toMutableMap()
-            for (chunk in missing.chunked(1500)) {
+            for (chunk in missing.chunked(HIGHLIGHT_BATCH_SIZE)) {
                 val result = runCatching { session.repo.highlight(file.path, chunk, dark) }.getOrNull() ?: break
                 val (colours, spans) = withContext(Dispatchers.Default) { readHighlight(result, chunk) }
                 colours?.let { theme = it }
@@ -199,8 +199,10 @@ class DiffUi(val session: ReviewSession) {
     }
 }
 
+internal const val HIGHLIGHT_BATCH_SIZE = 400
+
 /** A `highlight` answer: the theme's colours, and the spans of each line of [chunk] by its text (null when it has no lines). */
-private fun readHighlight(result: JsonObject, chunk: List<String>): Pair<DiffTheme?, Map<String, List<Tok>>?> {
+internal fun readHighlight(result: JsonObject, chunk: List<String>): Pair<DiffTheme?, Map<String, List<Tok>>?> {
     val colours = (result["theme"] as? JsonObject)?.let { t ->
         fun col(k: String) = (t[k] as? JsonPrimitive)?.contentOrNull?.let(::hexColor)
         DiffTheme(col("background"), col("foreground"), col("added"), col("removed"), col("gutter"))
@@ -208,7 +210,8 @@ private fun readHighlight(result: JsonObject, chunk: List<String>): Pair<DiffThe
     val lines = result["lines"] as? JsonArray ?: return colours to null
     val spans = HashMap<String, List<Tok>>(chunk.size * 2)
     chunk.forEachIndexed { i, text ->
-        spans[text] = (lines.getOrNull(i) as? JsonArray).orEmpty().mapNotNull { span ->
+        val line = lines.getOrNull(i) as? JsonArray ?: return@forEachIndexed
+        spans[text] = line.mapNotNull { span ->
             val o = span as? JsonObject ?: return@mapNotNull null
             Tok((o["text"] as? JsonPrimitive)?.contentOrNull.orEmpty(), (o["color"] as? JsonPrimitive)?.contentOrNull?.let(::hexColor))
         }

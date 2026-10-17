@@ -70,6 +70,27 @@ describe('createPrefetcher', () => {
     expect(fetchDiff).not.toHaveBeenCalled()
   })
 
+  it('snapshots the stored winner when a newer head arrives during its fetch', async () => {
+    let resolve!: (value: DiffsPayload) => void
+    let started!: () => void
+    const fetching = new Promise<void>(r => started = r)
+    const pending = new Promise<DiffsPayload>(r => resolve = r)
+    const fetchDiff = vi.fn(async (_pull: MyPull) => {
+      started()
+      return pending
+    })
+    const { cache, saved, prefetcher } = setup(fetchDiff)
+    await cache.diffs.putDiff(KEY, diff('h1'), 'h1')
+    const running = prefetcher.prefetch(pull())
+    await fetching
+    await cache.diffs.putDiff(KEY, diff('h3'), 'h3')
+    await cache.diffs.get(KEY)
+    resolve(diff('h2'))
+    await running
+    expect((await cache.diffs.get(KEY))?.headSha).toBe('h3')
+    expect(saved.get(KEY)?.entry.headSha).toBe('h3')
+  })
+
   it('only prefetches a row the pointer rests on', async () => {
     vi.useFakeTimers()
     const { fetchDiff, prefetcher } = setup()

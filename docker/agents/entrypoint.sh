@@ -1,7 +1,7 @@
 #!/bin/sh
-# Runs before every command in the pulls-review-agents image. The home folder is a volume that keeps the
-# Claude Code and Codex logins between runs; its skill folders are replaced with exactly the curated set
-# baked into the image, so no other skill can be there, and a rebuilt image brings its skills with it.
+# Prepares the shared login home for setup commands in the pulls-review-agents image. Its skill
+# folders are replaced with exactly the curated set baked into the image. Native model jobs and
+# login-copy helpers override this entrypoint and use an isolated job home instead.
 set -eu
 
 skills=/opt/pulls-review/skills

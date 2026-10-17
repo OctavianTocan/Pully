@@ -4,7 +4,7 @@ import { createCacheRepositories, SERVER_CACHE_BUDGET } from '@pulls.review/core
 import { setCliRunner } from '@pulls.review/core/llm'
 import { createStorage } from 'unstorage'
 import { createApp } from 'vue'
-import { installAppContext, settingsCredentials } from '../app-context'
+import { installAppContext } from '../app-context'
 import { i18n } from '../i18n'
 import { createJobRunner } from './ai-jobs'
 import { setAiRpc } from './ai-rpc'
@@ -14,7 +14,8 @@ import { createRpcLenses, setLensSource } from './lenses'
 import { localRpcKey } from './local-rpc-key'
 import LocalAuthGate from './LocalAuthGate.vue'
 import { localRoutes } from './pages'
-import { createRpcCredentials, createRpcDriver } from './rpc-backends'
+import { reloadAfterDisconnect } from './reconnect'
+import { createRpcCredentials, createRpcDiffCache, createRpcDriver, createRpcFileContentCache } from './rpc-backends'
 
 /** Until the server trusts this tab, every RPC call fails: ask for the terminal's code first. */
 async function ensureTrusted(client: Awaited<ReturnType<typeof connectLocal>>['client']): Promise<void> {
@@ -32,30 +33,8 @@ async function ensureTrusted(client: Awaited<ReturnType<typeof connectLocal>>['c
 }
 
 /**
- * devframe's socket never reconnects, and a phone drops it whenever the tab sleeps. Every AI
- * task runs and saves on the server, so reloading once the tab is visible again loses nothing
- * and picks the running ones back up.
- */
-function reloadAfterDisconnect(client: Awaited<ReturnType<typeof connectLocal>>['client']): void {
-  let lost = false
-  const reloadWhenVisible = () => {
-    if (lost && document.visibilityState === 'visible')
-      location.reload()
-  }
-  client.events.on('connection:status', (status) => {
-    if (status !== 'disconnected' && status !== 'error')
-      return
-    lost = true
-    // A short pause rides out a server restart instead of reloading into a refused connection.
-    setTimeout(reloadWhenVisible, 1500)
-  })
-  document.addEventListener('visibilitychange', reloadWhenVisible)
-  window.addEventListener('online', reloadWhenVisible)
-}
-
-/**
  * Wires a `PR_LOCAL` build to the `pulls.review` server: the cache lives in the repo
- * (over RPC), the GitHub token comes from the server's environment, `/` picks refs and
+ * (over RPC), GitHub operations stay on the server, `/` picks refs and
  * `/compare`, `/branch`, `/worktree` and `/commit` review them.
  */
 export async function installLocal(app: App, router: Router): Promise<void> {
@@ -63,10 +42,12 @@ export async function installLocal(app: App, router: Router): Promise<void> {
   await ensureTrusted(client)
   reloadAfterDisconnect(client)
 
+  const cache = createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) }), SERVER_CACHE_BUDGET)
+  cache.diffs = createRpcDiffCache(rpc, cache.diffs)
+  cache.fileContents = createRpcFileContentCache(rpc)
   installAppContext(app, {
-    // The server's own storage: a browser-sized budget here would evict what the server keeps.
-    cache: createCacheRepositories(createStorage({ driver: createRpcDriver(rpc) }), SERVER_CACHE_BUDGET),
-    credentials: createRpcCredentials(rpc, settingsCredentials),
+    cache,
+    credentials: createRpcCredentials(rpc),
   })
   app.provide(localRpcKey, rpc)
   setCliRunner(createJobRunner(rpc))

@@ -5,7 +5,10 @@ import type { DiffsPayload } from '../types/diff'
 import type { ReviewMarks } from './review-marks'
 import type { LlmSession, PersistedGroupSource, PrCacheBody, PrCacheEntry, PrCacheMeta } from './schema'
 import * as v from 'valibot'
+import { computeContentHash } from '../patch-parser'
+import { createFileContentCache } from './file-content-cache'
 import { PrCacheBodySchema, PrCacheMetaSchema } from './schema'
+import { storageTransaction } from './transaction'
 
 const META_PREFIX = 'pr-meta:'
 const BODY_PREFIX = 'pr-body:'
@@ -19,9 +22,19 @@ export interface CacheBudget {
   maxEntries?: number
   /** Keys the budget never evicts nor counts, such as the diffs an account owns (`posted:*`), which last until deleted. */
   keep?: (key: string) => boolean
+  /** Separate bounded budget for full source-file bodies. */
+  fileContentMaxBytes?: number
 }
 
 export interface PutDiffOptions {
+  /** Complete snapshot revision observed before fetching (`null` for a cache miss). Required for RPC writes. */
+  expectedRevision?: string | null
+  /**
+   * Head observed before this operation fetched its diff (`null` for a cache miss).
+   * A conflicting write returns the stored winner instead; a removed winner rejects.
+   * Legacy local callers may still use this narrower head-only guard.
+   */
+  expectedHeadSha?: string | null
   /**
    * `false` for a write nobody is looking at (a server keeping open pull requests fresh):
    * the entry keeps its `lastViewedAt`, or gets `0` when new, so it neither moves up the
@@ -34,6 +47,9 @@ export interface PutDiffOptions {
 export interface DiffUpdate {
   diff: DiffsPayload
   headSha: string
+  /** Optional analysis and transcript saved atomically with the selected diff revision. */
+  analyzedBy?: PrCacheBody['analyzedBy']
+  llmSession?: LlmSession
 }
 
 export interface DiffCache {
@@ -57,8 +73,8 @@ export interface DiffCache {
   touch: (key: string) => Promise<void>
   setChangedSinceReviewed: (key: string, paths: string[]) => Promise<void>
   setAnalyzedResult: (key: string, source: PersistedGroupSource, result: GroupedResult) => Promise<void>
-  /** Writes the chat transcript; one that leaves out `archive` keeps the stored archive, `undefined` drops it all. */
-  setLlmSession: (key: string, session: LlmSession | undefined) => Promise<void>
+  /** Writes the chat transcript; omitted archives are preserved. A browser may supply its observed serialized session for conflict detection. */
+  setLlmSession: (key: string, session: LlmSession | undefined, expectedSession?: string) => Promise<void>
   setSharedComment: (key: string, sharedComment: PrCacheEntry['sharedComment']) => Promise<void>
   setReviewData: (key: string, reviews: ReviewData) => Promise<void>
   /** Drops one entry, both halves. Its review marks stay until the next eviction prunes them. */
@@ -91,8 +107,8 @@ function split(entry: PrCacheEntry): { meta: PrCacheMeta, body: PrCacheBody } {
 }
 
 function join(meta: PrCacheMeta, body: PrCacheBody): PrCacheEntry {
-  const { key, headSha, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed } = meta
-  return { key, headSha, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed, ...body }
+  const { key, headSha, revision, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed } = meta
+  return { key, headSha, revision, lastViewedAt, sizeBytes, sharedComment, changedSinceReviewed, ...body }
 }
 
 /**
@@ -101,26 +117,51 @@ function join(meta: PrCacheMeta, body: PrCacheBody): PrCacheEntry {
  * time, so overlapping read-modify-writes (a review refetch next to a shared-result
  * load) can't drop each other's changes.
  */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] diff-cache-shares-transaction-locks
+ * Repositories over the same storage MUST serialize read-modify-write operations for
+ * each diff key, including coordinated browser writes (review finding 6, 15 Oct 2026).
+ */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] diff-cache-guards-observed-heads
+ * A putDiff with expectedHeadSha MUST compare that observation inside the write's
+ * transaction and keep a conflicting stored winner unchanged. A missing winner
+ * MUST NOT resurrect a removed diff (R11 review finding 15, 16 Oct 2026).
+ */
+/**
+ * @cc [owner:OctavianTocan,label:architecture] diff-cache-guards-complete-snapshots
+ * get and getMeta MUST preserve an opaque full-diff revision. Writes with an
+ * expectedRevision MUST keep the stored winner when any diff field changed after
+ * observation, including base-only or metadata-only changes at the same head
+ * (R13 review finding 8, 16 Oct 2026).
+ */
 export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budget: CacheBudget = {}): DiffCache {
   const maxBytes = budget.maxBytes ?? DEFAULT_MAX_BUDGET_BYTES
   const maxEntries = budget.maxEntries ?? DEFAULT_MAX_ENTRY_COUNT
   const keep = budget.keep ?? (() => false)
-  const queues = new Map<string, Promise<unknown>>()
+  const fileContents = createFileContentCache(storage, { maxBytes: budget.fileContentMaxBytes })
 
   function exclusive<T>(key: string, task: () => Promise<T>): Promise<T> {
-    const run = (queues.get(key) ?? Promise.resolve()).then(task, task)
-    const settled = run.catch(() => {})
-    queues.set(key, settled)
-    void settled.then(() => {
-      if (queues.get(key) === settled)
-        queues.delete(key)
-    })
-    return run
+    return storageTransaction(storage, `diff:${key}`, task)
+  }
+
+  async function revisionOf(entry: Pick<PrCacheEntry, 'diff' | 'headSha'>): Promise<string> {
+    return computeContentHash(JSON.stringify({ diff: entry.diff, headSha: entry.headSha }))
   }
 
   async function getMeta(key: string): Promise<PrCacheMeta | undefined> {
     const result = v.safeParse(PrCacheMetaSchema, await storage.getItem(`${META_PREFIX}${key}`))
-    return result.success ? result.output : undefined
+    if (!result.success)
+      return undefined
+    const meta = result.output
+    // Legacy entries have no token. Derive one from their complete body rather than
+    // treating a cached head as a complete snapshot or an existing entry as a miss.
+    if (meta.revision === undefined) {
+      const body = await getBody(key)
+      if (body)
+        meta.revision = await revisionOf({ diff: body.diff, headSha: meta.headSha })
+    }
+    return meta
   }
 
   async function getBody(key: string): Promise<PrCacheBody | undefined> {
@@ -134,12 +175,14 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     return meta && body ? join(meta, body) : undefined
   }
 
-  async function write(entry: PrCacheEntry): Promise<void> {
-    const { meta, body } = split(entry)
+  async function write(entry: PrCacheEntry): Promise<PrCacheEntry> {
+    const saved = { ...entry, revision: await revisionOf(entry) }
+    const { meta, body } = split(saved)
     await Promise.all([
       storage.setItem(`${META_PREFIX}${entry.key}`, meta),
       storage.setItem(`${BODY_PREFIX}${entry.key}`, body),
     ])
+    return saved
   }
 
   function updateMeta(key: string, patch: (meta: PrCacheMeta) => PrCacheMeta): Promise<void> {
@@ -169,30 +212,41 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     return metas
   }
 
-  async function enforceBudget(): Promise<void> {
-    const legacy = await storage.getKeys(LEGACY_PREFIX)
-    await Promise.all(legacy.map(key => storage.removeItem(key)))
+  function enforceBudget(): Promise<void> {
+    return storageTransaction(storage, 'diff-budget', async () => {
+      const legacy = await storage.getKeys(LEGACY_PREFIX)
+      await Promise.all(legacy.map(key => storage.removeItem(key)))
 
-    const metas = await listMetas()
-    const kept: PrCacheMeta[] = metas.filter(meta => keep(meta.key))
-    const sorted = metas.filter(meta => !keep(meta.key)).sort((a, b) => b.lastViewedAt - a.lastViewedAt)
-    let totalBytes = 0
-    const evicted: PrCacheMeta[] = []
-    for (const [index, meta] of sorted.entries()) {
-      totalBytes += meta.sizeBytes
-      if (index < maxEntries && totalBytes <= maxBytes)
-        kept.push(meta)
-      else
-        evicted.push(meta)
-    }
-    if (evicted.length === 0)
-      return
+      const metas = await listMetas()
+      const kept: PrCacheMeta[] = metas.filter(meta => keep(meta.key))
+      const sorted = metas.filter(meta => !keep(meta.key)).sort((a, b) => b.lastViewedAt - a.lastViewedAt)
+      let totalBytes = 0
+      const evicted: PrCacheMeta[] = []
+      for (const [index, meta] of sorted.entries()) {
+        totalBytes += meta.sizeBytes
+        if (index < maxEntries && totalBytes <= maxBytes)
+          kept.push(meta)
+        else
+          evicted.push(meta)
+      }
+      if (evicted.length === 0)
+        return
 
-    await Promise.all(evicted.flatMap(meta => [
-      storage.removeItem(`${META_PREFIX}${meta.key}`),
-      storage.removeItem(`${BODY_PREFIX}${meta.key}`),
-    ]))
-    await reviewMarks.prune(new Set(kept.flatMap(meta => meta.fileShas)))
+      await Promise.all(evicted.map(meta => exclusive(meta.key, async () => {
+        const current = await getMeta(meta.key)
+        // A read or write since budget accounting may have made this entry current again.
+        if (current && (current.headSha !== meta.headSha || current.lastViewedAt !== meta.lastViewedAt || current.sizeBytes !== meta.sizeBytes)) {
+          kept.push(current)
+          return
+        }
+        await Promise.all([
+          storage.removeItem(`${META_PREFIX}${meta.key}`),
+          storage.removeItem(`${BODY_PREFIX}${meta.key}`),
+          fileContents.removeScope(meta.key),
+        ])
+      })))
+      await reviewMarks.prune(new Set(kept.flatMap(meta => meta.fileShas)))
+    })
   }
 
   /**
@@ -213,32 +267,43 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
   }
 
   /** Writes `diff` over `existing`, keeping what `putDiff` keeps. Runs inside the key's `exclusive`. */
-  async function writeDiff(key: string, existing: PrCacheEntry | undefined, { diff, headSha }: DiffUpdate, viewed: boolean): Promise<PrCacheEntry> {
-    const analyzedBy = existing?.analyzedBy ?? {}
+  async function writeDiff(key: string, existing: PrCacheEntry | undefined, { diff, headSha, analyzedBy: analysis, llmSession: session }: DiffUpdate, viewed: boolean): Promise<PrCacheEntry> {
+    const analyzedBy = analysis ?? existing?.analyzedBy ?? {}
+    const llmSession = session === undefined ? existing?.llmSession : { ...session, archive: session.archive ?? existing?.llmSession?.archive } as PrCacheBody['llmSession']
     const next: PrCacheEntry = {
       ...existing,
       key,
       diff,
       headSha,
       analyzedBy,
+      llmSession,
       lastViewedAt: viewed ? Date.now() : existing?.lastViewedAt ?? 0,
-      sizeBytes: computeEntrySizeBytes(diff, analyzedBy, existing?.llmSession),
+      sizeBytes: computeEntrySizeBytes(diff, analyzedBy, llmSession),
       changedSinceReviewed: existing ? await changedSinceReviewed(existing, diff) : [],
     }
-    await write(next)
-    return next
+    return write(next)
   }
 
   return {
-    get,
-    getMeta,
+    get: key => exclusive(key, () => get(key)),
+    getMeta: key => exclusive(key, () => getMeta(key)),
     async put(entry) {
       await exclusive(entry.key, () => write(entry))
       await enforceBudget()
     },
-    async putDiff(key, diff, headSha, { viewed = true } = {}) {
-      const entry = await exclusive(key, async () => writeDiff(key, await get(key), { diff, headSha }, viewed))
-      await enforceBudget()
+    async putDiff(key, diff, headSha, { viewed = true, expectedHeadSha, expectedRevision } = {}) {
+      const { entry, written } = await exclusive(key, async () => {
+        const existing = await get(key)
+        if ((expectedRevision !== undefined && expectedRevision !== (existing?.revision ?? null))
+          || (expectedHeadSha !== undefined && expectedHeadSha !== (existing?.headSha ?? null))) {
+          if (existing)
+            return { entry: existing, written: false }
+          throw new Error('The cached diff changed. Reload before saving.')
+        }
+        return { entry: await writeDiff(key, existing, { diff, headSha }, viewed), written: true }
+      })
+      if (written)
+        await enforceBudget()
       return entry
     },
     async updateDiff(key, next, { viewed = true } = {}) {
@@ -256,9 +321,11 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     setSharedComment: (key, sharedComment) => updateMeta(key, meta => ({ ...meta, sharedComment })),
     setAnalyzedResult: (key, source, result) => updateBody(key, body => ({ ...body, analyzedBy: { ...body.analyzedBy, [source]: result } })),
     setReviewData: (key, reviews) => updateBody(key, body => ({ ...body, reviews })),
-    async setLlmSession(key, session) {
+    async setLlmSession(key, session, expectedSession) {
       await exclusive(key, async () => {
         const entry = await get(key)
+        if (expectedSession !== undefined && expectedSession !== JSON.stringify(entry?.llmSession ?? null))
+          throw new Error('The chat changed on the server. Reload before saving.')
         if (!entry)
           return
         // A session written without its archive (a chat turn, a new analysis, the page) keeps the stored one.
@@ -271,7 +338,7 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     },
     remove(key) {
       return exclusive(key, async () => {
-        await Promise.all([storage.removeItem(`${META_PREFIX}${key}`), storage.removeItem(`${BODY_PREFIX}${key}`)])
+        await Promise.all([storage.removeItem(`${META_PREFIX}${key}`), storage.removeItem(`${BODY_PREFIX}${key}`), fileContents.removeScope(key)])
       })
     },
     async listRecent(limit) {
@@ -279,10 +346,11 @@ export function createDiffCache(storage: Storage, reviewMarks: ReviewMarks, budg
     },
     async listMatching(match) {
       const metas = (await listMetas()).filter(match)
-      const entries = await Promise.all(metas.map(async (meta) => {
-        const body = await getBody(meta.key)
-        return body && join(meta, body)
-      }))
+      const entries = await Promise.all(metas.map(meta => exclusive(meta.key, async () => {
+        const current = await getMeta(meta.key)
+        const body = current && match(current) ? await getBody(meta.key) : undefined
+        return current && body ? join(current, body) : undefined
+      })))
       return entries.filter(entry => entry !== undefined)
     },
   }

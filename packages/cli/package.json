@@ -16,12 +16,8 @@
   "keywords": [
     "pull-request",
     "code-review",
-    "git",
-    "devframe"
+    "git"
   ],
-  "exports": {
-    "./devframe": "./dist/devframe.mjs"
-  },
   "bin": {
     "pulls.review": "./bin.mjs",
     "pulls-review": "./bin.mjs"
@@ -34,25 +30,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsdown && pnpm -F @pulls.review/app run build:local",
+    "build": "node scripts/build.mjs && pnpm -F @pulls.review/app run build:local",
     "dev": "node bin.mjs",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@earendil-works/pi-agent-core": "catalog:frontend",
-    "@earendil-works/pi-ai": "catalog:frontend",
-    "@pulls.review/core": "workspace:^",
-    "beautiful-mermaid": "catalog:frontend",
-    "devframe": "catalog:frontend",
-    "h3": "catalog:frontend",
-    "jose": "catalog:frontend",
-    "unstorage": "catalog:frontend"
-  },
-  "devDependencies": {
-    "@types/node": "catalog:dev",
-    "tsdown": "catalog:build",
-    "typescript": "catalog:dev",
-    "vitest": "catalog:testing"
+    "typecheck": "node --check bin.mjs && node --check scripts/build.mjs",
+    "test": "node --test test/launcher.test.mjs"
   }
 }

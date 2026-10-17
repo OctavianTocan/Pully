@@ -22,6 +22,28 @@ phone's strings are copied from (architecture, UI conventions).
 A link in a comment posted to GitHub uses the hardcoded `https://pulls.review` origin; a
 preview host MUST NOT leak into a public comment (architecture, Sharing).
 
+@cc [owner:OctavianTocan,label:product] web-pagination-awaits-active-page
+Concurrent pagination consumers MUST await the active page request, and MUST NOT spin
+without waiting for network progress. A superseded continuation MUST NOT replace the
+new list or its error state (repository review 15 Oct 2026, finding #1).
+
+@cc [owner:OctavianTocan,label:product] web-group-navigation-uses-own-root
+File-tree and parent-group navigation MUST find their targets in the group's owning
+Document or ShadowRoot, including recursively rendered embedded groups
+(repository review 15 Oct 2026, finding #15).
+
+@cc [owner:OctavianTocan,label:product] web-chat-start-is-busy
+A pending server chat start MUST reserve the busy state before awaiting the RPC.
+Detaching MUST prevent its late response from restarting a follower; stopping during
+startup MUST cancel the returned task without following it. Startup failure MUST
+release the busy state (repository review 15 Oct 2026, finding #16).
+
+@cc [owner:OctavianTocan,label:product] web-discovery-preserves-current-analysis
+Shared-analysis discovery MUST check the current AI result after comments arrive and
+offer a candidate instead of replacing a locally generated result. Dismissed or
+superseded discovery MUST NOT apply results or repopulate candidates
+(repository review 15 Oct 2026, finding #17).
+
 @cc [owner:OctavianTocan,label:security;product] web-public-site-untracked
 Only the build our server serves (`PR_LOCAL`) tracks usage, through `src/local/analytics.ts`
 and `POST /api/events`. The public pulls.review site MUST NOT send analytics anywhere until

@@ -8,6 +8,7 @@ export default antfu(
     pnpm: true,
     antislop: true,
     ignores: [
+      'backend/target/**',
       'packages/app/src/components/diff/pierre-diffs-core.css',
       'packages/app/test/fixtures/real/**',
       // Written from android/DESIGN.md and the Android kit by `pnpm run android:design:update`.

@@ -222,13 +222,13 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
     void opts.snapshots?.put(key, entry, reviewed.value)
   }
 
-  async function analyzeAndStore(key: string, freshDiff: DiffsPayload) {
+  async function analyzeAndStore(key: string, freshDiff: DiffsPayload, expectedRevision: string | null) {
     // An in-flight browser run analyzed the diff being replaced; the last persisted result stands.
     // A server task keeps going and is picked up again once the new diff is installed.
     llm.value?.detach()
     // A diff with no head (a posted one) is stored under its source's fingerprint, so the next visit sees it current.
     const headSha = freshDiff.head?.sha ?? await source.fingerprint?.().catch(() => undefined) ?? ''
-    const entry = await cache.diffs.putDiff(key, freshDiff, headSha)
+    const entry = await cache.diffs.putDiff(key, freshDiff, headSha, { expectedRevision })
     await install(key, entry)
     saveSnapshot(key, entry)
     // `llm` is never auto-run, even here - a paid/slow call must always be an explicit
@@ -239,9 +239,8 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
       await runAnalysis(mode)
   }
 
-  async function fetchFresh() {
-    const key = await source.key()
-    await analyzeAndStore(key, await source.fetch())
+  async function fetchFresh(key: string, expectedRevision: string | null) {
+    await analyzeAndStore(key, await source.fetch(), expectedRevision)
   }
 
   async function checkStaleness(cachedHeadSha: string) {
@@ -306,7 +305,7 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
         void checkStaleness(cached.headSha)
       }
       else {
-        await fetchFresh()
+        await fetchFresh(key, null)
         noteOpen('network')
       }
       // Threads and shared analyses load after (and independently of) the diff -
@@ -332,7 +331,9 @@ export function createDiffsStore(source: DiffSource, opts: DiffsStoreOptions): D
     isLoading.value = true
     error.value = undefined
     try {
-      await fetchFresh()
+      const key = await source.key()
+      const observed = await cache.diffs.getMeta(key)
+      await fetchFresh(key, observed?.revision ?? null)
       isStale.value = false
       isOffline.value = false
       void reviews?.load()

@@ -16,6 +16,7 @@
   "bugs": "https://github.com/antfu/pulls.review/issues",
   "scripts": {
     "build": "pnpm -r run build",
+    "build:server": "cargo build --locked --manifest-path backend/Cargo.toml && pnpm -F pulls.review run build",
     "dev": "pnpm -F @pulls.review/app run dev",
     "lint": "eslint .",
     "typecheck": "pnpm -r run typecheck",
@@ -23,7 +24,7 @@
     "android:design:update": "node android/scripts/design/check.mjs --update",
     "android:design:test": "vitest run android/scripts/design",
     "contracts:check": "cc-check format > /dev/null",
-    "test": "vitest run",
+    "test": "pnpm -F pulls.review run test && vitest run",
     "test:watch": "vitest",
     "release": "bumpp -r",
     "prepare": "skills-npm",
