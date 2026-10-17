@@ -112,14 +112,27 @@ internal fun pullStateOf(state: String): PullState = when (state) {
 @Composable
 internal fun StateTile(state: PullState) {
     val c = LocalPullsColors.current
-    val (ink, glyph, word) = when (state) {
-        PullState.Open -> Triple(c.stateOpen, Lu.prOpen, "Open")
-        PullState.Draft -> Triple(c.stateDraft, Lu.prDraft, t("local.home.draft"))
-        PullState.Merged -> Triple(c.stateMerged, Lu.prMerged, "Merged")
-        PullState.Closed -> Triple(c.stateClosed, Lu.prClosed, "Closed")
+    val ink = stateInk(state)
+    val (glyph, word) = when (state) {
+        PullState.Open -> Lu.prOpen to "Open"
+        PullState.Draft -> Lu.prDraft to t("local.home.draft")
+        PullState.Merged -> Lu.prMerged to "Merged"
+        PullState.Closed -> Lu.prClosed to "Closed"
     }
     RowTile(ink.copy(alpha = if (c.dark) 0.18f else 0.12f), Modifier.semantics { contentDescription = word }) {
         LuIcon(glyph, tint = ink, size = TILE_MARK)
+    }
+}
+
+/** A state's own colour, for its tile's wash and mark. */
+@Composable
+private fun stateInk(state: PullState): Color {
+    val c = LocalPullsColors.current
+    return when (state) {
+        PullState.Open -> c.stateOpen
+        PullState.Draft -> c.stateDraft
+        PullState.Merged -> c.stateMerged
+        PullState.Closed -> c.stateClosed
     }
 }
 
@@ -212,6 +225,47 @@ internal fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: Pul
             WorkMark(work)
         }
         RowFacts({ CheckMark(pull) }, pull.additions, pull.deletions, compactAge(pull.updatedAtMs, now))
+    }
+}
+
+/**
+ * `.stack`: the layers of one stack in the Inbox as one row (Tavi, 17 Oct 17:40; rule 202). The tile carries the layers
+ * mark in the bottom layer's state colour, the title and number are the bottom layer's, the one that merges first, and
+ * the author's column says how many layers the row holds. The checks are the worst of the layers',
+ * the + and − their sum and the age the newest. A tap or a hold opens the Stack sheet ([InboxStackSheet]).
+ */
+@Composable
+internal fun StackRowContent(layers: List<PullRow>, now: Long, repo: String? = null) {
+    val c = LocalPullsColors.current
+    val bottom = layers.first()
+    val ink = stateInk(bottom.pullState())
+    val requested = layers.any { it.requestedFromMe ?: (it.role == "review-requested") }
+    val worst = layers.firstOrNull { it.checks == "failure" || it.mergeable == "conflicting" }
+        ?: layers.firstOrNull { it.checks == "pending" }
+        ?: layers.firstOrNull { it.checks == "success" }
+        ?: bottom
+    val counted = layers.filter { it.additions != null }
+    PullRowFrame(
+        AnnotatedString(bottom.title),
+        tile = {
+            RowTile(ink.copy(alpha = if (c.dark) 0.18f else 0.12f), Modifier.semantics { contentDescription = "A stack of ${layers.size} pull requests" }) {
+                LuIcon(Lu.layers, tint = ink, size = TILE_MARK)
+            }
+        },
+    ) {
+        RowNumber(bottom.number)
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (requested) Box(Modifier.size(7.dp).clip(CircleShape).background(c.accentTeal))
+            // The count stands where the author would: the names of every layer's author don't fit in it.
+            val count = "${layers.size} layers"
+            Text(if (repo != null) "$repo · $count" else count, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        }
+        RowFacts(
+            { CheckMark(worst) },
+            if (counted.isEmpty()) null else counted.sumOf { it.additions ?: 0 },
+            if (counted.isEmpty()) null else counted.sumOf { it.deletions ?: 0 },
+            compactAge(layers.mapNotNull { it.updatedAtMs }.maxOrNull(), now),
+        )
     }
 }
 

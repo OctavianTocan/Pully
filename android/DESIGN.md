@@ -2052,6 +2052,18 @@ Check: in the Inbox, a title longer than the screen wraps to a second line and e
 
 Source: answers. Checked by: review.
 
+### Rule 202, from Tavi's message of 2026-10-17
+
+Tavi's message of 17 Oct at 17:40: "since PR stacks are so common nowadays, I would actually group them into one row, and make the stack the row, and when you tap it can show you which PRs are in there and such."
+
+#### 202. A stack is one row in the Inbox.
+
+When two or more layers of one stack are in the same Inbox section, they are one row where the first of them stood: the layers mark in the tile, tinted for the bottom layer's state; the bottom layer's title and number, the one that merges first; the number of layers where the author would be; the worst of their checks, the sum of their + and −, and the newest age. A tap, a swipe or a hold opens the Stack sheet the pull request page uses, top layer first down to the base branch, and a tap on a layer opens it. A stack with one layer in the section keeps that pull request's own row with its place in the stack. Tours and a repository's list are unchanged.
+
+Check: in the Inbox, three open layers of one stack are one row reading "3 layers"; tap it: the sheet lists the three, and tapping one opens that pull request.
+
+Source: answers. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
