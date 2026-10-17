@@ -6,13 +6,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.produceState
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SearchList
-import com.octaviantocan.pulls.data.ChatHistoryEntry
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.defaultMinSize
@@ -149,7 +147,7 @@ private fun ReviewSession.startChat(text: String?, retry: Boolean, locale: Strin
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference?, keptScroll: ScrollState?, returning: Boolean, openHistory: Boolean, onOpen: (CodePlace) -> Unit, onDismiss: () -> Unit) {
+internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference?, keptScroll: ScrollState?, returning: Boolean, onOpen: (CodePlace) -> Unit, onDismiss: () -> Unit) {
     val c = LocalPullsColors.current
     val ui = aiUi(session)
     val task = rememberLiveTask(session, "chat")
@@ -249,7 +247,8 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
     }
 
     // The chats this pull request had before, on a searchable sheet over this one (L36).
-    var history by remember { mutableStateOf(openHistory) }
+    var history by remember { mutableStateOf(false) }
+    LaunchedEffect(session.key) { session.loadChatHistory() }
     fun newChat() {
         val key = session.key ?: return
         ui.chatError = null
@@ -307,8 +306,9 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                     onSend = { val text = ui.chatInput; ui.chatInput = ""; ask(text) },
                     sendEnabled = !busy && ui.chatInput.isNotBlank(),
                     onStop = if (streaming && task != null) ({ session.cancelTask(task.id) }) else null,
-                    // With nothing typed the button opens the chats this pull request had (Tavi, L36).
-                    onHistory = if (session.key != null && !busy) ({ history = true }) else null,
+                    // With nothing typed the button opens the chats this pull request had (Tavi, L36), and only when it had
+                    // some (P4).
+                    onHistory = if (session.key != null && !busy && !session.chatHistory.isNullOrEmpty()) ({ history = true }) else null,
                     working = streaming || ui.chatPending != null,
                 )
             },
@@ -378,18 +378,18 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
 /**
  * The chats this pull request had, newest first, on the one searchable list a sheet picks from ([SearchList]): each its
  * first question, when it was and how many questions it had. A tap brings that chat back into Ask, and the chat that was
- * open goes into the list in its place (Tavi's idea: recording 15 Oct 15:37, 17:19 to 17:48; L36).
+ * open goes into the list in its place (Tavi's idea: recording 15 Oct 15:37, 17:19 to 17:48; L36). From an Ask bar it
+ * opens alone, and [onRestored] opens Ask on the chat picked ("it's just the earlier chats that need to open", recording
+ * of 17 Oct 13:26, 01:45 to 01:57, P5).
  */
 @Composable
-private fun ChatHistorySheet(session: ReviewSession, onClose: () -> Unit, onRestored: () -> Unit) {
+internal fun ChatHistorySheet(session: ReviewSession, onClose: () -> Unit, onRestored: () -> Unit) {
     val c = LocalPullsColors.current
     val key = session.key ?: return
     val ui = aiUi(session)
-    val chats by produceState<List<ChatHistoryEntry>?>(null, key) {
-        value = runCatching { session.repo.chatHistory(key) }.getOrElse { ui.chatError = it.message; emptyList() }
-    }
+    LaunchedEffect(key) { session.loadChatHistory(force = true) }
     PullsSheet(onClose, "Chats") {
-        val list = chats
+        val list = session.chatHistory
         when {
             list == null -> RowsSkeleton(Modifier.padding(top = 12.dp), rows = 3)
             list.isEmpty() -> Text("No earlier chats on this pull request.", Modifier.fillMaxWidth().padding(vertical = 32.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
@@ -400,7 +400,8 @@ private fun ChatHistorySheet(session: ReviewSession, onClose: () -> Unit, onRest
                     onClose()
                     session.chatChange = session.scope.launch {
                         runCatching { session.repo.restoreChat(key, chat.id) }.onFailure { ui.chatError = it.message }
-                        session.reloadSaved()
+                        // Ask opens on the chat picked, not on the one it replaces while the saved work is on its way.
+                        if (!session.reloadSavedNow() && ui.chatError == null) ui.chatError = "Couldn't load that chat"
                         onRestored()
                     }
                 }, first = first, iconless = true, detail = listOfNotNull(ago, asked).joinToString(" · "))

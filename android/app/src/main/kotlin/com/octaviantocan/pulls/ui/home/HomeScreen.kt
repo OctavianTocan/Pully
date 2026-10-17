@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
 import com.octaviantocan.pulls.ui.design.sideScrollFade
+import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.sound.cueCombinedClickable
 import kotlinx.coroutines.CoroutineScope
 import com.octaviantocan.pulls.data.PullSizes
@@ -50,9 +51,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -197,10 +196,10 @@ private suspend fun keepTour(store: TourStore, key: String, state: SavedState) {
 
 /** The inbox's tab, chip and search. They live above the screens so a review does not reset them. */
 @Stable
-class HomeUi {
+class HomeUi(filter: String = "waiting") {
     /** 0 Inbox, 1 Tours. */
     var tab by mutableIntStateOf(0)
-    var filter by mutableStateOf("waiting")
+    var filter by mutableStateOf(filter)
     var showClosed by mutableStateOf(false)
     var search by mutableStateOf("")
     /** The Ask sheet over the inbox is open; it stays open across a pull request opened from it. */
@@ -279,6 +278,8 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     // A repository switched off in Profile is left out of the list and of the numbers on the chips.
     val settings = remember { AppSettings.get(context) }
     val hidden = settings.hiddenRepos
+    // The chip last picked, on this phone or another signed in to the account, while the Inbox lists open pull requests (P1).
+    LaunchedEffect(settings.inboxFilter) { if (!ui.showClosed) ui.filter = settings.inboxFilter }
     val pulls = remember(everything, hidden) { everything?.inShownRepos(hidden) }
     // A pull request opened from here shows its size at once (H29).
     LaunchedEffect(everything) { everything?.forEach { PullSizes.put(it.owner, it.repo, it.number, it.additions, it.deletions, it.changedFiles) } }
@@ -384,7 +385,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
             InboxHeader(ui.tab, { ui.tab = it }, viewer, onSettings = nav.settings, onProfile = { profileOpen = true }, position = { sides.at })
             SidePages(sides, listOf(0, 1), Modifier.weight(1f).fillMaxWidth()) { tab ->
                 if (tab == 0) Column(Modifier.fillMaxSize()) {
-                    FilterChips(ui.filter, inbox.counts) { ui.filter = it }
+                    FilterChips(ui.filter, inbox.counts) { ui.filter = it; if (!ui.showClosed) settings.updateInboxFilter(it) }
                     ActivityStrip(workTasks, { activityOpen = true })
                     InboxList(
                         sections = sections, rowRepos = rowRepos, now = now, archived = archived, work = work,
@@ -416,7 +417,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         SearchDim(searchFocused, ui.search.isEmpty())
         // `.search`: the list fades into the page under this pill (`edgeFade` on the lists), and nothing else sits behind it.
         Column(
-            Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            Modifier.align(Alignment.BottomCenter).floatingBar(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // Sort sits beside the search under the thumb, so it never hides past the chips' edge (rule 114). Tours has no
@@ -482,7 +483,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
         if (profileOpen) {
             ProfileSheet(
                 viewer = viewer, showClosed = ui.showClosed,
-                onShowClosed = { closed -> ui.showClosed = closed; ui.filter = if (closed) "all" else "waiting" },
+                onShowClosed = { closed -> ui.showClosed = closed; ui.filter = if (closed) "all" else settings.inboxFilter },
                 pulls = everything.orEmpty(), onClose = { profileOpen = false },
             )
         }

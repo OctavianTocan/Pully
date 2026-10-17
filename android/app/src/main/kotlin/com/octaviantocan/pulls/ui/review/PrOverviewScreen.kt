@@ -2,7 +2,6 @@ package com.octaviantocan.pulls.ui.review
 
 import com.octaviantocan.pulls.ui.home.stayOnPull
 import androidx.compose.ui.layout.layout
-import androidx.compose.foundation.layout.imePadding
 import com.octaviantocan.pulls.ui.home.SearchDim
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.octaviantocan.pulls.data.JEV_FILE_WORDS
@@ -20,6 +19,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.sideSwipe
 import kotlin.math.roundToInt
@@ -46,7 +46,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -100,7 +99,6 @@ import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.BreathingDot
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CodePlace
-import com.octaviantocan.pulls.ui.design.FieldHeight
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.IconSwap
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -131,8 +129,8 @@ import androidx.compose.foundation.layout.offset
 /**
  * The prototype's PR overview, under the review's header (the back button and the section capsule): the title,
  * who and when, the branches, a four-cell summary line, Summary / Commits / Conversation tabs, the AI's
- * status and the summary (the description until the AI writes one), the file list with its notes, and a
- * bottom row with a field to ask about the pull request and the round button that moves the review forward (N32).
+ * status and the summary (the description until the AI writes one), the file list with its notes, and the Ask bar at
+ * the foot, the Tour's own (P2). [onOpenAsk] opens the conversation there is, and [onAskHistory] the earlier chats.
  */
 @Composable
 internal fun PrOverviewScreen(
@@ -146,6 +144,8 @@ internal fun PrOverviewScreen(
     onPane: (Int) -> Unit,
     onDiff: (path: String?) -> Unit,
     onAsk: (question: String) -> Unit,
+    onOpenAsk: () -> Unit,
+    onAskHistory: () -> Unit,
     onSheet: (String) -> Unit,
     onCite: (Cite) -> Unit,
     onOpenRepo: (owner: String, repo: String) -> Unit,
@@ -295,14 +295,12 @@ internal fun PrOverviewScreen(
         var askText by remember { mutableStateOf("") }
         var askFocused by remember { mutableStateOf(false) }
         SearchDim(askFocused, askText.isEmpty())
-        BottomBar(
-            session, head, Modifier.align(Alignment.BottomCenter).stayOnPull().backUnless("").holdUnless(""),
-            askText = askText, onAskText = { askText = it }, onAskFocus = { askFocused = it },
-            onAsk = onAsk, onDiff = onDiff,
-            onApprove = {
-                top.reviewVerdict = "APPROVE"
-                top.reviewOpen = true
-            },
+        LaunchedEffect(session.key) { session.loadChatHistory() }
+        ReviewBar(
+            askText, { askText = it }, onAsk, Modifier.align(Alignment.BottomCenter).stayOnPull().backUnless("").holdUnless(""),
+            onFocus = { askFocused = it },
+            onOpenHistory = if (session.key != null && !session.chatHistory.isNullOrEmpty()) onAskHistory else null,
+            onTapEmpty = if (session.saved?.chat.isNullOrEmpty()) null else onOpenAsk,
         )
     }
     }
@@ -810,75 +808,27 @@ private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modif
 // --- Bottom bar ---
 
 /**
- * `.vbar`: the Ask field and the round button that moves the review forward: review the files, or approve once they are
- * all reviewed. ⋯ is only in the header's capsule, so the bar holds no menu of its own (N32).
- */
-@Composable
-private fun BottomBar(
-    session: ReviewSession,
-    head: PrHead,
-    modifier: Modifier,
-    askText: String,
-    onAskText: (String) -> Unit,
-    onAskFocus: (Boolean) -> Unit,
-    onAsk: (question: String) -> Unit,
-    onDiff: (String?) -> Unit,
-    onApprove: () -> Unit,
-) {
-    val left = session.files.count { it.sha !in session.reviewed }
-    val canApprove = session.pull != null && session.canWrite && head.isOpen
-    val done = left == 0 && session.files.isNotEmpty()
-    // The overview came before the diff: the button already counts the files the Inbox knew of, so what it says does not
-    // change when they arrive (K22), and it is never greyed out while the rest loads; the Diff it opens shows bars until
-    // the files come ("the review button is greyed out", recording 15 Oct 15:37, 03:29 to 04:12; L5).
-    val arrived = session.opened != null
-    val known = (session.target as? OpenTarget.Pull)?.let { PullSizes.get(it.owner, it.repo, it.number) }?.files
-    ReviewBar(
-        label = when {
-            !arrived -> reviewFilesLabel(known)
-            done && canApprove -> "Approve"
-            done -> "Open changes"
-            else -> reviewFilesLabel(left)
-        },
-        approve = done && canApprove,
-        enabled = true,
-        modifier = modifier,
-        text = askText,
-        onText = onAskText,
-        onFocus = onAskFocus,
-        onAsk = onAsk,
-        onClick = { if (done && canApprove) onApprove() else onDiff(null) },
-    )
-}
-
-/** "Review 12 files", or "Review changes" while nobody knows how many. */
-internal fun reviewFilesLabel(files: Int?): String = if (files == null) "Review changes" else "Review $files file${if (files == 1) "" else "s"}"
-
-/**
- * The bar's shape, which the opening page draws too, so it is in place before the pull request arrives (K22): the Tour's
- * [AskBar], asking about the pull request, and beside it a round button on the primary fill with an arrow, or a tick
- * when it approves. The button has no words on it; [label] is what it says to a screen reader ("an Ask field and a round
- * button that goes to the review, no text, like the Tour", recording of 16 Oct 12:10, 16:40 to 17:05; N32). Sending a
- * question hands it to [onAsk], which opens the Ask sheet on it.
+ * `.vbar`: the Ask bar, the Tour's own and in the same place as every bar at a page's foot ([floatingBar]). Nothing
+ * beside it: the round arrow that went to the diff read as a second, highlighted Ask button ("this button should not
+ * take you to the diff ... it should also not be highlighted. This is another ask button", recording of 17 Oct 13:26,
+ * 00:25 to 00:48, P2). Empty, its button is the earlier chats when there are some and a tap on it opens the
+ * conversation there is; typed, it sends, and [onAsk] opens the Ask sheet on the question. The diff is the header's,
+ * and Approve is in ⋯ and Commands. The opening page draws it too, so it is in place before the pull request arrives (K22).
  */
 @Composable
 internal fun ReviewBar(
-    label: String,
-    approve: Boolean,
-    enabled: Boolean,
-    modifier: Modifier,
     text: String,
     onText: (String) -> Unit,
-    onFocus: (Boolean) -> Unit,
     onAsk: (question: String) -> Unit,
-    onClick: () -> Unit,
+    modifier: Modifier,
+    onFocus: (Boolean) -> Unit = {},
+    onOpenHistory: (() -> Unit)? = null,
+    onTapEmpty: (() -> Unit)? = null,
 ) {
-    Box(modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        AskBar(
-            text, onText, "Ask about this pull request", onAsk, onFocus = onFocus, idleSend = false,
-            trailing = { FloatIcon(if (approve) Lu.check else Lu.arrow, label, onClick, size = FieldHeight, iconSize = 22.dp, enabled = enabled, primary = true) },
-        )
-    }
+    AskBar(
+        text, onText, "Ask about this pull request", onAsk, modifier.floatingBar(),
+        onFocus = onFocus, onOpenHistory = onOpenHistory, onTapEmpty = onTapEmpty,
+    )
 }
 
 /**

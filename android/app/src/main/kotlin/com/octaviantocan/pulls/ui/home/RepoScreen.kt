@@ -3,6 +3,7 @@ package com.octaviantocan.pulls.ui.home
 import com.octaviantocan.pulls.core.pullKey
 import com.octaviantocan.pulls.core.runningTaskId
 import com.octaviantocan.pulls.ui.design.sideScrollFade
+import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.Commands
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.SidePages
@@ -29,9 +30,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -366,7 +365,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
         // nothing else sits behind the pill: it floats on its own shadow (rule 74).
         SearchPill(
             query, { query = it }, if (tab == 1) "Search tours" else t("pulls.search"), null, {},
-            Modifier.align(Alignment.BottomCenter).imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            Modifier.align(Alignment.BottomCenter).floatingBar(),
         )
     }
 }

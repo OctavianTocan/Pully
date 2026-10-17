@@ -122,7 +122,8 @@ fun PullsApp(initialTarget: String?) {
     val colorTheme = com.octaviantocan.pulls.ui.design.ColorThemes.of(settings.colorTheme)
     val moving = com.octaviantocan.pulls.ui.design.rememberMotionEnabled()
     // The inbox's tab, chip and search live above the screens, so they are still there after a review.
-    val homeUi = remember { HomeUi() }
+    // It opens on the Inbox chip last picked (P1).
+    val homeUi = remember { HomeUi(settings.inboxFilter) }
     val toaster = remember { Toaster() }
     // A link Pully was opened with that it cannot open says so, rather than leaving the reader on Home wondering.
     LaunchedEffect(Unit) { if (initialTarget != null && linkScreen(initialTarget) == null) toaster.show(CANT_OPEN, cue = Cue.Error) }

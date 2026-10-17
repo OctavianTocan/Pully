@@ -200,3 +200,12 @@ band of paper behind its footer (recording of 16 Oct 12:10, 13:06 to 13:16, N27)
 @cc [owner:OctavianTocan,label:motion] sheet-first-swipe-scrolls
 A swipe up that lifts a sheet carries on into its content in the same movement, so the first
 swipe on a long sheet scrolls it (recording 16 Oct 13:06, 03:24 to 03:33; O8, rule 180).
+
+@cc [owner:OctavianTocan,label:design] kit-bottom-bars-rest-alike
+Every bar at the foot of a page or a sheet (the Inbox's and a repository's search, the
+Overview's and the Tour's Ask bars, the diff's file bar, a full sheet's footer) MUST take
+its place from the kit's one `floatingBar` modifier: 16dp in from the sides and the same
+lift over the navigation bar, rising with the keyboard. A page MUST NOT set its own
+bottom padding for its bar, so opening a pull request never moves the bar ("the placement
+of the search and bottom bars and the buttons ... should be consistent throughout all of
+them", recording of 17 Oct 13:26, 00:49 to 01:26, P3; rule 192).

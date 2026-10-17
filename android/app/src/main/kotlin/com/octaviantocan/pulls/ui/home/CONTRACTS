@@ -190,3 +190,9 @@ a tap opens the diff and a hold offers Open and Delete. The group shows while th
 requests load and when they fail to, since it comes from the server. There MUST NOT be a chip, filter
 or tag for them ("we are definitely not adding any more chips ... You just group them,
 maybe somewhere specific, and you can maybe color the group": Tavi, 16 Oct 12:47).
+
+@cc [owner:OctavianTocan,label:product] home-chip-is-remembered
+The Inbox opens on the chip picked last (Waiting on you, Authored or All), kept with the
+settings the account syncs; Show closed switches to All for the moment and does not change
+it ("whichever tab I clicked on last, when I open the app again, it uses that one",
+recording of 17 Oct 13:26, 00:03 to 00:17, P1; rule 190).

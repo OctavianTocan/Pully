@@ -8,6 +8,7 @@ import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AnalyticsRules
 import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.data.ChatHistoryEntry
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.FileGroup
 import com.octaviantocan.pulls.data.OpenedReview
@@ -34,6 +35,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -135,6 +137,34 @@ class ReviewSession(
 
     /** A New chat or a restored chat on its way to the server: a question waits for it, so it lands in the new chat. */
     var chatChange: kotlinx.coroutines.Job? = null
+
+    /**
+     * The chats this pull request had before the open one, newest first (L36): null until the server answered. The Ask
+     * bars offer their earlier-chats button only when there is one ("if there's no earlier chats, you can just hide it",
+     * recording of 17 Oct 13:26, 01:26 to 01:43, P4).
+     */
+    var chatHistory by mutableStateOf<List<ChatHistoryEntry>?>(null)
+        private set
+    private var chatHistoryFor: String? = null
+    private var chatHistoryJob: Job? = null
+
+    /**
+     * Asks the server for [chatHistory] until it answers once per diff; [force] again, after a chat was put away or
+     * brought back. A newer request cancels the one before, so a late answer never puts back an older list, and a failed
+     * one keeps the list there was rather than reading as no chats.
+     */
+    fun loadChatHistory(force: Boolean = false) {
+        val key = key ?: return
+        if (!force && chatHistoryFor == key) return
+        if (chatHistoryFor != key) chatHistory = null
+        chatHistoryJob?.cancel()
+        chatHistoryJob = scope.launch {
+            val list = runCatching { repo.chatHistory(key) }.getOrNull() ?: return@launch
+            if (!isActive || this@ReviewSession.key != key) return@launch
+            chatHistory = list
+            chatHistoryFor = key
+        }
+    }
 
     /** Scroll requests for the diff body; the body consumes and keeps the last one. */
     var focus by mutableStateOf<Focus?>(null)
@@ -342,10 +372,14 @@ class ReviewSession(
 
     fun reloadSaved() { scope.launch { reloadSavedNow() } }
 
-    private suspend fun reloadSavedNow() {
-        val fetched = fetchSaved() ?: return
+    /** Fetches the saved AI work again and shows it; false when asking failed and the old work still shows. */
+    suspend fun reloadSavedNow(): Boolean {
+        val fetched = fetchSaved() ?: return false
         saved = fetched.state
         keepTour(fetched)
+        // A New chat or a chat brought back changes which chats are earlier ones.
+        if (chatHistoryFor != null) loadChatHistory(force = true)
+        return true
     }
 
     /** Saved AI work as the server sent it, and whether it is the pull request's own rather than a commit range's. */

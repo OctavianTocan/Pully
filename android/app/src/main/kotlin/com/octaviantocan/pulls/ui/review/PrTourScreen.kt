@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -45,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import com.octaviantocan.pulls.ui.design.rememberMotionEnabled
+import com.octaviantocan.pulls.ui.design.floatingBar
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
@@ -107,7 +107,7 @@ import com.octaviantocan.pulls.ui.UseCommands
  * as a sheet, one white card per stop, and an Ask bar at the bottom (rule 97). A swipe to the right goes back to the
  * Diff ([onChanges]), the page before it. [onReached] reports the furthest stop the reader has scrolled to, which the
  * Tours tab shows as progress. The Ask bar sends a question to [onAsk], which continues the conversation in the Ask
- * sheet; [onOpenAsk] opens that sheet on the conversation as it is, and [onAskHistory] on its earlier chats (N28).
+ * sheet; [onOpenAsk] opens that sheet on the conversation as it is, and [onAskHistory] the earlier chats alone (N28, P5).
  * [onAskDim] says when the bar is focused and empty, for the header the page does not draw to dim with it (N29).
  */
 @Composable
@@ -310,18 +310,21 @@ internal fun PrTourScreen(
             // The Ask bar is Home's search pill: the same face and size, and the page dims behind it while it waits (K12),
             // the review's header too (N29). There is nothing to ask about before the tour is written, so there is no
             // bar until then (M12). Empty, its button is the earlier chats, and a tap on it opens the conversation there
-            // is; a question sent continues that conversation in the Ask sheet (N28).
+            // is; a question sent continues that conversation in the Ask sheet (N28). The earlier chats open on their own
+            // sheet, without the conversation under them (P5).
             var askText by remember { mutableStateOf("") }
             var askFocused by remember { mutableStateOf(false) }
             LaunchedEffect(askFocused, askText.isEmpty(), tour != null) { onAskDim(tour != null && askFocused, askText.isEmpty()) }
             DisposableEffect(Unit) { onDispose { onAskDim(false, true) } }
             if (tour != null) SearchDim(askFocused, askText.isEmpty())
             if (writing) WritingLip(session, onProgress, Modifier.align(Alignment.BottomCenter))
+            LaunchedEffect(session.key) { session.loadChatHistory() }
             if (tour != null) AskBar(
                 askText, { askText = it }, "Ask about this tour", onSend = onAsk,
-                modifier = Modifier.align(Alignment.BottomCenter).stayOnPull().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).stayOnPull().floatingBar(),
                 onFocus = { askFocused = it },
-                onOpenHistory = if (session.key != null) onAskHistory else null,
+                // Only when there are earlier chats to open (P4).
+                onOpenHistory = if (session.key != null && !session.chatHistory.isNullOrEmpty()) onAskHistory else null,
                 onTapEmpty = if (session.saved?.chat.isNullOrEmpty()) null else onOpenAsk,
             )
         }
