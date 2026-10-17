@@ -759,7 +759,7 @@ private fun SheetPage(
                 content = content,
             )
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { footerHeight = it.height }) {
-                Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)
+                Column(Modifier.fillMaxWidth().padding(top = 10.dp).floatingBar(), content = footer)
             }
             if (aboveFooter != null) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = under + 4.dp), content = aboveFooter)
         }
@@ -773,7 +773,7 @@ private fun SheetPage(
                 .padding(start = 16.dp, end = 16.dp, bottom = if (footer == null) 30.dp else 8.dp).let { if (footer == null) it.navigationBarsPadding() else it },
             content = content,
         )
-        if (footer != null) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp).navigationBarsPadding(), content = footer)
+        if (footer != null) Column(Modifier.fillMaxWidth().padding(top = 10.dp).floatingBar(), content = footer)
     }
 }
 

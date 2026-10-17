@@ -21,7 +21,7 @@ object SettingsSync {
     /** The settings that travel, by their name in [AppSettings]. */
     val SYNCED = listOf(
         "theme", "colorTheme", "locale", "layout", "autoRefresh", "showThreads", "effort", "analyzeChoice",
-        "codeZoom", "codeWrap", "appFont", "codeFont", "sounds", "haptics", "soundMaterial", "hiddenRepos",
+        "codeZoom", "codeWrap", "appFont", "codeFont", "sounds", "haptics", "soundMaterial", "hiddenRepos", "inboxFilter",
     )
 
     private const val PREFS = "pully-settings-sync"

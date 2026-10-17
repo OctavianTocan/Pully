@@ -1707,7 +1707,7 @@ Source: walkthrough. Checked by: review.
 
 #### 162. One Ask bar.
 
-The Tour and the Overview ask through one bar. Empty, it shows the history button; once something is typed, Send. Sending carries on the last conversation and opens the sheet, and a tap on the empty bar opens the conversation there is. The dim behind the focused bar covers the header too (N24, N28, N29).
+The Tour and the Overview ask through one bar. Empty, it shows the history button when the pull request has earlier chats (rule 193); once something is typed, Send. Sending carries on the last conversation and opens the sheet, and a tap on the empty bar opens the conversation there is. The dim behind the focused bar covers the header too (N24, N28, N29).
 
 Check: on the Tour, focus the bar: the header dims, and typing turns the history button into Send.
 
@@ -1745,11 +1745,11 @@ Check: no list of bot logins exists in the app or the server.
 
 Source: walkthrough. Checked by: review.
 
-#### 167. The Overview's bottom row is Ask and one round button.
+#### 167. The Overview's bottom row is the Ask bar alone.
 
-The bottom row is the one Ask bar, "Ask about this pull request", and beside it a round primary button with no words: an arrow to the review, a tick to approve. ⋯ is only in the header (N32: "like the Tour").
+The bottom row is the one Ask bar, "Ask about this pull request", the Tour's own, with nothing beside it. ⋯ is only in the header (N32: "like the Tour"). The round arrow to the review that sat beside it read as a second, highlighted Ask button, so it went (P2, rule 191): the diff is the header's, and Approve is in ⋯ and Commands.
 
-Check: there is no text button and no ⋯ at the bottom of the Overview or its opening page.
+Check: there is no text button, no round button and no ⋯ at the bottom of the Overview or its opening page.
 
 Source: walkthrough. Checked by: review.
 
@@ -1935,6 +1935,50 @@ Check: swipe between files several times: no swipe pauses mid-way.
 
 Source: walkthrough. Checked by: review.
 
+### Rules 190 to 194, from the walkthrough of 0.46.0 on 2026-10-17
+
+The recording of 17 Oct at 13:26 (P1 to P6, in `/mnt/project-files/design/feedback-2026-10-17-0.46.0.md`), read from the transcript and a frame a second.
+
+#### 190. The Inbox opens on the chip last picked.
+
+Waiting on you, Authored or All: the one picked last is where the Inbox opens next time, and it travels with the account's other settings (P1: "whichever tab I clicked on last, when I open the app again, it uses that one").
+
+Check: pick Authored, close Pully from the recent apps and open it: the Inbox shows Authored.
+
+Source: walkthrough. Checked by: review.
+
+#### 191. The Overview's Ask bar is the Tour's.
+
+The Overview's bar at the foot behaves exactly as the Tour's: empty, its button opens the earlier chats; typed, it sends. No highlighted button beside it, and nothing at the foot goes to the diff (P2: "this is another ask button ... same functionality"; rule 167).
+
+Check: on the Overview, the bar's button is grey or the history button until something is typed, and no button at the foot opens the diff.
+
+Source: walkthrough. Checked by: review.
+
+#### 192. Every bar at the foot rests at one height.
+
+The Inbox's search, the Overview's and the Tour's Ask bars, the diff's file bar, a repository's search and a sheet's own field all rest 24dp over the navigation bar, 16dp in from the sides, through the one kit modifier (`floatingBar`). Opening a pull request never moves the bar down (P3: "it is on the homepage, but when I go to one of the PRs, it pushes it down").
+
+Check: put the Inbox, the Overview, the Tour, the Diff and the Ask sheet side by side: every bar's bottom edge is at the same height.
+
+Source: walkthrough. Checked by: review.
+
+#### 193. No earlier-chats button without earlier chats.
+
+The history button in an Ask bar and in the Ask sheet shows only when the pull request has chats before the open one; without them the empty bar shows the grey Send (rule 84) (P4: "you don't need to let me tap the button if there's no earlier chats").
+
+Check: on a pull request never asked about, the Tour's bar shows no history button.
+
+Source: walkthrough. Checked by: review.
+
+#### 194. Earlier chats open alone.
+
+The history button in an Ask bar opens the Chats sheet by itself, not the Ask sheet under it; picking a chat there opens Ask on that chat (P5: "it's just the earlier chats that need to open").
+
+Check: tap the history button on the Tour: only Chats is on screen; pick a chat: Ask opens on it.
+
+Source: walkthrough. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -1952,6 +1996,7 @@ These were liked in the walkthrough and must not regress:
 - Mark reviewed, then the next file.
 - The Tour's sections and the Glossary.
 - The commits, now a sheet opened from the Commits number (rules 91 and 139; K29).
+- The pull request tours ("starting to look really nice", P6).
 
 ## Checklist
 

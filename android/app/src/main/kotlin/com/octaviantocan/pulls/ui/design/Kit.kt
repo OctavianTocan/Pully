@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -686,6 +687,17 @@ fun matchesSearch(text: String, query: String): Boolean =
  * recording 16 Oct 09:50, 03:18 to 03:27; M7).
  */
 val SheetTopGap = 20.dp
+
+/** How high a bar at the foot of a page or a sheet rests over the navigation bar ([floatingBar]). */
+val BarLift = 24.dp
+
+/**
+ * Where a bar rests at the foot of a page or a sheet: 16dp in from the sides and [BarLift] over the navigation bar, on
+ * every page alike, so the Inbox's search, the Overview's and the Tour's Ask bars, the diff's file bar and a sheet's own
+ * field never sit at different heights ("the placement of the search and bottom bars and the buttons ... should be
+ * consistent throughout all of them", recording of 17 Oct 13:26, 00:49 to 01:26, P3). It rises with the keyboard.
+ */
+fun Modifier.floatingBar(): Modifier = imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = BarLift)
 
 /**
  * A heading over a card on a sheet, the one kind every sheet uses: the Settings sheet's small muted words and nothing

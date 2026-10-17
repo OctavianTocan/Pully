@@ -36,6 +36,13 @@ class AppSettings private constructor(private val context: Context) {
     var layout by mutableStateOf(prefs.getString("layout", null)?.lowercase() ?: "split")
         private set
 
+    /**
+     * The Inbox chip last picked, `waiting`, `authored` or `all`, so the app opens on it again ("whichever tab I clicked
+     * on last, when I open the app again, it uses that one", recording of 17 Oct 13:26, 00:03 to 00:17, P1).
+     */
+    var inboxFilter by mutableStateOf(prefs.getString("inboxFilter", null)?.takeIf { it in Triage.inboxFilters } ?: "waiting")
+        private set
+
     /** A pull request page takes new commits by itself, quietly; switched off, it says they are there and waits for a tap. */
     var autoRefresh by mutableStateOf(prefs.getBoolean("autoRefresh", true))
         private set
@@ -97,6 +104,10 @@ class AppSettings private constructor(private val context: Context) {
     fun updateColorTheme(value: String) { colorTheme = value; prefs.edit().putString("colorTheme", value).apply(); changed("colorTheme", value); touched("colorTheme") }
     fun updateLocale(value: String) { locale = value; prefs.edit().putString("locale", value).apply(); changed("locale", value); touched("locale") }
     fun updateLayout(value: String) { layout = value; prefs.edit().putLayout(value).apply(); changed("layout", value); touched("layout") }
+    fun updateInboxFilter(value: String) {
+        if (value == inboxFilter || value !in Triage.inboxFilters) return
+        inboxFilter = value; prefs.edit().putString("inboxFilter", value).apply(); touched("inboxFilter")
+    }
     fun updateAutoRefresh(value: Boolean) { autoRefresh = value; prefs.edit().putBoolean("autoRefresh", value).apply(); changed("autoRefresh", value); touched("autoRefresh") }
     fun updateShowThreads(value: Boolean) { showThreads = value; prefs.edit().putBoolean("showThreads", value).apply(); changed("showThreads", value); touched("showThreads") }
     fun updateAnalyzeChoice(value: AnalyzeChoice) { analyzeChoice = value; prefs.edit().putString("analyzeChoice", value.encode()).apply(); touched("analyzeChoice") }
@@ -164,6 +175,7 @@ class AppSettings private constructor(private val context: Context) {
         "haptics" -> JsonPrimitive(haptics)
         "soundMaterial" -> JsonPrimitive(soundMaterial)
         "hiddenRepos" -> JsonArray(hiddenRepos.sorted().map(::JsonPrimitive))
+        "inboxFilter" -> JsonPrimitive(inboxFilter)
         else -> null
     }
 
@@ -192,6 +204,7 @@ class AppSettings private constructor(private val context: Context) {
             "sounds" -> { sounds = flag ?: return false; edit.putBoolean(name, sounds) }
             "haptics" -> { haptics = flag ?: return false; edit.putBoolean(name, haptics) }
             "soundMaterial" -> { soundMaterial = text ?: return false; edit.putString(name, soundMaterial) }
+            "inboxFilter" -> { inboxFilter = text?.takeIf { it in Triage.inboxFilters } ?: return false; edit.putString(name, inboxFilter) }
             "hiddenRepos" -> {
                 hiddenRepos = (value as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content }?.toSet() ?: return false
                 edit.putStringSet(name, hiddenRepos)

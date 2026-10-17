@@ -16,6 +16,20 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.47.0
+
+Pully remembers your Inbox tab, and every Ask bar works the same.
+
+### Changed
+
+- The Inbox opens on the tab you picked last, Waiting on you, Authored or All, and the choice follows you to your other phones.
+![The Inbox opened again on Authored, the tab picked before it closed](changelog/0.47.0/inbox-chip.png)
+- A pull request's Ask bar works like the tour's: its button opens your earlier chats, and once you type it sends. The highlighted arrow beside it is gone; the changes are in the header and Approve is in ⋯.
+![A pull request's page with the Ask bar alone at its foot, its button for earlier chats](changelog/0.47.0/ask-bar.png)
+- The search and Ask bars sit at the same height on every page, so nothing jumps when you open a pull request.
+![The Inbox's search, a pull request's Ask bar and a tour's Ask bar side by side, their bottom edges on one line](changelog/0.47.0/bars-line-up.png)
+- The earlier-chats button only shows when there are earlier chats, and it opens just the list. Pick one and the chat opens.
+
 ## 0.46.0
 
 A new server underneath, and AI findings post exactly as you picked.

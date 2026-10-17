@@ -38,12 +38,11 @@ data class AskReference(val label: String, val text: String)
  * chat and [initial] is a question to send as it opens. [reference] is attached to the next question, shown over the
  * field until it is sent or removed; nothing is sent until the person writes the question. [scroll] is where the
  * conversation is scrolled, kept by the opener; [returning] opens it again where it was rather than at its end, as Back
- * from a place an answer opened does. [history] opens it with its earlier chats on a sheet over it, as the Tour's Ask
- * bar's history button does.
+ * from a place an answer opened does.
  */
 @Composable
-fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference? = null, scroll: ScrollState? = null, returning: Boolean = false, history: Boolean = false, onOpen: (CodePlace) -> Unit = {}, onDismiss: () -> Unit) =
-    AskSheetImpl(session, title, suggestions, initial, reference, scroll, returning, history, onOpen, onDismiss)
+fun AskSheet(session: ReviewSession, title: String, suggestions: List<String>, initial: String?, reference: AskReference? = null, scroll: ScrollState? = null, returning: Boolean = false, onOpen: (CodePlace) -> Unit = {}, onDismiss: () -> Unit) =
+    AskSheetImpl(session, title, suggestions, initial, reference, scroll, returning, onOpen, onDismiss)
 
 /** `AskThread`: a saved question thread about some lines, shown under its last line as a chat is, with no card around it. */
 @Composable

@@ -9,7 +9,8 @@ and session MUST NOT go over plain HTTP except to this phone or the emulator's h
 
 @cc [owner:OctavianTocan,label:product] data-settings-sync
 While signed in, the phone's choices of look, language, layout, fonts, code size, sounds,
-vibration, AI effort and Analyze, and which repositories the Inbox hides, are kept on the
+vibration, AI effort and Analyze, which repositories the Inbox hides and the Inbox chip
+last picked (P1), are kept on the
 account, each with when it changed, and the newer change of each wins; a change made while
 a sync is out is never undone by it, and choices made before the first sync count as the
 oldest, so they reach an account without them but never override another phone's. The server and its

@@ -53,6 +53,7 @@ import com.octaviantocan.pulls.ui.ai.AnalyzePage
 import com.octaviantocan.pulls.ui.ai.AnalyzeSheet
 import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.ai.AskSheet
+import com.octaviantocan.pulls.ui.ai.ChatHistorySheet
 import com.octaviantocan.pulls.ui.ai.ReviewSheet
 import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.ai.followQueuedTour
@@ -78,8 +79,7 @@ import com.octaviantocan.pulls.ui.design.PageMotion
 
 /**
  * What the Ask sheet opens with: its title, the starter chips, a question to send at once, and what the next question is
- * about. [scroll] is where its conversation is, and [returning] that Back brought it back there. [history] opens its
- * earlier chats over it, as the Tour's Ask bar's history button asks (N28).
+ * about. [scroll] is where its conversation is, and [returning] that Back brought it back there.
  */
 private data class AskRequest(
     val title: String,
@@ -88,7 +88,6 @@ private data class AskRequest(
     val reference: AskReference? = null,
     val scroll: ScrollState = ScrollState(0),
     val returning: Boolean = false,
-    val history: Boolean = false,
 )
 
 /** An Ask sheet a mention was opened from; [over] when that place opened on the page under the sheet, the diff. */
@@ -133,6 +132,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     // The Tour's Ask bar is focused and empty: the header dims with the page (N29).
     var tourAskDim by remember { mutableStateOf(false to true) }
     var ask by remember { mutableStateOf<AskRequest?>(null) }
+    // An Ask bar's earlier-chats button: the Chats sheet alone, for the Tour (true) or the Overview (false); a chat picked
+    // there opens Ask on it (P5).
+    var chats by remember { mutableStateOf<Boolean?>(null) }
     // The Ask sheet a mention in an answer was opened from, and where it was scrolled: Back from the place opens it again
     // there, as Back from a place the tour opened finds the tour (J35).
     var askBehind by remember { mutableStateOf<AskBehind?>(null) }
@@ -211,14 +213,13 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     }
     // The sheet that shows the tour being written closes once the tour is there (M12).
     LaunchedEffect(session.tour != null) { if (session.tour != null && sheet == "tour") sheet = null }
-    fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null, history: Boolean = false) {
+    fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
         askBehind = null
         ask = AskRequest(
             if (forTour) "Ask about this tour" else "Ask about ${head?.label ?: "this pull request"}",
             if (forTour) TOUR_SUGGESTIONS else PR_SUGGESTIONS,
             initial,
             reference,
-            history = history,
         )
     }
 
@@ -314,7 +315,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
-            waiting -> PrOpening(target, preview, onBack = nav.back, onReview = { openDiff(null) }, onAsk = { question -> openAsk(false, initial = question) })
+            waiting -> PrOpening(target, preview, onBack = nav.back, onAsk = { question -> openAsk(false, initial = question) })
             else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
@@ -345,6 +346,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
                                 onDiff = { path -> if (path == null) toChanges() else openDiff(path) },
                                 onAsk = { question -> openAsk(forTour = false, initial = question) },
+                                onOpenAsk = { openAsk(forTour = false) },
+                                onAskHistory = { chats = false },
                                 onSheet = { name ->
                                     if (name == "stack") session.stack?.let { Analytics.track("stack.open", "size" to it.entries.size) }
                                     sheet = name
@@ -367,7 +370,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                                     onOpenSource = { source -> openSource(session, source, inSheet = true) },
                                     onAsk = { question -> openAsk(forTour = true, initial = question) },
                                     onOpenAsk = { openAsk(forTour = true) },
-                                    onAskHistory = { openAsk(forTour = true, history = true) },
+                                    onAskHistory = { chats = true },
                                     onAskDim = { focused, empty -> tourAskDim = focused to empty },
                                     onProgress = { sheet = "tour" },
                                 )
@@ -428,15 +431,16 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                         }
                     }
                 }
+                chats?.let { forTour -> ChatHistorySheet(session, onClose = { chats = null }) { openAsk(forTour) } }
                 ask?.let { request ->
                     // A mention in an answer closes the sheet and opens its place, as a tour source does (rule 96), and Back
                     // brings the sheet back where it was. A file the change does not touch opens in the app's own viewer on
                     // a sheet over the Ask sheet, which stays (J35, N20).
-                    AskSheet(session, request.title, request.suggestions, request.initial, request.reference, request.scroll, request.returning, request.history, onOpen = { place ->
+                    AskSheet(session, request.title, request.suggestions, request.initial, request.reference, request.scroll, request.returning, onOpen = { place ->
                         if (session.opened == null || session.files.any { it.path == place.path }) {
                             ask = null
                             // Its question and what it was about are already sent: coming back must not send them again.
-                            askBehind = AskBehind(request.copy(initial = null, reference = null, returning = true, history = false), over = pages.last() == PrView.Diff)
+                            askBehind = AskBehind(request.copy(initial = null, reference = null, returning = true), over = pages.last() == PrView.Diff)
                         }
                         openSource(session, TourSource(place.path, place.line, ""))
                     }) { ask = null }

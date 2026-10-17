@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
 import com.octaviantocan.pulls.ui.design.bleed
+import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.home.stayOnPull
 import com.octaviantocan.pulls.sound.Haptics
@@ -25,9 +26,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -769,7 +768,7 @@ private fun DiffBar(
     }
 
     Row(
-        modifier.fillMaxWidth().imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+        modifier.fillMaxWidth().floatingBar().padding(top = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedContent(
