@@ -74,7 +74,7 @@ class UpdateConnectionTest {
             val connection = openUpdateConnection("http://127.0.0.1:${server.address.port}", "/nested/start", headers)
             try {
                 assertEquals("synthetic apk", connection.inputStream.bufferedReader().use { it.readText() })
-                assertEquals(listOf("synthetic-secret", "synthetic-secret"), seen)
+                assertEquals(listOf<String?>("synthetic-secret", "synthetic-secret"), seen)
             } finally {
                 connection.disconnect()
             }
