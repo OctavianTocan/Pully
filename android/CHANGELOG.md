@@ -25,7 +25,7 @@ One bar at the foot of every page; descriptions read as you type.
 - The search and Ask bars are one bar now. Opening a pull request keeps it where it is: only its words change, and the sort button fades away beside it.
 ![Opening a pull request from the Inbox: the bar stays put, shrinks to Ask, then opens with a tap](changelog/0.48.0/one-bar.gif)
 - On a pull request and a tour, the Ask bar rests short and just says Ask. Tap it and it opens with the keyboard; leave it empty and it goes short again. A tap on the bar never opens what is under it.
-- Inbox rows are two lines at most: a long title ends in an ellipsis, and the icon beside it is bigger, nearly as tall as the row.
+- Pull request rows are two lines at most: a long title ends in an ellipsis, and the icon beside it is bigger, nearly as tall as the row. A repository's list no longer shows labels under the title.
 ![Inbox rows with long titles cut on one line and bigger icons](changelog/0.48.0/rows-one-line.png)
 - Editing a description shows it formatted as you type, headings, bold, code and bullets, with the Markdown marks tucked away except on the line you are on. It opens where you tapped, not at the end.
 ![The description editor with formatted headings, bullets and code](changelog/0.48.0/description-rendered.png)
