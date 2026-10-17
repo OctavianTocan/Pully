@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +42,7 @@ import com.octaviantocan.pulls.ui.home.compactCount
  * have the page's own shapes and places, so when the page replaces it nothing moves; only words fill in (K22).
  */
 @Composable
-internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit, onAsk: (question: String) -> Unit) {
+internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit, onAsk: (question: String) -> Unit, askDraft: MutableState<String> = remember { mutableStateOf("") }) {
     val c = LocalPullsColors.current
     val pull = target as? OpenTarget.Pull
     val known = pull?.let { PullSizes.get(it.owner, it.repo, it.number) }
@@ -74,7 +75,7 @@ internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> 
             }
         }
         // The page's own bottom row, the Ask field included, so a question can be asked before the rest arrives (N32).
-        var askText by remember { mutableStateOf("") }
-        ReviewBar(askText, { askText = it }, onAsk, Modifier.align(Alignment.BottomCenter))
+        // The draft is the review's, so a question begun here is still in the bar when the Overview takes over.
+        ReviewBar(askDraft.value, { askDraft.value = it }, onAsk, Modifier.align(Alignment.BottomCenter))
     }
 }

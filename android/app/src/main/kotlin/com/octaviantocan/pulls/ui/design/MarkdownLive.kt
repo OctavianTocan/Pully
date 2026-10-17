@@ -37,9 +37,10 @@ fun markdownLive(text: String, cursor: Int, c: PullsColors): AnnotatedString {
             val indent = line.length - trimmed.length
             when {
                 trimmed.startsWith("```") -> {
+                    // A fence is all marks: it folds away like the others, and shows quietly on the cursor's line.
                     fenced = !fenced
                     addStyle(code, start, end)
-                    addStyle(quiet, start, end)
+                    addStyle(mark, start, end)
                 }
                 fenced -> addStyle(code, start, end)
                 else -> {

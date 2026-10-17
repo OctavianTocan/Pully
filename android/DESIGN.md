@@ -1994,7 +1994,7 @@ The recording of 17 Oct at 14:45 (Q1 to Q7, in `/mnt/project-files/design/feedba
 
 #### 195. A row is two lines, its tile nearly as tall.
 
-An Inbox, Tours or repository row is the title on one line, cut with an ellipsis, over the meta line. Never three lines. The state tile is nearly as tall as the two lines, with a little air above and below, and its mark grows with it (Q1: "rows should never have three lines ... the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and at the bottom"; Claude's own PR list).
+An Inbox, Tours or repository row is the title on one line, cut with an ellipsis, over the meta line. Never three lines of words; a repository row's label chips, when it has some, are the one line that may sit between them. The state tile is nearly as tall as the two lines, with a little air above and below, and its mark grows with it (Q1: "rows should never have three lines ... the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and at the bottom"; Claude's own PR list).
 
 Check: a row whose title is longer than the screen is two lines, the title ending in an ellipsis, and the tile's top and bottom sit just inside the two lines.
 

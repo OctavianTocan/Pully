@@ -33,7 +33,8 @@ number and carries the author, checks, coloured diffstat and age, in fixed colum
 do not move when a digit or a name's length changes (rules 13, 15 and 36). A draft is told
 apart by its tile's colour and no title says "[draft]". A context-free count ("7
 sections") never replaces them. Tavi decided this in the recording of 16 Oct 12:10, 01:23
-to 03:05 (N4), replacing the number-first row. A row MUST NOT run to three lines: "these
+to 03:05 (N4), replacing the number-first row. A row's words MUST NOT run to three lines (a
+repository row's label chips, when it has some, sit on their own line under the title): "these
 things should never have three lines ... the icon gets squishy", with Claude's PR list as
 the reference for the tile's size (recording of 17 Oct 14:45, 00:03 to 00:59; Q1).
 

@@ -42,4 +42,12 @@ class MarkdownLiveTest {
         val comment = text.indexOf("note")
         assertTrue(live.spanStyles.any { comment >= it.start && comment < it.end && it.item.color == DarkPullsColors.muted })
     }
+
+    @Test
+    fun fencesFoldOffTheCursorsLine() {
+        val code = "Intro\n```kotlin\nval n = 1\n```"
+        val live = markdownLive(code, 0, DarkPullsColors)
+        val fence = code.indexOf("```")
+        assertTrue(live.spanStyles.any { fence >= it.start && fence < it.end && it.item.color == Color.Transparent })
+    }
 }

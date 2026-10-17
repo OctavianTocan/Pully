@@ -135,6 +135,8 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     // An Ask bar's earlier-chats button: the Chats sheet alone, for the Tour (true) or the Overview (false); a chat picked
     // there opens Ask on it (P5).
     var chats by remember { mutableStateOf<Boolean?>(null) }
+    // The pull request's Ask draft, one for the opening page and the Overview, which share one bar (Q2).
+    val askDraft = remember { mutableStateOf("") }
     // The Ask sheet a mention in an answer was opened from, and where it was scrolled: Back from the place opens it again
     // there, as Back from a place the tour opened finds the tour (J35).
     var askBehind by remember { mutableStateOf<AskBehind?>(null) }
@@ -315,7 +317,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                 }
             }
             // No loading screen: the page's shape with what the phone knows, and bars for the rest.
-            waiting -> PrOpening(target, preview, onBack = nav.back, onAsk = { question -> openAsk(false, initial = question) })
+            waiting -> PrOpening(target, preview, onBack = nav.back, onAsk = { question -> openAsk(false, initial = question) }, askDraft = askDraft)
             else -> {
                 val view = pages.last()
                 Column(Modifier.fillMaxSize()) {
@@ -353,6 +355,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                                 },
                                 onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, "")) },
                                 onOpenRepo = nav.openRepo,
+                                askDraft = askDraft,
                             )
                             PrView.Diff -> PrDiffScreen(
                                 session, ui, diffPath, commitLabel(session.selection, data?.overview), { diffPath = it },

@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.ui.layout.layout
 import com.octaviantocan.pulls.ui.home.SearchDim
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.octaviantocan.pulls.data.JEV_FILE_WORDS
 import com.octaviantocan.pulls.data.JEV_RISK_WORDS
@@ -147,6 +148,7 @@ internal fun PrOverviewScreen(
     onSheet: (String) -> Unit,
     onCite: (Cite) -> Unit,
     onOpenRepo: (owner: String, repo: String) -> Unit,
+    askDraft: MutableState<String> = remember { mutableStateOf("") },
 ) {
     val c = LocalPullsColors.current
     val focusManager = LocalFocusManager.current
@@ -290,7 +292,7 @@ internal fun PrOverviewScreen(
             }
         }
         // The Ask field is Home's search pill, and the page dims behind it while it waits for its first letter (rule 132).
-        var askText by remember { mutableStateOf("") }
+        var askText by askDraft
         var askFocused by remember { mutableStateOf(false) }
         SearchDim(askFocused, askText.isEmpty())
         LaunchedEffect(session.key) { session.loadChatHistory() }
