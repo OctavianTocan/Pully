@@ -1,8 +1,8 @@
 use super::*;
 
-const STACK_FIELDS:&str="number title state isDraft merged headRefName baseRefName isCrossRepository additions deletions commits(last:1){nodes{commit{statusCheckRollup{state}}}}";
+const STACK_FIELDS:&str="number title state isDraft merged author{login} headRefName baseRefName isCrossRepository additions deletions commits(last:1){nodes{commit{statusCheckRollup{state}}}}";
 fn stack_entry(raw: &Value, position: u64, current: bool) -> Value {
-    let mut out = json!({"number":raw["number"],"title":raw["title"],"state":pr_state(raw),"position":position,"current":current,"headRef":raw["headRefName"],"baseRef":raw["baseRefName"],"additions":raw["additions"],"deletions":raw["deletions"]});
+    let mut out = json!({"number":raw["number"],"title":raw["title"],"state":pr_state(raw),"position":position,"current":current,"author":raw["author"]["login"],"headRef":raw["headRefName"],"baseRef":raw["baseRefName"],"additions":raw["additions"],"deletions":raw["deletions"]});
     if raw["commits"]["nodes"].is_array() {
         let checks = rollup(&raw["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"]);
         out["checks"] = if checks.is_null() {

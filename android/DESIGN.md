@@ -2064,6 +2064,18 @@ Check: in the Inbox, three open layers of one stack are one row whose meta line 
 
 Source: answers. Checked by: review.
 
+### Rule 203, from Tavi's message of 2026-10-17
+
+Tavi's message of 17 Oct at 20:13, on the Stack sheet a stack row opens: "in there I cannot see the user's name, so the layout looks a bit odd. It's like its missing the PR number (not the in-stack one; that one is there), and the username".
+
+#### 203. A Stack sheet layer reads like an Inbox row.
+
+Each layer in the Stack sheet has its place in the stack in the leading column by the line ("2/3", counted from the bottom like the rows' stack mark), then its title over the Inbox rows' meta line: its number, its author, Merged or Closed when it is, its checks and its + and −. The sheet reads the same from a stack row and from a pull request's page.
+
+Check: tap a stack row in the Inbox: every layer shows its place on the left and "#number author" under its title, the checks and + and − on the right.
+
+Source: answers. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:

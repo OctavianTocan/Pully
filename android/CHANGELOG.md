@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.50.0
+
+A stack's list now shows each pull request's number and author.
+
+### Changed
+
+- The list a stack opens shows each pull request the way the Inbox does: its number and who opened it under the title, with its place in the stack, such as 2/3, on the left.
+![The stack's list with each pull request's number and author](changelog/0.50.0/stack-sheet.png)
+
 ## 0.49.0
 
 Long titles get a second line, and a stack is one row in the Inbox.

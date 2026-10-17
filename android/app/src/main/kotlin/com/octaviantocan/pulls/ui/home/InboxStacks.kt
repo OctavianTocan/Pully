@@ -63,6 +63,8 @@ internal fun inboxStack(layers: List<PullRow>): PrStack {
         number = null,
         // The base branch closes the list only when the stack's real bottom is here.
         base = if (bottom.stack?.position == 1) bottom.baseRef else "",
+        // The section may hold only some layers; the rows know the whole stack's size for the "2/5" on each.
+        size = layers.maxOf { it.stack?.size ?: 0 },
         entries = layers.map { pull ->
             StackEntry(
                 number = pull.number,
@@ -80,6 +82,7 @@ internal fun inboxStack(layers: List<PullRow>): PrStack {
                 checks = pull.checks,
                 additions = pull.additions,
                 deletions = pull.deletions,
+                author = pull.author,
             )
         },
     )

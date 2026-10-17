@@ -31,6 +31,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.PrStack
@@ -43,6 +44,7 @@ import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.home.RowNumber
 import com.octaviantocan.pulls.ui.home.StatusColors
 import com.octaviantocan.pulls.ui.home.compactCount
 
@@ -90,9 +92,11 @@ private val ROW_PAD = 13.dp
 private val BASE_GLYPH = 20.dp
 
 /**
- * `Stack`: every layer top first, then the base branch, like GitHub's stack map. A layer row is a Home pull row
- * (number in its column, the whole title wrapping), with its state, checks and size under the title; one thin line
- * joins the rows' marks so the list reads as one stack. This pull request is marked in the accent and opens nothing;
+ * `Stack`: every layer top first, then the base branch, like GitHub's stack map. A layer row has its place in the
+ * stack in the leading column ("2/3"), then the whole title wrapping over the Home rows' meta line: number, author,
+ * state, checks and size ("I cannot see the user's name ... It's like its missing the PR number (not the in-stack one;
+ * that one is there), and the username": Tavi, 17 Oct 20:13; rule 203). One thin line joins the rows' marks so the
+ * list reads as one stack. This pull request is marked in the accent and opens nothing;
  * any other row opens that pull request with [onOpen].
  */
 @Composable
@@ -108,8 +112,9 @@ internal fun StackLayers(stack: PrStack, onOpen: (number: Int) -> Unit) {
     Column {
         val trunk = stack.base.isNotBlank()
         val layers = stack.entries.asReversed()
+        val top = maxOf(stack.size, stack.entries.maxOf { it.position })
         layers.forEachIndexed { index, entry ->
-            LayerRow(entry, first = index == 0, last = !trunk && index == layers.lastIndex, onOpen = if (entry.current) null else { { onOpen(entry.number) } })
+            LayerRow(entry, top, first = index == 0, last = !trunk && index == layers.lastIndex, onOpen = if (entry.current) null else { { onOpen(entry.number) } })
         }
         if (trunk) BaseRow(stack.base)
     }
@@ -132,7 +137,7 @@ private fun DrawScope.hairline(color: Color) {
 }
 
 @Composable
-private fun LayerRow(entry: StackEntry, first: Boolean, last: Boolean, onOpen: (() -> Unit)?) {
+private fun LayerRow(entry: StackEntry, top: Int, first: Boolean, last: Boolean, onOpen: (() -> Unit)?) {
     val c = LocalPullsColors.current
     val title = buildAnnotatedString {
         // A draft is marked as on the Home rows: muted, at the title's own size (rule 14).
@@ -156,7 +161,11 @@ private fun LayerRow(entry: StackEntry, first: Boolean, last: Boolean, onOpen: (
             .padding(start = RAIL + 8.dp, end = 4.dp, top = ROW_PAD, bottom = ROW_PAD),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text("#${entry.number}", Modifier.width(52.dp), style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = if (entry.current) c.activeText else c.text, maxLines = 1)
+        // Its place in the stack, counted from the bottom as the rows' "2/10" mark is (H16).
+        Text(
+            if (entry.position in 1..top) "${entry.position}/$top" else "", Modifier.width(44.dp),
+            style = PullsType.num.copy(fontFeatureSettings = "tnum"), color = if (entry.current) c.activeText else c.text, maxLines = 1,
+        )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(title, style = PullsType.row, color = c.text)
             LayerFacts(entry)
@@ -164,7 +173,10 @@ private fun LayerRow(entry: StackEntry, first: Boolean, last: Boolean, onOpen: (
     }
 }
 
-/** State, checks and size under the title, in fixed columns so they line up from row to row (rule 13). */
+/**
+ * The Home rows' meta line under the title: number and author, then state, checks and size in fixed columns so they
+ * line up from row to row (rule 13).
+ */
 @Composable
 private fun LayerFacts(entry: StackEntry) {
     val c = LocalPullsColors.current
@@ -174,9 +186,14 @@ private fun LayerFacts(entry: StackEntry) {
         else -> null
     }
     val checks = entry.checks.takeIf { it == "success" || it == "failure" || it == "pending" }
-    if (state == null && checks == null && entry.additions == null) return
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.weight(1f)) { state?.let { (word, color) -> Text(word, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = color) } }
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            RowNumber(entry.number)
+            if (entry.author.isNotBlank()) {
+                Text(entry.author, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+            }
+            state?.let { (word, color) -> Text(word, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = color, maxLines = 1, softWrap = false) }
+        }
         Box(Modifier.width(34.dp), contentAlignment = Alignment.CenterStart) {
             when (checks) {
                 "failure" -> LuIcon(Lu.xc, tint = c.error, size = 18.dp, contentDescription = t("pulls.checks.failure"))

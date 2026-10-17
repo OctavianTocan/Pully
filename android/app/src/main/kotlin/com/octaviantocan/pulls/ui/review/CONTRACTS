@@ -421,6 +421,13 @@ A pull request in a stack says so under its title ("Stacked on #241"), and a tap
 the Stack sheet with every layer top first down to the base branch, where a tap on
 another layer opens it (DESIGN.md checklist 51).
 
+@cc [owner:OctavianTocan,label:product;design] pr-stack-layer-reads-like-a-row
+Every layer in the Stack sheet MUST show its place in the stack in the leading column
+("2/3") and, under its title, the Inbox rows' meta line: its number and its author, then
+Merged or Closed, checks and + and − ("I cannot see the user's name ... It's like its
+missing the PR number (not the in-stack one; that one is there), and the username": Tavi,
+17 Oct 20:13; rule 203). The server's stack carries each layer's author for it.
+
 @cc [owner:OctavianTocan,label:design] pr-edges-dissolve
 On the pull request page the rows dissolve under the pinned tabs and into the page under
 the Ask bar with the kit's edge fade: no hard line under the tabs and no block of
