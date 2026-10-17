@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.49.0
+
+A long pull request title now gets a second line before it's cut.
+
+### Changed
+
+- In the Inbox, Tours and a repository's list, a long title wraps onto a second line and ends in an ellipsis only after that. A short title stays on one line, and the icon beside it stays the same size.
+![Inbox rows where long titles take two lines and short ones one](changelog/0.49.0/rows-two-lines.png)
+
 ## 0.48.0
 
 One bar at the foot of every page; descriptions read as you type.

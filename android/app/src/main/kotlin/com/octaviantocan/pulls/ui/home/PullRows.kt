@@ -49,21 +49,25 @@ import com.octaviantocan.pulls.ui.design.t
 
 /*
  * The one pull request row of the Inbox, Tours and a repository's page, after Claude's own list of pull requests
- * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a tinted square with the pull request's state on the left, nearly
- * as tall as the row, the title beside it on one line, and one line under the title that starts with the number and
- * then carries the author, the checks, the coloured diffstat and the age, each in a column of its own that does not
- * move when a digit or a name's length changes (rules 13, 15 and 36; N35). Two lines, never three (Q1).
+ * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a tinted square with the pull request's state on the left, the
+ * title beside it on at most two lines, and one line under the title that starts with the number and then carries the
+ * author, the checks, the coloured diffstat and the age, each in a column of its own that does not move when a digit or
+ * a name's length changes (rules 13, 15 and 36; N35). The title never runs to a third line (Q1; Tavi, 17 Oct 17:14).
  */
 
 /**
  * The state tile's side: as tall as the row's two lines but for a little air above and below, as Claude's own list
  * draws it ("the icon is actually the entire size pretty much of the row ... leave a little bit of margin up top and
- * at the bottom": recording 17 Oct 14:45, 00:35 to 00:56; Q1).
+ * at the bottom": recording 17 Oct 14:45, 00:35 to 00:56; Q1). That is a one-line title over the meta line; a title
+ * on two lines leaves the tile this size, centred.
  */
 private val TILE = 42.dp
 
 /** The mark on the tile, grown with it. */
 internal val TILE_MARK = 24.dp
+
+/** The most lines a row's title takes before it ends in an ellipsis (rule 201). */
+internal const val TITLE_LINES = 2
 
 /**
  * The number's column: "#999" fits; a longer one pushes only its own author along rather than being cut, while the
@@ -126,10 +130,12 @@ internal fun RowTile(fill: Color, modifier: Modifier = Modifier, content: @Compo
 }
 
 /**
- * The frame every pull request row shares: [tile], then the [title] on one line, cut with an ellipsis where it runs
- * long ("these things should never have three lines ... you can use ellipses", recording 17 Oct 14:45, 00:07 to 00:25;
- * Q1, rule 2), [under] for what a page adds (a repository's labels), and the one [meta] line. A hairline over the row starts and ends on the
- * page's 16dp margins, so the first row's is the heading's underline (rule 75).
+ * The frame every pull request row shares: [tile], then the [title] on at most two lines, cut with an ellipsis where it
+ * runs longer ("these things should never have three lines ... you can use ellipses", recording 17 Oct 14:45, 00:07 to
+ * 00:25; Q1, rule 2; "I meant the title should also be in two rows", Tavi 17 Oct 17:14, rule 201), [under] for what a
+ * page adds (a repository's labels), and the one [meta] line. The tile stays centred on the row whether the title takes
+ * one line or two. A hairline over the row starts and ends on the page's 16dp margins, so the first row's is the
+ * heading's underline (rule 75).
  */
 @Composable
 internal fun PullRowFrame(
@@ -152,7 +158,7 @@ internal fun PullRowFrame(
     ) {
         tile()
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = PullsType.base, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, style = PullsType.base, color = c.text, maxLines = TITLE_LINES, overflow = TextOverflow.Ellipsis)
             under?.invoke()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = meta)
         }
