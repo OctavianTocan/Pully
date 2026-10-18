@@ -224,6 +224,10 @@ server's GitHub CLI login is separate from the Docker agent sign-in volume.
 | `PULLS_REVIEW_PI_MODEL`      | Optional default model; otherwise selected from `/models`                            |
 | `PULLS_REVIEW_SUGGEST_MODEL` | Optional Pi model for short chat/inbox follow-up suggestions                         |
 
+A run uses the model the phone asked for when `/models` lists it, else
+`PULLS_REVIEW_PI_MODEL` when listed, else the catalog's default, and notes the swap in
+the task's activity. A saved model the endpoint stopped listing never fails a run.
+
 The base receives `/models` and `/chat/completions` requests and must support the
 OpenAI-compatible tool-calling protocol, including `submit_answer` for structured
 tasks. Rust requests streamed responses and records text, thinking, tools, and
