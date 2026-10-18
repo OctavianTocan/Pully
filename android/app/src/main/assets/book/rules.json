@@ -7,7 +7,7 @@
       "bans",
       "review"
     ],
-    "text": "An element earns pixels by telling the reader something. Initial avatars, doc thumbnails, row glyphs, FAB, Share: cut. A real author photo is information; an initial is not."
+    "text": "An element earns pixels by telling the reader something. Initial avatars, doc thumbnails, row glyphs, FAB, Share: cut. A real author photo is information; an initial is not. The reader-enabled browser helper is a narrow exception outside Pully: its floating button names the GitHub repository read from the browser address bar and opens that repository (Tavi, 18 Oct 2026)."
   },
   {
     "n": 2,
@@ -101,7 +101,7 @@
       "bans",
       "review"
     ],
-    "text": "Voice/dictation. Suggestion mode. Share on PR/tour. “Up next” inside a tour. FAB with unclear scope. “Later” as a row action. Numbered step pips. Tiny provenance labels. Step counters in progress states."
+    "text": "Voice/dictation. Suggestion mode. Share on PR/tour. “Up next” inside a tour. FAB with unclear scope. The opt-in cross-app browser helper is allowed only while a browser exposes a verified GitHub repository URL; an unknown URL hides its repository-specific button (Tavi, 18 Oct 2026). “Later” as a row action. Numbered step pips. Tiny provenance labels. Step counters in progress states."
   },
   {
     "n": 12,

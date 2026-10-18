@@ -617,6 +617,24 @@
     }
   },
   "settings": {
+    "browserHelper": {
+      "group": "Browser",
+      "title": "Browser helper",
+      "off": "Off",
+      "on": "On",
+      "needsPermission": "Needs setup",
+      "disclosureTitle": "Accessibility",
+      "disclosureAccess": "Pully’s browser helper can read your browser’s address bar and screen content through Android accessibility.",
+      "disclosureUse": "The helper reads only known browser address bars. It uses the URL to show an Open in Pully button for GitHub repositories.",
+      "disclosurePrivacy": "The helper does not save or send the URL. When you tap the button, Pully opens the repository using its usual server connection.",
+      "disclosureLimits": "If the current URL is unknown, the button stays hidden. Browser support varies. Continue to allow the helper, then enable Pully browser helper in Android settings.",
+      "continue": "Continue to Android settings",
+      "androidSettings": "Android accessibility settings",
+      "permission": "Accessibility service",
+      "disable": "Disable helper",
+      "settingsUnavailable": "Android accessibility settings could not be opened.",
+      "openRepository": "Open {repo} in Pully"
+    },
     "layout": "Diff layout",
     "unified": "Unified",
     "split": "Split",

@@ -78,6 +78,19 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <!-- Reader-enabled, URL-only browser helper. No overlay or history permission is requested. -->
+        <service
+            android:name=".browser.BrowserRepoService"
+            android:exported="true"
+            android:label="@string/browser_helper_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/browser_helper_service" />
+        </service>
         <receiver
             android:name=".update.UpdateInstallReceiver"
             android:exported="false" />

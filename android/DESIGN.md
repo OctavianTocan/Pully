@@ -443,7 +443,7 @@ Each rule ends with where it is checked. `review` means a person looks, against 
 
 #### 1. Information first, decoration never.
 
-An element earns pixels by telling the reader something. Initial avatars, doc thumbnails, row glyphs, FAB, Share: cut. A real author photo is information; an initial is not.
+An element earns pixels by telling the reader something. Initial avatars, doc thumbnails, row glyphs, FAB, Share: cut. A real author photo is information; an initial is not. The reader-enabled browser helper is a narrow exception outside Pully: its floating button names the GitHub repository read from the browser address bar and opens that repository (Tavi, 18 Oct 2026).
 
 Source: canvas. Checked by: bans, review.
 
@@ -507,7 +507,7 @@ Source: canvas. Checked by: bans, review.
 
 #### 11. Not wanted, ever.
 
-Voice/dictation. Suggestion mode. Share on PR/tour. “Up next” inside a tour. FAB with unclear scope. “Later” as a row action. Numbered step pips. Tiny provenance labels. Step counters in progress states.
+Voice/dictation. Suggestion mode. Share on PR/tour. “Up next” inside a tour. FAB with unclear scope. The opt-in cross-app browser helper is allowed only while a browser exposes a verified GitHub repository URL; an unknown URL hides its repository-specific button (Tavi, 18 Oct 2026). “Later” as a row action. Numbered step pips. Tiny provenance labels. Step counters in progress states.
 
 Source: canvas. Checked by: bans, review.
 

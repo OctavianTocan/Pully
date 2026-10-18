@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browser_helper_service_label">Pully browser helper</string>
+    <string name="browser_helper_service_description">Shows Open in Pully when a supported browser exposes a GitHub repository address. Reads browser address-bar text only; no browsing history is saved. First enable Browser helper in Pully settings.</string>
+</resources>

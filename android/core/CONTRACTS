@@ -36,3 +36,14 @@ repeated ID is reported as a problem, never silently dropped.
 Update URLs and every redirect MUST match the configured server's scheme, host and
 effective port before any request is opened or Access headers attached. Automatic
 redirects MUST stay disabled (repository review 15 Oct 2026, finding 7).
+
+@cc [owner:OctavianTocan,label:product;security] core-browser-repo-needs-address-evidence
+Browser repository detection MUST use only visible, unfocused native address-field text
+with an exact resource ID allowlisted for the foreground browser package. Page content,
+links, descriptions, unknown fields and stale or conflicting evidence MUST NOT produce
+a repository. An accepted address MUST name exactly github.com or www.github.com over
+HTTPS (or the browser's schemeless display), contain a valid owner and repository, and
+exclude GitHub's non-repository routes, credentials, ports, encoded or ambiguous text.
+The result MUST retain only owner and repository, with subpages reduced to their root
+(Tavi, 18 Oct 2026: the browser floaty appears only on a GitHub repository and opens that
+repository in Pully; screenshot capture is excluded).

@@ -1,0 +1,23 @@
+@cc [owner:OctavianTocan,label:product;security] browser-helper-current-url-only
+The helper MUST show only for a currently foregrounded supported browser whose native
+address field supplies a complete GitHub repository URL. It MUST NOT infer the current
+URL from page links, titles, arbitrary text, clipboard or history. Missing, focused,
+hidden, malformed, conflicting or web-content address fields MUST hide the button.
+Window and navigation changes MUST discard the old observation, and a tap MUST verify
+the current browser window and repository again before opening Pully (Tavi, 18 Oct 2026,
+"it does it by checking the URL somehow").
+
+@cc [owner:OctavianTocan,label:security] browser-helper-opt-in-and-local
+The service MUST require both the in-app disclosure consent and the reader's Android
+accessibility grant. With consent off, interruption, service disconnect, screen lock,
+or another app in front, the overlay MUST be removed. The helper MUST NOT persist or log
+browsing URLs, inspect page content, request screenshot or gesture capabilities, or make
+network requests. Only the normalized repository MAY be handed to Pully on an explicit
+tap; Pully's normal repository connection then applies (Tavi, 18 Oct 2026).
+
+@cc [owner:OctavianTocan,label:design;architecture] browser-helper-native-overlay
+The cross-app helper MAY use a native TextView in TYPE_ACCESSIBILITY_OVERLAY because
+it has no Activity or Compose lifecycle. Its colours, type size, space and radius MUST
+come from Pully's existing design tokens and chosen theme. It MUST NOT request the
+separate draw-over-other-apps permission (Tavi, 18 Oct 2026, accessibility helper request;
+DESIGN.md rules 1, 11 and 47).
