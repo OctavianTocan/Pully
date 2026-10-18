@@ -58,11 +58,15 @@ dark pair, and dark surfaces are a neutral grey with no colour cast (rule 76; F1
 @cc [owner:OctavianTocan,label:product;design] android-information-first
 Every element on a screen carries a fact or does something; anything that carries
 neither is cut. No initial avatars, decorative glyphs, FAB or Share (rule 1).
+The reader-enabled cross-app browser helper is the narrow exception: its button carries
+its verified repository and opens that repository (Tavi, 18 Oct 2026, browser helper).
 
 @cc [owner:OctavianTocan,label:product] android-not-wanted
 The app MUST NOT have voice input or dictation, a suggestion mode, Share on a pull
 request or tour, "Up next" inside a tour, a floating action button, "Later" as a row
-action, numbered step pips or step counters in progress (rule 11).
+action, numbered step pips or step counters in progress (rule 11). The cross-app browser
+helper requested by Tavi on 18 Oct 2026 MAY show its repository-specific button outside
+Pully, only after accessibility opt-in and while the actual browser URL is verified.
 
 @cc [owner:OctavianTocan,label:product;design] android-no-explaining-lines
 A control MUST NOT carry a line of text that explains it ("The Analyze button runs the

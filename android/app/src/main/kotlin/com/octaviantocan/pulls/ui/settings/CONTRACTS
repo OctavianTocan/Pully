@@ -103,3 +103,22 @@ Settings has an Account section with the signed-in email and an Agent keys page.
 lists each key by its name and first letters, makes a key from a name and shows the new key
 once with Copy, and revokes one from its own page, which says what revoking does first
 ("please make sure this is possible from the phone": Tavi, 16 Oct 12:47).
+
+@cc [owner:OctavianTocan,label:product;security] settings-browser-helper-consent
+The main Settings page MUST offer Browser helper as a page, with the helper off until
+the reader affirmatively continues past its accessibility disclosure. Before that action,
+the page MUST say that accessibility can read browser address bars and screen content,
+that the helper uses only the address-bar URL for its GitHub repository button, that it
+does not save or send that URL, and that tapping opens the repository through Pully's
+usual server connection. It MUST say an unknown URL hides the button and browser support
+varies. Continuing MAY record consent and open Android's accessibility settings, but MUST
+NOT enable the service programmatically. The consent disclosure is required permission
+information, rather than a helper line under a setting (Tavi, 18 Oct 2026, browser helper
+request).
+
+@cc [owner:OctavianTocan,label:product;security] settings-browser-helper-status-and-stop
+The Browser helper page MUST read both Pully's consent and Android's enabled-service
+state again whenever Pully resumes. Android permission alone MUST NOT display the helper
+as on when Pully consent is off. After consent, the page MUST offer Disable helper, which
+withdraws Pully's consent and hides the helper immediately without requiring the reader
+to change Android settings first (Tavi, 18 Oct 2026, opt-in browser helper request).
