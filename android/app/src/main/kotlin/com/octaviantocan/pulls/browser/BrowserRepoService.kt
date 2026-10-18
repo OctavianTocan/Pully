@@ -4,6 +4,11 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Typeface
+import android.graphics.Rect
+import android.os.Build
+import android.view.Surface
+import android.view.WindowInsets
+import android.view.accessibility.AccessibilityWindowInfo
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Handler
@@ -20,7 +25,10 @@ import com.octaviantocan.pulls.MainActivity
 import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.core.BrowserAddressNode
 import com.octaviantocan.pulls.core.BrowserRepo
-import com.octaviantocan.pulls.core.BrowserRepository
+import com.octaviantocan.pulls.core.BrowserObservation
+import com.octaviantocan.pulls.core.BrowserWindowBounds
+import com.octaviantocan.pulls.core.BrowserWindowCover
+import com.octaviantocan.pulls.core.BrowserWindowPolicy
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.design.AppFont
 import com.octaviantocan.pulls.ui.design.ColorThemes
@@ -38,10 +46,8 @@ class BrowserRepoService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private val windowManager by lazy { getSystemService(WindowManager::class.java) }
     private var button: TextView? = null
-    private var shown: Address? = null
+    private var shown: BrowserObservation? = null
     private val inspect = Runnable { update() }
-
-    private data class Address(val packageName: String, val windowId: Int, val repository: BrowserRepository)
 
     override fun onServiceConnected() {
         connected = WeakReference(this)
@@ -52,9 +58,15 @@ class BrowserRepoService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        if (!BrowserHelperSettings.allowed(this)) { handler.removeCallbacks(inspect); hide(); disableSelf(); return }
         // Overlay add/remove can emit package-less window events. Preserve a still-valid observation
         // instead of creating an add -> windows changed -> remove -> add feedback loop.
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED && shown != null && readAddress() == shown) return
+        val browser = event.packageName?.toString().orEmpty()
+        val sameBrowser = shown?.packageName == browser
+        if (shown != null && BrowserWindowPolicy.keepObservation(
+                shown, readAddress(), sameBrowser,
+                event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED,
+            )) return
         // Our own non-focusable overlay does not represent a browser navigation.
         if (event.packageName?.toString() == packageName) {
             if (shown != null && readAddress() != shown) hide()
@@ -64,7 +76,6 @@ class BrowserRepoService : AccessibilityService() {
         handler.removeCallbacks(inspect)
         if (!BrowserHelperSettings.allowed(this)) { disableSelf(); return }
         // Never inspect a non-browser event's content. Window changes are rechecked against the active root.
-        val browser = event.packageName?.toString().orEmpty()
         if (BrowserRepo.addressBarIds(browser).isEmpty() && event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
         handler.postDelayed(inspect, SETTLE_MS)
     }
@@ -80,13 +91,13 @@ class BrowserRepoService : AccessibilityService() {
         if (button != null) handler.postDelayed(inspect, RECHECK_MS)
     }
 
-    private fun readAddress(): Address? = try {
-        inspectAddress()
+    private fun readAddress(): BrowserObservation? = try {
+        if (BrowserHelperSettings.allowed(this)) inspectAddress() else null
     } catch (_: RuntimeException) {
         null
     }
 
-    private fun inspectAddress(): Address? {
+    private fun inspectAddress(): BrowserObservation? {
         if (getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked != false) return null
         val visibleWindows = getWindows()
         // The helper itself can become active during a tap but never takes focus. A system shade,
@@ -103,6 +114,16 @@ class BrowserRepoService : AccessibilityService() {
         }
         val root = foreground?.root ?: return null
         try {
+            val content = Rect().also { foreground.getBoundsInScreen(it) }
+            if (!content.intersect(displayContentBounds())) return null
+            val covers = visibleWindows.map { window ->
+                val bounds = Rect().also { window.getBoundsInScreen(it) }
+                BrowserWindowCover(
+                    bounds.snapshot(), window.layer, isOwnOverlay(window),
+                    inputMethod = window.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD,
+                )
+            }
+            if (!BrowserWindowPolicy.exposed(content.snapshot(), foreground.layer, covers)) return null
             val browser = root.packageName?.toString() ?: return null
             val ids = BrowserRepo.addressBarIds(browser)
             if (ids.isEmpty()) return null
@@ -122,11 +143,47 @@ class BrowserRepoService : AccessibilityService() {
                 }
             }
             val repo = BrowserRepo.detect(browser, candidates) ?: return null
-            return Address(browser, root.windowId, repo)
+            return BrowserObservation(browser, root.windowId, repo)
         } catch (_: RuntimeException) {
             // A disappearing window, stale node or OEM failure must never leave an old repository actionable.
             return null
         } finally { recycle(root) }
+    }
+
+    private fun Rect.snapshot() = BrowserWindowBounds(left, top, right, bottom)
+
+    private fun isOwnOverlay(window: AccessibilityWindowInfo): Boolean =
+        window.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY && window.root?.let { root ->
+            try { root.packageName?.toString() == packageName } finally { recycle(root) }
+        } == true
+
+    /** Remove only normal system-bar/cutout strips, never an entire system-UI window. */
+    @Suppress("DEPRECATION")
+    private fun displayContentBounds(): Rect {
+        if (Build.VERSION.SDK_INT >= 30) {
+            val metrics = windowManager.currentWindowMetrics
+            val insets = metrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+            return Rect(metrics.bounds).apply {
+                left += insets.left
+                top += insets.top
+                right -= insets.right
+                bottom -= insets.bottom
+            }
+        }
+        fun dimension(name: String): Int {
+            val id = resources.getIdentifier(name, "dimen", "android")
+            return if (id == 0) 0 else resources.getDimensionPixelSize(id)
+        }
+        val width = resources.displayMetrics.widthPixels
+        val height = resources.displayMetrics.heightPixels
+        val top = dimension("status_bar_height")
+        val navigation = dimension("navigation_bar_height")
+        val side = dimension("navigation_bar_width")
+        return when (windowManager.defaultDisplay.rotation) {
+            Surface.ROTATION_90 -> Rect(0, top, width - side, height)
+            Surface.ROTATION_270 -> Rect(side, top, width, height)
+            else -> Rect(0, top, width, height - navigation)
+        }
     }
 
     private fun inWebContent(node: AccessibilityNodeInfo): Boolean {
@@ -144,7 +201,7 @@ class BrowserRepoService : AccessibilityService() {
         return node.className?.toString()?.contains("WebView", ignoreCase = true) == true
     }
 
-    private fun show(address: Address) {
+    private fun show(address: BrowserObservation) {
         hide()
         val settings = AppSettings.get(this)
         val dark = when (settings.theme) {

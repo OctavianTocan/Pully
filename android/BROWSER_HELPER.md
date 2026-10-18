@@ -15,7 +15,7 @@ phone automatically.
 ## URL verification and limits
 
 The helper checks exact native address-field IDs, browser package, visibility,
-focus, foreground window and URL syntax. It does not scan a page for GitHub links,
+focus, foreground window, covering window layers and URL syntax. It does not scan a page for GitHub links,
 read the clipboard, infer a URL from a title, or keep browsing history. A field
 inside web content is rejected. The URL is normalized locally; only `owner/repo`
 is held in memory, and only an explicit tap hands it to Pully's normal repository
@@ -57,7 +57,9 @@ Run from `android/`:
 The `Android verify` PR workflow runs the same checks. `BrowserRepoTest` covers URL
 normalization, GitHub reserved routes, spoofed authorities, credentials, ports,
 encoded/elided text, address editing, hidden fields, web-content lookalikes,
-unknown packages and conflicting candidates.
+unknown packages and conflicting candidates. `BrowserWindowPolicyTest` covers harmless
+event bursts, changed observations, higher system shades/keyboards, system-bar strips,
+the helper's own overlay and split-screen geometry.
 
 On each target browser/version, manually check in light and dark themes:
 
