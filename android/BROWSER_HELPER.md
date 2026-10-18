@@ -9,7 +9,7 @@ Enable it in **Settings → Browser helper**. Read the separate disclosure, cont
 then enable **Pully browser helper** in Android accessibility settings yourself.
 Android's permission alone is insufficient; Pully's consent defaults off. **Disable
 helper** withdraws consent immediately and disables the service. Sideloaded apps may
-also require Android's *Allow restricted settings* step. Nothing enables this on a
+also require Android's _Allow restricted settings_ step. Nothing enables this on a
 phone automatically.
 
 ## URL verification and limits
@@ -34,15 +34,15 @@ not claim universal browser coverage or verify that a repository exists online.
 No Android device or emulator has been used for this change. The following are
 implemented address-field adapters, **not device-verified browser support**:
 
-| Browser family | Packages | Native field candidate |
-| --- | --- | --- |
-| Chrome / Chromium | Stable, Beta, Dev, Canary, Chromium | `url_bar` |
-| Brave | Stable, Beta, Nightly | `url_bar` |
-| Edge | Stable, Beta, Dev, Canary | `url_bar` |
-| Vivaldi | Stable, Snapshot | `url_bar` |
-| Firefox | Stable, Beta, Nightly | `mozac_browser_toolbar_url_view` |
-| Samsung Internet | Stable, Beta | `location_bar_edit_text` |
-| Opera | Stable, Beta | `url_field` |
+| Browser family    | Packages                            | Native field candidate           |
+| ----------------- | ----------------------------------- | -------------------------------- |
+| Chrome / Chromium | Stable, Beta, Dev, Canary, Chromium | `url_bar`                        |
+| Brave             | Stable, Beta, Nightly               | `url_bar`                        |
+| Edge              | Stable, Beta, Dev, Canary           | `url_bar`                        |
+| Vivaldi           | Stable, Snapshot                    | `url_bar`                        |
+| Firefox           | Stable, Beta, Nightly               | `mozac_browser_toolbar_url_view` |
+| Samsung Internet  | Stable, Beta                        | `location_bar_edit_text`         |
+| Opera             | Stable, Beta                        | `url_field`                      |
 
 Other browsers deliberately produce no button. Add an adapter only after checking
 its actual native address field, including focused/hidden state and navigation.
@@ -84,6 +84,7 @@ screenshot, gesture, notification, browser-history or package-inventory permissi
 is added for this feature.
 
 References:
+
 - https://developer.android.com/reference/android/accessibilityservice/AccessibilityService
 - https://support.google.com/googleplay/android-developer/answer/10964491
 - https://support.google.com/android/answer/12623953
