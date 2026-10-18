@@ -138,7 +138,8 @@ async fn pi_catalog(state: &AppState) -> Result<Value> {
     let parsed = url::Url::parse(&base)?;
     let account = parsed[url::Position::BeforeHost..url::Position::AfterPort].to_owned();
     serde_json::from_str(&super::sanitize(
-        &json!({"engine":"pi","models":models,"account":account}).to_string(),
+        // `listed` keeps every text id, including aliases the one-row-per-model list drops.
+        &json!({"engine":"pi","models":models,"listed":pi_text_entries(&body).iter().map(|e| text(e, "id")).collect::<Vec<_>>(),"account":account}).to_string(),
     ))
     .context("Invalid catalog metadata")
 }
@@ -238,6 +239,39 @@ pub(super) async fn run_prepared(
     .await
 }
 
+async fn pi_model(state: &AppState, wanted: &[&str], refresh: bool) -> Result<String> {
+    match catalog_refresh(state, "pi", refresh).await {
+        Ok(listed) => listed_pi_model(&listed, wanted).context("Pi endpoint lists no text models"),
+        // Without the list, the model the phone or the server names is still worth a try.
+        Err(error) => wanted.first().map(|m| (*m).to_owned()).ok_or(error),
+    }
+}
+
+/// @cc [owner:OctavianTocan,label:product] pi-runs-a-listed-model
+/// A Pi run MUST use a model the Pi endpoint lists: the one the phone asked for, else the
+/// server's PULLS_REVIEW_PI_MODEL, else the catalog's default. A saved model the endpoint
+/// no longer lists MUST NOT fail the run (Tavi, 18 Oct 2026: tours kept failing because
+/// "their pi model doesn't exist"). A model the endpoint rejects on the first request
+/// MUST be checked once against a fresh list before the run fails.
+fn listed_pi_model(catalog: &Value, wanted: &[&str]) -> Option<String> {
+    let models = catalog["models"].as_array()?;
+    let id = |m: &Value| m["id"].as_str().map(str::to_owned);
+    let listed = |w: &str| {
+        models.iter().any(|m| m["id"] == w)
+            || catalog["listed"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|l| l == w)
+    };
+    wanted
+        .iter()
+        .find(|w| listed(w))
+        .map(|w| (*w).to_owned())
+        .or_else(|| models.iter().find(|m| m["isDefault"] == true).and_then(id))
+        .or_else(|| models.first().and_then(id))
+}
+
 async fn run_pi(
     state: &Arc<AppState>,
     run: &Arc<Run>,
@@ -247,25 +281,29 @@ async fn run_pi(
     preparation: super::StructuredAnswerPreparation,
 ) -> Result<(String, Value)> {
     let (base, key) = config()?;
-    let mut model = text(req, "model").to_owned();
-    if model.is_empty() {
-        model = std::env::var("PULLS_REVIEW_PI_MODEL")
-            .unwrap_or_default()
-            .trim()
-            .to_owned();
-        if model.is_empty() {
-            let c = catalog(state, "pi").await?;
-            model = c["models"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .find(|m| m["isDefault"] == true)
-                .unwrap()["id"]
-                .as_str()
-                .unwrap()
-                .to_owned()
-        }
-    }
+    let requested = text(req, "model").trim().to_owned();
+    let preferred = std::env::var("PULLS_REVIEW_PI_MODEL")
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    let wanted: Vec<&str> = [requested.as_str(), preferred.as_str()]
+        .into_iter()
+        .filter(|m| !m.is_empty())
+        .collect();
+    let swapped = |model: &str| {
+        let gone = wanted.first().filter(|w| **w != model)?;
+        activity.record(
+            "model",
+            "status",
+            &format!("Pi no longer offers {gone}, so this used {model}"),
+            None,
+            "done",
+        );
+        Some(())
+    };
+    let mut model = pi_model(state, &wanted, false).await?;
+    swapped(&model);
+    let mut rechecked = false;
     let mut messages = vec![
         json!({"role":"system","content":text(req,"system")}),
         json!({"role":"user","content":text(req,"prompt")}),
@@ -317,8 +355,19 @@ async fn run_pi(
             .await
             .map_err(|_| anyhow::anyhow!("Pi model request could not be completed"))?;
         if !response.status().is_success() {
+            // The list is cached for ten minutes; a model removed since then fails here.
+            if turn == 0 && !rechecked && response.status().is_client_error() {
+                rechecked = true;
+                if let Ok(next) = pi_model(state, &wanted, true).await {
+                    if next != model {
+                        model = next;
+                        swapped(&model);
+                        continue;
+                    }
+                }
+            }
             bail!(
-                "Pi model endpoint returned HTTP {}. Check the server configuration.",
+                "Pi model endpoint returned HTTP {} for {model}. Check the server configuration.",
                 response.status().as_u16()
             )
         };
@@ -649,7 +698,8 @@ fn model_version(name: &str) -> i64 {
         })
         .unwrap_or(-1)
 }
-fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
+/// The endpoint's text models, each id once, in its order.
+fn pi_text_entries(body: &Value) -> Vec<&Value> {
     let mut seen = std::collections::HashSet::new();
     let mut entries = vec![];
     for entry in body["data"].as_array().into_iter().flatten() {
@@ -694,6 +744,10 @@ fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
         }
         entries.push(entry);
     }
+    entries
+}
+fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
+    let entries = pi_text_entries(body);
     let fallback = entries
         .iter()
         .find(|e| text(e, "id") == preferred)
@@ -757,6 +811,33 @@ fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn pi_runs_a_listed_model_when_the_saved_one_is_gone() {
+        let catalog =
+            json!({"models":[{"id":"gpt-5.1"},{"id":"claude-sonnet-4.5","isDefault":true}]});
+        let pick = |wanted: &[&str]| listed_pi_model(&catalog, wanted);
+        assert_eq!(
+            pick(&["gpt-5.1", "claude-sonnet-4.5"]).as_deref(),
+            Some("gpt-5.1")
+        );
+        assert_eq!(pick(&["gone", "gpt-5.1"]).as_deref(), Some("gpt-5.1"));
+        assert_eq!(
+            pick(&["gone", "also-gone"]).as_deref(),
+            Some("claude-sonnet-4.5")
+        );
+        assert_eq!(pick(&[]).as_deref(), Some("claude-sonnet-4.5"));
+        let no_default = json!({"models":[{"id":"a"},{"id":"b"}]});
+        assert_eq!(
+            listed_pi_model(&no_default, &["gone"]).as_deref(),
+            Some("a")
+        );
+        assert_eq!(listed_pi_model(&json!({"models":[]}), &["gone"]), None);
+        let alias = json!({"models":[{"id":"claude-opus-5-5","isDefault":true}],"listed":["claude-claude-opus-5-5","claude-opus-5-5"]});
+        assert_eq!(
+            listed_pi_model(&alias, &["claude-claude-opus-5-5"]).as_deref(),
+            Some("claude-claude-opus-5-5")
+        );
+    }
     fn fixture_run(kind: &str) -> Arc<Run> {
         Arc::new(Run {
             snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0}))
@@ -880,8 +961,8 @@ mod tests {
         );
         assert_eq!(jobs.provider_slots.available_permits(), 3);
     }
-    #[test]
-    fn parallel_provider_invocations_keep_separate_activity_rows() {
+    #[tokio::test]
+    async fn parallel_provider_invocations_keep_separate_activity_rows() {
         let run = Arc::new(Run {
             snapshot: std::sync::Mutex::new(json!({"status":"running","activities":[],"rev":0}))
                 .into(),
