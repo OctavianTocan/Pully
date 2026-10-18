@@ -226,7 +226,9 @@ server's GitHub CLI login is separate from the Docker agent sign-in volume.
 
 A run uses the model the phone asked for when `/models` lists it, else
 `PULLS_REVIEW_PI_MODEL` when listed, else the catalog's default, and notes the swap in
-the task's activity. A saved model the endpoint stopped listing never fails a run.
+the task's activity. A saved model the endpoint stopped listing never fails a run; when
+the first request is rejected, the run re-reads `/models` once and retries with a listed
+model.
 
 The base receives `/models` and `/chat/completions` requests and must support the
 OpenAI-compatible tool-calling protocol, including `submit_answer` for structured

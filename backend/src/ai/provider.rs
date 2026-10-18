@@ -138,7 +138,8 @@ async fn pi_catalog(state: &AppState) -> Result<Value> {
     let parsed = url::Url::parse(&base)?;
     let account = parsed[url::Position::BeforeHost..url::Position::AfterPort].to_owned();
     serde_json::from_str(&super::sanitize(
-        &json!({"engine":"pi","models":models,"account":account}).to_string(),
+        // `listed` keeps every text id, including aliases the one-row-per-model list drops.
+        &json!({"engine":"pi","models":models,"listed":pi_text_entries(&body).iter().map(|e| text(e, "id")).collect::<Vec<_>>(),"account":account}).to_string(),
     ))
     .context("Invalid catalog metadata")
 }
@@ -238,13 +239,9 @@ pub(super) async fn run_prepared(
     .await
 }
 
-async fn pi_model(state: &AppState, requested: &str, preferred: &str) -> Result<String> {
-    let wanted: Vec<&str> = [requested, preferred]
-        .into_iter()
-        .filter(|m| !m.is_empty())
-        .collect();
-    match catalog(state, "pi").await {
-        Ok(listed) => listed_pi_model(&listed, &wanted).context("Pi endpoint lists no text models"),
+async fn pi_model(state: &AppState, wanted: &[&str], refresh: bool) -> Result<String> {
+    match catalog_refresh(state, "pi", refresh).await {
+        Ok(listed) => listed_pi_model(&listed, wanted).context("Pi endpoint lists no text models"),
         // Without the list, the model the phone or the server names is still worth a try.
         Err(error) => wanted.first().map(|m| (*m).to_owned()).ok_or(error),
     }
@@ -254,13 +251,23 @@ async fn pi_model(state: &AppState, requested: &str, preferred: &str) -> Result<
 /// A Pi run MUST use a model the Pi endpoint lists: the one the phone asked for, else the
 /// server's PULLS_REVIEW_PI_MODEL, else the catalog's default. A saved model the endpoint
 /// no longer lists MUST NOT fail the run (Tavi, 18 Oct 2026: tours kept failing because
-/// "their pi model doesn't exist").
+/// "their pi model doesn't exist"). A model the endpoint rejects on the first request
+/// MUST be checked once against a fresh list before the run fails.
 fn listed_pi_model(catalog: &Value, wanted: &[&str]) -> Option<String> {
     let models = catalog["models"].as_array()?;
     let id = |m: &Value| m["id"].as_str().map(str::to_owned);
+    let listed = |w: &str| {
+        models.iter().any(|m| m["id"] == w)
+            || catalog["listed"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|l| l == w)
+    };
     wanted
         .iter()
-        .find_map(|w| models.iter().find(|m| m["id"] == *w).and_then(id))
+        .find(|w| listed(w))
+        .map(|w| (*w).to_owned())
         .or_else(|| models.iter().find(|m| m["isDefault"] == true).and_then(id))
         .or_else(|| models.first().and_then(id))
 }
@@ -279,16 +286,24 @@ async fn run_pi(
         .unwrap_or_default()
         .trim()
         .to_owned();
-    let model = pi_model(state, &requested, &preferred).await?;
-    if !requested.is_empty() && model != requested {
+    let wanted: Vec<&str> = [requested.as_str(), preferred.as_str()]
+        .into_iter()
+        .filter(|m| !m.is_empty())
+        .collect();
+    let swapped = |model: &str| {
+        let gone = wanted.first().filter(|w| **w != model)?;
         activity.record(
             "model",
             "status",
-            &format!("Pi no longer offers {requested}, so this used {model}"),
+            &format!("Pi no longer offers {gone}, so this used {model}"),
             None,
             "done",
         );
-    }
+        Some(())
+    };
+    let mut model = pi_model(state, &wanted, false).await?;
+    swapped(&model);
+    let mut rechecked = false;
     let mut messages = vec![
         json!({"role":"system","content":text(req,"system")}),
         json!({"role":"user","content":text(req,"prompt")}),
@@ -340,6 +355,17 @@ async fn run_pi(
             .await
             .map_err(|_| anyhow::anyhow!("Pi model request could not be completed"))?;
         if !response.status().is_success() {
+            // The list is cached for ten minutes; a model removed since then fails here.
+            if turn == 0 && !rechecked && response.status().is_client_error() {
+                rechecked = true;
+                if let Ok(next) = pi_model(state, &wanted, true).await {
+                    if next != model {
+                        model = next;
+                        swapped(&model);
+                        continue;
+                    }
+                }
+            }
             bail!(
                 "Pi model endpoint returned HTTP {} for {model}. Check the server configuration.",
                 response.status().as_u16()
@@ -672,7 +698,8 @@ fn model_version(name: &str) -> i64 {
         })
         .unwrap_or(-1)
 }
-fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
+/// The endpoint's text models, each id once, in its order.
+fn pi_text_entries(body: &Value) -> Vec<&Value> {
     let mut seen = std::collections::HashSet::new();
     let mut entries = vec![];
     for entry in body["data"].as_array().into_iter().flatten() {
@@ -717,6 +744,10 @@ fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
         }
         entries.push(entry);
     }
+    entries
+}
+fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
+    let entries = pi_text_entries(body);
     let fallback = entries
         .iter()
         .find(|e| text(e, "id") == preferred)
@@ -801,6 +832,11 @@ mod tests {
             Some("a")
         );
         assert_eq!(listed_pi_model(&json!({"models":[]}), &["gone"]), None);
+        let alias = json!({"models":[{"id":"claude-opus-5-5","isDefault":true}],"listed":["claude-claude-opus-5-5","claude-opus-5-5"]});
+        assert_eq!(
+            listed_pi_model(&alias, &["claude-claude-opus-5-5"]).as_deref(),
+            Some("claude-claude-opus-5-5")
+        );
     }
     fn fixture_run(kind: &str) -> Arc<Run> {
         Arc::new(Run {
