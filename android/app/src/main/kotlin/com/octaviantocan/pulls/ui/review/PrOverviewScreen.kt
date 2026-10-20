@@ -288,6 +288,7 @@ internal fun PrOverviewScreen(
             // What scrolls away: it goes up under the title, cut at the title's edge.
             Column(Modifier.clipToBounds().cut(::awayCut, keepTop = false).onSizeChanged { awayHeight = it.height }.backUnless("").holdUnless("")) {
                 PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
+                PrLifecycleStatus(head.state)
                 if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head.base, head.head)
                 val mergeBlocker = overview?.let(::overviewMergeBlocker) ?: data?.mergeability?.blocker
                 if (mergeBlocker != null) Text(
@@ -324,6 +325,22 @@ internal fun PrOverviewScreen(
             veil = Modifier.backUnless("").holdUnless(""),
         )
     }
+    }
+}
+
+/** Lifecycle is separate from Checks: a merged PR can still have passing or failing checks. */
+@Composable
+internal fun PrLifecycleStatus(state: String) {
+    val c = LocalPullsColors.current
+    val (icon, word, ink) = when (state) {
+        "merged" -> Triple(Lu.prMerged, "Merged", c.stateMerged)
+        "closed" -> Triple(Lu.prClosed, "Closed", c.stateClosed)
+        "draft" -> Triple(Lu.prDraft, "Draft", c.stateDraft)
+        else -> return
+    }
+    Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        LuIcon(icon, tint = ink, size = 18.dp)
+        Text(word, style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = ink)
     }
 }
 

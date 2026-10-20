@@ -204,3 +204,20 @@ fn shared_parser_retains_absence_for_malformed_fences_and_values() {
         }
     }
 }
+
+#[test]
+fn lifecycle_state_preserves_merges_closures_and_unknowns() {
+    for (raw, expected) in [
+        (json!({"state":"MERGED"}), "merged"),
+        (json!({"state":"CLOSED","merged":true,"isDraft":true}), "merged"),
+        (json!({"state":"CLOSED","mergedAt":"2026-10-20T12:00:00Z"}), "merged"),
+        (json!({"state":"CLOSED","isDraft":true}), "closed"),
+        (json!({"state":"OPEN","isDraft":true,"closedAt":"2026-10-20T12:00:00Z"}), "closed"),
+        (json!({"state":"OPEN","isDraft":true}), "draft"),
+        (json!({"state":"OPEN"}), "open"),
+        (json!({"state":"NEW_STATE","isDraft":true}), "unknown"),
+        (json!({}), "unknown"),
+    ] {
+        assert_eq!(pr_state(&raw), expected, "{raw}");
+    }
+}

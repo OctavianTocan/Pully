@@ -576,15 +576,20 @@ async fn refreshed_snapshot(
     Ok((next != *diff).then_some(next))
 }
 
+/// @cc [owner:OctavianTocan,label:product] github-rest-lifecycle-preserves-merged-state
+/// A merged flag or merge timestamp MUST produce merged before closed or draft.
+/// Missing or unrecognized state without terminal evidence MUST NOT become open
+/// (Tavi, 20 Oct 2026, "On PRs that have already been merged, we have no indication that
+/// they've been merged").
 fn rest_pr_state(pr: &Value) -> &'static str {
-    if pr["merged"] == true {
+    if pr["merged"] == true || pr["merged_at"].as_str().is_some_and(|at| !at.is_empty()) {
         "merged"
-    } else if pr["state"] == "closed" {
+    } else if pr["state"] == "closed" || pr["closed_at"].as_str().is_some_and(|at| !at.is_empty()) {
         "closed"
-    } else if pr["draft"] == true {
-        "draft"
+    } else if pr["state"] == "open" {
+        if pr["draft"] == true { "draft" } else { "open" }
     } else {
-        "open"
+        "unknown"
     }
 }
 
@@ -596,7 +601,7 @@ mod warmer_tests {
     use super::*;
     #[tokio::test]
     async fn unchanged_metadata_preserves_missing_versus_null_fields() {
-        let pr = json!({"title":null,"body":null,"updated_at":null,"head":{"sha":"h"},"base":{"sha":"b"}});
+        let pr = json!({"state":"open","title":null,"body":null,"updated_at":null,"head":{"sha":"h"},"base":{"sha":"b"}});
         let complete = json!({"title":null,"description":"","updatedAt":null,"head":{"sha":"h"},"pullRequest":{"baseSha":"b","state":"open"},"files":[]});
         assert!(refreshed_snapshot(&complete, &pr, async {
             panic!("unchanged revisions must not fetch")
@@ -640,6 +645,7 @@ mod warmer_tests {
             json!(0),
             json!("true"),
             json!("closed"),
+            json!("open"),
             json!("CLOSED"),
             json!([]),
             json!({}),
@@ -652,16 +658,17 @@ mod warmer_tests {
                         "merged"
                     } else if pr["state"] == "closed" {
                         "closed"
-                    } else if pr["draft"] == true {
-                        "draft"
+                    } else if pr["state"] == "open" {
+                        if pr["draft"] == true { "draft" } else { "open" }
                     } else {
-                        "open"
+                        "unknown"
                     };
                     assert_eq!(rest_pr_state(&pr), expected);
                 }
             }
         }
-        assert_eq!(rest_pr_state(&json!({})), "open");
+        assert_eq!(rest_pr_state(&json!({})), "unknown");
+        assert_eq!(rest_pr_state(&json!({"state":"closed","merged_at":"2026-10-20T12:00:00Z","draft":true})), "merged");
     }
 
     #[tokio::test]

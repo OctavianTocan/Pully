@@ -2,6 +2,8 @@ package com.octaviantocan.pulls.ui.review
 
 import android.content.Context
 import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.PullRow
+import com.octaviantocan.pulls.ui.home.PullsSnapshot
 import com.octaviantocan.pulls.ui.home.MyPullsSync
 import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.ui.home.asSnapshot
@@ -23,6 +25,7 @@ internal data class PullPreview(
     /** The branches it merges, `main` and `feature/x`, so the Overview shows them before GitHub answers (J13). */
     val base: String = "",
     val head: String = "",
+    val state: String = if (isDraft) "draft" else "unknown",
 )
 
 /**
@@ -32,12 +35,29 @@ internal data class PullPreview(
 internal fun pullPreview(context: Context, target: OpenTarget): PullPreview? {
     val pull = target as? OpenTarget.Pull ?: return null
     val home = deviceStore(context)
-    for (state in listOf("open", "closed")) {
-        val raw = home.get(MyPullsSync.STORAGE_PREFIX + state) ?: continue
-        val snapshot = runCatching { (Json.parseToJsonElement(raw) as? JsonObject)?.asSnapshot() }.getOrNull() ?: continue
-        val row = snapshot.pulls.firstOrNull { it.owner.equals(pull.owner, true) && it.repo.equals(pull.repo, true) && it.number == pull.number } ?: continue
-        return PullPreview(row.title, row.author.takeIf { it.isNotBlank() }, row.isDraft, row.changedFiles, row.additions, row.deletions, row.baseRef, row.headRef)
+    val snapshots = listOf("open", "closed").mapNotNull { state ->
+        val raw = home.get(MyPullsSync.STORAGE_PREFIX + state) ?: return@mapNotNull null
+        runCatching { (Json.parseToJsonElement(raw) as? JsonObject)?.asSnapshot() }.getOrNull()
     }
+    pullPreview(pull, snapshots)?.let { return it }
     val tour = TourIndex(deviceStore(context, "pulls-inbox")).get("${pull.owner}/${pull.repo}#${pull.number}")
     return tour?.prTitle?.takeIf { it.isNotBlank() }?.let { PullPreview(it) }
+}
+
+/** Newer list facts replace older ones; a recorded merge remains final across both list caches. */
+internal fun pullPreview(pull: OpenTarget.Pull, snapshots: List<PullsSnapshot>): PullPreview? {
+    val row = snapshots.flatMap { snapshot ->
+        snapshot.pulls.filter { it.owner.equals(pull.owner, true) && it.repo.equals(pull.repo, true) && it.number == pull.number }
+            .map { it to snapshot.fetchedAt }
+    }.maxWithOrNull(compareBy<Pair<PullRow, Long>> { it.first.merged || it.first.state == "merged" }.thenBy { it.second }.thenBy { it.first.state == "closed" })?.first ?: return null
+    val state = normalizedPrState(row.state)
+    return PullPreview(
+        row.title, row.author.takeIf { it.isNotBlank() }, row.isDraft, row.changedFiles, row.additions, row.deletions, row.baseRef, row.headRef,
+        when {
+            row.merged || state == "merged" -> "merged"
+            state == "closed" -> "closed"
+            state == "open" && row.isDraft -> "draft"
+            else -> state
+        },
+    )
 }

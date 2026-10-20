@@ -16,9 +16,22 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.53.0
+
+Clearer AI choices, faithful pull request states, calmer sheets.
+
+- Analyze changes and Find problems show the model and effort before starting. Presets and review skills now look like actions, and retry lets you check the model first.
+![Illustration of model and effort setup before analysis or review](changelog/0.53.0/ai-flow-illustration.png)
+- Merged and closed pull requests show their actual state. Open pull requests keep merge conflicts separate from passing checks and check uncertain results again.
+- An older tour offers its original commit and lets you continue reading or choose a model before updating it.
+- Switch every repository on or off at once, open a PR number in the browser, and spot reviewed files by their struck-through names. Searching update puts Update Pully first.
+- Focusing a text field lifts its sheet smoothly with the keyboard.
+- When notifications are allowed, ongoing analysis and tour work can show a quiet notification with elapsed time.
+- Updates reach your phone again, including the latest repository and AI review fixes.
+
 ## 0.52.0
 
-Clearer AI reviews, repository controls and GitHub links.
+GitHub links land on the comment, file or check they point to.
 
 ### New
 
@@ -31,8 +44,6 @@ Clearer AI reviews, repository controls and GitHub links.
 
 ### Fixed
 
-- Repository controls, browser links and Commands find the right action again.
-- AI reviews and tours make their progress and outdated results clearer; merge state and sheets stay in step with what is happening.
 - GitHub in a pull request's menu opens GitHub again, in the GitHub app or your browser, instead of doing nothing. So does every other "on GitHub" in Pully.
 - A pull request link inside a description or a comment opens in Pully on the thing it points to, and so does one pasted in the Inbox search; other links open in your browser.
 
