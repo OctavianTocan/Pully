@@ -1698,9 +1698,9 @@ Source: walkthrough. Checked by: review.
 
 #### 160. Commands follow the page.
 
-Commands opens with "Suggested", the page's own actions (Ask and Switch to the diff on a tour; Review files, Ask, Leave a comment and Approve on the Overview; the next file and Mark reviewed on the diff), and General comes last (N14).
+With no search, Commands opens with "Suggested", the page's own actions (Ask and Switch to the diff on a tour; Review files, Ask, Leave a comment and Approve on the Overview; the next file and Mark reviewed on the diff), and General comes last (N14). With a query, sections follow their best matching command, so Update Pully comes before unrelated Files actions when typing update (Tavi, 20 Oct 2026 controls feedback).
 
-Check: pull for Commands on the Tour, the Overview and the diff: each starts with its own Suggested.
+Check: pull for Commands on the Tour, the Overview and the diff: each starts with its own Suggested. Type update: Update Pully precedes unrelated Files actions.
 
 Source: walkthrough. Checked by: review.
 

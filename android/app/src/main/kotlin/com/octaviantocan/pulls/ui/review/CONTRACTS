@@ -602,3 +602,16 @@ there without opening it again. A thing Pully does not have MUST say so, with Gi
 ("When opening GitHub PR links that point to a comment, review, or other feature of GitHub,
 all Pully does is open the PR. That sucks. It needs to take us to the thing. Seamless parity
 with GitHub": Tavi, 20 Oct 2026 12:10).
+
+@cc [owner:OctavianTocan,label:product] pr-number-opens-github
+Tapping a pull request number in its metadata MUST open
+https://github.com/{owner}/{repo}/pull/{number} in an external browser using an explicitly
+selected package, bypassing Pully app-link capture. Commit, compare and posted-diff
+metadata MUST NOT invent a PR link (Tavi, 20 Oct 2026: "Pressing on the PRs number should
+open the PR on GitHub... Pully captures GitHub links... needs to not do that").
+
+@cc [owner:OctavianTocan,label:product;design] pr-files-reviewed-strikethrough
+In the Files bottom sheet, a file whose existing review state is Reviewed MUST strike
+through its filename and folder path. Unreviewed and Changed files MUST remain unstruck;
+the checkbox and existing review state remain the source of truth (Tavi, 20 Oct 2026
+controls feedback).

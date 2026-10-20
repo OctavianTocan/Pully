@@ -138,8 +138,13 @@ class AppSettings private constructor(private val context: Context) {
         if (value) changed("usageStats", true)
     }
     /** Switches a repository on or off for the Inbox. */
-    fun setRepoShown(repo: String, shown: Boolean) {
-        hiddenRepos = if (shown) hiddenRepos - repo else hiddenRepos + repo
+    fun setRepoShown(repo: String, shown: Boolean) = setReposShown(listOf(repo), shown)
+
+    /** Applies one visibility change to every given repository, with one saved and synced setting change. */
+    fun setReposShown(repos: Collection<String>, shown: Boolean) {
+        val next = if (shown) hiddenRepos - repos.toSet() else hiddenRepos + repos
+        if (next == hiddenRepos) return
+        hiddenRepos = next
         prefs.edit().putStringSet("hiddenRepos", hiddenRepos).apply()
         touched("hiddenRepos")
     }

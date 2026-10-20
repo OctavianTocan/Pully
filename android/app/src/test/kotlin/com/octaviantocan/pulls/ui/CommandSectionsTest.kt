@@ -22,4 +22,27 @@ class CommandSectionsTest {
     fun noSuggestionsMeansNoSuggestedGroup() {
         assertEquals(listOf("General"), commandSections(listOf(command("theme", null)), "General").map { it.first })
     }
+
+    @Test
+    fun updateSearchPutsTheRelevantGeneralActionBeforeSuggestedFiles() {
+        val files = Command("files", "Files", "Pull request", keywords = "updated files", suggested = true) {}
+        val update = Command("update", "Update Pully", "General") {}
+        val unrelated = Command("settings", "Settings", "General") {}
+        val ranked = CommandRank.rankItems(listOf(files, unrelated, update), "update") {
+            "${it.title} ${it.keywords.orEmpty()} ${it.group.orEmpty()}"
+        }
+        val sections = commandSections(ranked, "General", "update")
+        assertEquals(listOf("General", "Pull request"), sections.map { it.first })
+        assertEquals("update", sections.first().second.first().id)
+        assertEquals(listOf("update", "files"), sections.flatMap { it.second }.map { it.id })
+    }
+
+    @Test
+    fun queryPreservesBestGroupAndWithinGroupRelevance() {
+        val results = listOf(command("best", "Tour"), command("next", null), command("last", "Tour"))
+        val sections = commandSections(results, "General", "something")
+        assertEquals(listOf("Tour", "General"), sections.map { it.first })
+        assertEquals(listOf("best", "last"), sections.first().second.map { it.id })
+        assertEquals(listOf("General"), commandSections(listOf(command("next", null, suggested = true)), "General", "next").map { it.first })
+    }
 }

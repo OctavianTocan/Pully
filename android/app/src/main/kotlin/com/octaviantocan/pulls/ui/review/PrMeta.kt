@@ -29,16 +29,19 @@ import com.octaviantocan.pulls.ui.design.PullsFonts
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.home.compactAge
+import com.octaviantocan.pulls.ui.rememberOpenInBrowser
 
 /**
  * `.meta`: `dayflow #241 · author · 6h ago`, the repository and number first and the age last (rule 26, Row W). The
- * repository is a link and the author is plain text (L21). Both yield at their ends so the metadata
+ * repository is a link, the number opens the canonical PR in the browser and the author is plain text (L21). Names yield at their ends so the metadata
  * stays on one line (rule 26), keeping the number and age visible on both opening and loaded pages.
  * A repository is only a link when [onOpenRepo] is given.
  */
 @Composable
 internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owner: String?, repo: String?, onOpenRepo: ((String, String) -> Unit)?) {
     val c = LocalPullsColors.current
+    val browser = rememberOpenInBrowser()
+    val githubUrl = canonicalPrUrl(label, owner, repo)
     val sep = @Composable { Text("·", style = PullsType.sm, color = c.muted) }
     Row(
         Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -51,7 +54,10 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
                 style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
             )
         }
-        Text(label, style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1, softWrap = false)
+        Text(
+            label, Modifier.then(if (githubUrl != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open $label on GitHub") { browser(githubUrl) } else Modifier),
+            style = PullsType.num.copy(fontSize = PullsType.sm.fontSize), color = c.text, maxLines = 1, softWrap = false,
+        )
         author?.let { login ->
             sep()
             // The author is a plain name: a tap that left for their GitHub profile surprised (recording 15 Oct 15:37,
@@ -66,6 +72,13 @@ internal fun PrMetaLine(label: String, author: String?, createdAt: String?, owne
             }
         }
     }
+}
+
+/** Only PR number labels link out; commit, compare and posted-diff labels are not GitHub pull requests. */
+internal fun canonicalPrUrl(label: String, owner: String?, repo: String?): String? {
+    if (owner.isNullOrBlank() || repo.isNullOrBlank() || !label.startsWith('#')) return null
+    val number = label.drop(1).toIntOrNull()?.takeIf { it > 0 } ?: return null
+    return "https://github.com/$owner/$repo/pull/$number"
 }
 
 /**

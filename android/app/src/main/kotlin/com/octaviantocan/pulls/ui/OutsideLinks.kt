@@ -23,8 +23,8 @@ import com.octaviantocan.pulls.ui.home.HomeLinks
 object OutsideLinks {
     const val GITHUB_APP = "com.github.android"
 
-    /** Whether some app other than Pully took [url]. */
-    fun open(context: Context, url: String): Boolean {
+    /** Whether some app other than Pully took [url]. [browserOnly] also excludes native GitHub and link-specific apps. */
+    fun open(context: Context, url: String, browserOnly: Boolean = false): Boolean {
         if (url.isBlank()) return false
         val view = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val pm = context.packageManager
@@ -32,7 +32,7 @@ object OutsideLinks {
         val probe = Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
         val browser = pm.resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
         val browsers = pm.queryIntentActivities(probe, PackageManager.MATCH_ALL).map { it.activityInfo.packageName }
-        for (app in order(takers, browser, browsers, context.packageName)) {
+        for (app in order(takers, browser, browsers, context.packageName, browserOnly)) {
             try {
                 context.startActivity(Intent(view).setPackage(app))
                 return true
@@ -46,10 +46,13 @@ object OutsideLinks {
     /**
      * Who to hand a link to, first to last: the GitHub app if it takes the page, the default browser, any other browser,
      * then anything else that takes it. Never Pully, and never Android's own chooser, which is no app.
+     * With [browserOnly], only the default and other browsers are eligible.
      */
-    internal fun order(takers: List<String>, defaultBrowser: String?, browsers: List<String>, own: String): List<String> =
-        (listOfNotNull(GITHUB_APP.takeIf { it in takers }, defaultBrowser) + browsers + takers)
+    internal fun order(takers: List<String>, defaultBrowser: String?, browsers: List<String>, own: String, browserOnly: Boolean = false): List<String> =
+        (if (browserOnly) listOfNotNull(defaultBrowser) + browsers
+        else listOfNotNull(GITHUB_APP.takeIf { it in takers }, defaultBrowser) + browsers + takers)
             .filter { it != own && it != "android" }
+            .filter { !browserOnly || it != GITHUB_APP }
             .distinct()
 }
 
@@ -59,6 +62,16 @@ fun rememberOpenOnGithub(): (String) -> Unit {
     val context = LocalContext.current
     val toaster = LocalToaster.current
     return remember(context, toaster) { { url -> openOutside(context, toaster, url) } }
+}
+
+/** Opens a canonical PR page in an explicitly chosen browser, bypassing app-link capture by Pully or GitHub. */
+@Composable
+fun rememberOpenInBrowser(): (String) -> Unit {
+    val context = LocalContext.current
+    val toaster = LocalToaster.current
+    return remember(context, toaster) { { url ->
+        if (url.isNotBlank() && !OutsideLinks.open(context, url, browserOnly = true)) toaster.show("No browser here opens that link", cue = Cue.Error)
+    } }
 }
 
 internal fun openOutside(context: Context, toaster: Toaster, url: String) {

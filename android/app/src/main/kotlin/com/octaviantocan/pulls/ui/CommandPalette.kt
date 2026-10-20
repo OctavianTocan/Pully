@@ -78,7 +78,7 @@ internal fun ColumnScope.CommandsPage(scope: PaletteScope?, onClearScope: () -> 
     val candidates = remember(scope) { Commands.all().filter { !it.hidden && (scope == null || it.id.startsWith(scope.prefix)) } }
     val ranked = remember(candidates, query) { CommandRank.rankItems(candidates, query) { "${it.title} ${it.keywords.orEmpty()} ${it.group.orEmpty()}" } }
     val results = ranked.take(LIMIT)
-    val sections = remember(results, general) { commandSections(results, general) }
+    val sections = remember(results, general, query) { commandSections(results, general, query) }
     val first = sections.firstOrNull()?.second?.firstOrNull()
     val expanded = remember { mutableStateListOf<String>() }
     val focus = remember { FocusRequester() }
@@ -128,8 +128,12 @@ internal const val SUGGESTED = "Suggested"
  * The groups Commands shows, in order: Suggested first, the commands of the page on screen (on the Tour its own
  * actions, on a pull request its next steps), then the other groups as they came, and General last. A suggested command
  * shows in Suggested only, not twice ("make Commands follow the page", recording of 16 Oct 12:10, 08:31 to 09:04, N14).
+ * While searching, groups follow their best match instead, without promoting Suggested or demoting General.
  */
-internal fun commandSections(results: List<Command>, general: String): List<Pair<String, List<Command>>> {
+internal fun commandSections(results: List<Command>, general: String, query: String = ""): List<Pair<String, List<Command>>> {
+    // Search has already ranked commands by relevance. Keep the best matching group first, so a suggested
+    // Files action cannot jump ahead of Update merely because it belongs to the current page.
+    if (query.isNotBlank()) return results.groupBy { it.group ?: general }.toList()
     val (suggested, rest) = results.partition { it.suggested }
     val groups = rest.groupBy { it.group ?: general }.toList().sortedBy { (name) -> name == general }
     return (if (suggested.isEmpty()) emptyList() else listOf(SUGGESTED to suggested)) + groups

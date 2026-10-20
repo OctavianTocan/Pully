@@ -38,6 +38,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -313,13 +315,13 @@ internal fun ColumnScope.FilesList(
             val dir = file.path.substringBeforeLast('/', "")
             val mark = attention[file.path]?.takeIf { it in JEV_FILE_WORDS }
             ListRow(
-                AnnotatedString(file.path.substringAfterLast('/')),
+                AnnotatedString(file.path.substringAfterLast('/'), SpanStyle(textDecoration = if (reviewed) TextDecoration.LineThrough else null)),
                 // The folder cut from the front (rule 90), so a deep path never takes two lines.
                 under = if (dir.isEmpty() && review != ReviewState.Changed && mark == null) null else ({
                     if (dir.isNotEmpty() || mark != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (mark != null) JevMark(mark, trailingDot = dir.isNotEmpty())
-                            if (dir.isNotEmpty()) PathTail(dir, PullsType.sm, c.muted, Modifier.weight(1f, fill = false))
+                            if (dir.isNotEmpty()) PathTail(dir, PullsType.sm.copy(textDecoration = if (reviewed) TextDecoration.LineThrough else null), c.muted, Modifier.weight(1f, fill = false))
                         }
                     }
                     if (review == ReviewState.Changed) Text("Changed since you reviewed it", style = PullsType.sm, color = c.orange)

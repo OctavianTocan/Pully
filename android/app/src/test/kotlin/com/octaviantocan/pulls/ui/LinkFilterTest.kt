@@ -19,6 +19,19 @@ import kotlin.test.assertTrue
 class LinkFilterTest {
     private val android = "http://schemas.android.com/apk/res/android"
 
+    @Test
+    fun browserOnlyOpeningBypassesBothPullyAndGithubNativeApp() {
+        val own = "com.octaviantocan.pulls"
+        assertEquals(
+            listOf("org.mozilla.firefox", "com.android.chrome"),
+            OutsideLinks.order(
+                listOf(own, OutsideLinks.GITHUB_APP, "other.link.app"), "org.mozilla.firefox",
+                listOf(own, OutsideLinks.GITHUB_APP, "com.android.chrome", "android"), own, browserOnly = true,
+            ),
+        )
+        assertEquals(emptyList(), OutsideLinks.order(listOf(own, OutsideLinks.GITHUB_APP), null, emptyList(), own, browserOnly = true))
+    }
+
     /** Every pathPattern of the VIEW filter that names github.com. */
     private val githubPatterns: List<String> by lazy {
         val factory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
