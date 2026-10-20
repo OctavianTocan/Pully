@@ -68,8 +68,11 @@ import kotlinx.coroutines.launch
 internal sealed interface Screen {
     data object Home : Screen
     data class Repo(val owner: String, val repo: String, val tours: Boolean = false) : Screen
-    /** [tour] opens the pull request on its tour instead of its overview; [from] is where it was opened, for `pr.open`. */
-    data class Review(val target: OpenTarget, val tour: Boolean = false, val from: String = "other") : Screen
+    /**
+     * [tour] opens the pull request on its tour instead of its overview; [from] is where it was opened, for `pr.open`;
+     * [place] is the thing on it a link pointed at, which the page goes to once it is there.
+     */
+    data class Review(val target: OpenTarget, val tour: Boolean = false, val from: String = "other", val place: PlaceRequest? = null) : Screen
     data object Settings : Screen
     data object UiBook : Screen
 }
@@ -106,6 +109,7 @@ fun PullsApp(initialTarget: String?) {
             openTarget = { stack.add(Screen.Review(it)) },
             openTour = { stack.add(Screen.Review(it, tour = true)) },
             openFrom = { target, from, tour -> stack.add(Screen.Review(target, tour = tour, from = from)) },
+            openPlace = { target, from, place -> stack.add(Screen.Review(target, from = from, place = PlaceRequest(place))) },
             openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
             openRepoTours = { owner, repo -> stack.add(Screen.Repo(owner, repo, tours = true)) },
             home = { stack.clear(); stack.add(Screen.Home) },
@@ -148,7 +152,7 @@ fun PullsApp(initialTarget: String?) {
         when {
             screen == null -> toaster.show(CANT_OPEN, cue = Cue.Error)
             screen == top || screen is Screen.Review && top is Screen.Review && screen.target.serverTarget == top.target.serverTarget ->
-                (top as? Screen.Review)?.let { IncomingLinks.reopen(it.target) }
+                (top as? Screen.Review)?.let { IncomingLinks.reopen(it.target, (screen as? Screen.Review)?.place?.place) }
             else -> stack.add(screen)
         }
     }
@@ -196,7 +200,10 @@ fun PullsApp(initialTarget: String?) {
     }
     // The one bar at the foot, over every page: pages say what it holds and it stays while they slide (Q2).
     val footBars = remember { FootBars() }
-    CompositionLocalProvider(LocalToaster provides toaster, LocalFootBars provides footBars) {
+    // A link tapped in a description, a comment or an answer opens in Pully when Pully would take it from another app, and
+    // outside otherwise; "on GitHub" actions go outside on their own (`rememberOpenOnGithub`).
+    val uriHandler = remember(context, toaster) { PullyUriHandler(context, toaster) }
+    CompositionLocalProvider(LocalToaster provides toaster, LocalFootBars provides footBars, androidx.compose.ui.platform.LocalUriHandler provides uriHandler) {
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
             // the one under it slides away (rule 73), and back slides the other way, ranked by how deep the page is.
@@ -205,7 +212,7 @@ fun PullsApp(initialTarget: String?) {
                 when (val current = layer.screen) {
                     Screen.Home -> HomeScreen(nav, homeUi)
                     is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, startOnTours = current.tours)
-                    is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from)
+                    is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}
                 }
@@ -247,7 +254,7 @@ private const val CANT_OPEN = "Pully can't open that link"
  * `null` for anything else, an issue or a file included.
  */
 private fun linkScreen(text: String): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parseShared(text)) {
-    is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link")
+    is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link", place = link.place?.let(::PlaceRequest))
     is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
     null -> null
 }

@@ -323,8 +323,8 @@ fun placeAnchors(lines: List<List<DiffLine>>, anchors: Collection<Anchor>): Map<
 }
 
 /** Web `visibleThreads`: this file's threads on a line, not outdated, not resolved, shown or pending. */
-fun visibleThreads(threads: List<ReviewThread>, path: String, showThreads: Boolean, includeResolved: Boolean = false): List<ReviewThread> =
-    threads.filter { it.path == path && it.line != null && !it.outdated && (includeResolved || !it.resolved) && (showThreads || it.pending) }
+fun visibleThreads(threads: List<ReviewThread>, path: String, showThreads: Boolean, includeResolved: Boolean = false, linked: Long? = null): List<ReviewThread> =
+    threads.filter { it.path == path && it.line != null && !it.outdated && (includeResolved || !it.resolved) && (showThreads || it.pending || it.rootId == linked) }
 
 /**
  * `hunkAnchor`: a hunk note sits under the last unchanged line before the hunk's first

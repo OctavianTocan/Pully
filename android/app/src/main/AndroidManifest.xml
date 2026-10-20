@@ -21,6 +21,12 @@
         </intent>
         <!-- The GitHub app, so the GitHub links page can tell whether it is there to take the links first. -->
         <package android:name="com.github.android" />
+        <!-- Browsers and the GitHub app, so "on GitHub" hands a link to one of them instead of back to Pully (OutsideLinks). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 
     <application

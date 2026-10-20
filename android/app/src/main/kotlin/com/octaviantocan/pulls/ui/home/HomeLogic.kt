@@ -3,6 +3,8 @@ package com.octaviantocan.pulls.ui.home
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.octaviantocan.pulls.core.LinkPlace
+import com.octaviantocan.pulls.core.LinkPlaces
 import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.PrLinks
@@ -38,7 +40,8 @@ import kotlin.math.sqrt
 
 /** What the home page's URL field opens. */
 sealed interface HomeLink {
-    data class Target(val target: OpenTarget) : HomeLink
+    /** [place]: the thing on its GitHub page the link pointed at, a comment, a file or the checks (`LinkPlaces`). */
+    data class Target(val target: OpenTarget, val place: LinkPlace? = null) : HomeLink
     data class Repo(val owner: String, val repo: String) : HomeLink
 }
 
@@ -50,10 +53,11 @@ object HomeLinks {
         val trimmed = text.trim()
         github.find(trimmed)?.let { match ->
             val (owner, repo, kind, rest) = match.destructured
+            val place = LinkPlaces.parse(trimmed)
             return when (kind) {
-                "pull" -> Regex("""^\d+""").find(rest)?.value?.let { HomeLink.Target(OpenTarget.Pull(owner, repo, it.toInt(), "github.com")) }
-                "commit" -> HomeLink.Target(OpenTarget.Commit(owner, repo, rest.replace(Regex("/.*$"), "")))
-                "compare" -> splitRange(rest)?.let { (base, head) -> HomeLink.Target(OpenTarget.Compare(owner, repo, base, head)) }
+                "pull" -> Regex("""^\d+""").find(rest)?.value?.let { HomeLink.Target(OpenTarget.Pull(owner, repo, it.toInt(), "github.com"), place) }
+                "commit" -> HomeLink.Target(OpenTarget.Commit(owner, repo, rest.replace(Regex("/.*$"), "")), place)
+                "compare" -> splitRange(rest)?.let { (base, head) -> HomeLink.Target(OpenTarget.Compare(owner, repo, base, head), place) }
                 else -> HomeLink.Repo(owner, repo)
             }
         }
@@ -74,6 +78,21 @@ object HomeLinks {
         urls.firstNotNullOfOrNull { url -> parse(url) as? HomeLink.Target }?.let { return it }
         return urls.firstNotNullOfOrNull { url -> bareRepo.matchEntire(url)?.let { HomeLink.Repo(it.groupValues[1], it.groupValues[2]) } }
     }
+
+    /**
+     * Whether a link tapped inside Pully opens in Pully: a GitHub pull request, commit or compare link, or a page on Pully's
+     * own server (a posted diff, a pull request), the ones a tap in another app hands to Pully (the manifest's link filters).
+     * Anything else, a GitHub issue or file and a server page Pully has no screen for included, opens outside.
+     */
+    fun opensInPully(url: String): Boolean {
+        val trimmed = url.trim()
+        if (githubPage.containsMatchIn(trimmed)) return parse(trimmed) is HomeLink.Target
+        if (serverPage.containsMatchIn(trimmed)) return parseShared(trimmed) != null
+        return false
+    }
+
+    private val githubPage = Regex("""^https?://(?:www\.)?github\.com/[^/\s]+/[^/\s]+/(?:pull|commit|compare)/""", RegexOption.IGNORE_CASE)
+    private val serverPage = Regex("""^https://prs\.octaviantocan\.com/""", RegexOption.IGNORE_CASE)
 
     /**
      * What the search pill's text opens: a link [parse] understands, or a bare number (`42`, `#42`) that only one of the

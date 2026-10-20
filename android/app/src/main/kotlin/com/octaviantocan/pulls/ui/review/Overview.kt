@@ -34,7 +34,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -843,9 +846,9 @@ internal fun inTalk(item: PrTimelineItem, talk: Talk): Boolean = when (talk) {
  * people wrote or what bots wrote, each with how many.
  */
 @Composable
-fun Conversation(overview: PrOverview) {
+fun Conversation(overview: PrOverview, spot: LinkSpot? = null, onSpot: (y: Int) -> Unit = {}) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     var showAll by rememberSaveable(overview.id) { mutableStateOf(false) }
     var talk by rememberSaveable(overview.id, "talk") { mutableStateOf(Talk.All) }
     // Pushed commits live in the Commits tab (rule 91); the conversation is what people said and did.
@@ -853,7 +856,26 @@ fun Conversation(overview: PrOverview) {
     val counts = remember(everything) { Talk.entries.associateWith { which -> everything.count { inTalk(it, which) } } }
     val timeline = remember(everything, talk) { everything.filter { inTalk(it, talk) } }
     val earlier = if (showAll || talk != Talk.All) 0 else maxOf(0, timeline.size - 30)
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    // A link to a comment or a review shows it whatever the chips and "Show earlier" hid, then the page scrolls to it.
+    var column by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val cards = remember { HashMap<String, LayoutCoordinates>() }
+    LaunchedEffect(spot) {
+        val wanted = spot ?: return@LaunchedEffect
+        if (everything.none { it.id == wanted.item }) return@LaunchedEffect
+        if (timeline.none { it.id == wanted.item }) talk = Talk.All
+        // Folded under "Show earlier": the whole conversation opens, as GitHub's page has it all.
+        if (everything.indexOfFirst { it.id == wanted.item } < everything.size - 30) showAll = true
+        var y: Int? = null
+        repeat(120) {
+            if (y != null) return@repeat
+            val card = cards[wanted.item]
+            val root = column
+            if (card != null && root != null && card.isAttached && root.isAttached) y = root.localPositionOf(card, Offset.Zero).y.roundToInt()
+            else kotlinx.coroutines.delay(16)
+        }
+        y?.let(onSpot)
+    }
+    Column(Modifier.onGloballyPositioned { column = it }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Only worth having when there is something to narrow: people and bots both spoke.
         if ((counts[Talk.People] ?: 0) > 0 && (counts[Talk.Bots] ?: 0) > 0) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -864,9 +886,11 @@ fun Conversation(overview: PrOverview) {
         }
         // With the description gone (N30), a pull request nobody has spoken on says so instead of showing an empty tab.
         if (everything.isEmpty() && overview.timelineHidden == 0) Text("Nobody has commented yet.", Modifier.padding(horizontal = 4.dp), style = PullsType.sm, color = c.muted)
-        if (overview.timelineHidden > 0) LinkText(t("overview.moreOnGithub", "n" to overview.timelineHidden)) { uri.openUri(overview.url) }
+        if (overview.timelineHidden > 0) LinkText(t("overview.moreOnGithub", "n" to overview.timelineHidden)) { github(overview.url) }
         if (earlier > 0) LinkText(t("overview.earlier", "n" to earlier)) { showAll = true }
-        timeline.drop(earlier).forEach { item -> TimelineEntry(item) }
+        timeline.drop(earlier).forEach { item ->
+            TimelineEntry(item, spot?.takeIf { it.item == item.id }, Modifier.onGloballyPositioned { cards[item.id] = it })
+        }
     }
 }
 
@@ -888,13 +912,12 @@ internal fun LinkText(text: String, modifier: Modifier = Modifier, onClick: () -
 
 /** `PrTimelineEntry`: an event line, or a comment / review card. */
 @Composable
-fun TimelineEntry(item: PrTimelineItem) {
+fun TimelineEntry(item: PrTimelineItem, spot: LinkSpot? = null, modifier: Modifier = Modifier) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
     when (item) {
         // An event is a sentence: who, what and when, with no icon in front (rule 48), at body size (rule 14).
         is PrTimelineItem.Event -> FlowRow(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            modifier.fillMaxWidth().padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
@@ -907,14 +930,18 @@ fun TimelineEntry(item: PrTimelineItem) {
         }
         // Pushed commits are in the Commits tab, not the conversation (rule 91).
         is PrTimelineItem.Commits -> Unit
-        is PrTimelineItem.Comment, is PrTimelineItem.Review -> CommentCard(item)
+        is PrTimelineItem.Comment, is PrTimelineItem.Review -> CommentCard(item, spot, modifier)
     }
 }
 
+/**
+ * A comment or a review card. The one a link pointed at ([spot]) opens, with its comments on the code when the link was to
+ * one of them, and is washed in the accent for a moment, as the diff marks a line it lands on (LinkPlaces).
+ */
 @Composable
-private fun CommentCard(item: PrTimelineItem) {
+private fun CommentCard(item: PrTimelineItem, spot: LinkSpot?, modifier: Modifier) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     var showInline by rememberSaveable(item.id + ":inline") { mutableStateOf(false) }
     val comment = item as? PrTimelineItem.Comment
     val review = item as? PrTimelineItem.Review
@@ -924,11 +951,20 @@ private fun CommentCard(item: PrTimelineItem) {
     // A comment GitHub hid, or one a bot wrote, starts folded up; any other starts open (rule 91). Either folds and opens with a tap on its header.
     var open by rememberSaveable(item.id, "open") { mutableStateOf(minimized == null && !isBot(item.actor)) }
     val collapsed = !open
-    Column(Modifier.timelineCard(c)) {
+    val wash = remember { Animatable(0f) }
+    LaunchedEffect(spot) {
+        if (spot == null) return@LaunchedEffect
+        open = true
+        if (spot.inline) showInline = true
+        wash.snapTo(1f)
+        kotlinx.coroutines.delay(1_600)
+        wash.animateTo(0f, tween(900, easing = PullsMotion.SmoothOut))
+    }
+    Column(modifier.timelineCard(c).drawBehind { if (wash.value > 0f) drawRect(c.accentTeal.copy(alpha = 0.12f * wash.value)) }) {
         CardHeader(
             collapsed = collapsed, onToggle = { open = !open },
             trailing = {
-                Text(prTimeAgo(item.createdAt), Modifier.cueClickable(enabled = url.isNotBlank()) { uri.openUri(url) }, style = PullsType.sm, color = c.muted, maxLines = 1)
+                Text(prTimeAgo(item.createdAt), Modifier.cueClickable(enabled = url.isNotBlank()) { github(url) }, style = PullsType.sm, color = c.muted, maxLines = 1)
             },
         ) {
             item.actor?.let { GithubAvatar(it.login, avatarUrl = it.avatarUrl, size = 18.dp) }
@@ -973,7 +1009,7 @@ private fun CommentCard(item: PrTimelineItem) {
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         inline.path + (inline.line?.let { ":$it" } ?: ""),
-                                        Modifier.cueClickable(enabled = inline.url.isNotBlank()) { uri.openUri(inline.url) },
+                                        Modifier.cueClickable(enabled = inline.url.isNotBlank()) { github(inline.url) },
                                         style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted,
                                     )
                                     // A word, not a bordered tag (rule 49).
@@ -983,7 +1019,7 @@ private fun CommentCard(item: PrTimelineItem) {
                             }
                         }
                     }
-                    if (review.commentCount > review.comments.size) LinkText(t("overview.moreOnGithub", "n" to review.commentCount - review.comments.size)) { uri.openUri(review.url) }
+                    if (review.commentCount > review.comments.size) LinkText(t("overview.moreOnGithub", "n" to review.commentCount - review.comments.size)) { github(review.url) }
                 }
             }
         }

@@ -156,8 +156,10 @@ pages of the same `PrSheet` with ← back, and the phone's Back walks back a pag
 only from the first (rule 115; J27, J32, J33).
 
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-is-short
-The pull request's ⋯ sheet holds GitHub and Analyze as tiles, then Leave a comment,
-"Approve, merge or close" and Review with AI. It MUST NOT offer the model, Analyze options
+The pull request's ⋯ sheet holds GitHub, Copy link and Analyze as tiles, then Leave a
+comment, "Approve, merge or close" and Review with AI. Copy link puts the pull request's
+GitHub link on the clipboard and says so ("We also need a way to copy a PR's link in its
+bottom sheet": Tavi, 20 Oct 2026 12:10). It MUST NOT offer the model, Analyze options
 ("confusing"), Review progress ("fully") or a Checks tile, since the checks are pinned on
 the Overview's head (recording of 16 Oct 12:10, 21:11 to 21:38, N39, Tavi's decision).
 
@@ -584,3 +586,19 @@ A swipe toward the previous file MUST land on it, the file the diff was opened o
 included; it MUST NOT slide back to the file shown. The gesture reads the file on screen
 and the list as they are now, never as they were when the diff opened ("it takes me back
 to the one I was at already", recording 17 Oct 14:45, 03:34 to 03:47; Q7).
+
+@cc [owner:OctavianTocan,label:product] pr-links-land-on-the-thing
+A GitHub link to something on a pull request MUST open Pully on that thing, as GitHub's own
+page scrolls to it: `#issuecomment-` and `#pullrequestreview-` on the Conversation, scrolled
+under the pinned head with the card opened and washed in the accent for a moment; a comment
+on the code (`#discussion_r`, `/files#r`) at its line in the Diff with its thread open,
+resolved or hidden, or under its review on the Conversation when its code has changed; the
+files tab on the Diff, a `#diff-` anchor on that file and its `L` or `R` line, `/files/<sha>`
+and `a..b` on those commits; `/commits/<sha>` on that commit's changes; the commits tab on
+the Commits sheet; the checks tab on the Checks sheet with `check_run_id`'s row marked;
+`#issue-` on the description. This holds wherever the link comes from: another app, a tap
+inside Pully, or the Inbox search pill. A link to the pull request already on screen goes
+there without opening it again. A thing Pully does not have MUST say so, with GitHub one tap away
+("When opening GitHub PR links that point to a comment, review, or other feature of GitHub,
+all Pully does is open the PR. That sucks. It needs to take us to the thing. Seamless parity
+with GitHub": Tavi, 20 Oct 2026 12:10).

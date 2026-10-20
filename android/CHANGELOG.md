@@ -16,6 +16,24 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.52.0
+
+GitHub links land on the comment, file or check they point to.
+
+### New
+
+- A GitHub link to a comment or a review opens the pull request on its Conversation, scrolled to that comment, which glows for a moment. A comment on the code opens the changes at its line with the conversation open, and links to a file, a line, a commit, the commits or the checks open there too, as they would on GitHub.
+![A link to a comment opens the Conversation on that comment](changelog/0.52.0/comment-link.gif)
+![A link to a comment on the code opens the changes at its line](changelog/0.52.0/code-comment-link.gif)
+![A link to one check opens the checks with that one marked](changelog/0.52.0/checks-link.png)
+- Copy link is in a pull request's menu, next to GitHub, and in the menu a tour opens when you hold it.
+![Copy link next to GitHub in a pull request's menu](changelog/0.52.0/copy-link.png)
+
+### Fixed
+
+- GitHub in a pull request's menu opens GitHub again, in the GitHub app or your browser, instead of doing nothing. So does every other "on GitHub" in Pully.
+- A pull request link inside a description or a comment opens in Pully on the thing it points to, and so does one pasted in the Inbox search; other links open in your browser.
+
 ## 0.51.0
 
 Send feedback on Pully from Commands or Settings.

@@ -36,7 +36,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.heading
@@ -152,14 +151,15 @@ private val BUCKET_ORDER = listOf("failing" to "Failing", "pending" to "Running"
  * fold heading over each state, and rows whose name takes at most two lines with the rest on one line under it.
  */
 @Composable
-internal fun ChecksSheet(overview: PrOverview, onClose: () -> Unit) {
-    PullsSheet(onClose, "Checks", expandable = true) { ChecksList(overview.checks, overview.checksSummary.hidden, overview.url) }
+internal fun ChecksSheet(overview: PrOverview, linked: Long? = null, onClose: () -> Unit) {
+    PullsSheet(onClose, "Checks", expandable = true) { ChecksList(overview.checks, overview.checksSummary.hidden, overview.url, linked) }
 }
 
+/** [linked]: the check run a link pointed at (`?check_run_id=`), whose row is marked. A row opens its run on GitHub. */
 @Composable
-internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: String) {
+internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: String, linked: Long? = null) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     var query by remember { mutableStateOf("") }
     // The search, or the air in its place, keeps the first heading clear of the sheet's ✕ (K28, M7).
     if (checks.size > 1) SheetSearch(query, { query = it }, "Find a check", Modifier.padding(top = SheetTopGap, bottom = 6.dp))
@@ -186,7 +186,8 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
                         AnnotatedString(check.name),
                         detail = detail.ifEmpty { null }?.let(::AnnotatedString),
                         first = index == 0,
-                        onClick = check.url?.let { link -> { uri.openUri(link) } },
+                        selected = linked != null && isRun(check, linked),
+                        onClick = check.url?.let { link -> { github(link) } },
                         leading = { CheckMark(bucket) },
                         titleLines = 2,
                         detailLines = 1,
@@ -195,7 +196,13 @@ internal fun ColumnScope.ChecksList(checks: List<PrCheck>, hidden: Int, url: Str
             }
         }
     }
-    if (hidden > 0 && !searching) SheetCard(Modifier.padding(top = 12.dp)) { ListRow("$hidden more on GitHub", first = true, onClick = { uri.openUri("$url/checks") }) }
+    if (hidden > 0 && !searching) SheetCard(Modifier.padding(top = 12.dp)) { ListRow("$hidden more on GitHub", first = true, onClick = { github("$url/checks") }) }
+}
+
+/** Whether [check] is GitHub's check run [id]: its link ends in the run (`/runs/<id>`) or the Actions job (`/job/<id>`). */
+internal fun isRun(check: PrCheck, id: Long): Boolean {
+    val link = check.url?.substringBefore('?')?.trimEnd('/') ?: return false
+    return link.endsWith("/runs/$id") || link.endsWith("/job/$id")
 }
 
 

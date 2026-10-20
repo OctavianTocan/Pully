@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -89,14 +88,14 @@ internal fun ColumnScope.ProfilePageContent(
 @Composable
 private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShowClosed: (Boolean) -> Unit, choices: List<RepoChoice>, onRepos: () -> Unit) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     // The Inbox names you only from pull requests you opened; the server's GitHub sign-in names you otherwise.
     var statsLogin by remember { mutableStateOf<String?>(null) }
     val you = viewer ?: statsLogin
     // You, and a tap on you opens your GitHub profile (H23): no row of its own, no server address under the name (H24).
     Row(
         Modifier.padding(top = 10.dp).clip(RoundedCornerShape(PullsRadius.lg))
-            .then(if (you != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open your GitHub profile") { uri.openUri("https://github.com/$you") } else Modifier)
+            .then(if (you != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Open your GitHub profile") { github("https://github.com/$you") } else Modifier)
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {

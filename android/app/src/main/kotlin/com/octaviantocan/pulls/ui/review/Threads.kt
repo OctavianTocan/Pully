@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,6 +98,9 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
     val c = LocalPullsColors.current
     val actions = remember(session, thread.rootId) { ThreadActions(session) }
     var open by rememberSaveable(thread.rootId) { mutableStateOf(!thread.resolved) }
+    // The thread a link pointed at opens, resolved or not.
+    val linked = session.linkedThread == thread.rootId
+    LaunchedEffect(linked) { if (linked) open = true }
     val viewer = session.reviewData?.viewer
     val canWrite = session.canWrite && session.pull != null
     val canResolve = canWrite && thread.threadId != null && !thread.pending && !thread.resolved

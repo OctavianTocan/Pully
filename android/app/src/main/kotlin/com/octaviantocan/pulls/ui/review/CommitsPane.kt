@@ -24,7 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,7 +51,7 @@ import com.octaviantocan.pulls.ui.home.StatusColors
 @Composable
 internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOverview, onOpen: () -> Unit, onClose: () -> Unit) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     val commits = overview.commits
     val hidden = overview.commitsHidden
     var query by remember { mutableStateOf("") }
@@ -86,7 +85,7 @@ internal fun CommitsSheet(session: ReviewSession, ui: DiffUi, overview: PrOvervi
                 // GitHub sends the newest commits only, so the oldest ones are on GitHub alone; this row says how many.
                 if (hidden > 0) ListRow(
                     "Commits 1 to $hidden are on GitHub only",
-                    onClick = { uri.openUri("${overview.url}/commits") },
+                    onClick = { github("${overview.url}/commits") },
                     leading = { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.muted, size = 20.dp) },
                 )
             }

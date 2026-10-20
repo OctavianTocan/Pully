@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui
 
+import com.octaviantocan.pulls.core.LinkPlace
 import com.octaviantocan.pulls.core.OpenTarget
 
 /** Navigation actions every screen gets (the web router's routes, as a back stack). */
@@ -12,6 +13,8 @@ class Nav(
      * stats (`pr.open`): `inbox`, `search`, `link`, `repo`, `stack` or `other`.
      */
     val openFrom: (target: OpenTarget, from: String, tour: Boolean) -> Unit = { target, _, tour -> if (tour) openTour(target) else openTarget(target) },
+    /** Opens a pull request on the thing a link points at, a comment, a file or a check (`pr-links-land-on-the-thing`). */
+    val openPlace: (target: OpenTarget, from: String, place: LinkPlace) -> Unit = { target, from, _ -> openFrom(target, from, false) },
     val openRepo: (owner: String, repo: String) -> Unit,
     /** Opens a repository's page on its tours (a heading on the Tours tab, H26). */
     val openRepoTours: (owner: String, repo: String) -> Unit = openRepo,

@@ -16,6 +16,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import com.octaviantocan.pulls.ui.design.SidePages
@@ -210,6 +213,7 @@ internal fun PrOverviewScreen(
                 }
             }
         }
+        val spotScope = rememberCoroutineScope()
         val band = with(density) { PullsMotion.EdgeTop.toPx() }
         // The rows dissolve under the pinned tabs and under the bottom buttons instead of meeting a hard line or a block of
         // the page's colour (L7, L8, L10; rule 74). The top band starts where the head ends and only shows once rows go
@@ -240,7 +244,18 @@ internal fun PrOverviewScreen(
                         item(key = "summary") { Box(rows) { SummaryPane(session, top, data, onCite, onSheet) } }
                         filesItems(session, ui, onDiff, onSheet, rows)
                     }
-                    else -> if (data != null) item(key = "conversation") { Box(rows.padding(top = 14.dp)) { Conversation(data.overview) } } else waitingItem(session, rows)
+                    else -> if (data != null) item(key = "conversation") {
+                        Box(rows.padding(top = 14.dp)) {
+                            // The comment a link pointed at lands under the pinned head, once this tab is the one in view.
+                            Conversation(data.overview, session.spot) { y ->
+                                spotScope.launch {
+                                    snapshotFlow { front }.first { it === lists[tab] }
+                                    val under = headHeight - maxLift + with(density) { (SPOT_GAP - 26.dp).roundToPx() }
+                                    lists[tab].animateScrollToItem(1, (y - under).coerceAtLeast(0))
+                                }
+                            }
+                        }
+                    } else waitingItem(session, rows)
                 }
             }
         }
@@ -347,6 +362,12 @@ private fun Modifier.cut(cut: () -> Int, keepTop: Boolean): Modifier = layout { 
 
 /** The Overview's tabs; the opening page draws the same row, so nothing moves when the page arrives (K22). */
 internal val OVERVIEW_TABS = listOf("Summary", "Conversation")
+
+/** The tab a link to a comment or a review opens on. */
+internal const val CONVERSATION_TAB = 1
+
+/** How far under the pinned head a comment a link pointed at lands. */
+private val SPOT_GAP = 16.dp
 
 /**
  * A tab whose rows come with the conversation, before it has arrived: bars where the rows will be, and no loading

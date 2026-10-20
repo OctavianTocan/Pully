@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -227,7 +226,7 @@ private fun confirmLabel(change: String): String = when (change) {
 }
 
 /**
- * `#sheet`: GitHub and Analyze again as tiles; a comment; a row into the decisions, which sit a page further in so none
+ * `#sheet`: GitHub, Copy link and Analyze again as tiles; a comment; a row into the decisions, which sit a page further in so none
  * of them is one slip of the thumb away (J29); and Review with AI. There is no Refresh, since the page takes new commits
  * by itself, and no Commands, which a pull down on any page opens (J30). Checks is not a tile, since the Overview keeps
  * them pinned at the top, and the model, Analyze options and Review progress are gone ("confusing", "fully", recording
@@ -237,7 +236,7 @@ private fun confirmLabel(change: String): String = when (change) {
 private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData?, head: PrHead, onClose: () -> Unit, go: (PrPage) -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     val toaster = LocalToaster.current
     val messages = LocalMessages.current
     val settings = session.settings
@@ -251,7 +250,14 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
     val canReview = session.pull != null && session.canWrite
 
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        QuickAction("GitHub", { if (head.url.isNotBlank()) uri.openUri(head.url) }, Modifier.weight(1f)) { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 22.dp) }
+        // GitHub opens the page outside Pully, which would otherwise take its own link back; Copy link is the link to
+        // send on, as the Inbox row's hold sheet has it (Tavi, 20 Oct).
+        QuickAction("GitHub", { github(head.url) }, Modifier.weight(1f)) { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 22.dp) }
+        if (head.url.isNotBlank()) QuickAction("Copy link", {
+            copyText(context, head.url)
+            toaster.show("Link copied", cue = Cue.Success)
+            onClose()
+        }, Modifier.weight(1f)) { LuIcon(Lu.copy, tint = c.text, size = 22.dp) }
         QuickAction("Analyze", {
             onClose()
             if (session.taskFor("analyze")?.running == true) {

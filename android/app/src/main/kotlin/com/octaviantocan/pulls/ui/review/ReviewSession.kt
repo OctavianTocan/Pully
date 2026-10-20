@@ -169,6 +169,15 @@ class ReviewSession(
     /** Scroll requests for the diff body; the body consumes and keeps the last one. */
     var focus by mutableStateOf<Focus?>(null)
 
+    /** The comment or review a link pointed at: the Conversation opens it, scrolls to it and marks it (`landOn`). */
+    var spot by mutableStateOf<LinkSpot?>(null)
+
+    /** The code review thread a link pointed at, by its first comment: it opens on the diff even resolved or hidden. */
+    var linkedThread by mutableStateOf<Long?>(null)
+
+    /** The check run a link pointed at: the Checks sheet marks its row. */
+    var linkedCheck by mutableStateOf<Long?>(null)
+
     /** A place the Tour asked to see: that one file's diff on a sheet over the Tour, which stays where it is (L28). */
     var sourceSheet by mutableStateOf<Focus?>(null)
     var focusGroupKey by mutableStateOf<String?>(null)

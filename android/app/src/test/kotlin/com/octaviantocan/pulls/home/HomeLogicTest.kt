@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.home
 
 import com.octaviantocan.pulls.core.ListedPull
+import com.octaviantocan.pulls.core.LinkPlace
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.ui.home.GhLabel
@@ -37,7 +38,7 @@ import kotlin.test.assertTrue
 class HomeLinksTest {
     @Test
     fun opensPullsCommitsComparesAndRepos() {
-        assertEquals(HomeLink.Target(OpenTarget.Pull("antfu", "pulls.review", 106, "github.com")), HomeLinks.parse("https://github.com/antfu/pulls.review/pull/106/files"))
+        assertEquals(HomeLink.Target(OpenTarget.Pull("antfu", "pulls.review", 106, "github.com"), LinkPlace.Files()), HomeLinks.parse("https://github.com/antfu/pulls.review/pull/106/files"))
         assertEquals(HomeLink.Target(OpenTarget.Commit("a", "b", "abc1234")), HomeLinks.parse("github.com/a/b/commit/abc1234/x"))
         assertEquals(HomeLink.Target(OpenTarget.Compare("a", "b", "main", "feat/x")), HomeLinks.parse("https://github.com/a/b/compare/main...feat/x"))
         assertEquals(HomeLink.Repo("a", "b"), HomeLinks.parse("https://github.com/a/b"))
