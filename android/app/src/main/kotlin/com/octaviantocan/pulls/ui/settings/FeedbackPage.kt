@@ -43,10 +43,19 @@ internal object FeedbackFrom {
     var place: String? = null
 }
 
-/** What the Feedback page lists under the note: the account's last notes, kept so a second open shows them at once. */
+/**
+ * What the Feedback page lists under the note: the account's last notes, kept so a second open shows them at once.
+ * They are kept with the account they came from, so after Sign out another account never sees them.
+ */
 private object FeedbackUi {
-    var sent by mutableStateOf<List<FeedbackItem>?>(null)
+    private var kept by mutableStateOf<Pair<String?, List<FeedbackItem>>?>(null)
+    var sent: List<FeedbackItem>?
+        get() = kept?.takeIf { it.first == com.octaviantocan.pulls.data.Account.email }?.second
+        set(value) { kept = value?.let { com.octaviantocan.pulls.data.Account.email to it } }
 }
+
+/** The longest note the server keeps (`MAX_TEXT` in `backend/src/feedback.rs`). */
+private const val MAX_TEXT = 10_000
 
 /** Feedback from Commands: the same page as Settings, Send feedback, in a sheet of its own (nav-feedback-from-anywhere). */
 @Composable
@@ -101,7 +110,7 @@ internal fun ColumnScope.FeedbackPage(onSent: () -> Unit) {
     }
 
     SheetCard(gap = SheetTopGap) {
-        SheetField(null, FeedbackDraft.text, { FeedbackDraft.text = it }, placeholder = "What should change?", first = true, enabled = !busy, minLines = 5)
+        SheetField(null, FeedbackDraft.text, { FeedbackDraft.text = it.take(MAX_TEXT) }, placeholder = "What should change?", first = true, enabled = !busy, minLines = 5)
     }
     Text(
         listOf("Pully $version", Build.MODEL.orEmpty(), "Android ${Build.VERSION.RELEASE}", screenLabel(screen)).filter { it.isNotBlank() }.joinToString(" · "),
