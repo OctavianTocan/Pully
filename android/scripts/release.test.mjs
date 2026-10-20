@@ -41,6 +41,40 @@ describe('Android release prerequisites', () => {
     assert.match(checkRelease(fixture({ afterChangelog: notes('Links open in the right place.') })).join('\n'), /release notes.*change/)
   })
 
+  it('requires a matching newest section when versionName changes', () => {
+    const afterGradle = gradle(67, '0.53.0')
+    assert.match(checkRelease(fixture({ afterGradle })).join('\n'), /no section for 0.53.0/)
+    const afterChangelog = `${notes('A new release.').replaceAll('0.52.0', '0.53.0')}\n${notes('Links open in the right place.')}`
+    assert.deepEqual(checkRelease(fixture({ afterGradle, afterChangelog })), [])
+  })
+
+  it('does not accept changes only to an older version as this release\'s notes', () => {
+    const old = '\n## 0.39.0\n\nAn old release.\n\n- An old change.\n'
+    const beforeChangelog = notes('Links open in the right place.') + old
+    const afterChangelog = beforeChangelog.replace('An old change.', 'An edited old change.')
+    assert.match(checkRelease(fixture({ beforeChangelog, afterChangelog })).join('\n'), /current release notes MUST change/)
+  })
+
+  it('rejects duplicate version sections and versions out of order', () => {
+    const duplicate = notes('A release.') + notes('The same release twice.')
+    assert.match(checkRelease(fixture({ afterChangelog: duplicate })).join('\n'), /lists 0.52.0 twice/)
+    const outOfOrder = notes('Older first.').replaceAll('0.52.0', '0.51.0') + notes('Newer last.')
+    assert.match(checkRelease(fixture({ afterChangelog: outOfOrder })).join('\n'), /Newest first/)
+  })
+
+  it('rejects missing or overlong summaries and missing bullets', () => {
+    assert.match(checkRelease(fixture({ afterChangelog: notes('') })).join('\n'), /needs a summary/)
+    assert.match(checkRelease(fixture({ afterChangelog: notes('x'.repeat(71)) })).join('\n'), /Keep it to 70/)
+    assert.match(checkRelease(fixture({ afterChangelog: notes('A release.').replace('- Links open in the right place.\n', '') })).join('\n'), /needs at least one bullet/)
+  })
+
+  it('requires actual version-specific pictures with descriptions and bounded sizes', () => {
+    assert.match(checkRelease(fixture({ sizeOf: () => undefined })).join('\n'), /not in android/)
+    assert.match(checkRelease(fixture({ sizeOf: () => 2 * 1024 * 1024 + 1 })).join('\n'), /Keep a picture under/)
+    assert.match(checkRelease(fixture({ afterChangelog: notes('A release.').replace('![A link]', '![]') })).join('\n'), /needs words/)
+    assert.match(checkRelease(fixture({ afterChangelog: notes('A release.').replace('changelog/0.52.0/', 'changelog/0.51.0/') })).join('\n'), /must be changelog\/0.52.0/)
+  })
+
   it('rejects missing summaries, bullets, pictures and wrong release headings', () => {
     for (const afterChangelog of ['## 0.52.0\n', '## 0.52.0\n\nA summary.\n', '## 0.51.0\n\nA summary.\n- A change.\n'])
       assert.ok(checkRelease(fixture({ afterChangelog })).length > 0)
