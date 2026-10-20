@@ -41,8 +41,8 @@ not after it rests, so a command can be typed at once, and it opens without a de
 recording 15 Oct 13:54, 00:56 to 01:05; K5; rule 77).
 
 @cc [owner:OctavianTocan,label:product] nav-commands-reach-everywhere
-Commands holds Home, Settings, the theme, Update Pully and What's new on every page, and
-a page adds its own commands while it is open. Commands is the one palette: there is no
+Commands holds Home, Settings, the theme, Update Pully, What's new and Send feedback on
+every page, and a page adds its own commands while it is open. Commands is the one palette: there is no
 second command menu and no Commands row in the ⋯ or profile sheets (rules 61 and 104;
 J30, H22; recording 15 Oct 13:54, 12:33).
 
@@ -66,3 +66,13 @@ O1, O4, rule 175).
 @cc [owner:OctavianTocan,label:product] nav-back-asks-before-closing
 Back on the Inbox MUST NOT close Pully at once: it asks "Close Pully?" with Close Pully and
 Stay (recording 16 Oct 13:06, 02:47 to 02:55; O5, rule 176).
+
+@cc [owner:OctavianTocan,label:product] nav-feedback-from-anywhere
+Send feedback is in Commands on every page and is a row of Settings, and both open the same
+page: one note, a quiet line with the version, the phone and the screen it goes with, and
+Send feedback, then the account's last notes with Done on those an agent has acted on.
+From Commands it is a sheet of its own over the page, from Settings a page inside the
+Settings sheet, as the theme list is (nav-commands-themes). The note goes to the server
+with the screen and the pull request or repository of the page it was opened over, and
+what was typed MUST outlive closing the sheet and a send that fails ("Let's add a button
+somewhere for me to leave feedback from the app itself": Tavi, 20 Oct 2026 06:10).

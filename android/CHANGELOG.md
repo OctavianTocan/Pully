@@ -16,6 +16,17 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.51.0
+
+Send feedback on Pully from Commands or Settings.
+
+### New
+
+- Send feedback is in Commands on every page and at the bottom of Settings.
+![Send feedback in Commands](changelog/0.51.0/feedback-command.png)
+- Write what you want changed and tap Send feedback. It is kept with the time, the app's version, your phone and the screen you wrote it from, so it can be picked up and acted on later. Under it are the notes you sent before, with Done on those that have been acted on.
+![The Send feedback sheet with a note, what goes with it, and the notes sent before](changelog/0.51.0/feedback-sheet.png)
+
 ## 0.50.0
 
 A stack's list now shows each pull request's number and author.

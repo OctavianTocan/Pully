@@ -98,6 +98,8 @@ fun PullsApp(initialTarget: String?) {
     LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
     // Commands' Change theme opens the theme list as a sheet of its own over whatever page is open (K18).
     var themePicker by remember { mutableStateOf(false) }
+    // Send feedback, from Commands on any page (nav-feedback-from-anywhere).
+    var feedback by remember { mutableStateOf(false) }
     AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
     val nav = remember {
         Nav(
@@ -165,11 +167,21 @@ fun PullsApp(initialTarget: String?) {
                 scope.launch { updateFromCommand(context, toaster) }
             },
             Command("whatsNew", "What's new", group, keywords = "changelog changes version release notes") { whatsNew = WhatsNew.all(context) },
+            Command("feedback", "Send feedback", group, keywords = "feedback report bug idea note suggest problem") { feedback = true },
         )
     }
     // One hook for screen time: the page on top by a fixed name (`screen.view`, `screen.time`). Settings names its own pages.
     val top = stack.last()
     LaunchedEffect(top.analyticsName) { Analytics.showScreen(top.analyticsName) }
+    // The pull request or repository feedback is written about: the page under Settings when Settings is open.
+    val page = stack.lastOrNull { it != Screen.Settings }
+    LaunchedEffect(page) {
+        com.octaviantocan.pulls.ui.settings.FeedbackFrom.place = when (page) {
+            is Screen.Review -> page.target.serverTarget
+            is Screen.Repo -> "${page.owner}/${page.repo}"
+            else -> null
+        }
+    }
     // Profile's GitHub numbers and the Stats page are asked for once Pully has settled, so they open on today's
     // numbers instead of waiting (O6, O10).
     LaunchedEffect(Unit) {
@@ -201,6 +213,7 @@ fun PullsApp(initialTarget: String?) {
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
             if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
+            if (feedback) com.octaviantocan.pulls.ui.settings.FeedbackSheet(onClose = { feedback = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })

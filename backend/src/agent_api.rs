@@ -1,4 +1,5 @@
-//! Key-only, account-scoped API. No call here can invoke phone RPCs or agent jobs.
+//! Key-only, account-scoped API: the account's posted diffs and its feedback. No call here
+//! can invoke phone RPCs or agent jobs.
 use crate::{
     posted::{PostError, MAX_POST_BYTES},
     AppState,
@@ -183,9 +184,40 @@ pub async fn handle(app: Arc<AppState>, request: Request, path: &str) -> Respons
     let id = route
         .strip_prefix("/diffs/")
         .filter(|id| !id.is_empty() && !id.contains('/'));
+    let feedback_id = route
+        .strip_prefix("/feedback/")
+        .filter(|id| !id.is_empty() && !id.contains('/'));
+    let status = request.uri().query().and_then(|query| {
+        query
+            .split('&')
+            .find_map(|pair| pair.strip_prefix("status="))
+            .map(str::to_owned)
+    });
     let result: anyhow::Result<Response> = async {
         match (method.as_str(), route, id) {
             ("GET", "/me", _) => Ok(Json(json!({"account":caller.account.email,"key":caller.key.name})).into_response()),
+            ("GET", "/feedback", _) => {
+                if status.as_deref().is_some_and(|s| !matches!(s, "open" | "done")) {
+                    return Ok(fail(400, "`status` is `open` or `done`."));
+                }
+                Ok(Json(json!({"feedback":app.feedback.list_async(&caller.account.id, status.as_deref()).await?})).into_response())
+            }
+            ("GET", _, _) if feedback_id.is_some() => Ok(match app.feedback.get_async(&caller.account.id, feedback_id.unwrap_or("")).await? {
+                Some(item) => Json(item).into_response(),
+                None => fail(404, "There is no feedback with that id."),
+            }),
+            ("PATCH", _, _) if feedback_id.is_some() => {
+                let Ok(bytes) = to_bytes(request.into_body(), 64 * 1024).await else {
+                    return Ok(fail(413, "A change can be at most 64 KB."));
+                };
+                let Ok(change) = serde_json::from_slice::<Value>(&bytes) else {
+                    return Ok(fail(400, "Send JSON: { \"status\": \"done\", \"note\": \"...\" }."));
+                };
+                Ok(match app.feedback.mark_async(&caller.account.id, feedback_id.unwrap_or(""), &change).await? {
+                    Some(item) => Json(item).into_response(),
+                    None => fail(404, "There is no feedback with that id."),
+                })
+            }
             ("GET", "/diffs", _) => Ok(Json(json!({"diffs":app.posted.list_async(&caller.account.id).await?.into_iter().map(|m|described(m,&origin)).collect::<Vec<_>>()})).into_response()),
             ("POST", "/diffs", _) | ("PUT", _, Some(_)) => {
                 if let Some(wait) = limit(&app.host.storage.root().to_string_lossy(), &caller.key.id) {
@@ -220,7 +252,7 @@ pub async fn handle(app: Arc<AppState>, request: Request, path: &str) -> Respons
             } else {
                 fail(404, "There is no posted diff with that id.")
             }),
-            _ => Ok(fail(404, "There is no such call. The API has GET /api/v1/me, GET and POST /api/v1/diffs, and GET, PUT and DELETE /api/v1/diffs/<id>.")),
+            _ => Ok(fail(404, "There is no such call. The API has GET /api/v1/me, GET and POST /api/v1/diffs, GET, PUT and DELETE /api/v1/diffs/<id>, GET /api/v1/feedback, and GET and PATCH /api/v1/feedback/<id>.")),
         }
     }.await;
     match result {
@@ -320,6 +352,82 @@ mod tests {
                 .unwrap();
             assert!((1..=3600).contains(&retry));
         }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn keys_read_and_mark_their_own_accounts_feedback() {
+        let root = std::env::temp_dir().join(format!("agent-feedback-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        app.account_seed.set(true).unwrap();
+        let (account, _, created) = app.accounts.fixture_for_test();
+        let saved = app
+            .feedback
+            .save(&account.id, &json!({"text":"Swipe feels late","screen":"home","app":{"version":"0.51.0","versionCode":65}}))
+            .unwrap();
+        app.feedback
+            .save("someone-else", &json!({"text":"Not this account's"}))
+            .unwrap();
+        let id = saved["id"].as_str().unwrap();
+        let call = |method: &str, path: String, body: &str| {
+            let request = Request::builder()
+                .method(method)
+                .uri(path.clone())
+                .header("authorization", format!("Bearer {}", created.key))
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body.to_owned()))
+                .unwrap();
+            let app = app.clone();
+            async move {
+                let path = path.split('?').next().unwrap().to_owned();
+                let response = handle(app, request, &path).await;
+                let status = response.status();
+                let body = to_bytes(response.into_body(), 65_536).await.unwrap();
+                (
+                    status,
+                    serde_json::from_slice::<Value>(&body).unwrap_or(Value::Null),
+                )
+            }
+        };
+        let (status, listed) = call("GET", "/api/v1/feedback".into(), "").await;
+        assert_eq!(status, StatusCode::OK);
+        let items = listed["feedback"].as_array().unwrap();
+        assert_eq!(items.len(), 1, "another account's feedback is not listed");
+        assert_eq!(items[0]["text"], "Swipe feels late");
+        assert_eq!(items[0]["app"]["versionCode"], 65);
+        assert!(items[0].get("accountId").is_none());
+        let (status, done) = call(
+            "PATCH",
+            format!("/api/v1/feedback/{id}"),
+            r#"{"status":"done","note":"PR 70"}"#,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(done["status"], "done");
+        let (_, open) = call("GET", "/api/v1/feedback?status=open".into(), "").await;
+        assert!(open["feedback"].as_array().unwrap().is_empty());
+        let (status, one) = call("GET", format!("/api/v1/feedback/{id}"), "").await;
+        assert_eq!((status, &one["note"]), (StatusCode::OK, &json!("PR 70")));
+        let other = app.feedback.list("someone-else", None).unwrap();
+        let (status, _) = call(
+            "GET",
+            format!("/api/v1/feedback/{}", other[0]["id"].as_str().unwrap()),
+            "",
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, _) = call("GET", "/api/v1/feedback?status=later".into(), "").await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        let request = Request::builder()
+            .uri("/api/v1/feedback")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        assert_eq!(
+            handle(app.clone(), request, "/api/v1/feedback")
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 

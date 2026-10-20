@@ -260,6 +260,12 @@ class Repo(private val context: Context) {
 
     suspend fun deletePosted(id: String) { call("posted-delete") { put("id", id) } }
 
+    /** Keeps [report] in the account's feedback, for agents to read and act on later. */
+    suspend fun sendFeedback(report: FeedbackReport) { call("feedback-send", report.toJson()) }
+
+    /** The account's feedback, newest first. */
+    suspend fun feedback(): List<FeedbackItem> = call("feedback-list").jsonObject.arr("items").map { it.asFeedbackItem() }
+
     // --- Lists ---
 
     /**
