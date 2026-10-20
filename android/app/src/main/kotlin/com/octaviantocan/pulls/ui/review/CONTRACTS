@@ -635,3 +635,15 @@ same generated-tour/current-head prompt for that review session across recomposi
 and internal navigation; unknown commit metadata MUST NOT claim staleness (Tavi's
 20 Oct 2026 feedback: "when you open the tour itself ... a little bottom sheet ...
 Here's the commit").
+
+@cc [owner:OctavianTocan,label:product;design] pr-lifecycle-is-visible
+The pull request detail header MUST visibly say Merged or Closed when GitHub reports
+that lifecycle, using the app's existing state ink and glyphs independently of check
+results. A merge timestamp or an observed merged state MUST take precedence over an
+open, closed or draft copy and MUST disable merge actions; a fresh known open overview
+MAY replace a previously closed copy after reopening. Missing or unrecognized lifecycle
+without terminal evidence MUST NOT be treated as open. A current diff's known state MUST
+replace a cached overview's older state; lifecycle and same-PR link refreshes MUST update
+the displayed status without a manual Refresh. A known lifecycle from the list MUST
+survive the opening preview (Tavi, 20 Oct 2026: "On PRs that have already been merged,
+we have no indication that they've been merged").

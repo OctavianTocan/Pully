@@ -4,6 +4,8 @@ import com.octaviantocan.pulls.ui.design.DETAILS_INFO
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -131,6 +133,74 @@ class OverviewParsingTest {
         assertEquals("outdated", (parsed.timeline[2] as PrTimelineItem.Comment).minimizedReason)
         // An unknown default method falls back to the first allowed one, like `mergeSettings`.
         assertEquals("merge", parsed.merge.defaultMethod)
+    }
+}
+
+/** Lifecycle truth must survive cached headers, stale verdicts and independently loaded checks. */
+class PrLifecycleTest {
+    private fun answer(state: String?, mergedAt: String? = null, closedAt: String? = null, fresh: Boolean = true, observed: String? = null): PrOverviewData = parsePrOverviewData(
+        buildJsonObject {
+            put("overview", buildJsonObject {
+                put("id", "PR_1")
+                state?.let { put("state", it) }
+                mergedAt?.let { put("mergedAt", it) }
+                closedAt?.let { put("closedAt", it) }
+                put("mergeable", "mergeable")
+                put("mergeStateStatus", "clean")
+                put("viewer", buildJsonObject { put("canPush", true) })
+                put("merge", Json.parseToJsonElement("""{"methods":["merge"]}"""))
+                put("checksSummary", Json.parseToJsonElement("""{"total":1,"passing":1,"state":"success"}"""))
+            })
+            put("mergeability", buildJsonObject { put("allowed", true); put("ready", true) })
+        }, fresh = fresh, observedState = observed,
+    )!!
+
+    @Test
+    fun mergedStateAndTimestampTakePrecedenceOverClosedOrDraft() {
+        for (state in listOf("merged", "MERGED")) assertEquals("merged", answer(state).overview.state)
+        for (state in listOf("closed", "draft", "open")) {
+            val merged = answer(state, mergedAt = "2026-10-20T12:00:00Z", closedAt = "2026-10-20T12:00:00Z")
+            assertEquals("merged", merged.overview.state)
+            assertEquals("success", merged.overview.checksSummary.state)
+            assertEquals(PrMergeability(false, false), merged.mergeability)
+            assertEquals(emptyList(), stateActions(merged.overview))
+            assertNull(overviewMergeBlocker(merged.overview))
+        }
+        assertEquals("closed", answer("draft", closedAt = "2026-10-20T12:00:00Z").overview.state)
+        assertEquals("closed", answer("CLOSED").overview.state)
+    }
+
+    @Test
+    fun freshMergedObservationCannotRegressBehindAnOpenOverview() {
+        for (fresh in listOf(false, true)) {
+            val merged = answer("open", fresh = fresh, observed = "merged")
+            assertEquals("merged", merged.overview.state)
+            assertFalse(merged.mergeability.allowed)
+            assertFalse(merged.mergeability.ready)
+        }
+        assertEquals("merged", answer("merged", fresh = false, observed = "open").overview.state)
+        assertEquals("closed", answer("open", fresh = false, observed = "closed").overview.state)
+    }
+
+    @Test
+    fun freshOverviewCanReopenAClosedCopyWithoutInheritingUnknownAsOpen() {
+        assertEquals("open", answer("open", observed = "closed").overview.state)
+        for (state in listOf(null, "", "unknown", "NEW_STATE")) {
+            val unknown = answer(state, observed = "open")
+            assertEquals("unknown", unknown.overview.state)
+            assertFalse(unknown.overview.isOpen)
+            assertFalse(unknown.mergeability.ready)
+            assertFalse(unknown.mergeability.allowed)
+        }
+    }
+
+    @Test
+    fun headerActionsRequireKnownOpenStateAndPreviewDoesNotInventOpen() {
+        fun head(state: String) = PrHead("Title", "#1", "", state, "main", "feature", null, null, "owner", "repo")
+        for (state in listOf("merged", "closed", "unknown", "")) assertFalse(head(state).isOpen)
+        for (state in listOf("open", "draft")) assertTrue(head(state).isOpen)
+        assertEquals("unknown", PullPreview("Title").state)
+        assertEquals("draft", PullPreview("Title", isDraft = true).state)
     }
 }
 

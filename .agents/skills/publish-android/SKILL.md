@@ -5,9 +5,10 @@ description: Build the Android app and publish it so the installed phone app off
 
 # Publish and test the Android app
 
-Nothing builds or publishes the APK automatically. CI (`ci.yml`) does not touch `android/`, and
-`release.yml` only runs for `v*` tags and publishes the packages. Merging to `main` changes no
-installed app. A person (or an agent with the toolchain) has to run the steps below.
+Android pull requests are compiled, JVM-tested and assembled by `android-verify.yml`; `ci.yml`
+also checks the Android design. These checks do not publish an installed-app update. `release.yml`
+only runs for `v*` tags and publishes the packages. Merging to `main` changes no installed app.
+A person (or an agent with the toolchain and the server's output directory) has to run the steps below.
 
 ## Building in a cloud sandbox
 
@@ -15,7 +16,7 @@ A cloud sandbox can compile and unit-test the app (checked 14 Oct 2026: `dl.goog
 `maven.google.com` and Maven Central all answer through the egress proxy). What it cannot do is run the app,
 so say "compiled and unit-tested", never "tried on a phone", unless a device was used.
 
-1. Install a JDK 17+, then the SDK: download the Linux command-line tools zip from
+1. Install a JDK 21 (the project toolchain), then the SDK: download the Linux command-line tools zip from
    `https://dl.google.com/android/repository/`, unpack it to `$ANDROID_HOME/cmdline-tools/latest`, run
    `sdkmanager --licenses`, then `sdkmanager "platforms;android-37.0" "build-tools;37.0.0" "platform-tools"`.
    Gradle installs the build-tools version AGP asks for by itself.
@@ -28,7 +29,7 @@ so say "compiled and unit-tested", never "tried on a phone", unless a device was
 
 ## Publish an update
 
-Needs JDK (the script uses `mise where java`), the Android SDK (`ANDROID_HOME`, default
+Needs JDK 21 (the script uses `mise where java` unless `JAVA_HOME` is set), the Android SDK (`ANDROID_HOME`, default
 `~/Android/Sdk`) and the server running with access to the output directory.
 
 1. Bump `versionCode` and `versionName` in `android/app/build.gradle.kts`. The app offers an update only
@@ -36,8 +37,8 @@ Needs JDK (the script uses `mise where java`), the Android SDK (`ANDROID_HOME`, 
    `android/CHANGELOG.md`: one summary sentence, then a bullet per change, in plain words for the person using
    the app (`pnpm run android:design` fails without it). The app shows it after the update.
 2. Merge to `main`, check it out on the build machine.
-3. Run `android/scripts/publish-apk.sh [public-base-url] [notes]` (default base
-   `https://prs.octaviantocan.com`). It runs `./gradlew :app:assembleDebug`, reads the version from the
+3. Run `android/scripts/publish-apk.sh <public-base-url> [notes]` with the explicit publishing
+   server URL (for this channel, `https://prs.octaviantocan.com`). It runs `./gradlew :app:assembleDebug`, reads the version from the
    APK (falling back to `build.gradle.kts`), then writes `pulls.apk` and `latest.json`
    (`versionCode`, `versionName`, `sha256`, `apkUrl`, `notes`) to
    `$PULLS_REVIEW_ANDROID_DIR`, default `~/.local/share/pulls-review/android`. `notes` is this version's

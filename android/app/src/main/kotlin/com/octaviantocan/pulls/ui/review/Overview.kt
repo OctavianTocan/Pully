@@ -245,9 +245,10 @@ data class PrOverview(
 /** The whole `pr-overview` answer. */
 data class PrOverviewData(val overview: PrOverview, val mergeability: PrMergeability, val defaultCommits: Map<String, Pair<String, String>>)
 
-fun parsePrOverviewData(element: JsonElement?, fresh: Boolean = true, expectedHead: String? = null): PrOverviewData? {
+fun parsePrOverviewData(element: JsonElement?, fresh: Boolean = true, expectedHead: String? = null, observedState: String? = null): PrOverviewData? {
     val root = element as? JsonObject ?: return null
-    val overview = parsePrOverview(root.objOrNull("overview") ?: return null) ?: return null
+    val parsed = parsePrOverview(root.objOrNull("overview") ?: return null) ?: return null
+    val overview = parsed.copy(state = resolvedPrState(parsed.state, observedState, fresh))
     val assessed = assessMergeability(overview)
     val reported = root.objOrNull("mergeability")?.let {
         PrMergeability(it.bool("allowed"), it.bool("ready"), it.strOrNull("blocker"), it.strOrNull("warning"))
@@ -314,7 +315,7 @@ fun parsePrOverview(o: JsonObject): PrOverview? {
         bodyHTML = o.str("bodyHTML"),
         createdAt = o.str("createdAt"),
         author = o.objOrNull("author").actor(),
-        state = o.str("state").ifEmpty { "open" },
+        state = normalizedPrState(o.str("state"), o.strOrNull("mergedAt"), o.strOrNull("closedAt")),
         mergedAt = o.strOrNull("mergedAt"),
         closedAt = o.strOrNull("closedAt"),
         mergeable = normalizedMergeable(o.str("mergeable")),
@@ -371,6 +372,26 @@ private fun parseTimelineItem(o: JsonObject): PrTimelineItem? {
             PrTimelineItem.Event(id, createdAt, actor, o.str("event"), label?.strOrNull("name"), label?.strOrNull("color"), o.strOrNull("subject"), o.strOrNull("from"), o.strOrNull("to"), o.strOrNull("message"))
         }
         else -> null
+    }
+}
+
+/** GitHub's lifecycle, with a merge remaining final even when another field still says closed or draft. */
+internal fun normalizedPrState(state: String?, mergedAt: String? = null, closedAt: String? = null): String = when {
+    !mergedAt.isNullOrBlank() || state.equals("merged", ignoreCase = true) -> "merged"
+    state.equals("closed", ignoreCase = true) || !closedAt.isNullOrBlank() -> "closed"
+    state.equals("draft", ignoreCase = true) -> "draft"
+    state.equals("open", ignoreCase = true) -> "open"
+    else -> "unknown"
+}
+
+/** A fresh overview wins over a kept diff, except that an observed merge is irreversible. */
+internal fun resolvedPrState(overview: String, observed: String?, fresh: Boolean): String {
+    val state = normalizedPrState(overview)
+    val other = normalizedPrState(observed)
+    return when {
+        state == "merged" || other == "merged" -> "merged"
+        fresh || other == "unknown" -> state
+        else -> other
     }
 }
 
