@@ -355,3 +355,15 @@ Failed responses from account and general native RPC handlers MUST record one er
 through the existing analytics privacy/opt-out boundary, without replacing dispatched
 RPC timing events or changing response bodies (Tavi, 16 Oct 19:27 UTC, operational
 parity request; main native-api.ts noteFailure behavior).
+
+@cc [owner:OctavianTocan,label:product;security] server-feedback-kept-for-agents
+Feedback sent from the phone (`feedback-send`, which needs the account's session) is kept
+under that account with the server's own time, the app's version and versionCode, the
+screen and pull request it was sent from, the device and its Android version, the theme and
+the language, and nothing the client names for itself such as the account or a status. It
+is never evicted. The account's keys read it newest first at `GET /api/v1/feedback`
+(`?status=open|done`) and `GET /api/v1/feedback/<id>`, and `PATCH` marks it `done` with an
+optional note on what was done, or `open` again; no other account sees it, and its words
+MUST NOT reach usage analytics ("a button somewhere for me to leave feedback from the app
+itself ... It obviously needs to be stored with timestamps, app version, etc": Tavi, 20 Oct
+2026 06:10).

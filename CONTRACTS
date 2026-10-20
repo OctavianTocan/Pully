@@ -50,9 +50,11 @@ configured as the environment-seeded test account. Without that client ID the se
 `/api/v1/*` is the only part of the server meant to sit outside Cloudflare Access, and it
 MUST answer 401 to every call without a valid account key, whatever the path's case or
 doubled slashes (`/API/v1`, `//api//v1`; Tavi, 16 Oct 14:32). A key reaches only its own
-account's posted diffs: no phone method, no GitHub token, no AI run, no other account
-(Tavi, 16 Oct 12:47: "that endpoint doesn't really allow them to do anything unless they
-pass a valid API key").
+account's posted diffs and its feedback: no phone method, no GitHub token, no AI run, no
+other account (Tavi, 16 Oct 12:47: "that endpoint doesn't really allow them to do anything
+unless they pass a valid API key"). The feedback is added by Tavi's ask of 20 Oct 06:10 ("we
+can then act on all my feedback later on"); a key reads it and marks it done or open, and
+can do nothing else to it.
 
 @cc [owner:OctavianTocan,label:security;product] posted-diffs-not-on-the-web
 A diff an agent posted opens only in the phone app, signed in to the account. The web page

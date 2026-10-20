@@ -4,6 +4,7 @@ pub mod agent_process;
 pub mod ai;
 pub mod analytics;
 pub mod brief;
+pub mod feedback;
 pub mod github_stats;
 pub mod google_sign_in;
 pub mod host;
@@ -27,6 +28,7 @@ pub struct AppState {
     pub google_sign_in: Arc<google_sign_in::GoogleSignIn>,
     pub host: host::ServerHost,
     pub posted: posted::PostedStore,
+    pub feedback: feedback::FeedbackStore,
     pub github_stats: github_stats::Cache,
     account_seed: Arc<tokio::sync::OnceCell<bool>>,
     pub http: reqwest::Client,
@@ -52,6 +54,7 @@ impl AppState {
             accounts: account::Accounts::new(store.clone()),
             google_sign_in: Arc::new(google_sign_in::GoogleSignIn::new()?),
             posted: posted::PostedStore::new(store.clone()),
+            feedback: feedback::FeedbackStore::new(store.clone()),
             github_stats: github_stats::Cache::default(),
             account_seed: Arc::new(tokio::sync::OnceCell::new()),
             http: reqwest::Client::builder()

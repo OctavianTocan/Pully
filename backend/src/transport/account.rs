@@ -24,6 +24,8 @@ pub(super) async fn call(
             | "posted-list"
             | "posted-diff"
             | "posted-delete"
+            | "feedback-send"
+            | "feedback-list"
     ) {
         return None;
     }
@@ -89,6 +91,8 @@ pub(super) async fn call(
                 opened["groups"] = crate::source::groups(&opened["diff"]); Ok(opened)
             },
             "posted-delete" => Ok(json!(app.posted.remove_async(&user.id,text(args,"id")).await?)),
+            "feedback-send" => app.feedback.save_async(&user.id, args).await,
+            "feedback-list" => Ok(json!({"items":app.feedback.list_async(&user.id, None).await?.into_iter().take(100).collect::<Vec<_>>()})),
             _ => unreachable!(),
         }
     }.await;
@@ -307,6 +311,11 @@ mod tests {
                 json!({"values":{"theme":{"value":"dark","at":1}}}),
             ),
             ("agent-key-revoke", json!({"id":created.item.id})),
+            (
+                "feedback-send",
+                json!({"text":"The chip jumps","screen":"home"}),
+            ),
+            ("feedback-list", json!({})),
         ] {
             let response = HeldLock::storage(&app.host.storage)
                 .assert_yields(call(&app, &headers, name, &args))
@@ -317,6 +326,23 @@ mod tests {
         assert_eq!(
             app.accounts.settings(&user.id).unwrap()["theme"]["value"],
             "dark"
+        );
+        assert_eq!(
+            app.feedback.list(&user.id, None).unwrap()[0]["text"],
+            "The chip jumps"
+        );
+        let response = call(
+            &app,
+            &HeaderMap::new(),
+            "feedback-send",
+            &json!({"text":"x"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "feedback needs the session"
         );
         // Authentication itself needs only the Store lock; creation must also move
         // its subsequent account mutex acquisition off the single runtime thread.
