@@ -1296,6 +1296,8 @@ Source: walkthrough. Checked by: review.
 
 An author's name, a branch and a tour's author never wrap and never stack a letter to a line (H15, H28). In a row the name takes one line and gives way only at its end. The branch row is always one line: a long branch runs past the edge and the row scrolls sideways to read it all, and "…" is the last resort (H31). A pull request in a stack shows where it sits, "2/10" with the layers mark, under its number, not beside the name (H16). A finished tour's ring is a filled tick and nothing says "Read" (H27).
 
+The dedicated summary in a PR's hold sheet is an exception: its full repository and author each get their own wrapping width, so none of the information is cut away. Compact list rows and the Tours hold card keep their existing layout (Tavi, 20 Oct 2026, screenshot 79142: "we should show the PRs info nicely laid out ... Here it needs to all be visible").
+
 Check: open the Inbox with a stacked pull request by a long login, and an Overview with a long branch: names are one line, the branch scrolls, and the stack place is under the number.
 
 Source: walkthrough. Checked by: review.
@@ -1912,9 +1914,9 @@ Source: walkthrough. Checked by: review.
 
 #### 186. A hold menu names what it holds and groups its actions.
 
-Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pully does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). A tour's hold menu has the same card (O19: "too bland").
+Holding a pull request opens a sheet headed by its number, with a card naming it (state, title, repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed groups: what Pully does with it (Start a tour, Open repo, Archive) and GitHub's (Open on GitHub, Copy link). The PR summary gives its whole title, repository and author their own width, with state and known file/change counts wrapping separately; it does not reuse the compact list row. The tour's hold menu keeps its existing card (O19: "too bland"; Tavi, 20 Oct 2026, screenshot 79142: "Here it needs to all be visible").
 
-Check: hold an Inbox row: the card and two groups; hold a Tours row: the same card.
+Check: hold a PR with a long title, repository and author at a narrow width and larger text: the whole identifiers and counts remain readable, with scrolling when needed. Its two action groups behave as before; hold a Tours row: its existing card remains.
 
 Source: walkthrough. Checked by: review.
 

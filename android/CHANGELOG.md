@@ -25,6 +25,7 @@ Clearer AI choices, faithful pull request states, calmer sheets.
 - Merged and closed pull requests show their actual state. Open pull requests keep merge conflicts separate from passing checks and check uncertain results again.
 - An older tour offers its original commit and lets you continue reading or choose a model before updating it.
 - Switch every repository on or off at once, open a PR number in the browser, and spot reviewed files by their struck-through names. Searching update puts Update Pully first.
+- Hold a pull request to read its full title, repository, author and key details above the actions.
 - Focusing a text field lifts its sheet smoothly with the keyboard.
 - When notifications are allowed, ongoing analysis and tour work can show a quiet notification with elapsed time.
 

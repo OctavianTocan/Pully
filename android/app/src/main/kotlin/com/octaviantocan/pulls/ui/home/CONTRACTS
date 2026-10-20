@@ -199,6 +199,17 @@ groups, Pully's own and GitHub's (recording 16 Oct 13:06, 08:31 to 08:58; O19, r
 Every pull request's hold sheet, a tour's included, MUST offer Copy link ("a way to copy a
 PR's link in ... its hold bottom sheet": Tavi, 20 Oct 2026 12:10).
 
+@cc [owner:OctavianTocan,label:product;design] home-pr-hold-summary-shows-whole-identifiers
+A pull request's hold sheet MUST use a summary laid out for the sheet, with the complete
+title, repository and author each given their own wrapping width, never an ellipsis or
+the list row's title limit. Lifecycle and known file/change counts MUST remain readable
+in a separate wrapping area; unknown counts MUST NOT become zero. The existing Pully
+and GitHub action groups MUST retain their actions and behavior. Content taller than
+the available sheet MUST remain reachable by scrolling. This applies to the PR summary
+only; the Tours hold card and compact list rows keep their existing layout (Tavi,
+20 Oct 2026, screenshot 79142: "we should show the PRs info nicely laid out ... Here it
+needs to all be visible").
+
 @cc [owner:OctavianTocan,label:product;design] home-posted-group
 The diffs agents posted to the account are one group of their own at the top of the Inbox,
 "Posted by agents", its heading in the magenta accent, foldable like the others. Its rows

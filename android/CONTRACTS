@@ -83,7 +83,10 @@ and 89).
 Titles of pull requests, commits, tours and files wrap whole and are never cut with an
 ellipsis. Names (an author, a branch) keep to one line and give way only at their end,
 and a path is cut from the left by whole folders (rules 2, 90 and 111; F23, F24, H15).
-The one exception is a pull request's title pinned at the top of its scrolled Overview,
+The PR hold sheet's dedicated summary is an exception: its complete repository and
+author MUST wrap in their own full-width blocks (Tavi, 20 Oct 2026, screenshot 79142:
+"Here it needs to all be visible"); compact list rows and Tours keep their existing rules.
+The title exceptions are a pull request's title pinned at the top of its scrolled Overview,
 which is one line and MAY end in an ellipsis (recording of 16 Oct 12:10, 20:34 to 21:03;
 N38, Tavi's decision), and a pull request's title on a list row (the Inbox, Tours, a
 repository), which takes at most two lines and MUST end in an ellipsis when it runs

@@ -28,8 +28,6 @@ import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetHeading
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SheetTopGap
-import com.octaviantocan.pulls.ui.design.DiffStats
-import com.octaviantocan.pulls.ui.design.PrStatusIcon
 import com.octaviantocan.pulls.ui.review.copyText
 
 /**
@@ -56,16 +54,8 @@ internal fun PullActionsSheet(
     val toaster = LocalToaster.current
     val link = pull.url.ifBlank { "https://github.com/${pull.owner}/${pull.repo}/pull/${pull.number}" }
     fun then(action: () -> Unit): () -> Unit = { action(); onClose() }
-    val state = when {
-        pull.merged -> "merged"
-        pull.state == "closed" -> "closed"
-        pull.isDraft -> "draft"
-        else -> "open"
-    }
     PullsSheet(onClose, "#${pull.number}") {
-        HeldItem(pull.title, "${pull.owner}/${pull.repo} · ${pull.author}", icon = { PrStatusIcon(state, size = 22.dp) }) {
-            DiffStats(pull.additions, pull.deletions)
-        }
+        PullSummary(pull)
         SheetHeading("Pully")
         SheetCard(gap = 6.dp) {
             SheetRow("Start a tour", then(onTour), first = true, icon = { LuIcon(Lu.tour, tint = c.text, size = 20.dp) })
