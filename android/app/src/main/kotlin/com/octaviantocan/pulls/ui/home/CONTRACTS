@@ -126,6 +126,14 @@ server's store, never skeletons for seconds (H14; rule 51).
 The person chooses which repositories show. A repository switched off is left out of the
 Inbox, of Tours and of the chip counts (F19; audit 15 Oct).
 
+@cc [owner:OctavianTocan,label:product] home-repositories-toggle-all
+The Repositories sheet MUST offer an All repositories switch, with the number enabled
+out of all known repositories. Every repository is enabled by default. Switching all off
+MUST hide every known repository; switching all on MUST enable them all. A mixed state
+MUST show its enabled count and tapping its switch MUST enable all. Search MUST NOT limit
+the bulk action's scope, including when no repository matches (Tavi, 20 Oct 2026 controls
+feedback, asking to enable or disable all repositories).
+
 @cc [owner:OctavianTocan,label:product] home-profile-sheet-is-short
 The profile sheet has no Commands row, no Open GitHub profile row (a tap on the photo or
 name opens the profile), no server address under the name, no Check out a branch and no

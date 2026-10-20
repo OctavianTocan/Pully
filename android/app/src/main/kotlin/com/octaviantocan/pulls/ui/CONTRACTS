@@ -51,11 +51,11 @@ Commands offers Themes, which opens the same theme sheet as Settings (recording 
 13:54, 08:33 to 09:11; K18).
 
 @cc [owner:OctavianTocan,label:product] nav-commands-follow-the-page
-Commands leads with a Suggested group, the actions of the page on screen: on the Tour, Ask
+With an empty query, Commands leads with a Suggested group, the actions of the page on screen: on the Tour, Ask
 about this tour, Switch to the diff, Regenerate tour and the next and previous stop; on a
 pull request's Overview, Review files, Ask, Leave a comment and Approve; on the Diff, the
 next and previous file, Mark reviewed and Find a file. The other groups follow, and General
-is always last (circled General, recording of 16 Oct 12:10, 08:31 to 09:04, N14).
+is last with an empty query (circled General, recording of 16 Oct 12:10, 08:31 to 09:04, N14).
 
 @cc [owner:OctavianTocan,label:product;motion] nav-link-closes-what-was-open
 A pull request link that arrives (shared to Pully or tapped in another app) first sends any
@@ -78,7 +78,7 @@ what was typed MUST outlive closing the sheet and a send that fails ("Let's add 
 somewhere for me to leave feedback from the app itself": Tavi, 20 Oct 2026 06:10).
 
 @cc [owner:OctavianTocan,label:product] nav-on-github-leaves-pully
-Every action that says GitHub (the ⋯ sheet's GitHub tile, Open on GitHub, a comment's age,
+Except for the pull request number, which explicitly opens a browser, every action that says GitHub (the ⋯ sheet's GitHub tile, Open on GitHub, a comment's age,
 "more on GitHub", a check's row) MUST open the page outside Pully: the GitHub app when it
 takes the page, otherwise the phone's browser. It MUST NOT go through the link filter that
 hands github.com pull request links to Pully, which took the link back so nothing happened
@@ -90,3 +90,9 @@ A link tapped inside Pully, in a description, a comment or an answer, opens in P
 when a tap on it in another app would (a GitHub pull request, commit or compare link, on the
 thing it points at, pr-links-land-on-the-thing, or a page of Pully's own server that Pully has a
 screen for), and outside Pully otherwise.
+
+@cc [owner:OctavianTocan,label:product] nav-commands-search-relevance
+With a nonblank query, Commands MUST order sections by their best matching command,
+preserve relevance within each section, and MUST NOT put Suggested or General placement
+ahead of a stronger match. Typing update MUST put Update Pully ahead of unrelated Files
+actions (Tavi, 20 Oct 2026 controls feedback).

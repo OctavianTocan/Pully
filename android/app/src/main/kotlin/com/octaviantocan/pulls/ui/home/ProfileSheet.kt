@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.AppSettings
@@ -123,8 +125,21 @@ private fun ColumnScope.ProfileMain(viewer: String?, showClosed: Boolean, onShow
 private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
     val c = LocalPullsColors.current
     var query by remember { mutableStateOf("") }
+    val allChoices = repoChoices(pulls, settings.hiddenRepos)
     val choices = repoChoices(pulls, settings.hiddenRepos, query)
     SheetSearch(query, { query = it }, "Find a repository", Modifier.padding(top = com.octaviantocan.pulls.ui.design.SheetTopGap))
+    if (allChoices.isNotEmpty()) {
+        val enabled = allChoices.count { it.shown }
+        val allShown = enabled == allChoices.size
+        val summary = "$enabled of ${allChoices.size} enabled"
+        fun setAll(shown: Boolean) = settings.setReposShown(allChoices.map { it.key }, shown)
+        // This always addresses every repository, even when the search shows only some of them.
+        SheetCard {
+            SheetRow("All repositories", { setAll(!allShown) }, first = true, iconless = true, detail = summary) {
+                PullsSwitch(allShown, ::setAll, "Enable all repositories", Modifier.semantics { stateDescription = summary })
+            }
+        }
+    }
     if (choices.isEmpty()) {
         Text(
             if (query.isBlank()) "No repositories yet. They appear once you have a pull request." else "No repository matches “${query.trim()}”.",
@@ -140,10 +155,5 @@ private fun ColumnScope.ReposPage(pulls: List<PullRow>, settings: AppSettings) {
                 }
             }
         }
-        // What the switches do, under the list rather than between the field and the list (rule 1).
-        Text(
-            "A repository that is switched off is left out of the Inbox, of Tours and of the numbers on the chips.",
-            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp), style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.muted,
-        )
     }
 }
