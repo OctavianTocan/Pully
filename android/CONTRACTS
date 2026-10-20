@@ -8,6 +8,21 @@ read their words from it, never from commit messages (DESIGN.md rule 104, change
 Every published build MUST have a higher `versionCode` than the one before it, so an
 installed phone sees it as newer and Android accepts it as an update.
 
+@cc [owner:OctavianTocan,label:architecture] android-release-prerequisites-in-ci
+Changes to APK runtime sources, resources, build inputs, bundled changelogs or any bundled
+CONTRACTS file MUST fail CI unless versionCode rises above the base revision and the current
+release notes change. Test-only, tooling and unbundled documentation changes MAY keep the
+version. The release check MUST run on every main pull request, including after main moves;
+a missing comparison base MUST fail the check. Source: Tavi, 21 Oct 2026, "If the updates
+depend on something, we should enforce it on CI."
+
+@cc [owner:OctavianTocan,label:architecture] android-publish-clean-newer-builds
+Publishing MUST refuse staged or unstaged tracked edits and MUST NOT replace the served APK
+with an older code or different bytes under the same code. Identical-byte retries MAY reuse
+the same code. The manifest MUST identify the clean source commit used for the build.
+Source: Tavi, 21 Oct 2026, "fix all the things you mentioned", after a manual release left
+uncommitted version edits blocking deployment.
+
 @cc [owner:OctavianTocan,label:security] android-pinned-signing-key
 The published APK MUST be signed with the pinned `app/debug.keystore`, so every machine
 signs identically and an installed app keeps accepting updates. The key MUST NOT change.

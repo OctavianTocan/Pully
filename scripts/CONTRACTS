@@ -1,0 +1,11 @@
+@cc [owner:OctavianTocan,label:architecture] deployment-preserves-local-work
+The updater MUST refuse staged or unstaged tracked deployment edits without discarding
+them. Dependency installation MUST NOT rewrite the deployment's editor-skill lockfile.
+Source: Tavi, 21 Oct 2026, "fix all the things you mentioned", after local release edits
+blocked every fast-forward update.
+
+@cc [owner:OctavianTocan,label:architecture] deployment-failures-are-visible
+A failed APK publish or attempted version downgrade MUST fail the updater service. An APK
+publish failure MUST be retried on the next invocation even when the server revision has
+already deployed. A failed server build MUST leave the previous server running.
+Source: Tavi, 21 Oct 2026, "fix all the things you mentioned" in the stale APK investigation.

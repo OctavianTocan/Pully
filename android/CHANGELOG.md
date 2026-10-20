@@ -18,7 +18,7 @@ it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 
 ## 0.52.0
 
-GitHub links land on the comment, file or check they point to.
+Clearer AI reviews, repository controls and GitHub links.
 
 ### New
 
@@ -31,6 +31,8 @@ GitHub links land on the comment, file or check they point to.
 
 ### Fixed
 
+- Repository controls, browser links and Commands find the right action again.
+- AI reviews and tours make their progress and outdated results clearer; merge state and sheets stay in step with what is happening.
 - GitHub in a pull request's menu opens GitHub again, in the GitHub app or your browser, instead of doing nothing. So does every other "on GitHub" in Pully.
 - A pull request link inside a description or a comment opens in Pully on the thing it points to, and so does one pasted in the Inbox search; other links open in your browser.
 
