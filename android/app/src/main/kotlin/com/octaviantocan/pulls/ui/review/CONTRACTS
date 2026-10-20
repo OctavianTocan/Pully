@@ -51,9 +51,10 @@ scrolls sideways, fading at the edge it can scroll toward; "…" is the last res
 
 @cc [owner:OctavianTocan,label:product] pr-no-analyze-card
 The Overview is the pull request: no Analyze card and nothing that asks for an analysis.
-A tour starts from the tour icon, and Analyze in ⋯ runs the analysis again (rule 113;
-H30). The pull request's ⋯ no longer holds the model or Analyze options (recording of
-16 Oct 12:10, 21:11 to 21:38, N39, Tavi's decision).
+A tour starts from the tour icon, and Analyze changes in ⋯ opens the model-visible setup
+before its preset action starts work. The pull request's ⋯ has no separate Model or
+Analyze options row (rule 113; H30; N39). Tavi's 20 Oct 2026 feedback and accompanying
+recording 01:01 to 01:35 replace the old immediate-run Analyze tile with setup.
 
 @cc [owner:OctavianTocan,label:design;product] pr-summary-switch-is-not-a-pill
 The author's description and the AI's summary are not switched by a pill ("I don't like
@@ -151,17 +152,18 @@ one card under each heading, rows at least 60dp with whole titles (rule 79; J24,
 
 @cc [owner:OctavianTocan,label:product;motion] pr-sheet-opens-pages-not-sheets
 Nothing in a pull request sheet closes it to open another: Text and tools, the ⋯
-actions and everything they open (Leave a comment, Review with AI, the decisions) are
+actions and everything they open (Leave a comment, Find problems, the decisions) are
 pages of the same `PrSheet` with ← back, and the phone's Back walks back a page, closing
 only from the first (rule 115; J27, J32, J33).
 
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-is-short
-The pull request's ⋯ sheet holds GitHub, Copy link and Analyze as tiles, then Leave a
-comment, "Approve, merge or close" and Review with AI. Copy link puts the pull request's
-GitHub link on the clipboard and says so ("We also need a way to copy a PR's link in its
-bottom sheet": Tavi, 20 Oct 2026 12:10). It MUST NOT offer the model, Analyze options
-("confusing"), Review progress ("fully") or a Checks tile, since the checks are pinned on
-the Overview's head (recording of 16 Oct 12:10, 21:11 to 21:38, N39, Tavi's decision).
+The pull request's ⋯ sheet holds GitHub, Copy link and Analyze as tiles, then
+Leave a comment, "Approve, merge or close" and Find problems. Copy link puts the pull
+request's GitHub link on the clipboard and says so (Tavi, 20 Oct 2026 12:10). Analyze
+changes (opened by Analyze) and Find problems open their own model-visible setup pages. It MUST NOT offer
+separate Model, Analyze options, Review progress or Checks rows (N39). The distinct
+labels and setup replace the old Analyze and Review with AI direct-run entries by
+Tavi's 20 Oct 2026 feedback and accompanying recording 00:37 to 01:35.
 
 @cc [owner:OctavianTocan,label:product;security] pr-decisions-sit-a-page-in
 Approve, Request changes, the merge, Merge when checks pass, Update branch, Convert to
@@ -615,3 +617,21 @@ In the Files bottom sheet, a file whose existing review state is Reviewed MUST s
 through its filename and folder path. Unreviewed and Changed files MUST remain unstruck;
 the checkbox and existing review state remain the source of truth (Tavi, 20 Oct 2026
 controls feedback).
+
+@cc [owner:OctavianTocan,label:product] pr-mergeability-is-separate-from-checks
+A pull request GitHub marks conflicting or dirty MUST show its merge conflicts on the
+Overview even when its checks pass; passing checks MUST NOT imply that it is ready to
+merge. Missing, unknown or unrecognized mergeability MUST remain checking, and an
+overview kept from a prior opening or belonging to an older observed head MUST NOT
+enable merging until a matching fresh overview arrives. Conflicts MUST override a
+contradictory cached ready verdict (Tavi, 20 Oct 2026, "a PR would have merge conflicts ...
+yet Pully would show it as being all good").
+
+@cc [owner:OctavianTocan,label:product] tour-stale-entry-asks-once
+Opening a tour whose known original commit differs from the loaded head MUST offer a
+bottom sheet showing the exact original commit and a way to continue reading. The tour
+body MUST NOT carry the old-commit banner. Dismissing or continuing MUST suppress the
+same generated-tour/current-head prompt for that review session across recomposition
+and internal navigation; unknown commit metadata MUST NOT claim staleness (Tavi's
+20 Oct 2026 feedback: "when you open the tour itself ... a little bottom sheet ...
+Here's the commit").

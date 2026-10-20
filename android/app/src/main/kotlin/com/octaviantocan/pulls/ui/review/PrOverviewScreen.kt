@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import com.octaviantocan.pulls.ui.design.SidePages
+import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.design.rememberSidePages
 import com.octaviantocan.pulls.ui.design.sideSwipe
@@ -96,7 +97,6 @@ import com.octaviantocan.pulls.ui.ai.ProvideAiText
 import com.octaviantocan.pulls.ui.ai.SharedAnalysisBanner
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.ai.rememberLiveTask
-import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.ai.shimmer
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.BreathingDot
@@ -289,6 +289,12 @@ internal fun PrOverviewScreen(
             Column(Modifier.clipToBounds().cut(::awayCut, keepTop = false).onSizeChanged { awayHeight = it.height }.backUnless("").holdUnless("")) {
                 PrMetaLine(head.label, head.author, head.createdAt, head.owner, head.repo, onOpenRepo)
                 if (head.base.isNotBlank() || head.head.isNotBlank()) BranchRow(head.base, head.head)
+                val mergeBlocker = overview?.let(::overviewMergeBlocker) ?: data?.mergeability?.blocker
+                if (mergeBlocker != null) Text(
+                    t("overview.merge.blocked.$mergeBlocker"),
+                    Modifier.padding(top = 8.dp), style = PullsType.sm,
+                    color = if (mergeBlocker == "checking") c.muted else c.warning,
+                )
                 StackMark(session.stack) { onSheet("stack") }
                 JevLine(session.pullJev, session.attention)
                 if (isStale(session, data?.overview) && session.selection == null && !session.settings.autoRefresh) {
@@ -593,7 +599,7 @@ private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOvervi
 /**
  * `What needs a human`: what the AI review found, most serious first, each pointing at its line. The heading has no
  * line under it, like the others (rule 75): a hairline sits between rows only. Looking for problems is the orb with a
- * small square, which stops it (rule 87), and "Look for problems" is the one row that starts a review.
+ * small square, which stops it (rule 87), and "Look for problems" opens the review setup.
  */
 @Composable
 private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: (String) -> Unit) {
@@ -649,7 +655,7 @@ private fun NeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, onSheet: 
                 "The review found nothing that needs you.", Modifier.fillMaxWidth().then(line(tail)).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,
             )
             findings.isEmpty() -> Row(
-                Modifier.fillMaxWidth().then(line(tail)).cueClickable(role = Role.Button) { session.runCritique(context, null) }.padding(vertical = 11.dp),
+                Modifier.fillMaxWidth().then(line(tail)).cueClickable(role = Role.Button) { onSheet("review") }.padding(vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Look for problems", Modifier.weight(1f), style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText)

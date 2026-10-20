@@ -47,6 +47,7 @@ import com.octaviantocan.pulls.core.FileLinks
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.softBreaks
 import com.octaviantocan.pulls.data.TourBlock
+import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CtaButton
@@ -70,7 +71,6 @@ import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import com.octaviantocan.pulls.ui.review.guardedStop
 import com.octaviantocan.pulls.ui.review.openSource
-import androidx.compose.ui.platform.LocalContext
 import kotlinx.serialization.json.put
 
 /*
@@ -84,6 +84,16 @@ private val SHAPE_LABELS = mapOf("calls" to "Call tree", "tree" to "Files", "pse
 
 /** Fence languages that name no language: the code is shown uncoloured. */
 private val PLAIN_LANGS = setOf("text", "txt", "plain", "plaintext")
+
+/** A particular generated tour read against a particular newer commit, independent of refreshed object instances. */
+internal data class StaleTourIdentity(val originalHead: String, val generatedAt: String, val currentHead: String)
+
+/** Missing commit metadata cannot establish that a tour is stale. */
+internal fun staleTourIdentity(tour: Tour?, currentHead: String?): StaleTourIdentity? {
+    val original = tour?.headSha?.takeIf { it.isNotBlank() } ?: return null
+    val current = currentHead?.takeIf { it.isNotBlank() && it != original } ?: return null
+    return StaleTourIdentity(original, tour.generatedAt, current)
+}
 
 /** Starts a tour in the reader's language, unless one is already running. */
 fun startTour(session: ReviewSession) {
@@ -127,13 +137,12 @@ internal fun followQueuedTour(session: ReviewSession) {
 
 /**
  * No tour yet, on a page opened straight on the tour (from the Tours tab or a link): the one action is the tour icon
- * sheet's Generate tour (rule 113), with no analysis the last choice with the tour in it, after one the tour alone. A failed tour says so, with the try-again arrow (rule 87). No word on how the
+ * sheet's model choice and Generate tour (rule 113). A failed tour says so, with the try-again arrow (rule 87). No word on how the
  * tour is made: what it does is enough (rule 6).
  */
 @Composable
-internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifier) {
+internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifier, onGenerate: () -> Unit) {
     val c = LocalPullsColors.current
-    val context = LocalContext.current
     Column(
         modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -143,10 +152,10 @@ internal fun TourEmpty(session: ReviewSession, error: String?, modifier: Modifie
             "AI reads the change and the code around it and walks you through what you need to know, section by section: the flow, the pieces, and why. No diffs.",
             style = PullsType.read, color = c.muted,
         )
-        if (error != null) ErrorBox("The tour failed", error, onRetry = { startTour(session) }, retryLabel = "Write the tour again")
+        if (error != null) ErrorBox("The tour failed", error, onRetry = onGenerate, retryLabel = "Write the tour again")
         else CtaButton(
             "Generate tour",
-            { generateTour(session, context) },
+            onGenerate,
             Modifier.padding(top = 4.dp),
             enabled = session.key != null && session.taskFor("analyze")?.running != true,
         )

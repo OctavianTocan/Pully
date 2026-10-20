@@ -21,6 +21,21 @@ Access secrets, the session, Update notifications and Usage stats stay on the ph
 The phone reads pull requests, diffs, tours and AI work from its server's API, the same
 actions the web app runs; it never calls GitHub or a model provider itself.
 
+@cc [owner:OctavianTocan,label:product] data-ai-work-notice-follows-server
+The app's ongoing AI notification MUST describe actual running analysis, tour, brief or
+review tasks and derive elapsed time from the server's start timestamps, never an
+estimate of progress. Completed, failed and cancelled tasks MUST leave it, and other
+running tasks MUST remain. Observation MUST continue across page changes, clear on
+sign-out or a server/account change, and MUST NOT ask for notification permission on
+unrelated startup (Tavi's 20 Oct request to explore an app notification showing ongoing
+tour generation and PR analysis with elapsed time).
+
+@cc [owner:OctavianTocan,label:product;architecture] data-ai-work-notice-is-bounded
+AI notifications MUST expire without a fresh server snapshot, including after process
+death or a lost connection. Background observation MUST be bounded and MUST NOT start a
+foreground service solely to observe server work; reopening the app reattaches to actual
+work (bounded implementation of Tavi's 20 Oct app-notification exploration).
+
 @cc [owner:OctavianTocan,label:product;architecture] data-lite-diffs
 A large pull request opens from a `lite` diff: files past the patch budget arrive with no
 hunks and `patchOmitted`, show skeletons where their code goes, and get their hunks from

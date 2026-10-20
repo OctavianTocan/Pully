@@ -79,9 +79,7 @@ fun PrCommands(session: ReviewSession, files: () -> List<ReviewFile>, currentPat
         if (session.hasAiResult) list += Command("pr.analyzeMode", m.t("keys.analyzeMode"), view) {
             session.analyzeMode = if (session.analyzeMode == "rules") "ai" else "rules"
         }
-        list += Command("pr.analyze", m.t("keys.analyze"), pr) {
-            if (session.hasAiResult && session.analyzeMode == "rules") session.analyzeMode = "ai" else onAnalyze()
-        }
+        list += Command("pr.analyze", "Analyze changes", pr, keywords = "analyze summary file notes tour") { onAnalyze() }
         // `jump.file:` entries.
         val group = m.t("palette.group.files")
         session.files.forEach { f ->

@@ -276,28 +276,56 @@ fn parse_timeline(nodes: &[Value]) -> Vec<Value> {
     }
     items
 }
+fn normalized_mergeable(value: &str) -> String {
+    match value.to_lowercase().as_str() {
+        "mergeable" => "mergeable",
+        "conflicting" => "conflicting",
+        _ => "unknown",
+    }
+    .into()
+}
+fn normalized_merge_state(value: &str) -> String {
+    match value.to_lowercase().as_str() {
+        "clean" => "clean",
+        "dirty" => "dirty",
+        "draft" => "draft",
+        "blocked" => "blocked",
+        "behind" => "behind",
+        "unstable" => "unstable",
+        "has_hooks" => "has_hooks",
+        _ => "unknown",
+    }
+    .into()
+}
+
+/// @cc [owner:OctavianTocan,label:product] github-mergeability-requires-known-state
+/// GitHub conflicts MUST prevent readiness regardless of passing checks or administrator
+/// permissions. Otherwise, unless the pull request is a draft, missing, unknown or
+/// unrecognized mergeability and merge-state fields MUST remain checking, including for
+/// administrators (Tavi, 20 Oct 2026, "a PR would have merge conflicts ... yet Pully
+/// would show it as being all good").
 pub(super) fn mergeability(o: &Value) -> Value {
     let state = text(o, "state");
-    let mergeable = text(o, "mergeable");
-    let status = text(o, "mergeStateStatus");
+    let mergeable = normalized_mergeable(text(o, "mergeable"));
+    let status = normalized_merge_state(text(o, "mergeStateStatus"));
     if !["open", "draft"].contains(&state)
         || !bool_at(&o["viewer"], "canPush")
         || list(&o["merge"]["methods"]).is_empty()
     {
         return json!({"allowed":false,"ready":false});
     }
-    if state == "draft" || status == "draft" {
-        return json!({"allowed":true,"ready":false,"blocker":"draft"});
-    }
     if mergeable == "conflicting" || status == "dirty" {
         return json!({"allowed":true,"ready":false,"blocker":"conflicts"});
     }
-    if ["blocked", "behind"].contains(&status) {
-        let admin = bool_at(&o["viewer"], "canMergeAsAdmin");
-        return json!({"allowed":true,"ready":admin,"blocker":status,"warning":if admin{json!("bypass")}else{Value::Null}});
+    if state == "draft" || status == "draft" {
+        return json!({"allowed":true,"ready":false,"blocker":"draft"});
     }
     if mergeable == "unknown" || status == "unknown" {
         return json!({"allowed":true,"ready":false,"blocker":"checking"});
+    }
+    if ["blocked", "behind"].contains(&status.as_str()) {
+        let admin = bool_at(&o["viewer"], "canMergeAsAdmin");
+        return json!({"allowed":true,"ready":admin,"blocker":status,"warning":if admin{json!("bypass")}else{Value::Null}});
     }
     if status == "unstable" {
         return json!({"allowed":true,"ready":true,"warning":"unstable"});
@@ -399,7 +427,7 @@ fn normalize_overview(data: &Value) -> Result<Value> {
         .collect();
     let timeline_nodes = list(&pr["timelineItems"]["nodes"]);
     let mut o = json!({
-        "id":pr["id"],"number":pr["number"],"title":pr["title"],"url":pr["url"],"body":pr["body"],"bodyHTML":pr["bodyHTML"],"createdAt":pr["createdAt"],"updatedAt":pr["updatedAt"],"author":actor(&pr["author"]),"state":pr_state(pr),"mergedAt":pr["mergedAt"],"closedAt":pr["closedAt"],"mergeable":text(pr,"mergeable").to_lowercase(),"mergeStateStatus":text(pr,"mergeStateStatus").to_lowercase(),"reviewDecision":pr["reviewDecision"].as_str().map(str::to_lowercase),
+        "id":pr["id"],"number":pr["number"],"title":pr["title"],"url":pr["url"],"body":pr["body"],"bodyHTML":pr["bodyHTML"],"createdAt":pr["createdAt"],"updatedAt":pr["updatedAt"],"author":actor(&pr["author"]),"state":pr_state(pr),"mergedAt":pr["mergedAt"],"closedAt":pr["closedAt"],"mergeable":normalized_mergeable(text(pr,"mergeable")),"mergeStateStatus":normalized_merge_state(text(pr,"mergeStateStatus")),"reviewDecision":pr["reviewDecision"].as_str().map(str::to_lowercase),
         "head":{"oid":pr["headRefOid"],"ref":pr["headRefName"],"owner":pr["headRepositoryOwner"]["login"]},"base":{"oid":pr["baseRefOid"],"ref":pr["baseRefName"]},"requestedReviewers":requested,"latestReviews":latest,"checks":checks,"checksSummary":checks_summary,"commitsHidden":pr["commits"]["totalCount"].as_u64().unwrap_or(0).saturating_sub(commits.len()as u64),"commits":commits,"timeline":parse_timeline(timeline_nodes),"timelineHidden":pr["timelineItems"]["totalCount"].as_u64().unwrap_or(0).saturating_sub(timeline_nodes.len()as u64),
         "viewer":{"permission":repo["viewerPermission"],"canPush":(["ADMIN","MAINTAIN","WRITE"].contains(&text(repo,"viewerPermission"))),"canMergeAsAdmin":bool_at(pr,"viewerCanMergeAsAdmin"),"canClose":bool_at(pr,"viewerCanClose"),"canReopen":bool_at(pr,"viewerCanReopen"),"canUpdate":bool_at(pr,"viewerCanUpdate"),"isAuthor":bool_at(pr,"viewerDidAuthor"),"canUpdateBranch":bool_at(pr,"viewerCanUpdateBranch"),"canEnableAutoMerge":bool_at(pr,"viewerCanEnableAutoMerge"),"canDisableAutoMerge":bool_at(pr,"viewerCanDisableAutoMerge")},
         "merge":{"methods":methods,"defaultMethod":default_method,"squashTitle":repo["squashMergeCommitTitle"],"squashMessage":repo["squashMergeCommitMessage"],"mergeTitle":repo["mergeCommitTitle"],"mergeMessage":repo["mergeCommitMessage"]},"autoMerge":pr["autoMergeRequest"]["mergeMethod"].as_str().map(|method|json!({"method":method.to_lowercase()}))
@@ -491,5 +519,53 @@ mod latest_tests {
                 .is_none()
         );
         assert!(actor(&Value::Null).is_null());
+    }
+}
+
+#[cfg(test)]
+mod mergeability_tests {
+    use super::*;
+
+    fn raw_pr(mergeable: Value, status: Value) -> Value {
+        json!({"repository":{"viewerPermission":"ADMIN","mergeCommitAllowed":true,"pullRequest":{
+            "id":"PR_1","state":"OPEN","mergeable":mergeable,"mergeStateStatus":status,
+            "viewerCanMergeAsAdmin":true,"headCommit":{"nodes":[{"commit":{"statusCheckRollup":{"state":"SUCCESS"}}}]}
+        }}})
+    }
+
+    #[test]
+    fn mergeability_normalization_preserves_conflicts_with_passing_checks() {
+        for (mergeable, status) in [("CONFLICTING", "CLEAN"), ("MERGEABLE", "DIRTY")] {
+            let value = normalize_overview(&raw_pr(json!(mergeable), json!(status))).unwrap();
+            assert_eq!(value["overview"]["checksSummary"]["state"], "success");
+            assert_eq!(value["mergeability"]["ready"], false);
+            assert_eq!(value["mergeability"]["blocker"], "conflicts");
+        }
+    }
+
+    #[test]
+    fn mergeability_normalization_never_bypasses_unknown_fields() {
+        for (mergeable, status) in [
+            (Value::Null, json!("CLEAN")), (json!("MERGEABLE"), Value::Null),
+            (json!("UNKNOWN"), json!("BLOCKED")), (json!(""), json!("CLEAN")),
+            (json!("MERGEABLE"), json!("NEW_STATUS")), (json!("NEW_STATE"), json!("BEHIND")),
+        ] {
+            let value = normalize_overview(&raw_pr(mergeable, status)).unwrap();
+            assert_eq!(value["mergeability"]["ready"], false, "{value}");
+            assert_eq!(value["mergeability"]["blocker"], "checking");
+            assert!(value["overview"]["mergeable"] == "unknown" || value["overview"]["mergeStateStatus"] == "unknown");
+        }
+        let mut missing = raw_pr(Value::Null, Value::Null);
+        missing["repository"]["pullRequest"].as_object_mut().unwrap().remove("mergeable");
+        missing["repository"]["pullRequest"].as_object_mut().unwrap().remove("mergeStateStatus");
+        assert_eq!(normalize_overview(&missing).unwrap()["mergeability"]["blocker"], "checking");
+    }
+
+    #[test]
+    fn mergeability_normalization_allows_known_clean_state() {
+        let value = normalize_overview(&raw_pr(json!("MERGEABLE"), json!("CLEAN"))).unwrap();
+        assert_eq!(value["overview"]["mergeable"], "mergeable");
+        assert_eq!(value["overview"]["mergeStateStatus"], "clean");
+        assert_eq!(value["mergeability"]["ready"], true);
     }
 }
