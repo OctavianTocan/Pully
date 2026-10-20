@@ -188,6 +188,8 @@ big number's place, with a tick per step, and a second tap on it puts the total 
 A row's hold menu is headed by its number, with a card naming the item (state, title,
 repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed
 groups, Pully's own and GitHub's (recording 16 Oct 13:06, 08:31 to 08:58; O19, rule 186).
+Every pull request's hold sheet, a tour's included, MUST offer Copy link ("a way to copy a
+PR's link in ... its hold bottom sheet": Tavi, 20 Oct 2026 12:10).
 
 @cc [owner:OctavianTocan,label:product;design] home-posted-group
 The diffs agents posted to the account are one group of their own at the top of the Inbox,

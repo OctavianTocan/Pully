@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui
 
 import android.content.Intent
+import com.octaviantocan.pulls.core.LinkPlace
 import com.octaviantocan.pulls.core.OpenTarget
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,14 +25,20 @@ object IncomingLinks {
     var reopened by mutableStateOf<Reopen?>(null)
         private set
 
-    class Reopen(val target: OpenTarget)
+    /** [place]: the thing on the pull request the link pointed at, which the page goes to (`LinkPlaces`). */
+    class Reopen(val target: OpenTarget, val place: LinkPlace? = null)
 
-    fun reopen(target: OpenTarget) {
-        reopened = Reopen(target)
+    fun reopen(target: OpenTarget, place: LinkPlace? = null) {
+        reopened = Reopen(target, place)
     }
 
     fun receive(intent: Intent?) {
         pending = read(intent)?.let(::Arrival)
+    }
+
+    /** A link tapped inside Pully that Pully opens: it goes the way a link from another app does. */
+    fun open(text: String) {
+        pending = Arrival(text)
     }
 
     fun consume(arrival: Arrival) {
@@ -49,4 +56,12 @@ object IncomingLinks {
         }
         return text?.takeIf { it.isNotBlank() }
     }
+}
+
+/**
+ * A place on a pull request a link asked for ([LinkPlace]), gone to once: Back to the page later finds it where the reader
+ * left it, not on the place again.
+ */
+class PlaceRequest(val place: LinkPlace) {
+    var done = false
 }

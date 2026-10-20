@@ -72,6 +72,7 @@ import com.octaviantocan.pulls.ui.home.TourIndex
 import com.octaviantocan.pulls.data.TourStore
 import com.octaviantocan.pulls.ui.home.deviceStore
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import com.octaviantocan.pulls.core.BACKWARD
 import com.octaviantocan.pulls.ui.design.PageBack
@@ -103,7 +104,7 @@ private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should 
  * asks for a [Focus], and this opens the diff on it.
  */
 @Composable
-fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other") {
+fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other", place: com.octaviantocan.pulls.ui.PlaceRequest? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
@@ -246,6 +247,28 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
         }
     }
 
+    // A link to a thing on this pull request (a comment, a file, the checks) goes there, once: when the page opens on it,
+    // and when a link to it arrives while the page is already on screen. Back later finds the page where it was left.
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
+    val reopened = com.octaviantocan.pulls.ui.IncomingLinks.reopened
+    val seenReopen = remember(session) { reopened }
+    var going by remember(session) { mutableStateOf(place?.takeIf { !it.done }) }
+    LaunchedEffect(reopened) {
+        val link = reopened?.takeIf { it !== seenReopen && it.target.serverTarget == session.target.serverTarget } ?: return@LaunchedEffect
+        link.place?.let { going = com.octaviantocan.pulls.ui.PlaceRequest(it) }
+    }
+    LaunchedEffect(going) {
+        val request = going ?: return@LaunchedEffect
+        val moves = LandingMoves(
+            summary = { toOverview(); pane = 0; scope.launch { overviewScroll.animateScrollToItem(0) } },
+            conversation = { toOverview(); pane = CONVERSATION_TAB },
+            changes = ::toChanges,
+            sheet = { sheet = it },
+            github = github,
+        )
+        landOn(request.place, session, moves, toaster)
+        request.done = true
+    }
     // A citation or a finding asked for a line: open the diff on its file (the diff screen then scrolls to the line).
     val focus = session.focus
     LaunchedEffect(focus) {
@@ -412,7 +435,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                         session, top, data, head, PrPage.Tools, onClose = { sheet = null }, onReview = ::review,
                         ui = ui, file = orderedFiles().let { files -> files.firstOrNull { it.path == diffPath } ?: files.firstOrNull() },
                     )
-                    "checks" -> data?.overview?.let { ChecksSheet(it) { sheet = null } }
+                    "checks" -> data?.overview?.let { ChecksSheet(it, linked = session.linkedCheck) { sheet = null; session.linkedCheck = null } }
                     "commits" -> data?.overview?.let { CommitsSheet(session, ui, it, onOpen = ::toChanges) { sheet = null } }
                     "files" -> FilesSheet(session, ui, current = diffPath.takeIf { pages.last() == PrView.Diff }, onOpen = { path -> openDiff(path) }) { sheet = null }
                     "findings" -> FindingsSheet(session) { sheet = null }

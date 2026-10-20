@@ -14,7 +14,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.R
 import com.octaviantocan.pulls.data.PullRow
@@ -52,7 +51,7 @@ internal fun PullActionsSheet(
     onClose: () -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     val context = LocalContext.current
     val toaster = LocalToaster.current
     val link = pull.url.ifBlank { "https://github.com/${pull.owner}/${pull.repo}/pull/${pull.number}" }
@@ -76,7 +75,7 @@ internal fun PullActionsSheet(
         }
         SheetHeading("GitHub")
         SheetCard(gap = 6.dp) {
-            SheetRow("Open on GitHub", then { uri.openUri(link) }, first = true, icon = { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 20.dp) })
+            SheetRow("Open on GitHub", then { github(link) }, first = true, icon = { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 20.dp) })
             SheetRow("Copy link", then { copyText(context, link); toaster.show("Link copied", cue = Cue.Success) }, icon = { LuIcon(Lu.copy, tint = c.text, size = 20.dp) })
         }
     }
@@ -117,12 +116,19 @@ internal fun TourActionsSheet(
     onClose: () -> Unit,
 ) {
     val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val toaster = LocalToaster.current
     fun then(action: () -> Unit): () -> Unit = { action(); onClose() }
     PullsSheet(onClose, "#${entry.number}") {
         HeldItem(entry.prTitle, "${entry.owner}/${entry.repo}", icon = { LuIcon(Lu.tour, tint = c.text, size = 20.dp) })
         SheetCard {
             SheetRow("Open the tour", then(onOpen), first = true, icon = { LuIcon(Lu.tour, tint = c.text, size = 20.dp) })
             SheetRow(if (stoppable) "Stop the tour" else "Remove from Tours", then(onDismiss), icon = { LuIcon(Lu.close, tint = c.text, size = 20.dp) })
+            // The pull request's link, as its own hold sheet has it (Tavi, 20 Oct).
+            SheetRow("Copy link", then {
+                copyText(context, "https://github.com/${entry.owner}/${entry.repo}/pull/${entry.number}")
+                toaster.show("Link copied", cue = Cue.Success)
+            }, icon = { LuIcon(Lu.copy, tint = c.text, size = 20.dp) })
         }
     }
 }

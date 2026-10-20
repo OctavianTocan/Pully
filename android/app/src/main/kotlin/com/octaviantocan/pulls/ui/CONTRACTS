@@ -76,3 +76,16 @@ Settings sheet, as the theme list is (nav-commands-themes). The note goes to the
 with the screen and the pull request or repository of the page it was opened over, and
 what was typed MUST outlive closing the sheet and a send that fails ("Let's add a button
 somewhere for me to leave feedback from the app itself": Tavi, 20 Oct 2026 06:10).
+
+@cc [owner:OctavianTocan,label:product] nav-on-github-leaves-pully
+Every action that says GitHub (the ⋯ sheet's GitHub tile, Open on GitHub, a comment's age,
+"more on GitHub", a check's row) MUST open the page outside Pully: the GitHub app when it
+takes the page, otherwise the phone's browser. It MUST NOT go through the link filter that
+hands github.com pull request links to Pully, which took the link back so nothing happened
+("the GitHub link in the bottom sheet doesn't open GitHub because Pully grabs it so nothing
+happens. That needs fixing": Tavi, 20 Oct 2026 12:10).
+
+@cc [owner:OctavianTocan,label:product] nav-links-inside-open-like-outside
+A link tapped inside Pully, in a description, a comment or an answer, opens in Pully exactly
+when a tap on it in another app would (a GitHub pull request, commit or compare link, on the
+thing it points at, pr-links-land-on-the-thing), and outside Pully otherwise.

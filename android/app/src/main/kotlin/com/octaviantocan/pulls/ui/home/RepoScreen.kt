@@ -59,7 +59,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -237,7 +236,7 @@ private class RepoPullsStore(private val repo: Repo, val owner: String, val name
 fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = false) {
     val context = LocalContext.current
     val c = LocalPullsColors.current
-    val uri = LocalUriHandler.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     val scope = rememberCoroutineScope()
     val store = remember(owner, repo) { RepoPullsStore(Repo(context), owner, repo, context.cacheDir) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -284,7 +283,7 @@ fun RepoScreen(owner: String, repo: String, nav: Nav, startOnTours: Boolean = fa
                 FloatIcon(Lu.back, "Back", nav.back, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
                 // The GitHub mark says where it goes; no arrow-out icon is ever used for that (rule 100).
-                FloatButton({ uri.openUri("https://github.com/$owner/$repo/pulls") }, "Open on GitHub") { DrawableIcon(R.drawable.ic_carbon_logo_github, size = 22.dp) }
+                FloatButton({ github("https://github.com/$owner/$repo/pulls") }, "Open on GitHub") { DrawableIcon(R.drawable.ic_carbon_logo_github, size = 22.dp) }
             }
             Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

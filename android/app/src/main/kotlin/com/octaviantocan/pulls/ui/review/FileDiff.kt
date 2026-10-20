@@ -182,8 +182,9 @@ private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: Re
     val rowLines: List<List<DiffLine>> = if (split) splitRows.map { e -> if (e is SplitEntry.Pair) listOfNotNull(e.left, e.right) else emptyList() }
     else entries.map { e -> if (e is DiffEntry.Line) listOf(e.line) else emptyList() }
 
-    // Outdated threads stay hidden; resolved ones show folded (tap to open).
-    val threads = visibleThreads(session.reviewData?.threads.orEmpty(), path, session.settings.showThreads, includeResolved = true)
+    // Outdated threads stay hidden; resolved ones show folded (tap to open). The one a link pointed at shows even with
+    // threads hidden.
+    val threads = visibleThreads(session.reviewData?.threads.orEmpty(), path, session.settings.showThreads, includeResolved = true, linked = session.linkedThread)
     val ai = aiAnchors(
         file,
         session.visibleFindings,

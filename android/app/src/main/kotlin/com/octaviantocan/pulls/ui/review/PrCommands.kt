@@ -1,7 +1,5 @@
 package com.octaviantocan.pulls.ui.review
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.octaviantocan.pulls.core.FileLinks
@@ -33,7 +31,8 @@ fun PrCommands(session: ReviewSession, files: () -> List<ReviewFile>, currentPat
         list.getOrNull(at + direction)?.let { onGo(it.path) }
     }
 
-    fun open(url: String) = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+    // On GitHub means GitHub: Pully would take its own pull request's link back (rememberOpenOnGithub).
+    val open = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
 
     UseCommands {
         val opened = session.opened ?: return@UseCommands emptyList()

@@ -1,7 +1,5 @@
 package com.octaviantocan.pulls.ui.review
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +40,7 @@ internal fun ColumnScope.ToolsMain(session: ReviewSession, ui: DiffUi, file: Rev
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val toaster = LocalToaster.current
+    val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     val settings = session.settings
     val opened = session.opened
     val repo = FileLinks.repoOf(session.target)
@@ -75,7 +74,7 @@ internal fun ColumnScope.ToolsMain(session: ReviewSession, ui: DiffUi, file: Rev
             SheetCard {
                 SheetRow("Copy path", { copyText(context, file.path); toaster.show("Copied ${file.path.substringAfterLast('/')}", cue = Cue.Success); onClose() }, first = true, icon = { LuIcon(Lu.copy, tint = c.text, size = 20.dp) })
                 if (blob != null) {
-                    SheetRow("Open on GitHub", { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(blob))) }; onClose() }, icon = { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 20.dp) })
+                    SheetRow("Open on GitHub", { github(blob); onClose() }, icon = { DrawableIcon(R.drawable.ic_carbon_logo_github, tint = c.text, size = 20.dp) })
                 }
                 if (ui.canLoadFull(file)) {
                     SheetRow("Load the whole file", { ui.loadFullFile(file); onClose() }, icon = { LuIcon(Lu.exp, tint = c.text, size = 20.dp) })

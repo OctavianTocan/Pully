@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui
 
+import com.octaviantocan.pulls.core.LinkPlace
+import com.octaviantocan.pulls.core.LinkPlaces
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.ui.home.HomeLink
 import com.octaviantocan.pulls.ui.home.HomeLinks
@@ -65,7 +67,7 @@ class LinkFilterTest {
         assertEquals(pull, HomeLinks.parseShared("https://github.com/OctavianTocan/pulls.review/pull/49"))
         assertEquals(pull, HomeLinks.parseShared("Have a look: https://github.com/OctavianTocan/pulls.review/pull/49. Thanks"))
         assertEquals(pull, HomeLinks.parseShared("Usage analytics · Pull Request #49 · OctavianTocan/pulls.review\nhttps://github.com/OctavianTocan/pulls.review/pull/49"))
-        assertEquals(pull, HomeLinks.parseShared("https://www.github.com/OctavianTocan/pulls.review/pull/49/commits"))
+        assertEquals(pull.copy(place = LinkPlace.Commits()), HomeLinks.parseShared("https://www.github.com/OctavianTocan/pulls.review/pull/49/commits"))
         assertEquals(HomeLink.Target(OpenTarget.Commit("a", "b", "abc1234")), HomeLinks.parseShared("https://github.com/a/b/commit/abc1234"))
         assertEquals(HomeLink.Target(OpenTarget.Pull("a", "b", 3)), HomeLinks.parseShared("a/b#3"))
         assertEquals(HomeLink.Repo("a", "b"), HomeLinks.parseShared("https://github.com/a/b"))
@@ -82,6 +84,48 @@ class LinkFilterTest {
             HomeLinks.parseShared("Fixes https://github.com/a/b/issues/7 in https://github.com/a/b/pull/8"),
         )
         assertNull(HomeLinks.parseShared("hello"))
+    }
+
+    @Test
+    fun aLinkCarriesTheThingItPointsAt() {
+        val pull = OpenTarget.Pull("OctavianTocan", "pulls.review", 49, "github.com")
+        val base = "https://github.com/OctavianTocan/pulls.review/pull/49"
+        assertEquals(HomeLink.Target(pull, LinkPlace.Comment(3412345678)), HomeLinks.parseShared("$base#issuecomment-3412345678"))
+        assertEquals(HomeLink.Target(pull, LinkPlace.Review(77)), HomeLinks.parseShared("Look: $base#pullrequestreview-77"))
+        assertEquals(HomeLink.Target(pull, LinkPlace.CodeComment(88)), HomeLinks.parseShared("$base/files#r88"))
+        assertEquals(HomeLink.Target(pull, LinkPlace.Checks(99)), HomeLinks.parseShared("$base/checks?check_run_id=99"))
+        val readme = LinkPlaces.fileAnchor("README.md")
+        assertEquals(
+            HomeLink.Target(OpenTarget.Commit("a", "b", "abc1234"), LinkPlace.Files(readme, 3)),
+            HomeLinks.parseShared("https://github.com/a/b/commit/abc1234#diff-${readme}R3"),
+        )
+    }
+
+    @Test
+    fun linksInsidePullyOpenInPullyOnlyWhenATapElsewhereWould() {
+        assertTrue(HomeLinks.opensInPully("https://github.com/a/b/pull/7#issuecomment-1"))
+        assertTrue(HomeLinks.opensInPully("https://github.com/a/b/commit/abc1234"))
+        assertTrue(HomeLinks.opensInPully("https://www.github.com/a/b/compare/main...dev"))
+        assertFalse(HomeLinks.opensInPully("https://github.com/a/b/issues/7"))
+        assertFalse(HomeLinks.opensInPully("https://github.com/a/b/blob/main/README.md"))
+        assertFalse(HomeLinks.opensInPully("https://github.com/a/b"))
+        assertFalse(HomeLinks.opensInPully("https://docs.example.com/a/b/3"))
+        assertFalse(HomeLinks.opensInPully("a/b#3"))
+        // Whatever Pully opens from inside, a tap in another app hands it to Pully too.
+        listOf("https://github.com/a/b/pull/7#issuecomment-1", "https://github.com/a/b/commit/abc1234", "https://www.github.com/a/b/compare/main...dev")
+            .forEach { assertTrue(opensInPulls(it), it) }
+    }
+
+    @Test
+    fun onGithubNeverGoesBackToPully() {
+        val own = "com.octaviantocan.pulls"
+        assertEquals(
+            listOf(OutsideLinks.GITHUB_APP, "com.android.chrome", "org.mozilla.firefox"),
+            OutsideLinks.order(listOf(own, OutsideLinks.GITHUB_APP, "com.android.chrome"), "com.android.chrome", listOf("org.mozilla.firefox", "com.android.chrome"), own),
+        )
+        // No GitHub app, and Android's chooser as the default: the browsers, never Pully.
+        assertEquals(listOf("org.mozilla.firefox"), OutsideLinks.order(listOf(own, "android"), "android", listOf("org.mozilla.firefox"), own))
+        assertEquals(emptyList(), OutsideLinks.order(listOf(own), null, emptyList(), own))
     }
 
     /** `PatternMatcher.matchGlobPattern` from AOSP: `.*` takes everything up to the next pattern character and never gives it back. */
