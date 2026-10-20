@@ -67,6 +67,7 @@ internal fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> 
                 }
                 // The same line the page draws, so it keeps its shape when the pull request arrives: names stay whole and wrap.
                 PrMetaLine(pull?.let { "#${it.number}" }.orEmpty(), preview?.author, null, pull?.owner, pull?.repo, onOpenRepo = null)
+                preview?.let { PrLifecycleStatus(it.state) }
                 // The branches are in the Inbox row too, so they are there from the first frame like the title (J13).
                 if (preview != null && (preview.base.isNotBlank() || preview.head.isNotBlank())) BranchRow(preview.base, preview.head)
                 OpeningStats(adds, dels, files)

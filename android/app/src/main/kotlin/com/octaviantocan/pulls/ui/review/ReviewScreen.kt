@@ -118,8 +118,11 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     val preview = remember(target) { pullPreview(context, target) }
     val ui = rememberDiffUi(session)
     val top = remember(session) { ReviewTopUi() }
-    val data = remember(session.overview, session.overviewStored, session.prOpened?.headSha) {
-        parsePrOverviewData(session.overview, fresh = !session.overviewStored, expectedHead = session.prOpened?.headSha)
+    val observedState = session.prOpened?.let { opened ->
+        normalizedPrState(opened.state).takeIf { !opened.stale || it == "merged" }
+    }
+    val data = remember(session.overview, session.overviewStored, session.prOpened?.headSha, observedState) {
+        parsePrOverviewData(session.overview, fresh = !session.overviewStored, expectedHead = session.prOpened?.headSha, observedState = observedState)
     }
     val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
     val pages = remember(session) { mutableStateListOf(if (startOnTour) PrView.Tour else PrView.Overview) }
@@ -561,6 +564,12 @@ private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOv
         delay(wait)
         session.reloadOverview()
         top.polls++
+    }
+    val observedState = session.prOpened?.takeUnless { it.stale }?.state
+    LaunchedEffect(observedState) {
+        if (observedState in listOf("open", "draft", "closed", "merged") && overview != null && observedState != overview.state) {
+            session.reloadOverview()
+        }
     }
     var away by remember { mutableStateOf(false) }
     var returns by remember { mutableIntStateOf(0) }

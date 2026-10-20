@@ -36,8 +36,8 @@ internal data class PrHead(
     val repo: String?,
 )
 
-/** Approving or requesting changes needs an open pull request; an unknown state (a compare, or no overview yet) counts as open. */
-internal val PrHead.isOpen: Boolean get() = state != "merged" && state != "closed"
+/** Approving or requesting changes needs a known open pull request. */
+internal val PrHead.isOpen: Boolean get() = state == "open" || state == "draft"
 
 /** The page's header facts: from the overview when it is there, else from the diff; null while neither has arrived. */
 internal fun prHead(session: ReviewSession, data: PrOverviewData?): PrHead? {
@@ -53,7 +53,7 @@ internal fun prHead(session: ReviewSession, data: PrOverviewData?): PrHead? {
         PrHead(pr.title, "#${pr.number}", pr.url, pr.state, pr.baseRef, pr.headRef, pr.author?.login, pr.createdAt, parent?.first, parent?.second)
     } else if (opened != null) {
         PrHead(
-            opened.title.ifBlank { parent?.let { "${it.first}/${it.second}" } ?: "Changes" }, opened.label, opened.url, opened.state, opened.baseRef, opened.headRef,
+            opened.title.ifBlank { parent?.let { "${it.first}/${it.second}" } ?: "Changes" }, opened.label, opened.url, normalizedPrState(opened.state), opened.baseRef, opened.headRef,
             opened.author?.login?.takeIf { it.isNotBlank() }, null, parent?.first, parent?.second,
         )
     } else {
@@ -64,14 +64,14 @@ internal fun prHead(session: ReviewSession, data: PrOverviewData?): PrHead? {
 /**
  * The header facts for a tour the phone kept, before the overview or the diff has arrived: the title from the Inbox
  * or the Tours list ([preview]), else the tour's own. Null for anything but a pull request, or with no kept [tour].
- * The state is unknown until the overview comes, which counts as open.
+ * The state is unknown until the overview comes unless the list already knew it.
  */
 internal fun storedTourHead(target: OpenTarget, preview: PullPreview?, tour: Tour?): PrHead? {
     val pull = target as? OpenTarget.Pull ?: return null
     if (tour == null) return null
     return PrHead(
         preview?.title?.takeIf { it.isNotBlank() } ?: tour.title, "#${pull.number}", "https://github.com/${pull.owner}/${pull.repo}/pull/${pull.number}",
-        if (preview?.isDraft == true) "draft" else "", "", "", preview?.author, null, pull.owner, pull.repo,
+        preview?.state ?: "unknown", "", "", preview?.author, null, pull.owner, pull.repo,
     )
 }
 
