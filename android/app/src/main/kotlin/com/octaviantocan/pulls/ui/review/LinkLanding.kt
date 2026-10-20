@@ -55,8 +55,14 @@ internal suspend fun landOn(place: LinkPlace, session: ReviewSession, moves: Lan
             place.file?.let { files(it, session, moves, toaster) } ?: moves.changes()
         }
         is LinkPlace.Checks -> {
-            session.linkedCheck = place.runId
+            val runId = place.runId
+            session.linkedCheck = runId
             moves.sheet("checks")
+            // A run Pully doesn't list (one of the checks past the sheet's, or an outside service's) says so.
+            val overview = if (runId == null) null else overviewOf(session)
+            if (runId != null && overview != null && overview.checks.none { isRun(it, runId) }) {
+                toaster.show("Pully can't find that check", "GitHub", Cue.Error) { moves.github("${overview.url}/checks?check_run_id=$runId") }
+            }
         }
     }
 }

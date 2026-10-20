@@ -32,7 +32,7 @@ GitHub links land on the comment, file or check they point to.
 ### Fixed
 
 - GitHub in a pull request's menu opens GitHub again, in the GitHub app or your browser, instead of doing nothing. So does every other "on GitHub" in Pully.
-- A pull request link inside a description or a comment opens in Pully on the thing it points to; other links open in your browser.
+- A pull request link inside a description or a comment opens in Pully on the thing it points to, and so does one pasted in the Inbox search; other links open in your browser.
 
 ## 0.51.0
 

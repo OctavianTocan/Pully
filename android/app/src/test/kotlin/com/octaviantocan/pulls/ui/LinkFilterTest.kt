@@ -111,6 +111,10 @@ class LinkFilterTest {
         assertFalse(HomeLinks.opensInPully("https://github.com/a/b"))
         assertFalse(HomeLinks.opensInPully("https://docs.example.com/a/b/3"))
         assertFalse(HomeLinks.opensInPully("a/b#3"))
+        // Pully's own server: the manifest takes every page there, and Pully opens the ones it has a screen for.
+        assertTrue(HomeLinks.opensInPully("https://prs.octaviantocan.com/-/abc123def"))
+        assertTrue(HomeLinks.opensInPully("https://prs.octaviantocan.com/gh/a/b/7"))
+        assertFalse(HomeLinks.opensInPully("https://prs.octaviantocan.com/settings"))
         // Whatever Pully opens from inside, a tap in another app hands it to Pully too.
         listOf("https://github.com/a/b/pull/7#issuecomment-1", "https://github.com/a/b/commit/abc1234", "https://www.github.com/a/b/compare/main...dev")
             .forEach { assertTrue(opensInPulls(it), it) }

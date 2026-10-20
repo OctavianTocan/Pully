@@ -80,16 +80,19 @@ object HomeLinks {
     }
 
     /**
-     * Whether a link tapped inside Pully opens in Pully: a GitHub pull request, commit or compare link, the ones a tap in
-     * another app hands to Pully (the manifest's link filter). Anything else, a GitHub issue or file included, opens outside.
+     * Whether a link tapped inside Pully opens in Pully: a GitHub pull request, commit or compare link, or a page on Pully's
+     * own server (a posted diff, a pull request), the ones a tap in another app hands to Pully (the manifest's link filters).
+     * Anything else, a GitHub issue or file and a server page Pully has no screen for included, opens outside.
      */
     fun opensInPully(url: String): Boolean {
         val trimmed = url.trim()
-        if (!githubPage.containsMatchIn(trimmed)) return false
-        return parse(trimmed) is HomeLink.Target
+        if (githubPage.containsMatchIn(trimmed)) return parse(trimmed) is HomeLink.Target
+        if (serverPage.containsMatchIn(trimmed)) return parseShared(trimmed) != null
+        return false
     }
 
     private val githubPage = Regex("""^https?://(?:www\.)?github\.com/[^/\s]+/[^/\s]+/(?:pull|commit|compare)/""", RegexOption.IGNORE_CASE)
+    private val serverPage = Regex("""^https://prs\.octaviantocan\.com/""", RegexOption.IGNORE_CASE)
 
     /**
      * What the search pill's text opens: a link [parse] understands, or a bare number (`42`, `#42`) that only one of the

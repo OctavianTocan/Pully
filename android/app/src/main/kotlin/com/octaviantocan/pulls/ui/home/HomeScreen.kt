@@ -340,7 +340,10 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val searchLink = remember(ui.search, listed) { HomeLinks.fromSearch(ui.search, listed) }
     fun openSearch() {
         when (val link = searchLink) {
-            is HomeLink.Target -> { ui.search = ""; nav.openFrom(link.target, "search", false) }
+            is HomeLink.Target -> {
+                ui.search = ""
+                link.place?.let { nav.openPlace(link.target, "search", it) } ?: nav.openFrom(link.target, "search", false)
+            }
             is HomeLink.Repo -> { ui.search = ""; nav.openRepo(link.owner, link.repo) }
             null -> {}
         }

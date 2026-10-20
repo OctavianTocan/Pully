@@ -88,4 +88,5 @@ happens. That needs fixing": Tavi, 20 Oct 2026 12:10).
 @cc [owner:OctavianTocan,label:product] nav-links-inside-open-like-outside
 A link tapped inside Pully, in a description, a comment or an answer, opens in Pully exactly
 when a tap on it in another app would (a GitHub pull request, commit or compare link, on the
-thing it points at, pr-links-land-on-the-thing), and outside Pully otherwise.
+thing it points at, pr-links-land-on-the-thing, or a page of Pully's own server that Pully has a
+screen for), and outside Pully otherwise.

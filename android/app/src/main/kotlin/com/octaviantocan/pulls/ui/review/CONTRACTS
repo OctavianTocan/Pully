@@ -596,8 +596,9 @@ resolved or hidden, or under its review on the Conversation when its code has ch
 files tab on the Diff, a `#diff-` anchor on that file and its `L` or `R` line, `/files/<sha>`
 and `a..b` on those commits; `/commits/<sha>` on that commit's changes; the commits tab on
 the Commits sheet; the checks tab on the Checks sheet with `check_run_id`'s row marked;
-`#issue-` on the description. A link to the pull request already on screen goes there
-without opening it again. A thing Pully does not have MUST say so, with GitHub one tap away
+`#issue-` on the description. This holds wherever the link comes from: another app, a tap
+inside Pully, or the Inbox search pill. A link to the pull request already on screen goes
+there without opening it again. A thing Pully does not have MUST say so, with GitHub one tap away
 ("When opening GitHub PR links that point to a comment, review, or other feature of GitHub,
 all Pully does is open the PR. That sucks. It needs to take us to the thing. Seamless parity
 with GitHub": Tavi, 20 Oct 2026 12:10).

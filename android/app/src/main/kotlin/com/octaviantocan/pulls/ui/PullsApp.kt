@@ -109,6 +109,7 @@ fun PullsApp(initialTarget: String?) {
             openTarget = { stack.add(Screen.Review(it)) },
             openTour = { stack.add(Screen.Review(it, tour = true)) },
             openFrom = { target, from, tour -> stack.add(Screen.Review(target, tour = tour, from = from)) },
+            openPlace = { target, from, place -> stack.add(Screen.Review(target, from = from, place = PlaceRequest(place))) },
             openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
             openRepoTours = { owner, repo -> stack.add(Screen.Repo(owner, repo, tours = true)) },
             home = { stack.clear(); stack.add(Screen.Home) },
