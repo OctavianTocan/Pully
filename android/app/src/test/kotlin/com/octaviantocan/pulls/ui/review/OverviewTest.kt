@@ -74,6 +74,48 @@ class OverviewParsingTest {
         assertNull(parsePrOverviewData(null))
     }
 
+    private fun mergeAnswer(mergeable: String? = "mergeable", status: String? = "clean", fresh: Boolean = true, expectedHead: String? = null): PrOverviewData {
+        val fields = listOfNotNull(mergeable?.let { "\"mergeable\":\"$it\"" }, status?.let { "\"mergeStateStatus\":\"$it\"" }).joinToString(",")
+        return parsePrOverviewData(Json.parseToJsonElement("""{"overview":{"id":"x","state":"open","head":{"oid":"head-1"},"viewer":{"canPush":true},"merge":{"methods":["merge"]}${if (fields.isNotEmpty()) ",$fields" else ""}},"mergeability":{"allowed":true,"ready":true}}"""), fresh = fresh, expectedHead = expectedHead)!!
+    }
+
+    @Test
+    fun rawConflictOrUnknownOverridesContradictoryReadyEnvelope() {
+        assertEquals("conflicts", mergeAnswer(mergeable = "conflicting").mergeability.blocker)
+        assertFalse(mergeAnswer(status = "dirty").mergeability.ready)
+        for (unknown in listOf(null, "", "unknown", "new-state")) {
+            val parsed = mergeAnswer(mergeable = unknown)
+            assertEquals("unknown", parsed.overview.mergeable)
+            assertEquals(PrMergeability(true, false, "checking"), parsed.mergeability)
+            assertEquals("unknown", mergeAnswer(status = unknown).overview.mergeStateStatus)
+            assertFalse(mergeAnswer(status = unknown).mergeability.ready)
+        }
+        assertEquals("conflicts", mergeAnswer(mergeable = "CONFLICTING", status = "DIRTY").mergeability.blocker)
+    }
+
+    @Test
+    fun cachedReadinessWaitsForFreshOverviewWhileConflictsRemainVisible() {
+        assertEquals(PrMergeability(true, false, "checking"), mergeAnswer(fresh = false).mergeability)
+        assertEquals(PrMergeability(true, false, "conflicts"), mergeAnswer(mergeable = "conflicting", fresh = false).mergeability)
+        assertEquals(PrMergeability(true, true), mergeAnswer(fresh = true).mergeability)
+    }
+
+    @Test
+    fun observedNewerHeadInvalidatesOldReadinessUntilMatchingOverviewArrives() {
+        assertEquals(PrMergeability(true, false, "checking"), mergeAnswer(expectedHead = "head-2").mergeability)
+        assertEquals(PrMergeability(true, true), mergeAnswer(expectedHead = "head-1").mergeability)
+        assertEquals("conflicts", mergeAnswer(mergeable = "conflicting", expectedHead = "head-2").mergeability.blocker)
+    }
+
+    @Test
+    fun cleanCachedOrOldHeadOverviewRetriesUntilFreshMergeabilityArrives() {
+        assertEquals(3_000L, overviewRevalidateDelayMs(mergeAnswer(fresh = false)))
+        assertEquals(3_000L, overviewRevalidateDelayMs(mergeAnswer(expectedHead = "head-2")))
+        assertNull(overviewRevalidateDelayMs(mergeAnswer(expectedHead = "head-1")))
+        val closed = mergeAnswer(fresh = false).let { it.copy(overview = it.overview.copy(state = "closed")) }
+        assertNull(overviewRevalidateDelayMs(closed))
+    }
+
     @Test
     fun readsEventSlots() {
         val json = """{"overview":{"id":"x","number":1,"state":"closed","merge":{"methods":["merge","rebase"],"defaultMethod":"squash"},
@@ -109,6 +151,26 @@ class MergeabilityTest {
         assertEquals(PrMergeability(true, false, "conflicts"), assessMergeability(writer.copy(mergeable = "conflicting")))
         assertEquals(PrMergeability(true, false, "conflicts"), assessMergeability(writer.copy(mergeStateStatus = "dirty")))
         assertEquals(PrMergeability(true, false, "checking"), assessMergeability(writer.copy(mergeable = "unknown")))
+    }
+
+    @Test
+    fun missingOrUnrecognizedMergeabilityNeverBecomesReadyEvenForAdmins() {
+        val admin = writer.copy(viewer = writer.viewer.copy(canMergeAsAdmin = true))
+        for (unknown in listOf("", "unknown", "new-state")) {
+            assertEquals(PrMergeability(true, false, "checking"), assessMergeability(admin.copy(mergeable = unknown, mergeStateStatus = "blocked")))
+            assertEquals(PrMergeability(true, false, "checking"), assessMergeability(admin.copy(mergeStateStatus = unknown)))
+            assertEquals(3_000L, overviewRevalidateDelayMs(writer.copy(mergeable = unknown)))
+        }
+    }
+
+    @Test
+    fun conflictStatusIsVisibleWithoutMergePermissionAndIndependentOfChecks() {
+        val green = base.copy(checksSummary = base.checksSummary.copy(failing = 0, pending = 0, passing = 2, state = "success"))
+        assertEquals("conflicts", overviewMergeBlocker(green.copy(mergeable = "conflicting")))
+        assertEquals("conflicts", overviewMergeBlocker(green.copy(mergeable = "mergeable", mergeStateStatus = "dirty")))
+        assertEquals("conflicts", overviewMergeBlocker(green.copy(state = "draft", mergeable = "conflicting")))
+        assertNull(overviewMergeBlocker(writer))
+        assertNull(overviewMergeBlocker(green.copy(state = "merged", mergeable = "conflicting")))
     }
 
     @Test

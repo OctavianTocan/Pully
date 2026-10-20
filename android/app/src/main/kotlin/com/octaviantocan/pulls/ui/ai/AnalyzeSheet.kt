@@ -73,7 +73,7 @@ internal enum class AnalyzePage(val parent: AnalyzePage?) {
 }
 
 private fun AnalyzePage.title(): String = when (this) {
-    AnalyzePage.Main -> "Analyze"
+    AnalyzePage.Main -> "Analyze changes"
     AnalyzePage.Tour -> "No tour yet"
     AnalyzePage.Custom -> "Custom analysis"
     AnalyzePage.Model -> "Select model"
@@ -81,7 +81,7 @@ private fun AnalyzePage.title(): String = when (this) {
 }
 
 /**
- * What the Analyze button's chevron opens: Quick, Standard and Deep, and Custom for picking the passes one by
+ * The setup before an analysis: its model, Quick, Standard and Deep, and Custom for picking the passes one by
  * one. Picking one runs it at once and becomes what the button runs next time. The model, its effort and the
  * custom passes are pages inside this one sheet (rule 78), so choosing a model never closes it. The ⋯ sheet's Model
  * row opens it on the model page ([start]), where there is nothing to go back to. The analysis, the tour, the brief
@@ -90,22 +90,28 @@ private fun AnalyzePage.title(): String = when (this) {
 @Composable
 internal fun AnalyzeSheet(session: ReviewSession, onClose: () -> Unit, start: AnalyzePage = AnalyzePage.Main, onTour: () -> Unit = {}) {
     var page by remember { mutableStateOf(start) }
+    var modelParent by remember { mutableStateOf(start) }
     val custom = rememberCustomAnalysis(session)
+    val go: (AnalyzePage) -> Unit = { next ->
+        if (next == AnalyzePage.Model || next == AnalyzePage.Effort) modelParent = page
+        page = next
+    }
     // Opened straight on the model page, that page is the first one: there is no Analyze page behind it. Opened from the
     // tour icon, the model page goes back to the tour's page.
     val parent: (AnalyzePage) -> AnalyzePage? = {
         when {
-            it != AnalyzePage.Model -> it.parent
+            it != AnalyzePage.Model && it != AnalyzePage.Effort -> it.parent
             start == AnalyzePage.Model -> null
-            else -> start
+            else -> modelParent
         }
     }
     // While the tour is written the sheet stays open on its progress and says so (M12).
     val title: @Composable (AnalyzePage) -> String = { if (it == AnalyzePage.Tour && tourComing(session)) "Writing the tour" else it.title() }
     PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = title) { current ->
         AnalyzePageContent(
-            session, current, custom, onPage = { page = it }, onClose = onClose, onTour = onTour,
+            session, current, custom, onPage = go, onClose = onClose, onTour = onTour,
             onModelDone = { if (start == AnalyzePage.Model) onClose() else page = parent(AnalyzePage.Model) ?: AnalyzePage.Main },
+            onEffortDone = { page = parent(AnalyzePage.Effort) ?: AnalyzePage.Main },
         )
     }
 }
@@ -134,6 +140,7 @@ internal fun ColumnScope.AnalyzePageContent(
     onModelDone: () -> Unit,
     onClose: () -> Unit,
     onTour: () -> Unit = {},
+    onEffortDone: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val toaster = LocalToaster.current
@@ -159,6 +166,7 @@ internal fun ColumnScope.AnalyzePageContent(
         }
         AnalyzePage.Custom -> {
             var choice by custom
+            ModelCard(session, { onPage(AnalyzePage.Model) }, onEffort = { onPage(AnalyzePage.Effort) }, gap = SheetTopGap)
             SheetCard {
                 PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
                 PassRow("Tour", "A walk through the change, section by section.", choice.tour) { choice = choice.copy(tour = it) }
@@ -168,7 +176,7 @@ internal fun ColumnScope.AnalyzePageContent(
             CtaButton("Analyze", { run(choice) }, Modifier.fillMaxWidth().padding(top = 16.dp))
         }
         AnalyzePage.Model -> ModelPage(settings, onDone = onModelDone)
-        AnalyzePage.Effort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Main) })
+        AnalyzePage.Effort -> EffortPage(settings, onBack = { onEffortDone?.invoke() ?: onPage(AnalyzePage.Main) })
         AnalyzePage.TourEffort -> EffortPage(settings, onBack = { onPage(AnalyzePage.Tour) })
     }
 }
@@ -256,24 +264,24 @@ internal fun ModelCard(session: ReviewSession, onModel: () -> Unit, modifier: Mo
 @Composable
 private fun ColumnScope.AnalyzeMain(session: ReviewSession, onRun: (AnalyzeChoice) -> Unit, onCustom: () -> Unit, onModel: () -> Unit, onEffort: () -> Unit) {
     val last = session.settings.analyzeChoice
+    // Show what will run before any of the launch actions, just like Generate tour.
+    ModelCard(session, onModel, onEffort = onEffort, gap = SheetTopGap)
     SheetCard {
         AnalyzePreset.entries.forEachIndexed { index, preset ->
-            ChoiceRow(preset.title, preset.blurb, selected = last.preset == preset, first = index == 0) { onRun(AnalyzeChoice.of(preset)) }
+            AiRunRow("${preset.title} analysis", preset.blurb, first = index == 0) { onRun(AnalyzeChoice.of(preset)) }
         }
-        ChoiceRow("Custom", if (last.preset == null) last.summary() else "Pick the passes yourself.", selected = last.preset == null, first = false, onClick = onCustom)
+        AiRunRow("Custom analysis", if (last.preset == null) last.summary() else "Pick the passes yourself.", first = false, onClick = onCustom)
     }
-    // The effort under the model here too, as in Settings and the tour's sheet (M2).
-    ModelCard(session, onModel, onEffort = onEffort)
 }
 
-/** A choice with a line of what it does, and a tick on the one the button runs. The Review sheet's lenses use it too (rule 70). */
+/** An action with its output and a forward chevron; it starts work rather than selecting a saved option. */
 @Composable
-internal fun ChoiceRow(title: String, blurb: String?, selected: Boolean, first: Boolean, onClick: () -> Unit) {
+internal fun AiRunRow(title: String, blurb: String?, first: Boolean, onClick: () -> Unit) {
     val c = LocalPullsColors.current
     Row(
         Modifier.fillMaxWidth()
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
-            .cueClickable(role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 11.dp),
+            .cueClickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
@@ -282,7 +290,7 @@ internal fun ChoiceRow(title: String, blurb: String?, selected: Boolean, first: 
             Text(title, style = PullsType.row, color = c.text)
             if (!blurb.isNullOrBlank()) Text(blurb, style = PullsType.sm, color = c.muted)
         }
-        Box(Modifier.padding(start = 4.dp)) { if (selected) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp) }
+        LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
     }
 }
 

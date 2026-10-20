@@ -47,7 +47,8 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsRadius
-import com.octaviantocan.pulls.ui.design.PullsSheet
+import com.octaviantocan.pulls.ui.design.PullsPagedSheet
+import com.octaviantocan.pulls.ui.design.SheetTopGap
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
@@ -56,6 +57,8 @@ import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.design.tc
 import com.octaviantocan.pulls.ui.review.ReviewSession
+import com.octaviantocan.pulls.ui.review.ModelPage
+import com.octaviantocan.pulls.ui.review.EffortPage
 import com.octaviantocan.pulls.ui.review.guardedStop
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -69,12 +72,6 @@ internal fun ReviewSession.runCritique(context: android.content.Context, lens: S
         put("variant", variant)
         if (lens != null) put("lens", lens)
     })
-}
-
-/** The lens a critique is shown or runs with: the running task's, else the saved result's. */
-private fun lensOf(session: ReviewSession): String? {
-    val task = session.taskFor("critique")
-    return if (task?.running == true) task.lens else session.saved?.critique?.lens
 }
 
 /**
@@ -125,12 +122,32 @@ internal object ReviewLenses {
 }
 
 /**
- * "Review with AI" from the ⋯ sheet: General, then the server's curated lenses by title, a tick on the one
- * this pull request was last reviewed with. A tap starts the review. The list is short, so it has no search (rule 89).
+ * Find problems from the ⋯ sheet: the persisted model and effort, then General and the server's curated
+ * review skills. Each skill is a launch action. The list is short, so it has no search (rule 89).
  */
 @Composable
 internal fun ReviewSheet(session: ReviewSession, onClose: () -> Unit, onPick: (String?) -> Unit) {
-    PullsSheet(onClose, "Review") { ReviewLensList(session, onPick) }
+    var page by remember { mutableStateOf(ReviewSetupPage.Main) }
+    PullsPagedSheet(
+        onClose, page, parent = { if (it == ReviewSetupPage.Main) null else ReviewSetupPage.Main },
+        onPage = { page = it },
+        title = { when (it) { ReviewSetupPage.Main -> "Find problems"; ReviewSetupPage.Model -> "Select model"; ReviewSetupPage.Effort -> "Effort" } },
+    ) { current ->
+        when (current) {
+            ReviewSetupPage.Main -> ReviewSetup(session, onPick, { page = ReviewSetupPage.Model }, { page = ReviewSetupPage.Effort })
+            ReviewSetupPage.Model -> ModelPage(session.settings) { page = ReviewSetupPage.Main }
+            ReviewSetupPage.Effort -> EffortPage(session.settings) { page = ReviewSetupPage.Main }
+        }
+    }
+}
+
+private enum class ReviewSetupPage { Main, Model, Effort }
+
+/** The model is visible before any review skill can start a request. Shared by standalone and PR sheets. */
+@Composable
+internal fun ColumnScope.ReviewSetup(session: ReviewSession, onPick: (String?) -> Unit, onModel: () -> Unit, onEffort: () -> Unit) {
+    ModelCard(session, onModel, onEffort = onEffort, gap = SheetTopGap)
+    ReviewLensList(session, onPick)
 }
 
 /** General and the review skills, for the Review sheet and for the page of it in the pull request's actions (J27). */
@@ -142,11 +159,9 @@ internal fun ColumnScope.ReviewLensList(session: ReviewSession, onPick: (String?
     LaunchedEffect(server) { ReviewLenses.load(session, server) }
     val lenses = ReviewLenses.listFor(server)
     val error = ReviewLenses.errorFor(server)
-    val current = lensOf(session)
-
-SheetCard {
-        ChoiceRow("General", "Bugs, risks and nits across the whole diff.", selected = current == null, first = true) { onPick(null) }
-        lenses?.forEach { lens -> ChoiceRow(lens.title, lens.description, selected = current == lens.name, first = false) { onPick(lens.name) } }
+    SheetCard {
+        AiRunRow("General review", "Find bugs, risks and nits across the whole diff.", first = true) { onPick(null) }
+        lenses?.forEach { lens -> AiRunRow(lens.title, lens.description, first = false) { onPick(lens.name) } }
         // No loading screen: the shape of the rows, replaced in place when they arrive (rule 51).
         if (lenses == null && error == null) repeat(3) { ChoiceSkeleton() }
     }
@@ -160,7 +175,7 @@ SheetCard {
     }
 }
 
-/** A [ChoiceRow]'s shape while the lenses are on their way: its title and its line. */
+/** An [AiRunRow]'s shape while the lenses are on their way: its title and its line. */
 @Composable
 private fun ChoiceSkeleton() {
     val c = LocalPullsColors.current
@@ -186,7 +201,7 @@ private fun identity(critique: Critique): String = "${critique.variant}|${critiq
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
+internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier, onRetry: (String?) -> Unit) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val server = remember { ServerStore.load(context).url }
@@ -238,7 +253,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier) {
             // A repeat is the try-again arrow, named for what it does (rule 87).
             Row(Modifier.padding(start = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(task.error ?: t("analyze.failed"), Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                FloatIcon(Lu.redo, "Run the review again", { session.runCritique(context, task.lens) }, flat = true, iconSize = 22.dp, tint = c.muted)
+                FloatIcon(Lu.redo, "Run the review again", { onRetry(task.lens) }, flat = true, iconSize = 22.dp, tint = c.muted)
             }
         }
 

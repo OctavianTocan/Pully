@@ -6,6 +6,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import androidx.compose.runtime.BroadcastFrameClock
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.animate
 
 /**
  * Where a sheet rests: its normal height and its tall height (rule 77), and what moves it between them. Run without
@@ -94,6 +99,36 @@ class SheetPositionTest {
         position.measuredContent(600, scope, false)
         assertEquals(0f, position.offset)
         assertTrue(position.tall)
+    }
+
+    @Test fun keyboardLiftStartsAtTheVisibleStopAndUsesTheReleasedDragSpring() = runBlocking {
+        val clock = BroadcastFrameClock()
+        val animatedScope = CoroutineScope(coroutineContext + clock)
+        // Short action sheets, long searchable sheets and full chat sheets share the same lift.
+        for (make in listOf<() -> SheetPosition>(
+            { sheet(1000f, 600) },
+            { sheet(1000f, 1800) },
+            { full(1000f) },
+        )) {
+            val focused = make()
+            val start = focused.shift(2000f)
+            var expected = start
+            animatedScope.launch {
+                animate(start, 0f, animationSpec = PullsMotion.SheetSpring) { value, _ -> expected = maxOf(value, 0f) }
+            }
+            focused.lift(animatedScope, true)
+            // A focus change must not first snap the pinned stop to tall before animation begins.
+            assertEquals(start, focused.shift(2000f))
+            yield()
+            repeat(100) { frame ->
+                clock.sendFrame(frame * 16_000_000L)
+                yield()
+                assertEquals(expected, focused.shift(2000f), 0.01f)
+                if (frame == 2) assertTrue(focused.offset > 0f && focused.offset < start)
+            }
+            assertTrue(focused.settled)
+            assertEquals(0f, focused.shift(2000f))
+        }
     }
 
     @Test fun aSheetWithNoTallHeightStaysAtItsContent() {

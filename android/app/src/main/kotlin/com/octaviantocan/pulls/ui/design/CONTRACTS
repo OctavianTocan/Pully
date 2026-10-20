@@ -56,6 +56,9 @@ starts with the content at its top, or on the grabber or header, pulls it down (
 @cc [owner:OctavianTocan,label:motion] kit-sheet-lifts-on-its-spring
 A field that takes the keyboard lifts its sheet to the tall height on the sheet spring,
 never popping there; lowering the sheet puts the keyboard away (rule 77; J10).
+The lift MUST start at the sheet's current visible position, including a resting normal
+stop, and MUST follow the same spring as a released drag in every text-input sheet
+(recording 20 Oct, 00:04 to 00:33).
 
 @cc [owner:OctavianTocan,label:product;motion] kit-sheet-pages-stay-in-the-sheet
 A sheet opened from a sheet is a page inside it: the content slides sideways a third of

@@ -95,6 +95,13 @@ fun PullsApp(initialTarget: String?) {
     }
     // Whether the server has an account and this phone's session still works, on start and on every return.
     remember { com.octaviantocan.pulls.data.Account.load(context) }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { com.octaviantocan.pulls.data.AiWork.foreground(context) }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { com.octaviantocan.pulls.data.AiWork.background() }
+    val appLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(com.octaviantocan.pulls.data.Account.email, com.octaviantocan.pulls.data.Account.mustSignIn) {
+        if (com.octaviantocan.pulls.data.Account.mustSignIn) com.octaviantocan.pulls.data.AiWork.clear(context)
+        else if (appLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) com.octaviantocan.pulls.data.AiWork.foreground(context)
+    }
     AccountCheck()
     // After an update, what changed opens once, over whatever page Pully opened on.
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }

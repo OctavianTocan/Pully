@@ -64,14 +64,12 @@ import com.octaviantocan.pulls.ui.ai.Sources
 import com.octaviantocan.pulls.ui.ai.TourBlockView
 import com.octaviantocan.pulls.ui.ai.TourEmpty
 import com.octaviantocan.pulls.ui.ai.tourComing
-import com.octaviantocan.pulls.ui.ai.startTour
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Markdown
 import com.octaviantocan.pulls.ui.design.ProgressRing
-import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
@@ -120,6 +118,7 @@ internal fun PrTourScreen(
     onAsk: (String) -> Unit,
     onOpenAsk: () -> Unit,
     onAskHistory: () -> Unit,
+    onRegenerate: () -> Unit,
     onAskDim: (focused: Boolean, empty: Boolean) -> Unit = { _, _ -> },
     onProgress: () -> Unit = {},
 ) {
@@ -191,7 +190,7 @@ internal fun PrTourScreen(
         listOf(
             Command("tour.ask", "Ask about this tour", group, keywords = "question chat ai", suggested = true) { onOpenAsk() },
             Command("tour.diff", "Switch to the diff", group, keywords = "changes files code", suggested = true) { onChanges() },
-            Command("tour.regenerate", "Regenerate tour", group, keywords = "rewrite again new", suggested = true) { startTour(session) },
+            Command("tour.regenerate", "Regenerate tour", group, keywords = "rewrite again new", suggested = true, hidden = running) { onRegenerate() },
             Command("tour.next", "Next stop", group, keywords = "section forward", suggested = true) {
                 val next = (current + 1).coerceAtMost(n)
                 folds.unfold(next - 1)
@@ -292,7 +291,7 @@ internal fun PrTourScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 14.dp, bottom = bottom),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        item(key = "intro") { Intro(session, head, tour, running, preview) }
+                        item(key = "intro") { Intro(session, tour, running, preview, onRegenerate) }
                         if (preview != null) itemsIndexed(preview.planned, key = { index, _ -> "stop:$index" }) { index, (title, _) ->
                             val written = preview.written[index]
                             if (written != null) StopCard(session, written, onOpenSource, folded = folds.folded(index), onFold = { folds.toggle(index) })
@@ -365,9 +364,9 @@ private fun Card(content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().floatShadow(shape, PullsShadow.Note).clip(shape).background(c.raised).padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 20.dp)) { content() }
 }
 
-/** The tour's own card: its title and overview, a note when it was written for an older commit, and the way to make a new one. */
+/** The tour's own card: its title and overview, and the way to choose a model and make a new one. */
 @Composable
-private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Boolean, preview: TourPreview? = null) {
+private fun Intro(session: ReviewSession, tour: Tour?, running: Boolean, preview: TourPreview? = null, onRegenerate: () -> Unit) {
     val c = LocalPullsColors.current
     Card {
         when {
@@ -386,18 +385,11 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
                 session.taskFor("tour")?.takeIf { it.status == "failed" }?.error
                     ?: session.taskFor("analyze")?.takeIf { it.status == "failed" && "tour" in it.then }?.error,
                 Modifier,
+                onGenerate = onRegenerate,
             )
             else -> {
-                val outdated = tour.headSha != null && session.opened?.headSha?.let { it != tour.headSha } == true
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(tour.title, style = PullsType.xxl, color = c.text)
-                    if (outdated) Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.warning.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("Written for an older commit.", Modifier.weight(1f), style = PullsType.sm, color = c.text)
-                        if (!running) PillButton("Update", { startTour(session) })
-                    }
                     Markdown(tour.overview, style = PullsType.read.copy(color = c.text))
                     if (running) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         com.octaviantocan.pulls.ui.design.BreathingDot()
@@ -405,7 +397,7 @@ private fun Intro(session: ReviewSession, head: PrHead, tour: Tour?, running: Bo
                     }
                     // No model name and no token counts here (rule 98); rewriting is a quiet icon at the card's corner, with no word.
                     else Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                        FloatIcon(Lu.redo, "Rewrite the tour", { startTour(session) }, Modifier.offset(x = 10.dp, y = 6.dp), flat = true, size = 40.dp, tint = c.muted)
+                        FloatIcon(Lu.redo, "Rewrite the tour", onRegenerate, Modifier.offset(x = 10.dp, y = 6.dp), flat = true, size = 40.dp, tint = c.muted)
                     }
                 }
             }

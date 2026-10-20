@@ -197,6 +197,7 @@ class ReviewSession(
             prOpened = before.opened
             opened = before.opened
             overview = before.overview
+            overviewStored = before.overview != null
         }
     }
     val key: String? get() = opened?.key
@@ -210,6 +211,9 @@ class ReviewSession(
      * shows at once, before the diff and the server do. A commit range has tours of its own, so it shows only the server's.
      */
     val tour: Tour? get() = saved?.tour ?: storedTour.takeIf { selection == null }
+
+    /** Stale tour versions already offered an update while this review stays open. */
+    internal val promptedStaleTours = mutableSetOf<com.octaviantocan.pulls.ui.ai.StaleTourIdentity>()
 
     /** Groups to render: the AI analysis when shown and present, else the rule-based ones, then "Uncategorized". */
     val groups: List<FileGroup>
@@ -575,6 +579,7 @@ class ReviewSession(
         val pending = TaskState(id = "pending-${System.nanoTime()}", kind = kind, key = key, then = then, startedAt = now)
         tasks[pending.id] = pending
         scope.launch {
+            val workSource = com.octaviantocan.pulls.data.AiWork.source()
             val id = runCatching {
                 repo.startTask(kind, key, effort) {
                     extra()
@@ -592,6 +597,7 @@ class ReviewSession(
             // The server joins a task already doing this work; keep what the page already knows of it.
             if (tasks[id] == null) tasks[id] = pending.copy(id = id)
             tasks.remove(pending.id)
+            tasks[id]?.let { com.octaviantocan.pulls.data.AiWork.started(it, workSource) }
             onStarted(id)
             follow(id, onDone)
         }
@@ -612,11 +618,13 @@ class ReviewSession(
             var settled: TaskState? = null
             while (true) {
                 val current = tasks[id] ?: break
+                val workSource = com.octaviantocan.pulls.data.AiWork.source()
                 val next = runCatching { repo.waitTask(id, current.rev) }.getOrElse { error ->
                     settled = current.copy(status = "failed", error = error.message)
                     break
                 }
                 val merged = if (current.label.isEmpty()) next.asTaskState().let { fresh -> fresh.copy(activities = current.merge(next).activities) } else current.merge(next)
+                com.octaviantocan.pulls.data.AiWork.updated(merged, workSource)
                 if (triaged && !rated && merged.activities.any { it.id == JEV_STEP && it.status != "running" }) {
                     rated = true
                     loadAttention()
@@ -654,13 +662,16 @@ class ReviewSession(
     }
 
     /** The server's tasks for this diff, or null when asking failed. */
-    private suspend fun fetchTasks(): List<TaskState>? {
+    private suspend fun fetchTasks(): Pair<List<TaskState>, com.octaviantocan.pulls.data.AiWork.Source?>? {
         val key = key ?: return null
-        return runCatching { repo.tasks(key) }.getOrNull()
+        val workSource = com.octaviantocan.pulls.data.AiWork.source()
+        return runCatching { repo.tasks(key) to workSource }.getOrNull()
     }
 
-    private fun adoptTasks(list: List<TaskState>) {
+    private fun adoptTasks(snapshot: Pair<List<TaskState>, com.octaviantocan.pulls.data.AiWork.Source?>) {
+        val (list, workSource) = snapshot
         list.forEach { task ->
+            if (task.running) com.octaviantocan.pulls.data.AiWork.updated(task, workSource)
             if (tasks[task.id] == null) tasks[task.id] = task
             if (task.running) follow(task.id)
         }

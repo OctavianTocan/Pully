@@ -245,12 +245,19 @@ data class PrOverview(
 /** The whole `pr-overview` answer. */
 data class PrOverviewData(val overview: PrOverview, val mergeability: PrMergeability, val defaultCommits: Map<String, Pair<String, String>>)
 
-fun parsePrOverviewData(element: JsonElement?): PrOverviewData? {
+fun parsePrOverviewData(element: JsonElement?, fresh: Boolean = true, expectedHead: String? = null): PrOverviewData? {
     val root = element as? JsonObject ?: return null
     val overview = parsePrOverview(root.objOrNull("overview") ?: return null) ?: return null
-    val mergeability = root.objOrNull("mergeability")?.let {
+    val assessed = assessMergeability(overview)
+    val reported = root.objOrNull("mergeability")?.let {
         PrMergeability(it.bool("allowed"), it.bool("ready"), it.strOrNull("blocker"), it.strOrNull("warning"))
-    } ?: assessMergeability(overview)
+    }
+    // A cached/computed verdict never overrides GitHub's raw conflicts or an unknown merge state.
+    val current = if (!assessed.ready) assessed else reported ?: assessed
+    val currentHead = expectedHead.isNullOrBlank() || expectedHead == overview.headOid
+    val mergeability = if ((!fresh || !currentHead) && current.allowed && current.ready) {
+        current.copy(ready = false, blocker = "checking", warning = null)
+    } else current
     val defaults = root.objOrNull("defaultCommits").orEmpty().mapNotNull { (method, value) ->
         (value as? JsonObject)?.let { method to (it.str("title") to it.str("body")) }
     }.toMap()
@@ -310,8 +317,8 @@ fun parsePrOverview(o: JsonObject): PrOverview? {
         state = o.str("state").ifEmpty { "open" },
         mergedAt = o.strOrNull("mergedAt"),
         closedAt = o.strOrNull("closedAt"),
-        mergeable = o.str("mergeable").ifEmpty { "unknown" },
-        mergeStateStatus = o.str("mergeStateStatus").ifEmpty { "unknown" },
+        mergeable = normalizedMergeable(o.str("mergeable")),
+        mergeStateStatus = normalizedMergeState(o.str("mergeStateStatus")),
         reviewDecision = o.strOrNull("reviewDecision"),
         headOid = head.str("oid"),
         headRef = head.str("ref"),
@@ -367,16 +374,35 @@ private fun parseTimelineItem(o: JsonObject): PrTimelineItem? {
     }
 }
 
+private fun normalizedMergeable(value: String): String = value.lowercase().takeIf { it in setOf("mergeable", "conflicting") } ?: "unknown"
+private fun normalizedMergeState(value: String): String = value.lowercase().takeIf {
+    it in setOf("clean", "dirty", "draft", "blocked", "behind", "unstable", "has_hooks")
+} ?: "unknown"
+
+/** GitHub's merge blocker, independent of the viewer's permissions and the checks' result. */
+fun overviewMergeBlocker(o: PrOverview): String? {
+    if (!o.isOpen) return null
+    val mergeable = normalizedMergeable(o.mergeable)
+    val status = normalizedMergeState(o.mergeStateStatus)
+    return when {
+        mergeable == "conflicting" || status == "dirty" -> "conflicts"
+        o.state == "draft" || status == "draft" -> "draft"
+        mergeable == "unknown" || status == "unknown" -> "checking"
+        status == "blocked" || status == "behind" -> status
+        else -> null
+    }
+}
+
 /** Port of `assessMergeability`: whether and how the viewer can merge, from GitHub's merge state. */
 fun assessMergeability(o: PrOverview): PrMergeability {
     if (!o.isOpen || !o.viewer.canPush || o.merge.methods.isEmpty()) return PrMergeability(allowed = false, ready = false)
-    if (o.state == "draft" || o.mergeStateStatus == "draft") return PrMergeability(true, false, "draft")
-    if (o.mergeable == "conflicting" || o.mergeStateStatus == "dirty") return PrMergeability(true, false, "conflicts")
-    if (o.mergeStateStatus == "blocked" || o.mergeStateStatus == "behind") {
-        return if (o.viewer.canMergeAsAdmin) PrMergeability(true, true, o.mergeStateStatus, "bypass") else PrMergeability(true, false, o.mergeStateStatus)
+    val blocker = overviewMergeBlocker(o)
+    if (blocker != null) {
+        return if (blocker in setOf("blocked", "behind") && o.viewer.canMergeAsAdmin) {
+            PrMergeability(true, true, blocker, "bypass")
+        } else PrMergeability(true, false, blocker)
     }
-    if (o.mergeable == "unknown" || o.mergeStateStatus == "unknown") return PrMergeability(true, false, "checking")
-    if (o.mergeStateStatus == "unstable") return PrMergeability(true, true, warning = "unstable")
+    if (normalizedMergeState(o.mergeStateStatus) == "unstable") return PrMergeability(true, true, warning = "unstable")
     return PrMergeability(true, true)
 }
 
@@ -392,9 +418,14 @@ fun stateActions(o: PrOverview): List<Pair<String, String>> = buildList {
  * How long until the overview is worth fetching again on its own (`revalidateDelay` in
  * `pr-overview-store.ts`): GitHub computes mergeability lazily, and pending checks settle.
  */
+fun overviewRevalidateDelayMs(data: PrOverviewData): Long? {
+    if (data.overview.isOpen && data.mergeability.blocker == "checking") return 3_000
+    return overviewRevalidateDelayMs(data.overview)
+}
+
 fun overviewRevalidateDelayMs(o: PrOverview): Long? {
     if (!o.isOpen) return null
-    if (o.mergeable == "unknown" || o.mergeStateStatus == "unknown") return 3_000
+    if (normalizedMergeable(o.mergeable) == "unknown" || normalizedMergeState(o.mergeStateStatus) == "unknown") return 3_000
     return if (o.checksSummary.pending > 0) 30_000 else null
 }
 

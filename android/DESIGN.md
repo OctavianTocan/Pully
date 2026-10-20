@@ -557,9 +557,9 @@ In-progress analysis is a live, animated thinking indicator that feels smart. Ne
 
 Source: canvas. Checked by: review.
 
-#### 19. Analyze is one action, three outputs.
+#### 19. Analyze and review name their outputs.
 
-Analysing a PR = summary + per-file explanations + tour. Call it Analyze, not Write tour. An unanalysed PR is a real state with a visible way in. Per-file explanations show on the file rows. (Since rule 113 the way in is the tour icon, not a card on the Overview.)
+Analyze changes produces the summary and per-file explanations; its preset and custom actions identify any additional tour, brief or AI review passes. Find problems produces review findings (bugs, risks and nits). Both open setup with the selected model and effort before work starts (Tavi, 20 Oct 2026 clarification and recording 00:37 to 01:35, replacing the unconditional three-output wording). An unanalysed PR is a real state with a visible way in. Per-file explanations show on the file rows. (Since rule 113 the way in is the tour icon, not a card on the Overview.)
 
 Source: canvas. Checked by: review.
 
@@ -1802,7 +1802,7 @@ Source: walkthrough. Checked by: review.
 
 #### 173. The pull request's ⋯ is short.
 
-⋯ on a pull request offers Leave a comment, the decisions (approve, merge, close) and Review with AI, with GitHub and Analyze. It has no Model or Analyze options rows, no Checks tile and no Review progress, since the checks are pinned at the top (N39).
+⋯ on a pull request offers Leave a comment, the decisions (approve, merge, close) and Find problems, with GitHub, Copy link and Analyze changes. Analyze changes and Find problems open model-visible setup; launch rows are actions without selection ticks (Tavi, 20 Oct 2026 clarification and recording 00:37 to 01:35). It has no Model or Analyze options rows, no Checks tile and no Review progress, since the checks are pinned at the top (N39).
 
 Check: the ⋯ sheet fits on one screen with none of those rows.
 

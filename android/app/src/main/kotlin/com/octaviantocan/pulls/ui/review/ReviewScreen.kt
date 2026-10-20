@@ -118,7 +118,9 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     val preview = remember(target) { pullPreview(context, target) }
     val ui = rememberDiffUi(session)
     val top = remember(session) { ReviewTopUi() }
-    val data = remember(session.overview) { parsePrOverviewData(session.overview) }
+    val data = remember(session.overview, session.overviewStored, session.prOpened?.headSha) {
+        parsePrOverviewData(session.overview, fresh = !session.overviewStored, expectedHead = session.prOpened?.headSha)
+    }
     val tours = remember { TourIndex(deviceStore(context, "pulls-inbox")) }
     val pages = remember(session) { mutableStateListOf(if (startOnTour) PrView.Tour else PrView.Overview) }
     val overviewScroll = rememberLazyListState()
@@ -128,6 +130,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     var pane by rememberSaveable { mutableIntStateOf(0) }
     var diffPath by rememberSaveable { mutableStateOf<String?>(null) }
     var sheet by remember { mutableStateOf<String?>(null) }
+    var tourStart by remember(session) { mutableStateOf<com.octaviantocan.pulls.ui.ai.TourSheetPage>(com.octaviantocan.pulls.ui.ai.TourSheetPage.Main) }
     // The page the pull request's sheet opens on: its actions, or a review to submit when Commands asked for one (N14).
     var prStart by remember { mutableStateOf<PrPage>(PrPage.Actions) }
     // The Tour's Ask bar is focused and empty: the header dims with the page (N29).
@@ -216,6 +219,14 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     }
     // The sheet that shows the tour being written closes once the tour is there (M12).
     LaunchedEffect(session.tour != null) { if (session.tour != null && sheet == "tour") sheet = null }
+    LaunchedEffect(pages.last(), session.tour?.headSha, session.tour?.generatedAt, session.opened?.headSha, tourComing(session)) {
+        if (pages.last() != PrView.Tour || tourComing(session)) return@LaunchedEffect
+        val stale = com.octaviantocan.pulls.ui.ai.staleTourIdentity(session.tour, session.opened?.headSha) ?: return@LaunchedEffect
+        if (session.promptedStaleTours.add(stale)) {
+            tourStart = com.octaviantocan.pulls.ui.ai.TourSheetPage.Stale(stale)
+            sheet = "tourmore"
+        }
+    }
     fun openAsk(forTour: Boolean, initial: String? = null, reference: AskReference? = null) {
         askBehind = null
         ask = AskRequest(
@@ -230,7 +241,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     // Tour's ⋯ slow to open (N22).
     PrCommands(
         session, ::orderedFiles, diffPath, onGo = { path -> diffPath = path; push(PrView.Diff) },
-        onAnalyze = { com.octaviantocan.pulls.ui.ai.runAnalyzeFromCommand(session, context) },
+        onAnalyze = { sheet = "analyze" },
         onDiff = pages.last() == PrView.Diff,
     )
     // On a pull request's Overview, Commands leads with its next steps (N14); the Tour and the Diff bring their own.
@@ -354,7 +365,10 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                             SectionCapsule(
                                 selected = view.ordinal, live = tourComing(session),
                                 onOverview = ::toOverview, onChanges = ::toChanges, onTour = ::openTour,
-                                onCorner = { sheet = when (view) { PrView.Diff -> "tools"; PrView.Tour -> "tourmore"; else -> "more" } },
+                                onCorner = {
+                                    tourStart = com.octaviantocan.pulls.ui.ai.TourSheetPage.Main
+                                    sheet = when (view) { PrView.Diff -> "tools"; PrView.Tour -> "tourmore"; else -> "more" }
+                                },
                                 corner = if (view == PrView.Diff) CapsuleCorner.TextTools else CapsuleCorner.More,
                             )
                         }
@@ -398,6 +412,13 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                                     onAskHistory = { chats = true },
                                     onAskDim = { focused, empty -> tourAskDim = focused to empty },
                                     onProgress = { sheet = "tour" },
+                                    onRegenerate = {
+                                        if (session.tour == null) sheet = "tour"
+                                        else {
+                                            tourStart = com.octaviantocan.pulls.ui.ai.TourSheetPage.Update
+                                            sheet = "tourmore"
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -428,6 +449,7 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
                         session, onClose = { sheet = null },
                         onAsk = { openAsk(forTour = true) }, onDiff = ::toChanges,
                         onPrActions = { sheet = "more" },
+                        start = tourStart,
                     )
                     // Aa on the diff: the code's look, then the file's own actions and one row on to the pull request's ⋯,
                     // which slides in as a page of the same sheet (J27).
@@ -533,8 +555,8 @@ private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead
 @Composable
 private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?) {
     val overview = data?.overview
-    LaunchedEffect(overview, top.polls) {
-        val wait = overview?.let(::overviewRevalidateDelayMs) ?: return@LaunchedEffect
+    LaunchedEffect(data, top.polls) {
+        val wait = data?.let(::overviewRevalidateDelayMs) ?: return@LaunchedEffect
         if (top.polls >= 20) return@LaunchedEffect
         delay(wait)
         session.reloadOverview()

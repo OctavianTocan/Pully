@@ -3,6 +3,12 @@
 tested on the JVM by `:core:test`. Logic that can be pure (ranking, parsing, paths, ways
 of motion) lives here and the app calls it.
 
+@cc [owner:OctavianTocan,label:product] core-work-notice-real-time
+The ongoing AI notification summary MUST include only running whole-diff work and MUST
+use the oldest running task's server start time for elapsed time. A missing or future
+start MUST omit elapsed time. Terminal tasks MUST disappear independently when other
+tasks still run (Tavi's 20 Oct request to explore app notifications for ongoing AI work).
+
 @cc [owner:OctavianTocan,label:motion;architecture] core-page-way
 `pageWay` turns two places into forward or backward from their order, and `swipeStep`
 turns a drag and its release speed into the next or previous page: a throw of 500dp/s

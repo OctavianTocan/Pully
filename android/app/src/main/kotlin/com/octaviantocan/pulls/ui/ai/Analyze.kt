@@ -38,12 +38,6 @@ import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.put
 
-/** The palette's "Analyze with AI": runs the last choice unless an analysis is already running. */
-fun runAnalyzeFromCommand(session: ReviewSession, context: Context) {
-    if (session.taskFor("analyze")?.running == true) return
-    session.runAnalyze(context)
-}
-
 /**
  * Starts the analysis (groups, file notes, summary). [choice] says what follows it: the server starts the tour and
  * the brief itself when the analysis succeeds, so they come even if the phone is off by then, and an AI review

@@ -23,7 +23,7 @@ import com.octaviantocan.pulls.ui.review.ReviewSession
 
 /** `CritiquePanel` (with `FindingCard`s). Renders nothing until a critique runs or exists. */
 @Composable
-fun CritiquePanel(session: ReviewSession, modifier: Modifier = Modifier) = CritiquePanelImpl(session, modifier)
+fun CritiquePanel(session: ReviewSession, modifier: Modifier = Modifier, onRetry: (String?) -> Unit) = CritiquePanelImpl(session, modifier, onRetry)
 
 /** `SharedAnalysisBanner` when the shown analysis was shared by someone. */
 @Composable

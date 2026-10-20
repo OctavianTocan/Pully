@@ -474,6 +474,9 @@ internal class SheetPosition {
      */
     fun lift(scope: CoroutineScope, motion: Boolean) {
         if (!expandable || closing || tall) return
+        // Preserve the current normal stop before tall changes rest to zero. Otherwise glide's unpin
+        // reads the new stop and the spring starts at its destination, visibly jumping on keyboard focus.
+        unpin()
         tall = true
         // On the same spring as a sheet let go, so it rises with the keyboard rather than popping up (J10).
         if (opened && !dragging) glide(scope, 0f, PullsMotion.SLOW, motion, bounce = true)

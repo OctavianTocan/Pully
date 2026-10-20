@@ -126,8 +126,11 @@ the earlier chats of the pull request instead, by Tavi's choice (L36); it is a g
 only where there are no earlier chats to offer.
 
 @cc [owner:OctavianTocan,label:product] ai-analyze-is-one-action
-Analysing a pull request is one action with three outputs (a summary, a note per file and
-a tour), called Analyze, never "Write tour" (rule 19).
+Analyze changes MUST identify summary and file notes as its core outputs; its
+preset/custom rows MUST identify extra tour, brief and review passes. Find problems
+MUST identify findings (bugs, risks and nits) as its output; the two entry points MUST
+NOT imply identical jobs. Tavi's 20 Oct 2026 feedback clarifying Analyze versus Review
+with AI replaces the old unconditional three-output wording of rule 19.
 
 @cc [owner:OctavianTocan,label:product] ai-presets-start-the-run
 On the Analyze options page, tapping Quick, Standard or Deep starts the analysis at once
@@ -208,3 +211,26 @@ with no "+n more" hiding older steps (recording 16 Oct 13:06, 06:02 to 06:30; O1
 Every finished step of a work log opens on a tap to what is known about it: how long it
 took, what it read, found or wrote, and the rest of a title cut at two lines (recording 16 Oct 13:06, 06:31 to
 06:38; O15, rule 184).
+
+@cc [owner:OctavianTocan,label:product;design] ai-launch-actions-have-no-selection
+An analysis preset or review skill that starts work MUST be a button action with a
+forward affordance and MUST NOT carry selected radio semantics or a selection tick.
+General is not preselected merely because no review exists (Tavi's accompanying
+20 Oct 2026 recording, 00:37 to 01:00).
+
+@cc [owner:OctavianTocan,label:product] ai-run-shows-real-model
+Analyze changes and Find problems MUST show the persisted engine/model and supported
+effort before any run can start, reusing the Tour model picker. Choosing a model MUST
+persist it, return to setup, and MUST NOT start work; the subsequent request MUST use
+that persisted selection. The menu tile and command MUST open setup rather than
+immediately run. Look for problems on the Overview and a failed review's retry MUST
+open that setup too. A retry MUST keep its previous review skill and the persisted
+model/effort defaults and MUST require an explicit run action; findings and setup MUST
+be pages of one sheet (Tavi's accompanying 20 Oct 2026 recording, 01:01 to 01:35, and
+his consistency request applied to all manual run entry points).
+
+@cc [owner:OctavianTocan,label:product] tour-update-chooses-model
+Updating or regenerating an existing tour MUST open a setup page with shared Model and
+Effort controls and an explicit Update tour action before starting. Continue reading or
+dismissal MUST NOT start AI work, and regeneration MUST remain reachable later (Tavi's
+20 Oct 2026 stale-tour feedback, "Maybe show the models on the next page"; rule 78).

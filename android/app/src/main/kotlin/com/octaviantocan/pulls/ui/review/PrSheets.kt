@@ -3,7 +3,13 @@ package com.octaviantocan.pulls.ui.review
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.mutableStateOf
-import com.octaviantocan.pulls.ui.ai.ReviewLensList
+import com.octaviantocan.pulls.ui.ai.ReviewSetup
+import com.octaviantocan.pulls.ui.ai.AnalyzePage
+import com.octaviantocan.pulls.ui.ai.AnalyzePageContent
+import com.octaviantocan.pulls.ui.ai.analyzePageTitle
+import com.octaviantocan.pulls.ui.ai.rememberCustomAnalysis
+import com.octaviantocan.pulls.ui.ai.ModelCard
+import com.octaviantocan.pulls.ui.ai.runCritique
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.PullsPagedSheet
 import com.octaviantocan.pulls.data.ReviewFile
@@ -13,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,8 +35,6 @@ import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.ai.CritiquePanel
 import com.octaviantocan.pulls.ui.ai.cliEngine
-import com.octaviantocan.pulls.ui.ai.runAnalyze
-import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.Lu
@@ -39,12 +42,12 @@ import com.octaviantocan.pulls.ui.design.LuGlyph
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.Messages
 import com.octaviantocan.pulls.ui.design.PullsFonts
-import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsSwitch
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.QuickAction
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.SheetTopGap
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.DrawableIcon
 import com.octaviantocan.pulls.ui.home.StatusColors
@@ -138,8 +141,7 @@ private val AUTO_MERGE_WAITS = setOf("blocked", "checking")
  * The pages of the pull request's sheet. Everything one of its rows opens is a page that slides in inside the same sheet,
  * with ← back to the page it came from, and the phone's Back does the same (rule 78, J27, J33): the AI review's lenses,
  * and the page of decisions with the confirmation each one asks for. The model, Analyze options, Checks and Review
- * progress are not here: Checks is pinned on the Overview, and the rest confused more than it helped (recording of
- * 16 Oct 12:10, 21:11 to 21:38; N39).
+ * progress are not top-level rows: each AI launch shows its model within its own setup.
  */
 internal sealed interface PrPage {
     /** Aa on the Diff: the code's look and the file's own actions. */
@@ -157,6 +159,9 @@ internal sealed interface PrPage {
     data object Merge : PrPage
     data class Submit(val verdict: String) : PrPage
     data object Review : PrPage
+    data object ReviewModel : PrPage
+    data object ReviewEffort : PrPage
+    data class Analyze(val page: AnalyzePage = AnalyzePage.Main, val origin: AnalyzePage = AnalyzePage.Main) : PrPage
 }
 
 /** The page ← goes back to from [page], in a sheet that opened on [start]. */
@@ -165,6 +170,11 @@ private fun prParent(page: PrPage, start: PrPage): PrPage? = when (page) {
     PrPage.Font -> PrPage.Tools
     PrPage.Actions -> if (start == PrPage.Tools) PrPage.Tools else null
     PrPage.Decide, PrPage.Review -> PrPage.Actions
+    PrPage.ReviewModel, PrPage.ReviewEffort -> PrPage.Review
+    is PrPage.Analyze -> when (page.page) {
+        AnalyzePage.Model, AnalyzePage.Effort -> PrPage.Analyze(page.origin)
+        else -> page.page.parent?.let { PrPage.Analyze(it) } ?: PrPage.Actions
+    }
     is PrPage.Submit -> if (page.verdict == "COMMENT") PrPage.Actions else PrPage.Decide
     is PrPage.Confirm, PrPage.Merge -> PrPage.Decide
 }
@@ -186,6 +196,7 @@ internal fun PrSheet(
     file: ReviewFile? = null,
 ) {
     var page by remember { mutableStateOf(start) }
+    val custom = rememberCustomAnalysis(session)
     val go: (PrPage) -> Unit = { page = it }
     PullsPagedSheet(
         onClose, page, parent = { prParent(it, start) }, onPage = go,
@@ -200,7 +211,15 @@ internal fun PrSheet(
             is PrPage.Confirm -> data?.overview?.let { ConfirmPage(session, top, it, head, current.change, onClose) }
             PrPage.Merge -> data?.let { MergePage(session, top, it, onDone = onClose) }
             is PrPage.Submit -> ReviewSubmitPage(session, top, canVerdict = head.isOpen, start = current.verdict, onDone = onClose)
-            PrPage.Review -> ReviewLensList(session, onPick = { lens -> onClose(); onReview(lens) })
+            PrPage.Review -> ReviewSetup(session, onPick = { lens -> onClose(); onReview(lens) }, onModel = { go(PrPage.ReviewModel) }, onEffort = { go(PrPage.ReviewEffort) })
+            PrPage.ReviewModel -> ModelPage(session.settings) { go(PrPage.Review) }
+            PrPage.ReviewEffort -> EffortPage(session.settings) { go(PrPage.Review) }
+            is PrPage.Analyze -> AnalyzePageContent(
+                session, current.page, custom,
+                onPage = { next -> go(PrPage.Analyze(next, origin = current.page)) },
+                onModelDone = { go(PrPage.Analyze(current.origin)) }, onClose = onClose,
+                onEffortDone = { go(PrPage.Analyze(current.origin)) },
+            )
         }
     }
 }
@@ -214,7 +233,10 @@ private fun prPageTitle(page: PrPage, head: PrHead, data: PrOverviewData?): Stri
     is PrPage.Confirm -> confirmLabel(page.change)
     PrPage.Merge -> t("overview.merge.title", "n" to (data?.overview?.number ?: head.label))
     is PrPage.Submit -> t("review.reviewChanges")
-    PrPage.Review -> "Review"
+    PrPage.Review -> "Find problems"
+    PrPage.ReviewModel -> "Select model"
+    PrPage.ReviewEffort -> "Effort"
+    is PrPage.Analyze -> analyzePageTitle(page.page)
 }
 
 /** What the button that makes [change] says, which is also its page's title. */
@@ -226,7 +248,7 @@ private fun confirmLabel(change: String): String = when (change) {
 }
 
 /**
- * `#sheet`: GitHub, Copy link and Analyze again as tiles; a comment; a row into the decisions, which sit a page further in so none
+ * `#sheet`: GitHub, Copy link and Analyze setup as tiles; a comment; a row into the decisions, which sit a page further in so none
  * of them is one slip of the thumb away (J29); and Review with AI. There is no Refresh, since the page takes new commits
  * by itself, and no Commands, which a pull down on any page opens (J30). Checks is not a tile, since the Overview keeps
  * them pinned at the top, and the model, Analyze options and Review progress are gone ("confusing", "fully", recording
@@ -238,13 +260,6 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
     val context = LocalContext.current
     val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     val toaster = LocalToaster.current
-    val messages = LocalMessages.current
-    val settings = session.settings
-    val repo = remember { Repo(context) }
-    val config = remember { ServerStore.load(context) }
-    val catalog by produceState<CliCatalog?>(ModelCatalogs.get(config.engine), config.engine) {
-        if (value == null) value = fetchCatalog(repo, config.engine).getOrNull()
-    }
     val pending = session.reviewData?.pendingCount ?: 0
     // A pending review can be submitted or discarded on a closed pull request too; a new verdict needs an open one.
     val canReview = session.pull != null && session.canWrite
@@ -258,15 +273,7 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
             toaster.show("Link copied", cue = Cue.Success)
             onClose()
         }, Modifier.weight(1f)) { LuIcon(Lu.copy, tint = c.text, size = 22.dp) }
-        QuickAction("Analyze", {
-            onClose()
-            if (session.taskFor("analyze")?.running == true) {
-                toaster.show("Already analyzing")
-            } else {
-                session.runAnalyze(context)
-                toaster.show("Analyzing again with ${analysisModelLabel(config, catalog, settings.effort, messages)}", cue = Cue.Loading)
-            }
-        }, Modifier.weight(1f)) { LuIcon(Lu.list, tint = c.text, size = 22.dp) }
+        QuickAction("Analyze", { go(PrPage.Analyze()) }, Modifier.weight(1f)) { LuIcon(Lu.list, tint = c.text, size = 22.dp) }
     }
 
     // A comment stays here (Tavi: "you can keep it"); the verdicts went in with the other decisions.
@@ -286,10 +293,10 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
         }
     }
 
-    // One row: the Review page picks General or a lens, and a tap there starts the review. Alone in its card it needs no
+    // One row: the review setup shows its model before General or a skill starts work. Alone in its card it needs no
     // icon column, like the rows above it.
     if (session.key != null && cliEngine(context)) SheetCard {
-        SheetRow("Review with AI", { go(PrPage.Review) }, first = true, iconless = true) {
+        SheetRow("Find problems", { go(PrPage.Review) }, first = true, iconless = true) {
             LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
         }
     }
@@ -329,7 +336,12 @@ private fun ColumnScope.DecidePage(session: ReviewSession, top: ReviewTopUi, dat
             t("overview.merge.method.${overview.merge.defaultMethod}"),
             {
                 if (!mergeability.ready) {
-                    toaster.show(if (failing > 0) "$failing check${if (failing == 1) "" else "s"} failing · merge is blocked" else blockedText, cue = Cue.Error)
+                    toaster.show(
+                        if (mergeability.blocker == "conflicts") blockedText
+                        else if (failing > 0) "$failing check${if (failing == 1) "" else "s"} failing · merge is blocked"
+                        else blockedText,
+                        cue = Cue.Error,
+                    )
                 } else {
                     go(PrPage.Merge)
                 }
@@ -337,6 +349,7 @@ private fun ColumnScope.DecidePage(session: ReviewSession, top: ReviewTopUi, dat
             first = true, icon = { LuIcon(Lu.merge, tint = c.text) },
         ) {
             when {
+                mergeability.blocker == "conflicts" -> Text(blockerLabel("conflicts"), style = PullsType.sm, color = c.muted, maxLines = 1)
                 failing > 0 -> {
                     LuIcon(Lu.xc, tint = StatusColors.red(c.dark), size = 18.dp)
                     Text("$failing failing", style = PullsType.sm, color = c.muted, maxLines = 1)
@@ -426,5 +439,30 @@ private fun ColumnScope.ConfirmPage(session: ReviewSession, top: ReviewTopUi, ov
 /** Every finding of the AI review, with its filters and the option to post them as a review. */
 @Composable
 internal fun FindingsSheet(session: ReviewSession, onClose: () -> Unit) {
-    PullsSheet(onClose, "Review findings", full = true) { CritiquePanel(session, Modifier.padding(top = 12.dp)) }
+    val context = LocalContext.current
+    var page by remember { mutableStateOf(FindingsPage.Main) }
+    var lens by remember { mutableStateOf<String?>(null) }
+    PullsPagedSheet(
+        onClose, page,
+        parent = { when (it) { FindingsPage.Main -> null; FindingsPage.Retry -> FindingsPage.Main; else -> FindingsPage.Retry } },
+        onPage = { page = it }, full = true,
+        title = { when (it) { FindingsPage.Main -> "Review findings"; FindingsPage.Retry -> "Review again"; FindingsPage.Model -> "Select model"; FindingsPage.Effort -> "Effort" } },
+    ) { current ->
+        when (current) {
+            FindingsPage.Main -> CritiquePanel(session, Modifier.padding(top = 12.dp), onRetry = { previous -> lens = previous; page = FindingsPage.Retry })
+            FindingsPage.Retry -> {
+                ModelCard(session, { page = FindingsPage.Model }, onEffort = { page = FindingsPage.Effort }, gap = SheetTopGap)
+                CtaButton("Run the review again", {
+                    if (session.taskFor("critique")?.running != true) {
+                        session.runCritique(context, lens)
+                        page = FindingsPage.Main
+                    }
+                }, Modifier.fillMaxWidth().padding(top = 16.dp), enabled = session.taskFor("critique")?.running != true)
+            }
+            FindingsPage.Model -> ModelPage(session.settings) { page = FindingsPage.Retry }
+            FindingsPage.Effort -> EffortPage(session.settings) { page = FindingsPage.Retry }
+        }
+    }
 }
+
+private enum class FindingsPage { Main, Retry, Model, Effort }
