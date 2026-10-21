@@ -53,6 +53,10 @@ pub async fn catalog(state: &AppState, engine: &str) -> Result<Value> {
     catalog_refresh(state, engine, false).await
 }
 pub async fn catalog_refresh(state: &AppState, engine: &str, refresh: bool) -> Result<Value> {
+    anyhow::ensure!(
+        state.identity.is_legacy(),
+        "Connect a personal AI provider to list its models"
+    );
     let engine = if engine == "claude" {
         "claude-code"
     } else {

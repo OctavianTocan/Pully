@@ -2,13 +2,19 @@ use super::*;
 use base64::Engine;
 use futures_util::StreamExt;
 /// @cc [owner:OctavianTocan,label:security;architecture] rust-github-credentials-stay-server-side
-/// Environment credentials MUST win over the server's bounded GitHub CLI login
+/// For LegacyPrivate, environment credentials MUST win over the server's bounded GitHub CLI login
 /// lookup. Neither the token nor subprocess output may be returned or logged
 /// (github-token-stays-on-server; original credentials.ts; Rust parity 16 Oct 2026).
+/// Guest and personal contexts MUST use their explicit authority instead of this lookup
+/// (Tavi's 21 Oct 2026 public browsing and personal GitHub decision).
 /// The entire cache/lookup transaction, including mutex acquisition, MUST run off
 /// Tokio workers (16 Oct 2026 CE review, credential lookup responsiveness).
-pub async fn token() -> Option<String> {
+async fn legacy_token() -> Option<String> {
     blocking_token(token_sync).await
+}
+
+pub async fn token(state: &AppState) -> Result<Option<String>> {
+    state.identity.github_token(legacy_token).await
 }
 async fn blocking_token(
     lookup: impl FnOnce() -> Option<String> + Send + 'static,
@@ -123,6 +129,17 @@ async fn raw_inner(
     body: Option<Value>,
     accept: &str,
 ) -> Result<(u16, Value, String)> {
+    state.identity.ensure_current()?;
+    if state.identity.kind() == crate::identity::PrincipalKind::Guest {
+        ensure!(
+            method == reqwest::Method::GET || method == reqwest::Method::HEAD,
+            "Public browsing is read-only"
+        );
+        ensure!(
+            path.starts_with("/repos/") || path.starts_with("/search/"),
+            "This GitHub route needs sign-in"
+        );
+    }
     ensure!(
         path.starts_with("/repos/")
             || path == "/user"
@@ -152,7 +169,7 @@ async fn raw_inner(
         .header("Accept", accept)
         .header("User-Agent", "pulls-review-rust")
         .header("X-GitHub-Api-Version", "2022-11-28");
-    if let Some(t) = token().await {
+    if let Some(t) = token(state).await? {
         req = req.bearer_auth(t)
     }
     if let Some(b) = body {
@@ -181,6 +198,7 @@ async fn raw_inner(
         bytes.extend_from_slice(&chunk);
     }
     let text = String::from_utf8_lossy(&bytes).into_owned();
+    state.identity.ensure_current()?;
     Ok((code, headers, text))
 }
 pub async fn request(

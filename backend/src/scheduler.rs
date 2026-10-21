@@ -191,7 +191,7 @@ pub async fn warm(state: Arc<AppState>) {
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
         interval.tick().await;
-        if source::github_token().await.is_none() {
+        if !matches!(source::github_token(&state).await, Ok(Some(_))) {
             continue;
         }
         let started = now_ms();

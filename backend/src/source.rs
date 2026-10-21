@@ -259,6 +259,16 @@ fn opened_response(key: &str, diff: &Value, lite: bool, stale: bool) -> Value {
     out
 }
 pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
+    if let Err(error) = state.identity.ensure_current() {
+        return Some(Err(error));
+    }
+    handle_inner(state, name, args).await.map(|result| {
+        state.identity.ensure_current()?;
+        result
+    })
+}
+
+async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
     if state.host.checkout().is_err()
         && matches!(
             name,
@@ -318,7 +328,7 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
             }
             open(state, &r, &args).await
         }
-        "github-authenticated" => Ok(json!(github::token().await.is_some())),
+        "github-authenticated" => github::token(state).await.map(|token| json!(token.is_some())),
         "github-request" => github_proxy(state, &args).await,
         "repo-pulls" => lists::repo_pulls(state, &args).await,
         "my-pulls" => lists::my_pulls(state, &args)

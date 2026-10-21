@@ -703,7 +703,7 @@ async fn web_only(state: &AppState, name: &str, args: &Value) -> Option<Result<V
 /// (Rust parity review, 16 Oct 2026, round 12 finding 2).
 async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Result<Value>> {
     if name == "github-authenticated" {
-        return Some(Ok(json!(crate::source::github_token().await.is_some())));
+        return Some(crate::source::github_token(state).await.map(|token| json!(token.is_some())));
     }
     if name == "github-request" {
         return Some(crate::source::github_proxy(state, args).await);

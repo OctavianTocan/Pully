@@ -70,6 +70,21 @@ impl Analytics {
                     .unwrap_or_else(std::env::temp_dir);
                 home.join(".local/share/pulls-review/analytics")
             });
+        Self::configured(dir, enabled)
+    }
+
+    pub(crate) fn for_tenant(dir: PathBuf) -> Self {
+        let enabled = !matches!(
+            std::env::var("PULLS_REVIEW_ANALYTICS")
+                .unwrap_or_default()
+                .to_ascii_lowercase()
+                .as_str(),
+            "off" | "0" | "false" | "no"
+        );
+        Self::configured(dir, enabled)
+    }
+
+    fn configured(dir: PathBuf, enabled: bool) -> Self {
         let dir = normalized_directory(dir);
         let result = Self {
             inner: Arc::new(Inner {
