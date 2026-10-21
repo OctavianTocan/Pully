@@ -94,6 +94,7 @@ jobs:
       - name: Test actual Keychain in an ad-hoc signed simulator app host
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         run: |
+          python3 -B -m unittest discover -s ios/scripts -p 'test_keychain_test_host.py'
           xcodebuild -quiet -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/KeychainDerivedData \
@@ -103,7 +104,7 @@ jobs:
           codesign --verify --strict "$pully_keychain_host"
           codesign --display --entitlements :- "$pully_keychain_host" > ios/build/KeychainHost.entitlements.plist
           python3 ios/scripts/verify-keychain-test-host.py \
-            "$pully_keychain_host" ios/build/KeychainHost.entitlements.plist
+            "$pully_keychain_host" ios/build/KeychainHost.entitlements.plist ios/build/KeychainEntitlements
           xcodebuild -quiet -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/KeychainDerivedData \
@@ -205,6 +206,7 @@ jobs:
             ios/build/NativeServices.xcresult
             ios/build/Keychain.xcresult
             ios/build/KeychainHost.entitlements.plist
+            ios/build/KeychainEntitlements
             ios/build/Pully-simulator.zip
             ios/build/screenshots
             ios/build/diagnostics

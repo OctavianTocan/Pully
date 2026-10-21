@@ -82,7 +82,10 @@ Checked on 21 October 2026:
 The account rules also run as native Swift package tests. The real Keychain test
 runs in a separate native app-hosted XCTest target (`PullyNativeKeychain`), ad-hoc
 signed for the simulator. Its private application identity is checked from the
-actual code signature before testing. This local simulator signature needs no
+actual built executable before testing: the workflow verifies the code signature,
+extracts its `__TEXT,__entitlements` and `__TEXT,__ents_der` simulator sections, and
+requires matching private XML/DER claims. Xcode's ordinary simulator code-signature
+entitlement dictionary may be empty. This local simulator signature needs no
 Apple account or provisioning secrets and does not validate device/distribution
 signing. The Pully preview app artifact is still unsigned. See
 [NativeServices verification](NativeServices/README.md#verification).

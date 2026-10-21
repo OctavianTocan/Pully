@@ -101,7 +101,15 @@ The native-only test host is ad-hoc signed for the simulator, with its own exact
 application identifier and debugger attachment entitlement. It has no shared
 Keychain/app groups and needs no Apple account, development/distribution identity
 or provisioning secrets. The workflow verifies the built code signature and
-extracts/checks its actual entitlements before executing the real Security APIs.
+reads the main executable's actual `__TEXT,__entitlements` and `__TEXT,__ents_der`
+simulator sections before executing the real Security APIs. It requires exactly
+the private application identifier and debugger attachment claims; no sharing or
+other privileges are allowed. Apple's `derq` re-encodes the extracted XML and the
+result must byte-match the embedded DER. An empty ordinary code-signature
+entitlement dictionary is expected for this simulator configuration, and any
+claims there must remain a narrow subset of the same private identity. The script
+never substitutes an intermediate `.xcent` file for the built executable.
+Both extracted sections and the regenerated DER are retained with CI evidence.
 The preview Pully app remains separately built unsigned. The workflow runs these
 native suites before building that host,
 and the host resource verifier checks the app-owned privacy declaration is bundled.
@@ -122,3 +130,5 @@ Keychain test-host references:
 
 - [Apple DTS: host entitlement-dependent unit tests in an app](https://developer.apple.com/forums/thread/773772)
 - [Apple errSecMissingEntitlement and application identity](https://developer.apple.com/documentation/security/errsecmissingentitlement)
+- [Apple Mach-O header, segment, section and platform layouts](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/loader.h)
+- [Pinned Xcode simulator packaging and DER encoder invocation](https://github.com/OctavianTocan/pulls.review/actions/runs/39614473372/job/119272296579)
