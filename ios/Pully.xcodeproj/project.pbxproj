@@ -423,6 +423,7 @@
 		FC0000000000000000000011 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
 			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
 			CODE_SIGN_ENTITLEMENTS = NativeKeychainTests/Host.entitlements;
+			CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0;
 			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
 			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests; PRODUCT_NAME = "$(TARGET_NAME)";
 			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
@@ -430,6 +431,7 @@
 		FC0000000000000000000012 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
 			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
 			CODE_SIGN_ENTITLEMENTS = NativeKeychainTests/Host.entitlements;
+			CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0;
 			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
 			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests; PRODUCT_NAME = "$(TARGET_NAME)";
 			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
@@ -437,6 +439,7 @@
 		FC0000000000000000000021 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
 			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
 			BUNDLE_LOADER = "$(TEST_HOST)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PullyNativeKeychainHost.app/PullyNativeKeychainHost";
+			CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0;
 			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
 			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests.unit-tests; PRODUCT_NAME = "$(TARGET_NAME)";
 			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
@@ -444,6 +447,7 @@
 		FC0000000000000000000022 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
 			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
 			BUNDLE_LOADER = "$(TEST_HOST)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PullyNativeKeychainHost.app/PullyNativeKeychainHost";
+			CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 0.1.0;
 			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
 			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests.unit-tests; PRODUCT_NAME = "$(TARGET_NAME)";
 			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
