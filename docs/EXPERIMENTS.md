@@ -11,15 +11,15 @@ mobile-only correction).
 
 ## Boundaries
 
-| Responsibility | Implementation |
-| --- | --- |
-| Native opt-ins | `mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/settings/ExperimentalFeatures.kt` |
-| Android settings | `android/app/src/main/kotlin/com/octaviantocan/pulls/ui/settings/ExperimentalSettings.kt` |
-| Review extension registration in core | `packages/core/src/analyze/adapters/llm/review-experiments.ts` |
-| Review extension registration on the server | `backend/src/review_experiments.rs` |
-| Merge-risk implementation | `merge-risk.ts`, `types/merge-risk*`, `backend/src/merge_risk.rs` |
-| Optional mobile review UI | `ExperimentalMergeRisk.kt` |
-| Browser runtime gate | `BrowserHelperSettings.allowed` |
+| Responsibility                              | Implementation                                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Native opt-ins                              | `mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/settings/ExperimentalFeatures.kt` |
+| Android settings                            | `android/app/src/main/kotlin/com/octaviantocan/pulls/ui/settings/ExperimentalSettings.kt`         |
+| Review extension registration in core       | `packages/core/src/analyze/adapters/llm/review-experiments.ts`                                    |
+| Review extension registration on the server | `backend/src/review_experiments.rs`                                                               |
+| Merge-risk implementation                   | `merge-risk.ts`, `types/merge-risk*`, `backend/src/merge_risk.rs`                                 |
+| Optional mobile review UI                   | `ExperimentalMergeRisk.kt`                                                                        |
+| Browser runtime gate                        | `BrowserHelperSettings.allowed`                                                                   |
 
 Review requests opt in with `experiments: { mergeRisk: true }`. Omission and false
 keep the original review prompt, schema and result. The core and Rust host call
