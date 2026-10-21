@@ -16,6 +16,9 @@ responses MUST NOT forget an existing session. A source change MUST retire disco
 capabilities and hide an identity belonging to a different server; stale checks MUST
 NOT overwrite the current source or a newer check. Source: Tavi's 21 Oct 2026 reinstall
 screenshot and request for clear account/connection guidance.
+Unmarked legacy capabilities MUST be rediscovered rather than attributed to the current
+server. A matching saved session MUST retain offline access during that discovery
+(21 Oct 2026 first-run review, legacy server replacement regression).
 
 @cc [owner:OctavianTocan,label:product] data-settings-sync
 While signed in, the phone's choices of look, language, layout, fonts, code size, sounds,

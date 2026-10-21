@@ -56,3 +56,12 @@ transport against a nonprivate loopback fixture, including redirect refusal,
 cancellation, native deadlines and response bounds. It MUST fail when its fixture
 is absent; ordinary common tests MUST remain usable without that fixture. Source:
 Tavi's 21 Oct 2026 iOS implementation request and accepted native-adapter test plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] sign-in-belongs-to-its-opening-source
+A sign-in attempt MUST remain bound to the server, Access/account source and UI owner
+that opened it. After native account selection and before accepting a server reply,
+the controller MUST reject an obsolete owner/source; an old Google token MUST NOT be
+sent to a newly configured server. Dismissing native Google selection MUST perform no
+sign-in RPC or account commit. A successful synchronous commit MAY advance the source.
+Source: Tavi's 21 Oct 2026 maximum-reuse iOS plan and the existing account/source reset
+security boundary, preserving settings-sign-in-page's cancellation behavior.

@@ -54,11 +54,16 @@ object Account {
             prefs.edit().putString("server", server).apply()
         }
         val configured = ServerStore.load(context).url.trim()
-        email = prefs.getString("email", null)?.takeIf { session != null && sameServer(server, configured) }
-        val statusServer = prefs.getString("statusServer", configured)
-        serverHasAccount = if (sameServer(statusServer, configured) && prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null
-        googleClientId = prefs.getString("googleClientId", null)?.takeIf { sameServer(statusServer, configured) }
-        connectionVerified = sameServer(prefs.getString("verifiedServer", null), configured) || serverHasAccount != null || email != null
+        val restored = restoreAccountConnection(
+            configured, session != null, server, prefs.getString("email", null),
+            prefs.getString("statusServer", null),
+            if (prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null,
+            prefs.getString("googleClientId", null), prefs.getString("verifiedServer", null),
+        )
+        email = restored.email
+        serverHasAccount = restored.hasAccount
+        googleClientId = restored.googleClientId
+        connectionVerified = restored.verified
         loaded = true
     }
 

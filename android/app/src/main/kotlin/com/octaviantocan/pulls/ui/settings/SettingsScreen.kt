@@ -600,8 +600,7 @@ internal fun ColumnScope.ServerPage() {
             status = null
             scope.launch {
                 status = try {
-                    if (checkAccount(context)) messages.t("connection.saved")
-                    else messages.t("connection.problem.${Account.connectionProblem?.name ?: "Unreachable"}")
+                    checkAccount(context).messageKey?.let { messages.t(it) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
