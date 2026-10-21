@@ -60,20 +60,6 @@ internal fun rememberWork(repo: Repo): List<WorkTask> {
     return tasks
 }
 
-/** The small mark after the author on an Inbox row. */
-@Composable
-internal fun WorkMark(work: PullWork?) {
-    val c = LocalPullsColors.current
-    when (work) {
-        PullWork.Analyzing -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            BreathingDot(size = 7.dp)
-            Text("Analyzing", style = PullsType.sm, color = c.activeText, maxLines = 1)
-        }
-        PullWork.Analyzed -> Text("Analyzed", style = PullsType.sm, color = c.muted, maxLines = 1)
-        null -> Unit
-    }
-}
-
 /** A line above the list while pull requests are being analyzed; it opens the list of them. */
 @Composable
 internal fun ActivityStrip(tasks: List<WorkTask>, onClick: () -> Unit, modifier: Modifier = Modifier) {

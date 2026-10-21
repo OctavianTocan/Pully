@@ -51,6 +51,10 @@ colors:
   shadow: "#0E333A"
   scrim: "#0E333A61"
   grabber: "#D9D9D6"
+  # Existing fixed status-mark inks become tokens for the shared iOS extraction; no visual change.
+  orb-head: "#9AD3D6"
+  on-success: "#FFFFFF"
+  checks-pending: "#F59E0B"
   dark-base: "#161616"
   dark-text: "#E3E3E3"
   dark-muted: "#9D9D9D"
@@ -93,6 +97,9 @@ colors:
   dark-shadow: "#000000"
   dark-scrim: "#00000099"
   dark-grabber: "#3A3A3A"
+  dark-orb-head: "#9AD3D6"
+  dark-on-success: "#FFFFFF"
+  dark-checks-pending: "#F59E0B"
 typography:
   xs:
     fontFamily: Geist

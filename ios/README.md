@@ -1,15 +1,22 @@
 # Pully iOS host
 
 This internal preview hosts the same shared Compose code used by Android. Its current
-scope is deterministic public-safe fixtures; server setup, sign-in and the complete
-review journey are subsequent slices. It does not contain service credentials or
-configure push, background execution, associated domains or distribution signing.
+scope is the production inbox pull-request rows, models, checks and state marks,
+rendered with deterministic public-safe fixtures and the shared message catalog.
+Server setup, sign-in and the complete review journey are subsequent slices. It does
+not contain service credentials or configure push, background execution, associated
+domains or distribution signing.
 
 The host uses UIKit only for app/scene lifecycle and the root `UIWindow`.
 `MainViewControllerKt.MainViewController()` from `PullyShared` renders the app; shared
 Compose owns safe-area padding, UI, state and navigation. The Xcode project references
 the original Android font files and their existing license notices as resources, so
 both clients use identical font bytes.
+The existing Android `i18n/` folder is a direct Xcode folder resource, preserving
+`i18n/<locale>.json` in the app bundle. The resource gate compares the complete JSON
+file set and bytes with the canonical web locales and the Android mirror. No separate
+iOS translation source is maintained. `CFBundleLocalizations` declares that same
+supported set for native language selection; the resource gate verifies it too.
 
 ## Build and run on a Mac
 
@@ -38,10 +45,12 @@ python3 ios/scripts/verify-bundled-fonts.py \
 
 The UI smoke test checks the shared preview survives launch, rotation and relaunch,
 and keeps light/dark portrait and light landscape screenshots in the test result.
+It also checks the production checks mark's Spanish catalog label, the draft state's
+accessibility and the English fallback for an unsupported device language.
 A Debug-only launch environment selects the native test appearance before Compose
 attaches; ordinary launches use the system appearance. The `iOS verify` PR job
 also runs the actual shared domain tests on JVM and the pinned iPhone simulator,
-links the shared framework, verifies font bytes and retains simulator evidence.
+links the shared framework, verifies font/locale bytes and retains simulator evidence.
 The artifact includes `Pully-simulator.zip`, an unsigned ARM64 simulator app that can
 be installed with `xcrun simctl install <simulator-UDID> Pully.app` after extraction.
 An unsigned simulator run needs no Apple Developer membership or signing secrets.

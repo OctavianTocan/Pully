@@ -259,7 +259,7 @@ export function excusedLines(source, tag) {
 
 const COMPOSABLE = /@Composable\b/
 const ANNOTATION_LINE = /^\s*@\w[\w.]*(?:\(.*\))?\s*$/
-const FUN = /(?:^|\n)([ \t]*)((?:@\w[\w.]*(?:\([^)\n]*\))?[ \t]+)*)((?:(?:public|internal|private|inline|operator|override|suspend)[ \t]+)*)fun[ \t]+(?:<[^>\n]*>[ \t]+)?(?:([\w.<>?]+)\.)?(\w+)[ \t]*\(/g
+const FUN = /(?:^|\n)([ \t]*)((?:@\w[\w.]*(?:\([^)\n]*\))?[ \t]+)*)((?:(?:public|internal|private|inline|operator|override|suspend|expect|actual)[ \t]+)*)fun[ \t]+(?:<[^>\n]*>[ \t]+)?(?:([\w.<>?]+)\.)?(\w+)[ \t]*\(/g
 
 /** Start of the declaration including annotation lines above it, and whether `@Composable` is one. */
 function annotationStart(code, lineStart, funAt) {
@@ -330,7 +330,8 @@ function declarationOf(source, code, plain, m, file) {
   if (!annotated || close === -1) {
     return null
   }
-  const end = declarationEnd(code, close)
+  const prototypeEnd = code.indexOf('\n', close)
+  const end = /\bexpect\b/.test(modifiers) ? (prototypeEnd === -1 ? code.length : prototypeEnd) : declarationEnd(code, close)
   return {
     name,
     receiver: receiver ?? null,

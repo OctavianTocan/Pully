@@ -87,6 +87,12 @@ data class PullsColors(
     val scrim: Color,
     /** A sheet's grab bar, the lip at its top: a light grey on the paper, a dark one on the dark paper. */
     val grabber: Color,
+    /** Existing comet head ink, retained across themes while the mark is shared (rule 72). */
+    val orbHead: Color = Color(0xFF9AD3D6),
+    /** Existing white tick on a finished step, in both themes. */
+    val onSuccess: Color = Color(0xFFFFFFFF),
+    /** The existing pending check ink, retained across themes. */
+    val checksPending: Color = Color(0xFFF59E0B),
 ) {
     /** `op-fade`: secondary text. */
     val fade: Color get() = muted
@@ -150,6 +156,9 @@ val LightPullsColors = PullsColors(
     shadow = Color(0xFF0E333A),
     scrim = Color(0x610E333A),
     grabber = Color(0xFFD9D9D6),
+    orbHead = Color(0xFF9AD3D6),
+    onSuccess = Color(0xFFFFFFFF),
+    checksPending = Color(0xFFF59E0B),
 )
 
 val DarkPullsColors = PullsColors(
@@ -196,6 +205,9 @@ val DarkPullsColors = PullsColors(
     shadow = Color(0xFF000000),
     scrim = Color(0x99000000),
     grabber = Color(0xFF3A3A3A),
+    orbHead = Color(0xFF9AD3D6),
+    onSuccess = Color(0xFFFFFFFF),
+    checksPending = Color(0xFFF59E0B),
 )
 
 /** Geist for the interface, Geist Mono for code and branch names, Mona Sans for numbers and file names. */

@@ -10,7 +10,7 @@ kotlin {
     iosSimulatorArm64()
     sourceSets {
         commonMain.dependencies {
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+            api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
         }
         commonTest {
             kotlin.srcDir(layout.buildDirectory.dir("generated/briefFixture"))

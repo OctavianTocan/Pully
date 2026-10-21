@@ -12,6 +12,26 @@ Geist and Geist Mono fallbacks, and the system choices MUST use the platform's s
 families. Source: Tavi, 21 Oct 2026, the same app on iOS except for native behavior;
 DESIGN.md Typography and N10 (recording 16 Oct 12:10, 06:29 to 06:42).
 
+@cc [owner:OctavianTocan,label:architecture;product] shared-kit-web-messages
+Android and iOS MUST use the same message lookup, interpolation, plural selection,
+offered locales and device-language mapping. Hosts MUST load the web's checked-in
+locale JSON through native resource adapters; missing or malformed locale files MUST
+fall back to English, and a missing English key MUST remain visible as its key.
+Source: Tavi's 21 Oct 2026 iOS reuse decision; DESIGN.md rule 106 and its web
+enforcement. The existing Android message behavior is retained.
+
+@cc [owner:OctavianTocan,label:motion;product] shared-kit-status-marks-reduce-motion
+When the native system requests reduced motion, the shared Orb and BreathingDot MUST
+hold still, and the Orb's settled-state change and ProgressRing count change MUST
+finish immediately. With motion enabled, their existing timings and the Orb's
+finish-the-current-turn behavior MUST remain intact. Source: DESIGN.md rules 72, 73
+and 97, applied to the shared status marks by Tavi's 21 Oct 2026 iOS reuse decision.
+
+@cc [owner:OctavianTocan,label:design] shared-kit-press-is-only-a-tint
+Pressing a row or tile MUST show the existing flat active tint without a ripple,
+scale or position change on either host. Source: DESIGN.md rule 82 and F71, retained
+by Tavi's 21 Oct 2026 shared-kit decision.
+
 @cc [owner:OctavianTocan,label:design] shared-kit-both-palettes
 Every palette token MUST have light and dark values. Dark surfaces MUST remain neutral
 grey as specified by DESIGN.md rule 76 and F13; sharing the kit MUST NOT introduce

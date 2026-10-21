@@ -4,6 +4,7 @@ import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Triage
 import com.octaviantocan.pulls.data.asPulls
 import kotlinx.serialization.json.Json
+import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -12,7 +13,7 @@ import kotlin.test.assertTrue
 
 /** Port of `components/home/triage.test.ts`. */
 class TriageTest {
-    private val now = java.time.Instant.parse("2026-10-05T12:00:00Z").toEpochMilli()
+    private val now = Instant.parse("2026-10-05T12:00:00Z").toEpochMilliseconds()
 
     private fun pull(
         number: Int = 1,
@@ -29,7 +30,7 @@ class TriageTest {
     ) = PullRow(
         owner = "acme", repo = repo, number = number, title = title, author = "octo", updatedAt = updatedAt, isDraft = isDraft,
         role = role, checks = checks, reviewDecision = reviewDecision, mergeable = mergeable, requestedFromMe = requestedFromMe,
-        labels = labels, updatedAtMs = runCatching { java.time.Instant.parse(updatedAt).toEpochMilli() }.getOrNull(),
+        labels = labels, updatedAtMs = runCatching { Instant.parse(updatedAt).toEpochMilliseconds() }.getOrNull(),
     )
 
     @Test
@@ -60,7 +61,7 @@ class TriageTest {
 
     @Test
     fun staleAfterTwoWeeksWithoutActivity() {
-        fun at(days: Int) = java.time.Instant.ofEpochMilli(now - days * 24L * 60 * 60_000).toString()
+        fun at(days: Int) = Instant.fromEpochMilliseconds(now - days * 24L * 60 * 60_000).toString()
         assertTrue(Triage.inQueue(pull(updatedAt = at(Triage.STALE_AFTER_DAYS)), "stale", now))
         assertFalse(Triage.inQueue(pull(updatedAt = at(Triage.STALE_AFTER_DAYS - 1)), "stale", now))
         assertFalse(Triage.inQueue(pull(updatedAt = "not a date"), "stale", now))

@@ -21,15 +21,16 @@ import kotlinx.serialization.json.longOrNull
  * `local-rpc.ts`), so a port can be checked against the web source line by line.
  */
 
-internal fun JsonObject.s(key: String): String = (this[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
-internal fun JsonObject.sOrNull(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
-internal fun JsonObject.i(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
-internal fun JsonObject.l(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull ?: (this[key] as? JsonPrimitive)?.doubleOrNull?.toLong()
-internal fun JsonObject.d(key: String): Double? = (this[key] as? JsonPrimitive)?.doubleOrNull
-internal fun JsonObject.b(key: String): Boolean = (this[key] as? JsonPrimitive)?.booleanOrNull == true
-internal fun JsonObject.arr(key: String): List<JsonObject> = (this[key] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
-internal fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
-internal fun JsonObject.strings(key: String): List<String> = (this[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+// These readers stay public for the Android repository while client extraction proceeds.
+fun JsonObject.s(key: String): String = (this[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
+fun JsonObject.sOrNull(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
+fun JsonObject.i(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
+fun JsonObject.l(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull ?: (this[key] as? JsonPrimitive)?.doubleOrNull?.toLong()
+fun JsonObject.d(key: String): Double? = (this[key] as? JsonPrimitive)?.doubleOrNull
+fun JsonObject.b(key: String): Boolean = (this[key] as? JsonPrimitive)?.booleanOrNull == true
+fun JsonObject.arr(key: String): List<JsonObject> = (this[key] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
+fun JsonObject.strings(key: String): List<String> = (this[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
 
 /** `AiUsage`. */
 data class Usage(
@@ -209,7 +210,7 @@ data class SavedState(
     val sharedCommentUrl: String?,
     /** The newest tour of this diff (preferring the current head), if one was made. */
     val tour: Tour? = null,
-    /** [tour] as the server sent it, for the phone to keep ([TourStore]). */
+    /** [tour] as the server sent it, for the phone's tour store to keep. */
     val tourJson: JsonObject? = null,
     /** The newest brief of this diff (preferring the current head), if one was designed. */
     val brief: Brief? = null,

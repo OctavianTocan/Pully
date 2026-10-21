@@ -16,64 +16,55 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.core.PullWork
+import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.ui.design.DarkPullsColors
 import com.octaviantocan.pulls.ui.design.LightPullsColors
+import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
-import com.octaviantocan.pulls.ui.design.Lu
-import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
-import com.octaviantocan.pulls.ui.home.PullRowFrame
-import com.octaviantocan.pulls.ui.home.PullState
-import com.octaviantocan.pulls.ui.home.RowFacts
-import com.octaviantocan.pulls.ui.home.RowNumber
-import com.octaviantocan.pulls.ui.home.StateTile
+import com.octaviantocan.pulls.ui.design.rememberMessages
+import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.home.PullRowContent
 
-/** Internal host fixture: the very same row frame, state tile, type and diff counts Android ships. */
+/** Actual production Inbox rows; deterministic public-safe data until the shared client is connected. */
 @Composable
 fun PullyPreview() {
     val colors = if (isSystemInDarkTheme()) DarkPullsColors else LightPullsColors
-    CompositionLocalProvider(LocalPullsColors provides colors) {
+    val messages = rememberMessages()
+    CompositionLocalProvider(LocalPullsColors provides colors, LocalMessages provides messages) {
         BoxWithConstraints(Modifier.fillMaxSize().background(colors.base)) {
             val wide = maxWidth >= 768.dp
             if (PullsType.wide != wide) PullsType.wide = wide
             LazyColumn(Modifier.fillMaxSize().safeDrawingPadding()) {
                 item {
                     Column(Modifier.padding(PullsSpace.x4), verticalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
-                        Text("Pully internal preview", Modifier.semantics { heading() }, style = PullsType.xxl, color = colors.text)
-                        Text("Fixture data", style = PullsType.sm, color = colors.muted)
+                        Text(t("mobilePreview.title"), Modifier.semantics { heading() }, style = PullsType.xxl, color = colors.text)
+                        Text(t("mobilePreview.fixtureData"), style = PullsType.sm, color = colors.muted)
                     }
                 }
                 items(fixtures, key = { it.number }) { fixture ->
-                    PullRowFrame(AnnotatedString(fixture.title), tile = { StateTile(fixture.state, fixture.state.name) }) {
-                        RowNumber(fixture.number)
-                        Text(
-                            fixture.author, Modifier.weight(1f), style = PullsType.sm, color = colors.muted,
-                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
-                        )
-                        RowFacts({ LuIcon(Lu.okc, tint = colors.success, size = 18.dp) }, fixture.additions, fixture.deletions, "2h")
-                    }
+                    PullRowContent(fixture, now = PREVIEW_NOW, dimmed = false, work = if (fixture.number == 74) PullWork.Analyzed else null)
                 }
             }
         }
     }
 }
 
-private data class PreviewPull(
-    val number: Int,
-    val title: String,
-    val author: String,
-    val state: PullState,
-    val additions: Int,
-    val deletions: Int,
+private const val PREVIEW_NOW = 1_792_579_200_000L
+
+private fun previewPull(number: Int, title: String, author: String, state: String, additions: Int, deletions: Int) = PullRow(
+    owner = "pully", repo = "mobile-fixtures", number = number, title = title, author = author,
+    updatedAt = "2026-10-21T10:00:00Z", updatedAtMs = PREVIEW_NOW - 7_200_000,
+    isDraft = state == "draft", state = if (state == "closed" || state == "merged") "closed" else "open",
+    merged = state == "merged", checks = "success", additions = additions, deletions = deletions,
 )
 
 private val fixtures = listOf(
-    PreviewPull(76, "Share the existing Pully review interface", "octavian", PullState.Open, 180, 32),
-    PreviewPull(75, "Keep the same type, colors and state tiles on both phones", "reviewer", PullState.Draft, 24, 8),
-    PreviewPull(74, "Preserve the file review workflow", "octavian", PullState.Merged, 1200, 640),
-    PreviewPull(73, "An intentionally long pull request title that keeps the same two line limit as the Android inbox", "reviewer", PullState.Closed, 17, 12),
+    previewPull(76, "Share the existing Pully review interface", "octavian", "open", 180, 32),
+    previewPull(75, "Keep the same type, colors and state tiles on both phones", "reviewer", "draft", 24, 8),
+    previewPull(74, "Preserve the file review workflow", "octavian", "merged", 1200, 640),
+    previewPull(73, "An intentionally long pull request title that keeps the same two line limit as the Android inbox", "reviewer", "closed", 17, 12),
 )

@@ -1,8 +1,8 @@
 {
   "hex": {
     "ui/design/Components.kt": 4,
-    "ui/design/Kit.kt": 9,
-    "ui/home/Chrome.kt": 7,
+    "ui/design/Kit.kt": 7,
+    "ui/home/Chrome.kt": 6,
     "ui/review/Header.kt": 2
   },
   "radius": {

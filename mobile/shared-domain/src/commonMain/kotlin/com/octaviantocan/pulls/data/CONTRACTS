@@ -1,0 +1,27 @@
+@cc [owner:OctavianTocan,label:architecture] shared-data-keeps-server-wire-models
+The shared inbox, diff, review and AI models MUST retain the existing server field
+names, nullable states and defaults as their Android callers move across modules.
+Unknown optional server fields MUST NOT prevent parsing a supported response. The
+models MUST NOT call GitHub or model providers. Source: `data-server-is-the-source`
+and Tavi's 21 Oct 2026 decision to share the actual Pully implementation for iOS.
+
+@cc [owner:OctavianTocan,label:product] shared-data-keeps-timestamp-meaning
+An inbox row's valid ISO instant or numeric-offset timestamp MUST retain its epoch
+millisecond value on both platforms. Missing or malformed timestamps and millisecond
+overflow MUST remain unknown rather than become stale rows or a fabricated time.
+The existing Android ISO_INSTANT handling of leap seconds, end-of-day midnight and
+submillisecond rounding MUST be retained. Source: Tavi's 21 Oct 2026 same-app iOS
+decision and the existing parser behavior used by inbox age and stale filtering.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-data-retains-lite-file-state
+A lite diff's files MUST retain `patchOmitted` and their blob identity. A later patch
+MUST clear omission only when applied, and the existing identity-match policy MUST
+reject conflicting known blob SHAs while retaining compatibility with servers that
+omit a SHA. Source: `android/DESIGN.md` rules 51 and 52; architecture, The phone reads
+the server's store; existing `data-lite-diffs` behavior shared for iOS on 21 Oct 2026.
+
+@cc [owner:OctavianTocan,label:security;product] shared-data-keeps-critique-identity
+Parsing a saved critique MUST retain its head SHA, variant and immutable revision.
+Missing variant or revision MUST remain absent so legacy display data cannot become
+authority to post an unidentified result. Source: `data-posts-selected-critique-revision`,
+repository review 15 Oct 2026 finding 8; retained by the 21 Oct 2026 shared-code decision.
