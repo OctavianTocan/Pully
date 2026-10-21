@@ -118,6 +118,24 @@ def handler(fixture, target_url, is_target=False):
                 with fixture.lock:
                     fixture.target_hits += 1
                 self.answer(200, {"result": "redirected"})
+            elif self.path == "/public-echo?query=native%20mobile":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("X-RateLimit-Remaining", "0")
+                self.send_header("Retry-After", "120")
+                body = json.dumps({
+                    "method": self.command, "path": self.path,
+                    "contentType": self.headers.get("Content-Type", ""),
+                    "hasBody": int(self.headers.get("Content-Length", "0")) != 0,
+                    "hasAuthority": any(self.headers.get(name) for name in (
+                        "Authorization", "Cookie", "X-Pully-Session", "CF-Access-Client-Secret",
+                    )),
+                }).encode()
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            elif self.path == "/public-oversize":
+                self.hold("public-oversize", 33, prefix=b"{")
             else:
                 self.answer(405, {"error": "POST required"})
 

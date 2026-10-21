@@ -34,9 +34,9 @@ import kotlin.coroutines.resumeWithException
 class DarwinRpcTransport : RpcTransport {
     override suspend fun execute(request: RpcRequest): RpcResponse = suspendCancellableCoroutine { continuation ->
         val nativeRequest = NSMutableURLRequest.requestWithURL(requireNotNull(NSURL(string = request.url)) { "Invalid server address." }).apply {
-            setHTTPMethod("POST")
+            setHTTPMethod(request.method.value)
             setCachePolicy(NSURLRequestReloadIgnoringLocalCacheData)
-            setValue("application/json", forHTTPHeaderField = "Content-Type")
+            if (request.method == RpcMethod.Post) setValue("application/json", forHTTPHeaderField = "Content-Type")
             request.headers.forEach { (name, value) -> setValue(value, forHTTPHeaderField = name) }
             val bytes = request.body.encodeToByteArray()
             setHTTPBody(if (bytes.isEmpty()) null else bytes.usePinned { pinned ->
@@ -52,7 +52,7 @@ class DarwinRpcTransport : RpcTransport {
             timeoutIntervalForResource = request.timeoutMs / 1000.0
         }
         var session: NSURLSession? = null
-        val delegate = RpcSessionDelegate { response, failure ->
+        val delegate = RpcSessionDelegate(request.responseLimit) { response, failure ->
             if (continuation.isActive) {
                 if (failure != null) continuation.resumeWithException(failure)
                 else continuation.resume(checkNotNull(response))
@@ -72,7 +72,7 @@ class DarwinRpcTransport : RpcTransport {
 
 /** NSURLSession invokes these delegate callbacks serially on its private operation queue. */
 @OptIn(ExperimentalForeignApi::class)
-private class RpcSessionDelegate(private val completed: (RpcResponse?, Exception?) -> Unit) : NSObject(), NSURLSessionDataDelegateProtocol {
+private class RpcSessionDelegate(private val limit: Int, private val completed: (RpcResponse?, Exception?) -> Unit) : NSObject(), NSURLSessionDataDelegateProtocol {
     private val chunks = mutableListOf<ByteArray>()
     private var size = 0
     private var finished = false
@@ -83,7 +83,7 @@ private class RpcSessionDelegate(private val completed: (RpcResponse?, Exception
         didReceiveResponse: NSURLResponse,
         completionHandler: (NSURLSessionResponseDisposition) -> Unit,
     ) {
-        if (didReceiveResponse.expectedContentLength > RPC_RESPONSE_LIMIT.toLong()) {
+        if (didReceiveResponse.expectedContentLength > limit.toLong()) {
             finish(null, IllegalStateException("The server response is too large."))
             completionHandler(NSURLSessionResponseCancel)
             session.invalidateAndCancel()
@@ -94,7 +94,7 @@ private class RpcSessionDelegate(private val completed: (RpcResponse?, Exception
 
     override fun URLSession(session: NSURLSession, dataTask: NSURLSessionDataTask, didReceiveData: NSData) {
         if (finished) return
-        if (didReceiveData.length > (RPC_RESPONSE_LIMIT - size).toULong()) {
+        if (didReceiveData.length > (limit - size).toULong()) {
             finish(null, IllegalStateException("The server response is too large."))
             dataTask.cancel()
             session.invalidateAndCancel()
@@ -124,7 +124,11 @@ private class RpcSessionDelegate(private val completed: (RpcResponse?, Exception
             chunk.copyInto(bytes, offset)
             offset += chunk.size
         }
-        finish(RpcResponse(response.statusCode.toInt(), bytes.decodeToString(), response.MIMEType.orEmpty(), response.valueForHTTPHeaderField("Location").orEmpty()), null)
+        finish(RpcResponse(
+            response.statusCode.toInt(), bytes.decodeToString(), response.MIMEType.orEmpty(), response.valueForHTTPHeaderField("Location").orEmpty(),
+            response.valueForHTTPHeaderField("X-RateLimit-Remaining")?.trim()?.toLongOrNull()?.takeIf { it >= 0 },
+            response.valueForHTTPHeaderField("Retry-After")?.trim()?.toIntOrNull()?.takeIf { it >= 0 }?.coerceAtMost(3600),
+        ), null)
     }
 
     override fun URLSession(

@@ -45,6 +45,31 @@ class DarwinRpcTransportIntegrationTest {
     }
 
     @Test
+    fun sendsTokenlessPublicGetWithoutABodyAndReadsNumericQuotaMetadata() = runBlocking {
+        val raw = DarwinRpcTransport().execute(RpcRequest("$base/public-echo?query=native%20mobile", emptyMap(), "", method = RpcMethod.Get, responseLimit = 4096))
+        val answer = Json.parseToJsonElement(raw.body).jsonObject
+        assertEquals("GET", answer.s("method"))
+        assertEquals("/public-echo?query=native%20mobile", answer.s("path"))
+        assertEquals("", answer.s("contentType"))
+        assertEquals(JsonPrimitive(false), answer["hasBody"])
+        assertEquals(JsonPrimitive(false), answer["hasAuthority"])
+        assertEquals(0L, raw.rateLimitRemaining)
+        assertEquals(120, raw.retryAfterSeconds)
+    }
+
+    @Test
+    fun aPublicGetUsesItsSmallerResponseLimit(): Unit = runBlocking {
+        withTimeout(5_000) {
+            val error = assertFailsWith<IllegalStateException> {
+                DarwinRpcTransport().execute(RpcRequest("$base/public-oversize", emptyMap(), "", method = RpcMethod.Get, responseLimit = 32))
+            }
+            if (error is CancellationException) throw error
+            assertEquals("The server response is too large.", error.message)
+            awaitState("public-oversize", "disconnected")
+        }
+    }
+
+    @Test
     fun preservesHttpStatusAndAccessContentType(): Unit = runBlocking {
         val transport = DarwinRpcTransport()
         val raw = transport.execute(RpcRequest("$base/status/api/rpc", emptyMap(), "{}"))
