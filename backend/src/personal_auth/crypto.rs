@@ -18,6 +18,13 @@ pub(crate) struct VaultContext<'a> {
     pub account_id: &'a str,
     pub github_id: u64,
     pub revision: u64,
+    pub purpose: VaultPurpose,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum VaultPurpose {
+    GitHubCredential,
+    PersonalSession,
 }
 
 /// Only authenticated ciphertext and nonsecret format/key metadata can be persisted.
@@ -137,6 +144,10 @@ impl VaultContext<'_> {
             "Invalid personal credential owner"
         );
         let mut aad = b"pully-personal-github-vault\0github.com\0".to_vec();
+        aad.push(match self.purpose {
+            VaultPurpose::GitHubCredential => 1,
+            VaultPurpose::PersonalSession => 2,
+        });
         aad.extend_from_slice(&FORMAT.to_be_bytes());
         aad.extend_from_slice(&key_version.to_be_bytes());
         aad.extend_from_slice(&(self.account_id.len() as u32).to_be_bytes());
@@ -156,6 +167,7 @@ mod tests {
             account_id: "account-a",
             github_id: 42,
             revision: 1,
+            purpose: VaultPurpose::GitHubCredential,
         }
     }
     fn keyring(active: u32) -> VaultKeys {
@@ -193,6 +205,10 @@ mod tests {
             },
             VaultContext {
                 revision: 2,
+                ..owner()
+            },
+            VaultContext {
+                purpose: VaultPurpose::PersonalSession,
                 ..owner()
             },
         ] {

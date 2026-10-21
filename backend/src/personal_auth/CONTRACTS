@@ -32,3 +32,30 @@ MUST retain both expirations and rotate the pair; reduced grants MUST NOT preser
 broader application authority. Scope MUST NOT bypass organization approval or SSO.
 Source: Tavi's 21 Oct 2026 public-first and explicit private-access decision and the
 current GitHub OAuth App scope and refresh documentation.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-session-is-bound-to-one-stable-user
+Persisted personal sessions MUST contain only hashes of high-entropy Pully session
+bearers. Session claims MUST authenticate their own hash, stable account, immutable
+GitHub subject, generation and expiry, independently of credential envelopes. A
+copied or expired session MUST NOT return a credential. Sign-out MUST revoke the
+matching captured authority; unlink MUST revoke every captured authority and session
+for that account. After an awaited identity verification, the current session and
+credential revision MUST be rechecked before authority is published. Source: Tavi's
+21 Oct 2026 per-user vault, revocation and cross-user isolation decision.
+
+@cc [owner:OctavianTocan,label:security] personal-legacy-link-requires-two-current-authorities
+A legacy account link MUST require the actual authenticated legacy session and a
+verified GitHub authorization. The legacy session MUST be rechecked when installing
+the link. Email/login matching MUST NOT link identities, and an already-linked
+immutable GitHub subject MUST NOT be reassigned or silently merge accounts. Linking
+MUST NOT adopt legacy tokens, caches, account keys or unrelated data. Source: Tavi's
+21 Oct 2026 compatibility and explicit linking decision.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-auth-native-proof-stays-in-bodies
+The fixed personal-auth wire protocol MUST keep the native attempt proof and Pully
+session out of browser URLs, callback URLs, logs and errors. A native client names
+only its own random proof challenge; it MUST NOT supply provider/app configuration,
+redirects, target accounts or application authority to public sign-in. A successful
+single-use claim MAY return the newly issued Pully session once in its HTTPS body.
+Unix timestamp fields MUST use seconds and pollAfterMs MUST use milliseconds.
+Source: Tavi's 21 Oct 2026 server-owned authorization and bounded native handoff plan.

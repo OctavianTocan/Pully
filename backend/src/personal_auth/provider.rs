@@ -203,6 +203,26 @@ pub(super) trait GitHubProvider: Send + Sync {
     fn verify<'a>(&'a self, token: String) -> ProviderFuture<'a, VerifiedGitHubIdentity>;
 }
 
+/// Only a verified acquisition can create or replace a stable account's credential.
+pub(super) struct VerifiedLogin {
+    identity: VerifiedGitHubIdentity,
+    tokens: GitHubTokens,
+}
+
+impl VerifiedLogin {
+    pub(super) async fn acquire(
+        provider: &dyn GitHubProvider,
+        tokens: GitHubTokens,
+    ) -> Result<Self> {
+        let identity = provider.verify(tokens.access_token.clone()).await?;
+        Ok(Self { identity, tokens })
+    }
+
+    pub(super) fn into_parts(self) -> (VerifiedGitHubIdentity, GitHubTokens) {
+        (self.identity, self.tokens)
+    }
+}
+
 pub(super) struct OAuthProvider {
     config: Arc<OAuthConfig>,
     client: reqwest::Client,

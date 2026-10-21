@@ -1,8 +1,24 @@
 //! Personal GitHub authorization primitives. No listener or legacy RPC exposes this module.
 mod crypto;
 mod provider;
+mod vault;
+pub(crate) mod wire;
 
-pub(crate) use crypto::{VaultContext, VaultEnvelope, VaultKeys};
+pub(crate) use crypto::{VaultContext, VaultEnvelope, VaultKeys, VaultPurpose};
+
+pub(super) trait AuthClock: Send + Sync {
+    fn now(&self) -> u64;
+}
+
+pub(super) struct SystemClock;
+impl AuthClock for SystemClock {
+    fn now(&self) -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+}
 
 #[cfg(test)]
 mod contract_tests {
