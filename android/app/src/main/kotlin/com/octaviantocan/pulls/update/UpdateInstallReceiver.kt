@@ -9,11 +9,14 @@ import android.os.Build
 /**
  * The system reports the install we committed. An app that is not the device owner always gets
  * `STATUS_PENDING_USER_ACTION` first: its `EXTRA_INTENT` is the system "Update this app?" dialog,
- * which must be started or the install never happens. No third-party updater is involved.
+ * which the resumed update screen starts. The broadcast itself must not depend on permission
+ * to launch an activity from the background. No third-party updater is involved.
  */
 class UpdateInstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val report: (InstallResult) -> Unit = if (intent.getBooleanExtra(EXTRA_PAST, false)) PastVersions::installed else Updates::installed
+        val past = intent.getBooleanExtra(EXTRA_PAST, false)
+        val sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1)
+        val report: (InstallResult) -> Unit = if (past) PastVersions::installed else { result -> Updates.installed(context, sessionId, result) }
         when (val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val confirm = if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
@@ -22,8 +25,11 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                     report(InstallResult.Failed("The installer did not ask for confirmation."))
                     return
                 }
-                report(InstallResult.Confirming)
-                context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                if (past) {
+                    report(InstallResult.Confirming)
+                    runCatching { context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        .onFailure { report(InstallResult.Failed("Could not open installer.")) }
+                } else Updates.confirm(context, sessionId, confirm)
             }
             PackageInstaller.STATUS_SUCCESS -> report(InstallResult.Installed)
             PackageInstaller.STATUS_FAILURE_ABORTED -> report(InstallResult.Cancelled)

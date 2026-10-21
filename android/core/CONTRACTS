@@ -60,6 +60,19 @@ Update URLs and every redirect MUST match the configured server's scheme, host a
 effective port before any request is opened or Access headers attached. Automatic
 redirects MUST stay disabled (repository review 15 Oct 2026, finding 7).
 
+@cc [owner:OctavianTocan,label:product;security] core-update-downloads-settle
+Update transfers MUST have a whole-request deadline as well as socket timeouts, including
+redirects and a response that keeps sending bytes. Only a completed APK whose streamed
+SHA-256 matches the manifest MAY replace the download destination; failure MUST remove
+the attempt's partial file. A process start MUST remove updater partial files left by a
+terminated process before a new download starts. Source: Tavi, 21 Oct 2026, updates stuck
+at downloading.
+
+@cc [owner:OctavianTocan,label:product] core-update-install-needs-package-evidence
+Install recovery MUST require an installed version at least as new as the attempt before
+reporting success. An absent session, lost process or expired attempt MUST permit retry
+instead of remaining busy. Source: Tavi, 21 Oct 2026, updates stuck at installing.
+
 @cc [owner:OctavianTocan,label:product;security] core-browser-repo-needs-address-evidence
 Browser repository detection MUST use only visible, unfocused native address-field text
 with an exact resource ID allowlisted for the foreground browser package. Page content,

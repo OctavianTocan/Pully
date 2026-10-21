@@ -9,6 +9,12 @@ Update downloads and installs in the app and shows how far it got in place (a ri
 it downloads, the orb while the system installs). A failed download or install offers Try
 again and never lets the reader through (rules 63 and 104).
 
+@cc [owner:OctavianTocan,label:product] update-confirmation-remains-actionable
+When Android is waiting for approval, the resumed update screen MUST open its confirmation
+and MUST offer Continue update if the reader returns without finishing. A pending approval
+MUST NOT leave only a disabled Installing indicator. Source: Tavi, 21 Oct 2026, updates
+stuck at installing; rules 63 and 104.
+
 @cc [owner:OctavianTocan,label:design] whats-new-reads-like-a-changelog
 What's new shows each version as its own block: the version as a small header, a New tag
 on the newest, the summary as a bold headline, one bullet per line with an accent dot, a

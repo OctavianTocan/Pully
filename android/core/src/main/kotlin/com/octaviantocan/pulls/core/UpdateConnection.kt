@@ -2,6 +2,11 @@ package com.octaviantocan.pulls.core
 
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.SocketTimeoutException
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /** Resolve an update location without ever sending the server's Access headers to another origin. */
 fun updateUrl(server: String, location: String, relativeTo: URL = URL("${server.trimEnd('/')}/")): URL {
@@ -17,16 +22,60 @@ private fun effectivePort(url: URL): Int = if (url.port == -1) url.defaultPort e
 
 /** Each redirect is checked before a connection is opened or credentials are attached. Caller closes the result. */
 fun openUpdateConnection(server: String, location: String, headers: Map<String, String>): HttpURLConnection {
+    return openUpdateConnection(server, location, headers, UpdateTimeouts()) {}
+}
+
+data class UpdateTimeouts(val totalMs: Long = 10 * 60_000L, val connectMs: Int = 15_000, val readMs: Int = 60_000) {
+    init { require(totalMs > 0 && connectMs > 0 && readMs > 0) }
+}
+
+private val updateDeadlines = Executors.newSingleThreadScheduledExecutor { task -> Thread(task, "update-deadline").apply { isDaemon = true } }
+
+/** The deadline covers redirects, headers and the entire body, including a response that never stops trickling. */
+fun <T> withUpdateConnection(
+    server: String,
+    location: String,
+    headers: Map<String, String>,
+    timeouts: UpdateTimeouts = UpdateTimeouts(),
+    read: (HttpURLConnection) -> T,
+): T {
+    val current = AtomicReference<HttpURLConnection?>()
+    val timedOut = AtomicBoolean(false)
+    val timeout = updateDeadlines.schedule({
+        timedOut.set(true)
+        current.get()?.disconnect()
+    }, timeouts.totalMs, TimeUnit.MILLISECONDS)
+    try {
+        val connection = openUpdateConnection(server, location, headers, timeouts) {
+            current.set(it)
+            if (timedOut.get()) throw SocketTimeoutException("Update request timed out.")
+        }
+        val result = read(connection)
+        if (timedOut.get()) throw SocketTimeoutException("Update request timed out.")
+        return result
+    } catch (failure: Exception) {
+        if (timedOut.get()) throw SocketTimeoutException("Update request timed out.").apply { initCause(failure) }
+        throw failure
+    } finally {
+        timeout.cancel(false)
+        current.get()?.disconnect()
+    }
+}
+
+private fun openUpdateConnection(server: String, location: String, headers: Map<String, String>, timeouts: UpdateTimeouts, opened: (HttpURLConnection) -> Unit): HttpURLConnection {
     var url = updateUrl(server, location)
     repeat(6) { attempt ->
         val connection = (url.openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 60_000
+            connectTimeout = timeouts.connectMs
+            readTimeout = timeouts.readMs
+            useCaches = false
+            setRequestProperty("Cache-Control", "no-cache")
             instanceFollowRedirects = false
             headers.forEach { (name, value) -> setRequestProperty(name, value) }
         }
         var handedOff = false
         try {
+            opened(connection)
             val status = connection.responseCode
             if (status in 200..299) {
                 handedOff = true

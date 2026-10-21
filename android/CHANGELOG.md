@@ -23,6 +23,16 @@ Pully's iPhone preview starts with familiar pull request rows.
 - The internal iPhone preview shows sample pull requests using Pully's existing colors, fonts and row layout in light and dark.
 ![Labeled illustration of Android and the internal iPhone preview sharing Pully's look](changelog/0.55.0/shared-foundation-illustration.png)
 
+## 0.54.1
+
+Updates recover when a download or installation is interrupted.
+
+- Android’s confirmation opens when Pully is in front. Continue update brings it back if you leave before approving.
+- An interrupted installation offers Try again, and an update only finishes once Android has installed the new version.
+- Stalled downloads fail with a way to retry. Damaged or incomplete files are discarded without keeping partial APKs.
+
+![Illustration of Continue update and Try again after an interrupted update](changelog/0.54.1/update-recovery-illustration.png)
+
 ## 0.54.0
 
 Alerts for the checks and AI work you follow.
