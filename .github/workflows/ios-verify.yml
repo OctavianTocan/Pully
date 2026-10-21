@@ -31,7 +31,8 @@ jobs:
   ios:
     # Ordinary ARM64 hosted runner; this is not the paid -xlarge runner label.
     runs-on: macos-26
-    timeout-minutes: 45
+    # Cold Native compilation plus the required app/UIKit tests needs more than 45 minutes.
+    timeout-minutes: 90
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       IOS_RUNTIME_VERSION: 26.4.1
