@@ -105,6 +105,14 @@ MAY remain only with its opening audience still enforced.
 Source: Tavi's accepted 21 Oct 2026 iOS link and account isolation plan and the existing
 nav-link-closes-what-was-open and pr-links-land-on-the-thing requirements.
 
+@cc [owner:OctavianTocan,label:architecture;security] shared-share-data-enters-the-existing-inbox
+Sanitized share data MUST be decoded by the same shared-domain codec and enter the
+existing incoming-link inbox as its typed HomeLink destination. It MUST retain the
+same opening audience, suspending sheet-exit fences, same-target reopen policy and
+Compose Back stack as ordinary links. Raw rejected handoff payloads MUST NOT be
+retained or turned into placeholder destinations. Source: the accepted 21 Oct 2026
+native share handoff, single-stack and account-isolation plan.
+
 @cc [owner:OctavianTocan,label:security;architecture] shared-root-sheets-share-one-source-lifetime
 The root MUST retain one Settings, model/catalog, Stats, Feedback and Commands bundle
 for its active Home source. Ordinary navigation and sheet dismissal MUST retain that

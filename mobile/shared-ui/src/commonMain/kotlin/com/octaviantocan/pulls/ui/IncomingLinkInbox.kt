@@ -26,7 +26,7 @@ fun incomingLinkAudience(configuration: RepoConfiguration?, email: String?, elig
 
 /** One UI-thread inbox per native application lifetime; it contains no second navigation stack. */
 class IncomingLinkInbox {
-    class Arrival internal constructor(val text: String?, val aiResult: String?, internal val audience: IncomingLinkAudience?)
+    class Arrival internal constructor(val text: String?, val aiResult: String?, internal val audience: IncomingLinkAudience?, internal val link: HomeLink? = null)
     class Reopen(val target: OpenTarget, val place: LinkPlace? = null, val aiResult: String? = null)
 
     var pending by mutableStateOf<Arrival?>(null)
@@ -37,6 +37,9 @@ class IncomingLinkInbox {
     fun receive(text: String, audience: IncomingLinkAudience?, aiResult: String? = null) {
         if (text.isNotBlank()) pending = Arrival(text, aiResult, audience)
     }
+
+    /** Typed share data uses the same audience, awaited sheet exit, route mapping and deduplication as URL delivery. */
+    fun receive(link: HomeLink, audience: IncomingLinkAudience?) { pending = Arrival(null, null, audience, link) }
 
     /** Invalid native envelopes are explicit one-shot events, with no rejected URL or credential retained. */
     fun reject(audience: IncomingLinkAudience?) { pending = Arrival(null, null, audience) }
@@ -61,7 +64,7 @@ class IncomingLinkInbox {
         val arrival = pending ?: return false
         if (!current()) return false
         if (!audience.accepts(arrival.audience)) { consume(arrival); return true }
-        val destination = arrival.text?.let { sharedLinkScreen(it, arrival.aiResult) }
+        val destination = arrival.link?.let { sharedLinkScreen(it) } ?: arrival.text?.let { sharedLinkScreen(it, arrival.aiResult) }
         if (destination != null) closeSheets()
         // Awaiting a sheet exit can replace the account or deliver a newer intent.
         if (!current() || pending !== arrival) return false
@@ -81,8 +84,9 @@ class IncomingLinkInbox {
 }
 
 /** The original Android incoming-link mapping, including the exact file/side/line/thread destination. */
-fun sharedLinkScreen(text: String, aiResult: String? = null): Screen? = when (val link = HomeLinks.parseShared(text)) {
+fun sharedLinkScreen(text: String, aiResult: String? = null): Screen? = HomeLinks.parseShared(text)?.let { sharedLinkScreen(it, aiResult) }
+
+fun sharedLinkScreen(link: HomeLink, aiResult: String? = null): Screen = when (link) {
     is HomeLink.Target -> Screen.Review(link.target, from = "link", place = link.place?.let(::PlaceRequest), aiResult = aiResult)
     is HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
-    null -> null
 }
