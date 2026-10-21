@@ -1,0 +1,11 @@
+@cc [owner:OctavianTocan,label:architecture;design] ios-host-renders-shared-compose
+The iOS host MUST render the shared Pully Compose controller. It MUST NOT duplicate
+Pully screens or business rules in Swift. Native code MAY adapt system lifecycle,
+authentication, storage, links, input, navigation and device services. Source: Tavi,
+21 Oct 2026, chosen Compose Multiplatform implementation with maximum Android reuse.
+
+@cc [owner:OctavianTocan,label:product] ios-preview-is-explicit
+Until server/account and review flows are connected, the iOS app MUST identify itself
+as an internal preview and MUST use deterministic nonprivate fixtures. Unsupported
+sign-in, mutation and AI controls MUST NOT appear as working features. Source: Tavi's
+21 Oct 2026 iOS implementation request and the accepted first shared-screen milestone.

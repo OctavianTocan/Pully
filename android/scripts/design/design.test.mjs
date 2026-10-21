@@ -6,7 +6,7 @@ import * as bans from './bans.mjs'
 import * as book from './book.mjs'
 import { checkChangelog, compareVersions, parseChangelog, versionName } from './changelog.mjs'
 import { run } from './check.mjs'
-import { blank, composables, dpScale, excusedLines, matching, paletteColors, splitTopLevel, typeRoles } from './kotlin.mjs'
+import { blank, composables, dpScale, excusedLines, fontFamilies, kotlinFiles, matching, paletteColors, SHARED_DESIGN, shortPath, splitTopLevel, typeRoles } from './kotlin.mjs'
 import * as motion from './motion.mjs'
 import { compare, countsOf } from './ratchet.mjs'
 import * as rawValues from './raw-values.mjs'
@@ -92,6 +92,35 @@ describe('kotlin readers', () => {
     assert.equal(roles.xxl.fontWeight, 500)
     assert.deepEqual(dpScale('object S {\n val x1 = 4.dp\n val x2: Dp = 8.dp\n}', 'S'), { x1: '4px', x2: '8px' })
     assert.equal(dpScale('object S {}', 'Missing'), null)
+  })
+
+  it('reads the same font families from Android resources and shared platform adapters', () => {
+    const family = font => `object PullsFonts {\n val sans = FontFamily(\n ${font},\n )\n}`
+    assert.deepEqual(fontFamilies(family('Font(R.font.geist_regular, FontWeight.Normal)')), { sans: [{ file: 'geist_regular', weight: 400 }] })
+    assert.deepEqual(fontFamilies(family('bundledFont("geist_regular", FontWeight.Normal)')), { sans: [{ file: 'geist_regular', weight: 400 }] })
+    assert.throws(() => fontFamilies(family('FontFamily.SansSerif')), /unsupported font entry/)
+  })
+
+  it('scans shared common and native production files while retaining common ratchet keys', () => {
+    const files = kotlinFiles()
+    const common = `${SHARED_DESIGN}/AppFonts.kt`
+    const native = '../mobile/shared-ui/src/iosMain/kotlin/com/octaviantocan/pulls/ui/design/BundledFont.ios.kt'
+    assert.ok(files.includes(common))
+    assert.ok(files.includes(native))
+    assert.ok(files.includes('../mobile/shared-ui/src/androidMain/kotlin/com/octaviantocan/pulls/ui/design/BundledFont.android.kt'))
+    assert.ok(files.some(file => file.startsWith('../mobile/shared-domain/src/commonMain/')))
+    assert.ok(files.every(file => !file.includes('/commonTest/')))
+    assert.equal(shortPath(common), 'ui/design/AppFonts.kt')
+    assert.equal(shortPath(native), 'platform/shared-ui/iosMain/ui/design/BundledFont.ios.kt')
+    assert.equal(new Set(files.map(shortPath)).size, files.length)
+
+    const sources = rawValues.readSources()
+    assert.equal(typeof sources[shortPath(common)], 'string')
+    assert.equal(typeof sources[shortPath(native)], 'string')
+    const changed = Object.fromEntries([common, native].map(file => [shortPath(file), `${sources[shortPath(file)]}\nval regression = Color(0xFF123456)\n`]))
+    const hits = rawValues.scan(changed, FRONT)
+    assert.equal(hits.hex[shortPath(common)].length, 1)
+    assert.equal(hits.hex[shortPath(native)].length, 1)
   })
 })
 

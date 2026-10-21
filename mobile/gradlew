@@ -1,0 +1,5 @@
+#!/bin/sh
+# One pinned Gradle wrapper, with a standalone mobile root for Mac/iOS builds.
+set -eu
+mobile_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec "$mobile_dir/../android/gradlew" -p "$mobile_dir" "$@"

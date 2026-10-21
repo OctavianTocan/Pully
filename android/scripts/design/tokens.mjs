@@ -4,7 +4,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lint } from '@google/design.md/linter'
-import { ANDROID, ASSETS, dpScale, paletteColors, readAndroid, shadowLayer, shadowLevels, typeRoles } from './kotlin.mjs'
+import { ASSETS, dpScale, paletteColors, readAndroid, SHARED_DESIGN, shadowLayer, shadowLevels, typeRoles } from './kotlin.mjs'
 import { buildRules, buildSpec, DESIGN_PATH, px, readDesign, stable } from './spec.mjs'
 
 export const NAME = 'tokens'
@@ -185,8 +185,8 @@ function stale(path, wanted) {
 
 export function check({ update = false } = {}) {
   const { front, rules } = readDesign()
-  const tokens = readAndroid(`${KOTLIN}/Tokens.kt`)
-  const scale = existsSync(join(ANDROID, KOTLIN, 'Scale.kt')) ? readAndroid(`${KOTLIN}/Scale.kt`) : ''
+  const tokens = readAndroid(`${SHARED_DESIGN}/Tokens.kt`)
+  const scale = readAndroid(`${SHARED_DESIGN}/Scale.kt`)
   const kit = readAndroid(`${KOTLIN}/Kit.kt`)
   const problems = [
     ...lintDesign(),

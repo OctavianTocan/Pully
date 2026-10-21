@@ -1,7 +1,11 @@
 @cc [owner:OctavianTocan,label:architecture] core-is-plain-kotlin
-`android/core` is plain Kotlin with no Android or Compose dependency, so its logic is
-tested on the JVM by `:core:test`. Logic that can be pure (ranking, parsing, paths, ways
-of motion) lives here and the app calls it.
+`android/core` MUST remain plain Kotlin with no Android or Compose dependency and MUST
+expose the shared domain implementation under its existing packages. Each extracted
+portable policy MUST have one production implementation in `mobile/shared-domain`,
+tested on the JVM and Apple targets. Remaining core logic and JVM-specific adapters
+remain here and are tested by `:core:test` while extraction proceeds in small slices.
+Tavi's 21 Oct 2026 decision to make the iOS mode with shared Kotlin and Compose changes
+the original location requirement while preserving the plain-Kotlin boundary.
 
 @cc [owner:OctavianTocan,label:product] core-work-notice-real-time
 The ongoing AI notification summary MUST include only running whole-diff work and MUST

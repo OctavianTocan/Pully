@@ -6,13 +6,12 @@
 // its source gives fails, and `--update` rewrites it.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
-import { ASSETS, FONT_FAMILY_NAMES, fontFamilies, luGlyphs, readAndroid, REPO } from './kotlin.mjs'
+import { ASSETS, FONT_FAMILY_NAMES, fontFamilies, luGlyphs, readAndroid, REPO, SHARED_DESIGN } from './kotlin.mjs'
 import { px, readDesign, stable } from './spec.mjs'
 
 export const NAME = 'web'
 export const RULES = [106]
 
-const KOTLIN = 'app/src/main/kotlin/com/octaviantocan/pulls/ui/design'
 export const WEB_DESIGN = join(REPO, 'packages', 'app', 'src', 'design')
 export const TOKENS_JSON = join(WEB_DESIGN, 'tokens.generated.json')
 export const ICONS_JSON = join(WEB_DESIGN, 'icons.generated.json')
@@ -187,10 +186,10 @@ const short = path => relative(REPO, path).split('\\').join('/')
 
 export function check({ update = false } = {}) {
   const { front } = readDesign()
-  const families = fontFamilies(readAndroid(`${KOTLIN}/Tokens.kt`))
+  const families = fontFamilies(readAndroid(`${SHARED_DESIGN}/Tokens.kt`))
   // The CSS name of each `PullsFonts` family, so the web's `font-sans`, `font-mono` and `font-display` are the phone's.
   const tokens = { fonts: Object.fromEntries(Object.keys(families ?? {}).map(key => [key, FONT_FAMILY_NAMES[key] ?? key])), ...webTokens(front) }
-  const glyphs = luGlyphs(readAndroid(`${KOTLIN}/Icons.kt`))
+  const glyphs = luGlyphs(readAndroid(`${SHARED_DESIGN}/Icons.kt`))
   const fonts = fontsCss(families)
   const problems = [
     ...componentProblems(tokens),

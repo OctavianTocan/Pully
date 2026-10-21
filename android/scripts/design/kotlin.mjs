@@ -1,33 +1,65 @@
 // Small Kotlin readers for the design checks. Not a parser: they blank comments and string
 // literals so a regex cannot match inside either, find matching brackets, and pull out the
 // composable declarations and the token objects the checks compare with DESIGN.md.
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const ANDROID = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 export const REPO = join(ANDROID, '..')
 export const KOTLIN_ROOT = join(ANDROID, 'app', 'src', 'main', 'kotlin', 'com', 'octaviantocan', 'pulls')
+export const MOBILE = join(REPO, 'mobile')
+export const SHARED_DESIGN = '../mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/ui/design'
 export const ASSETS = join(ANDROID, 'app', 'src', 'main', 'assets')
 
-/** Every `.kt` file under `dir`, as paths relative to the Android project, sorted. */
-export function kotlinFiles(dir = KOTLIN_ROOT) {
+/** Every `.kt` file under `dir`, as paths relative to the Android project. */
+function filesUnder(dir) {
   const found = []
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name)
     if (entry.isDirectory()) {
-      found.push(...kotlinFiles(path))
+      found.push(...filesUnder(path))
     }
     else if (entry.name.endsWith('.kt')) {
       found.push(relative(ANDROID, path).split('\\').join('/'))
     }
   }
-  return found.sort()
+  return found
 }
 
-/** `ui/home/Chrome.kt` from an Android-relative path: the key the baselines use. */
+/** All shared production source sets, including platform adapters; tests and build outputs stay out. */
+function sharedRoots() {
+  return readdirSync(MOBILE, { withFileTypes: true }).filter(entry => entry.isDirectory() && entry.name.startsWith('shared-')).flatMap((module) => {
+    const src = join(MOBILE, module.name, 'src')
+    // Every shared module has common production code. A missing source tree must fail the checks.
+    readdirSync(join(src, 'commonMain', 'kotlin'))
+    return readdirSync(src, { withFileTypes: true })
+      .filter(entry => entry.isDirectory() && entry.name.endsWith('Main'))
+      .map(entry => join(src, entry.name, 'kotlin'))
+      .filter(existsSync)
+  })
+}
+
+/** Every Android and shared production Kotlin source, with unique logical keys for the ratchets. */
+export function kotlinFiles(dir) {
+  const paths = (dir ? filesUnder(dir) : [KOTLIN_ROOT, ...sharedRoots()].flatMap(filesUnder)).sort()
+  const keys = new Map()
+  for (const path of paths) {
+    const key = shortPath(path)
+    if (keys.has(key)) {
+      throw new Error(`Duplicate design source ${key}: ${keys.get(key)} and ${path}`)
+    }
+    keys.set(key, path)
+  }
+  return paths
+}
+
+/** Common kit files keep their Android baseline keys; native adapters have distinct platform keys. */
 export function shortPath(path) {
-  return path.replace(/^app\/src\/main\/kotlin\/com\/octaviantocan\/pulls\//, '')
+  return path
+    .replace(/^app\/src\/main\/kotlin\/com\/octaviantocan\/pulls\//, '')
+    .replace(/^\.\.\/mobile\/shared-[^/]+\/src\/commonMain\/kotlin\/com\/octaviantocan\/pulls\//, '')
+    .replace(/^\.\.\/mobile\/(shared-[^/]+)\/src\/([^/]+Main)\/kotlin\/com\/octaviantocan\/pulls\//, 'platform/$1/$2/')
 }
 
 export function readAndroid(path) {
@@ -523,16 +555,24 @@ export function luGlyphs(source) {
   return glyphs
 }
 
-/** `object PullsFonts`: each family's `Font(R.font.<file>, FontWeight.<weight>)` entries, as `{ sans: [{ file, weight }] }`. */
+/** `object PullsFonts`: Android `Font(R.font.file, weight)` or shared `bundledFont("file", weight)` entries. */
 export function fontFamilies(source) {
   const body = objectBody(blank(source), 'PullsFonts')
   if (body === null) {
     return null
   }
+  const strings = objectBody(blank(source, { keepStrings: true }), 'PullsFonts')
   const families = {}
-  for (const m of body.matchAll(/\bval\s+(\w+)\s*=\s*FontFamily\(([^)]*(?:\)[^)]*)*?)\)\s*\n/g)) {
-    families[m[1]] = [...m[2].matchAll(/Font\(\s*R\.font\.(\w+)\s*,\s*FontWeight\.(\w+)\s*\)/g)]
-      .map(f => ({ file: f[1], weight: WEIGHTS[f[2]] ?? f[2] }))
+  for (const m of body.matchAll(/\bval\s+(\w+)\s*=\s*FontFamily\(/g)) {
+    const open = m.index + m[0].length - 1
+    const args = strings.slice(open + 1, matching(body, open))
+    families[m[1]] = splitTopLevel(args).map((entry) => {
+      const font = /^(?:Font\(\s*R\.font\.(\w+)|bundledFont\(\s*"(\w+)")\s*,\s*FontWeight\.(\w+)\s*\)$/.exec(entry)
+      if (!font) {
+        throw new Error(`Tokens.kt: PullsFonts.${m[1]} has an unsupported font entry: ${entry}`)
+      }
+      return { file: font[1] ?? font[2], weight: WEIGHTS[font[3]] ?? font[3] }
+    })
   }
   return families
 }

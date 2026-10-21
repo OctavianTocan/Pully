@@ -1,0 +1,5 @@
+@cc [owner:OctavianTocan,label:product] ios-foundation-labels-fixtures
+The initial iOS host MUST visibly identify itself as an internal preview and its
+rows as fixture data. It MUST NOT offer authentication, mutation or paid AI controls
+before those production services are integrated. Source: Tavi's 21 Oct 2026 iOS
+implementation plan, first shared-code and runnable-host delivery.
