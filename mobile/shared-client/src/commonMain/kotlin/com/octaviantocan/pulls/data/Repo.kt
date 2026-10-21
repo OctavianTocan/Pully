@@ -7,6 +7,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -250,10 +252,26 @@ class Repo(
      * Whether the server has an account to sign in to, and the client ID Google signs in for when it takes Google
      * sign-in; asked without a session, so a server never set up locks nobody out.
      */
-    suspend fun accountStatus(): AccountStatus = call("account-status").jsonObject.let { AccountStatus(it.b("hasAccount"), it.sOrNull("googleClientId")) }
+    suspend fun accountStatus(): AccountStatus {
+        val result = call("account-status") as? JsonObject ?: invalidAccountResponse()
+        val account = (result["hasAccount"] as? JsonPrimitive)?.takeUnless { it.isString }?.booleanOrNull ?: invalidAccountResponse()
+        val client = result["googleClientId"]?.takeUnless { it == JsonNull }?.let {
+            (it as? JsonPrimitive)?.takeIf { it.isString && it.content.isNotBlank() }?.content ?: invalidAccountResponse()
+        }
+        return AccountStatus(account, client)
+    }
 
     /** The signed-in account's email, or null when the session is not one the server knows. */
-    suspend fun accountEmail(): String? = (call("account-me") as? JsonObject)?.s("email")?.ifBlank { null }
+    suspend fun accountEmail(): String? {
+        val result = call("account-me")
+        if (result == JsonNull) return null
+        val account = result as? JsonObject ?: invalidAccountResponse()
+        return (account["email"] as? JsonPrimitive)?.takeIf { it.isString && it.content.isNotBlank() }?.content ?: invalidAccountResponse()
+    }
+
+    private fun invalidAccountResponse(): Nothing = throw ServerError(
+        200, "Pully could not read the server's account response. Try again.", kind = ServerErrorKind.InvalidResponse, format = RpcResponseFormat.Json,
+    )
 
     suspend fun agentKeys(): List<AgentKey> = call("agent-keys").objects().map { it.asAgentKey() }
 

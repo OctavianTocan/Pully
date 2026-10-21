@@ -124,7 +124,7 @@ private class RpcSessionDelegate(private val completed: (RpcResponse?, Exception
             chunk.copyInto(bytes, offset)
             offset += chunk.size
         }
-        finish(RpcResponse(response.statusCode.toInt(), bytes.decodeToString(), response.MIMEType.orEmpty()), null)
+        finish(RpcResponse(response.statusCode.toInt(), bytes.decodeToString(), response.MIMEType.orEmpty(), response.valueForHTTPHeaderField("Location").orEmpty()), null)
     }
 
     override fun URLSession(

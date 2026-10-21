@@ -57,7 +57,7 @@ class DarwinRpcTransportIntegrationTest {
         val html = transport.execute(RpcRequest("$base/access/api/rpc", emptyMap(), "{}"))
         assertEquals("text/html", html.contentType)
         val access = assertFailsWith<ServerError> { RpcClient("$base/access", transport).call("fixture-status") }
-        assertEquals(ServerErrorKind.AccessRequired, access.kind)
+        assertEquals(ServerErrorKind.HtmlResponse, access.kind)
     }
 
     @Test

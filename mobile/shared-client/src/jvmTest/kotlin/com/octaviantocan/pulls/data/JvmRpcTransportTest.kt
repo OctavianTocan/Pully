@@ -68,6 +68,21 @@ class JvmRpcTransportTest {
     }
 
     @Test
+    fun retainsAccessRedirectMetadataWithoutFollowingOrExposingItsUrl() = runBlocking {
+        Server { exchange ->
+            exchange.requestBody.close()
+            exchange.responseHeaders.add("Location", "https://fixture.cloudflareaccess.com/cdn-cgi/access/login/server.example?secret=fixture-private")
+            exchange.sendResponseHeaders(302, -1)
+            exchange.close()
+        }.use { server ->
+            val failure = assertFailsWith<ServerError> { RpcClient(server.url, JvmRpcTransport()).call("account-status") }
+            assertEquals(302, failure.status)
+            assertEquals(ServerErrorKind.AccessRequired, failure.kind)
+            assertTrue(!failure.message.orEmpty().contains("fixture-private"))
+        }
+    }
+
+    @Test
     fun cancelsABlockedRequestPromptly() = runBlocking {
         val arrived = CompletableDeferred<Unit>()
         val release = CountDownLatch(1)
