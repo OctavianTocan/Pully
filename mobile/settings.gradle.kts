@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "pully-mobile"
-include(":shared-domain", ":shared-ui")
+include(":shared-domain", ":shared-client", ":shared-ui")

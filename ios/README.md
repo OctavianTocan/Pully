@@ -51,6 +51,8 @@ A Debug-only launch environment selects the native test appearance before Compos
 attaches; ordinary launches use the system appearance. The `iOS verify` PR job
 also runs the actual shared domain tests on JVM and the pinned iPhone simulator,
 links the shared framework, verifies font/locale bytes and retains simulator evidence.
+It also runs native account package tests on macOS and iOS, the actual Keychain
+roundtrip and the shared client's separate NSURLSession loopback integration suite.
 The artifact includes `Pully-simulator.zip`, an unsigned ARM64 simulator app that can
 be installed with `xcrun simctl install <simulator-UDID> Pully.app` after extraction.
 An unsigned simulator run needs no Apple Developer membership or signing secrets.
@@ -60,6 +62,39 @@ to link the Kotlin/Native Apple framework and build/run this app. Local XML/scri
 validation is not evidence of an iOS compile; use the macOS CI result for that claim.
 No device, signed archive, TestFlight or App Store validation is implied by this host.
 
+Native credential/configuration and Google token adapters live in
+[`NativeServices`](NativeServices/README.md). They retain the shared Kotlin RPC client
+and keep credentials in app-private Keychain storage. The current fixture screen
+does not expose sign-in. Native Google availability requires a real iOS client and
+registered callback scheme; the adapter documents the exact missing configuration.
+The app bundles its UserDefaults required-reason declaration and retains the SDK's
+own privacy resource. Store privacy/signing review remains later release work.
+
+## Darwin RPC integration
+
+On macOS, start the nonprivate loopback fixture from the repository root:
+
+```sh
+python3 ios/scripts/rpc-fixture.py --state-dir ios/build/rpc-fixture
+```
+
+With a booted iPhone simulator, run in a second terminal:
+
+```sh
+cd android
+./gradlew :shared-client:iosSimulatorArm64IntegrationTest \
+  -Ppully.iosSimulatorId="$SIMULATOR_ID" \
+  -Ppully.rpcFixtureUrl="$(cat ../ios/build/rpc-fixture/url)"
+```
+
+The six tests use the actual NSURLSession transport. The oversized-response fixture
+advertises 64 MiB + 1, emits at most one initial body byte, then holds the rest.
+This avoids relying on delivery of a headers-only response callback: the test still
+requires the advertised-length error and socket closure, and verifies that the
+fixture sent at most one byte. That byte cannot trigger the 64 MiB streaming guard,
+so waiting for the rest or ignoring the header still fails. Stop the fixture with
+Ctrl-C after the tests finish.
+
 ## Toolchain references
 
 Checked on 21 October 2026:
@@ -68,3 +103,14 @@ Checked on 21 October 2026:
 - [Compose compatibility](https://kotlinlang.org/docs/multiplatform/compose-compatibility-and-versioning.html): Compose Multiplatform 1.12.2 and its Jetpack Compose mapping.
 - [GitHub runner labels](https://github.com/actions/runner-images#available-images) and [macOS 26 ARM64 image](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md): ordinary `macos-26` label, installed Xcode 26.4.1 and simulator runtime.
 - [Direct Xcode integration](https://kotlinlang.org/docs/multiplatform/multiplatform-direct-integration.html) and [UIKit integration](https://kotlinlang.org/docs/multiplatform/compose-uikit-integration.html): build-phase ordering, script sandboxing and the required high-refresh-rate plist setting.
+
+The account rules also run as native Swift package tests. The real Keychain test
+runs in a separate native app-hosted XCTest target (`PullyNativeKeychain`), ad-hoc
+signed for the simulator. Its private application identity is checked from the
+actual built executable before testing: the workflow verifies the code signature,
+extracts its `__TEXT,__entitlements` and `__TEXT,__ents_der` simulator sections, and
+requires matching private XML/DER claims. Xcode's ordinary simulator code-signature
+entitlement dictionary may be empty. This local simulator signature needs no
+Apple account or provisioning secrets and does not validate device/distribution
+signing. The Pully preview app artifact is still unsigned. See
+[NativeServices verification](NativeServices/README.md#verification).

@@ -8,6 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class TourStoreTest {
@@ -64,4 +65,71 @@ class TourStoreTest {
         repeat(TourStore.LIMIT + 3) { n -> store.put("o/r#$n", tour("2026-10-15T08:00:00Z")) }
         assertEquals(TourStore.LIMIT, dir.listFiles { file -> file.name.endsWith(".json") }!!.size)
     }
+
+    @Test
+    fun aTourBelongsToItsServerAndAccountAndLegacyUnownedCopiesAreNotAdopted() {
+        TourStore(dir).put("o/r#1", tour("legacy"))
+        val alice = TourStore(dir, namespace = "server-a/alice")
+        val bob = TourStore(dir, namespace = "server-a/bob")
+        val otherServer = TourStore(dir, namespace = "server-b/alice")
+        assertNull(alice.get("o/r#1"))
+        alice.put("o/r#1", tour("owned"))
+        assertEquals("owned", alice.get("o/r#1")?.generatedAt)
+        assertNull(bob.get("o/r#1"))
+        assertNull(otherServer.get("o/r#1"))
+        assertEquals("owned", TourStore(dir, namespace = "server-a/alice").get("o/r#1")?.generatedAt)
+    }
+
+    @Test
+    fun anInvalidatedStoreCannotExposeItsParsedTourOrWriteForTheNextAccount() {
+        var current = true
+        val store = TourStore(dir, namespace = "server/alice", current = { current })
+        store.put("o/r#1", tour("before"))
+        assertNotNull(store.get("o/r#1"))
+        current = false
+        assertNull(store.get("o/r#1"))
+        store.put("o/r#1", tour("late"))
+        assertEquals("before", TourStore(dir, namespace = "server/alice").get("o/r#1")?.generatedAt)
+        assertNull(TourStore(dir, namespace = "server/bob").get("o/r#1"))
+    }
+
+    @Test
+    fun theExistingTwoHundredFileBudgetAppliesAcrossIdentityNamespaces() {
+        repeat(3) { account ->
+            val store = TourStore(dir, namespace = "server/account-$account")
+            repeat(80) { pull -> store.put("o/r#$pull", tour("$account-$pull")) }
+        }
+        assertEquals(TourStore.LIMIT, dir.listFiles { file -> file.name.endsWith(".json") }!!.size)
+    }
+
+    @Test
+    fun anEmailRememberedFromAnotherServerDoesNotSelectAnAuthenticatedTourNamespace() {
+        val signedOut = tourNamespace("https://review.example", null, eligibleSession = false)
+        assertEquals(signedOut, tourNamespace("https://REVIEW.example:443/", "alice@example.test", eligibleSession = false))
+        assertFalse(signedOut == tourNamespace("https://review.example", "alice@example.test", eligibleSession = true))
+        assertEquals(
+            tourNamespace("https://review.example", "alice@example.test", eligibleSession = true),
+            tourNamespace("https://REVIEW.example:443/", "alice@example.test", eligibleSession = true),
+        )
+    }
+    @Test
+    fun invalidServerNamespacesRetainNoUserinfoOrAccountIdentity() {
+        val namespace = tourNamespace("https://user:secret@review.example", "alice@example.test", true)
+        assertEquals("invalid-server", namespace)
+        assertFalse(namespace.contains("secret") || namespace.contains("alice"))
+    }
+
+    @Test
+    fun accessRotationCannotAdoptAnotherAuthorizationsKeptTour() {
+        val first = mapOf("CF-Access-Client-Id" to "fixture-id", "CF-Access-Client-Secret" to "fixture-secret")
+        val reordered = mapOf("cf-access-client-secret" to "fixture-secret", "cf-access-client-id" to "fixture-id")
+        val source = tourNamespace("https://review.example", "alice@example.test", true, first)
+        TourStore(dir, source).put("o/r#1", tour("owned-access"))
+        val same = tourNamespace("https://REVIEW.example:443/", "alice@example.test", true, reordered)
+        assertEquals("owned-access", TourStore(dir, same).get("o/r#1")?.generatedAt)
+        val rotated = tourNamespace("https://review.example", "alice@example.test", true, first + ("CF-Access-Client-Secret" to "rotated"))
+        assertNull(TourStore(dir, rotated).get("o/r#1"))
+        assertEquals("owned-access", TourStore(dir, source).get("o/r#1")?.generatedAt)
+    }
+
 }

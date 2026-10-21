@@ -36,7 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.data.ENGINES
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerConfig

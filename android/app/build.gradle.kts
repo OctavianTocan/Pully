@@ -15,8 +15,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 73
-        versionName = "0.56.0"
+        versionCode = 74
+        versionName = "0.57.0"
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
@@ -135,6 +135,7 @@ tasks.withType<Test>().configureEach {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":shared-client"))
     implementation(project(":shared-ui"))
     val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
     implementation(composeBom)

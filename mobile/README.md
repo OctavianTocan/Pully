@@ -1,12 +1,18 @@
-# Shared Pully mobile foundation
+# Shared Pully mobile code
 
 Android and iOS build these same Kotlin source directories. Android includes the
 modules from `android/settings.gradle.kts`; the standalone `mobile` root lets the
 Apple host build them without configuring the Android application. `mobile/gradlew`
 delegates to the existing pinned Android wrapper (Gradle 9.6.0).
 
-The shared modules contain ten existing core domain units plus the existing data
-models/parsers, triage and stack policies. The same palettes, typography, font
+`shared-domain` contains the existing core policies, wire models/parsers, triage,
+stacks and portable pull targets. `shared-client` contains the existing Repo feature
+methods and RPC envelopes, with injected configuration, source identity, transport,
+clock and timing events. Neither module depends on Compose or native app services.
+
+`shared-ui` retains the existing Compose-reactive AppSettings and ReviewSession,
+with native preference/effect/cache adapters. Android keeps its existing preference
+keys and factories. The same palettes, typography, font
 preferences, Lu icons, spacing/radii and complete production pull request/stack
 rows serve both hosts. Android's Inbox and repository lists call that shared row;
 its Tours retain their persisted-entry adapter over the shared frame and check mark.
@@ -18,9 +24,11 @@ The iOS app is an **internal preview with fixture rows**, rendering the actual
 production row function and models rather than a second presentation of them.
 Both hosts load the same 12 locale files, with the existing plural/interpolation
 rules and English fallback. Shared status marks honor native reduced-motion
-settings. The iOS host does not yet connect to a server or support account, review,
-diff, AI, persistence or notifications. It is not a usable full Pully client. The next
-slices share existing screens and their client/session dependencies in the order
+settings. The iOS fixture controller does not yet connect the shared client/session
+to an account or expose review, diff, AI, settings or notification flows. Native
+Keychain/configuration/Google adapters and UserDefaults storage are implemented for
+that wiring; their presence does not make the fixture a full Pully client. The next
+slices share existing screens in the order
 specified by the accepted iOS implementation plan; they must keep Android working.
 
 ## Toolchain
@@ -48,7 +56,7 @@ Use Java 21 and an Android SDK containing `platforms;android-37.0` and
 
 ```sh
 cd android
-./gradlew :shared-domain:jvmTest :shared-ui:testAndroidHostTest :core:test :app:testDebugUnitTest :app:assembleDebug
+./gradlew :shared-domain:jvmTest :shared-client:jvmTest :shared-ui:testAndroidHostTest :core:test :app:testDebugUnitTest :app:assembleDebug
 cd ..
 pnpm run android:design
 pnpm run android:design:test
@@ -57,8 +65,20 @@ node --test android/scripts/release.test.mjs
 ```
 
 The moved common domain tests run under `:shared-domain:jvmTest` and the iOS
-simulator; `:core:test` retains JVM-specific tests. Shared localization tests run
-under `:shared-ui:testAndroidHostTest` and `:shared-ui:iosSimulatorArm64Test`.
+simulator; `:core:test` retains JVM-specific tests. Shared localization, settings and
+review-session tests run under `:shared-ui:testAndroidHostTest` and
+`:shared-ui:iosSimulatorArm64Test`. `:shared-client:jvmTest` includes real local HTTP
+tests; its common protocol tests also run on Native. The separate
+`:shared-client:iosSimulatorArm64IntegrationTest` executes the real NSURLSession
+adapter against an explicit loopback fixture; see
+[the fixture commands](../ios/scripts/README-rpc-fixture.md). Missing fixture
+configuration fails that integration task instead of silently skipping it.
+
+Review caches are app-owned, source-scoped and bounded. Native identity changes
+clear old private state and cancel observation; an old response cannot restore it.
+Task polling reconnects after transport errors and accepts only authoritative
+terminal statuses and current revisions. Detaching a route stops observation,
+while server-owned work continues until an explicit cancellation RPC.
 Portable timestamp parsing retains the former Java parser's accepted offset,
 fraction, leap-second and midnight forms, as well as null for invalid or overflowing
 epoch milliseconds. Existing and focused common parser regressions cover that
@@ -76,6 +96,6 @@ distribution secrets or paid Apple team. Final Apple framework/app compilation
 requires the supported macOS/Xcode host; Linux JVM/Android success alone does not
 validate iOS compilation, signing, device behavior or App Store distribution.
 
-Runtime changes in either shared module trigger Android verification and the
+Runtime changes in any shared module trigger Android verification and the
 required Android release/version gate. All `CONTRACTS` files continue to enter
 Android's generated contract bundle automatically, including the shared modules.

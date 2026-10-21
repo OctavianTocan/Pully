@@ -575,6 +575,7 @@
   "ai": {
     "loading": "Loading…",
     "working": "Working",
+    "reconnecting": "Menghubungkan kembali",
     "workingFor": "Working for {duration}",
     "workedFor": "Worked for {duration}",
     "stoppedAfter": "Stopped after {duration}",

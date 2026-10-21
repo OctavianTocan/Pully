@@ -25,3 +25,19 @@ Parsing a saved critique MUST retain its head SHA, variant and immutable revisio
 Missing variant or revision MUST remain absent so legacy display data cannot become
 authority to post an unidentified result. Source: `data-posts-selected-critique-revision`,
 repository review 15 Oct 2026 finding 8; retained by the 21 Oct 2026 shared-code decision.
+
+@cc [owner:OctavianTocan,label:security] shared-server-base-has-no-credentials
+The configured server base MUST be an absolute HTTP(S) address without userinfo,
+query, fragment, whitespace or ambiguous authority escapes. Invalid addresses MUST
+fail without reflecting credentials in the error. Passwords and sessions MUST use
+HTTPS except for localhost, 127.0.0.1 and 10.0.2.2 development hosts. Source:
+`data-no-user-credentials`, Devin Review on PR 58, and the accepted 21 Oct 2026 iOS
+client extraction and origin-confinement plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] source-cache-namespace-includes-authorization
+Durable private cache namespaces MUST distinguish normalized server, eligible account
+identity and configured Access authorization. Header names and order MUST be canonical;
+session renewal for the same eligible owner MUST NOT change the namespace. Only an
+opaque digest MAY leave namespace derivation; raw credentials MUST NOT be persisted or
+logged. Invalid server configuration MUST produce no namespace. Source: the accepted
+21 Oct iOS source-identity plan and its explicit account/server cache boundary.

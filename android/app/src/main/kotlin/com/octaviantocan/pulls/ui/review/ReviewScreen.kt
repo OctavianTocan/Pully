@@ -105,13 +105,20 @@ private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should 
  */
 @Composable
 fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other", place: com.octaviantocan.pulls.ui.PlaceRequest? = null, initialAIResult: String? = null) {
+    ReviewSessionRoute(target, reviewSessionCache(LocalContext.current)) {
+        ReviewScreenContent(target, nav, startOnTour, openedFrom, place, initialAIResult)
+    }
+}
+
+@Composable
+private fun ReviewScreenContent(target: OpenTarget, nav: Nav, startOnTour: Boolean, openedFrom: String, place: com.octaviantocan.pulls.ui.PlaceRequest?, initialAIResult: String?) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
     val messages = LocalMessages.current
     val c = LocalPullsColors.current
     val session = remember(target) {
-        ReviewSession(target, Repo(context), scope, AppSettings.get(context), TourStore.get(context), openedFrom).also { it.load() }
+        androidReviewSession(context, target, Repo(context), scope, AppSettings.get(context), TourStore.get(context), openedFrom).also { it.load() }
     }
     DisposableEffect(session) { onDispose { session.detach() } }
     // The title and number the phone already knows, for the page to show while the rest loads.

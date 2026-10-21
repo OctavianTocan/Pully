@@ -29,8 +29,8 @@ data class FeedbackReport(
     val theme: String,
     val locale: String,
     val sentAt: String,
-) {
-    fun toJson(): JsonObject = buildJsonObject {
+) : FeedbackPayload {
+    override fun toJson(): JsonObject = buildJsonObject {
         put("text", text.trim())
         put("app", buildJsonObject { put("version", version); put("versionCode", versionCode) })
         put("screen", screen)
@@ -63,11 +63,6 @@ data class FeedbackReport(
         }
     }
 }
-
-/** A note the account kept, as the Feedback page lists it: its first words, when, and whether an agent has done it. */
-data class FeedbackItem(val id: String, val text: String, val createdAt: String, val done: Boolean)
-
-internal fun JsonObject.asFeedbackItem() = FeedbackItem(s("id"), s("text"), s("createdAt"), s("status") == "done")
 
 /**
  * What is typed in Feedback and not sent yet. It outlives the sheet, so closing it by a stray swipe, or a send that

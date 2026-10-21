@@ -80,25 +80,102 @@ jobs:
           echo "udid=$pully_simulator_id" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$pully_simulator_id"
           xcrun simctl bootstatus "$pully_simulator_id" -b
+      - name: Test native account storage and configuration rules
+        run: swift test --package-path ios/NativeServices
+      - name: Test native account and Google SDK rules on the iOS simulator
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        working-directory: ios/NativeServices
+        run: |
+          xcodebuild -quiet -scheme PullyNative \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ../build/NativeServices \
+            -resultBundlePath ../build/NativeServices.xcresult \
+            -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO
+      - name: Test actual Keychain in an ad-hoc signed simulator app host
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        run: |
+          python3 -B -m unittest discover -s ios/scripts -p 'test_keychain_test_host.py'
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/KeychainDerivedData \
+            -parallel-testing-enabled NO build-for-testing \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+          pully_keychain_host=ios/build/KeychainDerivedData/Build/Products/Debug-iphonesimulator/PullyNativeKeychainHost.app
+          codesign --verify --strict "$pully_keychain_host"
+          codesign --display --entitlements :- "$pully_keychain_host" > ios/build/KeychainHost.entitlements.plist
+          python3 ios/scripts/verify-keychain-test-host.py \
+            "$pully_keychain_host" ios/build/KeychainHost.entitlements.plist ios/build/KeychainEntitlements
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/KeychainDerivedData \
+            -resultBundlePath ios/build/Keychain.xcresult \
+            -parallel-testing-enabled NO test-without-building \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+      - name: Test actual Darwin RPC transport against loopback HTTP
+        id: rpc
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        run: |
+          mkdir -p ios/build
+          pully_fixture_dir=$(mktemp -d "$RUNNER_TEMP/pully-rpc-fixture.XXXXXX")
+          python3 ios/scripts/rpc-fixture.py --state-dir "$pully_fixture_dir" \
+            > ios/build/rpc-fixture.log 2>&1 &
+          pully_fixture_pid=$!
+          trap 'kill "$pully_fixture_pid" 2>/dev/null || true; wait "$pully_fixture_pid" 2>/dev/null || true' EXIT
+          for pully_attempt in $(seq 1 100); do
+            test -s "$pully_fixture_dir/url" && break
+            kill -0 "$pully_fixture_pid"
+            sleep 0.1
+          done
+          test -s "$pully_fixture_dir/url"
+          cd mobile
+          ./gradlew :shared-client:iosSimulatorArm64IntegrationTest \
+            -Ppully.rpcFixtureUrl="$(cat "$pully_fixture_dir/url")" \
+            -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
+      - name: Print actual Darwin RPC assertion failures
+        if: ${{ !cancelled() && steps.rpc.outcome == 'failure' }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          failures = 0
+          for report in sorted(Path('mobile/shared-client/build/test-results').rglob('TEST-*.xml')):
+              for case in ET.parse(report).getroot().iter('testcase'):
+                  for failure in list(case.findall('failure')) + list(case.findall('error')):
+                      failures += 1
+                      print('::group::' + case.get('classname', '') + '.' + case.get('name', ''))
+                      print(failure.get('message', ''))
+                      print(failure.text or '')
+                      print('::endgroup::')
+          if failures == 0:
+              raise SystemExit('Darwin RPC task failed without an XML assertion report; inspect its Gradle output.')
+          PY
       - name: Test shared domain on JVM and iOS; link Compose framework
+        id: shared
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: mobile
         run: |
-          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
+          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
+            :shared-client:jvmTest :shared-client:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
             :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
             -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
       - name: Build and test the unsigned iOS host
+        id: host
+        if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
         run: |
-          xcodebuild -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/DerivedData \
             -resultBundlePath ios/build/Pully.xcresult \
             -parallel-testing-enabled NO \
             test CODE_SIGNING_ALLOWED=NO
       - name: Verify original Pully fonts and canonical locales are bundled
+        if: ${{ !cancelled() && steps.host.outcome == 'success' }}
         run: |
           python3 ios/scripts/verify-bundled-fonts.py \
             ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app
       - name: Package the unsigned simulator app
+        if: ${{ !cancelled() && steps.host.outcome == 'success' }}
         run: |
           ditto -c -k --sequesterRsrc --keepParent \
             ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app \
@@ -126,10 +203,19 @@ jobs:
           name: ios-simulator-evidence
           path: |
             ios/build/Pully.xcresult
+            ios/build/NativeServices.xcresult
+            ios/build/Keychain.xcresult
+            ios/build/KeychainHost.entitlements.plist
+            ios/build/KeychainEntitlements
             ios/build/Pully-simulator.zip
             ios/build/screenshots
             ios/build/diagnostics
+            ios/build/rpc-fixture.log
             mobile/shared-domain/build/reports/tests
+            mobile/shared-client/build/reports/tests
+            mobile/shared-client/build/test-results
+            mobile/shared-ui/build/reports/tests
+            mobile/shared-ui/build/test-results
           if-no-files-found: ignore
       - name: Retain the downloaded Native toolchain for compiler iterations
         if: always() && steps.native-cache.outputs.cache-hit != 'true'

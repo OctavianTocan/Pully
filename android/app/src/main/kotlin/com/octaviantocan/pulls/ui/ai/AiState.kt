@@ -12,7 +12,7 @@ import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import kotlinx.serialization.json.JsonObjectBuilder
-import java.util.WeakHashMap
+import com.octaviantocan.pulls.ui.review.SessionStateKey
 
 /**
  * Page-local AI state the web keeps in its critique, share, ask and chat stores, shared by
@@ -49,9 +49,9 @@ internal class AiUi {
     var watched by mutableStateOf(setOf<String>())
 }
 
-private val uis = WeakHashMap<ReviewSession, AiUi>()
+private val aiStateKey = SessionStateKey<AiUi>()
 
-internal fun aiUi(session: ReviewSession): AiUi = synchronized(uis) { uis.getOrPut(session) { AiUi() } }
+internal fun aiUi(session: ReviewSession): AiUi = session.pageState(aiStateKey) { AiUi() }
 
 /** Claude Code, Codex and Pi run as server tasks; other engines can't review, ask or chat (web `isCliEngine`). */
 internal fun cliEngine(context: Context): Boolean = ServerStore.load(context).engine in ENGINES

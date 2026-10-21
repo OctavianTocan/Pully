@@ -16,5 +16,5 @@ private const val STOP_GRACE_MS = 700L
 @Composable
 internal fun guardedStop(session: ReviewSession, kinds: List<String>, running: Boolean, stop: () -> Unit): (() -> Unit)? {
     val latest by rememberUpdatedState(stop)
-    return if (running) ({ if ((System.nanoTime() - session.lastStart(kinds)) / 1_000_000 > STOP_GRACE_MS) latest() }) else null
+    return if (running) ({ if (session.millisSinceLastStart(kinds) > STOP_GRACE_MS) latest() }) else null
 }

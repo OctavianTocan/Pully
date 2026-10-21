@@ -21,7 +21,6 @@
     "ui/home/ProfileStats.kt": 2
   },
   "uppercase": {
-    "data/AppSettings.kt": 1,
     "ui/ai/AiFormat.kt": 1,
     "ui/design/Components.kt": 1,
     "ui/settings/SettingsScreen.kt": 1

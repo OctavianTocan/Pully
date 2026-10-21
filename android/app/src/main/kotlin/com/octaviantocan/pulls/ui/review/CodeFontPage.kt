@@ -16,7 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.ui.design.CodeFont
 import com.octaviantocan.pulls.ui.design.CodeFonts

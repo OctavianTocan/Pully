@@ -85,8 +85,6 @@ private val SHAPE_LABELS = mapOf("calls" to "Call tree", "tree" to "Files", "pse
 /** Fence languages that name no language: the code is shown uncoloured. */
 private val PLAIN_LANGS = setOf("text", "txt", "plain", "plaintext")
 
-/** A particular generated tour read against a particular newer commit, independent of refreshed object instances. */
-internal data class StaleTourIdentity(val originalHead: String, val generatedAt: String, val currentHead: String)
 
 /** Missing commit metadata cannot establish that a tour is stale. */
 internal fun staleTourIdentity(tour: Tour?, currentHead: String?): StaleTourIdentity? {
@@ -177,7 +175,7 @@ internal fun TourRunning(session: ReviewSession, modifier: Modifier) {
     // page as they are written (K13).
     AiActivityLogFull(
         task.activities.filterNot { it.id == "tour-write" || isTourPreview(it) }, running = true, modifier.fillMaxWidth(), startedAt = task.startedAt.takeIf { it > 0 },
-        compact = true, workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop, everyStep = true,
+        compact = true, workingVerb = if (tour != null) "Building the tour" else "Reading the change", onStop = stop, everyStep = true, reconnecting = task.id in session.taskObservationErrors,
     )
 }
 

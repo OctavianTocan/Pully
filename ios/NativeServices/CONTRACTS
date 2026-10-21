@@ -1,0 +1,23 @@
+@cc [owner:OctavianTocan,label:security;architecture] ios-credentials-are-native-and-confined
+The native adapter MUST keep Pully sessions and optional Access credentials in this
+app's non-synchronizing Keychain, accessible only while unlocked on this device.
+Credential records MUST be bound to the normalized configured server and account,
+MUST NOT be returned for another server, and MUST NOT enter URLs, defaults, logs or
+analytics. Native code MUST NOT implement a second Pully RPC client. Source: Tavi's
+21 Oct 2026 maximum-reuse iOS decision, the chosen plan's Authentication section,
+and root phone-api-one-account and google-sign-in-same-account.
+
+@cc [owner:OctavianTocan,label:security;product] ios-account-reset-invalidates-observers
+Sign-out, server changes and credential changes MUST synchronously invalidate the
+active source before another source can be used. A late sign-in or verification
+answer for an earlier source MUST NOT install credentials. A restored Keychain
+session MUST require server verification before it becomes the active account.
+Source: Tavi's 21 Oct 2026 iOS decision and chosen account/cache ownership plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-google-uses-registered-native-client
+Native Google sign-in MUST remain unavailable without a registered iOS client and
+its reversed-client-ID callback scheme. It MUST request an ID token for the
+existing server's web client ID, and MUST leave signature, audience, expiry and
+email-allowlist validation to that server. It MUST NOT add GitHub OAuth or store a
+Google client secret. Source: root google-sign-in-same-account and the chosen
+21 Oct 2026 iOS plan's Authentication section.

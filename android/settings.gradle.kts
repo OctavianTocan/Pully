@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "pulls"
 include(":core")
 include(":app")
-include(":shared-domain", ":shared-ui")
+include(":shared-domain", ":shared-client", ":shared-ui")
 project(":shared-domain").projectDir = file("../mobile/shared-domain")
 project(":shared-ui").projectDir = file("../mobile/shared-ui")
+project(":shared-client").projectDir = file("../mobile/shared-client")
