@@ -177,7 +177,8 @@ async fn different_users_only_resolve_their_own_verified_credential() {
         let identity = resolved.identity().unwrap();
         assert_eq!(identity.account_id().unwrap(), issued.status.account_id);
         let token = identity
-            .github_token(|| panic!("operator token must never be requested"))
+            .github_token(|| async { panic!("operator token must never be requested") })
+            .await
             .unwrap()
             .unwrap();
         assert_eq!(
