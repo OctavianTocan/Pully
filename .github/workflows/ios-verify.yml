@@ -15,7 +15,6 @@ on:
       - android/gradle/**
       - CONTRACTS
       - .github/workflows/ios-verify.yml
-      - .github/workflows/CONTRACTS
   workflow_dispatch:
 
 permissions:
