@@ -50,7 +50,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions {
         super.init()
     }
 
-    nonisolated func copyText(text: String) {
+    nonisolated func doCopyText(text: String) {
         MainActor.assumeIsolated { NativeHomeSystemActions.copyText(text) }
     }
 
