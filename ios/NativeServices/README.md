@@ -90,8 +90,20 @@ remain the existing first-party service; no Pully events are sent to Google's SD
 
 `swift test --package-path ios/NativeServices` runs the source-change, restore,
 failure/retry, defaults confinement and OAuth configuration cases on macOS. The same
-package's iOS simulator tests additionally exercise the real Keychain read/write/
-replace/delete/reset adapter. The iOS workflow runs both before building the host,
+package's iOS simulator suite runs the account/Google SDK cases. The identical real
+Keychain read/write/replace/delete/reset test source is compiled by the separate
+`PullyNativeKeychain` Xcode scheme as an app-hosted unit test. A standalone unsigned
+Swift package XCTest runner lacks the application identity required by Security
+and returns `errSecMissingEntitlement`; this is a test-host requirement, not a
+reason to skip the test or widen the store's access groups.
+
+The native-only test host is ad-hoc signed for the simulator, with its own exact
+application identifier and debugger attachment entitlement. It has no shared
+Keychain/app groups and needs no Apple account, development/distribution identity
+or provisioning secrets. The workflow verifies the built code signature and
+extracts/checks its actual entitlements before executing the real Security APIs.
+The preview Pully app remains separately built unsigned. The workflow runs these
+native suites before building that host,
 and the host resource verifier checks the app-owned privacy declaration is bundled.
 These commands are wired for macOS CI; Linux has no Swift/Xcode toolchain here and
 source/plist inspection is not evidence that the Swift tests or Google flow passed.
@@ -105,3 +117,9 @@ Sources:
 - [Pinned SDK source and release](https://github.com/google/GoogleSignIn-iOS/releases/tag/10.0.0)
 - [Apple UserDefaults required reasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitypereasons)
 - [Apple privacy-manifest structure](https://developer.apple.com/documentation/technotes/tn3183-adding-required-reason-api-entries-to-your-privacy-manifest)
+
+
+Keychain test-host references:
+
+- [Apple DTS: host entitlement-dependent unit tests in an app](https://developer.apple.com/forums/thread/773772)
+- [Apple errSecMissingEntitlement and application identity](https://developer.apple.com/documentation/security/errsecmissingentitlement)

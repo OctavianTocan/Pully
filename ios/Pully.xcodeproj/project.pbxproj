@@ -27,6 +27,9 @@
 		C1000000000000000000000B /* mona_sans_semibold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000B /* mona_sans_semibold.ttf */; };
 		C1000000000000000000000C /* roboto_mono_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000C /* roboto_mono_regular.ttf */; };
 		C1000000000000000000000D /* source_code_pro_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000D /* source_code_pro_regular.ttf */; };
+		F10000000000000000000001 /* HostAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* HostAppDelegate.swift */; };
+		F10000000000000000000002 /* KeychainSecretStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* KeychainSecretStoreTests.swift */; };
+		F10000000000000000000003 /* PullyNative in Frameworks */ = {isa = PBXBuildFile; productRef = F30000000000000000000001 /* PullyNative */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +40,7 @@
 			remoteGlobalIDString = A70000000000000000000001;
 			remoteInfo = Pully;
 		};
+		F60000000000000000000001 = {isa = PBXContainerItemProxy; containerPortal = A90000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = F70000000000000000000001; remoteInfo = PullyNativeKeychainHost; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -63,11 +67,18 @@
 		C2000000000000000000000B /* mona_sans_semibold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = mona_sans_semibold.ttf; sourceTree = "<group>"; };
 		C2000000000000000000000C /* roboto_mono_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_mono_regular.ttf; sourceTree = "<group>"; };
 		C2000000000000000000000D /* source_code_pro_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = source_code_pro_regular.ttf; sourceTree = "<group>"; };
+		F20000000000000000000001 /* HostAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAppDelegate.swift; sourceTree = "<group>"; };
+		F20000000000000000000002 /* KeychainSecretStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = KeychainSecretStoreTests.swift; path = NativeServices/Tests/PullyNativeTests/KeychainSecretStoreTests.swift; sourceTree = SOURCE_ROOT; };
+		F20000000000000000000003 /* Host.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Host.entitlements; sourceTree = "<group>"; };
+		F20000000000000000000004 /* PullyNativeKeychainHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PullyNativeKeychainHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F20000000000000000000005 /* PullyNativeKeychainTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PullyNativeKeychainTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A40000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D10000000000000000000002 /* PullyNative in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
 		A40000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F40000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F40000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (F10000000000000000000003 /* PullyNative in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -76,6 +87,7 @@
 			children = (
 				A50000000000000000000002 /* Pully */,
 				A50000000000000000000003 /* PullyUITests */,
+				F50000000000000000000001 /* NativeKeychainTests */,
 				A50000000000000000000005 /* Fonts */,
 				C20000000000000000000020 /* code-fonts.txt */,
 				C20000000000000000000021 /* i18n */,
@@ -106,6 +118,8 @@
 			children = (
 				A20000000000000000000006 /* Pully.app */,
 				A20000000000000000000007 /* PullyUITests.xctest */,
+				F20000000000000000000004 /* PullyNativeKeychainHost.app */,
+				F20000000000000000000005 /* PullyNativeKeychainTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -129,6 +143,12 @@
 			);
 			name = Fonts;
 			path = ../android/app/src/main/res/font;
+			sourceTree = "<group>";
+		};
+		F50000000000000000000001 /* NativeKeychainTests */ = {
+			isa = PBXGroup;
+			children = (F20000000000000000000001 /* HostAppDelegate.swift */, F20000000000000000000002 /* KeychainSecretStoreTests.swift */, F20000000000000000000003 /* Host.entitlements */,);
+			path = NativeKeychainTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -166,6 +186,30 @@
 			productReference = A20000000000000000000007 /* PullyUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		F70000000000000000000001 /* PullyNativeKeychainHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FB0000000000000000000001;
+			buildPhases = (F80000000000000000000001 /* Sources */, F40000000000000000000001 /* Frameworks */, FA0000000000000000000001 /* Resources */,);
+			buildRules = ();
+			dependencies = ();
+			name = PullyNativeKeychainHost;
+			packageProductDependencies = ();
+			productName = PullyNativeKeychainHost;
+			productReference = F20000000000000000000004;
+			productType = "com.apple.product-type.application";
+		};
+		F70000000000000000000002 /* PullyNativeKeychainTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FB0000000000000000000002;
+			buildPhases = (F80000000000000000000002 /* Sources */, F40000000000000000000002 /* Frameworks */, FA0000000000000000000002 /* Resources */,);
+			buildRules = ();
+			dependencies = (F60000000000000000000002,);
+			name = PullyNativeKeychainTests;
+			packageProductDependencies = (F30000000000000000000001 /* PullyNative */,);
+			productName = PullyNativeKeychainTests;
+			productReference = F20000000000000000000005;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -176,6 +220,8 @@
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2640;
 				TargetAttributes = {
+					F70000000000000000000001 = {CreatedOnToolsVersion = 26.4; };
+					F70000000000000000000002 = {CreatedOnToolsVersion = 26.4; TestTargetID = F70000000000000000000001; };
 					A70000000000000000000001 = {CreatedOnToolsVersion = 26.4; };
 					A70000000000000000000002 = {CreatedOnToolsVersion = 26.4; TestTargetID = A70000000000000000000001; };
 				};
@@ -193,6 +239,8 @@
 			targets = (
 				A70000000000000000000001 /* Pully */,
 				A70000000000000000000002 /* PullyUITests */,
+				F70000000000000000000001 /* PullyNativeKeychainHost */,
+				F70000000000000000000002 /* PullyNativeKeychainTests */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +271,8 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AA0000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		FA0000000000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		FA0000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -256,10 +306,13 @@
 			files = (A10000000000000000000004 /* PullyLaunchTests.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F80000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F10000000000000000000001 /* HostAppDelegate.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		F80000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F10000000000000000000002 /* KeychainSecretStoreTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		AB0000000000000000000001 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A70000000000000000000001 /* Pully */; targetProxy = A30000000000000000000001 /* PBXContainerItemProxy */; };
+		F60000000000000000000002 = {isa = PBXTargetDependency; target = F70000000000000000000001 /* PullyNativeKeychainHost */; targetProxy = F60000000000000000000001; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -367,12 +420,42 @@
 			};
 			name = Release;
 		};
+		FC0000000000000000000011 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
+			CODE_SIGN_ENTITLEMENTS = NativeKeychainTests/Host.entitlements;
+			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests; PRODUCT_NAME = "$(TARGET_NAME)";
+			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
+		}; name = Debug; };
+		FC0000000000000000000012 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
+			CODE_SIGN_ENTITLEMENTS = NativeKeychainTests/Host.entitlements;
+			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests; PRODUCT_NAME = "$(TARGET_NAME)";
+			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
+		}; name = Release; };
+		FC0000000000000000000021 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
+			BUNDLE_LOADER = "$(TEST_HOST)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PullyNativeKeychainHost.app/PullyNativeKeychainHost";
+			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests.unit-tests; PRODUCT_NAME = "$(TARGET_NAME)";
+			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
+		}; name = Debug; };
+		FC0000000000000000000022 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+			CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CODE_SIGNING_ALLOWED = YES; DEVELOPMENT_TEAM = "";
+			BUNDLE_LOADER = "$(TEST_HOST)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PullyNativeKeychainHost.app/PullyNativeKeychainHost";
+			GENERATE_INFOPLIST_FILE = YES; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@loader_path/Frameworks",);
+			PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.native-keychain-tests.unit-tests; PRODUCT_NAME = "$(TARGET_NAME)";
+			SUPPORTED_PLATFORMS = iphonesimulator; SUPPORTS_MACCATALYST = NO; TARGETED_DEVICE_FAMILY = 1; SKIP_INSTALL = YES;
+		}; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		B20000000000000000000001 /* Build configuration list for PBXProject "Pully" */ = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000001 /* Debug */, B10000000000000000000002 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		B20000000000000000000002 /* Build configuration list for PBXNativeTarget "Pully" */ = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000003 /* Debug */, B10000000000000000000004 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		B20000000000000000000003 /* Build configuration list for PBXNativeTarget "PullyUITests" */ = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000005 /* Debug */, B10000000000000000000006 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		FB0000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (FC0000000000000000000011 /* Debug */, FC0000000000000000000012 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug; };
+		FB0000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (FC0000000000000000000021 /* Debug */, FC0000000000000000000022 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug; };
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -387,6 +470,7 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = PullyNative;
 		};
+		F30000000000000000000001 /* PullyNative */ = {isa = XCSwiftPackageProductDependency; productName = PullyNative; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A90000000000000000000001 /* Project object */;

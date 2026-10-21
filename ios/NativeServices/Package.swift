@@ -15,7 +15,13 @@ let package = Package(
                 .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS", condition: .when(platforms: [.iOS])),
             ]
         ),
-        .testTarget(name: "PullyNativeTests", dependencies: ["PullyNative"]),
+        // Keychain requires an app's signed identity. The Xcode PullyNativeKeychain scheme
+        // compiles that same source as an app-hosted unit test, without mocking Security.
+        .testTarget(
+            name: "PullyNativeTests",
+            dependencies: ["PullyNative"],
+            exclude: ["KeychainSecretStoreTests.swift"]
+        ),
     ],
     swiftLanguageModes: [.v5]
 )

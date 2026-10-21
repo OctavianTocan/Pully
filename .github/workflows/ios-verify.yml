@@ -82,7 +82,7 @@ jobs:
           xcrun simctl bootstatus "$pully_simulator_id" -b
       - name: Test native account storage and configuration rules
         run: swift test --package-path ios/NativeServices
-      - name: Test the actual iOS Keychain adapter
+      - name: Test native account and Google SDK rules on the iOS simulator
         working-directory: ios/NativeServices
         run: |
           xcodebuild -scheme PullyNative \
@@ -90,6 +90,24 @@ jobs:
             -derivedDataPath ../build/NativeServices \
             -resultBundlePath ../build/NativeServices.xcresult \
             -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO
+      - name: Test actual Keychain in an ad-hoc signed simulator app host
+        run: |
+          xcodebuild -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/KeychainDerivedData \
+            -parallel-testing-enabled NO build-for-testing \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+          pully_keychain_host=ios/build/KeychainDerivedData/Build/Products/Debug-iphonesimulator/PullyNativeKeychainHost.app
+          codesign --verify --strict "$pully_keychain_host"
+          codesign --display --entitlements :- "$pully_keychain_host" > ios/build/KeychainHost.entitlements.plist
+          python3 ios/scripts/verify-keychain-test-host.py \
+            "$pully_keychain_host" ios/build/KeychainHost.entitlements.plist
+          xcodebuild -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/KeychainDerivedData \
+            -resultBundlePath ios/build/Keychain.xcresult \
+            -parallel-testing-enabled NO test-without-building \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
       - name: Test shared domain on JVM and iOS; link Compose framework
         working-directory: mobile
         run: |
@@ -156,6 +174,8 @@ jobs:
           path: |
             ios/build/Pully.xcresult
             ios/build/NativeServices.xcresult
+            ios/build/Keychain.xcresult
+            ios/build/KeychainHost.entitlements.plist
             ios/build/Pully-simulator.zip
             ios/build/screenshots
             ios/build/diagnostics

@@ -1,11 +1,12 @@
 #if os(iOS)
 import Foundation
 import XCTest
-@testable import PullyNative
+import PullyNative
 
 /// Run on the iOS simulator/device: macOS command-line Keychain behavior is a different platform adapter.
 final class KeychainSecretStoreTests: XCTestCase {
     func testAppPrivateCredentialRoundTripReplacementAndReset() throws {
+        XCTAssertEqual(Bundle.main.bundleIdentifier, "com.octaviantocan.pully.native-keychain-tests")
         let store = KeychainSecretStore(service: "PullyNativeTests.\(UUID().uuidString)")
         defer { try? store.removeAll() }
         XCTAssertNil(try store.read("fixture"))
