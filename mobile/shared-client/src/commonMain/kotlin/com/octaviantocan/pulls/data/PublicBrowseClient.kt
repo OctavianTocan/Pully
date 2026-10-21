@@ -77,8 +77,6 @@ class PublicBrowseClient(private val transport: RpcTransport, private val genera
         requireCurrent(source)
         return try {
             withTimeout(60_000) {
-                // The app has one public read transaction at a time. A visibility denial
-                // cannot overtake an older PR response and then be undone by that response.
                 pullReads.withLock { publicPulls(owner, name, page, source, repositoryId) }
             }
         } catch (timeout: TimeoutCancellationException) {

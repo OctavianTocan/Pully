@@ -22,7 +22,6 @@ object NativeEntry {
     fun select(context: Context, mode: NativeEntryMode) {
         val entry = get(context)
         if (entry.mode == mode) return
-        // Revoke retained page/request authority before any new branch is composed.
         entry.select(mode)
         RepoIdentity.invalidate()
         context.getSharedPreferences("pully-entry", Context.MODE_PRIVATE).edit().putString("mode", mode.name).apply()
