@@ -19,7 +19,6 @@ import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.onboarding.ConnectionSetupScreen
 import kotlinx.coroutines.launch
 
-/** Failed account discovery is actionable on a fresh install without covering a verified offline account. */
 @Composable
 internal fun ConnectionSetupGate(onLeave: () -> Unit) {
     val context = LocalContext.current
@@ -39,7 +38,6 @@ internal fun ConnectionSetupGate(onLeave: () -> Unit) {
     }
 }
 
-/** The same Server fields used by Settings, reachable even when the sign-in screen covers navigation. */
 @Composable
 internal fun ServerConnectionSheet(onClose: () -> Unit) {
     PullsSheet(onClose, t("connection.serverSettings"), expandable = false) {

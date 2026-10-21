@@ -55,10 +55,14 @@ object Account {
         }
         val configured = ServerStore.load(context).url.trim()
         val restored = restoreAccountConnection(
-            configured, session != null, server, prefs.getString("email", null),
-            prefs.getString("statusServer", null),
-            if (prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null,
-            prefs.getString("googleClientId", null), prefs.getString("verifiedServer", null),
+            configured = configured,
+            hasSession = session != null,
+            sessionServer = server,
+            storedEmail = prefs.getString("email", null),
+            statusServer = prefs.getString("statusServer", null),
+            hasAccount = if (prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null,
+            googleClientId = prefs.getString("googleClientId", null),
+            verifiedServer = prefs.getString("verifiedServer", null),
         )
         email = restored.email
         serverHasAccount = restored.hasAccount
@@ -77,7 +81,7 @@ object Account {
     fun headers(context: Context, url: String = ServerStore.load(context).url.trim()): Map<String, String> {
         load(context)
         val session = session ?: return emptyMap()
-        return if (sameServer(server, url) && carriesSecrets(url)) mapOf("X-Pully-Session" to session) else emptyMap()
+        return if (sameAccountServer(server, url) && carriesSecrets(url)) mapOf("X-Pully-Session" to session) else emptyMap()
     }
 
     fun signedIn(context: Context, session: String, email: String) {
@@ -151,12 +155,9 @@ object Account {
         googleClientId = null
         val configured = ServerStore.load(context).url.trim()
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        email = prefs.getString("email", null)?.takeIf { session != null && sameServer(server, configured) }
+        email = prefs.getString("email", null)?.takeIf { session != null && sameAccountServer(server, configured) }
         connectionVerified = email != null
         prefs.edit().remove("hasAccount").remove("googleClientId").remove("statusServer").remove("verifiedServer").apply()
     }
 
-    private fun sameServer(saved: String?, configured: String): Boolean = saved != null && runCatching {
-        ServerEndpoint.parse(saved).base == ServerEndpoint.parse(configured).base
-    }.getOrDefault(false)
 }

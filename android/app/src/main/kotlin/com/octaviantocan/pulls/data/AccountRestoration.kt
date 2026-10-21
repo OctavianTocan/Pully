@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.data
 
-/** Source evidence from durable preferences, without retaining any session credential. */
 internal data class RestoredAccountConnection(
     val email: String?,
     val hasAccount: Boolean?,
@@ -18,17 +17,19 @@ internal fun restoreAccountConnection(
     googleClientId: String?,
     verifiedServer: String?,
 ): RestoredAccountConnection {
-    fun matches(saved: String?): Boolean = saved != null && runCatching {
-        ServerEndpoint.parse(saved).base == ServerEndpoint.parse(configured).base
-    }.getOrDefault(false)
-    val email = storedEmail?.takeIf { hasSession && matches(sessionServer) }
+    val email = storedEmail?.takeIf { hasSession && sameAccountServer(sessionServer, configured) }
     // Older versions did not record which server supplied these capabilities. Rediscover
     // instead of assigning that unmarked data to whichever server is configured now.
-    val status = hasAccount.takeIf { matches(statusServer) }
+    val statusMatches = sameAccountServer(statusServer, configured)
+    val status = hasAccount.takeIf { statusMatches }
     return RestoredAccountConnection(
         email,
         status,
-        googleClientId.takeIf { matches(statusServer) },
-        matches(verifiedServer) || status != null || email != null,
+        googleClientId.takeIf { statusMatches },
+        sameAccountServer(verifiedServer, configured) || status != null || email != null,
     )
 }
+
+internal fun sameAccountServer(saved: String?, configured: String): Boolean = saved != null && runCatching {
+    ServerEndpoint.parse(saved).base == ServerEndpoint.parse(configured).base
+}.getOrDefault(false)
