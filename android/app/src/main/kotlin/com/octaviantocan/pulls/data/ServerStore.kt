@@ -56,6 +56,7 @@ object ServerStore {
             .putString("engine", config.engine.trim().ifBlank { "claude-code" })
             .putString("model", config.model.trim())
             .apply()
+        if (sourceChanged) Account.connectionChanged(context)
         if (sourceChanged) com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
 }

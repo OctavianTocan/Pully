@@ -26,7 +26,10 @@ Settings, Sounds has a Vibration switch, and with it off nothing vibrates (rule 
 
 @cc [owner:OctavianTocan,label:product] settings-server-is-advanced
 The server address, the Access token, Past versions and the UI Book sit under an
-Advanced row at the bottom of Settings, not on its main page (H9).
+Advanced row at the bottom of Settings, not on its main page (H9). The first-connection
+and sign-in screens MAY open the same Server settings directly so configuration can
+be corrected while normal navigation is covered. Tavi's 21 Oct 2026 reinstall/setup
+request adds this recovery entry point without moving the main Settings rows.
 
 @cc [owner:OctavianTocan,label:product] settings-model-row-names-the-model
 The Model row shows the chosen model's name and the engine's own mark in colour, never a

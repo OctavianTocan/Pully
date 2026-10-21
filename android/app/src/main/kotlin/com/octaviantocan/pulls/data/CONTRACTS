@@ -7,6 +7,16 @@ full. The account's password is sent once, to sign in, and never stored (Tavi, 1
 and session MUST NOT go over plain HTTP except to this phone or the emulator's host
 (Devin Review on PR 58).
 
+@cc [owner:OctavianTocan,label:product;security] data-account-discovery-keeps-evidence
+A fresh private-server installation MUST retain discovery failures as actionable
+connection state instead of silently presenting an empty connected Inbox. A successful
+Pully response MAY establish connectivity without inventing account capabilities for
+an older server. HTML, non-RPC authentication failures, unavailable or malformed account
+responses MUST NOT forget an existing session. A source change MUST retire discovered
+capabilities and hide an identity belonging to a different server; stale checks MUST
+NOT overwrite the current source or a newer check. Source: Tavi's 21 Oct 2026 reinstall
+screenshot and request for clear account/connection guidance.
+
 @cc [owner:OctavianTocan,label:product] data-settings-sync
 While signed in, the phone's choices of look, language, layout, fonts, code size, sounds,
 vibration, AI effort and Analyze, which repositories the Inbox hides and the Inbox chip

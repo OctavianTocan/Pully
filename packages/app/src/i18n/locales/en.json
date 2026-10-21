@@ -1,4 +1,26 @@
 {
+  "connection": {
+    "welcome": "Welcome to Pully",
+    "intro": "Read pull requests, explore changes and follow reviews.",
+    "serverSettings": "Server settings",
+    "checking": "Connecting…",
+    "saved": "Saved. Pully is connected.",
+    "emptyInbox": "Paste a GitHub pull request link below to open one.",
+    "problem": {
+      "FirstConnection": "Choose a Pully server to get started. It may ask you to sign in after connecting.",
+      "Configuration": "Check the server address. If your server needs Access credentials, enter both fields.",
+      "Access": "This server needs access authorization before Pully can connect. Check Server settings or ask the person who runs it.",
+      "HttpRejected": "The server did not allow Pully to connect. Check the server address or ask the person who runs it.",
+      "WebPage": "Your server opened a web page instead of Pully. Check its address or access settings, then try again.",
+      "SignIn": "Your server could not confirm your account. Try again or check Server settings.",
+      "Forbidden": "Your account does not have access to this request. Check the account or server you are using.",
+      "Redirect": "Your server sent Pully to another address. Check the server address and access settings.",
+      "Unavailable": "Your server is not available right now. Try again in a moment.",
+      "InvalidResponse": "Your server did not send a response Pully can use. Check its address, then try again.",
+      "Timeout": "Your server took too long to respond. Check your connection and try again.",
+      "Unreachable": "Pully could not reach your server. Check your connection or Server settings, then try again."
+    }
+  },
   "mobilePreview": {
     "title": "Pully internal preview",
     "fixtureData": "Fixture data",

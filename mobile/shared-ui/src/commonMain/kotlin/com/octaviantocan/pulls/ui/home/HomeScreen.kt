@@ -158,6 +158,8 @@ import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.SoftChip
 import com.octaviantocan.pulls.ui.design.edgeFade
@@ -378,7 +380,7 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(),
                         sort = sort, groupBy = groupBy, folded = layout.folded, onFold = { section -> layout.toggle(section.key) },
-                        onRetry = reload, onCommands = { services.commands() },
+                        onRetry = reload, onCommands = { services.commands() }, onSettings = nav.settings,
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it }, viewer = viewer,
                         onPress = services::warmReview,
@@ -598,6 +600,7 @@ fun InboxList(
     onHoldPosted: (PostedRow) -> Unit = {},
     /** A stack's row was tapped or held: its layers, bottom first, for the Stack sheet (rule 202). */
     onStack: (List<PullRow>) -> Unit = {},
+    onSettings: (() -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
@@ -671,7 +674,12 @@ fun InboxList(
             when {
                 loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
-                    ListNote(t("local.home.failed"), hint = failed) { FloatIcon(Lu.redo, "Load the list again", onRetry, flat = true, iconSize = 22.dp, tint = c.muted) }
+                    ListNote(t("local.home.failed"), hint = failed) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PullsSpace.x3)) {
+                            FloatIcon(Lu.redo, "Load the list again", onRetry, flat = true, iconSize = 22.dp, tint = c.muted)
+                            onSettings?.let { PillButton(t("common.settings"), it) }
+                        }
+                    }
                 }
                 sections.isEmpty() && posted.isEmpty() -> item(key = "empty") {
                     val title = when {
@@ -680,7 +688,7 @@ fun InboxList(
                         filter == "authored" -> "You have no open pull requests"
                         else -> t("local.home.empty")
                     }
-                    ListNote(title)
+                    ListNote(title, hint = if (!searching && filter == "all") t("connection.emptyInbox") else null)
                 }
                 else -> {
                     sections.forEachIndexed { index, section ->

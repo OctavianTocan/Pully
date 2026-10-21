@@ -32,19 +32,33 @@ object Account {
     var googleClientId by mutableStateOf<String?>(null)
         private set
 
+    var connectionVerified by mutableStateOf(false)
+        private set
+    var checkingConnection by mutableStateOf(false)
+        private set
+    var connectionProblem by mutableStateOf<ConnectionProblem?>(null)
+        private set
+    private var checkRevision = 0L
+
+    /** Account discovery has not yet reached a Pully server on this installation/source. */
+    val needsConnectionHelp: Boolean get() = !connectionVerified && serverHasAccount == null && email == null
+
     fun load(context: Context) {
         if (loaded) return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         session = prefs.getString("session", null)
-        email = prefs.getString("email", null)?.takeIf { session != null }
         server = prefs.getString("server", null)
         // A session kept before it was tied to a server belongs to the one the phone uses now.
         if (session != null && server == null) {
             server = ServerStore.load(context).url.trim()
             prefs.edit().putString("server", server).apply()
         }
-        serverHasAccount = if (prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null
-        googleClientId = prefs.getString("googleClientId", null)
+        val configured = ServerStore.load(context).url.trim()
+        email = prefs.getString("email", null)?.takeIf { session != null && sameServer(server, configured) }
+        val statusServer = prefs.getString("statusServer", configured)
+        serverHasAccount = if (sameServer(statusServer, configured) && prefs.contains("hasAccount")) prefs.getBoolean("hasAccount", false) else null
+        googleClientId = prefs.getString("googleClientId", null)?.takeIf { sameServer(statusServer, configured) }
+        connectionVerified = sameServer(prefs.getString("verifiedServer", null), configured) || serverHasAccount != null || email != null
         loaded = true
     }
 
@@ -58,7 +72,7 @@ object Account {
     fun headers(context: Context, url: String = ServerStore.load(context).url.trim()): Map<String, String> {
         load(context)
         val session = session ?: return emptyMap()
-        return if (url == server && carriesSecrets(url)) mapOf("X-Pully-Session" to session) else emptyMap()
+        return if (sameServer(server, url) && carriesSecrets(url)) mapOf("X-Pully-Session" to session) else emptyMap()
     }
 
     fun signedIn(context: Context, session: String, email: String) {
@@ -66,6 +80,7 @@ object Account {
         RepoIdentity.invalidate()
         this.session = session
         this.email = email
+        connectionVerified = true
         server = ServerStore.load(context).url.trim()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("session", session).putString("email", email).putString("server", server).apply()
@@ -92,7 +107,51 @@ object Account {
         serverHasAccount = status.hasAccount
         googleClientId = status.googleClientId
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putBoolean("hasAccount", status.hasAccount).putString("googleClientId", status.googleClientId).apply()
+            .putBoolean("hasAccount", status.hasAccount).putString("googleClientId", status.googleClientId)
+            .putString("statusServer", ServerStore.load(context).url.trim()).apply()
         if (ownershipChanged) com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
+
+    fun beginConnectionCheck(): Long {
+        checkingConnection = true
+        connectionProblem = null
+        return ++checkRevision
+    }
+
+    fun ownsConnectionCheck(revision: Long): Boolean = checkRevision == revision
+
+    fun connectionAnswered(context: Context, revision: Long) {
+        if (!ownsConnectionCheck(revision)) return
+        connectionVerified = true
+        connectionProblem = null
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("verifiedServer", ServerStore.load(context).url.trim()).apply()
+    }
+
+    fun connectionFailed(revision: Long, problem: ConnectionProblem) {
+        if (ownsConnectionCheck(revision)) connectionProblem = problem
+    }
+
+    fun finishConnectionCheck(revision: Long) {
+        if (ownsConnectionCheck(revision)) checkingConnection = false
+    }
+
+    /** A different server never inherits account capabilities or the previous server's visible identity. */
+    fun connectionChanged(context: Context) {
+        load(context)
+        checkRevision++
+        checkingConnection = false
+        connectionProblem = null
+        serverHasAccount = null
+        googleClientId = null
+        val configured = ServerStore.load(context).url.trim()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        email = prefs.getString("email", null)?.takeIf { session != null && sameServer(server, configured) }
+        connectionVerified = email != null
+        prefs.edit().remove("hasAccount").remove("googleClientId").remove("statusServer").remove("verifiedServer").apply()
+    }
+
+    private fun sameServer(saved: String?, configured: String): Boolean = saved != null && runCatching {
+        ServerEndpoint.parse(saved).base == ServerEndpoint.parse(configured).base
+    }.getOrDefault(false)
 }

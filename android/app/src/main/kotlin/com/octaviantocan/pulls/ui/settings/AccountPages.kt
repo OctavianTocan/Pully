@@ -46,6 +46,12 @@ import com.octaviantocan.pulls.data.GoogleSignIn
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerError
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.data.RepoIdentity
+import com.octaviantocan.pulls.data.ServerEndpoint
+import com.octaviantocan.pulls.data.carriesSecrets
+import com.octaviantocan.pulls.data.checkAccountConnection
+import com.octaviantocan.pulls.data.connectionProblem
+import com.octaviantocan.pulls.data.ConnectionProblem
 import com.octaviantocan.pulls.data.SettingsSync
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -57,6 +63,7 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.ModalReveal
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
@@ -80,29 +87,44 @@ import kotlinx.coroutines.launch
 internal fun AccountCheck() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var epoch by remember { androidx.compose.runtime.mutableLongStateOf(RepoIdentity.generation) }
+    DisposableEffect(Unit) {
+        val unsubscribe = RepoIdentity.observeInvalidation { scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) { epoch = RepoIdentity.generation } }
+        epoch = RepoIdentity.generation
+        onDispose { unsubscribe() }
+    }
+    LaunchedEffect(epoch) { checkAccount(context) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { checkAccount(context) } }
 }
 
-internal suspend fun checkAccount(context: Context) {
+internal suspend fun checkAccount(context: Context): Boolean {
     Account.load(context)
+    val revision = Account.beginConnectionCheck()
     val repo = Repo(context)
-    val status = try {
-        repo.accountStatus()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        // An older server has no accounts to ask about; an unreachable one is asked again on the next return.
-        return
-    }
-    Account.noteServer(context, status)
-    if (!status.hasAccount || Account.email == null) return
     try {
-        if (repo.accountEmail() == null) Account.signedOut(context) else SettingsSync.sync(context)
+        val config = ServerStore.load(context)
+        if (runCatching { ServerEndpoint.parse(config.url) }.isFailure ||
+            config.accessId.isBlank() != config.accessSecret.isBlank() ||
+            config.headers().isNotEmpty() && !carriesSecrets(config.url)) {
+            Account.connectionFailed(revision, ConnectionProblem.Configuration)
+            return false
+        }
+        val connection = checkAccountConnection(repo, Account.email)
+        if (!Account.ownsConnectionCheck(revision)) return false
+        connection.status?.let { Account.noteServer(context, it) }
+        Account.connectionAnswered(context, revision)
+        if (connection.sessionExpired) Account.signedOut(context)
+        else if (connection.status?.hasAccount == true && Account.email != null) {
+            try { SettingsSync.sync(context) } catch (e: CancellationException) { throw e } catch (_: Exception) { }
+        }
+        return true
     } catch (e: CancellationException) {
         throw e
-    } catch (e: ServerError) {
-        if (e.status == 401) Account.signedOut(context)
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        Account.connectionFailed(revision, connectionProblem(e))
+        return false
+    } finally {
+        Account.finishConnectionCheck(revision)
     }
 }
 
@@ -138,6 +160,7 @@ internal fun SignInPage() {
     var shown by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf<SignInWay?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
+    var serverSettings by remember { mutableStateOf(false) }
     val ready = busy == null && email.isNotBlank() && (!asked || password.isNotEmpty())
     fun signIn(way: SignInWay, attempt: suspend (Repo) -> Pair<String, String>?) {
         if (busy != null) return
@@ -152,7 +175,7 @@ internal fun SignInPage() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                problem = e.message ?: "Pully could not sign in."
+                problem = (e as? ServerError)?.message ?: "Pully could not sign in. Try again or check Server settings."
             }
             busy = null
         }
@@ -224,7 +247,9 @@ internal fun SignInPage() {
         } else {
             CtaButton(label, ::next, Modifier.fillMaxWidth().padding(top = 12.dp), enabled = ready)
         }
+        CtaButton(com.octaviantocan.pulls.ui.design.t("connection.serverSettings"), { serverSettings = true }, Modifier.fillMaxWidth().padding(top = PullsSpace.x3), container = c.paper2, contentColor = c.text, enabled = busy == null)
     }
+    if (serverSettings) ServerConnectionSheet(onClose = { serverSettings = false })
 }
 
 /** Which way the page is signing in, so only that button says "Signing in…". */
