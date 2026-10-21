@@ -3,10 +3,8 @@ package com.octaviantocan.pulls.ui.design
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import com.octaviantocan.pulls.R
 
 /** The faces code can be shown in. [id] is what the setting stores; an id nobody knows falls back to Geist Mono. */
 enum class CodeFont(val id: String, val label: String) {
@@ -45,9 +43,9 @@ object CodeFonts {
         CodeFont.System -> FontFamily.Monospace
     }
 
-    private val jetBrains = FontFamily(Font(R.font.jetbrains_mono_regular, FontWeight.Normal))
-    private val firaCode = FontFamily(Font(R.font.fira_code_regular, FontWeight.Normal))
-    private val sourceCodePro = FontFamily(Font(R.font.source_code_pro_regular, FontWeight.Normal))
-    private val ibmPlexMono = FontFamily(Font(R.font.ibm_plex_mono_regular, FontWeight.Normal))
-    private val robotoMono = FontFamily(Font(R.font.roboto_mono_regular, FontWeight.Normal))
+    private val jetBrains = FontFamily(bundledFont("jetbrains_mono_regular", FontWeight.Normal))
+    private val firaCode = FontFamily(bundledFont("fira_code_regular", FontWeight.Normal))
+    private val sourceCodePro = FontFamily(bundledFont("source_code_pro_regular", FontWeight.Normal))
+    private val ibmPlexMono = FontFamily(bundledFont("ibm_plex_mono_regular", FontWeight.Normal))
+    private val robotoMono = FontFamily(bundledFont("roboto_mono_regular", FontWeight.Normal))
 }

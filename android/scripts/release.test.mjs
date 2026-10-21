@@ -93,6 +93,13 @@ describe('Android release prerequisites', () => {
       'android/gradle.properties',
       'android/CHANGELOG.md',
       'android/changelog/0.52.0/link.png',
+      'mobile/shared-domain/src/commonMain/kotlin/ReviewFlow.kt',
+      'mobile/shared-ui/src/androidMain/kotlin/BundledFont.kt',
+      'mobile/shared-ui/src/iosMain/kotlin/BundledFont.kt',
+      'mobile/shared-domain/build.gradle.kts',
+      'mobile/shared-ui/build.gradle.kts',
+      'mobile/build.gradle.kts',
+      'mobile/settings.gradle.kts',
       'CONTRACTS',
       'backend/CONTRACTS',
     ])
@@ -102,6 +109,15 @@ describe('Android release prerequisites', () => {
   it('does not demand an APK for server-only, CI, test or tooling changes', () => {
     const changedFiles = ['backend/src/lib.rs', '.github/workflows/ci.yml', 'android/DESIGN.md', 'android/app/src/test/kotlin/ScreenTest.kt', 'android/scripts/check-release.mjs', 'scripts/update.sh']
     assert.deepEqual(checkRelease(fixture({ changedFiles, afterGradle: gradle(66) })), [])
+  })
+
+  it('requires a release for shared runtime changes while allowing shared tests', () => {
+    for (const path of ['mobile/shared-domain/src/commonMain/kotlin/ReviewFlow.kt', 'mobile/shared-ui/build.gradle.kts']) {
+      assert.match(checkRelease(fixture({ changedFiles: [path], afterGradle: gradle(66) })).join('\n'), /versionCode.*higher/)
+    }
+    for (const path of ['mobile/shared-domain/src/commonTest/kotlin/ReviewFlowTest.kt', 'mobile/shared-ui/src/iosTest/kotlin/FontTest.kt']) {
+      assert.deepEqual(checkRelease(fixture({ changedFiles: [path], afterGradle: gradle(66) })), [])
+    }
   })
 
   it('rejects changing the pinned signing key even with a version bump', () => {

@@ -1,0 +1,6 @@
+@cc [owner:OctavianTocan,label:design] shared-row-retains-existing-anatomy
+The shared pull request row MUST preserve Android's state tile, two-line title limit,
+number, author and fixed checks, diffstat and age columns. Its dimensions and
+typography MUST follow android/DESIGN.md rules 13, 15, 36 and 201. Source: Tavi's
+21 Oct 2026 iOS reuse decision; recordings 16 Oct 12:10 (N2, N4, N35) and 17 Oct
+14:45 (Q1), and Tavi's 17 Oct 17:14 two-row title decision.

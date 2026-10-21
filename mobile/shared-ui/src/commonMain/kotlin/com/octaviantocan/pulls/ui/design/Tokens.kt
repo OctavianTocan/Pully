@@ -6,11 +6,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.octaviantocan.pulls.R
 
 /**
  * The app's design tokens. The light set is the Android prototype's palette (warm paper, deep
@@ -203,18 +201,18 @@ val DarkPullsColors = PullsColors(
 /** Geist for the interface, Geist Mono for code and branch names, Mona Sans for numbers and file names. */
 object PullsFonts {
     val sans = FontFamily(
-        Font(R.font.geist_regular, FontWeight.Normal),
-        Font(R.font.geist_medium, FontWeight.Medium),
-        Font(R.font.geist_semibold, FontWeight.SemiBold),
+        bundledFont("geist_regular", FontWeight.Normal),
+        bundledFont("geist_medium", FontWeight.Medium),
+        bundledFont("geist_semibold", FontWeight.SemiBold),
     )
     val mono = FontFamily(
-        Font(R.font.geist_mono_regular, FontWeight.Normal),
-        Font(R.font.geist_mono_medium, FontWeight.Medium),
+        bundledFont("geist_mono_regular", FontWeight.Normal),
+        bundledFont("geist_mono_medium", FontWeight.Medium),
     )
     val display = FontFamily(
-        Font(R.font.mona_sans_regular, FontWeight.Normal),
-        Font(R.font.mona_sans_medium, FontWeight.Medium),
-        Font(R.font.mona_sans_semibold, FontWeight.SemiBold),
+        bundledFont("mona_sans_regular", FontWeight.Normal),
+        bundledFont("mona_sans_medium", FontWeight.Medium),
+        bundledFont("mona_sans_semibold", FontWeight.SemiBold),
     )
 }
 
@@ -226,7 +224,6 @@ object PullsFonts {
 object PullsType {
     /** Set by `PullsTheme` from the window width (the unfolded Fold is ~840dp wide). */
     var wide by androidx.compose.runtime.mutableStateOf(false)
-        internal set
     val xs: TextStyle get() = if (wide) TextStyle(fontFamily = AppFonts.family, fontSize = 12.sp, lineHeight = 16.sp) else TextStyle(fontFamily = AppFonts.family, fontSize = 13.sp, lineHeight = 18.sp)
     val sm: TextStyle get() = if (wide) TextStyle(fontFamily = AppFonts.family, fontSize = 14.sp, lineHeight = 20.sp) else TextStyle(fontFamily = AppFonts.family, fontSize = 15.sp, lineHeight = 21.sp)
     val base: TextStyle get() = TextStyle(fontFamily = AppFonts.family, fontSize = 16.sp, lineHeight = 22.sp)

@@ -20,19 +20,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** One SVG path of a 24x24 icon; [fill] paints it solid (the dots of "more"), otherwise it is a stroke. */
-internal class LuPath(val d: String, val fill: Boolean = false) {
+class LuPath(val d: String, val fill: Boolean = false) {
     val path: Path by lazy { PathParser().parsePathString(d).toPath() }
 }
 
 /** A line icon: round-capped strokes of [strokeWidth] on a 24x24 grid. */
-internal class LuGlyph(val strokeWidth: Float, vararg val paths: LuPath)
+class LuGlyph(val strokeWidth: Float, vararg val paths: LuPath)
 
 /**
  * Draws a prototype icon. The paths are the prototype's own (`I` in the Android prototype), so
  * strokes keep their weight at any [size]: the stroke width scales with the grid.
  */
 @Composable
-internal fun LuIcon(
+fun LuIcon(
     glyph: LuGlyph,
     modifier: Modifier = Modifier,
     tint: Color = LocalPullsColors.current.text,
@@ -65,7 +65,7 @@ internal fun LuIcon(
 }
 
 /** The prototype's icon set, by its own names. */
-internal object Lu {
+object Lu {
     val cog = LuGlyph(1.75f, LuPath("M9,12a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"), LuPath("M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"))
     val back = LuGlyph(2f, LuPath("M15 18l-6-6 6-6"))
     val more = LuGlyph(1.75f, LuPath("M3.3,12a1.7,1.7 0 1,0 3.4,0a1.7,1.7 0 1,0 -3.4,0", fill = true), LuPath("M10.3,12a1.7,1.7 0 1,0 3.4,0a1.7,1.7 0 1,0 -3.4,0", fill = true), LuPath("M17.3,12a1.7,1.7 0 1,0 3.4,0a1.7,1.7 0 1,0 -3.4,0", fill = true))

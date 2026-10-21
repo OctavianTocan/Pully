@@ -11,8 +11,7 @@ class BriefTest {
     private fun parse(json: String) = parseBriefPage(Json.parseToJsonElement(json))
 
     private fun fixture(): BriefPage {
-        val text = checkNotNull(javaClass.getResource("/brief-fixture.json")) { "fixture missing" }.readText()
-        return assertNotNull(parse(text))
+        return assertNotNull(parse(BriefFixture.json))
     }
 
     @Test

@@ -1,0 +1,12 @@
+@cc [owner:OctavianTocan,label:architecture] mobile-reuses-production-ui
+The iOS app MUST consume the same shared Kotlin implementations as Android for each
+extracted feature, including its presentation state, design kit and screen layout.
+Native hosts MAY adapt platform services and system behavior; they MUST NOT create
+separate implementations of Pully's screens. Source: Tavi, 21 Oct 2026, "Go for the
+plan to make the iOS mode", choosing Compose Multiplatform and maximum reuse.
+
+@cc [owner:OctavianTocan,label:architecture;design] mobile-keeps-design-enforcement
+All shared production UI source sets MUST remain covered by the existing design
+checks. Moved definitions MUST retain their existing baseline identities, and new
+violations MUST NOT be hidden by a source move or an increased baseline. Source:
+Tavi's 21 Oct 2026 iOS reuse decision and android/DESIGN.md Enforcement.

@@ -1,0 +1,368 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C10000000000000000000020 /* code-fonts.txt in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000020 /* code-fonts.txt */; };
+		A10000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* AppDelegate.swift */; };
+		A10000000000000000000002 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* SceneDelegate.swift */; };
+		A10000000000000000000003 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* LaunchScreen.storyboard */; };
+		A10000000000000000000004 /* PullyLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* PullyLaunchTests.swift */; };
+		C10000000000000000000001 /* fira_code_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* fira_code_regular.ttf */; };
+		C10000000000000000000002 /* geist_medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000002 /* geist_medium.ttf */; };
+		C10000000000000000000003 /* geist_mono_medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000003 /* geist_mono_medium.ttf */; };
+		C10000000000000000000004 /* geist_mono_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000004 /* geist_mono_regular.ttf */; };
+		C10000000000000000000005 /* geist_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* geist_regular.ttf */; };
+		C10000000000000000000006 /* geist_semibold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* geist_semibold.ttf */; };
+		C10000000000000000000007 /* ibm_plex_mono_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000007 /* ibm_plex_mono_regular.ttf */; };
+		C10000000000000000000008 /* jetbrains_mono_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000008 /* jetbrains_mono_regular.ttf */; };
+		C10000000000000000000009 /* mona_sans_medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000009 /* mona_sans_medium.ttf */; };
+		C1000000000000000000000A /* mona_sans_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000A /* mona_sans_regular.ttf */; };
+		C1000000000000000000000B /* mona_sans_semibold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000B /* mona_sans_semibold.ttf */; };
+		C1000000000000000000000C /* roboto_mono_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000C /* roboto_mono_regular.ttf */; };
+		C1000000000000000000000D /* source_code_pro_regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2000000000000000000000D /* source_code_pro_regular.ttf */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A30000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A90000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A70000000000000000000001;
+			remoteInfo = Pully;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		C20000000000000000000020 /* code-fonts.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = code-fonts.txt; path = ../android/app/src/main/assets/licenses/code-fonts.txt; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A20000000000000000000002 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000000000000000000004 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		A20000000000000000000005 /* PullyLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PullyLaunchTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000006 /* Pully.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pully.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000007 /* PullyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PullyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C20000000000000000000001 /* fira_code_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = fira_code_regular.ttf; sourceTree = "<group>"; };
+		C20000000000000000000002 /* geist_medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = geist_medium.ttf; sourceTree = "<group>"; };
+		C20000000000000000000003 /* geist_mono_medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = geist_mono_medium.ttf; sourceTree = "<group>"; };
+		C20000000000000000000004 /* geist_mono_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = geist_mono_regular.ttf; sourceTree = "<group>"; };
+		C20000000000000000000005 /* geist_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = geist_regular.ttf; sourceTree = "<group>"; };
+		C20000000000000000000006 /* geist_semibold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = geist_semibold.ttf; sourceTree = "<group>"; };
+		C20000000000000000000007 /* ibm_plex_mono_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = ibm_plex_mono_regular.ttf; sourceTree = "<group>"; };
+		C20000000000000000000008 /* jetbrains_mono_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = jetbrains_mono_regular.ttf; sourceTree = "<group>"; };
+		C20000000000000000000009 /* mona_sans_medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = mona_sans_medium.ttf; sourceTree = "<group>"; };
+		C2000000000000000000000A /* mona_sans_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = mona_sans_regular.ttf; sourceTree = "<group>"; };
+		C2000000000000000000000B /* mona_sans_semibold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = mona_sans_semibold.ttf; sourceTree = "<group>"; };
+		C2000000000000000000000C /* roboto_mono_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = roboto_mono_regular.ttf; sourceTree = "<group>"; };
+		C2000000000000000000000D /* source_code_pro_regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = source_code_pro_regular.ttf; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A40000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A40000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A50000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A50000000000000000000002 /* Pully */,
+				A50000000000000000000003 /* PullyUITests */,
+				A50000000000000000000005 /* Fonts */,
+				C20000000000000000000020 /* code-fonts.txt */,
+				A50000000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A50000000000000000000002 /* Pully */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000001 /* AppDelegate.swift */,
+				A20000000000000000000002 /* SceneDelegate.swift */,
+				A20000000000000000000003 /* Info.plist */,
+				A20000000000000000000004 /* LaunchScreen.storyboard */,
+			);
+			path = Pully;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000003 /* PullyUITests */ = {
+			isa = PBXGroup;
+			children = (A20000000000000000000005 /* PullyLaunchTests.swift */,);
+			path = PullyUITests;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000006 /* Pully.app */,
+				A20000000000000000000007 /* PullyUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000005 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				C20000000000000000000001 /* fira_code_regular.ttf */,
+				C20000000000000000000002 /* geist_medium.ttf */,
+				C20000000000000000000003 /* geist_mono_medium.ttf */,
+				C20000000000000000000004 /* geist_mono_regular.ttf */,
+				C20000000000000000000005 /* geist_regular.ttf */,
+				C20000000000000000000006 /* geist_semibold.ttf */,
+				C20000000000000000000007 /* ibm_plex_mono_regular.ttf */,
+				C20000000000000000000008 /* jetbrains_mono_regular.ttf */,
+				C20000000000000000000009 /* mona_sans_medium.ttf */,
+				C2000000000000000000000A /* mona_sans_regular.ttf */,
+				C2000000000000000000000B /* mona_sans_semibold.ttf */,
+				C2000000000000000000000C /* roboto_mono_regular.ttf */,
+				C2000000000000000000000D /* source_code_pro_regular.ttf */,
+			);
+			name = Fonts;
+			path = ../android/app/src/main/res/font;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A70000000000000000000001 /* Pully */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20000000000000000000002 /* Build configuration list for PBXNativeTarget "Pully" */;
+			buildPhases = (
+				A60000000000000000000001 /* Build shared Compose framework */,
+				A80000000000000000000001 /* Sources */,
+				A40000000000000000000001 /* Frameworks */,
+				AA0000000000000000000001 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = Pully;
+			productName = Pully;
+			productReference = A20000000000000000000006 /* Pully.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A70000000000000000000002 /* PullyUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20000000000000000000003 /* Build configuration list for PBXNativeTarget "PullyUITests" */;
+			buildPhases = (
+				A80000000000000000000002 /* Sources */,
+				A40000000000000000000002 /* Frameworks */,
+				AA0000000000000000000002 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (AB0000000000000000000001 /* PBXTargetDependency */,);
+			name = PullyUITests;
+			productName = PullyUITests;
+			productReference = A20000000000000000000007 /* PullyUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A90000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					A70000000000000000000001 = {CreatedOnToolsVersion = 26.4; };
+					A70000000000000000000002 = {CreatedOnToolsVersion = 26.4; TestTargetID = A70000000000000000000001; };
+				};
+			};
+			buildConfigurationList = B20000000000000000000001 /* Build configuration list for PBXProject "Pully" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = A50000000000000000000001;
+			productRefGroup = A50000000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A70000000000000000000001 /* Pully */,
+				A70000000000000000000002 /* PullyUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA0000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000003 /* LaunchScreen.storyboard in Resources */,
+				C10000000000000000000020 /* code-fonts.txt in Resources */,
+				C10000000000000000000001 /* fira_code_regular.ttf in Resources */,
+				C10000000000000000000002 /* geist_medium.ttf in Resources */,
+				C10000000000000000000003 /* geist_mono_medium.ttf in Resources */,
+				C10000000000000000000004 /* geist_mono_regular.ttf in Resources */,
+				C10000000000000000000005 /* geist_regular.ttf in Resources */,
+				C10000000000000000000006 /* geist_semibold.ttf in Resources */,
+				C10000000000000000000007 /* ibm_plex_mono_regular.ttf in Resources */,
+				C10000000000000000000008 /* jetbrains_mono_regular.ttf in Resources */,
+				C10000000000000000000009 /* mona_sans_medium.ttf in Resources */,
+				C1000000000000000000000A /* mona_sans_regular.ttf in Resources */,
+				C1000000000000000000000B /* mona_sans_semibold.ttf in Resources */,
+				C1000000000000000000000C /* roboto_mono_regular.ttf in Resources */,
+				C1000000000000000000000D /* source_code_pro_regular.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A60000000000000000000001 /* Build shared Compose framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Build shared Compose framework";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$SRCROOT/scripts/build-shared.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A80000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* AppDelegate.swift in Sources */,
+				A10000000000000000000002 /* SceneDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A80000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (A10000000000000000000004 /* PullyLaunchTests.swift in Sources */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AB0000000000000000000001 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A70000000000000000000001 /* Pully */; targetProxy = A30000000000000000000001 /* PBXContainerItemProxy */; };
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		B10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		B10000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../mobile/shared-ui/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Pully/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = ("$(inherited)", "-framework", PullyShared,);
+				PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.preview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B10000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../mobile/shared-ui/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)",);
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Pully/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = ("$(inherited)", "-framework", PullyShared,);
+				PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.preview;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B10000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.preview.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Pully;
+			};
+			name = Debug;
+		};
+		B10000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.octaviantocan.pully.preview.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Pully;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B20000000000000000000001 /* Build configuration list for PBXProject "Pully" */ = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000001 /* Debug */, B10000000000000000000002 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		B20000000000000000000002 /* Build configuration list for PBXNativeTarget "Pully" */ = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000003 /* Debug */, B10000000000000000000004 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		B20000000000000000000003 /* Build configuration list for PBXNativeTarget "PullyUITests" */ = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000005 /* Debug */, B10000000000000000000006 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = A90000000000000000000001 /* Project object */;
+}

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - android/**
+      - mobile/**
       - CONTRACTS
       - .github/workflows/android-verify.yml
 
@@ -30,4 +31,4 @@ jobs:
         run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
       - name: Compile and run JVM tests
         working-directory: android
-        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug --no-daemon
+        run: ./gradlew :shared-domain:jvmTest :core:test :app:testDebugUnitTest :app:assembleDebug --no-daemon

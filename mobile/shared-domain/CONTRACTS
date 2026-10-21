@@ -1,0 +1,50 @@
+@cc [owner:OctavianTocan,label:architecture] shared-domain-has-one-implementation
+Review, search, motion and AI policies extracted into this module MUST have one
+production implementation consumed by Android and iOS. The shared domain MUST NOT
+depend on Android, Compose or native UI services. Existing Android packages MUST remain
+available through the `android/core` compatibility facade. Source: Tavi, 21 Oct 2026, choosing Compose
+Multiplatform with maximum reuse for the iOS mode.
+
+@cc [owner:OctavianTocan,label:motion;architecture] shared-page-way-follows-the-finger
+`pageWay` MUST derive forward or backward from page order. `swipeStep` MUST count a
+throw in the direction of the drag even when the drag is short, and a throw against
+the drag MUST cancel it. Native callers supply their release threshold; the app's
+500dp/s threshold remains defined by `android/DESIGN.md` rule 105.
+
+@cc [owner:OctavianTocan,label:product] shared-path-keeps-whole-tail
+A shortened path MUST keep its end and drop whole folders from the front, never cut a
+name in the middle (`android/DESIGN.md` rule 90).
+
+@cc [owner:OctavianTocan,label:product] shared-review-next-unreviewed
+After a file is marked reviewed, the next-file policy MUST choose the next unreviewed
+file in order, wrapping to the beginning when needed. It MUST return no next file
+when every other file is reviewed or the current file is absent from the order.
+Source: `android/DESIGN.md` rule 65; F55; existing `nextUnreviewed` behavior retained
+by Tavi's 21 Oct 2026 shared-code decision.
+
+@cc [owner:OctavianTocan,label:product;motion] shared-code-zoom-keeps-the-point
+The code-zoom arithmetic MUST keep the point under the fingers at its screen position
+as code is laid out at its new text size. Notes and threads MUST retain their own size,
+and horizontal scroll MUST NOT go before the content's start. Source: recording
+16 Oct 09:50, 04:11 to 04:26 (M9), and 15 Oct 15:37, 09:58 to 10:11 (L17), as cited by
+`diff-pinch-keeps-the-line` in the review contracts.
+
+@cc [owner:OctavianTocan,label:product] shared-work-notice-server-time
+The ongoing AI work summary MUST include only running whole-diff work and MUST use the
+oldest running task's server start time for elapsed time. A missing or future start
+MUST omit elapsed time. Terminal tasks MUST disappear independently when other tasks
+still run. Source: Tavi's 20 Oct request to explore app notifications for ongoing AI
+work; the existing `core-work-notice-real-time` behavior is shared unchanged.
+
+@cc [owner:OctavianTocan,label:product;security] shared-ai-outcome-owned-task
+AI outcome alerts MUST match an explicitly persisted task ID, key and kind. Only
+authoritative done or failed statuses MAY alert; cancelled settles silently, and
+missing, unknown or network interruption MUST NOT imply an outcome. Expired ownership
+MUST NOT produce a late alert. Source: Tavi, 21 Oct 2026, notification expansion; the
+existing `core-ai-result-alerts-require-explicit-owned-task` policy is shared unchanged.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-brief-is-inert-data
+A brief MUST be parsed from the server's plain `{type, props}` tree into known native
+blocks. It MUST NOT execute the tree, and a component the app does not know MUST NOT
+be drawn. Source: architecture, The brief; the `ai-brief-is-data` contract and parser
+are retained by Tavi's 21 Oct 2026 shared-code decision.

@@ -37,6 +37,7 @@ data class AnalyzeChoice(val preset: AnalyzePreset?, val tour: Boolean, val brie
     fun summary(): String {
         val parts = listOf("a summary", "a note per file") + listOfNotNull("a tour".takeIf { tour }, "a brief".takeIf { brief }, "an AI review".takeIf { review })
         val joined = if (parts.size == 1) parts.single() else parts.dropLast(1).joinToString(", ") + " and " + parts.last()
+        // raw-value-ok: Capitalizes one sentence-initial character; never all-caps UI text.
         return joined.replaceFirstChar { it.uppercase() } + "."
     }
 

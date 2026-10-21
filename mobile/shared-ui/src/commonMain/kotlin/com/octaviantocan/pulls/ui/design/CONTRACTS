@@ -1,0 +1,19 @@
+@cc [owner:OctavianTocan,label:architecture;design] shared-kit-one-source
+Android and iOS MUST use these same palette, type, spacing, radius and Lu icon
+definitions. Their values MUST continue to follow `android/DESIGN.md` and its design
+checks; a host MUST NOT maintain its own copy. Source: Tavi, 21 Oct 2026, choosing
+Compose Multiplatform with maximum reuse for the iOS mode; DESIGN.md rules 47, 48
+and 106.
+
+@cc [owner:OctavianTocan,label:design] shared-kit-fonts-preserve-selection
+Both hosts MUST load the checked-in Geist, Mona Sans and code font files for their
+named font choices. Unknown saved app or code font choices MUST retain their existing
+Geist and Geist Mono fallbacks, and the system choices MUST use the platform's system
+families. Source: Tavi, 21 Oct 2026, the same app on iOS except for native behavior;
+DESIGN.md Typography and N10 (recording 16 Oct 12:10, 06:29 to 06:42).
+
+@cc [owner:OctavianTocan,label:design] shared-kit-both-palettes
+Every palette token MUST have light and dark values. Dark surfaces MUST remain neutral
+grey as specified by DESIGN.md rule 76 and F13; sharing the kit MUST NOT introduce
+platform-specific palette values. Source: Tavi's 21 Oct 2026 iOS reuse decision and
+DESIGN.md rule 76.

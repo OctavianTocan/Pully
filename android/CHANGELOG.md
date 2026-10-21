@@ -16,6 +16,13 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.55.0
+
+Pully's iPhone preview starts with familiar pull request rows.
+
+- The internal iPhone preview shows sample pull requests using Pully's existing colors, fonts and row layout in light and dark.
+![Labeled illustration of Android and the internal iPhone preview sharing Pully's look](changelog/0.55.0/shared-foundation-illustration.png)
+
 ## 0.54.1
 
 Updates recover when a download or installation is interrupted.

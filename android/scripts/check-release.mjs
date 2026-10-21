@@ -12,6 +12,8 @@ export function shipsInApk(path) {
     || /^android\/(?:app|core)\/src\/(?!(?:test|androidTest|testFixtures)\/)/.test(path)
     || /^android\/(?:app\/|core\/)?(?:build\.gradle\.kts|settings\.gradle\.kts|gradle\.properties|gradle\.lockfile)$/.test(path)
     || /^android\/(?:gradle\/|gradlew(?:\.bat)?$|CHANGELOG\.md$|changelog\/|app\/(?:debug\.keystore$|libs\/|[^/]+\.pro$))/.test(path)
+    || /^mobile\/(?:shared-domain|shared-ui)\/src\/(?!(?:[^/]*Test|testFixtures)\/)/.test(path)
+    || /^mobile\/(?:(?:shared-domain|shared-ui)\/)?(?:build\.gradle\.kts|settings\.gradle\.kts|gradle\.properties|gradle\.lockfile)$/.test(path)
 }
 
 function versionCode(gradle) {
