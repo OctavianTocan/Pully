@@ -86,7 +86,7 @@ jobs:
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: ios/NativeServices
         run: |
-          xcodebuild -scheme PullyNative \
+          xcodebuild -quiet -scheme PullyNative \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ../build/NativeServices \
             -resultBundlePath ../build/NativeServices.xcresult \
@@ -94,7 +94,7 @@ jobs:
       - name: Test actual Keychain in an ad-hoc signed simulator app host
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         run: |
-          xcodebuild -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/KeychainDerivedData \
             -parallel-testing-enabled NO build-for-testing \
@@ -104,7 +104,7 @@ jobs:
           codesign --display --entitlements :- "$pully_keychain_host" > ios/build/KeychainHost.entitlements.plist
           python3 ios/scripts/verify-keychain-test-host.py \
             "$pully_keychain_host" ios/build/KeychainHost.entitlements.plist
-          xcodebuild -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme PullyNativeKeychain -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/KeychainDerivedData \
             -resultBundlePath ios/build/Keychain.xcresult \
@@ -142,7 +142,7 @@ jobs:
         id: host
         if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
         run: |
-          xcodebuild -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/DerivedData \
             -resultBundlePath ios/build/Pully.xcresult \
