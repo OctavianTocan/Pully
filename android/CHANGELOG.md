@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.53.1
+
+Whole pull request details, safer updates.
+
+- Hold a pull request to read its complete title, repository and author, with its state and known change counts laid out below.
+![Labeled illustration of the full pull request summary and updates waiting for AI work](changelog/0.53.1/summary-and-updates-illustration.png)
+- Server updates wait for ongoing analysis and tour work to finish instead of interrupting it.
+- Concurrent update publications keep the APK and its update details together and cannot replace a newer build.
+
 ## 0.53.0
 
 Clearer AI choices, faithful pull request states, calmer sheets.

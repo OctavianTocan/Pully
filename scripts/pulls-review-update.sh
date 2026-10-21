@@ -16,6 +16,75 @@ fi
 git fetch -q origin main
 git merge -q --ff-only origin/main
 head=$(git rev-parse HEAD)
+
+start_updated_server() {
+    active=$(systemctl --user show pulls-review.service --property=ActiveState --value) || return 1
+    case "$active" in
+        inactive|failed) systemctl --user start pulls-review.service; return $?;;
+        active) ;;
+        *) echo "DEFER: service is $active; retry after its transition" >&2; return 75;;
+    esac
+    invocation=$(systemctl --user show pulls-review.service --property=InvocationID --value) || return 1
+    if [ -z "$invocation" ] || [ -z "${PULLS_REVIEW_UPDATE_TOKEN_FILE:-}" ]; then
+        echo 'DEFER: configure idle-update support on the running server before automatic deployment' >&2
+        return 75
+    fi
+    # Python reads the private token directly: it never appears in argv or logs.
+    if python3 - "$PULLS_REVIEW_UPDATE_TOKEN_FILE" "${PULLS_REVIEW_UPDATE_URL:-http://127.0.0.1:${PULLS_REVIEW_PORT:-7390}}" <<'PY'
+import json, pathlib, sys, urllib.error, urllib.parse, urllib.request
+attempted = False
+try:
+    token = pathlib.Path(sys.argv[1]).read_text().strip()
+    if len(token) != 64 or any(c not in '0123456789abcdef' for c in token):
+        raise ValueError('invalid token')
+    base = urllib.parse.urlsplit(sys.argv[2])
+    if base.scheme != 'http' or base.hostname not in ('127.0.0.1', 'localhost', '::1') or base.username or base.password or base.query or base.fragment or base.path not in ('', '/'):
+        raise ValueError('update control must use the local server directly')
+    request = urllib.request.Request(sys.argv[2].rstrip('/') + '/api/update/restart', data=b'', method='POST', headers={'Authorization': 'Bearer ' + token})
+    # Never forward this host-only token to a redirect target or an environment proxy.
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    attempted = True
+    with opener.open(request, timeout=10) as response:
+        if response.status != 202 or json.load(response).get('ready') is not True:
+            raise ValueError('idle shutdown was not accepted')
+except urllib.error.HTTPError:
+    print('DEFER: idle shutdown unavailable or AI work is active; no restart requested', file=sys.stderr)
+    sys.exit(75)
+except Exception:
+    print('DEFER: idle shutdown response unavailable; checking service state', file=sys.stderr)
+    sys.exit(76 if attempted else 75)
+PY
+    then
+        :
+    else
+        # Definite busy/auth/unsupported replies defer immediately. A transport
+        # failure is ambiguous: shutdown may be draining its final HTTP request,
+        # so use the same bounded reconciliation as an acknowledged shutdown.
+        if [ "$?" -ne 76 ]; then
+            return 75
+        fi
+    fi
+    # The backend owns shutdown after fencing admissions. Restart=always may have
+    # already launched its replacement, so START is essential: RESTART could kill
+    # AI work that the new process has just accepted.
+    attempts=0
+    while [ "$attempts" -lt 60 ]; do
+        current=$(systemctl --user show pulls-review.service --property=InvocationID --value) || return 1
+        active=$(systemctl --user show pulls-review.service --property=ActiveState --value) || return 1
+        if [ "$current" != "$invocation" ] || [ "$active" = inactive ] || [ "$active" = failed ]; then
+            systemctl --user start pulls-review.service
+            return $?
+        fi
+        attempts=$((attempts + 1))
+        sleep 1
+    done
+    echo 'DEFER: waiting for the previous server to finish graceful shutdown' >&2
+    return 75
+}
+
 if [ "$(cat "$state/deployed" 2>/dev/null || true)" != "$head" ]; then
     if [ "$(cat "$state/failed" 2>/dev/null || true)" = "$head" ]; then
         echo "FAIL: server build previously failed for $head; fix the source or investigate before retrying" >&2
@@ -30,7 +99,15 @@ if [ "$(cat "$state/deployed" 2>/dev/null || true)" != "$head" ]; then
         cargo build --release --locked --manifest-path backend/Cargo.toml &&
         pnpm -F pulls.review run build
     then
-        systemctl --user restart pulls-review.service
+        if start_updated_server; then
+            :
+        else
+            result=$?
+            # Busy/unavailable is retried by the normal timer, without marking
+            # this revision deployed or permanently failed.
+            if [ "$result" -eq 75 ]; then exit 0; fi
+            exit "$result"
+        fi
         printf '%s\n' "$head" > "$state/deployed"
         echo "deployed $head"
     else

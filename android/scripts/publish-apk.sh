@@ -20,6 +20,13 @@ base="${1:?Pass the public URL of the server publishing this APK}"
 notes="${2:-}"
 out="${PULLS_REVIEW_ANDROID_DIR:-$HOME/.local/share/pulls-review/android}"
 
+# Serialize builders as well as validation and replacement. In particular, a slower
+# older checkout must recheck the manifest after a newer publisher has finished.
+mkdir -p "$out"
+exec 9>"$out/.publish.lock"
+flock -x 9
+trap 'rm -f -- "$out/pulls.apk.tmp" "$out/latest.json.tmp"' EXIT
+
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo 'Refusing to publish tracked local edits. Commit the release on a branch and publish a clean checkout.' >&2
   exit 1
@@ -27,7 +34,8 @@ fi
 source_commit="$(git rev-parse HEAD)"
 export JAVA_HOME="${JAVA_HOME:-$(mise where java)}"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-./gradlew -q :app:assembleDebug
+# A persistent Gradle daemon must not inherit the publication lock.
+./gradlew -q :app:assembleDebug 9>&-
 
 apk=app/build/outputs/apk/debug/app-debug.apk
 badging="$("$ANDROID_HOME"/build-tools/*/aapt2 dump badging "$apk" 2>/dev/null | head -1 || true)"
@@ -96,6 +104,9 @@ with open(path + ".tmp", "w") as f:
 os.replace(path + ".tmp", path)
 EOF
 echo "published $name ($code) sha256=$sha -> $out"
+# Background historical builders have their own lock and must not keep this one.
+trap - EXIT
+exec 9>&-
 # Past versions (Settings, Advanced): every publish builds the versions not built yet, newest first, in the background
 # so the publish is not held up; the slider fills in as each one lands. Only one such run at a time: a publish during a
 # run waits for the lock and then makes its own pass, so the version it just replaced is built too. Each pass appends

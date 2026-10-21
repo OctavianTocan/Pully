@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 // The release CI preflight runs before installing workspace dependencies.
@@ -42,15 +42,57 @@ printf '{"versionCode":66}' > "$PULLS_REVIEW_ANDROID_DIR/latest.json"
   git('remote', 'add', 'origin', join(home, 'origin.git'))
   writeFileSync(join(out, 'latest.json'), JSON.stringify({ versionCode: have }))
   writeFileSync(calls, '')
-  for (const command of ['pnpm', 'cargo', 'systemctl']) {
+  writeFileSync(join(state, 'active'), 'active')
+  writeFileSync(join(state, 'invocation'), 'old-server')
+  const token = join(state, 'update-token')
+  writeFileSync(token, 'a'.repeat(64))
+  for (const command of ['pnpm', 'cargo']) {
     writeFileSync(join(bin, command), `#!/bin/sh
 echo '${command}' "$@" >> "$CALLS"
 if [ "\${BUILD_FAIL:-0}" = 1 ] && [ '${command}' = cargo ]; then exit 19; fi
 `, { mode: 0o755 })
   }
+  writeFileSync(join(bin, 'systemctl'), `#!/bin/sh
+echo systemctl "$@" >> "$CALLS"
+case "$*" in
+    *--property=ActiveState*) cat "$PULLS_REVIEW_UPDATE_STATE/active";;
+    *--property=InvocationID*)
+        if [ -e "$PULLS_REVIEW_UPDATE_STATE/pending-shutdown" ]; then
+            count=$(cat "$PULLS_REVIEW_UPDATE_STATE/pending-shutdown")
+            if [ "$count" -gt 0 ]; then
+                echo inactive > "$PULLS_REVIEW_UPDATE_STATE/active"
+            fi
+            echo 1 > "$PULLS_REVIEW_UPDATE_STATE/pending-shutdown"
+        fi
+        cat "$PULLS_REVIEW_UPDATE_STATE/invocation";;
+    *start*)
+        if [ "\${START_FAIL:-0}" = 1 ]; then exit 23; fi
+        echo active > "$PULLS_REVIEW_UPDATE_STATE/active"
+        echo new-server > "$PULLS_REVIEW_UPDATE_STATE/invocation";;
+esac
+`, { mode: 0o755 })
+  writeFileSync(join(bin, 'python3'), `#!/bin/sh
+if [ "$2" = "$PULLS_REVIEW_UPDATE_TOKEN_FILE" ]; then
+    cat >/dev/null
+    echo idle-shutdown >> "$CALLS"
+    case "\${SHUTDOWN_MODE:-idle}" in
+        busy|unavailable) exit 75;;
+        delayed-lost-response)
+            echo 0 > "$PULLS_REVIEW_UPDATE_STATE/pending-shutdown"
+            exit 76;;
+        restarted)
+            echo active > "$PULLS_REVIEW_UPDATE_STATE/active"
+            echo supervised-replacement > "$PULLS_REVIEW_UPDATE_STATE/invocation";;
+        *) echo inactive > "$PULLS_REVIEW_UPDATE_STATE/active";;
+    esac
+    if [ "\${SHUTDOWN_MODE:-idle}" = lost-response ]; then exit 76; fi
+    exit 0
+fi
+exec /usr/bin/python3 "$@"
+`, { mode: 0o755 })
   const run = extra => spawnSync('/bin/sh', [updater], {
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, PATH: `${bin}:/usr/bin:/bin`, CALLS: calls, PULLS_REVIEW_REPO: repo, PULLS_REVIEW_UPDATE_STATE: state, PULLS_REVIEW_ANDROID_DIR: out, PULLS_REVIEW_PUBLIC_URL: 'https://example.com', ...extra },
+    env: { ...process.env, HOME: home, PATH: `${bin}:/usr/bin:/bin`, CALLS: calls, PULLS_REVIEW_REPO: repo, PULLS_REVIEW_UPDATE_STATE: state, PULLS_REVIEW_UPDATE_TOKEN_FILE: token, PULLS_REVIEW_ANDROID_DIR: out, PULLS_REVIEW_PUBLIC_URL: 'https://example.com', ...extra },
   })
   return { repo, state, out, run, git, calls: () => readFileSync(calls, 'utf8') }
 }
@@ -61,7 +103,8 @@ describe('Pully deployment updater', () => {
     const result = f.run()
     assert.equal(result.status, 0, result.stderr)
     assert.match(f.calls(), /install --frozen-lockfile --ignore-scripts/)
-    assert.match(f.calls(), /systemctl --user restart pulls-review.service/)
+    assert.match(f.calls(), /systemctl --user start pulls-review.service/)
+    assert.doesNotMatch(f.calls(), /systemctl --user restart/)
     assert.match(f.calls(), /publish/)
     assert.equal(f.git('status', '--porcelain'), '')
   })
@@ -115,5 +158,46 @@ describe('Pully deployment updater', () => {
     const before = f.calls()
     assert.equal(f.run().status, 0)
     assert.equal(f.calls(), before)
+  })
+
+  it('defers active AI work or unavailable idle support, then retries after work finishes', () => {
+    for (const mode of ['busy', 'unavailable']) {
+      const f = fixture()
+      assert.equal(f.run({ SHUTDOWN_MODE: mode }).status, 0)
+      assert.doesNotMatch(f.calls(), /systemctl --user start|publish/)
+      assert.equal(existsSync(join(f.state, 'deployed')), false)
+      assert.equal(existsSync(join(f.state, 'failed')), false)
+      assert.equal(f.run().status, 0)
+      assert.match(f.calls(), /systemctl --user start pulls-review.service/)
+      assert.match(f.calls(), /publish/)
+    }
+  })
+
+  it('defers an older running server without private-token update support', () => {
+    const f = fixture()
+    assert.equal(f.run({ PULLS_REVIEW_UPDATE_TOKEN_FILE: '' }).status, 0)
+    assert.doesNotMatch(f.calls(), /idle-shutdown|systemctl --user start|publish/)
+    assert.equal(existsSync(join(f.state, 'deployed')), false)
+  })
+
+  it('never restarts a supervisor-started replacement and reconciles a lost shutdown response', () => {
+    for (const mode of ['restarted', 'lost-response', 'delayed-lost-response']) {
+      const f = fixture()
+      const result = f.run({ SHUTDOWN_MODE: mode })
+      assert.equal(result.status, 0, result.stderr)
+      assert.match(f.calls(), /systemctl --user start pulls-review.service/)
+      assert.doesNotMatch(f.calls(), /systemctl --user restart/)
+      assert.match(f.calls(), /publish/)
+    }
+  })
+
+  it('does not record deployment or publish when starting the replacement fails', () => {
+    const f = fixture()
+    assert.equal(f.run({ START_FAIL: '1' }).status, 23)
+    assert.equal(existsSync(join(f.state, 'deployed')), false)
+    assert.doesNotMatch(f.calls(), /publish/)
+    // The old server has already stopped. Retrying starts the replacement safely.
+    assert.equal(f.run().status, 0)
+    assert.match(f.calls(), /publish/)
   })
 })

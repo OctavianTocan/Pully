@@ -21,6 +21,7 @@ built here.
     android/scripts/build-past-ui.py --index       only rewrite index.json from what is built
 """
 import hashlib
+import fcntl
 import json
 import os
 import re
@@ -224,6 +225,15 @@ def build(item: dict, dest: Path) -> None:
 
 def write_index(dest: Path) -> None:
     """index.json: every built version, oldest first, with the summary today's changelog gives it."""
+    dest.mkdir(parents=True, exist_ok=True)
+    # --index runs beside the historical builder; both rescan while holding the
+    # same short index lock, independently of the long-running build lock.
+    with (dest / ".index.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        _write_index(dest)
+
+
+def _write_index(dest: Path) -> None:
     summaries = changelog_summaries()
     entries = []
     for meta_path in dest.glob("*.json"):
@@ -244,9 +254,15 @@ def write_index(dest: Path) -> None:
         })
     entries.sort(key=lambda entry: entry["versionCode"])
     dest.mkdir(parents=True, exist_ok=True)
-    partial = dest / "index.json.tmp"
-    partial.write_text(json.dumps({"versions": entries}, indent=2) + "\n")
-    partial.replace(dest / "index.json")
+    partial = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=dest, prefix=".index-", suffix=".tmp", delete=False) as output:
+            partial = Path(output.name)
+            output.write(json.dumps({"versions": entries}, indent=2) + "\n")
+        partial.replace(dest / "index.json")
+    finally:
+        if partial is not None:
+            partial.unlink(missing_ok=True)
     print(f"index.json lists {len(entries)} past versions -> {dest}")
 
 
