@@ -12,6 +12,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 /** One row of `my-pulls` (`MyPull` in core `local-rpc.ts`). */
 data class PullRow(
@@ -80,7 +83,7 @@ data class ReviewFile(
     val isBinary: Boolean = false,
     val truncated: Boolean = false,
     val hunks: List<Hunk> = emptyList(),
-    /** The server left this file's patch out of a large diff; [Repo.diffPatches] brings it when the file is shown. */
+    /** The server left this file's patch out of a large diff; `diff-patches` brings it when the file is shown. */
     val patchOmitted: Boolean = false,
 )
 
@@ -185,7 +188,7 @@ fun JsonObject.asPull(): PullRow {
         mergeable = obj.str("mergeable"),
         requestedFromMe = bool("requestedFromMe"),
         labels = (obj["labels"] as? JsonArray).orEmpty().mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull ?: (it as? JsonObject)?.str("name") },
-        updatedAtMs = runCatching { java.time.Instant.parse(obj.str("updatedAt")).toEpochMilli() }.getOrNull(),
+        updatedAtMs = pullTimestampMillis(obj.str("updatedAt")),
         additions = int("additions"),
         deletions = int("deletions"),
         changedFiles = int("changedFiles"),
@@ -201,6 +204,29 @@ fun JsonObject.asPull(): PullRow {
         jev = (obj["jev"] as? JsonObject)?.asPullJev(),
     )
 }
+
+// Retain the ISO_INSTANT forms Android accepted before this parser moved to common Kotlin.
+private val pullTimestamp = Regex("""^([+-]?\d{4,10}-\d{2}-\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.(\d{0,9}))?([Zz]|[+-]\d{2}:\d{2}(?::\d{2})?)$""")
+
+private fun pullTimestampMillis(text: String): Long? = runCatching {
+    val (date, hour, minute, second, fraction, offset) = pullTimestamp.matchEntire(text)?.destructured ?: return null
+    require(!date.startsWith('-') || date.dropLast(6).drop(1).any { it != '0' })
+    if (offset.length > 1) {
+        val offsetHour = offset.substring(1, 3).toInt()
+        require(offsetHour <= 18 && (offsetHour < 18 || offset.drop(4).all { it == '0' || it == ':' }))
+    }
+    val endOfDay = hour == "24" && minute == "00" && second == "00" && fraction.all { it == '0' }
+    val normalizedHour = if (endOfDay) "00" else hour
+    // ISO_INSTANT maps a leap second to the preceding second, retaining its fractional part.
+    val normalizedSecond = if (hour == "23" && minute == "59" && second == "60") "59" else second
+    val decimal = if (fraction.isEmpty()) "" else ".$fraction"
+    val parsed = Instant.parse("${date}T$normalizedHour:$minute:$normalizedSecond$decimal$offset")
+    val instant = if (endOfDay) parsed + 24.hours else parsed
+    // Kotlin saturates millisecond overflow; Android's former parser returned null instead.
+    require(instant >= Instant.fromEpochMilliseconds(Long.MIN_VALUE))
+    require(instant < Instant.fromEpochMilliseconds(Long.MAX_VALUE) + 1.milliseconds)
+    instant.toEpochMilliseconds()
+}.getOrNull()
 
 /** A `MyPullJev`; null without a kind or a risk, which every classification has. */
 fun JsonObject.asPullJev(): PullJev? {

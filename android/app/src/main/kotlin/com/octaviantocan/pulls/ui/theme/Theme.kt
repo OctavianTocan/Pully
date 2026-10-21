@@ -13,6 +13,7 @@ import com.octaviantocan.pulls.ui.design.LocalColorTheme
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Messages
+import com.octaviantocan.pulls.ui.design.load
 import com.octaviantocan.pulls.ui.design.PullsColors
 import com.octaviantocan.pulls.ui.design.PullsIndication
 import com.octaviantocan.pulls.ui.design.PullsType

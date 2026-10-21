@@ -173,6 +173,18 @@
     "grabber": {
       "light": "#D9D9D6",
       "dark": "#3A3A3A"
+    },
+    "orb-head": {
+      "light": "#9AD3D6",
+      "dark": "#9AD3D6"
+    },
+    "on-success": {
+      "light": "#FFFFFF",
+      "dark": "#FFFFFF"
+    },
+    "checks-pending": {
+      "light": "#F59E0B",
+      "dark": "#F59E0B"
     }
   },
   "typography": {

@@ -76,6 +76,16 @@ describe('kotlin readers', () => {
     assert.equal(found[3].top, false)
   })
 
+  it('keeps common expect declarations and platform actual bodies visible to design checks', () => {
+    const prototype = '@Composable\nexpect fun rememberMessages(locale: String): Messages'
+    const actual = '@Composable\nactual fun rememberMessages(locale: String): Messages {\n    return load(locale)\n}'
+    const common = composables(`${prototype}\n\n@Composable\nfun Following() { Text("Visible") }`)
+    assert.deepEqual(common.map(c => c.name), ['rememberMessages', 'Following'])
+    assert.equal(common[0].source, prototype)
+    assert.deepEqual(common[0].params.map(p => p.name), ['locale'])
+    assert.equal(composables(actual)[0].source, actual)
+  })
+
   it('reads palettes, type roles with their wide twin, and dp scales', () => {
     const tokens = [
       'val LightPullsColors = PullsColors(dark = false, base = Color(0xFFFDFCF9), scrim = Color(0x99000000), accentTeal = Color(0xFF24929C))',

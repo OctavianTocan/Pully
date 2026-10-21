@@ -5,16 +5,21 @@ modules from `android/settings.gradle.kts`; the standalone `mobile` root lets th
 Apple host build them without configuring the Android application. `mobile/gradlew`
 delegates to the existing pinned Android wrapper (Gradle 9.6.0).
 
-This first slice shares ten existing domain units, the existing palettes, type and
-font preferences, Lu icons, spacing/radii, and the production pull request row
-layout. Android's Inbox, Tours and repository rows call that shared layout.
+The shared modules contain ten existing core domain units plus the existing data
+models/parsers, triage and stack policies. The same palettes, typography, font
+preferences, Lu icons, spacing/radii and complete production pull request/stack
+rows serve both hosts. Android's Inbox and repository lists call that shared row;
+its Tours retain their persisted-entry adapter over the shared frame and check mark.
 `android/core` remains the JVM compatibility facade and owns Android-only updater,
 browser and remaining JVM-specific policies. Shared domain code has no Compose,
 Android or Java dependency.
 
-The iOS app is an **internal preview with fixture rows**, using the same shared
-components. It does not yet connect to a server or support account, review, diff,
-AI, persistence or notifications. It is not a usable full Pully client. The next
+The iOS app is an **internal preview with fixture rows**, rendering the actual
+production row function and models rather than a second presentation of them.
+Both hosts load the same 12 locale files, with the existing plural/interpolation
+rules and English fallback. Shared status marks honor native reduced-motion
+settings. The iOS host does not yet connect to a server or support account, review,
+diff, AI, persistence or notifications. It is not a usable full Pully client. The next
 slices share existing screens and their client/session dependencies in the order
 specified by the accepted iOS implementation plan; they must keep Android working.
 
@@ -43,7 +48,7 @@ Use Java 21 and an Android SDK containing `platforms;android-37.0` and
 
 ```sh
 cd android
-./gradlew :shared-domain:jvmTest :core:test :app:testDebugUnitTest :app:assembleDebug
+./gradlew :shared-domain:jvmTest :shared-ui:testAndroidHostTest :core:test :app:testDebugUnitTest :app:assembleDebug
 cd ..
 pnpm run android:design
 pnpm run android:design:test
@@ -51,8 +56,13 @@ pnpm run contracts:check
 node --test android/scripts/release.test.mjs
 ```
 
-The moved common tests run under `:shared-domain:jvmTest` and the iOS simulator;
-`:core:test` retains the JVM-specific tests. Brief's producer golden JSON stays at
+The moved common domain tests run under `:shared-domain:jvmTest` and the iOS
+simulator; `:core:test` retains JVM-specific tests. Shared localization tests run
+under `:shared-ui:testAndroidHostTest` and `:shared-ui:iosSimulatorArm64Test`.
+Portable timestamp parsing retains the former Java parser's accepted offset,
+fraction, leap-second and midnight forms, as well as null for invalid or overflowing
+epoch milliseconds. Existing and focused common parser regressions cover that
+boundary. Brief's producer golden JSON stays at
 `android/core/src/test/resources/brief-fixture.json`, where the TypeScript producer
 test already reads it. A Gradle task generates a common Kotlin test fixture from
 those exact bytes; no second JSON or platform-specific test loader is maintained.
@@ -60,7 +70,8 @@ those exact bytes; no second JSON or platform-specific test loader is maintained
 See [the iOS host guide](../ios/README.md) for the unsigned simulator build.
 `.github/workflows/ios-verify.yml` runs native domain tests, links the actual
 Compose framework, builds and launches the host in light/dark and portrait/landscape,
-checks font bytes, and retains XCTest evidence. Ordinary simulator CI needs no
+checks Spanish labels and English fallback, verifies font/locale bytes, and retains
+XCTest evidence. Ordinary simulator CI needs no
 distribution secrets or paid Apple team. Final Apple framework/app compilation
 requires the supported macOS/Xcode host; Linux JVM/Android success alone does not
 validate iOS compilation, signing, device behavior or App Store distribution.

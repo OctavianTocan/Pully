@@ -16,6 +16,13 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.56.0
+
+The iPhone preview uses Pully's complete pull request rows.
+
+- Sample pulls share Android's status, checks, counts and review marks, with the same translations and English fallback.
+![Labeled illustration of the shared Android and internal iPhone pull request row layout](changelog/0.56.0/shared-rows-illustration.png)
+
 ## 0.55.0
 
 Pully's iPhone preview starts with familiar pull request rows.

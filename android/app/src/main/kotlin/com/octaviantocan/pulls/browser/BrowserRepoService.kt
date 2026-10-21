@@ -33,6 +33,7 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.design.AppFont
 import com.octaviantocan.pulls.ui.design.ColorThemes
 import com.octaviantocan.pulls.ui.design.Messages
+import com.octaviantocan.pulls.ui.design.load
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType

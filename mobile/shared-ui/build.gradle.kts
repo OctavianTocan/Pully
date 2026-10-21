@@ -13,6 +13,7 @@ kotlin {
         compileSdk = 37
         minSdk = 26
         androidResources { enable = true }
+        withHostTestBuilder { sourceSetTreeName = "test" }.configure {}
     }
     listOf(iosArm64(), iosSimulatorArm64()).forEach {
         it.binaries.framework {
@@ -27,8 +28,20 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.ui)
             implementation(compose.material3)
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(kotlin("test-junit"))
         }
     }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest>().configureEach {
+    providers.gradleProperty("pully.iosSimulatorId").orNull?.let { device.set(it) }
 }
 
 abstract class FontResources : DefaultTask() {

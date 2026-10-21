@@ -9,6 +9,7 @@ on:
       - android/app/src/main/res/font/**
       - android/app/src/main/assets/licenses/**
       - android/app/src/main/assets/i18n/**
+      - packages/app/src/i18n/locales/**
       - android/build.gradle.kts
       - android/settings.gradle.kts
       - android/gradle/**
@@ -82,7 +83,7 @@ jobs:
       - name: Test shared domain on JVM and iOS; link Compose framework
         working-directory: mobile
         run: |
-          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
+          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
             :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
             -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
       - name: Build and test the unsigned iOS host
@@ -93,7 +94,7 @@ jobs:
             -resultBundlePath ios/build/Pully.xcresult \
             -parallel-testing-enabled NO \
             test CODE_SIGNING_ALLOWED=NO
-      - name: Verify original Pully font resources are bundled
+      - name: Verify original Pully fonts and canonical locales are bundled
         run: |
           python3 ios/scripts/verify-bundled-fonts.py \
             ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app

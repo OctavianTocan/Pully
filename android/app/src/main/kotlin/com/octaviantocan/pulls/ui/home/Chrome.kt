@@ -28,7 +28,7 @@ import kotlinx.coroutines.delay
 object StatusColors {
     fun green(dark: Boolean) = if (dark) Color(0xFF3CC98F) else Color(0xFF1C8A5A)
     fun red(dark: Boolean) = if (dark) Color(0xFFE8777C) else Color(0xFFC94F55)
-    val amber500 = Color(0xFFF59E0B)
+    val amber500 = com.octaviantocan.pulls.ui.design.LightPullsColors.checksPending
     fun amberText(dark: Boolean) = if (dark) Color(0xFFFBBF24) else Color(0xFFB45309)
 }
 

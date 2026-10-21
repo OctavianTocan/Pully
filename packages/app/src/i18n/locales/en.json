@@ -1,4 +1,8 @@
 {
+  "mobilePreview": {
+    "title": "Pully internal preview",
+    "fixtureData": "Fixture data"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",

@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.design
 
-import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import kotlinx.serialization.json.Json
@@ -62,22 +61,11 @@ class Messages(private val locale: String, private val primary: JsonObject, priv
             "es" to "Español", "fr" to "Français", "de" to "Deutsch", "pt-BR" to "Português (Brasil)",
             "ru" to "Русский", "it" to "Italiano", "id" to "Bahasa Indonesia",
         )
-        private val json = Json { ignoreUnknownKeys = true }
-        private val cache = mutableMapOf<String, JsonObject>()
-
-        private fun read(context: Context, locale: String): JsonObject = cache.getOrPut(locale) {
-            runCatching {
-                context.assets.open("i18n/$locale.json").bufferedReader().use { json.parseToJsonElement(it.readText()) as JsonObject }
-            }.getOrDefault(JsonObject(emptyMap()))
-        }
-
-        fun load(context: Context, locale: String): Messages = Messages(locale, read(context, locale), read(context, "en"))
-
         /** The device language mapped onto the offered locales, like `detectLocale` in core. */
-        fun detect(): String {
-            val system = java.util.Locale.getDefault()
-            val tag = system.toLanguageTag()
-            LOCALES.firstOrNull { it.first.equals(tag, ignoreCase = true) }?.let { return it.first }
+        fun detect(): String = detect(deviceLocale())
+
+        fun detect(system: DeviceLocale): String {
+            LOCALES.firstOrNull { it.first.equals(system.tag, ignoreCase = true) }?.let { return it.first }
             if (system.language == "zh") return if (system.country in setOf("TW", "HK", "MO") || system.script == "Hant") "zh-TW" else "zh-CN"
             if (system.language == "pt") return "pt-BR"
             return LOCALES.firstOrNull { it.first == system.language }?.first ?: "en"
@@ -93,3 +81,26 @@ fun t(key: String, vararg args: Pair<String, Any?>): String = LocalMessages.curr
 
 @Composable
 fun tc(key: String, count: Int, vararg args: Pair<String, Any?>): String = LocalMessages.current.tc(key, count, *args)
+
+/** One native resource source and its parsed locale cache, shared by every screen using it. */
+class MessageCatalog(private val readText: (String) -> String?) {
+    private val json = Json { ignoreUnknownKeys = true }
+    private val cache = mutableMapOf<String, JsonObject>()
+
+    private fun read(locale: String): JsonObject = cache.getOrPut(locale) {
+        runCatching {
+            json.parseToJsonElement(readText(locale).orEmpty()) as JsonObject
+        }.getOrDefault(JsonObject(emptyMap()))
+    }
+
+    fun load(locale: String): Messages = Messages(locale, read(locale), read("en"))
+}
+
+/** Device language fields, supplied by the native locale API. */
+data class DeviceLocale(val tag: String, val language: String, val country: String = "", val script: String = "")
+
+internal expect fun deviceLocale(): DeviceLocale
+
+/** Loads the host's bundled web locale files and keeps them across recompositions. */
+@Composable
+expect fun rememberMessages(locale: String = Messages.detect()): Messages

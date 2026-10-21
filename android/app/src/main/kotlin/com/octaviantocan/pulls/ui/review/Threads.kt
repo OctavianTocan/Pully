@@ -181,7 +181,11 @@ fun ReviewThreadCard(session: ReviewSession, thread: ReviewThread, modifier: Mod
                     if (canResolve) {
                         PillButton(
                             t("review.resolve"),
-                            { val pull = session.pull ?: return@PillButton; actions.run({ session.repo.resolve(pull, thread.threadId) }) },
+                            {
+                                val pull = session.pull ?: return@PillButton
+                                val threadId = thread.threadId ?: return@PillButton
+                                actions.run({ session.repo.resolve(pull, threadId) })
+                            },
                             Modifier.padding(end = 10.dp), enabled = !actions.busy, leading = { LuIcon(Lu.check, tint = c.text, size = 18.dp) },
                         )
                     }

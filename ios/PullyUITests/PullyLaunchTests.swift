@@ -19,10 +19,11 @@ final class PullyLaunchTests: XCTestCase {
     func testSharedPreviewSurvivesRotationAndRelaunch() throws {
         let app = XCUIApplication()
         appForDiagnostics = app
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launchEnvironment["PULLY_UI_TEST_APPEARANCE"] = "light"
         app.launch()
         assertVisibleLabel("Pully internal preview", in: app, timeout: 20)
-        assertVisibleLabel("Share the existing Pully review interface", in: app)
+        assertVisibleLabel("Share the existing Pully review interface", in: app, timeout: 10)
         attachScreenshot(name: "Shared preview light portrait")
 
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -31,7 +32,7 @@ final class PullyLaunchTests: XCTestCase {
             object: nil
         )
         XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 10), .completed)
-        assertVisibleLabel("Pully internal preview", in: app)
+        assertVisibleLabel("Pully internal preview", in: app, timeout: 10)
         attachScreenshot(name: "Shared preview light landscape")
 
         app.terminate()
@@ -43,8 +44,28 @@ final class PullyLaunchTests: XCTestCase {
         app.launchEnvironment["PULLY_UI_TEST_APPEARANCE"] = "dark"
         app.launch()
         assertVisibleLabel("Pully internal preview", in: app, timeout: 20)
-        assertVisibleLabel("Share the existing Pully review interface", in: app)
+        assertVisibleLabel("Share the existing Pully review interface", in: app, timeout: 10)
         attachScreenshot(name: "Shared preview dark portrait")
+    }
+
+    func testProductionRowsUseBundledSpanishAndEnglishFallbackMessages() throws {
+        let app = XCUIApplication()
+        appForDiagnostics = app
+        app.launchEnvironment["PULLY_UI_TEST_APPEARANCE"] = "light"
+        app.launchArguments = ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app.launch()
+        assertVisibleLabel("Share the existing Pully review interface", in: app, timeout: 20)
+        assertVisibleLabel("Todas las comprobaciones pasaron", in: app, timeout: 10)
+        // This existing catalog key remains "draft" in every source locale.
+        assertVisibleLabel("draft", in: app, timeout: 10)
+        attachScreenshot(name: "Production rows Spanish")
+
+        app.terminate()
+        app.launchArguments = ["-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
+        app.launch()
+        assertVisibleLabel("Share the existing Pully review interface", in: app, timeout: 20)
+        assertVisibleLabel("All checks have passed", in: app, timeout: 10)
+        attachScreenshot(name: "Production rows unsupported locale English fallback")
     }
 
     private func assertVisibleLabel(
