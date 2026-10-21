@@ -102,10 +102,22 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent \
             ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app \
             ios/build/Pully-simulator.zip
-      - name: Export ready-state screenshots from UI tests
+      - name: Export UI test attachments, including failures
+        if: always()
         run: |
-          xcrun xcresulttool export attachments --path ios/build/Pully.xcresult \
-            --output-path ios/build/screenshots
+          if test -d ios/build/Pully.xcresult; then
+            xcrun xcresulttool export attachments --path ios/build/Pully.xcresult \
+              --output-path ios/build/screenshots
+          fi
+      - name: Capture simulator screenshot and app diagnostics
+        if: failure() && steps.simulator.outputs.udid != ''
+        run: |
+          mkdir -p ios/build/diagnostics
+          xcrun simctl io '${{ steps.simulator.outputs.udid }}' screenshot \
+            ios/build/diagnostics/failure.png || true
+          xcrun simctl spawn '${{ steps.simulator.outputs.udid }}' log show \
+            --last 5m --style compact --predicate 'process == "Pully"' \
+            > ios/build/diagnostics/pully.log 2>&1 || true
       - name: Retain simulator test evidence
         if: always()
         uses: actions/upload-artifact@v6
@@ -115,6 +127,7 @@ jobs:
             ios/build/Pully.xcresult
             ios/build/Pully-simulator.zip
             ios/build/screenshots
+            ios/build/diagnostics
             mobile/shared-domain/build/reports/tests
           if-no-files-found: ignore
       - name: Retain the downloaded Native toolchain for compiler iterations
