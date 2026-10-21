@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.octaviantocan.pulls.core.ChangelogEntry
 import com.octaviantocan.pulls.core.plainChangelogText
 import com.octaviantocan.pulls.ui.design.CtaButton
@@ -77,6 +81,11 @@ import com.octaviantocan.pulls.update.Updates
 @Composable
 internal fun UpdateGate(onLeave: () -> Unit) {
     val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(Updates.confirmationRequest) {
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) Updates.openConfirmation(context, automatic = true)
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { Updates.openConfirmation(context, automatic = true) }
     val manifest = Updates.available
     // Keeps the offer on screen while the screen leaves.
     var last by remember { mutableStateOf(manifest) }
@@ -150,7 +159,12 @@ private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
                 style = PullsType.sm, color = if (status is UpdateStatus.Failed) c.error else c.muted,
             )
         }
-        CtaButton(if (status is UpdateStatus.Failed) "Try again" else "Update to $version", onUpdate, Modifier.fillMaxWidth())
+        val label = when (status) {
+            is UpdateStatus.Failed -> "Try again"
+            UpdateStatus.Confirming -> "Continue update"
+            else -> "Update to $version"
+        }
+        CtaButton(label, onUpdate, Modifier.fillMaxWidth())
     } else {
         Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)) {
             if (status is UpdateStatus.Downloading && status.fraction >= 0f) ProgressRing(status.fraction, size = 30.dp) else Orb(size = 30.dp)

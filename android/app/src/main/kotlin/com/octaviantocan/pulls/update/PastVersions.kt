@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.core.PastVersion
+import com.octaviantocan.pulls.core.DigestMismatch
 import com.octaviantocan.pulls.core.parsePastVersions
 import com.octaviantocan.pulls.data.ServerStore
 import kotlinx.coroutines.Dispatchers

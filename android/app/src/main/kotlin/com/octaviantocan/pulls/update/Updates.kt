@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.update
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -11,6 +12,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.core.ChangelogEntry
 import com.octaviantocan.pulls.core.UpdateManifest
+import com.octaviantocan.pulls.core.DigestMismatch
+import com.octaviantocan.pulls.core.InstallRecovery
+import com.octaviantocan.pulls.core.UpdateInstall
+import com.octaviantocan.pulls.core.recoverUpdateInstall
 import com.octaviantocan.pulls.core.changesSince
 import com.octaviantocan.pulls.core.parseChangelog
 import com.octaviantocan.pulls.core.parseUpdateManifest
@@ -19,6 +24,8 @@ import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.ServerStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -34,10 +41,10 @@ sealed interface UpdateStatus {
     /** [fraction] of the APK is down, or -1 while the size is not known. */
     data class Downloading(val fraction: Float) : UpdateStatus
 
-    /** The system "Update this app?" dialog is up. */
+    /** Android is waiting for approval; the foreground screen can open its confirmation again. */
     data object Confirming : UpdateStatus
 
-    /** Handed to the installer; Pully closes and reopens as the new version. */
+    /** Preparing or waiting for the recorded Android installer session. */
     data object Installing : UpdateStatus
 
     data class Failed(val message: String) : UpdateStatus
@@ -63,7 +70,18 @@ object Updates {
     var status by mutableStateOf<UpdateStatus>(UpdateStatus.Idle)
         private set
 
-    val busy: Boolean get() = status is UpdateStatus.Downloading || status is UpdateStatus.Confirming || status is UpdateStatus.Installing
+    val busy: Boolean get() = status is UpdateStatus.Downloading || status is UpdateStatus.Installing
+
+    /** Changes when Android sends a confirmation; the resumed update screen opens it. */
+    var confirmationRequest by mutableStateOf(0)
+        private set
+
+    private var confirmation: Intent? = null
+    private var confirmationOpened = false
+    @Volatile private var processSession: Int? = null
+    @Volatile private var operation = 0L
+    private var monitoring: Job? = null
+    private var listening = false
 
     private val scope = MainScope()
 
@@ -77,9 +95,11 @@ object Updates {
      * back to the front, since the background check may have heard of a build while the app sat in the background.
      */
     fun restore(context: Context) {
+        monitorInstall(context.applicationContext)
         val offer = UpdatePrefs.offer(context)
         if (offer == null || offer.versionCode <= AppVersion.code(context)) {
             if (offer != null) UpdatePrefs.saveOffer(context, null)
+            if ((available?.versionCode ?: Int.MAX_VALUE) <= AppVersion.code(context)) available = null
             return
         }
         if (offer.versionCode > (available?.versionCode ?: 0)) available = offer
@@ -112,7 +132,7 @@ object Updates {
 
     /** The server has nothing newer: the update screen goes, unless a download it started is still running. */
     private fun withdraw(context: Context) {
-        if (busy) return
+        if (busy || UpdatePrefs.install(context) != null) return
         available = null
         status = UpdateStatus.Idle
         UpdatePrefs.saveOffer(context, null)
@@ -128,7 +148,15 @@ object Updates {
      */
     fun start(context: Context) {
         if (busy) return
+        if (confirmation != null) return openConfirmation(context)
         val app = context.applicationContext
+        val attemptOperation = ++operation
+        UpdatePrefs.install(app)?.let {
+            if (AppVersion.code(app) >= it.versionCode) return completeInstall(app)
+            // An explicit retry replaces only this app's recorded attempt. Late callbacks are rejected by session ID.
+            runCatching { app.packageManager.packageInstaller.abandonSession(it.sessionId) }
+            clearInstall(app)
+        }
         if (Build.VERSION.SDK_INT >= 26 && !app.packageManager.canRequestPackageInstalls()) {
             status = UpdateStatus.NeedsPermission
             runCatching {
@@ -141,12 +169,13 @@ object Updates {
         }
         status = UpdateStatus.Downloading(-1f)
         scope.launch {
+            var handingToInstaller = false
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
                     val config = ServerStore.load(app)
                     val updater = AppUpdater(app)
                     val manifest = updater.check(config.url, config.headers(), AppVersion.code(app)) ?: return@runCatching null
-                    withContext(Dispatchers.Main) { available = manifest }
+                    withContext(Dispatchers.Main) { if (operation == attemptOperation) available = manifest }
                     UpdatePrefs.saveOffer(app, manifest)
                     var shown = -1
                     val apk = updater.download(config.url, manifest, config.headers()) { read, total ->
@@ -154,36 +183,52 @@ object Updates {
                         val percent = if (total > 0) (read * 100 / total).toInt() else -1
                         if (percent != shown) {
                             shown = percent
-                            scope.launch { if (status is UpdateStatus.Downloading) status = UpdateStatus.Downloading(percent / 100f) }
+                            scope.launch { if (operation == attemptOperation && status is UpdateStatus.Downloading) status = UpdateStatus.Downloading(percent / 100f) }
                         }
                     }
                     Analytics.track("update.event", "step" to "downloaded", "version" to manifest.versionName)
-                    updater.install(apk)
+                    handingToInstaller = true
+                    withContext(Dispatchers.Main) {
+                        check(operation == attemptOperation) { "Update attempt was replaced." }
+                        status = UpdateStatus.Installing
+                    }
+                    updater.install(apk, expectedVersionCode = manifest.versionCode) { sessionId ->
+                        // Persist before commit: Android can answer immediately or restart the process for the update.
+                        check(operation == attemptOperation) { "Update attempt was replaced." }
+                        processSession = sessionId
+                        UpdatePrefs.saveInstall(app, UpdateInstall(sessionId, manifest.versionCode, System.currentTimeMillis()))
+                        scope.launch { monitorInstall(app) }
+                    }
                     manifest
                 }
             }
+            if (operation != attemptOperation) return@launch
             outcome
                 .onSuccess { manifest ->
-                    // The installer may already have answered (its dialog is up); only a status still downloading moves on.
+                    // The installer may already have answered; monitoring must preserve its newer state.
                     if (manifest == null) {
                         status = UpdateStatus.Idle
                         withdraw(app)
-                    } else if (status is UpdateStatus.Downloading) status = UpdateStatus.Installing
+                    } else monitorInstall(app)
                 }
                 .onFailure {
                     Log.w("pulls", "update failed", it)
-                    status = UpdateStatus.Failed(if (it is DigestMismatch) "Download was damaged." else "Download failed.")
+                    clearInstall(app)
+                    status = UpdateStatus.Failed(when {
+                        handingToInstaller -> "Install failed."
+                        it is DigestMismatch -> "Download was damaged."
+                        else -> "Download failed."
+                    })
                 }
         }
     }
 
     /**
      * Pully is in front again. Back from the install settings, the update carries on if it is allowed now, so the
-     * reader does not tap twice. Back from the system dialog without an answer (it was left, not cancelled), Update
-     * is offered again rather than the orb turning for ever.
+     * reader does not tap twice. A recorded installer session is reconciled with the package Android actually has.
      */
     fun resume(context: Context) {
-        if (status == UpdateStatus.Confirming) status = UpdateStatus.Idle
+        reconcileInstall(context)
         if (status != UpdateStatus.NeedsPermission) return
         if (Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()) {
             status = UpdateStatus.Idle
@@ -192,14 +237,101 @@ object Updates {
     }
 
     /** What the system said about the install [UpdateInstallReceiver] committed. */
-    internal fun installed(result: InstallResult) {
+    internal fun installed(context: Context, sessionId: Int, result: InstallResult) {
+        if (UpdatePrefs.install(context)?.sessionId != sessionId) return
         status = when (result) {
             InstallResult.Confirming -> UpdateStatus.Confirming
-            InstallResult.Installed -> UpdateStatus.Installing.also { Analytics.track("update.event", "step" to "installed", "version" to available?.versionName.orEmpty()) }
+            InstallResult.Installed -> {
+                val attempt = UpdatePrefs.install(context) ?: return
+                if (AppVersion.code(context) >= attempt.versionCode) return completeInstall(context)
+                clearInstall(context)
+                UpdateStatus.Failed("Installed version did not match.")
+            }
             // Cancelling the system dialog is a choice, not a failure: the update screen offers Update again.
-            InstallResult.Cancelled -> UpdateStatus.Idle
+            InstallResult.Cancelled -> UpdateStatus.Idle.also { clearInstall(context) }
             // The installer's own words are for the log; the update screen has one short line.
-            is InstallResult.Failed -> UpdateStatus.Failed("Install failed.").also { Log.w("pulls", "install failed: ${result.message}") }
+            is InstallResult.Failed -> UpdateStatus.Failed("Install failed.").also {
+                clearInstall(context)
+                Log.w("pulls", "install failed: ${result.message}")
+            }
+        }
+    }
+
+    internal fun confirm(context: Context, sessionId: Int, intent: Intent) {
+        if (UpdatePrefs.install(context)?.sessionId != sessionId) return
+        processSession = sessionId
+        confirmation = intent
+        confirmationOpened = false
+        confirmationRequest++
+        status = UpdateStatus.Confirming
+        monitorInstall(context.applicationContext)
+    }
+
+    /** Called by the visible activity, so Android's background activity launch rules cannot hide the approval. */
+    fun openConfirmation(context: Context, automatic: Boolean = false) {
+        val intent = confirmation ?: return
+        if (automatic && confirmationOpened) return
+        confirmationOpened = true
+        runCatching { context.startActivity(intent) }.onFailure {
+            confirmationOpened = false
+            status = UpdateStatus.Failed("Could not open installer.")
+            Log.w("pulls", "installer confirmation could not open", it)
+        }
+    }
+
+    private fun clearInstall(context: Context) {
+        UpdatePrefs.saveInstall(context, null)
+        processSession = null
+        confirmation = null
+        confirmationOpened = false
+    }
+
+    private fun completeInstall(context: Context) {
+        Analytics.track("update.event", "step" to "installed", "version" to AppVersion.name(context))
+        clearInstall(context)
+        status = UpdateStatus.Idle
+        val offer = available ?: UpdatePrefs.offer(context)
+        if ((offer?.versionCode ?: 0) <= AppVersion.code(context)) {
+            available = null
+            UpdatePrefs.saveOffer(context, null)
+        } else available = offer
+        UpdateNotice.clear(context)
+    }
+
+    private fun reconcileInstall(context: Context) {
+        val attempt = UpdatePrefs.install(context) ?: return
+        val sessionExists = context.packageManager.packageInstaller.getSessionInfo(attempt.sessionId) != null
+        when (recoverUpdateInstall(attempt, AppVersion.code(context), sessionExists, processSession == attempt.sessionId, System.currentTimeMillis())) {
+            InstallRecovery.Installed -> completeInstall(context)
+            InstallRecovery.Interrupted, InstallRecovery.TimedOut -> {
+                confirmation = null
+                confirmationOpened = false
+                status = UpdateStatus.Failed(if (sessionExists && processSession == attempt.sessionId) "Installation did not finish." else "Installation was interrupted.")
+            }
+            InstallRecovery.Waiting -> if (status == UpdateStatus.Idle) status = UpdateStatus.Installing
+        }
+    }
+
+    private fun monitorInstall(context: Context) {
+        if (!listening) {
+            listening = true
+            context.packageManager.packageInstaller.registerSessionCallback(object : PackageInstaller.SessionCallback() {
+                override fun onCreated(sessionId: Int) {}
+                override fun onBadgingChanged(sessionId: Int) {}
+                override fun onActiveChanged(sessionId: Int, active: Boolean) {}
+                override fun onProgressChanged(sessionId: Int, progress: Float) {}
+                override fun onFinished(sessionId: Int, success: Boolean) {
+                    installed(context, sessionId, if (success) InstallResult.Installed else InstallResult.Failed("Installer session ended."))
+                }
+            })
+        }
+        reconcileInstall(context)
+        if (monitoring?.isActive == true || UpdatePrefs.install(context) == null) return
+        monitoring = scope.launch {
+            while (UpdatePrefs.install(context) != null) {
+                delay(1_000)
+                reconcileInstall(context)
+            }
         }
     }
 }
@@ -244,6 +376,16 @@ internal object UpdatePrefs {
 
     fun saveOffer(context: Context, manifest: UpdateManifest?) {
         prefs(context).edit().apply { if (manifest == null) remove("offer") else putString("offer", Json.encodeToString(manifest)) }.apply()
+    }
+
+    fun install(context: Context): UpdateInstall? = prefs(context).getString("install", null)?.let {
+        runCatching { Json.decodeFromString<UpdateInstall>(it) }.getOrNull()
+    }
+
+    fun saveInstall(context: Context, attempt: UpdateInstall?) {
+        val edit = prefs(context).edit()
+        if (attempt == null) edit.remove("install") else edit.putString("install", Json.encodeToString(attempt))
+        check(edit.commit()) { "Could not remember installer session." }
     }
 }
 
