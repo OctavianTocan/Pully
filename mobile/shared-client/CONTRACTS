@@ -76,6 +76,8 @@ api.github.com REST GETs, with no configured Pully server, Access headers, perso
 GitHub credential, session, private cache or AI authority. The shared client MUST
 check public repository visibility before requesting its PRs, strictly validate public
 data, bound queries/pages/bodies/time, refuse redirects and keep error text fixed.
+Opening/paginating a selected repository MUST retain its immutable numeric ID; a name
+reused by another repository MUST NOT replace that selected authority or append its PRs.
 Retired guest sources MUST reject late results/errors and retained callbacks; caller
 cancellation MUST close the active native request. HTTP quota metadata MAY contain
 only parsed nonnegative numbers. Ordinary RPC POST semantics and their larger diff

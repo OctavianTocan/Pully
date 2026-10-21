@@ -78,6 +78,17 @@ class PublicBrowseClientTest {
     }
 
     @Test
+    fun aSelectedRepositoryCannotTurnIntoADifferentRepositoryThatReusesItsName() = runTest {
+        val h = Harness()
+        h.answer = { response(repo(id = JsonPrimitive(99)).toString()) }
+        assertEquals(PublicBrowseProblem.RepositoryUnavailable, assertFailsWith<PublicBrowseError> {
+            h.client.pulls("public-owner", "public-repo", repositoryId = 42)
+        }.problem)
+        assertEquals(1, h.requests.size)
+        assertFalse(h.requests.single().url.contains("/pulls"))
+    }
+
+    @Test
     fun failuresNeverEchoBodiesOrConvertAnonymousRejectionIntoAccountSignIn() = runTest {
         val h = Harness()
         for ((response, expected) in listOf(

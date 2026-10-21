@@ -68,11 +68,12 @@ class PublicBrowseClient(private val transport: RpcTransport, private val genera
     }
 
     /** Every list is preceded by a fresh, tokenless visibility check; no private caches are consulted. */
-    suspend fun pulls(owner: String, name: String, page: Int = 1, source: RpcSource = source()): ExplorePullPage {
+    suspend fun pulls(owner: String, name: String, page: Int = 1, source: RpcSource = source(), repositoryId: Long? = null): ExplorePullPage {
         validPage(page)
         if (!validSegment(owner, 39) || !validSegment(name, 100)) throw PublicBrowseError(PublicBrowseProblem.InvalidSearch)
         val prefix = "/repos/$owner/$name"
         val repo = repository(read(source, prefix).obj())
+        if (repositoryId != null && repo.id != repositoryId) throw PublicBrowseError(PublicBrowseProblem.RepositoryUnavailable)
         if (!repo.owner.equals(owner, true) || !repo.name.equals(name, true)) invalid()
         val items = (read(source, "$prefix/pulls?state=open&sort=updated&direction=desc&per_page=20&page=$page") as? JsonArray)?.takeIf { it.size <= 20 } ?: invalid()
         return ExplorePullPage(repo, items.map { value ->
