@@ -5,6 +5,9 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -50,6 +53,8 @@ class PublicBrowseError(val problem: PublicBrowseProblem, val retryAfterSeconds:
  * This client accepts no server address, personal credentials, Access headers or cache.
  */
 class PublicBrowseClient(private val transport: RpcTransport, private val generation: () -> Long = { 0 }) {
+    private val pullReads = Mutex()
+    private val requests = Semaphore(3)
     fun source(): RpcSource = RpcSource("https://api.github.com", generation())
     fun isCurrent(source: RpcSource): Boolean = source == this.source()
 
@@ -69,6 +74,22 @@ class PublicBrowseClient(private val transport: RpcTransport, private val genera
 
     /** Every list is preceded by a fresh, tokenless visibility check; no private caches are consulted. */
     suspend fun pulls(owner: String, name: String, page: Int = 1, source: RpcSource = source(), repositoryId: Long? = null): ExplorePullPage {
+        requireCurrent(source)
+        return try {
+            withTimeout(60_000) {
+                // The app has one public read transaction at a time. A visibility denial
+                // cannot overtake an older PR response and then be undone by that response.
+                pullReads.withLock { publicPulls(owner, name, page, source, repositoryId) }
+            }
+        } catch (timeout: TimeoutCancellationException) {
+            currentCoroutineContext().ensureActive()
+            requireCurrent(source)
+            throw PublicBrowseError(PublicBrowseProblem.Timeout)
+        }
+    }
+
+    private suspend fun publicPulls(owner: String, name: String, page: Int, source: RpcSource, repositoryId: Long?): ExplorePullPage {
+        requireCurrent(source)
         validPage(page)
         if (!validSegment(owner, 39) || !validSegment(name, 100)) throw PublicBrowseError(PublicBrowseProblem.InvalidSearch)
         val prefix = "/repos/$owner/$name"
@@ -90,6 +111,7 @@ class PublicBrowseClient(private val transport: RpcTransport, private val genera
             "https://api.github.com$path", mapOf("Accept" to "application/vnd.github+json", "X-GitHub-Api-Version" to "2022-11-28", "User-Agent" to "Pully/public-explore"), "",
             connectTimeoutMs = 10_000, readTimeoutMs = 30_000, timeoutMs = 30_000, method = RpcMethod.Get, responseLimit = 2 * 1024 * 1024,
         )
+        if (!requests.tryAcquire()) throw PublicBrowseError(PublicBrowseProblem.Unavailable)
         val response = try {
             withTimeout(request.timeoutMs) { transport.execute(request) }
         } catch (timeout: TimeoutCancellationException) {
@@ -101,7 +123,7 @@ class PublicBrowseClient(private val transport: RpcTransport, private val genera
         } catch (_: Exception) {
             requireCurrent(source)
             throw PublicBrowseError(PublicBrowseProblem.Unreachable)
-        }
+        } finally { requests.release() }
         requireCurrent(source)
         if (response.status in 300..399) throw PublicBrowseError(PublicBrowseProblem.Redirect)
         if (response.status == 429 || response.status == 403 && (response.rateLimitRemaining == 0L || response.retryAfterSeconds != null))

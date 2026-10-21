@@ -150,6 +150,64 @@ class PublicBrowseClientTest {
         assertNull(h.client.repositories("native mobile", 10).nextPage)
     }
 
+    @Test
+    fun aConfirmedVisibilityDenialCannotOvertakeAnOlderPullResponse() = runTest {
+        val h = Harness()
+        val oldPulls = CompletableDeferred<RpcResponse>()
+        var visibilityChecks = 0
+        h.answer = { request ->
+            if (request.url.contains("/pulls?")) oldPulls.await()
+            else if (++visibilityChecks == 1) response(repo().toString()) else RpcResponse(404, "not public")
+        }
+        val old = async { h.client.pulls("public-owner", "public-repo") }
+        runCurrent()
+        val denial = async { runCatching { h.client.pulls("public-owner", "public-repo") } }
+        runCurrent()
+        assertEquals(2, h.requests.size)
+        assertEquals(1, visibilityChecks)
+        oldPulls.complete(response("[]"))
+        assertTrue(old.await().pulls.isEmpty())
+        assertEquals(PublicBrowseProblem.RepositoryUnavailable, (denial.await().exceptionOrNull() as PublicBrowseError).problem)
+        assertEquals(2, visibilityChecks)
+        assertEquals(3, h.requests.size)
+    }
+
+    @Test
+    fun cancellingAQueuedPullReadMakesNoVisibilityRequestAndReleasesItsOwner() = runTest {
+        val h = Harness()
+        val oldPulls = CompletableDeferred<RpcResponse>()
+        h.answer = { request -> if (request.url.contains("/pulls?")) oldPulls.await() else response(repo().toString()) }
+        val old = async { h.client.pulls("public-owner", "public-repo") }
+        runCurrent()
+        val queued = async { h.client.pulls("public-owner", "public-repo") }
+        runCurrent()
+        queued.cancelAndJoin()
+        oldPulls.complete(response("[]"))
+        old.await()
+        assertEquals(2, h.requests.size)
+        h.client.pulls("public-owner", "public-repo")
+        assertEquals(4, h.requests.size)
+    }
+
+    @Test
+    fun anonymousRequestConcurrencyIsBoundedAndCancellationRestoresCapacity() = runTest {
+        val h = Harness()
+        val waiting = CompletableDeferred<RpcResponse>()
+        h.answer = { waiting.await() }
+        val active = List(3) { async { h.client.repositories() } }
+        runCurrent()
+        assertEquals(3, h.requests.size)
+        assertEquals(PublicBrowseProblem.Unavailable, assertFailsWith<PublicBrowseError> { h.client.repositories() }.problem)
+        assertEquals(3, h.requests.size)
+        active.first().cancelAndJoin()
+        val replacement = async { h.client.repositories() }
+        runCurrent()
+        assertEquals(4, h.requests.size)
+        waiting.complete(response(search()))
+        active.drop(1).forEach { it.await() }
+        replacement.await()
+    }
+
     private class Harness {
         var generation = 0L
         val requests = mutableListOf<RpcRequest>()

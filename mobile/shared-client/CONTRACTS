@@ -78,6 +78,9 @@ check public repository visibility before requesting its PRs, strictly validate 
 data, bound queries/pages/bodies/time, refuse redirects and keep error text fixed.
 Opening/paginating a selected repository MUST retain its immutable numeric ID; a name
 reused by another repository MUST NOT replace that selected authority or append its PRs.
+Native PR visibility/read transactions MUST be serialized within their public client
+with a total deadline, so a confirmed denial cannot be undone by an older response.
+All public HTTP concurrency MUST remain bounded; no private cache is used as a fallback.
 Retired guest sources MUST reject late results/errors and retained callbacks; caller
 cancellation MUST close the active native request. HTTP quota metadata MAY contain
 only parsed nonnegative numbers. Ordinary RPC POST semantics and their larger diff

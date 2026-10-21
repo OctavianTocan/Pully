@@ -1,0 +1,19 @@
+@cc [owner:OctavianTocan,label:product;security;architecture] explore-is-public-with-an-owned-lifetime
+Explore MUST show anonymous Popular/search and public repository PR pages without
+Access credentials or account sign-in. It MUST consume only the explicit tokenless
+public client, never legacy Inbox/review stores or AI authority. Its route state MUST
+cancel replaced requests, ignore stale results/errors and reject retired callbacks;
+retirement MUST clear inputs and rows. Public repository selection and pagination MUST
+retain the selected immutable repository ID, and a confirmed visibility/identity denial
+MUST clear prior PR rows. Source: Tavi's 21 Oct 2026 signed-out browsing and personal
+GitHub request, approved direct-native guest slice and public-boundary review.
+
+@cc [owner:OctavianTocan,label:design;architecture] explore-reuses-pully-and-the-shared-stack
+Android and iOS MUST use the same Explore state and presentation, Pully's existing
+design kit and the host's shared Compose route stack. Opening a repository MUST use
+the host navigation callback; Explore MUST NOT create an independent native/child
+back stack. The initial list slice MUST label PR actions as opening GitHub until a
+public review route actually exists. Account invitations MUST reflect real server
+sign-in capability rather than inventing OAuth success or sending operator secrets.
+Source: mobile-reuses-production-ui, shared-navigation-keeps-one-compose-stack and
+Tavi's 21 Oct 2026 guest browsing/personal sign-in request.

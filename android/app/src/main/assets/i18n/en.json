@@ -1,4 +1,37 @@
 {
+  "explore": {
+    "title": "Explore",
+    "intro": "Discover public projects and their open pull requests. No sign-in needed.",
+    "signIn": "Sign in with GitHub",
+    "signInUnavailable": "GitHub sign-in is being set up. You can browse public projects now.",
+    "existingAccount": "Use an existing Pully account",
+    "popular": "Popular repositories",
+    "results": "Results for “{query}”",
+    "stars": "{count} stars",
+    "searchPlaceholder": "Search public repositories",
+    "search": "Search",
+    "loadMore": "Load more",
+    "incomplete": "GitHub returned part of the results. Try a more specific search.",
+    "emptyRepositories": "No public repositories found. Try another name or search.",
+    "back": "Back to Explore",
+    "publicPulls": "Open pull requests",
+    "opensOnGitHub": "Choose a pull request to open it on GitHub.",
+    "emptyPulls": "This public repository has no open pull requests.",
+    "draft": "Draft",
+    "open": "Open",
+    "github": "GitHub",
+    "problem": {
+      "InvalidSearch": "Search with a repository name or a few words, up to 80 characters.",
+      "RateLimited": "GitHub’s public browsing limit has been reached. Try again later.",
+      "RepositoryUnavailable": "This repository is no longer available for public browsing. Return to Explore to choose another.",
+      "Unavailable": "Public repositories are temporarily unavailable. Try again in a moment.",
+      "InvalidResponse": "GitHub could not return this public project. Try again.",
+      "WebPage": "The connection returned a web page. Check your connection and try again.",
+      "Redirect": "This repository moved. Search for its current name in Explore.",
+      "Timeout": "GitHub took too long to respond. Try again.",
+      "Unreachable": "Pully could not reach GitHub. Check your connection and try again."
+    }
+  },
   "connection": {
     "welcome": "Welcome to Pully",
     "intro": "Read pull requests, explore changes and follow reviews.",
