@@ -4,11 +4,12 @@ import { describe, it } from 'vitest'
 import { composables } from './kotlin.mjs'
 
 const review = new URL('../../app/src/main/kotlin/com/octaviantocan/pulls/ui/review/', import.meta.url)
+const sharedReview = new URL('../../../mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/ui/review/', import.meta.url)
 const read = name => readFileSync(new URL(name, review), 'utf8')
 
 describe('review layout regression guards', () => {
   it('keeps metadata in a single row with bounded one-line repository and author names', () => {
-    const source = composables(read('PrMeta.kt'), 'PrMeta.kt').find(item => item.name === 'PrMetaLine').source
+    const source = composables(readFileSync(new URL('PrMeta.kt', sharedReview), 'utf8'), 'PrMeta.kt').find(item => item.name === 'PrMetaLine').source
     assert.ok(!source.includes('FlowRow('))
     assert.ok(source.includes('Row('))
     assert.equal((source.match(/weight\(1f, fill = false\)/g) ?? []).length, 2)
