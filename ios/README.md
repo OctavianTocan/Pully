@@ -79,7 +79,6 @@ Checked on 21 October 2026:
 - [GitHub runner labels](https://github.com/actions/runner-images#available-images) and [macOS 26 ARM64 image](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md): ordinary `macos-26` label, installed Xcode 26.4.1 and simulator runtime.
 - [Direct Xcode integration](https://kotlinlang.org/docs/multiplatform/multiplatform-direct-integration.html) and [UIKit integration](https://kotlinlang.org/docs/multiplatform/compose-uikit-integration.html): build-phase ordering, script sandboxing and the required high-refresh-rate plist setting.
 
-
 The account rules also run as native Swift package tests. The real Keychain test
 runs in a separate native app-hosted XCTest target (`PullyNativeKeychain`), ad-hoc
 signed for the simulator. Its private application identity is checked from the

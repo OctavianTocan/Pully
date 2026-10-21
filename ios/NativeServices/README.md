@@ -118,7 +118,6 @@ Sources:
 - [Apple UserDefaults required reasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitypereasons)
 - [Apple privacy-manifest structure](https://developer.apple.com/documentation/technotes/tn3183-adding-required-reason-api-entries-to-your-privacy-manifest)
 
-
 Keychain test-host references:
 
 - [Apple DTS: host entitlement-dependent unit tests in an app](https://developer.apple.com/forums/thread/773772)
