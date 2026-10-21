@@ -2,6 +2,7 @@ import type { AiActivity, AiPrContext } from '../../../local-rpc'
 import type { CritiqueFinding, CritiqueResult, CritiqueSeverity } from '../../../types/analyze'
 import type { DiffSide } from '../../../types/comment-threads'
 import type { DiffHunk, DiffsPayload, FileChange } from '../../../types/diff'
+import type { ReviewExperiments } from '../../../types/experiments'
 import type { ResolvedModel } from './model'
 import picomatch from 'picomatch'
 import { githubCites } from '../../../providers/github/cites'
@@ -9,6 +10,7 @@ import { serializeRef } from '../../../types/source'
 import { GENERATED_PATTERNS } from '../rule-based/rules'
 import { isCliEngine, runCli } from './cli-stream'
 import { MENTION_RULE } from './prompt'
+import { reviewExperiment } from './review-experiments'
 
 /** Past this the review stops being a review and becomes a wall of comments nobody reads. */
 export const MAX_FINDINGS = 25
@@ -192,7 +194,7 @@ export interface CritiqueLens {
  * @param lens - Extra review instructions to follow on top of the general ones.
  * @returns The prompt text.
  */
-export function buildCritiquePrompt(diff: DiffsPayload, lens?: CritiqueLens): string {
+export function buildCritiquePrompt(diff: DiffsPayload, lens?: CritiqueLens, experiments?: ReviewExperiments): string {
   const sections = [prHeading(diff)]
   const description = diff.description?.trim()
   if (description)
@@ -221,6 +223,9 @@ Rules:
 - Say nothing about formatting, naming, or file layout.
 - Report at most ${MAX_FINDINGS} findings, worst first.
 - If the pull request is sound, return an empty findings list and say so in the summary.`)
+  const experiment = reviewExperiment(experiments)
+  if (experiment)
+    sections.push(`## Experimental assessment\n\n${experiment.prompt}`)
   if (lens?.instructions.trim())
     sections.push(`## Review lens: ${lens.name}\n\nReview through this lens as well. Its instructions narrow what to look for; the rules above still decide what counts as a finding and how to anchor it.\n\n${lens.instructions.trim()}`)
   return sections.join('\n\n')
@@ -356,10 +361,12 @@ export function citesOnGithub(diff: DiffsPayload): (markdown: string) => string 
  * @param result - The critique being posted.
  * @returns GitHub-flavored Markdown.
  */
-export function critiqueReviewBody(result: CritiqueResult): string {
+export function critiqueReviewBody(result: CritiqueResult, experiments?: ReviewExperiments): string {
   const by = [result.engine, result.model].filter(Boolean).join('/')
   const lens = result.lens ? `, through the ${result.lens} lens` : ''
-  return `${result.summary}\n\n<sub>Reviewed with ${by}${lens} on pulls.review.</sub>`
+  const extra = reviewExperiment(experiments)?.body(result)
+  const assessment = extra ? `\n\n${extra}` : ''
+  return `${result.summary}${assessment}\n\n<sub>Reviewed with ${by}${lens} on pulls.review.</sub>`
 }
 
 function patchOf(file: FileChange): string | undefined {
@@ -388,14 +395,15 @@ export function prContextOf(diff: DiffsPayload): AiPrContext | undefined {
   }
 }
 
-function parseAnswer(text: string): { summary?: unknown, findings?: unknown } {
+function parseAnswer(text: string): { summary?: unknown, mergeRisk?: unknown, findings?: unknown } {
   const parsed = JSON.parse(fencedContent(text) ?? text.trim()) as unknown
   if (!parsed || typeof parsed !== 'object')
     throw new Error('The review engine returned no findings object.')
-  return parsed as { summary?: unknown, findings?: unknown }
+  return parsed as { summary?: unknown, mergeRisk?: unknown, findings?: unknown }
 }
 
 export interface CritiqueRunOptions {
+  experiments?: ReviewExperiments
   lens?: CritiqueLens
   signal?: AbortSignal
   /** Live work-log entries; entries repeat as they update, merge by `id`. */
@@ -415,16 +423,18 @@ export async function runCritique(diff: DiffsPayload, resolved: ResolvedModel, o
   if (!isCliEngine(engine))
     throw new Error('Reviewing with AI needs Claude Code or Codex as the AI provider.')
   const { lens } = options
+  const experiment = reviewExperiment(options.experiments)
+  const schema = experiment ? { ...CRITIQUE_SCHEMA, properties: { ...CRITIQUE_SCHEMA.properties, ...experiment.properties }, required: [...CRITIQUE_SCHEMA.required, ...experiment.required] } : CRITIQUE_SCHEMA
   const subject = serializeRef(diff.ref)
   const { text, usage } = await runCli({
     engine,
     model: resolved.model.id || undefined,
     effort: resolved.effort,
     system: CRITIQUE_SYSTEM_PROMPT,
-    prompt: buildCritiquePrompt(diff, lens),
-    schema: CRITIQUE_SCHEMA,
+    prompt: buildCritiquePrompt(diff, lens, options.experiments),
+    schema,
     label: `Review ${subject}${lens ? ` (${lens.name})` : ''}`,
-    key: `critique:${subject}:${diff.head?.sha ?? ''}:${engine}:${resolved.model.id}:${resolved.effort ?? ''}:${lens?.name ?? ''}`,
+    key: `critique:${subject}:${diff.head?.sha ?? ''}:${engine}:${resolved.model.id}:${resolved.effort ?? ''}:${lens?.name ?? ''}${experiment?.suffix ?? ''}`,
     context: prContextOf(diff),
   }, { signal: options.signal, onActivity: options.onActivity })
   if (options.signal?.aborted)
@@ -434,6 +444,7 @@ export async function runCritique(diff: DiffsPayload, resolved: ResolvedModel, o
   const { findings, dropped } = resolveFindings(diff, Array.isArray(answer.findings) ? answer.findings : [])
   return {
     summary: stringOf(answer.summary),
+    ...experiment?.result(answer),
     findings,
     dropped,
     headSha: diff.head?.sha,

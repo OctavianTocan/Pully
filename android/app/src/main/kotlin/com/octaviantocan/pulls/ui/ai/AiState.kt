@@ -27,6 +27,7 @@ internal class AiUi {
     var selected by mutableStateOf(setOf<String>())
     var posted by mutableStateOf(setOf<String>())
     var postBody by mutableStateOf("")
+    var critiqueBodyFor by mutableStateOf<String?>(null)
     var posting by mutableStateOf(false)
     var postError by mutableStateOf<String?>(null)
     var panelOpen by mutableStateOf(true)

@@ -485,7 +485,11 @@ fn same(a: &Value, b: &Value, task: bool) -> bool {
     a["kind"] == b["kind"]
         && match text(a, "kind") {
             "analyze" => a["expectedHeadSha"] == b["expectedHeadSha"],
-            "critique" => a["variant"] == b["variant"],
+            "critique" => {
+                a["variant"] == b["variant"]
+                    && crate::review_experiments::merge_risk_enabled(a)
+                        == crate::review_experiments::merge_risk_enabled(b)
+            }
             "ask" => a["threadId"] == b["threadId"],
             _ => true,
         }

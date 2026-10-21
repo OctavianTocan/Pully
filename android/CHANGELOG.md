@@ -16,6 +16,17 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.58.0
+
+Try optional features from Experimental settings.
+
+- Settings has an Experimental section with Merge risk and Browser floaty, both off until you enable them.
+![Experimental settings in the mobile app, with Merge risk and Browser floaty off](changelog/0.58.0/experimental-settings.png)
+- New AI reviews can show a merge-risk assessment, with verdicts and evidence in the review sheet.
+![Native mobile review sheet with a sample merge-risk assessment](changelog/0.58.0/merge-risk.png)
+- Tap the merge-risk level on the Overview to read the assessment, even when the review found no inline problems.
+- Browser floaty now lives in Experimental, starts off, and still asks for your accessibility consent before it can appear.
+
 ## 0.57.0
 
 Reviews recover after a lost connection.
