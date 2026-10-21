@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.59.0
+
+A clear next step when Pully cannot connect.
+
+- A new installation explains connection problems and offers Server settings and Retry, with those settings also reachable from sign-in.
+![Labeled illustration of private-server connection recovery and its Server settings action](changelog/0.59.0/connection-recovery-illustration.png)
+- A web page or unavailable server shows a useful recovery message, and keeps an existing sign-in while you try again.
+- Changing servers clears the old sign-in form and keeps passwords, pending sign-ins and remembered account details with their original server.
+
 ## 0.58.0
 
 Try optional features and Pully’s iPhone preview.
