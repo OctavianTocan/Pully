@@ -15,6 +15,7 @@ on:
       - android/gradle/**
       - CONTRACTS
       - .github/workflows/ios-verify.yml
+      - .github/workflows/CONTRACTS
   workflow_dispatch:
 
 permissions:
@@ -224,6 +225,91 @@ jobs:
           path: ~/.konan
           key: ${{ runner.os }}-${{ runner.arch }}-pully-konan-2.4.21-xcode-26.4.1
       - name: Delete the test simulator
+        if: always() && steps.simulator.outputs.udid != ''
+        run: |
+          xcrun simctl shutdown '${{ steps.simulator.outputs.udid }}' || true
+          xcrun simctl delete '${{ steps.simulator.outputs.udid }}'
+
+  ui-diagnostic:
+    # This parallel evidence shortens feedback; the complete ios job above remains mandatory.
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+      IOS_RUNTIME_VERSION: 26.4.1
+      IOS_DEVICE_TYPE: com.apple.CoreSimulator.SimDeviceType.iPhone-17
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: |
+            mobile/**/*.gradle.kts
+            mobile/gradle.properties
+            android/gradle/wrapper/gradle-wrapper.properties
+      - uses: actions/cache/restore@v5
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-${{ runner.arch }}-pully-konan-2.4.21-xcode-26.4.1
+      - name: Verify the pinned Apple toolchain
+        run: |
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          test -d "$DEVELOPER_DIR"
+          plutil -lint ios/Pully/Info.plist ios/Pully.xcodeproj/project.pbxproj
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: ''
+      - name: Install the shared target Android SDK
+        run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
+      - name: Create the pinned iPhone simulator
+        id: simulator
+        run: |
+          pully_runtime_id=$(xcrun simctl list runtimes --json | python3 -c '
+          import json, os, sys
+          matches = [r["identifier"] for r in json.load(sys.stdin)["runtimes"]
+                     if r.get("isAvailable") and r.get("version") == os.environ["IOS_RUNTIME_VERSION"]
+                     and r["identifier"].startswith("com.apple.CoreSimulator.SimRuntime.iOS-")]
+          if len(matches) != 1:
+              raise SystemExit("Expected exactly one pinned iOS runtime: " + repr(matches))
+          print(matches[0])')
+          pully_simulator_id=$(xcrun simctl create Pully-UI-Diagnostic "$IOS_DEVICE_TYPE" "$pully_runtime_id")
+          echo "udid=$pully_simulator_id" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$pully_simulator_id"
+          xcrun simctl bootstatus "$pully_simulator_id" -b
+      - name: Build the checked-out framework and execute every actual UIKit journey
+        id: host
+        run: |
+          set -o pipefail
+          mkdir -p ios/build
+          python3 -B -m unittest discover -s ios/scripts -p 'test_host_test_results.py'
+          xcodebuild -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/UIDiagnosticDerivedData \
+            -resultBundlePath ios/build/UIDiagnostic.xcresult \
+            -parallel-testing-enabled NO \
+            test CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios/build/UIDiagnostic.log
+      - name: Print real UIKit failures and bounded accessibility evidence
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        run: |
+          python3 ios/scripts/print-host-test-results.py \
+            ios/build/UIDiagnostic.xcresult ios/build/ui-diagnostic-evidence
+      - name: Retain early UIKit evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: ios-early-ui-evidence
+          path: |
+            ios/build/UIDiagnostic.xcresult
+            ios/build/UIDiagnostic.log
+            ios/build/ui-diagnostic-evidence
+          if-no-files-found: ignore
+      - name: Delete the diagnostic simulator
         if: always() && steps.simulator.outputs.udid != ''
         run: |
           xcrun simctl shutdown '${{ steps.simulator.outputs.udid }}' || true
