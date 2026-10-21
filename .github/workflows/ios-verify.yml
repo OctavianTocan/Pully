@@ -167,7 +167,7 @@ jobs:
         id: host
         if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
         run: |
-          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+          xcodebuild -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/DerivedData \
             -resultBundlePath ios/build/Pully.xcresult \
@@ -191,6 +191,23 @@ jobs:
             xcrun xcresulttool export attachments --path ios/build/Pully.xcresult \
               --output-path ios/build/screenshots
           fi
+      - name: Print actual host test failures and accessibility evidence
+        if: ${{ !cancelled() && steps.host.outcome == 'failure' }}
+        run: |
+          if test -d ios/build/Pully.xcresult; then
+            mkdir -p ios/build/diagnostics
+            xcrun xcresulttool get test-results summary --path ios/build/Pully.xcresult \
+              > ios/build/diagnostics/host-test-summary.json
+            cat ios/build/diagnostics/host-test-summary.json
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for report in sorted(Path('ios/build/screenshots').rglob('*.txt'))[:12]:
+              print('::group::' + report.name)
+              print(report.read_text(errors='replace')[:24000])
+              print('::endgroup::')
+          PY
       - name: Capture simulator screenshot and app diagnostics
         if: failure() && steps.simulator.outputs.udid != ''
         run: |

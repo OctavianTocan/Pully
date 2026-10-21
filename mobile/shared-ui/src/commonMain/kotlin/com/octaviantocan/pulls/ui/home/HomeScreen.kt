@@ -80,6 +80,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -506,7 +507,7 @@ fun FilterChips(filter: String, counts: Map<String, Int>, onSelect: (String) -> 
     ) {
         Triage.inboxFilters.forEach { chip ->
             val label = CHIP_LABELS.getValue(chip)
-            SoftChip(label, chip == filter, { onSelect(chip) }, modifier = Modifier.semantics { contentDescription = label; stateDescription = "${counts[chip] ?: 0}"; selected = chip == filter }, count = "${counts[chip] ?: 0}")
+            SoftChip(label, chip == filter, { onSelect(chip) }, modifier = Modifier.testTag("inbox.filter.$chip").semantics { contentDescription = label; stateDescription = "${counts[chip] ?: 0}"; selected = chip == filter }, count = "${counts[chip] ?: 0}")
         }
     }
 }

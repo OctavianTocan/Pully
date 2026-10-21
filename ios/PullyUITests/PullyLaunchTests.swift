@@ -152,13 +152,27 @@ final class PullyLaunchTests: XCTestCase {
     }
 
     private func selectAll(in app: XCUIApplication) {
-        requireVisible("All", in: app, timeout: 20).tap()
+        let filter = allFilter(in: app)
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            filter.exists && filter.isHittable
+        }, object: nil)
+        guard XCTWaiter.wait(for: [hittable], timeout: 20) == .completed else {
+            attachDiagnostics(app, name: "Production All filter not hittable")
+            XCTFail("The production All filter did not become hittable")
+            return
+        }
+        filter.tap()
         assertAllSelected(in: app)
+    }
+
+    private func allFilter(in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "inbox.filter.all").firstMatch
     }
 
     private func assertAllSelected(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            self.visibleElement("All", in: app)?.isSelected == true
+            let filter = self.allFilter(in: app)
+            return filter.exists && filter.isHittable && filter.isSelected
         }, object: nil)
         guard XCTWaiter.wait(for: [selected], timeout: 10) == .completed else {
             attachDiagnostics(app, name: "Inbox All filter not selected")
@@ -205,7 +219,12 @@ final class PullyLaunchTests: XCTestCase {
     }
 
     private func attachDiagnostics(_ app: XCUIApplication, name: String) {
-        let tree = app.debugDescription
+        let filters = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ OR identifier BEGINSWITH %@", "All", "inbox.filter."))
+            .allElementsBoundByIndex.map { element in
+                "id=\(element.identifier), label=\(element.label), type=\(element.elementType.rawValue), frame=\(element.frame), hittable=\(element.isHittable), selected=\(element.isSelected)"
+            }.joined(separator: "\n")
+        let tree = "Inbox filter candidates:\n\(filters)\n\n\(app.debugDescription)"
         print("\(name)\n\(tree)")
         let attachment = XCTAttachment(string: tree)
         attachment.name = "\(name) accessibility tree"

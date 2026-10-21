@@ -58,3 +58,11 @@ scene. Its initial navigation MUST bypass Pully and GitHub universal-link routin
 The separate open-on-GitHub action MAY use direct system navigation. Neither action
 MAY forward Pully RPC or Access credentials. Source: Tavi's 21 Oct 2026 maximum-reuse
 iOS plan and the shared Overview browser action through NativeHomeActions.
+
+@cc [owner:OctavianTocan,label:product] ios-journey-tests-observe-the-production-filter
+The native Home journey tests MUST tap the actual production filter control and
+assert its exported selected state. A matching text descendant or parent container
+MUST NOT stand in for that control. The tests MUST retain the existing row, native
+Back, scroll and foreground continuity assertions. Source: Tavi's accepted 21 Oct
+2026 real iPhone journey plan and DESIGN.md rules49/128 on accessible state and
+retained navigation context.
