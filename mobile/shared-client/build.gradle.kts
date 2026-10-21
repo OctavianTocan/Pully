@@ -40,6 +40,10 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimu
 }
 
 tasks.named<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest>("iosSimulatorArm64IntegrationTest") {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
     val fixtureUrl = providers.gradleProperty("pully.rpcFixtureUrl")
     inputs.property("rpcFixtureUrl", fixtureUrl.orElse(""))
     doFirst {
