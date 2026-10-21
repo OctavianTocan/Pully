@@ -427,6 +427,7 @@ internal fun AiActivityLogFull(
     mark: Boolean = true,
     onStop: (() -> Unit)? = null,
     everyStep: Boolean = false,
+    reconnecting: Boolean = false,
 ) {
     val c = LocalPullsColors.current
     val messages = LocalMessages.current
@@ -454,7 +455,7 @@ internal fun AiActivityLogFull(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (running) {
-            val verb = workingVerb ?: if (activities.isEmpty()) messages.t("ai.verb.thinking.now") else messages.t("ai.working")
+            val verb = if (reconnecting) messages.t("ai.reconnecting") else workingVerb ?: if (activities.isEmpty()) messages.t("ai.verb.thinking.now") else messages.t("ai.working")
             if (onStop != null) Row(verticalAlignment = Alignment.CenterVertically) {
                 ThinkingHeader(verb, duration, style, Modifier.weight(1f))
                 StopOrb(onStop)

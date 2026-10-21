@@ -27,6 +27,13 @@ def main() -> None:
     if not license_bundled.is_file() or license_bundled.read_bytes() != license_source.read_bytes():
         raise SystemExit("original code-font license notices are not bundled")
     locales = verify_locales(repository, app)
+    privacy_source = repository / "ios/Pully/PrivacyInfo.xcprivacy"
+    privacy_bundled = app / "PrivacyInfo.xcprivacy"
+    if not privacy_bundled.is_file() or plistlib.loads(privacy_bundled.read_bytes()) != plistlib.loads(privacy_source.read_bytes()):
+        raise SystemExit("app-owned required-reason API manifest is not bundled")
+    google_manifests = [path for path in app.rglob("PrivacyInfo.xcprivacy") if "GoogleSignIn" in str(path.relative_to(app))]
+    if not google_manifests or not any(plistlib.loads(path.read_bytes()).get("NSPrivacyCollectedDataTypes") for path in google_manifests):
+        raise SystemExit("Google Sign-In's own privacy resource is not bundled")
     print(f"Verified {len(fonts)} original Pully fonts and {locales} canonical locales in {app.name}")
 
 

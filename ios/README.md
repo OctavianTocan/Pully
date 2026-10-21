@@ -51,6 +51,8 @@ A Debug-only launch environment selects the native test appearance before Compos
 attaches; ordinary launches use the system appearance. The `iOS verify` PR job
 also runs the actual shared domain tests on JVM and the pinned iPhone simulator,
 links the shared framework, verifies font/locale bytes and retains simulator evidence.
+It also runs native account package tests on macOS and iOS, the actual Keychain
+roundtrip and the shared client's separate NSURLSession loopback integration suite.
 The artifact includes `Pully-simulator.zip`, an unsigned ARM64 simulator app that can
 be installed with `xcrun simctl install <simulator-UDID> Pully.app` after extraction.
 An unsigned simulator run needs no Apple Developer membership or signing secrets.
@@ -59,6 +61,14 @@ Linux can run the shared JVM and Android checks. A supported macOS host is requi
 to link the Kotlin/Native Apple framework and build/run this app. Local XML/script
 validation is not evidence of an iOS compile; use the macOS CI result for that claim.
 No device, signed archive, TestFlight or App Store validation is implied by this host.
+
+Native credential/configuration and Google token adapters live in
+[`NativeServices`](NativeServices/README.md). They retain the shared Kotlin RPC client
+and keep credentials in app-private Keychain storage. The current fixture screen
+does not expose sign-in. Native Google availability requires a real iOS client and
+registered callback scheme; the adapter documents the exact missing configuration.
+The app bundles its UserDefaults required-reason declaration and retains the SDK's
+own privacy resource. Store privacy/signing review remains later release work.
 
 ## Toolchain references
 

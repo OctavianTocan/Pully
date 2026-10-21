@@ -5,9 +5,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.core.OpenTarget
-import com.octaviantocan.pulls.data.Analytics
-import com.octaviantocan.pulls.data.AnalyticsRules
-import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.data.ChatHistoryEntry
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.FileGroup
@@ -20,31 +18,26 @@ import com.octaviantocan.pulls.data.SavedState
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourSource
-import com.octaviantocan.pulls.data.TourStore
 import com.octaviantocan.pulls.data.asTaskState
 import com.octaviantocan.pulls.data.matches
 import com.octaviantocan.pulls.data.withHunks
-import com.octaviantocan.pulls.sound.Cue
-import com.octaviantocan.pulls.sound.Emphasis
-import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
+import kotlin.random.Random
 
 /** Where the diff should scroll: a file, optionally a line on one side, optionally a finding. */
-data class Focus(val path: String, val line: Int = 0, val side: String = "additions", val findingId: String? = null, val nonce: Long = System.nanoTime())
+data class Focus(val path: String, val line: Int = 0, val side: String = "additions", val findingId: String? = null, val nonce: Long = Random.nextLong())
 
 /**
  * The state of one open review page, shared by every section of it (the web `DiffsStore`
@@ -58,12 +51,60 @@ data class Focus(val path: String, val line: Int = 0, val side: String = "additi
 class ReviewSession(
     val target: OpenTarget,
     val repo: Repo,
-    val scope: CoroutineScope,
+    scope: CoroutineScope,
     val settings: AppSettings,
-    private val tourStore: TourStore? = null,
+    private val tourStore: SessionTourCache? = null,
     /** Where the page was opened from, for `pr.open`: inbox, search, link, repo, stack or other. */
     private val openedFrom: String = "other",
+    private val cache: ReviewSessionCache,
+    private val effects: SessionEffects,
+    private val clock: SessionClock = SystemSessionClock,
 ) {
+    private val source = cache.capture(repo)
+    private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
+    val scope = CoroutineScope(scope.coroutineContext + sessionJob)
+    private var invalidated = false
+    private val pageState = mutableMapOf<SessionStateKey<*>, Any>()
+    private var viewRevision = 0L
+    private var loadSequence = 0L
+    private var savedSequence = 0L
+    private var reviewSequence = 0L
+    private var stackSequence = 0L
+    private var taskNonce = 0L
+    private var marksSequence = 0L
+
+    private data class Version(val key: String, val head: String, val revision: Long)
+    private fun version(): Version? = opened?.let { Version(it.key, it.headSha, viewRevision) }
+    private fun active(): Boolean = !invalidated && sessionJob.isActive && cache.current(repo, source)
+    private fun current(version: Version): Boolean = active() && this.version() == version
+
+    private fun showDiff(value: OpenedReview?) {
+        if (opened?.let { it.key to it.headSha } != value?.let { it.key to it.headSha }) {
+            viewRevision++
+            followers.values.toList().forEach { it.cancel() }
+            followers.clear()
+            tasks.clear()
+            taskObservationErrors.clear()
+            saved = null
+            reviewed = emptySet()
+            changedSinceReviewed = emptySet()
+            attention = emptyMap()
+            pullJev = null
+            attentionFor = null
+            attentionJob?.cancel()
+            chatHistory = null
+            chatHistoryFor = null
+            chatHistoryJob?.cancel()
+        }
+        opened = value
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> pageState(key: SessionStateKey<T>, create: () -> T): T = pageState.getOrPut(key, create) as T
+
+    private fun remembered(): RememberedReview? = rememberedAs?.let { cache.remembered(repo, source, it) }
+    private fun remember(value: RememberedReview) { rememberedAs?.let { cache.remember(repo, source, it, value) } }
+
     /** The diff on screen: the PR itself, or the commits picked in the commit picker. */
     var opened by mutableStateOf<OpenedReview?>(null)
         private set
@@ -154,13 +195,15 @@ class ReviewSession(
      * one keeps the list there was rather than reading as no chats.
      */
     fun loadChatHistory(force: Boolean = false) {
-        val key = key ?: return
+        if (!active()) return
+        val expected = version() ?: return
+        val key = expected.key
         if (!force && chatHistoryFor == key) return
         if (chatHistoryFor != key) chatHistory = null
         chatHistoryJob?.cancel()
         chatHistoryJob = scope.launch {
             val list = runCatching { repo.chatHistory(key) }.getOrNull() ?: return@launch
-            if (!isActive || this@ReviewSession.key != key) return@launch
+            if (!isActive || !current(expected)) return@launch
             chatHistory = list
             chatHistoryFor = key
         }
@@ -184,6 +227,8 @@ class ReviewSession(
 
     /** Tasks by id, merged across polls. Use [taskFor] to find the one a button shows. */
     val tasks = mutableStateMapOf<String, TaskState>()
+    /** A lost observation is not an authoritative failed task or an outcome notification. */
+    val taskObservationErrors = mutableStateMapOf<String, String>()
     private val followers = mutableMapOf<String, Job>()
 
     val pull: OpenTarget.Pull? get() = target as? OpenTarget.Pull
@@ -193,7 +238,7 @@ class ReviewSession(
 
     init {
         // Opened before: show what was there straight away and refresh it underneath, instead of waiting on the server.
-        rememberedAs?.let { recent[it] }?.let { before ->
+        remembered()?.let { before ->
             prOpened = before.opened
             opened = before.opened
             overview = before.overview
@@ -203,8 +248,10 @@ class ReviewSession(
     val key: String? get() = opened?.key
     val files: List<ReviewFile> get() = opened?.files.orEmpty()
 
-    /** The tour this phone kept from an earlier visit ([TourStore]), read as the page opens. */
-    private var storedTour by mutableStateOf(rememberedAs?.let { name -> tourStore?.get(name) })
+    /** The tour this phone kept from an earlier visit ([SessionTourCache]), read as the page opens. */
+    private var storedTour by mutableStateOf(if (source != null) rememberedAs?.let { name ->
+        try { tourStore?.get(name) } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { null }
+    } else null)
 
     /**
      * The tour to show: the server's once it has answered with one, else the copy the phone kept, so a tour opened before
@@ -213,7 +260,7 @@ class ReviewSession(
     val tour: Tour? get() = saved?.tour ?: storedTour.takeIf { selection == null }
 
     /** Stale tour versions already offered an update while this review stays open. */
-    internal val promptedStaleTours = mutableSetOf<com.octaviantocan.pulls.ui.ai.StaleTourIdentity>()
+    val promptedStaleTours = mutableSetOf<com.octaviantocan.pulls.ui.ai.StaleTourIdentity>()
 
     /** Groups to render: the AI analysis when shown and present, else the rule-based ones, then "Uncategorized". */
     val groups: List<FileGroup>
@@ -241,31 +288,34 @@ class ReviewSession(
     private val shownAt = HashMap<String, Long>()
 
     fun load(fresh: Boolean = false) {
+        if (!active()) return
+        val request = ++loadSequence
         scope.launch {
             loading = true
             loadError = null
-            val started = android.os.SystemClock.elapsedRealtime()
-            // What the page could already show from an earlier visit, before the server answered.
+            val started = clock.monotonicMillis()
             val hadCopy = opened != null
-            // A warm already on its way ([warm]) is waited for, not asked again.
-            val warming = if (fresh) null else rememberedAs?.let { warming[it] }
-            runCatching { warming?.await() ?: repo.open(target, fresh) }
-                .onSuccess {
-                    Analytics.track("pr.load", "ms" to android.os.SystemClock.elapsedRealtime() - started, "cached" to hadCopy, "stale" to it.stale)
-                    trackOpen(it)
-                    prOpened = it
-                    patchesAsked.clear()
-                    patchProblems.clear()
-                    if (selection == null) { opened = it; shownSelection = null }
-                    // The overview can arrive before the diff does, so this page's own copy counts too.
-                    rememberedAs?.let { name -> recent[name] = Remembered(it, overview ?: recent[name]?.overview) }
-                    afterOpen()
+            val warming = if (fresh) null else rememberedAs?.let { cache.warming(repo, source, it) }
+            val answer = runCatching { warming?.await() ?: repo.open(target, fresh) }
+            if (!isActive || !active() || request != loadSequence) return@launch
+            answer.onSuccess {
+                effects.track("pr.load", "ms" to clock.monotonicMillis() - started, "cached" to hadCopy, "stale" to it.stale)
+                trackOpen(it)
+                prOpened = it
+                patchesAsked.clear()
+                patchProblems.clear()
+                if (selection == null) {
+                    showDiff(it)
+                    shownSelection = null
                 }
-                .onFailure {
-                    loadError = it.message ?: it.toString()
-                    Analytics.error("pr.load", it.message)
-                }
-            loading = false
+                remember(RememberedReview(it, overview ?: remembered()?.overview))
+                afterOpen()
+            }.onFailure {
+                if (it is CancellationException) throw it
+                loadError = it.message ?: it.toString()
+                effects.error("pr.load", it.message)
+            }
+            if (active() && request == loadSequence) loading = false
         }
         pull?.let { reloadOverview(); reloadReviews(); loadStack() }
     }
@@ -274,7 +324,7 @@ class ReviewSession(
         val pull = pull ?: return
         if (openTracked) return
         openTracked = true
-        Analytics.track(
+        effects.track(
             "pr.open",
             "repo" to "${pull.owner}/${pull.repo}", "number" to pull.number, "files" to review.files.size,
             "additions" to review.files.sumOf { it.additions }, "deletions" to review.files.sumOf { it.deletions }, "from" to openedFrom,
@@ -283,8 +333,9 @@ class ReviewSession(
 
     /** A file's diff is on screen (`file.view`): its extension only, how many lines its patch has, and the layout. */
     fun fileShown(file: ReviewFile) {
-        shownAt.getOrPut(file.path) { android.os.SystemClock.elapsedRealtime() }
-        Analytics.track("file.view", "kind" to AnalyticsRules.fileKind(file.path), "lines" to file.patchLines.size, "layout" to settings.layout)
+        if (!active()) return
+        shownAt.getOrPut(file.path) { clock.monotonicMillis() }
+        effects.fileShown(file.path, file.patchLines.size, settings.layout)
     }
 
     /** Refetches the diff, the overview and the reviews; AI results stay. A commit selection is dropped. */
@@ -307,17 +358,16 @@ class ReviewSession(
      * into the diff on screen and the PR's own. A patch for another version of the file is not put in.
      */
     fun loadPatches(paths: List<String>) {
-        val key = opened?.key ?: return
+        if (!active()) return
+        val expected = version() ?: return
+        val key = expected.key
         // A pull request keeps its key across pushes, so the head tells an answer for this diff from one for the last.
         val head = opened?.headSha
         val wanted = paths.filter { it !in patchProblems && patchesAsked.add(it) }
         if (wanted.isEmpty()) return
         scope.launch {
             val answer = runCatching { repo.diffPatches(key, wanted) }
-            if (opened?.key != key || opened?.headSha != head) {
-                patchesAsked.removeAll(wanted.toSet())
-                return@launch
-            }
+            if (!isActive || !current(expected) || opened?.headSha != head) return@launch
             answer
                 .onSuccess { patches ->
                     val byPath = opened?.takeIf { it.key == key }?.files.orEmpty().associateBy { it.path }
@@ -327,7 +377,7 @@ class ReviewSession(
                     val before = prOpened
                     prOpened = fill(prOpened)
                     opened = if (opened === before) prOpened else fill(opened)
-                    rememberedAs?.let { name -> recent[name]?.let { kept -> prOpened?.let { recent[name] = kept.copy(opened = it) } } }
+                    remembered()?.let { kept -> prOpened?.let { remember(kept.copy(opened = it)) } }
                     // The server answered: a file it sent no fitting patch for is in a newer version than this diff.
                     wanted.filterNot { it in fitting }.forEach { patchProblems[it] = PatchProblem.Moved }
                 }
@@ -346,9 +396,14 @@ class ReviewSession(
     }
 
     private suspend fun afterOpen() {
-        val key = opened?.key ?: return
+        val expected = version() ?: return
+        if (!current(expected)) return
         reloadSavedNow()
-        runCatching { repo.reviewed(key) }.onSuccess { (shas, changed) -> reviewed = shas; changedSinceReviewed = changed }
+        if (!current(expected)) return
+        val marksRequest = ++marksSequence
+        val marks = runCatching { repo.reviewed(expected.key) }.getOrNull()
+        if (!current(expected)) return
+        if (marksRequest == marksSequence) marks?.let { (shas, changed) -> reviewed = shas; changedSinceReviewed = changed }
         if (!hasAiResult) analyzeMode = "rules"
         loadAttention()
         resumeTasks()
@@ -361,23 +416,24 @@ class ReviewSession(
      * leaves the files unmarked and says nothing: the marks are a hint, not part of the review.
      */
     private fun loadAttention() {
-        val opened = opened ?: return
-        val key = opened.key
-        val version = "$key@${opened.headSha}"
+        if (!active()) return
+        val expected = version() ?: return
+        val key = expected.key
+        val version = "$key@${expected.head}"
         if (version != attentionFor) { attention = emptyMap(); pullJev = null }
         attentionFor = version
         attentionJob?.cancel()
         attentionJob = scope.launch {
-            val until = System.currentTimeMillis() + ATTENTION_FOR_MS
+            val until = clock.monotonicMillis() + ATTENTION_FOR_MS
             while (true) {
                 val answer = runCatching { repo.jevFiles(key) }.getOrNull() ?: break
-                if (!answer.enabled || attentionFor != version) break
+                if (!isActive || !current(expected) || !answer.enabled || attentionFor != version) break
                 attention = answer.files
                 // A read stays until a newer one replaces it: an answer without one (Jev still sorting, or a call that
                 // failed) MUST NOT take the line away and bring it back ("it appears, disappears", recording 15 Oct
                 // 15:37, 03:29 to 04:12; L5). A new head starts without one, above.
                 answer.pull?.let { pullJev = it }
-                if (answer.pending <= 0 || System.currentTimeMillis() + ATTENTION_EVERY_MS > until) break
+                if (answer.pending <= 0 || clock.monotonicMillis() + ATTENTION_EVERY_MS > until) break
                 delay(ATTENTION_EVERY_MS)
             }
         }
@@ -396,22 +452,33 @@ class ReviewSession(
     }
 
     /** Saved AI work as the server sent it, and whether it is the pull request's own rather than a commit range's. */
-    private class FetchedSaved(val state: SavedState, val own: Boolean)
+    private class FetchedSaved(val state: SavedState, val own: Boolean, val version: Version)
 
     /** The AI work saved on the server for [opened]; null when asking failed. */
     private suspend fun fetchSaved(): FetchedSaved? {
-        val key = opened?.key ?: return null
+        val expected = version() ?: return null
+        if (!current(expected)) return null
+        val request = ++savedSequence
         val own = selection == null
-        return runCatching { repo.savedState(key) }.getOrNull()?.let { FetchedSaved(it, own) }
+        val answer = runCatching { repo.savedState(expected.key) }.getOrNull() ?: return null
+        if (!current(expected) || request != savedSequence) return null
+        return FetchedSaved(answer, own, expected)
     }
 
-    /** The pull request's own tour is kept on the phone for next time; a commit range's is not. */
+    /** The PR's own tour is persisted by its native, identity-bound cache; commit ranges are not. */
     private suspend fun keepTour(fetched: FetchedSaved) {
+        if (!current(fetched.version)) return
         val json = fetched.state.tourJson
         val name = rememberedAs
         if (fetched.own && json != null && name != null && tourStore != null) {
-            withContext(Dispatchers.IO) { tourStore.put(name, json) }
-            fetched.state.tour?.let { storedTour = it }
+            try {
+                tourStore.put(name, json)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // A phone cache is optional; the server result remains usable if persistence fails.
+            }
+            if (current(fetched.version)) fetched.state.tour?.let { storedTour = it }
         }
     }
 
@@ -430,6 +497,7 @@ class ReviewSession(
     private var overviewAskedAt = 0L
 
     fun reloadOverview() {
+        if (!active()) return
         val pull = pull ?: return
         val ask = ++asks
         // The title and description alone answer well before the whole overview, so one edited since the copy on
@@ -437,7 +505,7 @@ class ReviewSession(
         // GitHub's slow answer, which kept the old one up ("the description was not updated", Tavi, 16 Oct 13:52).
         scope.launch {
             val text = runCatching { repo.prText(pull) }.getOrNull() ?: return@launch
-            if (ask <= freshTextAsk) return@launch
+            if (!isActive || !active() || ask <= freshTextAsk) return@launch
             freshText = text
             freshTextAsk = ask
             if (ask > shownText) withText(overview, text)?.let { showOverview(it); shownText = ask }
@@ -445,7 +513,7 @@ class ReviewSession(
         // Nothing on screen yet: the copy the server stored as it refreshed shows at once, until GitHub's own arrives.
         if (overview == null) scope.launch {
             runCatching { repo.storedOverview(pull) }.getOrNull()?.let { stored ->
-                if (overview != null) return@let
+                if (!isActive || !active() || overview != null) return@let
                 val withFresh = withText(stored, freshText)
                 overview = withFresh ?: stored
                 shownText = if (withFresh != null) freshTextAsk else 0
@@ -454,12 +522,12 @@ class ReviewSession(
         }
         // One asked for a moment ago is still the newest there is: coming back to the app and the link that brought it
         // back both ask, and one answer serves the two.
-        val now = android.os.SystemClock.elapsedRealtime()
+        val now = clock.monotonicMillis()
         if (overviewAsk?.isActive == true && now - overviewAskedAt < OVERVIEW_ASKED_RECENTLY_MS) return
         overviewAskedAt = now
         overviewAsk = scope.launch {
             runCatching { repo.overview(pull) }.onSuccess {
-                if (ask < shownFull) return@onSuccess
+                if (!isActive || !active() || ask < shownFull) return@onSuccess
                 // A newer title and description than this answer's stay on screen over it.
                 val newer = freshText.takeIf { freshTextAsk > ask }?.let { text -> withText(it, text) }
                 showOverview(newer ?: it)
@@ -467,13 +535,13 @@ class ReviewSession(
                 shownText = if (newer != null) freshTextAsk else ask
                 overviewStored = false
                 overviewError = null
-            }.onFailure { overviewError = it.message }
+            }.onFailure { if (isActive && active()) overviewError = it.message }
         }
     }
 
     private fun showOverview(value: JsonObject) {
         overview = value
-        rememberedAs?.let { name -> recent[name]?.let { before -> recent[name] = before.copy(overview = value) } }
+        remembered()?.let { before -> remember(before.copy(overview = value)) }
     }
 
     /**
@@ -481,14 +549,24 @@ class ReviewSession(
      * wins. A failure keeps the stack already shown, or leaves its mark off.
      */
     private fun loadStack() {
+        if (!active()) return
         val pull = pull ?: return
+        val request = ++stackSequence
         stackJob?.cancel()
-        stackJob = scope.launch { runCatching { repo.prStack(pull) }.onSuccess { stack = it } }
+        stackJob = scope.launch {
+            val answer = runCatching { repo.prStack(pull) }.getOrNull()
+            if (isActive && active() && request == stackSequence) answer?.let { stack = it }
+        }
     }
 
     fun reloadReviews() {
+        if (!active()) return
         val pull = pull ?: return
-        scope.launch { runCatching { repo.reviewData(pull) }.onSuccess { reviewData = it } }
+        val request = ++reviewSequence
+        scope.launch {
+            val answer = runCatching { repo.reviewData(pull) }.getOrNull()
+            if (isActive && active() && request == reviewSequence) answer?.let { reviewData = it }
+        }
     }
 
     fun reviewState(file: ReviewFile): ReviewState = when {
@@ -499,20 +577,22 @@ class ReviewSession(
 
     /** Marks or unmarks files by blob sha; either way clears their "changed since reviewed" flag (web `setReviewed`). */
     fun setReviewed(shas: Collection<String>, value: Boolean) {
+        if (!active()) return
+        marksSequence++
         val key = key ?: return
         if (value) {
             // `file.reviewed`: the file's place in the list and how long since its diff first showed, never its name.
-            val now = android.os.SystemClock.elapsedRealtime()
+            val now = clock.monotonicMillis()
             files.forEachIndexed { index, file ->
                 if (file.sha in shas && file.sha !in reviewed) {
-                    Analytics.track("file.reviewed", "index" to index, "seconds" to shownAt[file.path]?.let { (now - it) / 1000 })
+                    effects.track("file.reviewed", "index" to index, "seconds" to shownAt[file.path]?.let { (now - it) / 1000 })
                 }
             }
         }
         reviewed = if (value) reviewed + shas else reviewed - shas.toSet()
         val paths = files.filter { it.sha in shas }.map { it.path }.toSet()
         changedSinceReviewed = changedSinceReviewed - paths
-        scope.launch { runCatching { repo.setReviewed(key, shas, value) } }
+        scope.launch { if (active()) runCatching { repo.setReviewed(key, shas, value) } }
     }
 
     /** Narrows the diff to commits `from..to` of the PR (web `CommitPicker`); null restores all commits. */
@@ -522,12 +602,13 @@ class ReviewSession(
     private var shownSelection: Pair<String, String>? = null
 
     fun selectCommits(range: Pair<String, String>?) {
+        if (!active()) return
         val pull = pull ?: return
         val seq = ++selectSeq
         selection = range
         loadError = null
         if (range == null) {
-            opened = prOpened
+            showDiff(prOpened)
             shownSelection = null
             scope.launch { afterOpen() }
             return
@@ -538,9 +619,9 @@ class ReviewSession(
             loading = true
             val result = runCatching { repo.open(narrowed) }
             // A newer selection (fast previous/next taps) wins; drop this answer.
-            if (seq != selectSeq) return@launch
+            if (!isActive || !active() || seq != selectSeq) return@launch
             // On failure the diff on screen is still the one for [shownSelection], so the selection goes back to match it.
-            result.onSuccess { opened = it; shownSelection = range; afterOpen() }.onFailure { loadError = it.message; selection = shownSelection }
+            result.onSuccess { showDiff(it); shownSelection = range; afterOpen() }.onFailure { loadError = it.message; selection = shownSelection }
             loading = false
         }
     }
@@ -557,11 +638,14 @@ class ReviewSession(
      * Settings effort for this task, and [then] are the passes an `analyze` makes the server start after itself.
      * The task shows on screen the moment this is called, under a placeholder id the server's own replaces.
      */
-    /** When this session last started a task of each kind, on the monotonic clock in nanoseconds; see [guardedStop]. */
+    /** When this session last started a task of each kind, on the session's monotonic clock in nanoseconds; see [guardedStop]. */
     private val starts = HashMap<String, Long>()
 
-    /** When this session last started a task of one of [kinds], on the monotonic clock in nanoseconds; 0 if it never did. */
+    /** When this session last started a task of one of [kinds], on the session's monotonic clock in nanoseconds; 0 if it never did. */
     fun lastStart(kinds: Collection<String>): Long = kinds.maxOfOrNull { starts[it] ?: 0L } ?: 0L
+
+    fun millisSinceLastStart(kinds: Collection<String>): Long =
+        if (kinds.none { it in starts }) Long.MAX_VALUE else clock.monotonicMillis() - lastStart(kinds) / 1_000_000
 
     fun startTask(
         kind: String,
@@ -571,60 +655,147 @@ class ReviewSession(
         onStarted: (String) -> Unit = {},
         onDone: (TaskState) -> Unit = {},
     ) {
-        val key = key ?: return
-        starts[kind] = System.nanoTime()
-        // In the same frame as the tap, not once the coroutine runs: a page opened with it (Generate tour opens the Tour)
-        // shows the work log from its first frame, never the page from before the start (J28).
-        val now = System.currentTimeMillis()
-        val pending = TaskState(id = "pending-${System.nanoTime()}", kind = kind, key = key, then = then, startedAt = now)
+        val expected = version() ?: return
+        if (!current(expected)) return
+        starts[kind] = clock.monotonicMillis() * 1_000_000
+        // The optimistic placeholder appears in the same frame as Generate, before the request can suspend.
+        val pending = TaskState(id = "pending-${++taskNonce}", kind = kind, key = expected.key, then = then, startedAt = clock.wallMillis())
         tasks[pending.id] = pending
         scope.launch {
-            val workSource = com.octaviantocan.pulls.data.AiWork.source()
-            val id = runCatching {
-                repo.startTask(kind, key, effort) {
+            val workSource = effects.workSource()
+            val answer = runCatching {
+                repo.startTask(kind, expected.key, effort) {
                     extra()
                     if (then.isNotEmpty()) put("then", JsonArray(then.map(::JsonPrimitive)))
                 }
-            }.getOrElse { error ->
-                // It keeps what it would have started, so a tour asked for with it says why it did not come.
-                val failed = pending.copy(id = "failed-${System.nanoTime()}", status = "failed", error = error.message)
+            }
+            if (!isActive || !current(expected)) return@launch
+            val id = answer.getOrElse { error ->
+                if (error is CancellationException) throw error
+                val failed = pending.copy(id = "failed-${++taskNonce}", status = "failed", error = error.message)
                 tasks[failed.id] = failed
                 tasks.remove(pending.id)
                 onStarted(failed.id)
                 onDone(failed)
                 return@launch
             }
-            // The server joins a task already doing this work; keep what the page already knows of it.
             if (tasks[id] == null) tasks[id] = pending.copy(id = id)
             tasks.remove(pending.id)
-            tasks[id]?.let { com.octaviantocan.pulls.data.AiWork.started(it, workSource) }
+            tasks[id]?.let { effects.started(it, workSource) }
             onStarted(id)
             follow(id, onDone)
         }
     }
 
-    fun cancelTask(id: String) { scope.launch { repo.cancelTask(id) } }
+    fun cancelTask(id: String) {
+        if (!active()) return
+        scope.launch { if (active()) repo.cancelTask(id) }
+    }
 
-    /** Stops following without cancelling (web `detach`), e.g. when the page closes. */
-    fun detach() { followers.values.forEach { it.cancel() }; followers.clear() }
+    /** Closing a route detaches observations; the server's work keeps running. */
+    fun detach() {
+        sessionJob.cancel()
+        followers.clear()
+        pageState.clear()
+        cache.release(this)
+    }
+
+    /** Identity invalidation also removes private presentation state from an existing screen. */
+    internal fun invalidate() {
+        invalidated = true
+        detach()
+        opened = null
+        prOpened = null
+        saved = null
+        storedTour = null
+        overview = null
+        overviewError = null
+        overviewStored = false
+        reviewData = null
+        reviewed = emptySet()
+        changedSinceReviewed = emptySet()
+        attention = emptyMap()
+        pullJev = null
+        stack = null
+        chatHistory = null
+        focus = null
+        spot = null
+        linkedThread = null
+        linkedCheck = null
+        sourceSheet = null
+        focusGroupKey = null
+        waitingSource = null
+        tasks.clear()
+        taskObservationErrors.clear()
+        patchProblems.clear()
+        patchesAsked.clear()
+        promptedStaleTours.clear()
+        shownAt.clear()
+        loading = false
+        loadError = null
+    }
 
     private fun follow(id: String, onDone: (TaskState) -> Unit = {}) {
-        if (followers[id]?.isActive == true) return
-        followers[id] = scope.launch {
-            // A review of the whole diff starts with Jev reading it, so its marks are read while it rates and once it has.
+        if (!active() || followers[id]?.isActive == true) return
+        val expected = version() ?: return
+        if (tasks[id]?.key != expected.key) return
+        val follower = scope.launch {
             val triaged = tasks[id]?.kind in JEV_TASKS
             var rated = false
             if (triaged) loadAttention()
             var settled: TaskState? = null
-            while (true) {
-                val current = tasks[id] ?: break
-                val workSource = com.octaviantocan.pulls.data.AiWork.source()
-                val next = runCatching { repo.waitTask(id, current.rev) }.getOrElse { error ->
-                    settled = current.copy(status = "failed", error = error.message)
+            var retryDelay = 1_000L
+            suspend fun reconnect(message: String) {
+                taskObservationErrors[id] = message
+                delay(retryDelay)
+                retryDelay = (retryDelay * 2).coerceAtMost(30_000L)
+            }
+            while (isActive && current(expected)) {
+                val before = tasks[id] ?: return@launch
+                if (before.status in TERMINAL_TASK_STATUSES) {
+                    effects.updated(before, effects.workSource())
+                    settled = before
                     break
                 }
-                val merged = if (current.label.isEmpty()) next.asTaskState().let { fresh -> fresh.copy(activities = current.merge(next).activities) } else current.merge(next)
-                com.octaviantocan.pulls.data.AiWork.updated(merged, workSource)
+                val workSource = effects.workSource()
+                val answer = runCatching { repo.waitTask(id, before.rev) }
+                if (!isActive || !current(expected)) return@launch
+                // A task-list refresh may have advanced this task while its poll was suspended.
+                val latest = tasks[id] ?: return@launch
+                if (latest.status in TERMINAL_TASK_STATUSES) {
+                    effects.updated(latest, workSource)
+                    settled = latest
+                    break
+                }
+                val next = answer.getOrNull()
+                if (next == null) {
+                    val error = answer.exceptionOrNull()!!
+                    if (error is CancellationException) throw error
+                    // Failure to observe says nothing about the remote task's outcome.
+                    reconnect(error.message ?: "Task observation interrupted")
+                    continue
+                }
+                val fresh = next.asTaskState()
+                if ((fresh.id.isNotEmpty() && fresh.id != id) || (fresh.key.isNotEmpty() && fresh.key != expected.key)) {
+                    reconnect("Task response belongs to a different review")
+                    continue
+                }
+                if (fresh.status !in KNOWN_TASK_STATUSES) {
+                    reconnect("Task status is not yet recognized")
+                    continue
+                }
+                val revision = (next["rev"] as? JsonPrimitive)?.intOrNull ?: latest.rev
+                if (revision < latest.rev) {
+                    delay(100)
+                    continue
+                }
+                val merged = if (latest.label.isEmpty()) fresh.copy(
+                    id = id, key = expected.key, kind = fresh.kind.ifBlank { latest.kind },
+                    activities = latest.merge(next).activities,
+                ) else latest.merge(next)
+                retryDelay = 1_000L
+                taskObservationErrors.remove(id)
+                effects.updated(merged, workSource)
                 if (triaged && !rated && merged.activities.any { it.id == JEV_STEP && it.status != "running" }) {
                     rated = true
                     loadAttention()
@@ -634,99 +805,91 @@ class ReviewSession(
                     break
                 }
             }
+            if (!isActive || !current(expected)) return@launch
             if (triaged) loadAttention()
-            // What the task wrote, and after an analysis the tour and the brief the server started (it lists them before
-            // the analysis reads as done), are fetched while the task still reads as running, and land in the same frame
-            // as its end. The work log then gives way straight to the tour, or to the log of the tour that follows; a
-            // settled task with nothing to show yet put the Tour's empty page up for a moment (J34).
+            // Results and automatically chained work arrive before the completed task stops reading as running.
             val state = fetchSaved()
+            if (!current(expected)) return@launch
             val following = settled?.takeIf { it.kind == "analyze" && it.status == "done" }?.let { fetchTasks() }
-            settled?.let { tasks[id] = it }
+            if (!current(expected)) return@launch
+            val latest = tasks[id]
+            if (latest?.running == true && settled != null && latest.rev > settled.rev) {
+                // Refresh may also advance a task while its saved result is being fetched.
+                scope.launch { delay(100); if (current(expected)) follow(id, onDone) }
+                return@launch
+            }
+            settled?.let { terminal ->
+                if (latest == null || latest.status !in TERMINAL_TASK_STATUSES || latest.rev < terminal.rev) tasks[id] = terminal
+            }
+            taskObservationErrors.remove(id)
             state?.let { saved = it.state }
             following?.let { adoptTasks(it) }
             if (tasks[id]?.kind == "analyze" && hasAiResult) analyzeMode = "ai"
             state?.let { keepTour(it) }
-            // A failure is heard when it happens, whatever else is running. Ready waits for the last of a chain
-            // (the analysis, then the tour and the brief), so a chain rings once rather than once per task.
+            if (!current(expected)) return@launch
             when (tasks[id]?.status) {
-                "failed" -> Sounds.play(Cue.Error, Emphasis.Subtle)
-                "done" -> if (tasks.values.none { it.running }) Sounds.play(Cue.Ready, Emphasis.Subtle)
+                "failed" -> effects.cue(SessionCue.Error)
+                "done" -> if (tasks.values.none { it.running }) effects.cue(SessionCue.Ready)
             }
-            tasks[id]?.let(onDone)
+            tasks[id]?.takeIf { it.status in TERMINAL_TASK_STATUSES }?.let(onDone)
         }
+        followers[id] = follower
+        follower.invokeOnCompletion { if (followers[id] === follower) followers.remove(id) }
     }
 
-    /** Picks up tasks already running on the server for this diff (started before a reload, or on the web). */
-    private suspend fun resumeTasks() {
-        fetchTasks()?.let { adoptTasks(it) }
+    private suspend fun resumeTasks() { fetchTasks()?.let { adoptTasks(it) } }
+
+    private class TaskSnapshot(val tasks: List<TaskState>, val workSource: SessionWorkSource?, val version: Version)
+
+    private suspend fun fetchTasks(): TaskSnapshot? {
+        val expected = version() ?: return null
+        if (!current(expected)) return null
+        val workSource = effects.workSource()
+        val list = runCatching { repo.tasks(expected.key) }.getOrNull() ?: return null
+        return if (current(expected)) TaskSnapshot(list, workSource, expected) else null
     }
 
-    /** The server's tasks for this diff, or null when asking failed. */
-    private suspend fun fetchTasks(): Pair<List<TaskState>, com.octaviantocan.pulls.data.AiWork.Source?>? {
-        val key = key ?: return null
-        val workSource = com.octaviantocan.pulls.data.AiWork.source()
-        return runCatching { repo.tasks(key) to workSource }.getOrNull()
-    }
-
-    private fun adoptTasks(snapshot: Pair<List<TaskState>, com.octaviantocan.pulls.data.AiWork.Source?>) {
-        val (list, workSource) = snapshot
-        list.forEach { task ->
-            if (task.running) com.octaviantocan.pulls.data.AiWork.updated(task, workSource)
-            if (tasks[task.id] == null) tasks[task.id] = task
-            if (task.running) follow(task.id)
+    private fun adoptTasks(snapshot: TaskSnapshot) {
+        if (!current(snapshot.version)) return
+        snapshot.tasks.filter { it.key == snapshot.version.key && it.id.isNotBlank() }.forEach { task ->
+            val previous = tasks[task.id]
+            if (previous != null && (task.rev < previous.rev || (previous.status in TERMINAL_TASK_STATUSES && task.running))) return@forEach
+            if (task.status !in KNOWN_TASK_STATUSES) {
+                // Keep controls attached to this work until a recognized server outcome arrives.
+                if (previous?.status in TERMINAL_TASK_STATUSES) return@forEach
+                tasks[task.id] = previous ?: task.copy(status = "running", rev = 0)
+                taskObservationErrors[task.id] = "Task status is not yet recognized"
+                follow(task.id)
+                return@forEach
+            }
+            val merged = if (previous == null) task else task.copy(
+                activities = (previous.activities + task.activities).associateBy { it.id }.values.sortedBy { it.startedAt },
+            )
+            if (merged.running) effects.updated(merged, snapshot.workSource)
+            tasks[task.id] = merged
+            if (merged.running) follow(merged.id)
         }
     }
 
     /** Jump to a finding's line in the diff (web `critique.focus`). */
     fun focusFinding(finding: CritiqueFinding) {
+        if (!active()) return
         focus = Focus(finding.path, finding.line, finding.side, finding.id)
     }
 
-    /** A pull request's diff and overview as last loaded in this run. */
-    private data class Remembered(val opened: OpenedReview, val overview: JsonObject?)
+    init {
+        if (cache.current(repo, source)) cache.attach(this) else invalidate()
+    }
 
     companion object {
-        private const val REMEMBERED = 12
-        /** How many pull requests at the top of the Inbox are warmed once it has shown (O20). */
-        const val WARM_TOP = 4
+        const val WARM_TOP = ReviewSessionCache.WARM_TOP
         private const val ATTENTION_EVERY_MS = 3_000L
         private const val OVERVIEW_ASKED_RECENTLY_MS = 2_000L
         private const val ATTENTION_FOR_MS = 120_000L
-        /** The tasks the server starts with Jev's read of the diff (`TRIAGED` in the server's `tasks.ts`). */
         private val JEV_TASKS = setOf("analyze", "critique", "tour", "brief")
-        /** The work-log step that read is (`jev-triage` in the server's `jev-review.ts`). */
         private const val JEV_STEP = "jev-triage"
-
-        // Least recently opened first; the oldest goes when a thirteenth arrives. Touched on the main thread only.
-        private val recent = object : LinkedHashMap<String, Remembered>(8, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Remembered>?): Boolean = size > REMEMBERED
-        }
-
-        /** Diffs asked for by [warm] and not in yet, by pull request; a page opened meanwhile waits for its own. */
-        private val warming = HashMap<String, Deferred<OpenedReview>>()
-
-        /** Warms run past the screen that asked for them, and one failing leaves the others alone. */
-        private val warmScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-
-        /**
-         * Asks for [pull]'s diff and overview before it is opened, so tapping it shows it at once instead of the skeleton:
-         * the Inbox warms its top rows once it shows, and a row as the finger lands on it. Opening a pull request used to
-         * wait on the server each time ("Why does it take so long to load ... when I tap on the different ones":
-         * recording 16 Oct 13:06, 09:09 to 09:17; O20). One kept or on its way is not asked again.
-         */
-        fun warm(repo: Repo, pull: OpenTarget.Pull) {
-            val name = pull.label
-            if (recent.containsKey(name) || warming.containsKey(name)) return
-            val diff = warmScope.async { repo.open(pull) }
-            warming[name] = diff
-            warmScope.launch {
-                val overview = async { runCatching { repo.overview(pull) }.getOrNull() }
-                runCatching { diff.await() }.onSuccess { opened -> if (!recent.containsKey(name)) recent[name] = Remembered(opened, null) }
-                warming.remove(name)
-                overview.await()?.let { fetched -> recent[name]?.let { kept -> if (kept.overview == null) recent[name] = kept.copy(overview = fetched) } }
-            }
-        }
     }
+
 }
 
 /**
@@ -753,3 +916,6 @@ sealed interface PatchProblem {
 
     data class Failed(val message: String) : PatchProblem
 }
+
+private val TERMINAL_TASK_STATUSES = setOf("done", "failed", "cancelled")
+private val KNOWN_TASK_STATUSES = TERMINAL_TASK_STATUSES + "running"

@@ -24,6 +24,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":shared-domain"))
+            implementation(project(":shared-client"))
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
@@ -33,6 +34,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
         }
         getByName("androidHostTest").dependencies {
             implementation(kotlin("test-junit"))

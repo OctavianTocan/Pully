@@ -31,4 +31,4 @@ jobs:
         run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
       - name: Compile and run JVM tests
         working-directory: android
-        run: ./gradlew :shared-domain:jvmTest :shared-ui:testAndroidHostTest :core:test :app:testDebugUnitTest :app:assembleDebug --no-daemon
+        run: ./gradlew :shared-domain:jvmTest :shared-client:jvmTest :shared-ui:testAndroidHostTest :core:test :app:testDebugUnitTest :app:assembleDebug --no-daemon

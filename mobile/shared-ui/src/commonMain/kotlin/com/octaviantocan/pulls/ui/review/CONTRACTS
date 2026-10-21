@@ -1,0 +1,54 @@
+@cc [owner:OctavianTocan,label:architecture] shared-review-session-is-production-state
+Android and iOS MUST use this same review-session implementation, including Compose
+state, task observation, saved results, file marks and commit selection. Native services
+MUST enter through the clock, effects and tour-cache interfaces; this module MUST NOT
+depend on Android services. Source: Tavi's 21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-review-state-belongs-to-source
+An application-owned review cache MUST contain data for only its current opaque RPC
+source. Server/account invalidation MUST clear cached reviews and active private session
+state and cancel warming and observations. A late response MUST NOT restore data or
+deliver callbacks/effects after that source changes. Cache keys MUST NOT retain raw
+credentials. Source: the accepted 21 Oct 2026 iOS session/cache ownership plan.
+
+@cc [owner:OctavianTocan,label:security;product] shared-review-route-recovers-after-source-change
+Server/account invalidation MUST discard the entire private review route's remembered
+state and give a route that remains mounted a fresh, usable session, even when Settings
+or sign-in covers it. A replacement source MUST NOT inherit prior sheets, drafts or
+saved child state. Source: the accepted 21 Oct 2026 iOS source-identity ownership plan.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-review-opens-from-bounded-cache
+An opened review MUST show its kept diff before waiting for a request and MUST join
+its in-flight warm. The recent-review cache MUST retain at most twelve reviews and
+warming MUST be bounded; the Inbox's top four remain the initial warm set. Source:
+the existing ReviewSession policy, retained by Tavi's 21 Oct iOS reuse decision;
+recording 16 Oct 13:06, 09:09 to 09:17 (O20; DESIGN.md rule 187).
+
+@cc [owner:OctavianTocan,label:product;security] shared-review-late-responses-match-view
+Patches, saved work, file marks and task updates MUST match the current diff key,
+head and commit selection before changing presentation state. An older task revision
+MUST NOT replace a newer one. Source: the accepted 21 Oct iOS session/state plan and
+the existing current-head patch and commit-selection guards.
+
+@cc [owner:OctavianTocan,label:product] shared-review-detach-keeps-server-work
+Leaving a route MUST stop its local observation without cancelling remote AI work.
+Only an explicit Cancel action MAY invoke the server's task-cancellation operation.
+Source: the accepted 21 Oct iOS lifecycle plan and existing ReviewSession detach policy.
+
+@cc [owner:OctavianTocan,label:product;security] shared-review-task-outcomes-are-authoritative
+A failed observation or unknown status MUST NOT become an authoritative failed or
+successful task, outcome cue or completion callback. Only server-reported done, failed
+or cancelled snapshots MAY settle a task; cancellation MUST remain silent. Source:
+Tavi's 21 Oct notification expansion and the existing shared-ai-outcome-owned-task policy.
+
+@cc [owner:OctavianTocan,label:product;security] shared-review-invalid-source-is-actionable
+An invalid saved server MUST open a load-error state without warming or exposing a
+previous source's cached data. Invalid source namespaces MUST NOT retain URL userinfo.
+Source: the accepted 21 Oct iOS session/state plan's source-identity boundary.
+
+@cc [owner:OctavianTocan,label:product] shared-review-observation-reconnects
+Interrupted or unfamiliar task observations MUST retain running work and retry with
+cancellable, capped backoff. The existing progress line MUST say Reconnecting while
+observation is interrupted. A route or identity change MUST cancel those retries without
+cancelling remote work. Source: the accepted 21 Oct iOS lifecycle plan and the existing
+rule that server tasks survive phone suspension.

@@ -45,7 +45,10 @@ object ServerStore {
         val previous = load(context)
         val sourceChanged = previous.url.trim().trimEnd('/') != config.url.trim().trimEnd('/') ||
             previous.accessId != config.accessId.trim() || previous.accessSecret != config.accessSecret.trim()
-        if (sourceChanged) com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
+        if (sourceChanged) {
+            RepoIdentity.invalidate()
+            com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
+        }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("url", config.url.trim())
             .putString("accessId", config.accessId.trim())

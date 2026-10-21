@@ -217,6 +217,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     val context = LocalContext.current
     val c = LocalPullsColors.current
     val repo = remember { Repo(context) }
+    val reviewSessions = com.octaviantocan.pulls.ui.review.reviewSessionCache(context)
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
     val state = if (ui.showClosed) "closed" else "open"
@@ -329,7 +330,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
     LaunchedEffect(warmTop) {
         if (warmTop.isEmpty()) return@LaunchedEffect
         kotlinx.coroutines.delay(800)
-        warmTop.forEach { ReviewSession.warm(repo, it) }
+        warmTop.forEach { reviewSessions.warm(repo, it) }
     }
 
     fun openPull(pull: PullRow) = nav.openFrom(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"), if (needle.isEmpty()) "inbox" else "search", false)
@@ -398,7 +399,7 @@ fun HomeScreen(nav: Nav, ui: HomeUi) {
                         onRetry = reload, onCommands = { Commands.open() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it }, viewer = viewer,
-                        onPress = { pull -> ReviewSession.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
+                        onPress = { pull -> reviewSessions.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
                         posted = posted, onOpenPosted = { row -> nav.openFrom(OpenTarget.Posted(row.id), if (needle.isEmpty()) "inbox" else "search", false) },
                         onHoldPosted = { heldPosted = it },
                         onStack = { stackOpen = it },

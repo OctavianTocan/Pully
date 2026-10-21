@@ -1,3 +1,4 @@
+import PullyNative
 import PullyShared
 import UIKit
 
@@ -23,5 +24,11 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = MainViewControllerKt.MainViewController()
         self.window = window
         window.makeKeyAndVisible()
+    }
+
+    func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
+        for context in contexts {
+            if NativeGoogleSignIn.shared.handle(context.url) { break }
+        }
     }
 }

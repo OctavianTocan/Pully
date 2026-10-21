@@ -106,7 +106,7 @@ internal fun AskThreadCardImpl(session: ReviewSession, thread: AskThread, modifi
                         val activities = if (running && task != null) task.activities else turn.activities.ifEmpty { task?.activities.orEmpty() }
                         val outcome = turn.outcome ?: if (task != null && !task.running) outcomeOf(task) else "done"
                         val stop = guardedStop(session, listOf("ask"), running && task != null) { task?.let { session.cancelTask(it.id) } }
-                        AiActivityLogFull(activities, running, Modifier.fillMaxWidth(), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, onStop = stop)
+                        AiActivityLogFull(activities, running, Modifier.fillMaxWidth(), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, onStop = stop, reconnecting = task?.id in session.taskObservationErrors)
                     }
                     val answer = turn.answer ?: task?.result?.takeIf { task.status == "done" }
                     val error = turn.error ?: task?.takeIf { it.status == "failed" || it.status == "cancelled" }?.let { if (it.status == "cancelled") t("ask.stopped") else it.error }

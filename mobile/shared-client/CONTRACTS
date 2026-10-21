@@ -1,0 +1,42 @@
+@cc [owner:OctavianTocan,label:architecture] client-reuses-feature-rpc
+The shared repository MUST retain the existing feature method names, RPC names,
+argument shapes and model parsers. It MUST depend only on UI-free configuration,
+transport, timing and event interfaces; reactive AppSettings and native services
+MUST remain outside this module. Source: Tavi's 21 Oct 2026 chosen iOS plan,
+maximum reuse of Pully's existing implementation.
+
+@cc [owner:OctavianTocan,label:security] client-confines-credentials
+RPC and first-party usage requests MUST use fixed API paths under the configured
+server, with no userinfo, query or fragment in its base URL. Native transports MUST
+NOT follow redirects. Credentials and sign-in payloads MUST use HTTPS except for
+the existing localhost, 127.0.0.1 and 10.0.2.2 development hosts. Errors and timing
+events MUST NOT include request arguments or credential values. Source: root
+`phone-api-one-account`, `data-no-user-credentials` and the accepted 21 Oct 2026
+iOS client boundary; Devin Review on PR 58.
+
+@cc [owner:OctavianTocan,label:security;architecture] client-invalidates-old-sources
+Native adapters MUST advance the configuration generation on server, Access or
+account identity changes. Cache/session source keys MUST retain no credentials.
+The repository MUST reject results and errors received for a superseded source.
+Its source snapshot and sign-in/model arguments MUST describe the same request.
+Source: accepted 21 Oct 2026 iOS plan, authentication and cache identity boundaries.
+
+@cc [owner:OctavianTocan,label:product;architecture] client-cancellation-detaches
+Cancelling an RPC observer MUST cancel its native request and propagate coroutine
+cancellation. It MUST NOT implicitly cancel server-owned AI work. Explicit server
+task cancellation MUST remain a separate RPC. Network requests MUST have bounded
+connect/read/total timeouts and release native connections on every outcome.
+Source: accepted 21 Oct 2026 iOS plan, long-running AI suspension and recovery.
+
+@cc [owner:OctavianTocan,label:product] client-errors-identify-recovery
+An Access HTML page, account/session rejection, forbidden response, redirect,
+malformed envelope and server-declared RPC error MUST remain distinguishable.
+Missing or explicit-null results MUST retain the existing null result behavior.
+Source: accepted 21 Oct 2026 iOS plan, API parity and recoverable service access.
+
+@cc [owner:OctavianTocan,label:security;architecture] client-native-integration-is-real
+The explicit Darwin integration run MUST exercise the production NSURLSession
+transport against a nonprivate loopback fixture, including redirect refusal,
+cancellation, native deadlines and response bounds. It MUST fail when its fixture
+is absent; ordinary common tests MUST remain usable without that fixture. Source:
+Tavi's 21 Oct 2026 iOS implementation request and accepted native-adapter test plan.

@@ -343,6 +343,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                         AiActivityLogFull(
                             turnTask?.activities.orEmpty(), working, startedAt = turnTask?.startedAt?.takeIf { it > 0 } ?: sentAt,
                             endedAt = turnTask?.endedAt, outcome = outcomeOf(turnTask), compact = true, mark = false,
+                            reconnecting = turnTask?.id in session.taskObservationErrors,
                         )
                     }
                     // The answer as it is written, in the place the saved reply takes: plain text, never a bubble (rule 99).

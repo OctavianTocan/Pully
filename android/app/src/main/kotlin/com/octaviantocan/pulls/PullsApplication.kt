@@ -7,10 +7,20 @@ import com.octaviantocan.pulls.sound.Haptics
 import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.update.UpdateChecks
 import com.octaviantocan.pulls.core.clearInterruptedUpdateDownloads
+import com.octaviantocan.pulls.data.RepoIdentity
+import com.octaviantocan.pulls.ui.review.ReviewSessionCache
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class PullsApplication : Application() {
+    private val reviewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    val reviewSessions = ReviewSessionCache(reviewScope)
+
     override fun onCreate() {
         super.onCreate()
+        RepoIdentity.observeInvalidation { reviewScope.launch { reviewSessions.clear() } }
         // First, so the start time is the process's and a crash anywhere after this is kept for the next launch.
         Analytics.install(this, AppSettings.get(this).usageStats)
         clearInterruptedUpdateDownloads(cacheDir)

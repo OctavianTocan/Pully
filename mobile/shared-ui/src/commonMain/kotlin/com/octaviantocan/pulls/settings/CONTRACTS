@@ -1,0 +1,29 @@
+@cc [owner:OctavianTocan,label:architecture;product] shared-settings-keep-existing-preferences
+Shared AppSettings MUST remain Compose-reactive and retain the existing `pulls-ui`
+keys, defaults and value encodings. Android MUST keep using its existing preference
+file; iOS MUST store the same nonsecret choices through native storage. Storage and
+effects MUST NOT introduce a shared-domain or shared-client dependency on Compose.
+Source: Tavi's 21 Oct 2026 same-app iOS decision and the accepted shared-presentation
+AppSettings boundary in the iOS implementation plan.
+
+@cc [owner:OctavianTocan,label:product] shared-settings-sync-preserves-local-edits
+A local synced preference edit MUST persist its value and notify the host's touched
+callback, which retains ownership of change timestamps and synchronization. Applying
+a synced value MUST update the reactive state and storage without touching its local
+timestamp or reporting a new local change. Unknown names and unsupported values MUST
+return false without changing the stored choice. Source: `data-settings-sync`, Tavi,
+16 Oct 12:47; retained by the 21 Oct 2026 iOS reuse decision.
+
+@cc [owner:OctavianTocan,label:security;product] shared-settings-usage-opt-out-is-local
+Usage stats and update notifications MUST remain local-only and MUST NOT appear in
+syncedValue. Disabling usage stats MUST call the host's opt-out effect immediately
+and MUST NOT report the disabling action as an analytics event. Enabling it MAY report
+the first new usage-stats event after the host enables its queue. Source: root
+`analytics-can-be-turned-off`, `data-settings-sync`, Tavi's 15 Oct 21:12 analytics
+decision and 21 Oct 2026 iOS reuse decision.
+
+@cc [owner:OctavianTocan,label:product] shared-settings-zoom-preview-does-not-persist
+A code-zoom preview MUST update the reactive value within the existing zoom limits
+without persisting it or touching its sync timestamp. Committing the zoom MUST save
+the clamped value and notify the touched callback. Source: recording 16 Oct 09:50,
+04:11 to 04:26 (M9), retained by Tavi's 21 Oct 2026 shared-settings decision.

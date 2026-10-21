@@ -256,7 +256,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
  * screen: a phone held upright shows the split too, two narrow columns (H10).
  */
 @Composable
-internal fun LayoutChoices(settings: AppSettings, modifier: Modifier = Modifier) {
+internal fun LayoutChoices(settings: com.octaviantocan.pulls.settings.AppSettings, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         LayoutChoice(split = false, selected = settings.layout != "split", label = t("settings.unified"), onClick = { settings.updateLayout("unified") }, modifier = Modifier.weight(1f))
         LayoutChoice(split = true, selected = settings.layout == "split", label = t("settings.split"), onClick = { settings.updateLayout("split") }, modifier = Modifier.weight(1f))

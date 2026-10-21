@@ -200,8 +200,6 @@ fun <T> ToggleGroup(options: List<Pair<T, String>>, value: T, onChange: (T) -> U
     }
 }
 
-/** Review state of a file: the web `ReviewStatus` plus the folder-only `partial`. */
-enum class ReviewState { Reviewed, Unreviewed, Changed, Partial }
 
 /** `ReviewCheckbox`: 16px box, primary fill when checked, orange indeterminate for `changed`. */
 @Composable

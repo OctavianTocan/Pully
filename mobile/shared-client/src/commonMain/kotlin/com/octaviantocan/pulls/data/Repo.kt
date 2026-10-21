@@ -1,10 +1,7 @@
 package com.octaviantocan.pulls.data
 
-import android.content.Context
 import com.octaviantocan.pulls.core.OpenTarget
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -17,29 +14,45 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /**
- * Every server call the phone makes, named after the RPC it runs. All run on IO and
+ * Every server call the phone makes, named after the RPC it runs. Native transports handle IO and
  * throw the server's `{ error }` text on failure. Route contracts are in
  * `backend/src/transport.rs` and `backend/src/review/`.
  */
-class Repo(private val context: Context) {
-    private fun api(): PullsApi {
-        val config = ServerStore.load(context)
-        return PullsApi(config.url, config.headers() + Account.headers(context))
-    }
+class Repo(
+    private val configuration: () -> RepoConfiguration,
+    private val transport: RpcTransport,
+    private val observer: RpcObserver = RpcObserver { _, _, _, _ -> },
+    private val clock: RpcClock = MonotonicRpcClock,
+) {
+    fun source(): RpcSource = configuration().source
 
-    /** Runs the RPC [name] and times it for `rpc.call`: the name, how long, whether it worked and the HTTP status, never [args]. */
-    suspend fun call(name: String, args: JsonObject = JsonObject(emptyMap())): JsonElement = withContext(Dispatchers.IO) {
-        val started = System.nanoTime()
-        fun ms() = (System.nanoTime() - started) / 1_000_000
+    fun isCurrent(source: RpcSource): Boolean = runCatching { source == this.source() }.getOrDefault(false)
+
+    /** Times only the method/outcome. A response from a superseded account/server is never returned. */
+    suspend fun call(name: String, args: JsonObject = JsonObject(emptyMap())): JsonElement =
+        call(configuration(), name, args)
+
+    private suspend fun call(config: RepoConfiguration, name: String, args: JsonObject): JsonElement {
+        // Invalid current configuration is actionable; a later invalid replacement is a superseded source.
+        config.source
+        val started = clock.nowMillis()
+        fun ms() = (clock.nowMillis() - started).coerceAtLeast(0)
         try {
-            api().call(name, args).also { Analytics.rpc(name, ms(), ok = true, status = null) }
+            val result = RpcClient(config.server, transport, config.headers).call(name, args)
+            if (!config.sameSource(configuration())) throw CancellationException("The server or account changed.")
+            observer.completed(name, ms(), true, null)
+            return result
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Analytics.rpc(name, ms(), ok = false, status = (e as? ServerError)?.status)
+            if (!config.sameSource(configuration())) throw CancellationException("The server or account changed.")
+            observer.completed(name, ms(), false, (e as? ServerError)?.status)
             throw e
         }
     }
+
+    private suspend fun call(config: RepoConfiguration, name: String, build: JsonObjectBuilder.() -> Unit): JsonElement =
+        call(config, name, buildJsonObject(build))
 
     suspend fun call(name: String, build: JsonObjectBuilder.() -> Unit): JsonElement = call(name, buildJsonObject(build))
 
@@ -143,9 +156,9 @@ class Repo(private val context: Context) {
 
     /** Starts a server task; returns its id. Model and effort come from the phone settings unless [effort] is given. */
     suspend fun startTask(kind: String, key: String, effort: String? = null, extra: JsonObjectBuilder.() -> Unit = {}): String {
-        val config = ServerStore.load(context)
-        val chosen = effort ?: AppSettings.get(context).effort
-        return call("ai-task-start") {
+        val config = configuration()
+        val chosen = effort ?: config.effort
+        return call(config, "ai-task-start") {
             put("kind", kind); put("key", key)
             put("model", buildJsonObject {
                 put("engine", config.engine)
@@ -159,7 +172,11 @@ class Repo(private val context: Context) {
     /** Long-polls a task for changes after `after`. */
     suspend fun waitTask(id: String, after: Int): JsonObject = call("ai-task-wait") { put("id", id); put("after", after) }.jsonObject
 
-    suspend fun cancelTask(id: String) { runCatching { call("ai-task-cancel") { put("id", id) } } }
+    suspend fun cancelTask(id: String) {
+        try { call("ai-task-cancel") { put("id", id) } }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { /* Explicit cancel is best effort, as before. */ }
+    }
 
     /** This diff's tasks, running or recently finished, newest first: how a reopened page resumes them. */
     suspend fun tasks(key: String): List<TaskState> = (call("ai-task-list") { put("key", key) } as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.asTaskState() }
@@ -211,17 +228,19 @@ class Repo(private val context: Context) {
 
     /** Signs in with the account's email and password; answers the session the phone keeps, and the email. */
     suspend fun signIn(email: String, password: String): Pair<String, String> {
-        if (!carriesSecrets(ServerStore.load(context).url))
+        val config = configuration()
+        if (!carriesSecrets(config.server))
             throw IllegalStateException("Pully signs in only over HTTPS. Change the server address in Settings, Server to start with https://.")
-        val o = call("account-sign-in") { put("email", email); put("password", password) }.jsonObject
+        val o = call(config, "account-sign-in") { put("email", email); put("password", password) }.jsonObject
         return o.s("session") to o.s("email")
     }
 
     /** Signs in with the ID token Google gave for the server's client: the session and the account's email. */
     suspend fun signInWithGoogle(idToken: String): Pair<String, String> {
-        if (!carriesSecrets(ServerStore.load(context).url))
+        val config = configuration()
+        if (!carriesSecrets(config.server))
             throw IllegalStateException("Pully signs in only over HTTPS. Change the server address in Settings, Server to start with https://.")
-        val o = call("account-google-sign-in") { put("idToken", idToken) }.jsonObject
+        val o = call(config, "account-google-sign-in") { put("idToken", idToken) }.jsonObject
         return o.s("session") to o.s("email")
     }
 
@@ -261,7 +280,7 @@ class Repo(private val context: Context) {
     suspend fun deletePosted(id: String) { call("posted-delete") { put("id", id) } }
 
     /** Keeps [report] in the account's feedback, for agents to read and act on later. */
-    suspend fun sendFeedback(report: FeedbackReport) { call("feedback-send", report.toJson()) }
+    suspend fun sendFeedback(report: FeedbackPayload) { call("feedback-send", report.toJson()) }
 
     /** The account's feedback, newest first. */
     suspend fun feedback(): List<FeedbackItem> = call("feedback-list").jsonObject.arr("items").map { it.asFeedbackItem() }

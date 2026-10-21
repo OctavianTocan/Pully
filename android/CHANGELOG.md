@@ -16,6 +16,14 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.57.0
+
+Reviews recover after a lost connection.
+
+- Interrupted task updates show Reconnecting and resume without treating work on the server as failed.
+![Illustration of reconnecting to the server before showing a confirmed task result](changelog/0.57.0/review-recovery-illustration.png)
+- Cached reviews stay with their server and account, and an invalid server address shows an error you can correct.
+
 ## 0.56.0
 
 The iPhone preview uses Pully's complete pull request rows.
