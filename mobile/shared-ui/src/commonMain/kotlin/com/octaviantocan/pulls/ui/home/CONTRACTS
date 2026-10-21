@@ -309,3 +309,6 @@ navigate or start work under replacement credentials. Back and Home MAY still cl
 up the existing route stack. Renderer capability gates MUST remain enforced for the
 current owner. Source: the accepted 21 Oct 2026 iOS source-ownership plan and existing
 shared Home observation and private-state boundaries.
+Press-to-warm MUST apply that same current-owner and renderer gate before the
+application cache captures a client source; an old row MUST NOT preload through
+replacement credentials. Source: the independent 21 Oct 2026 PR80 source review.

@@ -3,6 +3,8 @@ package com.octaviantocan.pulls.ui.home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.octaviantocan.pulls.core.ListedPull
+import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.ui.Nav
@@ -75,6 +77,11 @@ class HomeScreenServices(
         val surface = ask
         if (!capabilities.inboxAsk || surface == null) unavailable(HomePreviewFeature.InboxAsk)
         else surface.sendOrQueue(question)
+    }
+
+    fun warmReview(pull: PullRow) {
+        if (!data.current || !capabilities.reviewRoutes) return
+        reviewSessions?.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
     }
 
     private fun current(action: () -> Unit) { if (data.current) action() }

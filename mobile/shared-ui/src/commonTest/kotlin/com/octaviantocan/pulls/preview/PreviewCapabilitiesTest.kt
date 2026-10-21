@@ -2,16 +2,25 @@ package com.octaviantocan.pulls.preview
 
 import com.octaviantocan.pulls.core.LinkPlace
 import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.PullRow
+import com.octaviantocan.pulls.data.Repo
+import com.octaviantocan.pulls.data.RepoConfiguration
+import com.octaviantocan.pulls.data.RpcRequest
+import com.octaviantocan.pulls.data.RpcResponse
+import com.octaviantocan.pulls.data.RpcTransport
 import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.settings.SettingsEffects
 import com.octaviantocan.pulls.settings.SettingsPreferences
 import com.octaviantocan.pulls.ui.AppNavigation
 import com.octaviantocan.pulls.ui.Screen
+import com.octaviantocan.pulls.ui.review.ReviewSessionCache
 import com.octaviantocan.pulls.ui.home.*
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlin.test.*
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PreviewCapabilitiesTest {
     @Test
     fun unsupportedReviewTourAndSettingsDestinationsStateTheirLimitationWithoutChangingTheStack() {
@@ -95,6 +104,48 @@ class PreviewCapabilitiesTest {
             HomeScreenServices(s.repo, s.settings, s.home, s.data, s.native, s.effects,
                 s.capabilities.copy(inboxAsk = true), {}, {})
         }
+    }
+
+    @Test
+    fun retainedProductionRowPressCannotWarmItsPullThroughReplacementCredentials() = runTest {
+        val requests = mutableListOf<RpcRequest>()
+        var configuration = RepoConfiguration("https://first.example", mapOf("X-Pully-Session" to "fixture-first"))
+        val repo = Repo({ configuration }, RpcTransport { request ->
+            requests += request
+            RpcResponse(200, """{"result":{"key":"fixture-warm","diff":{"head":{"sha":"fixture-head"},"files":[]},"groups":[]}}""")
+        })
+        val cache = ReviewSessionCache(backgroundScope)
+        val first = preview()
+        fun services(base: HomeScreenServices) = HomeScreenServices(
+            repo, base.settings, base.home, base.data, base.native, base.effects,
+            base.capabilities.copy(reviewRoutes = true), {}, {}, reviewSessions = cache,
+        )
+        val firstServices = services(first)
+        val oldPress = firstServices::warmReview
+        val oldRow = PullRow("first-owner", "private-repo", 1, "Sample private pull", "reader", "", false)
+        oldPress(oldRow)
+        runCurrent()
+        assertEquals(2, requests.size)
+        assertTrue(requests.all { it.headers["X-Pully-Session"] == "fixture-first" })
+        requests.clear()
+        cache.clear()
+
+        first.data.invalidate() // The native/Android before-change owner retires before credential publication.
+        configuration = RepoConfiguration("https://second.example", mapOf("X-Pully-Session" to "fixture-second"))
+        oldPress(oldRow)
+        runCurrent()
+        assertTrue(requests.isEmpty())
+
+        val secondServices = services(preview())
+        secondServices.warmReview(oldRow.copy(owner = "second-owner", number = 2))
+        runCurrent()
+        assertEquals(2, requests.size)
+        assertTrue(requests.all { it.headers["X-Pully-Session"] == "fixture-second" })
+        requests.clear()
+        cache.clear()
+        oldPress(oldRow)
+        runCurrent()
+        assertTrue(requests.isEmpty())
     }
 }
 

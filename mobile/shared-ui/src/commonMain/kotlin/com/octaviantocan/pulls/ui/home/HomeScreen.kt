@@ -381,7 +381,7 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
                         onRetry = reload, onCommands = { services.commands() },
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it }, viewer = viewer,
-                        onPress = { pull -> if (services.capabilities.reviewRoutes) reviewSessions?.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com")) },
+                        onPress = services::warmReview,
                         posted = posted, onOpenPosted = { row -> nav.openFrom(OpenTarget.Posted(row.id), if (needle.isEmpty()) "inbox" else "search", false) },
                         onHoldPosted = { heldPosted = it },
                         onStack = { stackOpen = it },
