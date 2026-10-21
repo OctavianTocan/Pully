@@ -28,9 +28,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Shared Compose owns layout, safe-area insets, state and navigation.
         let controller = MainViewControllerKt.MainViewController(homeActions: nativeHomeActions)
         window.rootViewController = controller
-        nativeHomeActions.attach(to: controller.view)
         self.window = window
         window.makeKeyAndVisible()
+        nativeHomeActions.attach(to: controller.view)
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) { homeActions?.update(.foregroundInactive) }

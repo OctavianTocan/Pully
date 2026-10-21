@@ -90,7 +90,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions {
         }
     }
 
-    /// A Compose registration can precede UIView creation; bind it before the window is interactive.
+    /// A Compose registration can precede UIView creation; bind once the root has its scene window.
     func attach(to view: UIView) {
         guard !disconnected, rootView !== view else { return }
         rootView = view
@@ -103,14 +103,23 @@ final class HomeActionsHost: NSObject, NativeHomeActions {
     }
 
     private func installBack(_ registration: BackRegistration) {
-        guard back === registration, let rootView else { return }
+        guard back === registration, let window = rootView?.window else { return }
         let observer = registration.observer
         registration.gesture = NativeBackGesture(
-            view: rootView, rightEdge: registration.rightEdge,
-            enabled: { [weak self] in self?.sceneActive == true && observer.enabled() },
+            // Compose puts Dialog layers beside its root view, beneath the same UIWindow.
+            // One window recognizer receives both layers and keeps the shared Back priority.
+            view: window, rightEdge: registration.rightEdge,
+            enabled: { [weak self] in self?.sharedContentIsActive == true && observer.enabled() },
             began: { observer.began() }, changed: { observer.changed(progress: $0) },
             cancelled: { observer.cancelled() }, committed: { observer.committed() }
         )
+    }
+
+    private var sharedContentIsActive: Bool {
+        guard sceneActive, let rootView, let controller = rootView.window?.rootViewController,
+              controller.viewIfLoaded === rootView else { return false }
+        // A native browser or system presentation owns its gestures until it leaves.
+        return controller.presentedViewController == nil
     }
 
     private func removeBack(_ id: UUID) {
