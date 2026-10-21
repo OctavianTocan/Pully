@@ -70,6 +70,31 @@ registered callback scheme; the adapter documents the exact missing configuratio
 The app bundles its UserDefaults required-reason declaration and retains the SDK's
 own privacy resource. Store privacy/signing review remains later release work.
 
+## Darwin RPC integration
+
+On macOS, start the nonprivate loopback fixture from the repository root:
+
+```sh
+python3 ios/scripts/rpc-fixture.py --state-dir ios/build/rpc-fixture
+```
+
+With a booted iPhone simulator, run in a second terminal:
+
+```sh
+cd android
+./gradlew :shared-client:iosSimulatorArm64IntegrationTest \
+  -Ppully.iosSimulatorId="$SIMULATOR_ID" \
+  -Ppully.rpcFixtureUrl="$(cat ../ios/build/rpc-fixture/url)"
+```
+
+The six tests use the actual NSURLSession transport. The oversized-response fixture
+advertises 64 MiB + 1, emits at most one initial body byte, then holds the rest.
+This avoids relying on delivery of a headers-only response callback: the test still
+requires the advertised-length error and socket closure, and verifies that the
+fixture sent at most one byte. That byte cannot trigger the 64 MiB streaming guard,
+so waiting for the rest or ignoring the header still fails. Stop the fixture with
+Ctrl-C after the tests finish.
+
 ## Toolchain references
 
 Checked on 21 October 2026:

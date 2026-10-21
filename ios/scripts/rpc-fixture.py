@@ -20,8 +20,11 @@ class Fixture:
         self.target_hits = 0
 
     def mark(self, case, field):
+        self.record(case, field, True)
+
+    def record(self, case, field, value):
         with self.lock:
-            self.records.setdefault(case, {})[field] = True
+            self.records.setdefault(case, {})[field] = value
 
     def state(self, case):
         with self.lock:
@@ -43,13 +46,23 @@ def handler(fixture, target_url, is_target=False):
             self.end_headers()
             self.wfile.write(body)
 
-        def hold(self, case, content_length):
+        def hold(self, case, content_length, prefix=b""):
             fixture.mark(case, "arrived")
+            fixture.record(case, "bodyBytesSent", 0)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(content_length))
             self.end_headers()
-            self.wfile.flush()
+            # URLSession may defer response delivery until body progress. One byte makes
+            # the advertised-length guard observable without downloading a large body.
+            try:
+                if prefix:
+                    self.wfile.write(prefix)
+                    fixture.record(case, "bodyBytesSent", len(prefix))
+                self.wfile.flush()
+            except (ConnectionResetError, BrokenPipeError):
+                fixture.mark(case, "disconnected")
+                return
             self.connection.settimeout(0.1)
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:
@@ -80,7 +93,7 @@ def handler(fixture, target_url, is_target=False):
             elif self.path == "/access/api/rpc":
                 self.answer(200, "<html>fixture Access login</html>", "text/html")
             elif self.path == "/oversize/api/rpc":
-                self.hold("oversize", RESPONSE_LIMIT + 1)
+                self.hold("oversize", RESPONSE_LIMIT + 1, prefix=b"{")
             elif self.path.startswith("/hold/") and self.path.endswith("/api/rpc"):
                 self.hold(self.path.split("/")[2], 2)
             elif self.path == "/api/rpc":

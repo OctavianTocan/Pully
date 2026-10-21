@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.data
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -100,13 +101,17 @@ class DarwinRpcTransportIntegrationTest {
     }
 
     @Test
-    fun rejectsOversizeContentLengthBeforeDownloadingBody(): Unit = runBlocking {
+    fun rejectsOversizeContentLengthWithAtMostOneFixtureByte(): Unit = runBlocking {
         withTimeout(5_000) {
             val failure = assertFailsWith<IllegalStateException> {
                 DarwinRpcTransport().execute(RpcRequest("$base/oversize/api/rpc", emptyMap(), "{}"))
             }
+            // A coroutine timeout is also an IllegalStateException; it is never the size guard.
+            if (failure is CancellationException) throw failure
             assertEquals("The server response is too large.", failure.message)
             awaitState("oversize", "disconnected")
+            val sent = checkNotNull(state("oversize").i("bodyBytesSent"))
+            assertTrue(sent in 0..1, "The size fixture must not stream a large body: $sent bytes")
         }
     }
 
