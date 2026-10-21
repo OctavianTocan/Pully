@@ -1,0 +1,16 @@
+@cc [owner:OctavianTocan,label:security;architecture] personal-auth-never-adopts-operator-authority
+Personal authorization MUST use only the fixed Pully-owned OAuth configuration and
+the verified user's GitHub credential. Guest, missing, revoked, expired or failed
+personal authorization MUST NOT fall back to environment/CLI GitHub credentials,
+legacy account data or operator caches. This additive module MUST NOT activate a
+public listener or expose legacy RPC. Source: Tavi's 21 Oct 2026 any-account GitHub
+sign-in and anonymous public-browsing decision and its approved multiuser plan.
+
+@cc [owner:OctavianTocan,label:security] personal-vault-authenticates-its-stable-owner
+GitHub access and refresh tokens MUST remain server-side and encrypted at rest with
+authenticated encryption under an operator-supplied versioned key. The authenticated
+context MUST include the stable account ID, immutable GitHub subject, credential
+revision, provider and record format/key version. An unknown key, modified record or
+record copied between accounts/revisions MUST fail without returning credentials.
+No token, key or plaintext payload MAY appear in Debug output, status, logs or errors.
+Source: Tavi's 21 Oct 2026 encrypted per-user credential-vault and identity plan.

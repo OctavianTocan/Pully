@@ -52,6 +52,13 @@ impl VerifiedGitHubIdentity {
     pub(crate) fn login(&self) -> &str {
         &self.login
     }
+    #[cfg(test)]
+    pub(crate) fn fixture(github_id: u64, login: &str, token: &str) -> Result<Self> {
+        Self::verified_response(
+            token.to_owned(),
+            &serde_json::to_vec(&serde_json::json!({"id": github_id, "login": login}))?,
+        )
+    }
     /// @cc [owner:OctavianTocan,label:security] personal-github-identity-is-verified
     /// Personal GitHub authority MUST be verified against the fixed HTTPS /user API with
     /// redirects refused and a bounded body. Tokens and upstream response bodies MUST NOT
@@ -178,6 +185,13 @@ impl RequestIdentity {
     }
     pub(crate) fn is_legacy(&self) -> bool {
         matches!(self, Self::LegacyPrivate)
+    }
+    pub(crate) fn account_id(&self) -> Result<&str> {
+        self.ensure_current()?;
+        match self {
+            Self::Account(credential) => Ok(&credential.0.account_id),
+            _ => bail!("A personal GitHub session is required"),
+        }
     }
 
     /// @cc [owner:OctavianTocan,label:security] personal-and-guest-never-use-operator-github

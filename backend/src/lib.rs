@@ -12,6 +12,7 @@ pub(crate) mod identity;
 pub mod jev;
 mod lz;
 mod merge_risk;
+pub(crate) mod personal_auth;
 pub mod posted;
 pub mod presentation;
 pub mod review;
