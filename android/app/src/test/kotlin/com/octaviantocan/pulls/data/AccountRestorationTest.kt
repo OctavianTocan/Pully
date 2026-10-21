@@ -54,7 +54,7 @@ class AccountRestorationTest {
 
     @Test
     fun capabilitiesAndVerifiedMarkersNeverCrossServersOrInvalidAddresses() {
-        for (configured, statusServer) in listOf("https://b.example" to "https://a.example", "not a URL" to "not a URL")) {
+        for ((configured, statusServer) in listOf("https://b.example" to "https://a.example", "not a URL" to "not a URL")) {
             val state = restore(configured = configured, statusServer = statusServer, oldAccount = false, google = "old-client", verifiedServer = statusServer)
             assertFalse(state.verified)
             assertNull(state.hasAccount)
