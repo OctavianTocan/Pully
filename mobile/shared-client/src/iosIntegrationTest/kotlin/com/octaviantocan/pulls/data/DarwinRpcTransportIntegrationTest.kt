@@ -62,6 +62,9 @@ class DarwinRpcTransportIntegrationTest {
 
     @Test
     fun refusesRedirectWithoutForwardingCredentialsOrBody() = runBlocking {
+        val raw = DarwinRpcTransport().execute(RpcRequest("$base/redirect/api/rpc", emptyMap(), "{}"))
+        assertEquals(307, raw.status)
+        assertTrue(raw.location.endsWith("/redirect-target"))
         val failure = assertFailsWith<ServerError> {
             RpcClient("$base/redirect", DarwinRpcTransport(), mapOf("X-Pully-Session" to "fixture-private-session"))
                 .call("fixture-redirect", buildJsonObject { put("text", "fixture-private-body") })

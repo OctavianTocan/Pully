@@ -79,6 +79,17 @@ class AccountConnectionTest {
     }
 
     @Test
+    fun recoveryDoesNotTreatGenericHttpRejectionAsCloudflareAccess() {
+        for (status in listOf(401, 403)) {
+            assertEquals(ConnectionProblem.HttpRejected, connectionProblem(ServerError(status, "refused", kind = ServerErrorKind.Http)))
+            assertEquals(ConnectionProblem.WebPage, connectionProblem(ServerError(status, "page", kind = ServerErrorKind.HtmlResponse)))
+        }
+        assertEquals(ConnectionProblem.Access, connectionProblem(ServerError(302, "Access redirect", kind = ServerErrorKind.AccessRequired)))
+        assertEquals(ConnectionProblem.SignIn, connectionProblem(ServerError(401, "RPC unauthorized", kind = ServerErrorKind.Unauthorized)))
+        assertEquals(ConnectionProblem.Unavailable, connectionProblem(ServerError(503, "down", kind = ServerErrorKind.HtmlResponse)))
+    }
+
+    @Test
     fun sourceChangesBetweenDiscoveryAndVerificationNeverReturnAnotherOwnersState() = runTest {
         var configuration = RepoConfiguration("https://server.example", generation = 1)
         val server = Repo({ configuration }, RpcTransport {

@@ -42,7 +42,7 @@ suspend fun checkAccountConnection(repo: Repo, storedEmail: String?): AccountCon
 
 /** A small recovery category for presentation; it cannot retain a response, credential or address. */
 enum class ConnectionProblem {
-    Configuration, Access, WebPage, SignIn, Forbidden, Redirect, Unavailable, InvalidResponse, Timeout, Unreachable,
+    Configuration, Access, HttpRejected, WebPage, SignIn, Forbidden, Redirect, Unavailable, InvalidResponse, Timeout, Unreachable,
 }
 
 fun connectionProblem(failure: Throwable): ConnectionProblem = when (failure) {
@@ -54,7 +54,7 @@ fun connectionProblem(failure: Throwable): ConnectionProblem = when (failure) {
         failure.kind == ServerErrorKind.Unauthorized -> ConnectionProblem.SignIn
         failure.kind == ServerErrorKind.Forbidden -> ConnectionProblem.Forbidden
         failure.kind == ServerErrorKind.Redirect -> ConnectionProblem.Redirect
-        failure.kind == ServerErrorKind.Http && failure.status in setOf(401, 403) -> ConnectionProblem.Access
+        failure.kind == ServerErrorKind.Http && failure.status in setOf(401, 403) -> ConnectionProblem.HttpRejected
         else -> ConnectionProblem.InvalidResponse
     }
     else -> ConnectionProblem.Unreachable

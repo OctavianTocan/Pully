@@ -148,6 +148,32 @@ class RpcClientTest {
     }
 
     @Test
+    fun reflectedSerializedCredentialsCannotBecomeReadableErrorDetails() = runTest {
+        val credential = "private\\quoted\"password\nwith-newline"
+        val args = buildJsonObject { put("email", "person@example.com"); put("password", credential) }
+        val failure = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(401, buildJsonObject { put("error", "Rejected args $args") }.toString())
+            }).call("account-sign-in", args)
+        }
+        assertEquals("Pully could not sign in. Check your account or choose another, then try again.", failure.message)
+        assertFalse(failure.message.orEmpty().contains("private"))
+        val secret = "private\\quoted\"header"
+        val reflectedHeader = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(400, buildJsonObject { put("error", "Rejected ${JsonPrimitive(secret)}") }.toString())
+            }, mapOf("Authorization" to secret)).call("read")
+        }
+        assertFalse(reflectedHeader.message.orEmpty().contains("private"))
+        val nested = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(400, buildJsonObject { put("error", "Rejected $args") }.toString())
+            }).call("future-connection", buildJsonObject { put("connection", args) })
+        }
+        assertEquals("The server could not complete this request. Try again.", nested.message)
+    }
+
+    @Test
     fun rejectsCredentialUrlsAndInsecureCredentialHeadersBeforeTransport() = runTest {
         var sent = false
         val transport = RpcTransport { sent = true; RpcResponse(200, "{}") }

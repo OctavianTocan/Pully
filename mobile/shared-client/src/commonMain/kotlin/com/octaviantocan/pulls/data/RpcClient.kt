@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -44,7 +45,7 @@ class RpcClient(server: String, private val transport: RpcTransport, headers: Ma
                 401 -> ServerErrorKind.Unauthorized
                 403 -> ServerErrorKind.Forbidden
                 else -> ServerErrorKind.Server
-            }, message?.let { safeMessage(it, args) } ?: "The server could not complete this request. Try again.")
+            }, message?.let { safeMessage(it, name, args) } ?: "The server could not complete this request. Try again.")
         }
         return parsed["result"] ?: JsonNull
     }
@@ -70,13 +71,23 @@ class RpcClient(server: String, private val transport: RpcTransport, headers: Ma
         throw RpcConnectionException()
     }
 
-    private fun safeMessage(message: String, args: JsonObject): String {
+    private fun safeMessage(message: String, name: String, args: JsonObject): String {
+        if (name in setOf("account-sign-in", "account-google-sign-in"))
+            return "Pully could not sign in. Check your account or choose another, then try again."
+        if (hasCredential(args)) return "The server could not complete this request. Try again."
         if (message.trimStart().startsWith('<')) return "The server could not complete this request. Try again."
         var safe = message
-        val secrets = headers.values + args.filterKeys { it in setOf("password", "idToken", "session", "apiKey", "accessSecret") }
-            .values.mapNotNull { (it as? JsonPrimitive)?.content }
-        secrets.filter { it.isNotEmpty() }.forEach { safe = safe.replace(it, "[redacted]") }
+        val secrets = headers.values.filter { it.isNotEmpty() }.flatMap { listOf(it, JsonPrimitive(it).toString().drop(1).dropLast(1)) }
+        secrets.distinct().sortedByDescending { it.length }.forEach { safe = safe.replace(it, "[redacted]") }
         return safe.take(1200)
+    }
+
+    private fun hasCredential(value: JsonElement): Boolean = when (value) {
+        is JsonObject -> value.any { (key, nested) ->
+            key.lowercase() in setOf("password", "idtoken", "session", "apikey", "accesssecret", "secret", "token", "authorization") || hasCredential(nested)
+        }
+        is JsonArray -> value.any(::hasCredential)
+        else -> false
     }
 }
 
