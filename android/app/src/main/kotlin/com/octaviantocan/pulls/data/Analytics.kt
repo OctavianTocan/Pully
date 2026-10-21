@@ -43,6 +43,8 @@ object Analytics {
 
     @Volatile private var app: Context? = null
     @Volatile private var enabled = false
+    @Volatile private var privateConnection = false
+    @Volatile private var connectionRevision = 0L
     @Volatile private var version = ""
     @Volatile private var device = ""
     @Volatile private var session = ""
@@ -77,7 +79,7 @@ object Analytics {
     private class Queued(val seq: Long, val line: String)
 
     /** Called from `PullsApplication.onCreate`: notes when the process started, reads the queue and sets the crash handler. */
-    fun install(context: Context, on: Boolean) {
+    fun install(context: Context, on: Boolean, privateConnection: Boolean = true) {
         processStart = SystemClock.elapsedRealtime()
         val appContext = context.applicationContext
         app = appContext
@@ -86,6 +88,7 @@ object Analytics {
         device = prefs.getString("device", null)?.takeIf(AnalyticsRules::validId) ?: newId().also { prefs.edit().putString("device", it).apply() }
         session = prefs.getString("session", null)?.takeIf(AnalyticsRules::validId) ?: newId().also { prefs.edit().putString("session", it).apply() }
         enabled = on
+        this.privateConnection = privateConnection
         io.execute { load() }
         installCrashHandler()
     }
@@ -95,7 +98,7 @@ object Analytics {
      * and on or off values belong here, never what was read or typed (analytics-what-not-how-much).
      */
     fun track(name: String, props: Map<String, Any?> = emptyMap()) {
-        if (!enabled || app == null) return
+        if (!enabled || !privateConnection || app == null) return
         val line = event(name, props).encode()
         val dropped: Int
         synchronized(lock) {
@@ -166,7 +169,7 @@ object Analytics {
         prefs(context).edit().putLong("backgroundAt", System.currentTimeMillis()).apply()
         ticker?.cancel()
         ticker = null
-        if (!enabled) return
+        if (!enabled || !privateConnection) return
         scope.launch { flush() }
         scheduleRetry(context)
     }
@@ -188,6 +191,19 @@ object Analytics {
         runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK) }
     }
 
+    /** Guest mode pauses private telemetry without changing consent or discarding a returning account's queue. */
+    fun setPrivateConnection(available: Boolean) {
+        if (privateConnection == available) return
+        connectionRevision++
+        privateConnection = available
+        ticker?.cancel()
+        ticker = null
+        val context = app ?: return
+        if (available) {
+            if (frontSince != null) startTicker()
+        } else runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK) }
+    }
+
     // --- Sending ---
 
     /**
@@ -196,11 +212,12 @@ object Analytics {
      */
     suspend fun flush(): Boolean {
         val context = app ?: return true
-        if (!enabled) return true
+        if (!enabled || !privateConnection) return true
+        val opening = connectionRevision
         ready.await()
         return sending.withLock {
             withContext(Dispatchers.IO) {
-                while (enabled) {
+                while (enabled && privateConnection && connectionRevision == opening) {
                     val batch = synchronized(lock) { queue.take(AnalyticsRules.BATCH).toList() }
                     if (batch.isEmpty()) return@withContext true
                     val status = runCatching {
@@ -229,7 +246,7 @@ object Analytics {
     }
 
     private fun startTicker() {
-        if (!enabled || ticker?.isActive == true) return
+        if (!enabled || !privateConnection || ticker?.isActive == true) return
         ticker = scope.launch {
             while (isActive) {
                 flush()
@@ -315,7 +332,7 @@ object Analytics {
 
     private fun recordCrash(error: Throwable) {
         val context = app ?: return
-        if (!enabled) return
+        if (!enabled || !privateConnection) return
         val line = event("crash", AnalyticsRules.crashProps(error, screen)).encode()
         synchronized(fileLock) {
             val file = queueFile(context)

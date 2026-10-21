@@ -38,3 +38,10 @@ observed OS/category denial or disabling MUST clear pending eligibility. A repea
 authoritative terminal snapshot MUST NOT duplicate an alert. An identity reset MUST
 cancel category notices and reject late replies (Tavi's 21 Oct 2026 notification
 expansion and approved device-started task outcomes).
+
+@cc [owner:OctavianTocan,label:security;architecture] guest-mode-pauses-private-notification-authority
+Anonymous Explore MUST cancel private check/AI notification observation and reject
+late results/taps without deleting a legitimate account or its explicit subscriptions.
+Workers MUST check entry authority on cold startup, before private requests and before
+applying responses. Re-entering the private workspace MUST use a new observation
+source. Source: Tavi's 21 Oct 2026 ordinary guest browsing and account-isolation plan.

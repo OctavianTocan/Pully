@@ -9,6 +9,23 @@ import kotlin.test.assertTrue
 
 class AppNavigationTest {
     @Test
+    fun changingEntryReusesOneStackAndMakesHomeReturnToItsCurrentRoot() {
+        val navigation = AppNavigation(rootScreen = Screen.Explore)
+        val stack = navigation.stack
+        navigation.stack.add(Screen.Repo("public-owner", "public-repo"))
+        navigation.nav.home()
+        assertEquals(listOf(Screen.Explore), stack.toList())
+        navigation.reset(Screen.Home)
+        navigation.nav.openTarget(OpenTarget.Posted("private-diff"))
+        navigation.nav.home()
+        assertSame(stack, navigation.stack)
+        assertEquals(listOf(Screen.Home), stack.toList())
+        navigation.reset(Screen.Explore)
+        navigation.nav.back()
+        assertEquals(listOf(Screen.Explore), stack.toList())
+    }
+
+    @Test
     fun followingAPlaceThenGoingBackKeepsTheExactUnderlyingRoute() {
         val navigation = AppNavigation()
         navigation.nav.openRepo("pully", "mobile")

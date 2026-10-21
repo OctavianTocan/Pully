@@ -109,7 +109,8 @@ feature and a card per model with its share. A cost no engine reported shows "â€
 $0.00 (recording 16 Oct 13:06, 04:18 to 04:48; O9, rule 181).
 
 @cc [owner:OctavianTocan,label:product;security] settings-sign-in-page
-While the server takes a sign-in and the phone is not signed in, a sign-in page covers the
+Within the explicitly selected existing-server mode, while the server takes a sign-in
+and the phone is not signed in, a sign-in page covers the
 app, as the update screen does; signed in, it stays signed in until Sign out on the Account
 page. A server with no way to sign in, an older server or one that cannot be reached MUST
 NOT bring the page up, and a session the server no longer knows brings it back ("it
@@ -123,6 +124,9 @@ Changing the server, Access credentials or account source MUST reset retained fo
 inputs and revoke pending sign-in authority before another request or session commit.
 The form's displayed server and inputs MUST belong to its opening source, including
 through a modal exit animation (21 Oct 2026 first-run review, direct server recovery).
+Tavi's 21 Oct 2026 anonymous browsing decision adds a working Browse public projects
+action to setup/sign-in; selecting it MUST preserve a legitimate saved private account
+and retire its current page/request authority without signing out.
 
 @cc [owner:OctavianTocan,label:product] settings-connection-feedback-keeps-outcome
 Saving server configuration MUST distinguish a failed connection from a check replaced

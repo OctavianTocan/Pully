@@ -20,7 +20,7 @@ import com.octaviantocan.pulls.ui.onboarding.ConnectionSetupScreen
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun ConnectionSetupGate(onLeave: () -> Unit) {
+internal fun ConnectionSetupGate(onLeave: () -> Unit, onExplore: (() -> Unit)? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     ModalReveal(
@@ -33,6 +33,7 @@ internal fun ConnectionSetupGate(onLeave: () -> Unit) {
             problem = Account.connectionProblem,
             onRetry = { scope.launch { checkAccount(context) } },
             onServerSettings = { settings = true },
+            onExplore = onExplore,
         )
         if (settings) ServerConnectionSheet(onClose = { settings = false })
     }

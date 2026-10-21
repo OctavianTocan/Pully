@@ -38,6 +38,7 @@ import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatingBar
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.home.stayOnPull
 
 @Composable
 fun ExploreScreen(
@@ -82,7 +83,7 @@ fun ExploreScreen(
             }
         }
         PillInput(
-            state.query, state::editQuery, t("explore.searchPlaceholder"), Modifier.align(Alignment.BottomCenter).floatingBar(),
+            state.query, state::editQuery, t("explore.searchPlaceholder"), Modifier.align(Alignment.BottomCenter).floatingBar().stayOnPull(),
             imeAction = ImeAction.Go, onSend = state::search,
             trailing = { FloatIcon(Lu.search, t("explore.search"), state::search, flat = true) },
         )

@@ -1,0 +1,82 @@
+package com.octaviantocan.pulls.ui.explore
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import com.octaviantocan.pulls.ui.AppNavigation
+import com.octaviantocan.pulls.ui.AppPages
+import com.octaviantocan.pulls.ui.Screen
+import com.octaviantocan.pulls.ui.Commands
+import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.PageMotion
+import com.octaviantocan.pulls.ui.design.PillButton
+import com.octaviantocan.pulls.ui.design.PullsSpace
+import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.t
+import com.octaviantocan.pulls.ui.home.PullToCommands
+
+@Composable
+fun GuestPages(
+    navigation: AppNavigation,
+    motion: PageMotion,
+    session: GuestBrowseSession,
+    onExistingAccount: () -> Unit,
+    onOpenGitHub: (String) -> Unit,
+    onGitHubSignIn: (() -> Unit)? = null,
+    onCommands: () -> Unit = { Commands.open() },
+) {
+    SideEffect { session.keepRoutes() }
+    PullToCommands({ session.runFrom(navigation.stack.last(), onCommands) }, Modifier.fillMaxSize()) {
+        AppPages(navigation, motion, Modifier.fillMaxSize()) { screen ->
+            when (screen) {
+                Screen.Explore -> ExploreScreen(
+                    session.repositories, session::openRepository,
+                    onGitHubSignIn?.let { action -> { session.runFrom(screen, action) } },
+                    { session.runFrom(screen, onExistingAccount) },
+                )
+                is Screen.PublicRepo -> {
+                    val state = remember(session, screen) { session.pulls(screen) }
+                    DisposableEffect(session, screen) {
+                        session.retain(screen)
+                        onDispose { session.release(screen) }
+                    }
+                    ExplorePullsScreen(state, { session.runFrom(screen, navigation.nav.back) }, { url -> session.runFrom(screen) { onOpenGitHub(url) } })
+                }
+                else -> {
+                    val colors = LocalPullsColors.current
+                    val publicUrl = guestGitHubUrl(screen)
+                    Column(
+                        Modifier.fillMaxSize().padding(top = headerTopPadding()).padding(horizontal = PullsSpace.x4),
+                        verticalArrangement = Arrangement.spacedBy(PullsSpace.x3),
+                    ) {
+                        Text(t(if (publicUrl == null) "explore.accountLink" else "explore.publicLink"), style = PullsType.xxl, color = colors.text)
+                        Text(t(if (publicUrl == null) "explore.accountLinkBody" else "explore.publicLinkBody"), style = PullsType.read, color = colors.muted)
+                        if (publicUrl != null) CtaButton(t("explore.openLink"), { session.runFrom(screen) { onOpenGitHub(publicUrl) } }, Modifier.fillMaxWidth())
+                        CtaButton(t("explore.existingAccount"), { session.runFrom(screen, onExistingAccount) }, Modifier.fillMaxWidth())
+                        PillButton(t("explore.browse"), { session.runFrom(screen) { navigation.reset(Screen.Explore) } })
+                    }
+                }
+            }
+        }
+    }
+}
+
+internal fun guestGitHubUrl(screen: Screen): String? {
+    fun segment(value: String) = value.isNotEmpty() && value !in setOf(".", "..") && value.length <= 100 && value.all { it.isLetterOrDigit() && it.code < 128 || it in "-_." }
+    return when (screen) {
+        is Screen.Repo -> if (segment(screen.owner) && segment(screen.repo)) "https://github.com/${screen.owner}/${screen.repo}" else null
+        is Screen.Review -> (screen.target as? OpenTarget.Pull)?.takeIf { it.host == "github.com" && segment(it.owner) && segment(it.repo) && it.number > 0 }?.let { "https://github.com/${it.owner}/${it.repo}/pull/${it.number}" }
+        else -> null
+    }
+}

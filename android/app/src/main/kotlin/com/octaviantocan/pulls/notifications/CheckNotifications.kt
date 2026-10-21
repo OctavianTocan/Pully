@@ -29,6 +29,7 @@ import com.octaviantocan.pulls.core.delivered
 import com.octaviantocan.pulls.core.evaluateChecks
 import com.octaviantocan.pulls.core.sha256Hex
 import com.octaviantocan.pulls.data.Account
+import com.octaviantocan.pulls.data.NativeEntry
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
 import java.util.UUID
@@ -160,6 +161,15 @@ object CheckNotifications {
     fun sync(context: Context) {
         Account.load(context)
         val work = WorkManager.getInstance(context)
+        if (!NativeEntry.privateConnection(context)) {
+            synchronized(lock) {
+                prefs(context).edit().putLong("epoch", prefs(context).getLong("epoch", 0) + 1).commit()
+                cancelNotices(context)
+            }
+            work.cancelUniqueWork(WORK)
+            work.cancelUniqueWork(IMMEDIATE)
+            return
+        }
         if (!enabled(context) || !allowed(context) || Account.mustSignIn || watchedCount(context) == 0) {
             work.cancelUniqueWork(WORK)
             work.cancelUniqueWork(IMMEDIATE)
@@ -187,12 +197,12 @@ object CheckNotifications {
     fun destination(context: Context, intent: Intent): String? {
         val current = source(context) // Loads Account in a cold process before consulting mustSignIn.
         val expected = intent.getStringExtra(SOURCE_EXTRA) ?: return null
-        return intent.dataString?.takeIf { !Account.mustSignIn && expected == current.key }
+        return intent.dataString?.takeIf { NativeEntry.privateConnection(context) && !Account.mustSignIn && expected == current.key }
     }
 
     internal suspend fun poll(context: Context) = polling.withLock {
         Account.load(context)
-        if (!enabled(context) || Account.mustSignIn) return@withLock
+        if (!NativeEntry.privateConnection(context) || !enabled(context) || Account.mustSignIn) return@withLock
         if (!allowed(context)) {
             synchronized(lock) { resetBaseline(context); cancelNotices(context) }
             return@withLock
@@ -206,14 +216,14 @@ object CheckNotifications {
             if (SystemClock.elapsedRealtime() - began > 120_000) break
             val index = (start + offset).mod(subscriptions.size)
             val watched = subscriptions[index]
-            if (source(context) != source || !enabled(context)) break
+            if (!NativeEntry.privateConnection(context) || source(context) != source || !enabled(context)) break
             val raw = try { Repo(context).overview(watched.target) }
             catch (error: CancellationException) { throw error }
             catch (_: Exception) { continue }
             val overview = raw["overview"] as? JsonObject ?: continue
             val snapshot = overview.checkSnapshot() ?: continue
             synchronized(lock) {
-                if (Account.mustSignIn || !enabled(context)) return@synchronized
+                if (!NativeEntry.privateConnection(context) || Account.mustSignIn || !enabled(context)) return@synchronized
                 val current = watches(context, source)
                 val subscription = current.firstOrNull { it.key == watched.key && it.revision == watched.revision } ?: return@synchronized
                 if (!source.accepts(source(context), watched.revision, subscription.revision)) return@synchronized
@@ -235,7 +245,7 @@ object CheckNotifications {
     }
 
     private fun post(context: Context, source: CheckSource, watched: WatchedPull, events: List<com.octaviantocan.pulls.core.CheckFailureEvent>): Boolean {
-        if (!allowed(context) || source(context) != source) return false
+        if (!NativeEntry.privateConnection(context) || !allowed(context) || source(context) != source) return false
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "PR checks", NotificationManager.IMPORTANCE_DEFAULT))
         val url = checkNotificationUrl(watched.owner, watched.repo, watched.number, events.singleOrNull()?.check?.url)

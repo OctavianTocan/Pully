@@ -31,8 +31,11 @@ Access secrets, the session, Update notifications and Usage stats stay on the ph
 ("start saving settings, both on the mobile app and also sync it": Tavi, 16 Oct 12:47).
 
 @cc [owner:OctavianTocan,label:architecture] data-server-is-the-source
-The phone reads pull requests, diffs, tours and AI work from its server's API, the same
-actions the web app runs; it never calls GitHub or a model provider itself.
+The private Inbox, diffs, tours and AI work MUST come from the configured server's API,
+the same actions the web app runs. Tavi's 21 Oct 2026 anonymous browsing decision permits
+the separate shared Explore client to call fixed HTTPS api.github.com REST GETs for
+public repository discovery and PR lists without any private credentials or cache.
+The phone MUST NOT call model providers or use an operator/personal token for Explore.
 
 @cc [owner:OctavianTocan,label:product] data-ai-work-notice-follows-server
 The app's ongoing AI notification MUST describe actual running analysis, tour, brief or
@@ -85,6 +88,10 @@ in Settings, with the same Access headers as `/api/rpc`, at most 200 a call. It 
 use any analytics, crash or telemetry package (message 15 Oct 20:58, "We will track them
 directly on our server. No need for fancy packages", and 21:12, "doit"; plan "Pulls
 analytics on our own server").
+In the anonymous Explore entry mode, private analytics MUST be paused without changing
+the saved Usage stats choice or discarding a returning account's queued events. Guest
+startup and workers MUST NOT send events to an unverified/private server. Source:
+Tavi's 21 Oct 2026 ordinary signed-out browsing and isolated guest-authority decision.
 
 @cc [owner:OctavianTocan,label:security] data-analytics-counts-not-content
 An event's props MUST carry only counts, timings, fixed choices, on or off values and a
