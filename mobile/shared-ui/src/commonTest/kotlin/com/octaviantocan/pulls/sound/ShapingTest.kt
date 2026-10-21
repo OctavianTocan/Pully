@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.sound
 
+import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -129,7 +130,7 @@ class ShapingTest {
     fun theNotesOfAPressWalkUpTheChord() {
         val first = layers(Cue.Tap, material = Material.Press, step = 0).first { it.note }.glideTo!!
         val second = layers(Cue.Tap, material = Material.Press, step = 1).first { it.note }.glideTo!!
-        assertEquals(first * Math.pow(2.0, 4 / 12.0), second, 1e-6)
+        assertEquals(first * 2.0.pow(4 / 12.0), second, 1e-6)
     }
 
     @Test

@@ -136,7 +136,7 @@ class PullListQueryTest {
 }
 
 class LabelStyleTest {
-    private fun hex(argb: Int) = "#%06x".format(argb and 0xFFFFFF)
+    private fun hex(argb: Int) = "#" + (argb and 0xFFFFFF).toUInt().toString(16).padStart(6, '0')
 
     /** Expected values from `labelStyle` in `@antfu/design` (colorjs.io), run under Node. */
     @Test
