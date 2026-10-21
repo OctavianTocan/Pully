@@ -90,6 +90,7 @@ pub struct Jobs {
     handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
     pub(crate) diff_pin_tasks: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
     pub(crate) stopping: Arc<std::sync::atomic::AtomicBool>,
+    update_shutdown: Arc<Notify>,
     catalogs: Arc<tokio::sync::Mutex<HashMap<String, (u64, Value)>>>,
     catalog_refreshes: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
     bridge_url: Arc<Mutex<Option<String>>>,
@@ -104,6 +105,7 @@ impl Default for Jobs {
             handles: Default::default(),
             diff_pin_tasks: Default::default(),
             stopping: Default::default(),
+            update_shutdown: Default::default(),
             catalogs: Default::default(),
             catalog_refreshes: Default::default(),
             bridge_url: Default::default(),
@@ -785,6 +787,28 @@ pub fn begin_shutdown(state: &AppState) {
     for run in runs {
         cancel(&run);
     }
+}
+/// @cc [owner:OctavianTocan,label:architecture] deployment-idle-shutdown-is-atomic
+/// An automatic update MUST defer while an AI admission, running task or follow-up
+/// is active. Once idle is accepted, new admissions MUST be fenced before shutdown,
+/// so deploying cannot cancel work between an idle check and stopping the process.
+/// Source: Tavi, 21 Oct 2026, "Resolve all reviews and merge those PRs", deployment review.
+pub fn begin_idle_update_shutdown(state: &AppState) -> bool {
+    // start_async queues admission under handles; start/followups reserve under
+    // runs. Hold both while testing and fencing, in the admission lock order.
+    let handles = state.jobs.handles.lock().unwrap();
+    let runs = state.jobs.runs.lock().unwrap();
+    if handles.iter().any(|handle| !handle.is_finished())
+        || runs.values().any(|run| run.snapshot.lock().unwrap()["status"] == "running")
+    {
+        return false;
+    }
+    state.jobs.stopping.store(true, std::sync::atomic::Ordering::SeqCst);
+    state.jobs.update_shutdown.notify_one();
+    true
+}
+pub async fn wait_for_update_shutdown(state: &AppState) {
+    state.jobs.update_shutdown.notified().await;
 }
 /// Drain jobs and daemon cleanup while the Tokio runtime still exists.
 pub async fn shutdown(state: &AppState) {

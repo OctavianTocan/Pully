@@ -1,4 +1,41 @@
 use super::*;
+
+#[tokio::test]
+async fn idle_update_defers_running_and_reserved_work_without_cancelling() {
+    let root = std::env::temp_dir().join(format!("pulls-idle-update-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let active = run();
+    state.jobs.runs.lock().unwrap().insert("reserved".into(), active.clone());
+    assert!(!begin_idle_update_shutdown(&state));
+    assert!(!*active.cancel.borrow());
+    assert!(!state.jobs.stopping.load(std::sync::atomic::Ordering::SeqCst));
+    for status in ["done", "failed", "cancelled"] {
+        active.snapshot.lock().unwrap()["status"] = json!(status);
+        assert!(begin_idle_update_shutdown(&state));
+    }
+    tokio::time::timeout(Duration::from_secs(1), wait_for_update_shutdown(&state)).await.unwrap();
+    let request = json!({"engine":"pi", "system":"test", "prompt":"test"});
+    assert!(start_async(&state, request.clone(), false).await.unwrap_err().to_string().contains("shutting down"));
+    assert!(start(&state, request, false, None).unwrap_err().to_string().contains("shutting down"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn idle_update_counts_admissions_before_the_run_registry_is_populated() {
+    let root = std::env::temp_dir().join(format!("pulls-idle-admission-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let (finish, pending) = tokio::sync::oneshot::channel::<()>();
+    state.jobs.handles.lock().unwrap().push(tokio::spawn(async move { let _ = pending.await; }));
+    assert!(!begin_idle_update_shutdown(&state));
+    assert!(!state.jobs.stopping.load(std::sync::atomic::Ordering::SeqCst));
+    finish.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while !state.jobs.handles.lock().unwrap()[0].is_finished() { tokio::task::yield_now().await; }
+    }).await.unwrap();
+    assert!(begin_idle_update_shutdown(&state));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn activity_tail_preserves_unicode_and_boundary() {
     assert_eq!(tail(""), "");

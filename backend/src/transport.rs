@@ -31,6 +31,7 @@ pub struct HttpState {
     pub origins: HashSet<String>,
     pub hosts: HashSet<String>,
     pub assets: Option<PathBuf>,
+    update_token: Option<String>,
 }
 pub struct Auth {
     token: String,
@@ -102,6 +103,7 @@ impl HttpState {
             origins,
             hosts,
             assets,
+            update_token: None,
         })
     }
     pub fn print_code(&self) {
@@ -111,6 +113,57 @@ impl HttpState {
             }
         }
     }
+    pub fn with_update_token(mut self, token: String) -> Self {
+        self.update_token = Some(token);
+        self
+    }
+}
+
+/// @cc [owner:OctavianTocan,label:security] deployment-control-is-operator-only
+/// Idle-update control MUST require its own private token even when browser auth
+/// is disabled. The token MUST rotate at startup, be written with owner-only
+/// permissions and MUST NOT appear in process arguments or logs. Source: Tavi,
+/// 21 Oct 2026, "Resolve all reviews and merge those PRs", safe-deployment review.
+pub fn create_update_token(path: &Path) -> Result<String> {
+    use std::io::Write;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let token = format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple());
+    let temporary = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4().simple()));
+    let result = (|| -> Result<()> {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&temporary)?;
+        file.write_all(token.as_bytes())?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result?;
+    Ok(token)
+}
+
+async fn update_restart(State(state): State<HttpState>, headers: HeaderMap) -> Response {
+    let authorized = state.update_token.as_deref().is_some_and(|token| {
+        headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer ")).is_some_and(|supplied| same(token, supplied))
+    });
+    if !authorized {
+        return error(StatusCode::UNAUTHORIZED, "Update authorization is required.");
+    }
+    if !crate::ai::begin_idle_update_shutdown(&state.app) {
+        return error(StatusCode::CONFLICT, "AI work is active; retry the update later.");
+    }
+    (StatusCode::ACCEPTED, Json(json!({"ready":true}))).into_response()
 }
 /// Serialize the origin like a browser: bracket IPv6 and omit HTTP's default port.
 pub fn http_origin(host: &str, port: u16) -> String {
@@ -459,6 +512,7 @@ pub fn router(state: HttpState) -> Router {
             post(events).layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
         .route("/api/rpc", post(native))
+        .route("/api/update/restart", post(update_restart))
         .route(
             "/api/web-rpc",
             post(web).layer(DefaultBodyLimit::max(MAX_CACHE_RPC_BYTES)),
@@ -982,6 +1036,51 @@ fn agent_path(raw: &str) -> Option<String> {
 #[cfg(test)]
 mod privacy_tests {
     use super::*;
+    #[tokio::test]
+    async fn update_shutdown_needs_its_private_token_even_without_browser_auth() {
+        let root = std::env::temp_dir().join(format!("pulls-update-auth-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(PathBuf::new(), root.clone()).unwrap();
+        let state = HttpState::new(app.clone(), "127.0.0.1", 7390, vec![], true, None).unwrap()
+            .with_update_token("operator-only".into());
+        for supplied in [None, Some("Bearer wrong")] {
+            let mut headers = HeaderMap::new();
+            if let Some(value) = supplied { headers.insert(header::AUTHORIZATION, value.parse().unwrap()); }
+            assert_eq!(update_restart(State(state.clone()), headers).await.status(), StatusCode::UNAUTHORIZED);
+            assert!(!app.jobs.stopping.load(std::sync::atomic::Ordering::SeqCst));
+        }
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, "Bearer operator-only".parse().unwrap());
+        let session = app.jobs.hold_session_for_test("update-fixture");
+        let guard = session.lock().await;
+        let id = crate::dispatch(&app, "ai-task-start", json!({"kind":"chat","key":"update-fixture","locale":"en","text":"test","model":{"engine":"pi"}})).await.unwrap();
+        assert_eq!(update_restart(State(state.clone()), headers.clone()).await.status(), StatusCode::CONFLICT);
+        assert!(!app.jobs.stopping.load(std::sync::atomic::Ordering::SeqCst));
+        crate::dispatch(&app, "ai-task-cancel", json!({"id":id})).await.unwrap();
+        drop(guard);
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while update_restart(State(state.clone()), headers.clone()).await.status() == StatusCode::CONFLICT {
+                tokio::task::yield_now().await;
+            }
+        }).await.unwrap();
+        assert_eq!(update_restart(State(state), headers).await.status(), StatusCode::ACCEPTED);
+        tokio::time::timeout(Duration::from_secs(1), crate::ai::wait_for_update_shutdown(&app)).await.unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn update_token_is_private_and_rotated_without_leaving_temporary_files() {
+        let root = std::env::temp_dir().join(format!("pulls-update-token-{}", uuid::Uuid::new_v4()));
+        let path = root.join("token");
+        let first = create_update_token(&path).unwrap();
+        assert_eq!(first.len(), 64);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), first);
+        #[cfg(unix)] {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        }
+        assert_ne!(create_update_token(&path).unwrap(), first);
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn listener_origins_match_browser_serialization() {
         assert_eq!(http_origin("127.0.0.1", 7390), "http://127.0.0.1:7390");

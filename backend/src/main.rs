@@ -122,7 +122,7 @@ async fn run() -> Result<()> {
     // Port zero asks the OS to choose a port. Browser origins must use that
     // actual port, not the requested zero.
     let port = listener.local_addr()?.port();
-    let state = HttpState::new(
+    let mut state = HttpState::new(
         app.clone(),
         &args.host,
         port,
@@ -130,6 +130,11 @@ async fn run() -> Result<()> {
         args.no_auth,
         args.assets,
     )?;
+    // This opt-in file is shared only with the host's deployment timer. The
+    // ordinary phone/browser credentials cannot stop the server.
+    if let Some(path) = std::env::var_os("PULLS_REVIEW_UPDATE_TOKEN_FILE") {
+        state = state.with_update_token(transport::create_update_token(&PathBuf::from(path))?);
+    }
     eprintln!(
         "pulls.review Rust backend: {}",
         transport::http_origin(&args.host, port)
@@ -171,7 +176,10 @@ async fn run() -> Result<()> {
     let shutdown_app = app.clone();
     let result = axum::serve(listener, transport::router(state))
         .with_graceful_shutdown(async move {
-            shutdown().await;
+            tokio::select! {
+                _ = shutdown() => {},
+                _ = ai::wait_for_update_shutdown(&shutdown_app) => {},
+            }
             ai::begin_shutdown(&shutdown_app);
         })
         .await;

@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.53.1
+
+Whole pull request details, safer updates.
+
+- Hold a pull request to read its complete title, repository and author, with its state and known change counts laid out below.
+![Labeled illustration of the full pull request summary and updates waiting for AI work](changelog/0.53.1/summary-and-updates-illustration.png)
+- Server updates wait for ongoing analysis and tour work to finish instead of interrupting it.
+- Concurrent update publications keep the APK and its update details together and cannot replace a newer build.
+
 ## 0.53.0
 
 Clearer AI choices, faithful pull request states, calmer sheets.
@@ -25,9 +34,9 @@ Clearer AI choices, faithful pull request states, calmer sheets.
 - Merged and closed pull requests show their actual state. Open pull requests keep merge conflicts separate from passing checks and check uncertain results again.
 - An older tour offers its original commit and lets you continue reading or choose a model before updating it.
 - Switch every repository on or off at once, open a PR number in the browser, and spot reviewed files by their struck-through names. Searching update puts Update Pully first.
-- Hold a pull request to read its full title, repository, author and key details above the actions.
 - Focusing a text field lifts its sheet smoothly with the keyboard.
 - When notifications are allowed, ongoing analysis and tour work can show a quiet notification with elapsed time.
+- Updates reach your phone again, including the latest repository and AI review fixes.
 
 ## 0.52.0
 
