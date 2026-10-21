@@ -85,7 +85,6 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     fun select(mode: NativeEntryMode) {
         if (entry.mode == mode) return
         val pendingLink = navigation.stack.lastOrNull()?.takeIf { it is Screen.Review || it is Screen.Repo }
-        com.octaviantocan.pulls.ui.design.Sheets.closeAll()
         Commands.close()
         NativeEntry.select(context, mode)
         navigation.reset(if (mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
