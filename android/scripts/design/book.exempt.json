@@ -21,6 +21,7 @@
     "MenuReveal": "A transition wrapper for menus and dropdowns, not a visual component. Its recipe is on the Motion page.",
     "ModalReveal": "A transition wrapper for dialogs (rule 73), not a visual component. The Tour's full-screen diagram uses it.",
     "ModalSurface": "What ModalReveal draws inside its window, split out so a test can step it; the Tour's full-screen diagram shows it.",
+    "PullsMaterialTheme": "A theme and feedback provider, not a visual component. Android and iOS render the existing UI Book controls through the same brand Material palette, indication and text style.",
     "PageBack": "Back handling, not a visual component: a back swipe moves the page with the finger and then on that way (rule 105).",
     "PhIcon": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "PrStatusIcon": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",

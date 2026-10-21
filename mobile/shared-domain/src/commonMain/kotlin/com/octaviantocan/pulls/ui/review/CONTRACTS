@@ -1,0 +1,33 @@
+@cc [owner:OctavianTocan,label:product] pr-mergeability-is-separate-from-checks
+A pull request GitHub marks conflicting or dirty MUST show its merge conflicts on the
+Overview even when its checks pass; passing checks MUST NOT imply that it is ready to
+merge. Missing, unknown or unrecognized mergeability MUST remain checking, and an
+overview kept from a prior opening or belonging to an older observed head MUST NOT
+enable merging until a matching fresh overview arrives. Conflicts MUST override a
+contradictory cached ready verdict (Tavi, 20 Oct 2026, "a PR would have merge conflicts ...
+yet Pully would show it as being all good").
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-overview-preserves-wire-and-permissions
+Android and iOS MUST use one parser for the existing overview wire response, including
+viewer permissions, lifecycle, checks, commits and timeline. The parser MUST preserve
+the existing ownership requirement for editing title/description and the current-head,
+fresh-response requirement for a ready merge verdict. Source: Tavi's 21 Oct 2026
+maximum-reuse iOS decision; DESIGN.md rules 83 and 110 and the 20 Oct mergeability and
+merged-lifecycle decisions.
+@cc [owner:OctavianTocan,label:product;architecture] shared-overview-opening-and-lists-retain-policy
+The shared opening models MUST retain list-known lifecycle and title facts before
+the overview arrives. A recorded merge MUST outrank a later open cache, and newer
+known open facts MAY replace closed facts after reopening. File sections MUST retain
+their whole-label fold keys, say a shared prefix once and never cut its run at Show
+more. Only positive PR number labels with repository coordinates MAY produce a
+canonical GitHub PR URL. Source: existing pr-opens-at-once, pr-lifecycle-is-visible,
+pr-groups-say-a-shared-start-once and pr-number-opens-github, shared by Tavi's
+21 Oct 2026 maximum-reuse decision.
+
+@cc [owner:OctavianTocan,label:security;product] shared-overview-html-is-inert-and-bounded-to-text
+GitHub body HTML MUST remain converted to inert Markdown by the existing converter;
+it MUST NOT execute scripts or create a WebView. Numeric entities MUST preserve
+valid supplementary characters, and malformed or out-of-range values MUST remain
+literal text rather than throw while the remote description or comment is read.
+Source: existing PrHtml behavior, DESIGN.md rule 53 and the accepted 21 Oct 2026
+shared Overview reading extraction.

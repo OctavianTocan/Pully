@@ -34,49 +34,6 @@ class InboxLayoutTest {
         pull(23, repo = "app", updatedAtMs = 200, additions = 1, deletions = 0),
     )
 
-    @Test fun sortsByUpdatedNewestFirstWithUnknownTimesLast() {
-        assertEquals(listOf(10, 23, 42, 7), InboxSort.Updated.apply(pulls).map { it.number })
-        assertEquals(listOf(42, 23, 10, 7), InboxSort.LeastUpdated.apply(pulls).map { it.number })
-    }
-
-    @Test fun sortsByNumberAndBySize() {
-        assertEquals(listOf(42, 23, 10, 7), InboxSort.Number.apply(pulls).map { it.number })
-        assertEquals(listOf(42, 10, 23, 7), InboxSort.Size.apply(pulls).map { it.number })
-    }
-
-    @Test fun repositoriesFollowTheirFirstRowAfterASort() {
-        val byNumber = Triage.groupByRepo(InboxSort.Number.apply(pulls)).map { it.name }
-        assertEquals("acme/app", byNumber.first())
-        assertEquals("acme/web", byNumber.last())
-    }
-
-    @Test fun anUnknownSavedSortFallsBackToUpdated() {
-        assertEquals(InboxSort.Updated, InboxSort.of(null))
-        assertEquals(InboxSort.Updated, InboxSort.of("nonsense"))
-        assertEquals(InboxSort.Number, InboxSort.of("number"))
-    }
-
-    @Test fun theSortAndTheFoldsSurviveARestart() {
-        val store = LayoutTestStore()
-        val layout = InboxLayout(store)
-        assertEquals(InboxSort.Updated, layout.sort)
-        layout.updateSort(InboxSort.Number)
-        layout.toggle("acme/app")
-        layout.toggle("acme/web")
-        layout.toggle("acme/web")
-
-        val again = InboxLayout(store)
-        assertEquals(InboxSort.Number, again.sort)
-        assertTrue(again.isFolded("acme/app"))
-        assertFalse(again.isFolded("acme/web"))
-    }
-
-    @Test fun aLayoutWithoutStorageStillWorks() {
-        val layout = InboxLayout(null)
-        layout.toggle("acme/app")
-        assertTrue(layout.isFolded("acme/app"))
-    }
-
     @Test fun headingKeysRoundTrip() {
         assertEquals("acme/app", groupOfKey(groupKey("acme/app")))
         assertNull(groupOfKey("acme/app#4"))

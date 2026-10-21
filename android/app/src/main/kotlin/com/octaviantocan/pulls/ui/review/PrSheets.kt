@@ -356,7 +356,7 @@ private fun ColumnScope.DecidePage(session: ReviewSession, top: ReviewTopUi, dat
                     LuIcon(Lu.xc, tint = StatusColors.red(c.dark), size = 18.dp)
                     Text("$failing failing", style = PullsType.sm, color = c.muted, maxLines = 1)
                 }
-                mergeability.blocker != null -> Text(blockerLabel(mergeability.blocker), style = PullsType.sm, color = c.muted, maxLines = 1)
+                mergeability.blocker != null -> Text(blockerLabel(checkNotNull(mergeability.blocker)), style = PullsType.sm, color = c.muted, maxLines = 1)
                 else -> Text("Ready", style = PullsType.sm, color = StatusColors.green(c.dark), maxLines = 1)
             }
         }

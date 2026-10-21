@@ -1,0 +1,333 @@
+package com.octaviantocan.pulls.ui.design
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.LocalPlatformContext
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.size.Size as CoilSize
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.sound.directionOf
+
+/** UnoCSS `animate-spin`: one full turn per second, linear. */
+@Composable
+fun Modifier.spin(): Modifier {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "spin")
+    val angle by transition.animateFloat(
+        0f, 360f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "angle",
+    )
+    return this.graphicsLayer { rotationZ = angle }
+}
+
+/** A spinning Phosphor icon: `i-ph:spinner-duotone animate-spin` (or `circle-notch`). */
+@Composable
+fun SpinIcon(modifier: Modifier = Modifier, tint: Color = LocalPullsColors.current.text, size: Dp = 16.dp, name: String = "spinner-duotone") =
+    PhIcon(name, modifier.spin(), tint = tint, size = size)
+
+/** `FeedbackSpinner`: a 2px ring in the current color with a transparent top, spinning. */
+@Composable
+fun FeedbackSpinner(modifier: Modifier = Modifier, color: Color = LocalPullsColors.current.text, size: Dp = 16.dp) {
+    androidx.compose.foundation.Canvas(modifier.size(size).spin()) {
+        val w = 2.dp.toPx()
+        drawArc(color, -45f, 270f, false, topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2), size = androidx.compose.ui.geometry.Size(this.size.width - w, this.size.height - w), style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+    }
+}
+
+/** 44dp: the web's `coarse:` touch target (`main.css`, `@media (pointer: coarse)`). */
+val TOUCH = 44.dp
+
+/**
+ * A Phosphor icon by its web name (`i-ph:git-pull-request-duotone` -> `git-pull-request-duotone`),
+ * drawn from the vectors `scripts/gen-phosphor.mjs` generated from `@iconify-json/ph`.
+ * Unknown names render nothing, the way an unknown UnoCSS icon class does.
+ */
+@Composable
+fun PhIcon(name: String, modifier: Modifier = Modifier, tint: Color = LocalPullsColors.current.text, size: Dp = 18.dp, contentDescription: String? = null) {
+    val clean = name.removePrefix("i-ph:").removePrefix("i-ph-").replace('-', '_')
+    val vector = sharedVector("ic_ph_$clean") ?: return
+    Icon(rememberVectorPainter(vector), contentDescription, modifier.size(size), tint = tint)
+}
+
+enum class ButtonVariant { Action, Primary, Text }
+
+/**
+ * `ActionButton` from `@antfu/design`: `btn-action` (bordered), `btn-primary` (green fill)
+ * and `btn-text` (ghost) share one box (`px2 py1 rounded`, 1px border), `size="sm"` adds `text-sm`.
+ */
+@Composable
+fun ActionButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    variant: ButtonVariant = ButtonVariant.Action,
+    icon: String? = null,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    active: Boolean = false,
+    small: Boolean = false,
+    /** A class like `text-red-600` on the button: tints its icon and text alike. */
+    contentColor: Color? = null,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val c = LocalPullsColors.current
+    // The prototype's buttons are pills (`.cta`, `.bb button`).
+    val shape = RoundedCornerShape(50)
+    val interaction = remember { MutableInteractionSource() }
+    val (fill, border, base) = when (variant) {
+        ButtonVariant.Primary -> Triple(c.primary, Color.Transparent, Color.White)
+        ButtonVariant.Text -> Triple(Color.Transparent, Color.Transparent, c.text)
+        ButtonVariant.Action -> if (active) Triple(c.active, c.primary.copy(alpha = 0.25f), c.activeText) else Triple(Color.Transparent, c.border, c.text)
+    }
+    val restAlpha = when {
+        !enabled -> if (variant == ButtonVariant.Primary) 0.5f else 0.3f
+        variant == ButtonVariant.Primary || active -> 1f
+        else -> 0.75f
+    }
+    val fg = contentColor ?: base
+    Row(
+        modifier
+            .defaultMinSize(minHeight = TOUCH)
+            // `disabled:op50` dims the whole button, fill and border included.
+            .alpha(restAlpha)
+            .clip(shape)
+            .background(fill, shape)
+            .border(1.dp, border, shape)
+            // Pressing tints it flat and nothing moves (rule 82).
+            .cueClickable(interaction, PullsIndication, emphasis = if (variant == ButtonVariant.Primary) Emphasis.Normal else Emphasis.Subtle, enabled = enabled && !loading, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (loading) FeedbackSpinner(color = fg, size = 16.dp)
+        else if (icon != null) PhIcon(icon, tint = fg, size = 18.dp)
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalContentColor provides fg,
+            androidx.compose.material3.LocalTextStyle provides (if (small) PullsType.sm else PullsType.base).copy(color = fg),
+        ) { content() }
+    }
+}
+
+/** `ActionIconButton`: `btn-icon` (36px round) or `btn-icon-compact` (24px), with a 44dp hit area. */
+@Composable
+fun IconButton(icon: String, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false, active: Boolean = false, enabled: Boolean = true, tint: Color? = null) {
+    val c = LocalPullsColors.current
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .size(TOUCH)
+            .clip(if (compact) RoundedCornerShape(4.dp) else CircleShape)
+            .background(if (active) c.active else Color.Transparent)
+            .cueClickable(interaction, PullsIndication, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
+            .alpha(if (!enabled) 0.3f else if (active) 1f else 0.65f),
+        contentAlignment = Alignment.Center,
+    ) {
+        PhIcon(icon, tint = tint ?: if (active) c.activeText else c.text, size = if (compact) 16.dp else 20.dp, contentDescription = label)
+    }
+}
+
+/** `ActionToggleGroup`: `p-1 rounded-lg bg-sunken`, items `px-3 py-1 rounded-md`, the active one `bg-raised shadow-sm`. */
+@Composable
+fun <T> ToggleGroup(options: List<Pair<T, String>>, value: T, onChange: (T) -> Unit, modifier: Modifier = Modifier, icons: Map<T, String> = emptyMap()) {
+    val c = LocalPullsColors.current
+    Row(
+        modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()).clip(RoundedCornerShape(50)).background(c.sunken).padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        val selected = options.indexOfFirst { it.first == value }
+        options.forEachIndexed { index, (option, label) ->
+            val on = option == value
+            Row(
+                Modifier
+                    .defaultMinSize(minHeight = 38.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(if (on) c.raised else Color.Transparent)
+                    .cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onChange(option) }
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                icons[option]?.let { PhIcon(it, tint = if (on) c.text else c.muted, size = 16.dp) }
+                Text(label, style = PullsType.sm, color = if (on) c.text else c.muted, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** `ReviewCheckbox`: 16px box, primary fill when checked, orange indeterminate for `changed`. */
+@Composable
+fun ReviewCheckbox(state: ReviewState, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier, label: String? = null) {
+    val c = LocalPullsColors.current
+    val checked = state == ReviewState.Reviewed
+    val indeterminate = state == ReviewState.Changed || state == ReviewState.Partial
+    val fill = when {
+        state == ReviewState.Changed -> c.orange
+        checked || indeterminate -> c.primary
+        else -> c.raised
+    }
+    Box(
+        modifier
+            .size(TOUCH)
+            .cueClickable(direction = directionOf(!checked), role = Role.Checkbox, onClickLabel = label) { onChange(!checked) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(fill).border(1.dp, if (checked || indeterminate) fill else c.border, RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (checked) PhIcon("check-bold", tint = Color.White, size = 11.dp)
+            else if (indeterminate) PhIcon("minus-bold", tint = Color.White, size = 11.dp)
+        }
+    }
+}
+
+/** `FileStatus`: one letter in a 16px tinted chip. */
+@Composable
+fun FileStatus(status: String, modifier: Modifier = Modifier) {
+    val c = LocalPullsColors.current
+    val (letter, color) = when (status) {
+        "added" -> "A" to c.success
+        "removed" -> "D" to c.error
+        "renamed" -> "R" to c.blue
+        "copied" -> "C" to c.blue
+        else -> "M" to c.warning
+    }
+    Box(modifier.size(16.dp).clip(RoundedCornerShape(4.dp)).background(color.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
+        Text(letter, style = PullsType.xs.copy(fontFamily = PullsType.mono), color = color)
+    }
+}
+
+/** `DiffStats`: green `+n`, red `-n`, `text-xs tabular-nums`. */
+@Composable
+fun DiffStats(additions: Int?, deletions: Int?, modifier: Modifier = Modifier) {
+    val c = LocalPullsColors.current
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if ((additions ?: 0) > 0) Text("+${groupedInteger(requireNotNull(additions))}", style = PullsType.xs, color = c.success)
+        if ((deletions ?: 0) > 0) Text("-${groupedInteger(requireNotNull(deletions))}", style = PullsType.xs, color = c.error)
+    }
+}
+
+/** `PrStatusIcon`: the pull-request glyph (merge glyph once merged), colored by state. */
+@Composable
+fun PrStatusIcon(state: String, modifier: Modifier = Modifier, size: Dp = 20.dp) {
+    val c = LocalPullsColors.current
+    val color = when (state) {
+        "open" -> c.success
+        "draft" -> c.gray
+        "closed" -> c.error
+        "merged" -> c.purple
+        else -> c.muted
+    }
+    PhIcon(if (state == "merged") "git-merge-duotone" else "git-pull-request-duotone", modifier, tint = color, size = size)
+}
+
+/** `GithubAvatar`: round, `bg-raised`, `github.com/<login>.png` unless a URL is given, initial on failure. */
+@Composable
+fun GithubAvatar(login: String, modifier: Modifier = Modifier, avatarUrl: String? = null, size: Dp = 20.dp) {
+    val c = LocalPullsColors.current
+    val context = LocalPlatformContext.current
+    // A face (the header's photo, the profile sheet's) is one picture at one size, kept whole in memory, so the profile
+    // sheet shows the photo the header already holds instead of fetching another size for seconds (J8). Rows share
+    // a smaller one the same way.
+    val face = size > AVATAR_ROW_MAX
+    val src = avatarUrl?.takeIf { it.isNotBlank() } ?: "https://github.com/${login.removeSuffix("[bot]")}.png?size=${if (face) AVATAR_FACE_PX else AVATAR_ROW_PX}"
+    val request = remember(src, face) { ImageRequest.Builder(context).data(src).apply { if (face) size(CoilSize.ORIGINAL) }.build() }
+    Box(modifier.size(size).clip(CircleShape).background(c.raised), contentAlignment = Alignment.Center) {
+        Text(login.firstOrNull()?.uppercase() ?: "?", style = PullsType.xs, color = c.fade)
+        AsyncImage(request, contentDescription = login, modifier = Modifier.size(size), contentScale = ContentScale.Crop)
+    }
+}
+
+/** The largest avatar that sits on a row; anything bigger is a face. */
+private val AVATAR_ROW_MAX = 28.dp
+
+/** The pixels GitHub is asked for: enough for a row, and for a face at the sharpest phone density. */
+private const val AVATAR_ROW_PX = 96
+private const val AVATAR_FACE_PX = 256
+
+/** `badge` / `badge-muted`: `px-1.5 py-0.5 rounded-md text-xs font-medium`. */
+@Composable
+fun Badge(text: String, modifier: Modifier = Modifier, color: Color = LocalPullsColors.current.muted, fill: Color = Color(0x11888888)) {
+    Text(
+        text,
+        modifier.clip(RoundedCornerShape(6.dp)).background(fill).padding(horizontal = 6.dp, vertical = 2.dp),
+        style = PullsType.xs.copy(fontWeight = FontWeight.Medium),
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/** A bordered card: `border border-base rounded-lg`. */
+@Composable
+fun Card(modifier: Modifier = Modifier, radius: Dp = 8.dp, content: @Composable () -> Unit) {
+    val c = LocalPullsColors.current
+    Box(modifier.clip(RoundedCornerShape(radius)).border(1.dp, c.border, RoundedCornerShape(radius))) { content() }
+}
+
+/** `FeedbackLoading`: a spinner and a muted line. */
+@Composable
+fun Loading(text: String, modifier: Modifier = Modifier) {
+    val c = LocalPullsColors.current
+    Row(modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FeedbackSpinner(color = c.fade, size = 16.dp)
+        Text(text, style = PullsType.sm, color = c.fade)
+    }
+}
+
+/** `FeedbackEmptyState`: icon, title, optional hint and actions, centered. */
+@Composable
+fun EmptyState(icon: String, title: String, modifier: Modifier = Modifier, hint: String? = null, actions: @Composable () -> Unit = {}) {
+    val c = LocalPullsColors.current
+    androidx.compose.foundation.layout.Column(
+        modifier.padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PhIcon(icon, tint = c.fade, size = 32.dp)
+        Text(title, style = PullsType.base.copy(fontWeight = FontWeight.Medium), color = c.text)
+        if (hint != null) Text(hint, style = PullsType.sm, color = c.fade)
+        actions()
+    }
+}
+
+/** Default inner padding for list rows: `px-3 py-2`. */
+val RowPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+
+/** Same text style with web `op-fade`. */
+@Composable
+fun TextStyle.faded(): TextStyle = copy(color = LocalPullsColors.current.fade)

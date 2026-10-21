@@ -1,14 +1,17 @@
 # Pully iOS host
 
 This internal preview hosts the same shared Compose code used by Android. Its current
-scope is the production inbox pull-request rows, models, checks and state marks,
-rendered with deterministic public-safe fixtures and the shared message catalog.
+scope is the production Home and repository screens, shared route stack, filters,
+scroll state, profile graphs and pull-request rows, rendered with deterministic
+public-safe fixtures and the shared message catalog. Unsupported review, AI and
+settings routes show an explicit preview limitation before any request.
 Server setup, sign-in and the complete review journey are subsequent slices. It does
 not contain service credentials or configure push, background execution, associated
 domains or distribution signing.
 
-The host uses UIKit only for app/scene lifecycle and the root `UIWindow`.
-`MainViewControllerKt.MainViewController()` from `PullyShared` renders the app; shared
+The host supplies UIKit app/scene lifecycle, clipboard, browser and leading-edge
+back recognition through the required `NativeHomeActions` interface.
+`MainViewControllerKt.MainViewController(homeActions:)` from `PullyShared` renders the app; shared
 Compose owns safe-area padding, UI, state and navigation. The Xcode project references
 the original Android font files and their existing license notices as resources, so
 both clients use identical font bytes.
@@ -46,7 +49,11 @@ python3 ios/scripts/verify-bundled-fonts.py \
 The UI smoke test checks the shared preview survives launch, rotation and relaunch,
 and keeps light/dark portrait and light landscape screenshots in the test result.
 It also checks the production checks mark's Spanish catalog label, the draft state's
-accessibility and the English fallback for an unsupported device language.
+accessibility and the English fallback for an unsupported device language. The
+interactive scenarios choose All, scroll to a known fixture, open its repository,
+return through the actual native leading-edge gesture and verify the same filter
+and scroll position after back and background/resume. They also exercise the
+unsupported-review limitation and the existing hold-menu Copy link confirmation.
 A Debug-only launch environment selects the native test appearance before Compose
 attaches; ordinary launches use the system appearance. The `iOS verify` PR job
 also runs the actual shared domain tests on JVM and the pinned iPhone simulator,
@@ -104,6 +111,33 @@ Checked on 21 October 2026:
 - [GitHub runner labels](https://github.com/actions/runner-images#available-images) and [macOS 26 ARM64 image](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md): ordinary `macos-26` label, installed Xcode 26.4.1 and simulator runtime.
 - [Direct Xcode integration](https://kotlinlang.org/docs/multiplatform/multiplatform-direct-integration.html) and [UIKit integration](https://kotlinlang.org/docs/multiplatform/compose-uikit-integration.html): build-phase ordering, script sandboxing and the required high-refresh-rate plist setting.
 
+## Native control feedback
+
+The host installs `ControlFeedbackHost` before constructing the shared Compose controller.
+The actual existing Cuelume recipes, shaping, DSP, synthesis, voice mixer and browser
+fidelity tests live in `shared-ui/commonMain` and `commonTest`; Android retains its
+AudioTrack and haptic adapters. The iOS adapter changes output only:
+
+- Kotlin synthesizes the same cues on a serial worker and hands 48 kHz stereo Float32
+  to a serial Swift producer in bounded 480-frame buffers.
+- `AVAudioEngine`/`AVAudioPlayerNode` use the ambient session category, which follows
+  Ring/Silent and mixes with other audio. No background-audio mode is enabled.
+- UIKit selection, impact and notification feedback adapt the existing cue roles.
+  The existing `pulls-ui` sound, haptic and material preferences remain authoritative.
+- Scene suspension or an interruption disables pending synthesis and discards old
+  mixer/output buffers. Resuming never starts a cue from an earlier interaction.
+
+The Xcode resource phase references the original Android `cuelume/recipes.json` and
+Cuelume MIT notice directly. The built-app verification compares their bytes with
+those sources. Resource installation failure is explicit before interactive controls;
+unavailable audio hardware quietly leaves the action functional.
+
+The shared Android-host sound tests and Android compilation can run on Linux. Apple
+buffer conversion tests are part of the existing simulator Swift package test step;
+Kotlin/Native linking, Swift compilation, simulator execution and physical Ring/Silent
+or haptic behavior still require the macOS lane/device validation. Source wiring is
+not evidence that those Apple checks passed.
+
 The account rules also run as native Swift package tests. The real Keychain test
 runs in a separate native app-hosted XCTest target (`PullyNativeKeychain`), ad-hoc
 signed for the simulator. Its private application identity is checked from the
@@ -114,3 +148,35 @@ entitlement dictionary may be empty. This local simulator signature needs no
 Apple account or provisioning secrets and does not validate device/distribution
 signing. The Pully preview app artifact is still unsigned. See
 [NativeServices verification](NativeServices/README.md#verification).
+
+## Shared Home native actions
+
+`HomeActionsHost` supplies the required `NativeHomeActions` passed to
+`MainViewController(homeActions:)`; the shared Home/Repo screen slice and this Swift
+entrypoint must be integrated together. Compose retains all screen state, navigation
+and RPC. The adapter writes the system clipboard, opens validated HTTPS GitHub links
+directly through UIKit, and forwards actual scene events. Registration synchronously
+reports foreground-inactive as started, foreground-active as started/resumed, and
+background as stopped. Cancelling a registration removes only that observer; scene
+disconnection stops and clears all observers. Reentrant transitions cannot resume an
+obsolete foreground event.
+
+The same adapter registers one leading-edge screen-pan recognizer on the Compose
+root view. Shared layout direction selects the left or right edge. Native code
+reports clamped page-width progress, commits a sufficiently long drag or inward
+flick, and cancels an interrupted/reversed drag. Shared `PageMotion` renders the
+transition and the existing shared stack owns the back operation. A disabled root,
+scene interruption, replaced registration or cancellation cannot commit another
+route. No UIKit navigation stack or native view transform is involved.
+
+The explicit browser action validates HTTP(S) URLs without URL credentials and
+presents `SFSafariViewController` from the active Compose scene. Its initial request
+stays in native browser presentation, including canonical GitHub PR links, instead
+of going through app/universal-link routing. Open on GitHub retains direct system
+navigation. Neither native action attaches Pully session or Access headers.
+
+The lifecycle and external-link validation cases run in the native Swift package
+suite. Source/PBX checks on Linux do not prove Swift header compatibility, simulator
+clipboard/browser behavior, real edge-pan delivery or Apple lifecycle execution;
+the paired app must compile and run in the macOS lane. The internal preview still
+uses honest fixture data.

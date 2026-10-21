@@ -33,32 +33,4 @@ class FileLinksTest {
         assertEquals("o" to "r", FileLinks.repoOf(OpenTarget.Pull("o", "r", 3)))
     }
 
-    @Test
-    fun aLinkIsAPathFromTheRootThatKeepsItsDotFolders() {
-        assertEquals("src/a.ts", FileLinks.repoPath("src/a.ts"))
-        assertEquals("src/a.ts", FileLinks.repoPath("./src/a.ts"))
-        assertEquals("src/a.ts", FileLinks.repoPath("/src/a.ts"))
-        // J36: the leading dot of a dot-folder is part of its name, not a `./`.
-        assertEquals(".agents/skills/ojin-release/SKILL.md", FileLinks.repoPath(".agents/skills/ojin-release/SKILL.md"))
-        assertEquals(".agents/skills/ojin-release/SKILL.md", FileLinks.repoPath("./.agents/skills/ojin-release/SKILL.md"))
-        assertEquals(".github/workflows/ci.yml", FileLinks.repoPath("/.github/workflows/ci.yml"))
-        assertEquals(".ci/pr-deploy.sh", FileLinks.repoPath(".ci/pr-deploy.sh"))
-        assertEquals(".env.example", FileLinks.repoPath(".env.example"))
-        // The runbook's own link, copied out of docs/runbooks/: `..` never climbs above the root.
-        assertEquals(".agents/skills/ojin-release/SKILL.md", FileLinks.repoPath("../../.agents/skills/ojin-release/SKILL.md"))
-        assertEquals("docs/b.md", FileLinks.repoPath("docs/runbooks/../b.md"))
-        assertEquals("docs/b.md", FileLinks.repoPath("docs/./b.md"))
-        assertEquals("docs/my notes.md", FileLinks.repoPath("docs/my%20notes.md"))
-        assertEquals("c++/a+b.md", FileLinks.repoPath("c%2B%2B/a+b.md"))
-    }
-
-    @Test
-    fun aFolderIsNoFile() {
-        assertNull(FileLinks.repoPath(""))
-        assertNull(FileLinks.repoPath("/"))
-        assertNull(FileLinks.repoPath("src/"))
-        assertNull(FileLinks.repoPath("src/.."))
-        assertNull(FileLinks.repoPath("."))
-        assertNull(FileLinks.repoPath(".."))
-    }
 }

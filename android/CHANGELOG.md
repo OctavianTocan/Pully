@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.58.0
+
+Explore Pully’s Inbox and repositories in the iPhone preview.
+
+- In the internal iPhone preview, filter sample pulls, open their repository and go back with your place kept.
+![Labeled sample-data illustration of opening a repository and returning to the same Inbox position](changelog/0.58.0/interactive-screens-illustration.gif)
+- Hold a sample pull for Copy link and Open on GitHub. Review and AI actions explain when they are still unavailable.
+- Lists, searches and first-screen counts stay with their server and account when you switch sign-in or Access settings.
+
 ## 0.57.0
 
 Reviews recover after a lost connection.

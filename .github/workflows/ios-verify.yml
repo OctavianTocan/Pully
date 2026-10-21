@@ -9,6 +9,9 @@ on:
       - android/app/src/main/res/font/**
       - android/app/src/main/assets/licenses/**
       - android/app/src/main/assets/i18n/**
+      - android/app/src/main/assets/cuelume/**
+      - android/app/src/test/resources/fixtures/cuelume-reference.json
+      - android/scripts/gen-cuelume.mjs
       - packages/app/src/i18n/locales/**
       - android/build.gradle.kts
       - android/settings.gradle.kts

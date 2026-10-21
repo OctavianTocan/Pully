@@ -49,7 +49,7 @@ data class LineMark(val path: String, val side: String, val line: Int, val findi
  * Per-page UI state of the diff body: drafts and selections, highlight spans, loaded full files,
  * and the item index map the focus scroller reads.
  */
-class DiffUi(val session: ReviewSession) {
+class DiffUi(session: ReviewSession) : OverviewUi(session) {
     /** Full file contents by path, and which loads are running or failed. */
     val fullFiles = mutableStateMapOf<String, FullFile>()
     val fullLoading = mutableStateMapOf<String, Boolean>()
@@ -70,9 +70,6 @@ class DiffUi(val session: ReviewSession) {
     /** The lines a long press is holding, whose sheet (Ask, Copy, Copy GitHub link) is open over the diff (K11). */
     var lineActions by mutableStateOf<DraftTarget?>(null)
 
-    /** Where a long-press range of commits starts on the Commits sheet: the last commit tapped. */
-    var commitAnchor: Int? = null
-
     /** The line on [side] of [path] whose gutter centre is nearest [y]. */
     internal fun lineAt(path: String, side: String, y: Float): Int? {
         val prefix = "$path|$side|"
@@ -92,16 +89,6 @@ class DiffUi(val session: ReviewSession) {
 
     /** Width of the page in dp, for the split/unified choice (kept by [DiffFocusEffect]). */
     var widthDp by mutableStateOf(0)
-
-    /** Labels that need i18n outside composition; [DiffFocusEffect] keeps them current. */
-    var uncategorizedLabel by mutableStateOf("Uncategorized")
-    var uncategorizedSummary by mutableStateOf("Files not covered by the current analysis.")
-
-    /** File-list sections the reader folded (true) or opened (false), by heading; an unset one follows [isFolded]'s default. */
-    val folds = mutableStateMapOf<String, Boolean>()
-
-    /** The Overview's long lists the reader opened past their first rows with "Show N more" (N5), by name; true once opened. */
-    val shownAll = mutableStateMapOf<String, Boolean>()
 
     /** Shared sideways scroll of each file's code, by path and column (0 unified, 1 left, 2 right). */
     internal val scrolls = HashMap<Pair<String, Int>, HScroll>()
@@ -230,28 +217,6 @@ fun hexColor(hex: String): Color? {
 
 @Composable
 fun rememberDiffUi(session: ReviewSession): DiffUi = remember(session) { DiffUi(session) }
-
-/** `session.groups` as views with resolved files, missing paths and the uncategorized label. */
-internal fun groupViews(session: ReviewSession, ui: DiffUi): List<GroupView> {
-    val byPath = session.files.associateBy { it.path }
-    val byPrevious = session.files.filter { it.previousPath != null }.associateBy { it.previousPath!! }
-    // `resolveGroups` drops unknown paths; the raw groups still name them, shown as removed.
-    val raw = HashMap<String, List<String>>()
-    fun index(groups: List<FileGroup>) { groups.forEach { raw.getOrPut(it.key) { it.paths }; index(it.children) } }
-    index(if (session.analyzeMode == "ai" && session.hasAiResult) session.saved?.aiGroups.orEmpty() else session.opened?.groups.orEmpty())
-    fun view(group: FileGroup): GroupView {
-        val uncategorized = group.key == "uncategorized"
-        return GroupView(
-            group,
-            if (uncategorized) ui.uncategorizedLabel else group.label,
-            if (uncategorized) ui.uncategorizedSummary else group.summary,
-            group.paths.mapNotNull { byPath[it] },
-            raw[group.key].orEmpty().filter { byPath[it] == null && byPrevious[it] == null },
-            group.children.map(::view),
-        )
-    }
-    return session.groups.map(::view)
-}
 
 /** Emits items and records each one's local index, file path, and the line anchors it holds. [leading] items sit above the first. */
 internal class Emitter(private val scope: LazyListScope, leading: Int = 0) {

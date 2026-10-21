@@ -46,6 +46,7 @@ import com.octaviantocan.pulls.ui.design.ToastHost
 import com.octaviantocan.pulls.ui.design.Toaster
 import com.octaviantocan.pulls.ui.design.themeWipe
 import com.octaviantocan.pulls.ui.home.HomeScreen
+import com.octaviantocan.pulls.ui.home.rememberAndroidHomeScreenServices
 import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
@@ -64,27 +65,12 @@ import com.octaviantocan.pulls.update.Updates
 import com.octaviantocan.pulls.update.WhatsNew
 import kotlinx.coroutines.launch
 
-/** The web routes: `/` home, `/:owner/:repo` a repo's PRs, a diff page, and the settings modal as a screen. */
-internal sealed interface Screen {
-    data object Home : Screen
-    data class Repo(val owner: String, val repo: String, val tours: Boolean = false) : Screen
-    /**
-     * [tour] opens the pull request on its tour instead of its overview; [from] is where it was opened, for `pr.open`;
-     * [place] is the thing on it a link pointed at, which the page goes to once it is there.
-     */
-    data class Review(val target: OpenTarget, val tour: Boolean = false, val from: String = "other", val place: PlaceRequest? = null, val aiResult: String? = null) : Screen
-    data object Settings : Screen
-    data object UiBook : Screen
-}
-
-/** A screen and how deep in the stack it sits: what [BlurSwitch] ranks, so opening slides one way and back the other. */
-private data class Layer(val screen: Screen, val depth: Int)
-
 @Composable
 fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     val context = LocalContext.current
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
-    val stack = remember { mutableStateListOf<Screen>(Screen.Home).apply { initialTarget?.let { linkScreen(it, initialAIResult) }?.let(::add) } }
+    val navigation = remember { AppNavigation(initialTarget?.let { linkScreen(it, initialAIResult) }) }
+    val stack = navigation.stack
     // The server is asked for a newer build on start and whenever the app comes back to the front, and an update
     // waiting on "Install unknown apps" carries on once that is allowed.
     val scope = rememberCoroutineScope()
@@ -115,20 +101,7 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     // Send feedback, from Commands on any page (nav-feedback-from-anywhere).
     var feedback by remember { mutableStateOf(false) }
     AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
-    val nav = remember {
-        Nav(
-            openTarget = { stack.add(Screen.Review(it)) },
-            openTour = { stack.add(Screen.Review(it, tour = true)) },
-            openFrom = { target, from, tour -> stack.add(Screen.Review(target, tour = tour, from = from)) },
-            openPlace = { target, from, place -> stack.add(Screen.Review(target, from = from, place = PlaceRequest(place))) },
-            openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
-            openRepoTours = { owner, repo -> stack.add(Screen.Repo(owner, repo, tours = true)) },
-            home = { stack.clear(); stack.add(Screen.Home) },
-            settings = { if (stack.last() != Screen.Settings) stack.add(Screen.Settings) },
-            uiBook = { if (stack.last() != Screen.UiBook) stack.add(Screen.UiBook) },
-            back = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
-        )
-    }
+    val nav = navigation.nav
     // Back slides the page backward, and a back swipe moves the page with the finger before it goes (rule 105).
     val pageMotion = remember { PageMotion() }
     PageBack(pageMotion, enabled = stack.size > 1) { nav.back() }
@@ -215,14 +188,15 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     // outside otherwise; "on GitHub" actions go outside on their own (`rememberOpenOnGithub`).
     val uriHandler = remember(context, toaster) { PullyUriHandler(context, toaster) }
     CompositionLocalProvider(LocalToaster provides toaster, LocalFootBars provides footBars, androidx.compose.ui.platform.LocalUriHandler provides uriHandler) {
+        val homeServer = remember { com.octaviantocan.pulls.data.Repo(context) }
+        val homeServices = rememberAndroidHomeScreenServices(homeServer)
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
             // the one under it slides away (rule 73), and back slides the other way, ranked by how deep the page is.
-            val here = stack.indexOfLast { it != Screen.Settings }.coerceAtLeast(0)
-            BlurSwitch(Layer(stack.getOrNull(here) ?: Screen.Home, here), Modifier.fillMaxSize(), order = { it.depth }, motion = pageMotion) { layer ->
-                when (val current = layer.screen) {
-                    Screen.Home -> HomeScreen(nav, homeUi)
-                    is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, startOnTours = current.tours)
+            AppPages(navigation, pageMotion, Modifier.fillMaxSize()) { current ->
+                when (current) {
+                    Screen.Home -> HomeScreen(nav, homeUi, homeServices)
+                    is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, current.tours, homeServices)
                     is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place, initialAIResult = current.aiResult)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}

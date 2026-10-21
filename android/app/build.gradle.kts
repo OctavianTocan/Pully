@@ -15,8 +15,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 74
-        versionName = "0.57.0"
+        versionCode = 75
+        versionName = "0.58.0"
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
@@ -159,11 +159,6 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-svg:3.3.0")
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("com.caverock:androidsvg-aar:1.4")
-    implementation("org.commonmark:commonmark:0.24.0")
-    implementation("org.commonmark:commonmark-ext-gfm-tables:0.24.0")
-    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.24.0")
-    implementation("org.commonmark:commonmark-ext-autolink:0.24.0")
-    implementation("org.commonmark:commonmark-ext-task-list-items:0.24.0")
     testImplementation(kotlin("test-junit"))
     // Android's org.json is a stub in unit tests; the real one lets BookDataTest read the book the way the app does.
     testImplementation("org.json:json:20250517")

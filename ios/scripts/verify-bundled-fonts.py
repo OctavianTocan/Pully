@@ -26,6 +26,16 @@ def main() -> None:
     license_bundled = app / "code-fonts.txt"
     if not license_bundled.is_file() or license_bundled.read_bytes() != license_source.read_bytes():
         raise SystemExit("original code-font license notices are not bundled")
+    for name in ["cuelume/recipes.json", "licenses/cuelume.txt"]:
+        source = repository / "android/app/src/main/assets" / name
+        bundled = app / ("cuelume.txt" if name.startswith("licenses/") else name)
+        if not bundled.is_file() or bundled.read_bytes() != source.read_bytes():
+            raise SystemExit("canonical Cuelume recipes or MIT notice are not bundled")
+
+    markdown_notices = repository / "android/app/src/main/assets/licenses/markdown-parsers.txt"
+    markdown_bundled = app / markdown_notices.name
+    if not markdown_bundled.is_file() or markdown_bundled.read_bytes() != markdown_notices.read_bytes():
+        raise SystemExit("original Markdown parser license notices are not bundled")
     locales = verify_locales(repository, app)
     privacy_source = repository / "ios/Pully/PrivacyInfo.xcprivacy"
     privacy_bundled = app / "PrivacyInfo.xcprivacy"

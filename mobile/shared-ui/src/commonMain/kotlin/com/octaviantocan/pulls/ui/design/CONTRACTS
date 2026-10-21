@@ -37,3 +37,112 @@ Every palette token MUST have light and dark values. Dark surfaces MUST remain n
 grey as specified by DESIGN.md rule 76 and F13; sharing the kit MUST NOT introduce
 platform-specific palette values. Source: Tavi's 21 Oct 2026 iOS reuse decision and
 DESIGN.md rule 76.
+
+
+@cc [owner:OctavianTocan,label:architecture;design] shared-controls-preserve-existing-assets
+The shared Phosphor and engine marks MUST use the exact paths, viewport, fill rules and
+opacity from the existing checked-in Android XML vectors. Generation MUST reject
+unsupported vector structures instead of silently dropping them; unknown Phosphor
+names MUST retain the existing empty rendering. Source: Tavi's 21 Oct 2026 maximum-reuse
+iOS decision and DESIGN.md rules 48 and 49. The frozen web-port kit gains no new uses.
+
+@cc [owner:OctavianTocan,label:design] shared-controls-preserve-canvas-shadow
+Each native floatShadow MUST retain the shared shadow level, offset, Gaussian blur,
+tight edge layer and dark-palette strength. Android's pre-28 elevation fallback MUST
+remain unchanged. Source: DESIGN.md rule 45 and existing
+kit-floating-things-cast-the-canvas-shadow, retained by the 21 Oct iOS decision.
+
+@cc [owner:OctavianTocan,label:product] shared-counts-use-device-number-format
+DiffStats MUST retain the device locale's grouped integer formatting and numerals,
+including signs. Android MUST preserve the existing percent-comma-d behavior; native
+formatters MUST NOT change counts to a fixed English representation. Source: existing
+DiffStats behavior retained by Tavi's 21 Oct 2026 same-app iOS decision.
+
+@cc [owner:OctavianTocan,label:product;motion] kit-sheet-rests-at-two-heights
+Every `PullsSheet` rests at its normal height (its content, at most half the screen) or
+at its tall height, and slides between them: a quick throw goes to the next stop, a slow
+release to the nearest, a long drag down closes. A short sheet can still be lifted, the
+room under its content being its paper (rule 77; F8).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-header-is-fixed
+A sheet's header stays put and its content scrolls under it through the edge fade, so
+the ✕ never overlaps text and nothing is sliced under it (rules 74 and 77; F10).
+
+@cc [owner:OctavianTocan,label:motion] kit-sheet-rises-and-bounces
+Every sheet comes up from the bottom and settles on `PullsMotion.SheetSpring` (damping
+0.74), which goes a little past its place and comes back, a fifth less than the first
+version (rule 108; H3, J1).
+
+@cc [owner:OctavianTocan,label:product;motion] kit-sheet-closes-only-when-pulled
+Scrolling a sheet's content down and back up never moves the sheet. Only a drag that
+starts with the content at its top, or on the grabber or header, pulls it down (rule
+108; H2).
+
+@cc [owner:OctavianTocan,label:motion] kit-sheet-lifts-on-its-spring
+A field that takes the keyboard lifts its sheet to the tall height on the sheet spring,
+never popping there; lowering the sheet puts the keyboard away (rule 77; J10).
+The lift MUST start at the sheet's current visible position, including a resting normal
+stop, and MUST follow the same spring as a released drag in every text-input sheet
+(recording 20 Oct, 00:04 to 00:33).
+
+@cc [owner:OctavianTocan,label:product;motion] kit-sheet-pages-stay-in-the-sheet
+A sheet opened from a sheet is a page inside it: the content slides sideways a third of
+the sheet's width in 350ms with a blur, the sheet and its lip stay still, the ✕ becomes
+←, and back returns to where it was with the scroll kept. The parent never closes and
+reopens, and Back moves the page to the right (rules 78 and 115; F9, H1, H4).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-dims-everything
+Everything beneath a sheet dims uniformly through `scrim`, the header and the trigger
+included (rule 5).
+
+@cc [owner:OctavianTocan,label:product] kit-sheet-is-felt
+A sheet is felt as it arrives, as a drag takes it to its other height, and as a pull down
+crosses the point where letting go closes it (rule 120; J12).
+
+@cc [owner:OctavianTocan,label:architecture] kit-sheet-is-our-own
+Bottom sheets are `PullsSheet`, the app's own window, because Material's
+`ModalBottomSheet` cannot follow rule 73's timings; no screen MAY use Material's sheet
+(bans check).
+
+@cc [owner:OctavianTocan,label:motion] kit-theme-wipe-only-on-change
+Switching Light and Dark spreads the new look in a circle from the top corner on the side
+of the chosen option, over the page and any sheet, in 650ms. It plays only when the look on
+screen changes: choosing System while the phone is already in that look does not wipe
+(rule 112; H5, J2).
+
+@cc [owner:OctavianTocan,label:design] kit-sheet-footer-floats
+A full sheet's footer floats over its body: the body runs on under the footer and
+dissolves into the paper there, as a page does under its floating bar, and its end clears
+the footer so the last line can be scrolled above it. A full sheet never ends on a solid
+band of paper behind its footer (recording of 16 Oct 12:10, 13:06 to 13:16, N27).
+
+@cc [owner:OctavianTocan,label:motion] sheet-first-swipe-scrolls
+A swipe up that lifts a sheet carries on into its content in the same movement, so the first
+swipe on a long sheet scrolls it (recording 16 Oct 13:06, 03:24 to 03:33; O8, rule 180).
+
+@cc [owner:OctavianTocan,label:architecture;motion;design] shared-sheet-keeps-its-panel-and-native-shell
+Android and iOS MUST use the same sheet position, drag/settle, nested-scroll ownership,
+nested-page and keyboard-lift implementation. Native shells MUST supply real container,
+safe-area and keyboard insets without adding a second scrim, animation or automatic
+content inset on top of the shared panel. Android MUST retain its edge-to-edge window,
+keyboard resize and navigation-bar appearance behavior. Source: Tavi's 21 Oct 2026
+maximum-reuse iOS decision and accepted Sheet.kt adapter split; DESIGN.md rules 73,
+77, 78, 108 and 120.
+
+@cc [owner:OctavianTocan,label:motion;architecture] shared-sheet-pages-follow-their-depth
+Nested sheet pages MUST use the existing BlurSwitch direction from page depth, with
+their existing scroll positions and transition timing. A host's Back adapter MUST
+change the same page state; it MUST NOT create a separate native route stack. Source:
+Tavi's 21 Oct 2026 shared-navigation decision, DESIGN.md rules 78 and 105, H1 and H4.
+An open iOS sheet MUST consume the existing shared Back dispatcher before the route
+beneath it, returning to its parent sheet page or closing through the shared panel's
+animated dismissal. It MUST NOT register a second native gesture observer.
+
+@cc [owner:OctavianTocan,label:architecture;design;product] shared-markdown-one-renderer
+Both hosts MUST use the existing Markdown and MarkdownPreview Compose layout,
+table sizing and alignment, code blocks, inline styling and mention resolution.
+Images MUST retain their original-size probe, density-sharp reload, dark-picture
+selection and link-or-image tap destination. Raw HTML MUST remain reduced to inert
+text or line breaks; it MUST NOT execute or introduce a WebView. Source: existing
+kit-one-markdown, DESIGN.md rules 53, 95, 96, 124 and 158, L14/L15, and Tavi's
+21 Oct 2026 maximum-reuse iOS decision.

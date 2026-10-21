@@ -79,8 +79,10 @@ own saved Google sign-in after extracting the ID token, and the shared Repo exch
 that token for the existing Pully session. It never requests GitHub OAuth, extra Google
 scopes or a server-side refresh-token exchange. The Rust allowlist remains authoritative.
 
-The app's `PrivacyInfo.xcprivacy` declares only its app-owned UserDefaults required
-reason, `CA92.1`. It makes no collection/tracking assertion. GoogleSignIn ships its own
+The app's `PrivacyInfo.xcprivacy` declares app-owned UserDefaults (`CA92.1`) and
+app-container file metadata (`C617.1`, used by the shared avatar cache). It makes no
+collection/tracking assertion. [The dependency audit](../PRIVACY.md) records the
+source evidence for these narrow required reasons. GoogleSignIn ships its own
 resource privacy manifest, including its authentication profile data and SDK diagnostic
 declarations; do not replace or strip that manifest or interpret this app's narrow
 required-reason entry as a complete App Store privacy review. Pully usage analytics

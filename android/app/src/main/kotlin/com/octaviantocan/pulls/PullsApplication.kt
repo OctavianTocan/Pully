@@ -17,10 +17,15 @@ import kotlinx.coroutines.launch
 class PullsApplication : Application() {
     private val reviewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val reviewSessions = ReviewSessionCache(reviewScope)
+    val homeScreenData = com.octaviantocan.pulls.ui.home.HomeScreenDataOwner()
 
     override fun onCreate() {
         super.onCreate()
-        RepoIdentity.observeInvalidation { reviewScope.launch { reviewSessions.clear() } }
+        RepoIdentity.observeInvalidation {
+            // The cache lock revokes old size leases synchronously even if invalidation came off-main.
+            com.octaviantocan.pulls.data.PullSizes.clear()
+            reviewScope.launch { reviewSessions.clear(); homeScreenData.clear() }
+        }
         // First, so the start time is the process's and a crash anywhere after this is kept for the next launch.
         Analytics.install(this, AppSettings.get(this).usageStats)
         clearInterruptedUpdateDownloads(cacheDir)

@@ -16,6 +16,14 @@ The iOS app bundle's `i18n/` JSON locale set and each file's bytes MUST equal
 without maintaining another set of translation files. Source: Tavi's 21 Oct 2026
 maximum-reuse iOS decision and DESIGN.md's locale source-of-truth enforcement.
 
+@cc [owner:OctavianTocan,label:architecture;design] ios-feedback-is-native-output-of-shared-cuelume
+iOS control feedback MUST synthesize the existing shared Cuelume recipes and DSP.
+Native code MAY adapt PCM output and system haptic generators, but MUST NOT replace
+the cue signatures with generic system sounds. It MUST respect the saved sound and
+haptic preferences, Ring/Silent, and suspension; suspended feedback MUST NOT replay
+on resume. Source: Tavi's 21 Oct 2026 maximum-reuse iOS decision and Android
+sound-follows-the-phone, sound-cue-per-role and DESIGN.md rule 125.
+
 @cc [owner:OctavianTocan,label:security;architecture] ios-keychain-tests-use-real-private-app-identity
 The iOS Keychain roundtrip MUST execute the actual secure-store adapter in a
 genuine app-hosted simulator test with its own private application identifier in
@@ -25,3 +33,28 @@ MUST NOT widen Keychain sharing, and MUST NOT skip or mock a missing entitlement
 as a passing result. Source: Tavi's chosen 21 Oct 2026 native-storage plan and
 the real simulator errSecMissingEntitlement failure; Apple DTS app-host guidance
 and Xcode's simulator entitlement representation observed in the 21 Oct Mac run.
+
+@cc [owner:OctavianTocan,label:architecture;security] ios-home-services-follow-actual-scene-lifecycle
+Shared Home actions MUST use native clipboard writes and external HTTPS GitHub
+navigation, bypassing the app's incoming-link router. Lifecycle registration MUST
+synchronously report the current scene state, then real scene transitions;
+cancellation MUST remove exactly that registration, and disconnection MUST stop
+and release all observers. An obsolete reentrant foreground event MUST NOT resume
+background work. Source: Tavi's 21 Oct 2026 maximum-reuse plan and shared Home
+NativeHomeActions contract, preserving Android foreground lifecycle ownership.
+
+@cc [owner:OctavianTocan,label:architecture;motion] ios-edge-back-drives-shared-navigation
+The iOS leading-edge recognizer MUST report normalized progress and commit or cancel
+to the existing shared PageMotion and navigation stack. It MUST use the shared
+layout direction, reject disabled root navigation, cancel on scene interruption,
+and release replaced or cancelled registrations. It MUST NOT transform the native
+controller or maintain another route stack. Source: Tavi's 21 Oct 2026 maximum-reuse
+iOS plan and the shared NativeHomeActions edge-back integration decision.
+
+@cc [owner:OctavianTocan,label:architecture;security] ios-explicit-browser-uses-native-web-presentation
+The shared explicit browser action MUST accept only HTTP(S) URLs with a host and no
+URL credentials, and MUST present the native browser controller from the active
+scene. Its initial navigation MUST bypass Pully and GitHub universal-link routing.
+The separate open-on-GitHub action MAY use direct system navigation. Neither action
+MAY forward Pully RPC or Access credentials. Source: Tavi's 21 Oct 2026 maximum-reuse
+iOS plan and the shared Overview browser action through NativeHomeActions.

@@ -40,8 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
@@ -105,8 +103,11 @@ private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should 
  */
 @Composable
 fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other", place: com.octaviantocan.pulls.ui.PlaceRequest? = null, initialAIResult: String? = null) {
-    ReviewSessionRoute(target, reviewSessionCache(LocalContext.current)) {
-        ReviewScreenContent(target, nav, startOnTour, openedFrom, place, initialAIResult)
+    val services = rememberAndroidOverviewServices()
+    androidx.compose.runtime.CompositionLocalProvider(LocalOverviewServices provides services) {
+        ReviewSessionRoute(target, reviewSessionCache(LocalContext.current)) {
+            ReviewScreenContent(target, nav, startOnTour, openedFrom, place, initialAIResult)
+        }
     }
 }
 
@@ -166,7 +167,9 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, startOnTour: Boole
         ui.uncategorizedLabel = messages.t("group.uncategorized")
         ui.uncategorizedSummary = messages.t("group.uncategorizedSummary")
     }
-    OverviewEffects(session, top, data)
+    val overviewReopened = com.octaviantocan.pulls.ui.IncomingLinks.reopened
+    val overviewReopen = remember(overviewReopened) { overviewReopened?.let { OverviewReopen(it.target) } }
+    OverviewEffects(session, top, data, overviewReopen)
     // Leaving the diff by Back goes back to the Ask sheet it was opened from, if it was.
     fun pop() {
         if (pages.removeAt(pages.lastIndex) == PrView.Diff) askBehind?.let { ask = it.request }
@@ -571,54 +574,3 @@ private fun recordReached(tours: TourIndex, pull: OpenTarget.Pull?, head: PrHead
  * the diff stays on its file where it was scrolled, a load already on its way finishes first, and while one
  * commit is viewed the new ones wait until the reader goes back to all of them.
  */
-@Composable
-private fun OverviewEffects(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?) {
-    val overview = data?.overview
-    LaunchedEffect(data, top.polls) {
-        val wait = data?.let(::overviewRevalidateDelayMs) ?: return@LaunchedEffect
-        if (top.polls >= 20) return@LaunchedEffect
-        delay(wait)
-        session.reloadOverview()
-        top.polls++
-    }
-    val observedState = session.prOpened?.takeUnless { it.stale }?.state
-    LaunchedEffect(observedState) {
-        if (observedState in listOf("open", "draft", "closed", "merged") && overview != null && observedState != overview.state) {
-            session.reloadOverview()
-        }
-    }
-    var away by remember { mutableStateOf(false) }
-    var returns by remember { mutableIntStateOf(0) }
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { away = true }
-    LifecycleEventEffect(Lifecycle.Event.ON_START) {
-        if (away) {
-            away = false
-            top.polls = 0
-            returns++
-            session.reloadOverview()
-        }
-    }
-    // A link to this pull request while it is on screen opens nothing new, so the page reads it again; one that came
-    // before this page did is not read twice.
-    val reopened = com.octaviantocan.pulls.ui.IncomingLinks.reopened
-    val seen = remember(session) { reopened }
-    LaunchedEffect(reopened) {
-        if (reopened == null || reopened === seen || reopened.target.serverTarget != session.target.serverTarget) return@LaunchedEffect
-        top.polls = 0
-        session.reloadOverview()
-    }
-    val stale = isStale(session, overview)
-    // A reload that fails leaves the page stale, so it is tried a few more times, and again when the app comes back.
-    LaunchedEffect(stale, session.settings.autoRefresh, session.selection, returns) {
-        if (!stale || !session.settings.autoRefresh || session.selection != null) return@LaunchedEffect
-        for (wait in STALE_RETRY_MS) {
-            snapshotFlow { session.loading }.first { !it }
-            if (!isStale(session, overview)) return@LaunchedEffect
-            session.refresh()
-            delay(wait)
-        }
-    }
-}
-
-/** How long the page waits after each automatic reload of new commits before it tries again, while they have not loaded. */
-private val STALE_RETRY_MS = listOf(2_000L, 8_000L, 30_000L)

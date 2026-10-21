@@ -39,6 +39,16 @@ object Sounds {
     private var silent = false
 
     fun install(context: Context, settings: AppSettings) {
+        ControlFeedback.install(object : NativeControlFeedback {
+            override fun play(cue: Cue, emphasis: Emphasis, direction: Direction?, input: Input?) =
+                Sounds.play(cue, emphasis, direction, input)
+            override fun hold() = Haptics.hold()
+            override fun gesture(role: NativeGestureFeedback) = when (role) {
+                NativeGestureFeedback.Sheet -> Haptics.sheet()
+                NativeGestureFeedback.Threshold -> Haptics.threshold()
+                NativeGestureFeedback.Page -> Haptics.page()
+            }
+        })
         if (this.settings != null) return
         this.settings = settings
         val app = context.applicationContext
@@ -57,10 +67,10 @@ object Sounds {
         val worker = Executors.newSingleThreadExecutor { Thread(it, "cuelume-render").apply { isDaemon = true } }
         worker.execute {
             try {
-                val palette = app.assets.open("cuelume/recipes.json").use { Palette.parse(it) }
+                val palette = app.assets.open("cuelume/recipes.json").use { Palette.parse(it.readBytes().decodeToString()) }
                 val mixer = Mixer(OUTPUT_GAIN * PHONE_GAIN)
                 val player = CuePlayer(mixer)
-                val built = Cuelume(palette, mixer, Synth(), worker, onVoice = player::wake)
+                val built = Cuelume(palette, mixer, Synth(), CueWorker { action -> worker.execute { action() } }, onVoice = player::wake)
                 built.warm()
                 built.enabled = allowed()
                 engine = built

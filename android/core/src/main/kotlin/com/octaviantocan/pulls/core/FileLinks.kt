@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.core
 
-import java.net.URLDecoder
 import java.security.MessageDigest
 
 /** Port of the web `file-links.ts`: links from one diff file to GitHub. */
@@ -23,20 +22,7 @@ object FileLinks {
      * `.ci`) is a folder like any other and keeps its dot, so the link does not land on a path that is not there. A `%20`
      * in the link is the space in the file's name.
      */
-    fun repoPath(link: String): String? {
-        val decoded = runCatching { URLDecoder.decode(link.replace("+", "%2B"), "UTF-8") }.getOrDefault(link)
-        val segments = decoded.split('/')
-        if (segments.last() in FOLDER_ENDS) return null
-        val path = ArrayDeque<String>()
-        for (segment in segments) when (segment) {
-            "", "." -> Unit
-            ".." -> path.removeLastOrNull()
-            else -> path.addLast(segment)
-        }
-        return path.joinToString("/").ifEmpty { null }
-    }
-
-    private val FOLDER_ENDS = setOf("", ".", "..")
+    fun repoPath(link: String): String? = repositoryPath(link)
 
     /** Repository coordinates for a target that lives on GitHub, or null for local diffs. */
     fun repoOf(target: OpenTarget): Pair<String, String>? = when (target) {

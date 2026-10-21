@@ -3,7 +3,7 @@
 // from it, and PageBack moves a page with a back swipe. So a screen may not slide anything itself, every one of those
 // calls names its order, and Back goes through PageBack. A hard check with no baseline: excuse one line with
 // `// motion-ok: <reason>`.
-import { blank, composables, excusedLines, kotlinFiles, lineIndex, matching, readAndroid, shortPath, splitTopLevel } from './kotlin.mjs'
+import { blank, composables, excusedLines, isDesignSource, kotlinFiles, lineIndex, matching, readAndroid, shortPath, splitTopLevel } from './kotlin.mjs'
 
 export const NAME = 'motion'
 export const RULES = [105]
@@ -71,7 +71,7 @@ function fileProblems(file, source) {
   const code = withoutImports(blank(source))
   const lineAt = lineIndex(code)
   const excused = excusedLines(source, TAG)
-  const hits = [...(file.startsWith(KIT) ? kitHits(code) : screenHits(code)), ...orderHits(code)]
+  const hits = [...(isDesignSource(file) ? kitHits(code) : screenHits(code)), ...orderHits(code)]
   return hits.map(hit => ({ line: lineAt(hit.at), message: hit.message }))
     .filter(hit => !excused.has(hit.line))
     .map(hit => `${file}:${hit.line}: ${hit.message} (rule 105)`)
@@ -81,7 +81,7 @@ function fileProblems(file, source) {
 export function declarationProblems(sources) {
   const problems = []
   const found = new Set()
-  for (const [file, source] of Object.entries(sources).filter(([f]) => f.startsWith(KIT))) {
+  for (const [file, source] of Object.entries(sources).filter(([f]) => isDesignSource(f))) {
     for (const fn of composables(source, file).filter(f => ORDERED.includes(f.name) && !f.private)) {
       found.add(fn.name)
       const order = fn.params.find(p => p.name === 'order')
