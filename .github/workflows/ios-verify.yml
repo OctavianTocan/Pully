@@ -161,7 +161,7 @@ jobs:
           ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
             :shared-client:jvmTest :shared-client:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
             :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
-            -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
+            -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon --continue
       - name: Build and test the unsigned iOS host
         id: host
         if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
