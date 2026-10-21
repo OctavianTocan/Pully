@@ -16,6 +16,16 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.54.1
+
+Updates recover when a download or installation is interrupted.
+
+- Android’s confirmation opens when Pully is in front. Continue update brings it back if you leave before approving.
+- An interrupted installation offers Try again, and an update only finishes once Android has installed the new version.
+- Stalled downloads fail with a way to retry. Damaged or incomplete files are discarded without keeping partial APKs.
+
+![Illustration of Continue update and Try again after an interrupted update](changelog/0.54.1/update-recovery-illustration.png)
+
 ## 0.54.0
 
 Alerts for the checks and AI work you follow.

@@ -20,6 +20,13 @@ A new version is told in a notification while the app is closed, once per versio
 Update Pully in Commands asks the server at once and starts the update, or says this is
 the newest version (rule 104).
 
+@cc [owner:OctavianTocan,label:product;security] updater-installation-recovers
+An update MUST persist its own installer session and target version before handing bytes
+to Android. Only callbacks for that session MAY change its result. Confirmation MUST be
+opened by the resumed activity and remain available when the reader returns. Interrupted
+or expired installs MUST offer retry, and only the installed package version MAY settle
+success. Source: Tavi, 21 Oct 2026, updates stuck at installing or downloading; rule 63.
+
 @cc [owner:OctavianTocan,label:security] past-versions-install-beside
 A past version installs only from the configured server's `/android/past/`, only when
 its SHA-256 matches `index.json`, and only as its own `com.octaviantocan.pulls.v*`
