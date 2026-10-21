@@ -4,7 +4,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { lint } from '@google/design.md/linter'
-import { ASSETS, dpScale, paletteColors, readAndroid, SHARED_DESIGN, shadowLayer, shadowLevels, typeRoles } from './kotlin.mjs'
+import { ASSETS, dpScale, paletteColors, readAndroid, shadowLayer, shadowLevels, SHARED_DESIGN, typeRoles } from './kotlin.mjs'
 import { buildRules, buildSpec, DESIGN_PATH, px, readDesign, stable } from './spec.mjs'
 
 export const NAME = 'tokens'

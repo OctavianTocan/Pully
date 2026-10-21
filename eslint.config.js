@@ -24,6 +24,10 @@ export default antfu(
       'android/scripts/opencode-themes/**',
       'android/**/build/**',
       'android/.kotlin/**',
+      // Both mobile Gradle roots and Xcode produce build artifacts locally.
+      'mobile/**/build/**',
+      'mobile/.kotlin/**',
+      'ios/build/**',
     ],
     vue: {
       overrides: {

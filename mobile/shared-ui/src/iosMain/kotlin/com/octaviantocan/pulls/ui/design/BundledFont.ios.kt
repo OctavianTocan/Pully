@@ -7,7 +7,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSBundle
-import platform.Foundation.NSData
+import platform.Foundation.NSFileManager
 import platform.posix.memcpy
 
 internal actual fun bundledFont(name: String, weight: FontWeight): Font = Font(
@@ -21,7 +21,7 @@ private fun fontBytes(name: String): ByteArray {
     val path = requireNotNull(NSBundle.mainBundle.pathForResource(name, ofType = "ttf")) {
         "Missing bundled font: $name"
     }
-    val data = requireNotNull(NSData.dataWithContentsOfFile(path)) {
+    val data = requireNotNull(NSFileManager.defaultManager.contentsAtPath(path)) {
         "Cannot read bundled font: $name"
     }
     return ByteArray(data.length.toInt()).apply {
