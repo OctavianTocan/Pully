@@ -31,6 +31,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions {
         let rightEdge: Bool
         let observer: HomeBackObserver
         var gesture: NativeBackGesture?
+        weak var container: UIView?
         init(rightEdge: Bool, observer: HomeBackObserver) { self.rightEdge = rightEdge; self.observer = observer }
     }
     private weak var rootView: UIView?
@@ -92,23 +93,37 @@ final class HomeActionsHost: NSObject, NativeHomeActions {
 
     /// A Compose registration can precede UIView creation; bind once the root has its scene window.
     func attach(to view: UIView) {
-        guard !disconnected, rootView !== view else { return }
+        guard !disconnected else { return }
+        let replacedRoot = rootView !== view
         rootView = view
         if let registration = back {
-            let previous = registration.gesture
-            registration.gesture = nil
-            previous?.cancel()
+            if replacedRoot {
+                let previous = registration.gesture
+                registration.gesture = nil
+                registration.container = nil
+                previous?.cancel()
+            }
             installBack(registration)
         }
     }
 
     private func installBack(_ registration: BackRegistration) {
-        guard back === registration, let window = rootView?.window else { return }
+        guard !disconnected, back === registration, let rootView,
+              let container = NativeBackGesture.contentContainer(for: rootView) else { return }
+        if registration.gesture != nil, registration.container === container { return }
+        let previous = registration.gesture
+        registration.gesture = nil
+        registration.container = nil
+        previous?.cancel()
+        guard !disconnected, back === registration, self.rootView === rootView,
+              registration.gesture == nil,
+              NativeBackGesture.contentContainer(for: rootView) === container else { return }
         let observer = registration.observer
+        registration.container = container
         registration.gesture = NativeBackGesture(
-            // Compose puts Dialog layers beside its root view, beneath the same UIWindow.
-            // One window recognizer receives both layers and keeps the shared Back priority.
-            view: window, rightEdge: registration.rightEdge,
+            // Match Compose 1.12's own edge recognizer attachment: the root and dialog
+            // scenes share this container, while UIWindow is outside its content hierarchy.
+            view: container, rightEdge: registration.rightEdge,
             enabled: { [weak self] in self?.sharedContentIsActive == true && observer.enabled() },
             began: { observer.began() }, changed: { observer.changed(progress: $0) },
             cancelled: { observer.cancelled() }, committed: { observer.committed() }
@@ -132,6 +147,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions {
         guard !disconnected else { return }
         sceneActive = phase == .foregroundActive
         if !sceneActive { back?.gesture?.interrupt() }
+        else if let registration = back { installBack(registration) }
         lifecycle.update(phase)
     }
     func disconnect() {

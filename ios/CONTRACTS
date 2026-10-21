@@ -54,6 +54,10 @@ The one recognizer MUST receive both the root Compose view and its sibling dialo
 layers in the same scene window, while a presented native controller MUST prevent
 the underlying shared route or sheet from consuming its gesture. Source: the real
 21 Oct 2026 simulator sheet-dismissal failure and the same shared Back priority.
+A registration created before the root acquires its window MUST be retried when the
+scene becomes active; repeated attachment or activation MUST NOT add a second edge
+recognizer for that registration. Source: the accepted 21 Oct 2026 native Back
+continuity repair after actual simulator repository and dialog journeys.
 
 @cc [owner:OctavianTocan,label:architecture;security] ios-explicit-browser-uses-native-web-presentation
 The shared explicit browser action MUST accept only HTTP(S) URLs with a host and no

@@ -94,3 +94,50 @@ final class NativeBackGestureSessionTests: XCTestCase {
         session = nil
     }
 }
+
+#if os(iOS)
+import UIKit
+
+@MainActor
+final class NativeBackGestureContainerTests: XCTestCase {
+    func testRootAndSiblingDialogUseTheSameActualContentAncestor() async throws {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        let content = UIView(frame: window.bounds)
+        let controllerRoot = UIView(frame: content.bounds)
+        let rootScene = UIView(frame: controllerRoot.bounds)
+        let dialogScene = UIView(frame: content.bounds)
+        window.addSubview(content)
+        content.addSubview(controllerRoot)
+        controllerRoot.addSubview(rootScene)
+        content.addSubview(dialogScene)
+        defer { content.removeFromSuperview() }
+
+        let attached = try XCTUnwrap(NativeBackGesture.contentContainer(for: controllerRoot))
+        XCTAssertTrue(attached === content)
+        XCTAssertTrue(rootScene.isDescendant(of: attached))
+        XCTAssertTrue(dialogScene.isDescendant(of: attached))
+        XCTAssertFalse(attached is UIWindow)
+        XCTAssertTrue(NativeBackGesture.contentContainer(for: rootScene) === attached)
+        XCTAssertTrue(NativeBackGesture.contentContainer(for: dialogScene) === attached)
+        let gesture = NativeBackGesture(view: attached, rightEdge: false, enabled: { true },
+                                        began: {}, changed: { _ in }, cancelled: {}, committed: {})
+        let recognizer = try XCTUnwrap(attached.gestureRecognizers?.compactMap { $0 as? UIScreenEdgePanGestureRecognizer }.first)
+        XCTAssertEqual(recognizer.edges, .left)
+        XCTAssertTrue(recognizer.view === attached)
+        XCTAssertFalse(window.gestureRecognizers?.contains(where: { $0 === recognizer }) == true)
+        gesture.cancel()
+        XCTAssertFalse(attached.gestureRecognizers?.contains(where: { $0 === recognizer }) == true)
+    }
+
+    func testARegistrationBeforeWindowAttachmentCanResolveTheSameRootAfterItJoins() async {
+        let root = UIView(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        XCTAssertNil(NativeBackGesture.contentContainer(for: root))
+        let window = UIWindow(frame: root.bounds)
+        window.addSubview(root)
+        XCTAssertTrue(NativeBackGesture.contentContainer(for: root) === root)
+        root.removeFromSuperview()
+        XCTAssertNil(NativeBackGesture.contentContainer(for: root))
+        XCTAssertNil(NativeBackGesture.contentContainer(for: window))
+    }
+}
+#endif

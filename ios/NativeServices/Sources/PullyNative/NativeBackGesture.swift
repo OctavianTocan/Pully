@@ -93,6 +93,14 @@ public final class NativeBackGesture: NSObject, UIGestureRecognizerDelegate {
     private let session: NativeBackGestureSession
     private var removed = false
 
+    /// Compose's root and dialog layers share the content container immediately below UIWindow.
+    public static func contentContainer(for root: UIView) -> UIView? {
+        guard let window = root.window, root !== window else { return nil }
+        var container = root
+        while let parent = container.superview, parent !== window { container = parent }
+        return container.superview === window ? container : nil
+    }
+
     public init(view: UIView, rightEdge: Bool, enabled: @escaping () -> Bool,
                 began: @escaping () -> Void, changed: @escaping (Float) -> Void,
                 cancelled: @escaping () -> Void, committed: @escaping () -> Void) {
