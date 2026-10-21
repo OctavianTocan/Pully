@@ -1,0 +1,40 @@
+@cc [owner:OctavianTocan,label:product;security] checks-notifications-are-explicit-and-local
+Check failure notifications MUST require an explicit per-device pull request follow,
+scoped to its server and Pully account. They MUST NOT implicitly follow Inbox rows,
+repositories, or the shared GitHub account's personal notifications. Unfollowing MUST
+stop alerts and remove that PR's notification. Source changes MUST invalidate in-flight
+responses before they post or persist state (Tavi, 21 Oct 2026: add notifications for
+failed PR runs; approved first implementation is explicitly followed PRs).
+
+@cc [owner:OctavianTocan,label:product] checks-notifications-baseline-and-dedupe
+The first successful complete current-head snapshot after following MUST silently
+baseline existing failures. Identical failed check occurrences MUST NOT notify again,
+including after process restart. A newly failed check or distinguishable rerun MAY
+notify, with head, stable check ID and available start/completion evidence in its
+identity. Partial, failed or unknown-head reads MUST NOT advance the baseline. Cancelled,
+skipped, neutral, successful and unknown outcomes MUST NOT be called failures. Timed-out,
+action-required and startup failures MUST retain their distinct meaning (Tavi's
+21 Oct 2026 notification request and approved first implementation).
+
+@cc [owner:OctavianTocan,label:product;security] checks-notifications-respect-controls-and-target
+Check alerts MUST respect both the local category switch and Android's permission and
+channel controls. Permission MUST be requested from a follow/enable action, never a new
+startup prompt. Re-enabling MUST NOT replay a disabled period's old failures. A tap MUST
+validate the original server/account source and open a verified check target on the
+subscribed PR or that PR's Checks page. Notifications MUST NOT change GitHub read/watch
+state. Background work MUST use bounded network-constrained checks and MUST NOT promise
+realtime push delivery (Tavi's 21 Oct 2026 notification request).
+
+@cc [owner:OctavianTocan,label:product;security] notifications-ai-outcomes-explicit-ownership
+AI result alerts MUST concern only server-accepted task IDs explicitly requested or
+followed on this device while enabled, persist source/account-scoped ownership, and
+MUST NOT adopt server task-list history. Missing, network or interrupted states MUST NOT
+become done or failed; cancelled tasks MUST settle silently (Tavi, 21 Oct 2026:
+notification expansion and approved device-started task outcomes).
+
+@cc [owner:OctavianTocan,label:product;security] notifications-ai-outcomes-no-replay
+AI result notifications MUST default off. Enabling MUST NOT adopt existing work, and
+observed OS/category denial or disabling MUST clear pending eligibility. A repeated
+authoritative terminal snapshot MUST NOT duplicate an alert. An identity reset MUST
+cancel category notices and reject late replies (Tavi's 21 Oct 2026 notification
+expansion and approved device-started task outcomes).

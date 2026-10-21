@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
             // the first frame is already in the chosen face (N10).
             if (com.octaviantocan.pulls.ui.design.AppFonts.selected != settings.appFont) com.octaviantocan.pulls.ui.design.AppFonts.selected = settings.appFont
             PullsTheme(dark = dark, theme = theme, locale = settings.locale) {
-                PullsApp(initialTarget = IncomingLinks.read(intent))
+                PullsApp(initialTarget = IncomingLinks.read(intent, this@MainActivity), initialAIResult = IncomingLinks.result(intent, this@MainActivity))
             }
         }
     }
@@ -92,8 +92,8 @@ class MainActivity : ComponentActivity() {
         // The update notification brings Pully to the front where the reader left it. A link opens over the page on
         // screen, so Back returns there; the intent is kept so a rotation reopens it like a cold start does.
         if (UpdateNotice.handle(this, intent)) return
-        if (IncomingLinks.read(intent) == null) return
+        if (IncomingLinks.read(intent, this) == null) return
         setIntent(intent)
-        IncomingLinks.receive(intent)
+        IncomingLinks.receive(intent, this)
     }
 }

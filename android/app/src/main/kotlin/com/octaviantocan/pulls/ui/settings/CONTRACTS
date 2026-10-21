@@ -3,6 +3,15 @@ Where a setting changes how something looks, the control is the thing itself as 
 sample: the diff layout is two small diffs, the code size is three sizes over a line of
 code that resizes, and each code font is set in its own face (rule 81; F12).
 
+@cc [owner:OctavianTocan,label:product;security] settings-device-notification-choices
+Settings MUST offer separate device-local Check failures and AI results choices, off
+until explicitly enabled. Their state MUST reflect both Pully's choice and Android's
+permission/channel. Enabling MAY request permission contextually or open Android's
+settings after denial; no additional startup prompt is allowed. The Notifications page
+MUST explain that checks require following a PR, AI results cover work started here, and
+background delivery can take 15 minutes or longer. This consent introduction is distinct
+from helper lines underneath controls (Tavi, 21 Oct 2026, notification expansion).
+
 @cc [owner:OctavianTocan,label:product] settings-more-than-three-is-a-page
 A choice of more than three options (Code font, Model, the button sound) is a row with
 the chosen one on its right that opens a page inside the Settings sheet, with a tick on

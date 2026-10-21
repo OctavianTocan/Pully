@@ -174,6 +174,7 @@ internal enum class SettingsPage(val parent: SettingsPage?) {
     AgentKeys(Main),
     AgentKey(AgentKeys),
     Feedback(Main),
+    Notifications(Main),
 }
 
 /** The page's name in usage stats: `settings` for the main page, `settings-<page>` for one inside it. */
@@ -200,6 +201,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.AgentKeys -> "Agent keys"
     SettingsPage.AgentKey -> AccountUi.opened?.name ?: "Agent key"
     SettingsPage.Feedback -> "Send feedback"
+    SettingsPage.Notifications -> "Notifications"
 }
 
 /**
@@ -245,6 +247,7 @@ internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPag
         SettingsPage.AgentKeys -> AgentKeysPage(open = onPage)
         SettingsPage.AgentKey -> AgentKeyPage(onDone = { onPage(SettingsPage.AgentKeys) })
         SettingsPage.Feedback -> FeedbackPage(onSent = { onPage(SettingsPage.Main) })
+        SettingsPage.Notifications -> NotificationSettings()
     }
 }
 
@@ -410,6 +413,13 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
         }
     }
     UpdatesGroup(settings, open)
+    Group("Notifications") {
+        SheetCard {
+            SheetRow("Checks and AI results", { open(SettingsPage.Notifications) }, first = true, iconless = true) {
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+    }
     // Feedback on the app, kept on the server for agents to act on later (Tavi, 20 Oct 06:10; nav-feedback-from-anywhere).
     Box(Modifier.padding(top = 24.dp)) {
         SheetCard {

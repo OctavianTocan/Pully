@@ -31,10 +31,12 @@ unrelated startup (Tavi's 20 Oct request to explore an app notification showing 
 tour generation and PR analysis with elapsed time).
 
 @cc [owner:OctavianTocan,label:product;architecture] data-ai-work-notice-is-bounded
-AI notifications MUST expire without a fresh server snapshot, including after process
+Ongoing AI progress notifications MUST expire without a fresh server snapshot, including after process
 death or a lost connection. Background observation MUST be bounded and MUST NOT start a
 foreground service solely to observe server work; reopening the app reattaches to actual
-work (bounded implementation of Tavi's 20 Oct app-notification exploration).
+work (bounded implementation of Tavi's 20 Oct app-notification exploration). Separate
+completion/failure alerts for explicitly owned tasks MAY remain until dismissed; their
+durable ownership is bounded independently (Tavi, 21 Oct notification expansion).
 
 @cc [owner:OctavianTocan,label:product;architecture] data-lite-diffs
 A large pull request opens from a `lite` diff: files past the patch budget arrive with no

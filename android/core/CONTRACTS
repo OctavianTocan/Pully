@@ -38,6 +38,19 @@ optional `[key:value,...]` metadata, an ID token and non-empty prose up to the n
 directive. A malformed directive, empty prose, text before the first directive or a
 repeated ID is reported as a problem, never silently dropped.
 
+@cc [owner:OctavianTocan,label:product;security] checks-new-failures-only
+The check evaluator MUST baseline the first complete known-head snapshot and deduplicate
+stable occurrences across persisted restarts. Reruns MUST require timestamp or observed
+state-transition evidence. Cancelled, unknown, skipped and neutral outcomes and partial
+reads MUST NOT become failures. Source, authentication, generation or follow-revision
+mismatch MUST reject delivery (Tavi, 21 Oct 2026, notification expansion).
+
+@cc [owner:OctavianTocan,label:product;security] core-ai-result-alerts-require-explicit-owned-task
+AI outcome alerts MUST match an explicitly persisted task ID, key and kind. Only
+authoritative done or failed statuses MAY alert; cancelled settles silently, and missing,
+unknown or network interruption MUST NOT imply an outcome. Expired ownership MUST NOT
+produce a late alert (Tavi, 21 Oct 2026, notification expansion).
+
 @cc [owner:OctavianTocan,label:security] core-updates-confine-access-headers
 Update URLs and every redirect MUST match the configured server's scheme, host and
 effective port before any request is opened or Access headers attached. Automatic

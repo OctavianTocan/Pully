@@ -96,3 +96,8 @@ With a nonblank query, Commands MUST order sections by their best matching comma
 preserve relevance within each section, and MUST NOT put Suggested or General placement
 ahead of a stronger match. Typing update MUST put Update Pully ahead of unrelated Files
 actions (Tavi, 20 Oct 2026 controls feedback).
+@cc [owner:OctavianTocan,label:product;security] notification-taps-keep-their-source-and-result
+Notification taps MUST validate the current device source before routing on a cold or
+warm launch. Check alerts MUST open the indicated PR/checks; AI tour alerts MUST open the
+tour, review alerts the findings, and analysis/brief alerts the Overview. Opening a result
+MUST NOT start AI work or replay permission requests (Tavi, 21 Oct 2026, notification expansion).
