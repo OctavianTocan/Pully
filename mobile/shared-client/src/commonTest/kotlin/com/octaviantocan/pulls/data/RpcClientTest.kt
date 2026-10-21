@@ -24,6 +24,20 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class RpcClientTest {
+    @Test
+    fun nonRpc429DoesNotInventAnAccountLockoutOrExposeTheResponse() = runTest {
+        val args = buildJsonObject { put("password", "private-password") }
+        for ((response, kind) in listOf(
+            RpcResponse(429, "<html>private-password upstream throttling</html>", contentType = "text/html") to ServerErrorKind.HtmlResponse,
+            RpcResponse(429, "{}", contentType = "application/json") to ServerErrorKind.Http,
+        )) {
+            val error = assertFailsWith<ServerError> { RpcClient("https://server.example", RpcTransport { response }).call("account-sign-in", args) }
+            assertEquals(kind, error.kind)
+            assertFalse(error.message.orEmpty().contains("private-password"))
+            assertFalse(error.message.orEmpty().contains("15 minutes"))
+        }
+    }
+
     private fun json(text: String) = Json.parseToJsonElement(text)
 
     @Test

@@ -45,7 +45,7 @@ class RpcClient(server: String, private val transport: RpcTransport, headers: Ma
                 401 -> ServerErrorKind.Unauthorized
                 403 -> ServerErrorKind.Forbidden
                 else -> ServerErrorKind.Server
-            }, message?.let { safeMessage(it, name, args) } ?: "The server could not complete this request. Try again.")
+            }, message?.let { safeMessage(it, name, args, status) } ?: "The server could not complete this request. Try again.")
         }
         return parsed["result"] ?: JsonNull
     }
@@ -71,7 +71,9 @@ class RpcClient(server: String, private val transport: RpcTransport, headers: Ma
         throw RpcConnectionException()
     }
 
-    private fun safeMessage(message: String, name: String, args: JsonObject): String {
+    private fun safeMessage(message: String, name: String, args: JsonObject, status: Int): String {
+        if (name == "account-sign-in" && status == 429)
+            return "Too many sign-in attempts. Wait 15 minutes before trying again."
         if (name in setOf("account-sign-in", "account-google-sign-in"))
             return "Pully could not sign in. Check your account or choose another, then try again."
         if (hasCredential(args)) return "The server could not complete this request. Try again."

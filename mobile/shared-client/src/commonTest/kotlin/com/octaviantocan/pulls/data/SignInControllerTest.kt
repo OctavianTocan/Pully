@@ -11,7 +11,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,6 +22,33 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SignInControllerTest {
+    @Test
+    fun passwordLockoutKeepsTheVisibleWaitRecoveryWithoutReflectedCredentials() = runTest {
+        val password = "correct\\quoted\"password\nvalue"
+        var locked = true
+        val accepted = mutableListOf<Pair<String, String>>()
+        val repo = Repo({ RepoConfiguration("https://server.example") }, RpcTransport { request ->
+            if (locked) RpcResponse(429, buildJsonObject {
+                // The real account handler rejects a correct password during its 15-minute lockout.
+                // Deliberately append serialized input to prove the recovery never echoes it.
+                put("error", "Too many wrong passwords. Wait 15 minutes. ${Json.parseToJsonElement(request.body).jsonObject["args"]}")
+            }.toString())
+            else RpcResponse(200, """{"result":{"session":"fixture-session","email":"test@example.com"}}""")
+        })
+        val controller = SignInController(repo, repo.source(), { true }) { session, email -> accepted += session to email }
+        val error = assertFailsWith<ServerError> { controller.password("test@example.com", password) }
+        assertEquals(429, error.status)
+        assertEquals(ServerErrorKind.Server, error.kind)
+        // SignInPage presents ServerError.message directly and leaves the failed attempt uncommitted.
+        assertEquals("Too many sign-in attempts. Wait 15 minutes before trying again.", error.message)
+        assertFalse(error.message.orEmpty().contains("password"))
+        assertFalse(error.message.orEmpty().contains("test@example.com"))
+        assertTrue(accepted.isEmpty())
+        locked = false
+        controller.password("test@example.com", password)
+        assertEquals(listOf("fixture-session" to "test@example.com"), accepted)
+    }
+
     @Test
     fun passwordUsesTheExistingRpcAndCanCommitAnIdentityChange() = runTest {
         val h = Harness()
