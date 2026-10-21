@@ -14,3 +14,21 @@ revision, provider and record format/key version. An unknown key, modified recor
 record copied between accounts/revisions MUST fail without returning credentials.
 No token, key or plaintext payload MAY appear in Debug output, status, logs or errors.
 Source: Tavi's 21 Oct 2026 encrypted per-user credential-vault and identity plan.
+
+@cc [owner:OctavianTocan,label:security] personal-oauth-fixed-client-and-bounded-exchange
+Authorization and token exchange MUST use the operator-configured Pully OAuth App,
+fixed GitHub.com endpoints, a fixed HTTPS callback, random state and S256 PKCE.
+Native input MUST NOT replace the app credentials, callback, provider or token URL.
+Exchange MUST refuse redirects and bound its time, response and credential sizes;
+provider error text MUST NOT escape. Every acquired access token MUST be verified
+against GitHub's authenticated user before use. Source: Tavi's 21 Oct 2026 personal
+GitHub authentication plan and GitHub's current OAuth App authorization docs.
+
+@cc [owner:OctavianTocan,label:security;product] personal-app-authority-is-not-inherited-scope
+Public-read sign-in MUST retain public-read application authority even if GitHub
+returns previously granted broader scopes. Private repository authority MUST require
+an explicit upgrade and its actual repo grant. Expiring access/refresh responses
+MUST retain both expirations and rotate the pair; reduced grants MUST NOT preserve
+broader application authority. Scope MUST NOT bypass organization approval or SSO.
+Source: Tavi's 21 Oct 2026 public-first and explicit private-access decision and the
+current GitHub OAuth App scope and refresh documentation.

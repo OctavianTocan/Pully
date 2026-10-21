@@ -1,5 +1,6 @@
 //! Personal GitHub authorization primitives. No listener or legacy RPC exposes this module.
 mod crypto;
+mod provider;
 
 pub(crate) use crypto::{VaultContext, VaultEnvelope, VaultKeys};
 
