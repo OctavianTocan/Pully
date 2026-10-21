@@ -110,17 +110,9 @@ jobs:
             -resultBundlePath ios/build/Keychain.xcresult \
             -parallel-testing-enabled NO test-without-building \
             CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
-      - name: Test shared domain on JVM and iOS; link Compose framework
-        id: shared
-        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
-        working-directory: mobile
-        run: |
-          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
-            :shared-client:jvmTest :shared-client:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
-            :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
-            -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
       - name: Test actual Darwin RPC transport against loopback HTTP
-        if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
+        id: rpc
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         run: |
           mkdir -p ios/build
           pully_fixture_dir=$(mktemp -d "$RUNNER_TEMP/pully-rpc-fixture.XXXXXX")
@@ -137,6 +129,34 @@ jobs:
           cd mobile
           ./gradlew :shared-client:iosSimulatorArm64IntegrationTest \
             -Ppully.rpcFixtureUrl="$(cat "$pully_fixture_dir/url")" \
+            -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
+      - name: Print actual Darwin RPC assertion failures
+        if: ${{ !cancelled() && steps.rpc.outcome == 'failure' }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          failures = 0
+          for report in sorted(Path('mobile/shared-client/build/test-results').rglob('TEST-*.xml')):
+              for case in ET.parse(report).getroot().iter('testcase'):
+                  for failure in list(case.findall('failure')) + list(case.findall('error')):
+                      failures += 1
+                      print('::group::' + case.get('classname', '') + '.' + case.get('name', ''))
+                      print(failure.get('message', ''))
+                      print(failure.text or '')
+                      print('::endgroup::')
+          if failures == 0:
+              raise SystemExit('Darwin RPC task failed without an XML assertion report; inspect its Gradle output.')
+          PY
+      - name: Test shared domain on JVM and iOS; link Compose framework
+        id: shared
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        working-directory: mobile
+        run: |
+          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
+            :shared-client:jvmTest :shared-client:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
+            :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
             -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
       - name: Build and test the unsigned iOS host
         id: host
