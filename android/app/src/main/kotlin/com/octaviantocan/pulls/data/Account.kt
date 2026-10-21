@@ -101,26 +101,33 @@ object Account {
     }
 
     fun signedIn(context: Context, session: String, email: String) {
+        com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         this.session = session
         this.email = email
         server = ServerStore.load(context).url.trim()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("session", session).putString("email", email).putString("server", server).apply()
+        com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
 
     /** Forgets the session, as Sign out does and as a session the server no longer knows does. */
     fun signedOut(context: Context) {
+        com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         session = null
         email = null
         server = null
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("session").remove("email").remove("server").apply()
+        com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
 
     fun noteServer(context: Context, status: AccountStatus) {
+        val ownershipChanged = serverHasAccount != null && serverHasAccount != status.hasAccount
+        if (ownershipChanged) com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         serverHasAccount = status.hasAccount
         googleClientId = status.googleClientId
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("hasAccount", status.hasAccount).putString("googleClientId", status.googleClientId).apply()
+        if (ownershipChanged) com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
 }
 

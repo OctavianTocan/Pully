@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.54.0
+
+Alerts for the checks and AI work you follow.
+
+- On a pull request, choose Notify when checks fail to hear about new failures. Stop following from the same place.
+![Illustration of check subscriptions and AI result alerts on this device](changelog/0.54.0/device-alerts-illustration.png)
+- Turn on AI results in Settings to hear when work you start on this device finishes or fails, with a link back to its result.
+- Choose Checks and AI results in Settings. Android permission applies, and background checks can take 15 minutes or longer.
+
 ## 0.53.1
 
 Whole pull request details, safer updates.

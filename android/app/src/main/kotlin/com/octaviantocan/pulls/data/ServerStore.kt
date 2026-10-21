@@ -42,6 +42,10 @@ object ServerStore {
     }
 
     fun save(context: Context, config: ServerConfig) {
+        val previous = load(context)
+        val sourceChanged = previous.url.trim().trimEnd('/') != config.url.trim().trimEnd('/') ||
+            previous.accessId != config.accessId.trim() || previous.accessSecret != config.accessSecret.trim()
+        if (sourceChanged) com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("url", config.url.trim())
             .putString("accessId", config.accessId.trim())
@@ -49,5 +53,6 @@ object ServerStore {
             .putString("engine", config.engine.trim().ifBlank { "claude-code" })
             .putString("model", config.model.trim())
             .apply()
+        if (sourceChanged) com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
 }

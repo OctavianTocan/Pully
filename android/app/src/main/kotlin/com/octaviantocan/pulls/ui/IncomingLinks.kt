@@ -1,6 +1,9 @@
 package com.octaviantocan.pulls.ui
 
 import android.content.Intent
+import android.content.Context
+import com.octaviantocan.pulls.notifications.AiResults
+import com.octaviantocan.pulls.notifications.CheckNotifications
 import com.octaviantocan.pulls.core.LinkPlace
 import com.octaviantocan.pulls.core.OpenTarget
 import androidx.compose.runtime.getValue
@@ -16,7 +19,7 @@ object IncomingLinks {
     var pending by mutableStateOf<Arrival?>(null)
         private set
 
-    class Arrival(val text: String)
+    class Arrival(val text: String, val aiResult: String? = null)
 
     /**
      * The last link to the pull request already on screen. Nothing opens over it, so that page reads the pull request
@@ -26,14 +29,14 @@ object IncomingLinks {
         private set
 
     /** [place]: the thing on the pull request the link pointed at, which the page goes to (`LinkPlaces`). */
-    class Reopen(val target: OpenTarget, val place: LinkPlace? = null)
+    class Reopen(val target: OpenTarget, val place: LinkPlace? = null, val aiResult: String? = null)
 
-    fun reopen(target: OpenTarget, place: LinkPlace? = null) {
-        reopened = Reopen(target, place)
+    fun reopen(target: OpenTarget, place: LinkPlace? = null, aiResult: String? = null) {
+        reopened = Reopen(target, place, aiResult)
     }
 
-    fun receive(intent: Intent?) {
-        pending = read(intent)?.let(::Arrival)
+    fun receive(intent: Intent?, context: Context? = null) {
+        pending = read(intent, context)?.let { Arrival(it, result(intent, context)) }
     }
 
     /** A link tapped inside Pully that Pully opens: it goes the way a link from another app does. */
@@ -46,8 +49,10 @@ object IncomingLinks {
     }
 
     /** The link or text another app handed over, or `null` for a launch that carries none (the launcher, a notification). */
-    fun read(intent: Intent?): String? {
+    fun read(intent: Intent?, context: Context? = null): String? {
         if (intent == null) return null
+        if (AiResults.isNotification(intent)) return context?.let { AiResults.destination(it, intent)?.url }
+        if (CheckNotifications.isNotification(intent)) return context?.let { CheckNotifications.destination(it, intent) }
         val text = when (intent.action) {
             Intent.ACTION_SEND -> intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
             Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
@@ -56,6 +61,9 @@ object IncomingLinks {
         }
         return text?.takeIf { it.isNotBlank() }
     }
+
+    fun result(intent: Intent?, context: Context?): String? =
+        if (intent != null && context != null) AiResults.destination(context, intent)?.kind else null
 }
 
 /**

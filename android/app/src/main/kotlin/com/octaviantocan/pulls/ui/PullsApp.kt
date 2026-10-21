@@ -72,7 +72,7 @@ internal sealed interface Screen {
      * [tour] opens the pull request on its tour instead of its overview; [from] is where it was opened, for `pr.open`;
      * [place] is the thing on it a link pointed at, which the page goes to once it is there.
      */
-    data class Review(val target: OpenTarget, val tour: Boolean = false, val from: String = "other", val place: PlaceRequest? = null) : Screen
+    data class Review(val target: OpenTarget, val tour: Boolean = false, val from: String = "other", val place: PlaceRequest? = null, val aiResult: String? = null) : Screen
     data object Settings : Screen
     data object UiBook : Screen
 }
@@ -81,10 +81,10 @@ internal sealed interface Screen {
 private data class Layer(val screen: Screen, val depth: Int)
 
 @Composable
-fun PullsApp(initialTarget: String?) {
+fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     val context = LocalContext.current
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
-    val stack = remember { mutableStateListOf<Screen>(Screen.Home).apply { initialTarget?.let(::linkScreen)?.let(::add) } }
+    val stack = remember { mutableStateListOf<Screen>(Screen.Home).apply { initialTarget?.let { linkScreen(it, initialAIResult) }?.let(::add) } }
     // The server is asked for a newer build on start and whenever the app comes back to the front, and an update
     // waiting on "Install unknown apps" carries on once that is allowed.
     val scope = rememberCoroutineScope()
@@ -92,6 +92,7 @@ fun PullsApp(initialTarget: String?) {
         Updates.restore(context)
         Updates.resume(context)
         scope.launch { Updates.check(context) }
+        com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
     // Whether the server has an account and this phone's session still works, on start and on every return.
     remember { com.octaviantocan.pulls.data.Account.load(context) }
@@ -99,7 +100,10 @@ fun PullsApp(initialTarget: String?) {
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { com.octaviantocan.pulls.data.AiWork.background() }
     val appLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(com.octaviantocan.pulls.data.Account.email, com.octaviantocan.pulls.data.Account.mustSignIn) {
-        if (com.octaviantocan.pulls.data.Account.mustSignIn) com.octaviantocan.pulls.data.AiWork.clear(context)
+        if (com.octaviantocan.pulls.data.Account.mustSignIn) {
+            com.octaviantocan.pulls.data.AiWork.clear(context)
+            com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
+        }
         else if (appLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) com.octaviantocan.pulls.data.AiWork.foreground(context)
     }
     AccountCheck()
@@ -150,7 +154,7 @@ fun PullsApp(initialTarget: String?) {
     LaunchedEffect(arrival) {
         if (arrival == null) return@LaunchedEffect
         IncomingLinks.consume(arrival)
-        val screen = linkScreen(arrival.text)
+        val screen = linkScreen(arrival.text, arrival.aiResult)
         // Any sheet open (Settings, Profile, a pull request's ⋯) slides down first, so the new page never opens under
         // it and nothing is left open behind it to find on the way back (O1, O4).
         if (screen != null) com.octaviantocan.pulls.ui.design.Sheets.closeAll()
@@ -159,7 +163,7 @@ fun PullsApp(initialTarget: String?) {
         when {
             screen == null -> toaster.show(CANT_OPEN, cue = Cue.Error)
             screen == top || screen is Screen.Review && top is Screen.Review && screen.target.serverTarget == top.target.serverTarget ->
-                (top as? Screen.Review)?.let { IncomingLinks.reopen(it.target, (screen as? Screen.Review)?.place?.place) }
+                (top as? Screen.Review)?.let { IncomingLinks.reopen(it.target, (screen as? Screen.Review)?.place?.place, (screen as? Screen.Review)?.aiResult) }
             else -> stack.add(screen)
         }
     }
@@ -219,7 +223,7 @@ fun PullsApp(initialTarget: String?) {
                 when (val current = layer.screen) {
                     Screen.Home -> HomeScreen(nav, homeUi)
                     is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, startOnTours = current.tours)
-                    is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place)
+                    is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place, initialAIResult = current.aiResult)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}
                 }
@@ -260,8 +264,8 @@ private const val CANT_OPEN = "Pully can't open that link"
  * The page a link from another app opens: a pull request, commit or compare opens its review, a repository its page.
  * `null` for anything else, an issue or a file included.
  */
-private fun linkScreen(text: String): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parseShared(text)) {
-    is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link", place = link.place?.let(::PlaceRequest))
+private fun linkScreen(text: String, aiResult: String? = null): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parseShared(text)) {
+    is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link", place = link.place?.let(::PlaceRequest), aiResult = aiResult)
     is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
     null -> null
 }

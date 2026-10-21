@@ -293,6 +293,8 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, data: PrOverviewData
         }
     }
 
+    com.octaviantocan.pulls.notifications.ChecksWatchRow(session.pull, canFollow = head.isOpen)
+
     // One row: the review setup shows its model before General or a skill starts work. Alone in its card it needs no
     // icon column, like the rows above it.
     if (session.key != null && cliEngine(context)) SheetCard {

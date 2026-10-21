@@ -1852,5 +1852,14 @@
       "review"
     ],
     "text": "Each layer in the Stack sheet has its place in the stack in the leading column by the line (\"2/3\", counted from the bottom like the rows' stack mark), then its title over the Inbox rows' meta line: its number, its author, Merged or Closed when it is, its checks and its + and −. The sheet reads the same from a stack row and from a pull request's page.\n\nCheck: tap a stack row in the Inbox: every layer shows its place on the left and \"#number author\" under its title, the checks and + and − on the right."
+  },
+  {
+    "n": 204,
+    "title": "Choose alerts for work you follow on this device.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A pull request's actions offer Notify when checks fail, then Stop check notifications\nwhile followed. Enabling asks for Android permission in that context. Settings has a\nNotifications page for Check failures and AI results, with each switch reflecting both\nthe local choice and Android's channel permission. Its consent introduction says checks\nrequire following a PR, AI results concern work started here, and background checks can\ntake 15 minutes or longer. Existing update notifications remain separate. Notification\ntaps open the indicated checks, tour or findings; ordinary completion does not start a\nnew AI run. These are device subscriptions, not a shared GitHub viewer's personal inbox.\n\nCheck: permission denial leaves the app usable; a followed PR can be unfollowed, Android\nchannel changes are reflected on return, and a cold or warm alert tap reaches its source\nand result. No additional startup permission prompt appears."
   }
 ]

@@ -104,7 +104,7 @@ private val TOUR_SUGGESTIONS = listOf("Why was this change made?", "What should 
  * asks for a [Focus], and this opens the diff on it.
  */
 @Composable
-fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other", place: com.octaviantocan.pulls.ui.PlaceRequest? = null) {
+fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, openedFrom: String = "other", place: com.octaviantocan.pulls.ui.PlaceRequest? = null, initialAIResult: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
@@ -266,10 +266,19 @@ fun ReviewScreen(target: OpenTarget, nav: Nav, startOnTour: Boolean = false, ope
     val github = com.octaviantocan.pulls.ui.rememberOpenOnGithub()
     val reopened = com.octaviantocan.pulls.ui.IncomingLinks.reopened
     val seenReopen = remember(session) { reopened }
+    fun openResult(kind: String) {
+        when (kind) {
+            "tour" -> switchTo(PrView.Tour)
+            "critique" -> { toOverview(); sheet = "findings" }
+            "analyze", "brief" -> { toOverview(); pane = 0; scope.launch { overviewScroll.animateScrollToItem(0) } }
+        }
+    }
+    LaunchedEffect(session, initialAIResult) { initialAIResult?.let(::openResult) }
     var going by remember(session) { mutableStateOf(place?.takeIf { !it.done }) }
     LaunchedEffect(reopened) {
         val link = reopened?.takeIf { it !== seenReopen && it.target.serverTarget == session.target.serverTarget } ?: return@LaunchedEffect
         link.place?.let { going = com.octaviantocan.pulls.ui.PlaceRequest(it) }
+        link.aiResult?.let(::openResult)
     }
     LaunchedEffect(going) {
         val request = going ?: return@LaunchedEffect

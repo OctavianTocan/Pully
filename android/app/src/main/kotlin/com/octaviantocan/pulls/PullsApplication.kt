@@ -15,5 +15,6 @@ class PullsApplication : Application() {
         Sounds.install(this, AppSettings.get(this))
         Haptics.install(this, AppSettings.get(this))
         UpdateChecks.sync(this)
+        com.octaviantocan.pulls.notifications.DeviceNotifications.sync(this)
     }
 }

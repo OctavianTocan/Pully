@@ -2078,6 +2078,25 @@ Check: tap a stack row in the Inbox: every layer shows its place on the left and
 
 Source: answers. Checked by: review.
 
+### Rule 204, from Tavi's notification request of 2026-10-21
+
+#### 204. Choose alerts for work you follow on this device.
+
+A pull request's actions offer Notify when checks fail, then Stop check notifications
+while followed. Enabling asks for Android permission in that context. Settings has a
+Notifications page for Check failures and AI results, with each switch reflecting both
+the local choice and Android's channel permission. Its consent introduction says checks
+require following a PR, AI results concern work started here, and background checks can
+take 15 minutes or longer. Existing update notifications remain separate. Notification
+taps open the indicated checks, tour or findings; ordinary completion does not start a
+new AI run. These are device subscriptions, not a shared GitHub viewer's personal inbox.
+
+Check: permission denial leaves the app usable; a followed PR can be unfollowed, Android
+channel changes are reflected on return, and a cold or warm alert tap reaches its source
+and result. No additional startup permission prompt appears.
+
+Source: answers. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:

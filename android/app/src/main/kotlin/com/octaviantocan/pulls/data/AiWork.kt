@@ -43,10 +43,13 @@ object AiWork {
     private val state = WorkNoticeState<Pair<String, Map<String, String>>>()
     private var lastSource: WorkNoticeState.Source<Pair<String, Map<String, String>>>? = null
     /** Opaque request identity; it never prints server credentials. */
-    class Source internal constructor(internal val token: WorkNoticeState.Source<Pair<String, Map<String, String>>>)
+    class Source internal constructor(
+        internal val token: WorkNoticeState.Source<Pair<String, Map<String, String>>>,
+        internal val resultSource: com.octaviantocan.pulls.notifications.AiResults.Source?,
+    )
 
     /** Capture before making the server request, never after a possibly late response. */
-    fun source(): Source? = context?.let { Source(capture(it)) }
+    fun source(): Source? = context?.let { Source(capture(it), com.octaviantocan.pulls.notifications.AiResults.source(it)) }
 
     /** Rechecks permission, account and server on each return, and discovers jobs started elsewhere. */
     fun foreground(context: Context) {
@@ -66,6 +69,7 @@ object AiWork {
         if (!task.running || !isNotifiedWork(task.kind)) return
         val context = context ?: return
         if (!state.activity(task.asWork(), source?.token, identity(context))) return
+        com.octaviantocan.pulls.notifications.AiResults.started(context, task, source?.resultSource)
         // Fetch the server's own timestamp; the page's accepted-start timestamp is optimistic.
         restart()
     }
@@ -74,6 +78,7 @@ object AiWork {
     fun updated(task: TaskState, source: Source?) {
         val context = context ?: return
         if (!state.activity(task.asWork(), source?.token, identity(context))) return
+        com.octaviantocan.pulls.notifications.AiResults.observed(context, listOf(task), source?.resultSource, silent = foreground)
         // Only complete global snapshots renew freshness. Another page's streaming task cannot
         // accidentally keep an unreachable task's stale notification alive.
         if (!task.running || follower?.isActive != true) restart()
@@ -100,12 +105,16 @@ object AiWork {
                     if (Account.mustSignIn || !allowed(context)) break
                     if (!foreground && SystemClock.elapsedRealtime() - backgroundAt >= BACKGROUND_MS) break
                     val requestSource = capture(context)
+                    val resultSource = com.octaviantocan.pulls.notifications.AiResults.source(context)
                     try {
                         val tasks = withTimeoutOrNull(15_000) { repo.allTasks() }
                         // A late reply from an account/server that was replaced must not become a notice.
                         if (Account.mustSignIn) continue
                         if (tasks != null) {
-                            if (state.replace(tasks.map { it.asWork() }, requestSource, identity(context), System.currentTimeMillis())) post(context)
+                            if (state.replace(tasks.map { it.asWork() }, requestSource, identity(context), System.currentTimeMillis())) {
+                                com.octaviantocan.pulls.notifications.AiResults.observed(context, tasks, resultSource, silent = foreground)
+                                post(context)
+                            }
                         }
                     } catch (error: CancellationException) {
                         throw error
