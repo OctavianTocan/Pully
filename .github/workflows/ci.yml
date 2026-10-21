@@ -10,6 +10,26 @@ on:
       - main
 
 jobs:
+  android-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Release and deployment regression tests
+        run: node --test android/scripts/release.test.mjs android/scripts/publish.test.mjs scripts/pulls-review-update.test.mjs
+      - name: Android release prerequisites
+        env:
+          RELEASE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node android/scripts/check-release.mjs --base "$RELEASE_BASE"
+
   lint:
     runs-on: ubuntu-latest
     steps:

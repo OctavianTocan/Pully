@@ -27,6 +27,7 @@ Clearer AI choices, faithful pull request states, calmer sheets.
 - Switch every repository on or off at once, open a PR number in the browser, and spot reviewed files by their struck-through names. Searching update puts Update Pully first.
 - Focusing a text field lifts its sheet smoothly with the keyboard.
 - When notifications are allowed, ongoing analysis and tour work can show a quiet notification with elapsed time.
+- Updates reach your phone again, including the latest repository and AI review fixes.
 
 ## 0.52.0
 

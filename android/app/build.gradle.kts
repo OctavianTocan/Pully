@@ -15,7 +15,7 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 67
+        versionCode = 68
         versionName = "0.53.0"
     }
     signingConfigs {
