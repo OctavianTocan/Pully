@@ -158,6 +158,47 @@ by newer discovery. Supersession alone MUST NOT display an Unreachable error; an
 failure MUST keep that attempt's recovery category rather than a later global category.
 Source: Tavi's 21 Oct 2026 first-run request and review of concurrent Save/discovery.
 
+@cc [owner:OctavianTocan,label:product;security] ai-connections-keep-three-real-provider-kinds
+The shared AI connections pages MUST offer Claude subscription, ChatGPT subscription
+and Pi endpoint as distinct kinds. Their state, origin, preferred model, approval
+requirement and capabilities MUST come from the current source's real
+service/deployment policy. An unverified Pi endpoint MUST remain visibly unverified;
+unsupported or approval-pending subscription paths MUST NOT offer an invented login.
+A Pully account identifier MUST NOT be displayed as a provider email. Provider
+capabilities MUST NOT grant legacy private-review or paid-job authority. Configuring
+or using AI MUST NOT require GitHub login; anonymous/local eligibility and a labelled
+shared default MUST use actual server capabilities without implicit credential or
+paid-job fallback. Source: Tavi's approved 22 Oct 2026 multiuser/provider plan,
+three-provider decision and subsequent public AI clarification.
+
+@cc [owner:OctavianTocan,label:security;product] ai-connection-requests-keep-the-drawn-personal-owner
+Connection reads and controls MUST use a required source read gate without
+constructing a legacy private graph. New or queued writes MUST recheck their mounted
+control, current verified source and exact drawn connection ID/revision. An accepted
+same-source receipt MAY settle after ordinary dismissal or foreground pause; source
+retirement MUST synchronously clear status, errors and private input and prevent late
+publication. A stale read MUST NOT replace a mutation receipt or a newer source.
+Source: Tavi's accepted 22 Oct 2026 source-isolated provider UI and native lifecycle plan.
+
+@cc [owner:OctavianTocan,label:security;product] pi-connection-credentials-are-write-only-input
+Pi setup MUST keep, replace or clear the endpoint key explicitly. A changed endpoint
+MUST require replace or clear rather than forwarding the existing key. Read status
+MUST expose only an endpoint origin and hasCredential, never credential readback.
+The form MUST NOT reconstruct a full endpoint from that origin. Submitted keys and
+disposed-page keys MUST be cleared from input, MUST NOT enter saved route state or
+preferences, and MUST NOT appear in errors or request string representations. Only
+typed client-owned error explanations MAY reach the page. A nonempty valid preferred
+model identifier MUST be forwarded unchanged; only an empty string MAY clear it.
+Source: the actual Pi model/setup contract and Tavi's approved
+22 Oct 2026 encrypted per-user Pi connection and credential-isolation plan.
+
+@cc [owner:OctavianTocan,label:product;design] ai-connections-use-shared-locales-and-unknown-skeletons
+AI connection kind, status, form, action and recovery copy MUST use the shared
+canonical web-locale lookup. Unknown connection content MUST use the existing row
+skeletons, while a refresh MUST retain known current status and private drafts.
+Source: strings-from-web-locales, android-no-loading-screens, android-refresh-is-silent
+and Tavi's 21 Oct 2026 same-app iOS decision.
+
 @cc [owner:OctavianTocan,label:security;product] settings-theme-choice-rechecks-its-entry-owner
 A host-owned theme picker MUST reject a retired entry's retained choice, including
 retirement while its theme wipe is queued. It MUST NOT change replacement preferences
