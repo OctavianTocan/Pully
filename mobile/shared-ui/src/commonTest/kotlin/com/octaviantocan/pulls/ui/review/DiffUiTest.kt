@@ -222,7 +222,7 @@ class DiffUiTest {
     }
 }
 
-internal class DiffHarness(scope: CoroutineScope) {
+internal class DiffHarness(scope: CoroutineScope, preferences: SettingsPreferences = DiffPreferences) {
     var engine = "claude-code"
     var model = ""
     var generation = 0L
@@ -244,7 +244,7 @@ internal class DiffHarness(scope: CoroutineScope) {
     )
     val page = ReviewSession(
         OpenTarget.Pull("owner", "repo", 1, "github.com"), repo, scope,
-        AppSettings(DiffPreferences, object : SettingsEffects {
+        AppSettings(preferences, object : SettingsEffects {
             override fun touched(name: String) {}
             override fun settingsChanged(key: String, value: String) {}
             override fun usageStatsEnabled(enabled: Boolean) {}

@@ -1,6 +1,6 @@
 package com.octaviantocan.pulls.ui.settings
 
-import kotlin.math.roundToLong
+import kotlin.math.floor
 
 /** How the Stats page writes its numbers. */
 object StatsFormat {
@@ -51,4 +51,8 @@ object StatsFormat {
 internal expect fun statsCount(value: Long, locale: String): String
 internal expect fun statsDecimal(value: Double, decimals: Int, grouping: Boolean): String
 internal expect fun statsDay(value: String, locale: String): String
-private fun statsRound(value: Double): Long = if (value.isNaN()) 0L else value.roundToLong()
+private fun statsRound(value: Double): Long {
+    if (value.isNaN()) return 0L
+    val integral = floor(value)
+    return integral.toLong() + if (value - integral >= 0.5) 1L else 0L
+}

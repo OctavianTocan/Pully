@@ -35,7 +35,8 @@ import kotlin.test.assertTrue
 class AiSetupOwnershipTest {
     @Test
     fun retainedButtonsUseLatestPolicyAndCannotReviveAfterHeadAbaOrDisposal() = runTest {
-        val h = DiffHarness(backgroundScope)
+        val preferences = MemorySettingsPreferences()
+        val h = DiffHarness(backgroundScope, preferences)
         val kinds = mutableListOf<String>()
         h.handler = { name, args -> when (name) {
             "ai-task-start" -> { kinds += args.getValue("kind").jsonPrimitive.content; JsonPrimitive("task-${kinds.size}") }
@@ -77,6 +78,7 @@ class AiSetupOwnershipTest {
             assertFalse(original.update()); runCurrent(); assertTrue(kinds.isEmpty())
             policy = AiCapabilities.Full; frame()
             assertEquals(AnalysisStart.Started, original.analyze(quick))
+            assertEquals(quick, AnalyzeChoice.decode(preferences.getString("analyzeChoice", null)))
             runCurrent(); assertEquals(listOf("analyze"), kinds)
             h.head = "head-b"; h.page.refresh(); runCurrent(); frame()
             h.head = "head-a"; h.page.refresh(); runCurrent(); frame()
