@@ -312,3 +312,107 @@ shared Home observation and private-state boundaries.
 Press-to-warm MUST apply that same current-owner and renderer gate before the
 application cache captures a client source; an old row MUST NOT preload through
 replacement credentials. Source: the independent 21 Oct 2026 PR80 source review.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-native-reader-effects-belong-to-the-current-source
+Native clipboard, browser and lifecycle callbacks retained by a private reader MUST
+reject its retired account/server/Access owner. Native recognition MUST remain one
+root observer; source cancellation MAY clear a gesture but MUST NOT commit work for
+replacement credentials. Source: Tavi's accepted 21 Oct 2026 source-isolated iOS
+root and maximum-reuse native-services plan.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-relative-dates-use-the-app-language
+The shared relative-date formatter MUST keep the existing relativeTime unit and
+rounding policy and format its result in the app's selected language through native
+locale services. Android MUST retain its original ICU behavior; iOS MUST support
+named relative dates without a separate maintained translation table. Source: Tavi's
+21 Oct 2026 maximum-reuse iOS plan and the existing locale source-of-truth policy.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-home-settings-does-not-imply-ui-book-readiness
+The Home host MUST advertise Settings and UI Book route readiness independently.
+Installing the actual Settings sheet MUST NOT enable a missing UI Book renderer;
+Android MUST retain its existing complete UI Book route. Source: Tavi's accepted
+21 Oct 2026 per-renderer readiness and maximum-reuse iOS implementation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] home-observation-is-a-revocable-read-lifetime
+Native backgrounding, source retirement and pending account verification MUST stop
+Home task/list/saved-result observations without a composition frame or a remote
+task cancellation. Resuming MUST restart reads for the current verified source;
+an earlier or cancellation-resistant result MUST NOT publish after a pause/resume
+cycle. Accepted writes MUST remain outside this disposable read lifetime. Source:
+Tavi's accepted 21 Oct 2026 foreground/resume iOS plan and shared Home source policy.
+When verification reopens that authority, the current mounted list/filter, task poll
+and saved-result observers MUST restart without another native event or a user
+refresh. An interrupted old selection MUST NOT replace the latest drawn selection.
+Source: the independent 21 Oct 2026 native verification/read-restart review.
+A repository's resumed first-page answer MUST restart an active search's remaining
+page drain, including when the old search had already consumed every page. Source:
+the independent 21 Oct 2026 repository resume/search review and current-filter rule.
+A cancelled read's late network failure MUST NOT publish a new list/profile error,
+become an ordinary unsuccessful refresh, or start its fallback request. Source:
+the independent 21 Oct 2026 read-cancellation publication review.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-inbox-ask-is-the-original-journey
+Both hosts MUST use the original Inbox Ask transcript, known pull references, streaming
+answer, merged work log, copy, redo, suggestions, stop and new-chat workflow through
+the actual inbox/task RPCs. A busy existing server answer MUST keep a new question as
+an unsent draft; a failed start MUST retain the current saved answer and unsent words.
+Send MUST NOT erase words restored by an immediately rejected or reused-task reply,
+and a newer draft entered during that request MUST remain intact.
+Source: home-search-or-ask, DESIGN.md rule 99 and Tavi's accepted 21 Oct 2026
+maximum-reuse iOS plan, applied to the original Android InboxAsk implementation.
+
+@cc [owner:OctavianTocan,label:security;product] shared-inbox-ask-keeps-source-and-drawn-controls
+One Inbox Ask controller MUST belong to one captured Repo source. Its root MUST
+synchronously erase draft, transcript, pending question, task and error references
+before replacement credentials publish. A disposed, revoked or replaced conversation's
+typing, question, redo, stop, clear, copy, link and dismissal callbacks MUST become
+inert. Root and latest drawn host readiness MUST precede paid/control RPCs. Ordinary
+sheet dismissal MUST retain the same source's conversation and draft. Source: the
+accepted 21 Oct 2026 private-source ownership and complete Inbox Ask iOS plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-inbox-observation-does-not-invent-an-outcome
+Background or sheet-disposal pauses MUST cancel only read/list/poll observation,
+never an accepted start or clear write. After a paused write's receipt, fresh
+conversation/list/poll reads MUST wait for an eligible observer; a reused task's
+unsent question MUST reconcile then without replacing a newer draft. Connection
+loss, unknown/mismatched task snapshots and missing observations MUST NOT invent
+remote failure, completion or cancellation. They MUST preserve the accepted task, offer observation retry, and
+resume from matching non-regressing authoritative task or saved-conversation data.
+Old source or operation replies MUST NOT populate the replacement. Source: the
+accepted 21 Oct 2026 Inbox Ask pause/resume and authoritative-task iOS plan.
+
+@cc [owner:OctavianTocan,label:security;product] shared-inbox-verification-and-native-foreground-are-independent
+The source verification gate MUST pause Inbox reads synchronously without rewriting
+the actual native lifecycle. Resumed sheet observation and retained sheet controls
+MUST require both a ready gate and an actually foreground mounted reader. Accepted
+server writes MUST keep their separate source lifetime. Source: the accepted
+21 Oct 2026 verified-source and Inbox pause/resume iOS plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-inbox-stop-keeps-a-rejected-task-running
+An explicit Inbox Ask Stop MUST require a successful server cancellation receipt;
+rejection MUST retain the authoritative running task and expose its error for retry.
+A visible eligible reader MUST receive the existing Error feedback. An accepted
+same-source rejection MUST remain readable after ordinary dismissal or pause without
+replaying feedback on resume; a retired source or replacement operation MUST NOT
+receive it. A queued Stop MUST recheck its drawn control before dispatch. Cleanup
+cancellation MUST retain its existing best-effort behavior. Source: Tavi's accepted
+22 Oct 2026 complete native AI Stop/error journey and the real RPC rejection review.
+Only the latest actually dispatched explicit Stop for the still-running Inbox task
+MAY publish a rejection; an unsent queued tap MUST NOT supersede an accepted receipt.
+Source: the accepted 22 Oct 2026 full Stop receipt-ordering review, finding 1.
+
+@cc [owner:OctavianTocan,label:security;product] home-write-dispatch-requires-current-verified-readiness
+Posted deletion and an explicit running-tour Stop MUST check the current source and
+verified foreground readiness before sending a new write, including a retained or
+queued callback. An accepted same-source receipt MUST still settle after an ordinary
+scene pause; a replacement source MUST NOT receive its rows, cues or errors. A failed
+or unstarted Stop MUST NOT announce that the tour stopped. Source: Tavi's accepted
+21 Oct 2026 full native review/AI journey and verified scene lifecycle plan.
+
+@cc [owner:OctavianTocan,label:architecture;security] native-dialog-back-authority-belongs-to-its-host-and-source
+A native Dialog Back bridge MUST use the host's real active-scene/root/presentation
+authority. A source-bound native adapter MUST additionally reject a retired source,
+and a host which provides no authority MUST fail closed. The adapter MUST NOT install
+a second recognizer or infer native foreground from server verification. Source: the
+accepted 22 Oct 2026 actual limitation-sheet Back completion repair, preserving
+shared-inbox-verification-and-native-foreground-are-independent.

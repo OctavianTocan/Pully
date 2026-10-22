@@ -7,6 +7,15 @@ keeps its ✕, and while the trimmed text ends in "?" the ✕ crossfades into th
 which asks it, and back when the "?" goes. Tavi decided this in the recording of 16 Oct
 12:10, 05:03 to 05:47 (no "Ask" button "anywhere"; N8), replacing the Ask in the pill.
 
+@cc [owner:OctavianTocan,label:security;architecture] android-inbox-ask-uses-the-shared-source-lifetime
+Android Home MUST install the same shared Inbox Ask controller with real native,
+clock, analytics and feedback services. Its source observer MUST synchronously close
+the read gate and erase the controller before replacement credentials publish,
+including an identity change between composition and listener registration. Native
+lifecycle replacement MUST retire the old controller without cancelling its new
+scope. Source: Tavi's accepted 21 Oct 2026 maximum-reuse and private-source iOS plan,
+preserving the Android RepoIdentity before-publish and lifecycle replay boundaries.
+
 @cc [owner:OctavianTocan,label:product;motion] home-search-dims-what-is-behind
 While the search waits for its first letter with the keyboard up, the list behind dims to
 half the sheet's scrim and a tap on it puts the keyboard away; the dim starts with the tap

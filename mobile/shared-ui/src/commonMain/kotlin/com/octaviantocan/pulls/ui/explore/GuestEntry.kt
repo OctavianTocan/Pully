@@ -20,11 +20,20 @@ class NativeEntryState(verifiedExistingConnection: Boolean, savedChoice: NativeE
 
     fun select(next: NativeEntryMode) {
         if (mode == next) return
+        retireSource()
+        mode = next
+    }
+
+    /** A personal public account change retires public state without adopting legacy authority. */
+    fun renewExplore() {
+        if (mode == NativeEntryMode.Explore) retireSource()
+    }
+
+    private fun retireSource() {
         generation++
         val retiring = retirements.toList()
         retirements.clear()
         retiring.forEach { it() }
-        mode = next
     }
 
     fun guestSource(): GuestSource? = if (mode == NativeEntryMode.Explore) GuestSource(this, generation) else null

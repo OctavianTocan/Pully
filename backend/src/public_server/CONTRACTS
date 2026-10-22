@@ -1,0 +1,68 @@
+@cc [owner:OctavianTocan,label:security;architecture] public-host-starts-before-legacy-authority
+The executable public mode MUST be opt-in and return before legacy checkout/state,
+account seeding, GitHub CLI/environment credential lookup, agent work, warming and
+private HTTP/RPC initialization. Missing personal configuration MUST expose truthful
+disabled GitHub discovery without opening personal storage. Configured startup MUST
+use only explicit isolated paths, Pully OAuth configuration and private vault-key
+files; partial/invalid configuration MUST fail safely, never select legacy authority.
+Source: Tavi's 21 Oct 2026 public/personal isolation plan and 22 Oct executable-listener
+completion instruction.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-public-read-is-a-typed-capability
+The personal GitHub surface MUST expose only the fixed GET repositories, selected
+repository pulls and own-pulls routes under api/personal/v1/github, its separate
+account family and typed account capabilities. A handler
+MUST resolve the actual current personal bearer through the canonical auth vault;
+caller account/email, cookies, Access credentials and broader inherited OAuth scopes
+MUST NOT select authority. Existing public routes MUST retain publicRead authority
+and reject private data. Account routes MUST require the session's explicit
+privateRepositories capability obtained through actual GitHub repository consent,
+and return its captured account/immutable GitHub identity and repository visibility.
+No arbitrary RPC, URL or method MAY be forwarded. This intentionally extends the
+21 Oct public-first boundary for Tavi's 22 Oct clarification that a signed-in user
+must reach their own accessible private repositories and PRs; it MUST NOT silently
+broaden existing public sessions or route semantics.
+
+@cc [owner:OctavianTocan,label:security] personal-read-sources-and-repositories-stay-current
+Every awaited GitHub read and final publication MUST retain the original canonical
+session/source. PR inventories MUST recheck authorized access and immutable repository
+identity before and after reading titles, including public visibility for publicRead,
+name-reuse and in-flight sign-out
+races. Search selectors MUST come only from verified identity and typed relation;
+search issue IDs MUST be revalidated before publication. Credentials and arbitrary
+upstream bodies/errors MUST NOT appear in answers. Reads MUST have finite body,
+inventory, request, concurrency and whole-route deadlines. Source: Tavi's 21 Oct 2026
+cross-user/cache/source isolation requirements and 22 Oct real-loopback proof scope.
+
+@cc [owner:OctavianTocan,label:security] personal-repository-denials-retire-older-readers
+A confirmed repository access/visibility denial or immutable-ID replacement MUST
+retire older in-flight publications for that captured tenant and read capability.
+An older metadata response MUST NOT restore the retired repository generation, and
+another tenant MUST NOT share that fence. Bounded repository slots MUST accommodate
+a normal twenty-repository inbox page without aliases below capacity. Source: Tavi's
+21 Oct source-isolation decision and confirmed 22 Oct full-review finding 1.
+
+@cc [owner:OctavianTocan,label:security;product] own-pull-relations-use-current-immutable-identity
+Own-pull search MUST fetch the authenticated GitHub user, match its immutable numeric
+ID to the captured session, and use its current validated login. A changed identity
+or login before publication MUST deny that old relation rather than label another
+user's search results with the original subject. Email/login matching MUST NOT
+replace numeric identity. Source: Tavi's 21 Oct per-user GitHub requirement and
+confirmed 22 Oct full-review finding 4 about rename and old-login reassignment.
+
+@cc [owner:OctavianTocan,label:product;architecture] own-pull-draft-comes-from-authoritative-state
+An optional or stale search draft value MUST NOT overwrite fresh issue/PR state.
+When the fresh issue omits draft, the handler MUST obtain it from that pull's fixed
+endpoint and validate its number and immutable base repository before publication.
+Source: Tavi's 21 Oct actual own-PR inventory requirement and confirmed 22 Oct
+full-review finding 2 about indexed draft and optional GitHub search fields.
+
+@cc [owner:OctavianTocan,label:product;security] public-auth-is-not-global-ai-eligibility
+GitHub authentication MUST govern only GitHub/account capabilities, not whether a
+person may configure or use AI. A verified non-GitHub AI/local principal or explicitly
+labelled service-default allowance MUST remain a separate capability with its own
+credential and budget boundaries. Public mode MUST NOT silently adopt private owner
+GitHub credentials, CLI homes or a paid provider after a personal failure. This slice
+MUST NOT claim paid AI execution or provider-subscription connectivity. Source: Tavi's
+22 Oct 2026 clarification that AI does not require GitHub and the approved provider
+connection plan.

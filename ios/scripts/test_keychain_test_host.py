@@ -112,6 +112,24 @@ class KeychainTestHostVerifierTests(unittest.TestCase):
             with self.subTest(length=len(binary)), self.assertRaises(ValueError):
                 VERIFIER.simulator_sections(bytes(binary))
 
+    def test_real_app_profile_has_its_own_exact_identity_without_sharing(self):
+        claims = {"application-identifier": "com.octaviantocan.pully.preview", "get-task-allow": True}
+        self.info.update(CFBundleIdentifier="com.octaviantocan.pully.preview", CFBundleExecutable="Pully")
+        (self.app / "Info.plist").write_bytes(plistlib.dumps(self.info))
+        (self.app / "Pully").write_bytes(image(claims))
+        xml, _ = VERIFIER.verified_sections(self.app, plistlib.dumps({}), "pully-app")
+        self.assertEqual(plistlib.loads(xml), claims)
+        with self.assertRaises(ValueError):
+            self.verify()
+        (self.app / "Pully").write_bytes(image({**claims, "keychain-access-groups": [claims["application-identifier"]]}))
+        with self.assertRaises(ValueError):
+            VERIFIER.verified_sections(self.app, plistlib.dumps({}), "pully-app")
+
+    def test_profile_selection_cannot_accept_an_arbitrary_or_other_host(self):
+        for profile in ["pully-app", "another-host", "../Pully"]:
+            with self.subTest(profile=profile), self.assertRaises(ValueError):
+                VERIFIER.verified_sections(self.app, plistlib.dumps({}), profile)
+
 
 if __name__ == "__main__":
     unittest.main()

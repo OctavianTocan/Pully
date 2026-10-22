@@ -1,0 +1,19 @@
+@cc [owner:OctavianTocan,label:security;product] native-tour-copies-use-the-active-source
+Home and ReviewSession MUST share one tour-copy adapter for the active opaque
+sourceStorageNamespace. The private versioned file layout MUST contain no raw server,
+account, Access credential or pull name in its paths. A source change MUST revoke
+pending writers before deleting that active namespace; a retired handle MUST NOT
+read or restore it. Ordinary scene destruction MUST preserve valid files for verified
+reopening. Source: Tavi's accepted 21 Oct 2026 iOS source ownership, cached-first
+continuity and same-adapter plan.
+
+@cc [owner:OctavianTocan,label:product;architecture] native-tour-files-are-atomic-bounded-and-recoverable
+Native tour copies MUST retain the original TourResult head and generated time,
+write atomically and keep at most the existing 200 newest files across source
+namespaces. Files MUST be limited to four MiB and the retained directory to sixty-four
+MiB. Missing, malformed, empty or oversized copies MUST remain recoverable through
+the real server. Activation MUST reconcile an interrupted write's excess before
+reading; an unchanged generated tour MUST NOT need a rewrite to recover the budget.
+File writes MUST be serialized in submission order and source
+invalidation MUST fence them before any replacement writer. Source: the accepted
+21 Oct 2026 iOS private-cache budget/corruption plan and existing Android TourStore.

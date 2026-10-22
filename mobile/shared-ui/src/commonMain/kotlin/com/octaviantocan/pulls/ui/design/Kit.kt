@@ -637,7 +637,7 @@ fun SheetField(
             if (label != null) Text(label, style = PullsType.sm, color = c.muted)
             // The kit's one field, so its words, placeholder and scrolling edge are every field's (N6, N9).
             FieldText(
-                value, onChange, placeholder, Modifier.fillMaxWidth(),
+                value, onChange, placeholder, Modifier.fillMaxWidth().then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
                 enabled = enabled,
                 singleLine = minLines <= 1,
                 minLines = minLines,
@@ -783,6 +783,7 @@ class ToastMessage(val text: String, val action: String?, val onAction: (() -> U
 class Toaster {
     var message by mutableStateOf<ToastMessage?>(null)
         private set
+    private var acting = false
 
     /** [cue] is the sound of what the message reports: a confirmed save, a refusal. A message that only echoes a tap that already sounded has none. */
     fun show(text: String, action: String? = null, cue: Cue? = null, onAction: (() -> Unit)? = null) {
@@ -792,6 +793,18 @@ class Toaster {
 
     fun clear(message: ToastMessage) {
         if (this.message === message) this.message = null
+    }
+
+    /** Consume only the visible action, keeping its ticket current until the callback finishes. */
+    fun act(message: ToastMessage) {
+        if (this.message !== message || acting) return
+        acting = true
+        try {
+            message.onAction?.invoke()
+        } finally {
+            clear(message)
+            acting = false
+        }
     }
 }
 
@@ -838,7 +851,7 @@ fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
             if (message.action != null) {
                 Text(
                     message.action,
-                    Modifier.cueClickable(role = Role.Button) { toaster.clear(message); message.onAction?.invoke() },
+                    Modifier.cueClickable(role = Role.Button) { toaster.act(message) },
                     style = PullsType.sm.copy(fontWeight = FontWeight.SemiBold),
                     color = Color(0xFF9AD3D6),
                 )

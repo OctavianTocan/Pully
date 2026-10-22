@@ -1,0 +1,4 @@
+import PullyShareSupport
+
+public typealias NativeIncomingLink = PullyShareSupport.NativeIncomingLink
+public typealias NativeIncomingLinks = PullyShareSupport.NativeIncomingLinks

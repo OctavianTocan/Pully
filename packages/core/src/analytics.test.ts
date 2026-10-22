@@ -21,7 +21,13 @@ describe('cleanEvent', () => {
   it('refuses names that are not area.action and unknown apps', () => {
     expect(cleanEvent({ name: 'open', app: 'web', props: {} }, RX)).toBeUndefined()
     expect(cleanEvent({ name: 'PR.Open', app: 'web', props: {} }, RX)).toBeUndefined()
-    expect(cleanEvent({ name: 'pr.open', app: 'ios', props: {} }, RX)).toBeUndefined()
+    expect(cleanEvent({ name: 'pr.open', app: 'unknown', props: {} }, RX)).toBeUndefined()
+  })
+
+  it('accepts the iOS client through the same event and privacy rules', () => {
+    const event = cleanEvent({ name: 'pr.open', app: 'ios', props: { repo: 'acme/app', number: 7, prompt: 'private input', path: 'private/file.kt' } }, RX)
+    expect(event?.app).toBe('ios')
+    expect(event?.props).toEqual({ repo: 'acme/app', number: 7 })
   })
 
   it('drops content keys, arrays and non-finite numbers', () => {

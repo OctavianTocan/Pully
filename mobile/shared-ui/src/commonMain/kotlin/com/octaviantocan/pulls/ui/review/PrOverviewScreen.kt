@@ -60,6 +60,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,7 +78,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -104,7 +108,6 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsRadius
-import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
@@ -147,6 +150,8 @@ fun PrOverviewScreen(
     askDraft: MutableState<String> = remember { mutableStateOf("") },
 ) {
     val services = LocalOverviewServices.current
+    val progress = rememberReviewProgressActions(session)
+    val mutations = rememberReviewMutationActions(session, top, data)
     val c = LocalPullsColors.current
     val focusManager = LocalFocusManager.current
     // While the title or the description is edited the rest of the page steps back, so the field is plainly what the
@@ -236,7 +241,7 @@ fun PrOverviewScreen(
                 when (tab) {
                     0 -> {
                         item(key = "summary") { Box(rows) { SummaryPane(session, top, data, onCite, onSheet) } }
-                        filesItems(session, ui, onDiff, onSheet, rows, services.ai.canReadResults)
+                        filesItems(session, ui, onDiff, onSheet, rows, services.ai.canReadResults, progress)
                     }
                     else -> if (data != null) item(key = "conversation") {
                         Box(rows.padding(top = 14.dp)) {
@@ -269,11 +274,11 @@ fun PrOverviewScreen(
             // The whole title at rest; as it folds it fades into the same title on one line, ending in … if it must
             // ("ellipsis allowed when pinned", N38), and the box loses the lines it no longer shows.
             Box(Modifier.clipToBounds().cut(::titleCut, keepTop = true)) {
-                EditableText(
-                    head.title, canEdit = services.canEditText && overview?.viewer?.canEditText == true && !pinned, textStyle = PullsType.xxl, saved = "Title updated",
-                    onSave = { title -> session.repo.prAction(overview!!.id, "edit", title = title); session.reloadOverview() },
+                key(session, session.captureView()) { EditableText(
+                    head.title, canEdit = services.canEditText && mutations.canEditText && !pinned, textStyle = PullsType.xxl, saved = "Title updated",
+                    onSave = { title -> mutations.edit(title = title) },
                     modifier = Modifier.onSizeChanged { titleHeight = it.height }.graphicsLayer { alpha = 1f - folded() }.backUnless("title").holdUnless("title"),
-                ) { title -> Text(title, style = PullsType.xxl, color = c.text) }
+                ) { title -> Text(title, style = PullsType.xxl, color = c.text) } }
                 Text(
                     head.title, Modifier.fillMaxWidth().onSizeChanged { lineHeight = it.height }.graphicsLayer { alpha = folded() }.clearAndSetSemantics { },
                     style = PullsType.xl, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -437,9 +442,9 @@ fun SectionCapsule(
     selected: Int,
     live: Boolean,
     onOverview: () -> Unit,
-    onChanges: () -> Unit,
-    onTour: () -> Unit,
-    onCorner: () -> Unit,
+    onChanges: (() -> Unit)?,
+    onTour: (() -> Unit)?,
+    onCorner: (() -> Unit)?,
     corner: CapsuleCorner = CapsuleCorner.More,
 ) {
     val c = LocalPullsColors.current
@@ -448,9 +453,9 @@ fun SectionCapsule(
     Box(Modifier.width(CAPSULE_WIDTH).height(44.dp).floatShadow(CircleShape).clip(CircleShape).background(c.raised).padding(CAPSULE_INSET)) {
         Box(Modifier.offset(x = x).width(CAPSULE_SEGMENT).fillMaxHeight().clip(CircleShape).background(c.paper2))
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Segment("Overview", onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
-            Segment("Changes", onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
-            Segment("Tour", onClick = if (selected == 2) null else onTour) {
+            Segment("Overview", selected = selected == 0, onClick = if (selected == 0) null else onOverview) { LuIcon(Lu.list, tint = c.text) }
+            Segment("Changes", selected = selected == 1, onClick = if (selected == 1) null else onChanges) { LuIcon(Lu.diff, tint = c.text) }
+            Segment("Tour", selected = selected == 2, onClick = if (selected == 2) null else onTour) {
                 LuIcon(Lu.tour, tint = c.text)
                 if (live) BreathingDot(Modifier.align(Alignment.TopEnd).padding(top = 7.dp, end = 10.dp), 8.dp)
             }
@@ -475,9 +480,14 @@ private val CAPSULE_RULE_GAP = 2.dp
 private val CAPSULE_SEGMENT = (CAPSULE_WIDTH - CAPSULE_INSET * 2 - CAPSULE_RULE - CAPSULE_RULE_GAP * 2) / 4
 
 @Composable
-private fun RowScope.Segment(label: String, onClick: (() -> Unit)?, content: @Composable BoxScope.() -> Unit) {
+private fun RowScope.Segment(label: String, onClick: (() -> Unit)?, selected: Boolean = false, content: @Composable BoxScope.() -> Unit) {
     Box(
         Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
+            .semantics {
+                contentDescription = label
+                this.selected = selected
+                if (onClick == null && !selected) disabled()
+            }
             .then(if (onClick != null) Modifier.cueClickable(role = Role.Button, onClickLabel = label, onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
         content = content,
@@ -595,7 +605,7 @@ private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOvervi
         }
         // The other text fades in where this one was (rule 67); the line over it stays put.
         BlurSwitch(description, order = { if (it) 1 else 0 }) { showDescription ->
-            if (showDescription) DescriptionText(session, data, Modifier.padding(top = 12.dp))
+            if (showDescription) DescriptionText(session, top, data, Modifier.padding(top = 12.dp))
             else if (summary != null) Box(Modifier.fillMaxWidth().padding(top = 12.dp)) { ai.Summary(session, summary, onCite) }
         }
         if (ai.canReadResults) {
@@ -618,7 +628,7 @@ private fun SummaryPane(session: ReviewSession, top: ReviewTopUi, data: PrOvervi
  * sections, and a long section after its first few files, with "Show N more" under them (N5). Sections that share a
  * "Prefix › " say it once over them, in a line of its own (N34).
  */
-private fun LazyListScope.filesItems(session: ReviewSession, ui: OverviewUi, onDiff: (String?) -> Unit, onSheet: (String) -> Unit, rows: Modifier, canReadAi: Boolean) {
+private fun LazyListScope.filesItems(session: ReviewSession, ui: OverviewUi, onDiff: (String?) -> Unit, onSheet: (String) -> Unit, rows: Modifier, canReadAi: Boolean, progress: ReviewProgressActions) {
     val sections = fileSections(session, ui)
     val analysis = session.saved?.analysis
     val notes = if (canReadAi) analysis?.files?.associate { it.path to it.summary }.orEmpty() else emptyMap()
@@ -666,7 +676,7 @@ private fun LazyListScope.filesItems(session: ReviewSession, ui: OverviewUi, onD
             itemsIndexed(files, key = { _, file -> "file:${file.path}" }) { index, file ->
                 val state = session.reviewState(file)
                 val note = notes[file.path]?.takeIf { it.isNotBlank() }
-                val toggle = { session.setReviewed(listOf(file.sha), state != ReviewState.Reviewed) }
+                val toggle: (() -> Unit)? = if (progress.enabled) ({ progress.mark(file, state != ReviewState.Reviewed); Unit }) else null
                 // The same gestures as the Inbox rows (rule 56): right opens it, as it opens a pull request, left marks it
                 // reviewed (or not), a tap opens it and a long-press offers the rest.
                 SwipeRow(
@@ -698,7 +708,7 @@ private const val SHOWN_FILES = "files:"
  * word on it ([mark]: `p0` "Needs a look", `p1` "Worth a look", `p2` "Skim").
  */
 @Composable
-fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: () -> Unit, mark: String? = null) {
+fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: String?, noteLoading: Boolean, ruled: Boolean, onToggle: (() -> Unit)?, mark: String? = null) {
     val c = LocalPullsColors.current
     val reviewed = state == ReviewState.Reviewed
     val dir = file.path.substringBeforeLast('/', "")
@@ -758,22 +768,23 @@ fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: 
  * then shows GitHub's own rendering again.
  */
 @Composable
-private fun DescriptionText(session: ReviewSession, data: PrOverviewData?, modifier: Modifier) {
+private fun DescriptionText(session: ReviewSession, top: ReviewTopUi, data: PrOverviewData?, modifier: Modifier) {
     val c = LocalPullsColors.current
     val overview = data?.overview
     val html = overview?.bodyHTML.orEmpty()
     val source = overview?.body ?: (session.prOpened ?: session.opened)?.description.orEmpty()
-    val canEdit = LocalOverviewServices.current.canEditText && overview?.viewer?.canEditText == true
-    EditableInSheet(
+    val actions = rememberReviewMutationActions(session, top, data)
+    val canEdit = LocalOverviewServices.current.canEditText && actions.canEditText
+    key(session, session.captureView()) { EditableInSheet(
         source, canEdit = canEdit, title = "Description", saved = "Description updated",
-        onSave = { body -> session.repo.prAction(overview!!.id, "edit", body = body); session.reloadOverview() },
+        onSave = { body -> actions.edit(body = body) },
         modifier = modifier, placeholder = "Describe the change in Markdown",
     ) { text ->
         // GitHub's own rendering while the text is the one it holds; the typed Markdown for the moment after a save.
         val markdown = remember(text, html, overview?.body) { if (html.isNotBlank() && text == overview?.body) htmlToMarkdown(html) else text }
         if (markdown.isNotBlank()) Markdown(markdown, style = PullsType.read.copy(color = c.text))
         else Text(if (canEdit) "Add a description" else "No description.", style = PullsType.read, color = c.muted)
-    }
+    } }
 }
 
 // --- Bottom bar ---

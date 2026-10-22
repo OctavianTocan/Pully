@@ -10,6 +10,10 @@ import sys
 IDENTIFIER = "com.octaviantocan.pully.native-keychain-tests"
 EXECUTABLE = "PullyNativeKeychainHost"
 PRIVATE_ENTITLEMENTS = {"application-identifier": IDENTIFIER, "get-task-allow": True}
+PROFILES = {
+    "keychain-test": (IDENTIFIER, EXECUTABLE),
+    "pully-app": ("com.octaviantocan.pully.preview", "Pully"),
+}
 
 
 def simulator_sections(image: bytes) -> tuple[bytes, bytes]:
@@ -66,31 +70,35 @@ def simulator_sections(image: bytes) -> tuple[bytes, bytes]:
     return sections[b"__entitlements"], sections[b"__ents_der"]
 
 
-def verified_sections(app: Path, signature: bytes) -> tuple[bytes, bytes]:
+def verified_sections(app: Path, signature: bytes, profile: str = "keychain-test") -> tuple[bytes, bytes]:
+    if profile not in PROFILES:
+        raise ValueError("unknown private simulator identity profile")
+    identifier, executable = PROFILES[profile]
+    private_entitlements = {"application-identifier": identifier, "get-task-allow": True}
     info = plistlib.loads((app / "Info.plist").read_bytes())
-    if info.get("CFBundleIdentifier") != IDENTIFIER or info.get("CFBundleExecutable") != EXECUTABLE:
-        raise ValueError("Keychain test host must have its own exact application identity")
+    if info.get("CFBundleIdentifier") != identifier or info.get("CFBundleExecutable") != executable:
+        raise ValueError("simulator host must have its exact selected private application identity")
     if info.get("DTPlatformName") != "iphonesimulator":
         raise ValueError("this ad-hoc test identity is only for the simulator")
     signed = plistlib.loads(signature)
     # Xcode signs with an empty dictionary here; iOS simulator privileges live in __TEXT.
     # Reject unknown or widened code-signature claims even though they are not that identity.
-    if not isinstance(signed, dict) or any(key not in PRIVATE_ENTITLEMENTS or
-            type(value) is not type(PRIVATE_ENTITLEMENTS[key]) or value != PRIVATE_ENTITLEMENTS[key]
+    if not isinstance(signed, dict) or any(key not in private_entitlements or
+            type(value) is not type(private_entitlements[key]) or value != private_entitlements[key]
             for key, value in signed.items()):
         raise ValueError("code signature must not widen the test host's private entitlements")
-    xml, der = simulator_sections((app / EXECUTABLE).read_bytes())
+    xml, der = simulator_sections((app / executable).read_bytes())
     entitlements = plistlib.loads(xml)
-    if entitlements != PRIVATE_ENTITLEMENTS or entitlements.get("get-task-allow") is not True:
+    if entitlements != private_entitlements or entitlements.get("get-task-allow") is not True:
         raise ValueError("embedded simulator entitlements must be exactly the private host identity and debugger attachment")
     return xml, der
 
 
 def main() -> None:
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: verify-keychain-test-host.py Host.app signed-entitlements.plist evidence-directory")
+    if len(sys.argv) not in (4, 5):
+        raise SystemExit("usage: verify-keychain-test-host.py Host.app signed-entitlements.plist evidence-directory [pully-app]")
     app = Path(sys.argv[1])
-    xml, der = verified_sections(app, Path(sys.argv[2]).read_bytes())
+    xml, der = verified_sections(app, Path(sys.argv[2]).read_bytes(), sys.argv[4] if len(sys.argv) == 5 else "keychain-test")
     evidence = Path(sys.argv[3])
     evidence.mkdir(parents=True, exist_ok=True)
     xml_path = evidence / "embedded-entitlements.plist"

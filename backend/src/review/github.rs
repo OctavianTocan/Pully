@@ -296,6 +296,27 @@ fn verify_pending_head(pending: &Value, head: &str) -> Result<()> {
     }
     Ok(())
 }
+/// @cc [owner:OctavianTocan,label:security;product] github-pending-review-matches-confirmation
+/// When a client supplies pendingReviewId, Submit and Discard MUST reject a different
+/// current pending review before contacting GitHub's write endpoint. Explicit null
+/// MUST require that no pending review exists. Clients omitting the field retain
+/// their existing wire behavior. Source: the accepted 21 Oct 2026 same-app iOS review
+/// plan's drawn confirmation and current-target requirements.
+fn verify_expected_pending(args: &Value, pending: Option<&Value>) -> Result<()> {
+    let Some(expected) = args.get("pendingReviewId") else {
+        return Ok(());
+    };
+    let matches = if expected.is_null() {
+        pending.is_none()
+    } else {
+        let expected = positive(args, "pendingReviewId")?;
+        pending.and_then(|review| number(&review["id"])) == Some(expected)
+    };
+    if !matches {
+        bail!("The pending review changed. Reopen it before submitting or discarding.")
+    }
+    Ok(())
+}
 async fn verify_head(state: &AppState, pull: &Pull, head: &str) -> Result<()> {
     if current_head(state, pull).await? != head {
         bail!("The pull request head changed. Reopen it before posting.")
@@ -408,6 +429,7 @@ async fn review_operation(state: &AppState, name: &str, args: &Value) -> Result<
             }
             let body = github_cites(text(args, "body"), &pull, &head);
             let pending = pending_review(state, &pull).await?;
+            verify_expected_pending(args, pending.as_ref())?;
             let has_pending = pending.is_some();
             let path = if let Some(pending) = pending {
                 verify_pending_head(&pending, &head)?;
@@ -426,7 +448,9 @@ async fn review_operation(state: &AppState, name: &str, args: &Value) -> Result<
             github_request(state, Method::POST, &path, Some(payload)).await?;
         }
         "review-discard" => {
-            if let Some(pending) = pending_review(state, &pull).await? {
+            let pending = pending_review(state, &pull).await?;
+            verify_expected_pending(args, pending.as_ref())?;
+            if let Some(pending) = pending {
                 github_request(
                     state,
                     Method::DELETE,

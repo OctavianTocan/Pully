@@ -14,6 +14,18 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
     about = "Native Rust backend for pulls.review; serves the existing web and Android clients"
 )]
 struct Args {
+    /// Serve only tokenless public browsing and explicitly configured personal GitHub reads.
+    #[arg(long, env = "PULLY_PUBLIC_LISTEN")]
+    public_listen: Option<std::net::SocketAddr>,
+    /// Isolated public/personal storage root; never the legacy --data-dir.
+    #[arg(long, env = "PULLY_PUBLIC_DATA_DIR")]
+    public_data_dir: Option<PathBuf>,
+    /// Owner-private JSON file for the registered Pully OAuth App.
+    #[arg(long, env = "PULLY_PERSONAL_OAUTH_CONFIG_FILE")]
+    personal_oauth_config: Option<PathBuf>,
+    /// Owner-private JSON file holding versioned server vault keys.
+    #[arg(long, env = "PULLY_PERSONAL_VAULT_KEYS_FILE")]
+    personal_vault_keys: Option<PathBuf>,
     /// Local branch, commit, or A..B / A...B range to open.
     target: Option<String>,
     #[arg(long)]
@@ -69,6 +81,44 @@ async fn main() {
 }
 async fn run() -> Result<()> {
     let args = Args::parse();
+    if let Some(address) = args.public_listen {
+        if args.target.is_some()
+            || args.worktree
+            || args.agents.is_some()
+            || args.preanalyze
+            || args.mcp_context.is_some()
+            || args.no_auth
+            || !args.allow_origin.is_empty()
+        {
+            bail!("Public Pully cannot open private targets or start legacy agent work");
+        }
+        let personal = match (args.public_data_dir, args.personal_oauth_config, args.personal_vault_keys) {
+            (None, None, None) => None,
+            (Some(data_root), Some(oauth_app_file), Some(vault_keys_file)) => Some(
+                pulls_review_server::public_server::PersonalAuthFiles { data_root, oauth_app_file, vault_keys_file }
+            ),
+            _ => bail!("Personal GitHub startup requires explicit isolated storage, OAuth App and vault-key files"),
+        };
+        let router = pulls_review_server::public_server::router(
+            pulls_review_server::public_server::PublicServerConfig { personal },
+        )
+        .await?;
+        let listener = tokio::net::TcpListener::bind(address)
+            .await
+            .context("Unable to bind public Pully address")?;
+        eprintln!("Pully public API: http://{}", listener.local_addr()?);
+        axum::serve(listener, router)
+            .with_graceful_shutdown(shutdown())
+            .await
+            .context("Public Pully server failed")?;
+        return Ok(());
+    }
+    if args.public_data_dir.is_some()
+        || args.personal_oauth_config.is_some()
+        || args.personal_vault_keys.is_some()
+    {
+        bail!("Public/personal configuration requires --public-listen or PULLY_PUBLIC_LISTEN");
+    }
     if let Some(path) = args.mcp_context {
         return mcp_stdio(path).await;
     }

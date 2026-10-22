@@ -36,11 +36,25 @@ def main() -> None:
     markdown_bundled = app / markdown_notices.name
     if not markdown_bundled.is_file() or markdown_bundled.read_bytes() != markdown_notices.read_bytes():
         raise SystemExit("original Markdown parser license notices are not bundled")
+    theme_notices = repository / "android/app/src/main/assets/licenses/opencode-themes.txt"
+    theme_bundled = app / theme_notices.name
+    if not theme_bundled.is_file() or theme_bundled.read_bytes() != theme_notices.read_bytes():
+        raise SystemExit("original OpenCode theme license notices are not bundled")
+
+    icon_notices = repository / "android/app/src/main/assets/licenses/catppuccin.txt"
+    icon_bundled = app / icon_notices.name
+    if not icon_bundled.is_file() or icon_bundled.read_bytes() != icon_notices.read_bytes():
+        raise SystemExit("original Catppuccin icon MIT notice is not bundled")
     locales = verify_locales(repository, app)
+    verify_locales(repository, app / "PlugIns/PullyShare.appex")
     privacy_source = repository / "ios/Pully/PrivacyInfo.xcprivacy"
     privacy_bundled = app / "PrivacyInfo.xcprivacy"
     if not privacy_bundled.is_file() or plistlib.loads(privacy_bundled.read_bytes()) != plistlib.loads(privacy_source.read_bytes()):
         raise SystemExit("app-owned required-reason API manifest is not bundled")
+    share_privacy_source = repository / "ios/PullyShare/PrivacyInfo.xcprivacy"
+    share_privacy_bundled = app / "PlugIns/PullyShare.appex/PrivacyInfo.xcprivacy"
+    if not share_privacy_bundled.is_file() or plistlib.loads(share_privacy_bundled.read_bytes()) != plistlib.loads(share_privacy_source.read_bytes()):
+        raise SystemExit("Share extension's own required-reason API manifest is not bundled")
     google_manifests = [path for path in app.rglob("PrivacyInfo.xcprivacy") if "GoogleSignIn" in str(path.relative_to(app))]
     if not google_manifests or not any(plistlib.loads(path.read_bytes()).get("NSPrivacyCollectedDataTypes") for path in google_manifests):
         raise SystemExit("Google Sign-In's own privacy resource is not bundled")

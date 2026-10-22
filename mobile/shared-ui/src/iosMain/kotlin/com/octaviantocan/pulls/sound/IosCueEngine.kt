@@ -67,6 +67,12 @@ class IosCueEngine internal constructor(palette: Palette, private val output: Io
         if (active && haptics) output.holdHaptic()
     }
 
+    /** Settings' vibration toggle is felt without playing a second sound. */
+    internal fun haptic(cue: Cue, emphasis: Emphasis) = state.locked {
+        refresh()
+        if (active && haptics) output.haptic(cue.id, emphasis.name.lowercase())
+    }
+
     override fun gesture(role: NativeGestureFeedback) = state.locked {
         refresh()
         if (active && haptics) output.gestureHaptic(role.name.lowercase())

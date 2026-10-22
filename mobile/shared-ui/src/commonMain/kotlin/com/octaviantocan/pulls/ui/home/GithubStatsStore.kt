@@ -5,6 +5,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.data.Repo
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -30,6 +32,7 @@ class GithubStatsStore(
         val current = ++generation
         return try {
             val result = repo.call("github-stats", buildJsonObject { put("fresh", false) })
+            currentCoroutineContext().ensureActive()
             val stats = GithubStats.parse(result) ?: return false
             if (!active() || current != generation) return false
             last = stats
@@ -38,6 +41,7 @@ class GithubStatsStore(
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+            currentCoroutineContext().ensureActive()
             false
         }
     }

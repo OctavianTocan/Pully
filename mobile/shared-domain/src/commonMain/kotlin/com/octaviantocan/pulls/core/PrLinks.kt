@@ -61,7 +61,7 @@ sealed class OpenTarget {
 
 object PrLinks {
     private val githubPull = Regex(
-        """(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/pull/(\d+)""",
+        """(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/pull/(\d+)(?=[/?#\s]|$)""",
         RegexOption.IGNORE_CASE,
     )
     private val serverPull = Regex(
@@ -87,7 +87,8 @@ object PrLinks {
         if (text.isEmpty() || text.startsWith("diff --git")) return null
         postedPath.find(text)?.let { return OpenTarget.Posted(it.groupValues[1]) }
         githubPull.find(text)?.let { match ->
-            return OpenTarget.Pull(match.groupValues[1], match.groupValues[2], match.groupValues[3].toInt(), "github.com")
+            val number = match.groupValues[3].toIntOrNull()?.takeIf { it > 0 } ?: return null
+            return OpenTarget.Pull(match.groupValues[1], match.groupValues[2], number, "github.com")
         }
         githubCompare.find(text)?.let { match ->
             return OpenTarget.Compare(match.groupValues[1], match.groupValues[2], match.groupValues[3], match.groupValues[4])
@@ -96,14 +97,16 @@ object PrLinks {
             return OpenTarget.Commit(match.groupValues[1], match.groupValues[2], match.groupValues[3])
         }
         shortPull.matchEntire(text)?.let { match ->
-            return OpenTarget.Pull(match.groupValues[1], match.groupValues[2], match.groupValues[3].toInt())
+            val number = match.groupValues[3].toIntOrNull()?.takeIf { it > 0 } ?: return null
+            return OpenTarget.Pull(match.groupValues[1], match.groupValues[2], number)
         }
         branchPath.find(text)?.let { return OpenTarget.Branch(it.groupValues[1].trim('/')) }
         bareBranch.matchEntire(text)?.let { return OpenTarget.Branch(it.groupValues[1].trim('/')) }
         // A bare owner/repo/number, or a pulls.review URL. GitHub /pull/ URLs already matched.
         if (!text.contains("/pull/", ignoreCase = true)) {
             serverPull.find(text)?.let { match ->
-                return OpenTarget.Pull(match.groupValues[1], match.groupValues[2], match.groupValues[3].toInt())
+                val number = match.groupValues[3].toIntOrNull()?.takeIf { it > 0 } ?: return null
+                return OpenTarget.Pull(match.groupValues[1], match.groupValues[2], number)
             }
         }
         return null

@@ -213,15 +213,16 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
     val tours = home.tours
     val layout = home.layout
     val sync = home.sync
-    LaunchedEffect(sync, state) { sync.select(state) }
+    val observations = services.observations
+    HomeReadEffect(observations, sync, state) { sync.select(state) }
     // Jev sorts every open row only while the Inbox is sorted by risk or grouped by kind, so its kinds come in then.
     val wantsJev = layout.sort.needsJev || layout.groupBy.needsJev
-    LaunchedEffect(sync, state, sync.fetchedAt, sync.jev, wantsJev) {
+    HomeReadEffect(observations, sync, state, sync.fetchedAt, sync.jev, wantsJev) {
         sync.wantsJev = wantsJev
         sync.followJev()
     }
     // Refreshing is quiet: no indicator. It runs on open and whenever the app comes back to the front.
-    val reload: () -> Unit = { scope.launch { sync.reload() } }
+    val reload: () -> Unit = { scope.launch { observations.read { sync.reload() } } }
     HomeLifecycle(onResume = {
         val last = sync.fetchedAt
         if (last != null && kotlin.time.Clock.System.now().toEpochMilliseconds() - last > 30_000) {
@@ -231,12 +232,12 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
     })
 
     val now = rememberNow(60_000)
-    val workTasks = if (services.capabilities.taskObservation) rememberWork(repo) else emptyList()
+    val workTasks = if (services.capabilities.taskObservation) rememberWork(repo, observations) else emptyList()
     val work = remember(workTasks) { pullWorkByKey(workTasks) }
     // A tour the server started or finished while no page was open still gets its row, and the phone keeps it.
     val tourStore = services.tourCopies
-    LaunchedEffect(home, workTasks, services) {
-        if (!services.capabilities.taskObservation || tourStore == null) return@LaunchedEffect
+    HomeReadEffect(observations, home, workTasks, services) {
+        if (!services.capabilities.taskObservation || tourStore == null) return@HomeReadEffect
         tours.reconcile(workTasks, kotlin.time.Clock.System.now().toEpochMilliseconds()) { key ->
             try { repo.savedState(key).also { keepTour(tourStore, key, it) }.tour?.stops?.size } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
         }
@@ -244,14 +245,13 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
     // Every tour on the Tours list is kept on the phone, so it opens at once; one the phone lacks (listed before tours
     // were kept, or written on the web) is fetched here, one at a time, once per run.
     val tourAsked = remember(home) { HashSet<String>() }
-    LaunchedEffect(home, tours.entries, services) {
-        if (!services.capabilities.taskObservation || tourStore == null) return@LaunchedEffect
+    HomeReadEffect(observations, home, tours.entries, services) {
+        if (!services.capabilities.taskObservation || tourStore == null) return@HomeReadEffect
         val missing = tours.entries.filter { !it.writing && it.stops > 0 && it.key !in tourAsked && !tourStore.contains(it.key) }
         for (entry in missing) {
             if (!services.data.current) break
-            tourAsked += entry.key
             val key = "github:${entry.owner}/${entry.repo}#${entry.number}"
-            try { keepTour(tourStore, key, repo.savedState(key)) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) {}
+            try { keepTour(tourStore, key, repo.savedState(key)); tourAsked += entry.key } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { tourAsked += entry.key }
         }
     }
     var activityOpen by remember { mutableStateOf(false) }
@@ -281,8 +281,8 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
     val viewer = remember(everything) { Triage.viewerLogin(everything.orEmpty()) }
     // The diffs agents posted (plan 13): kept on the phone, asked for again on start, on return and on sign-in.
     val postedStore = services.data.posted
-    LaunchedEffect(services) { if (services.capabilities.postedDiffs) postedStore.refresh() }
-    HomeLifecycle(onResume = { if (services.capabilities.postedDiffs) scope.launch { postedStore.refresh() } })
+    HomeReadEffect(observations, services) { if (services.capabilities.postedDiffs) postedStore.refresh() }
+    HomeLifecycle(onResume = { if (services.capabilities.postedDiffs) scope.launch { observations.read { postedStore.refresh() } } })
     val posted = remember(postedStore.rows, needle, services) { if (services.capabilities.postedDiffs) postedStore.rows.matching(needle) else emptyList() }
     var profileOpen by remember { mutableStateOf(false) }
     var sortOpen by remember { mutableStateOf(false) }
@@ -309,8 +309,8 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
     // The top of the Inbox starts loading once it has shown, so the pull requests he is most likely to open are there
     // when he taps them (O20).
     val warmTop = remember(sorted) { sorted.take(ReviewSession.WARM_TOP).map { OpenTarget.Pull(it.owner, it.repo, it.number, "github.com") } }
-    LaunchedEffect(warmTop, services) {
-        if (!services.capabilities.reviewRoutes || reviewSessions == null || warmTop.isEmpty()) return@LaunchedEffect
+    HomeReadEffect(observations, warmTop, services) {
+        if (!services.capabilities.reviewRoutes || reviewSessions == null || warmTop.isEmpty()) return@HomeReadEffect
         kotlinx.coroutines.delay(800)
         warmTop.forEach { if (services.data.current) reviewSessions.warm(repo, it) }
     }
@@ -380,7 +380,7 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
                         loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
                         filter = ui.filter, searching = needle.isNotEmpty(),
                         sort = sort, groupBy = groupBy, folded = layout.folded, onFold = { section -> layout.toggle(section.key) },
-                        onRetry = reload, onCommands = { services.commands() }, onSettings = nav.settings,
+                        onRetry = reload, onCommands = { services.commands() }, onSettings = services.navigation(nav).settings,
                         onOpen = ::openPull, onArchive = ::archivePull, onRepo = { group -> nav.openRepo(group.owner, group.repo) },
                         onHold = { held = it }, viewer = viewer,
                         onPress = services::warmReview,
@@ -427,7 +427,7 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
             TourActionsSheet(
                 entry, stoppable,
                 onOpen = { nav.openFrom(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"), "inbox", true) },
-                onDismiss = { dismissTour(entry, workTasks, tours, repo, scope, toaster) { services.data.current } },
+                onDismiss = { dismissTour(entry, workTasks, tours, repo, scope, toaster, ready = { observations.ready }) { services.data.current } },
                 onClose = { heldTour = null },
             )
         }
@@ -454,7 +454,7 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
                 onDelete = if (services.capabilities.deletePosted) ({
                     scope.launch {
                         try {
-                            postedStore.delete(row)
+                            if (!services.deletePosted(row)) return@launch
                             toaster.show("Deleted ${row.title}", cue = Cue.Success)
                         } catch (e: kotlinx.coroutines.CancellationException) {
                             throw e
@@ -1097,20 +1097,30 @@ fun ToursList(
  * A swipe left on a tour: one still being written is stopped, a finished one leaves the list (it stays saved on the
  * server). Its tasks are recorded as dismissed, so the server's task list does not bring the row back.
  */
-fun dismissTour(entry: TourEntry, workTasks: List<WorkTask>, tours: TourIndex, repo: Repo, scope: CoroutineScope, toaster: Toaster, currentSource: () -> Boolean) {
-    if (!currentSource()) return
+fun dismissTour(entry: TourEntry, workTasks: List<WorkTask>, tours: TourIndex, repo: Repo, scope: CoroutineScope, toaster: Toaster, ready: () -> Boolean = { true }, currentSource: () -> Boolean) {
+    if (!currentSource() || !ready()) return
     val source = runCatching { repo.source() }.getOrNull() ?: return
     val serverKey = pullKey(entry.owner, entry.repo, entry.number)
     val running = runningTaskId(workTasks, serverKey, "tour")
     val taskIds = workTasks.filter { it.kind == "tour" && it.key == serverKey }.map { it.id }
     if (running != null) {
-        scope.launch { if (currentSource() && repo.isCurrent(source)) repo.cancelTask(running) }
-        // A tour stopped before it had a stop has nothing to list; one that had keeps its row.
-        if (entry.stops > 0) tours.upsert(entry.copy(writing = false)) else tours.dismiss(entry.key, taskIds)
-        toaster.show("Stopped the tour for #${entry.number}")
+        scope.launch {
+            if (!currentSource() || !repo.isCurrent(source) || !ready()) return@launch
+            try {
+                repo.cancelTask(running, bestEffort = false)
+                if (!currentSource() || !repo.isCurrent(source)) return@launch
+                // A tour stopped before it had a stop has nothing to list; one that had keeps its row.
+                if (entry.stops > 0) tours.upsert(entry.copy(writing = false)) else tours.dismiss(entry.key, taskIds)
+                toaster.show("Stopped the tour for #${entry.number}")
+            } catch (failure: kotlinx.coroutines.CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                if (currentSource() && repo.isCurrent(source)) toaster.show(failure.message ?: "Pully could not stop the tour", cue = Cue.Error)
+            }
+        }
     } else {
         tours.dismiss(entry.key, taskIds)
-        toaster.show("Removed the tour for #${entry.number}", "Undo") { tours.upsert(entry) }
+        toaster.show("Removed the tour for #${entry.number}", "Undo") { if (currentSource()) tours.upsert(entry) }
     }
 }
 

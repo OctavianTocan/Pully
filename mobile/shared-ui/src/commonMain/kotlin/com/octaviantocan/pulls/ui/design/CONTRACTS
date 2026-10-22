@@ -5,6 +5,12 @@ checks; a host MUST NOT maintain its own copy. Source: Tavi, 21 Oct 2026, choosi
 Compose Multiplatform with maximum reuse for the iOS mode; DESIGN.md rules 47, 48
 and 106.
 
+@cc [owner:OctavianTocan,label:product] shared-labelled-fields-announce-their-name
+A labelled SheetField MUST expose that same label as the editable field's accessible
+name on both hosts, including a secure password field. The name MUST remain separate
+from its value. Source: the accepted 21 Oct 2026 shared iOS accessibility and native
+keyboard validation plan, preserving the existing single-field kit.
+
 @cc [owner:OctavianTocan,label:design] shared-kit-fonts-preserve-selection
 Both hosts MUST load the checked-in Geist, Mona Sans and code font files for their
 named font choices. Unknown saved app or code font choices MUST retain their existing
@@ -146,3 +152,52 @@ selection and link-or-image tap destination. Raw HTML MUST remain reduced to ine
 text or line breaks; it MUST NOT execute or introduce a WebView. Source: existing
 kit-one-markdown, DESIGN.md rules 53, 95, 96, 124 and 158, L14/L15, and Tavi's
 21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:design;architecture] shared-palettes-retain-canonical-colors-and-notices
+Both hosts MUST use the same Pully and generated OpenCode palette registry, including
+the existing one-look behavior and fallback for removed theme IDs. The palette
+generator MUST retain its single vendored source, and both app bundles MUST include
+the original theme license notices. Source: Tavi's 21 Oct 2026 maximum-reuse decision
+and the existing OpenCode theme adoption (K18) and DESIGN.md theme behavior.
+
+@cc [owner:OctavianTocan,label:design;architecture] shared-file-icons-retain-canonical-strokes
+Both hosts MUST render the existing Catppuccin XML file icons with their same path
+geometry, fill and stroke colors, stroke width, caps, joins and viewport. Generation
+MUST reject unsupported structures rather than omit them. File names MUST retain the
+existing icon-selection precedence and fallback. Source: existing FilePath/FileIcon
+behavior retained by Tavi's 21 Oct 2026 maximum-reuse iOS decision; DESIGN.md rule 48.
+
+@cc [owner:OctavianTocan,label:architecture;motion] kit-decides-the-way
+Which way a page, tab, file or label moves is decided in the kit, never by a screen:
+`BlurSwitch`, `LabelSwitch` and `rememberPageSlide` take an `order` and work the way out
+with `pageWay`, and Back goes through `PageBack`. A kit slide MUST take its offset from
+the way (rule 105; motion check).
+
+@cc [owner:OctavianTocan,label:motion] kit-drags-carry-on-or-settle
+A page, row or sheet let go after a drag settles back where it was or carries on the way
+the finger went, at the speed it was thrown; it never springs toward the start first. A
+throw of 500dp/s counts as a swipe once the finger has taken the page part of the way, so
+a nudge never turns a page by itself (L6, `kit-side-pages-slide-whole`), and a throw back
+against the drag cancels it (rule 105).
+
+@cc [owner:OctavianTocan,label:motion] kit-side-pages-slide-whole
+`SidePages` and `FilePages` move pages that sit side by side the whole width with
+nothing fading or blurring, both pages in view while they move, and settle on
+`PullsMotion.PageSpring`, critically damped with no snap at the end (rule 107; H20, H36,
+J7). The Overview's pages are drawn before the first drag, so the first swipe from Summary
+to Conversation moves as smoothly as the way back and never pops or holds at its start
+(recording 16 Oct 09:50, 03:29 to 03:53; M8). A page moves exactly as far as the finger, and a quick flick turns the page only once
+the finger has moved it part of the way, so a page never "swipes by itself" (recording
+15 Oct 15:37, 04:12 to 04:31; L6).
+
+@cc [owner:OctavianTocan,label:product] kit-side-pages-keep-state
+A page held by `SidePages` keeps its scroll and saved state while another page is on
+screen, and finds them again when it comes back (rule 118; J9).
+
+@cc [owner:OctavianTocan,label:product] shared-toast-action-keeps-its-current-message
+A toast action MUST run at most once and only while that exact message is current.
+Its message MUST remain current during the action so the existing Undo callbacks can
+check their ownership. Finishing or failing the action MUST retire only its own
+message; a replacement shown by the callback MUST remain visible. Source: the
+existing toast Undo behavior retained by Tavi's 21 Oct 2026 same-app iOS decision,
+DESIGN.md rule 73 and the shared review confirmation ownership plan.

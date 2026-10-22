@@ -16,6 +16,8 @@ pub(crate) mod personal_auth;
 pub(crate) mod personal_provider;
 pub mod posted;
 pub mod presentation;
+pub mod public_api;
+pub mod public_server;
 pub mod review;
 mod review_experiments;
 mod rpc_validation;

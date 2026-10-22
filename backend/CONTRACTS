@@ -375,11 +375,18 @@ parity request; main native-api.ts noteFailure behavior).
 @cc [owner:OctavianTocan,label:product;security] server-feedback-kept-for-agents
 Feedback sent from the phone (`feedback-send`, which needs the account's session) is kept
 under that account with the server's own time, the app's version and versionCode, the
-screen and pull request it was sent from, the device and its Android version, the theme and
+screen and pull request it was sent from, the device and its Android or iOS version, the theme and
 the language, and nothing the client names for itself such as the account or a status. It
 is never evicted. The account's keys read it newest first at `GET /api/v1/feedback`
 (`?status=open|done`) and `GET /api/v1/feedback/<id>`, and `PATCH` marks it `done` with an
 optional note on what was done, or `open` again; no other account sees it, and its words
 MUST NOT reach usage analytics ("a button somewhere for me to leave feedback from the app
 itself ... It obviously needs to be stored with timestamps, app version, etc": Tavi, 20 Oct
-2026 06:10).
+2026 06:10; iOS metadata added by Tavi's 21 Oct 2026 same-app iOS request).
+
+@cc [owner:OctavianTocan,label:security;architecture] rust-ios-analytics-keeps-the-existing-cleaner
+The first-party analytics endpoint MUST accept the native ios app label through the
+same event, content redaction, size, batching and retention policy as Android/web.
+Unknown app labels MUST remain rejected; enabling iOS MUST NOT bypass the cleaner or
+add a telemetry service. Source: Tavi's 21 Oct 2026 full shared iOS app request and
+root analytics-stays-on-our-server and analytics-what-not-how-much.

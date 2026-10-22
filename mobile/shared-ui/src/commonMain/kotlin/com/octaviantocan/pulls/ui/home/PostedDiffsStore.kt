@@ -7,6 +7,8 @@ import com.octaviantocan.pulls.data.PostedRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.asPostedRow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -37,10 +39,12 @@ class PostedDiffsStore(
         if (!eligibleAccount()) { keep(emptyList()); return }
         try {
             val next = repo.postedDiffs()
+            currentCoroutineContext().ensureActive()
             if (active() && current == generation && eligibleAccount()) keep(next)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+            currentCoroutineContext().ensureActive()
         }
     }
 

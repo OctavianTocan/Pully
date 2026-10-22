@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.data.PullRow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -111,7 +113,11 @@ class MyPullsSync(
             if (!active() || !sorting) break
             val current = generation
             val selected = state
-            val server = try { peek(selected, true) } catch (e: CancellationException) { throw e } catch (_: Exception) { null } ?: continue
+            val server = try { peek(selected, true) } catch (e: CancellationException) { throw e } catch (_: Exception) {
+                currentCoroutineContext().ensureActive()
+                null
+            } ?: continue
+            currentCoroutineContext().ensureActive()
             val shown = pulls
             if (!active() || current != generation || shown == null) continue
             jev = server.jev
@@ -140,17 +146,23 @@ class MyPullsSync(
         updating = true
         error = null
         try {
-            val server = try { cached(selected) } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+            val server = try { cached(selected) } catch (e: CancellationException) { throw e } catch (_: Exception) {
+                currentCoroutineContext().ensureActive()
+                null
+            }
+            currentCoroutineContext().ensureActive()
             // Whether the server runs Jev is news even when its list is older than the one on screen.
             if (server != null && isCurrent()) jev = server.jev
             if (server != null) show(server)
             if (!isCurrent()) return
             if (!force && server != null && !server.refreshing && now() - server.fetchedAt < freshForMs) return
             val list = fresh(selected)
+            currentCoroutineContext().ensureActive()
             show(PullsSnapshot(list, now(), jev = jev))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
             if (isCurrent()) {
                 error = e.message ?: e.toString()
                 effects.loadError(e.message)

@@ -28,6 +28,16 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
     private val warming = linkedMapOf<String, Deferred<OpenedReview>>()
     private val requests = linkedMapOf<String, Job>()
     private val sessions = mutableSetOf<ReviewSession>()
+    private val presentation = mutableMapOf<SessionStateKey<*>, Any>()
+    private var observing = true
+    private var observationGeneration = 0L
+
+    /** Source-owned reading state survives route disposal, but never an identity change. */
+    @Suppress("UNCHECKED_CAST")
+    internal fun <T : Any> presentation(repo: Repo, expected: RpcSource?, key: SessionStateKey<T>, create: () -> T): T? {
+        if (expected == null || !current(repo, expected)) return null
+        return presentation.getOrPut(key, create) as T
+    }
 
     internal fun capture(repo: Repo): RpcSource? {
         // A saved, invalid URL must open an actionable error page, never an old-source cache.
@@ -43,8 +53,31 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
 
     internal fun current(repo: Repo, expected: RpcSource?): Boolean = capture(repo) == expected
 
-    internal fun attach(session: ReviewSession) { sessions += session }
+    internal fun attach(session: ReviewSession) {
+        sessions += session
+        if (!observing) session.pauseObservations()
+    }
     internal fun release(session: ReviewSession) { sessions -= session }
+
+    /** Scene suspension stops local reads, retaining the same source, drafts, routes and server-owned work. */
+    fun pauseObservations() {
+        if (!observing) return
+        observing = false
+        observationGeneration++
+        warming.values.toList().forEach { it.cancel() }
+        requests.values.toList().forEach { it.cancel() }
+        warming.clear()
+        requests.clear()
+        sessions.toList().forEach { it.pauseObservations() }
+    }
+
+    /** Each attached review reconciles through its real opening/saved/task APIs before polling again. */
+    fun resumeObservations() {
+        if (observing) return
+        observing = true
+        observationGeneration++
+        sessions.toList().forEach { it.resumeObservations() }
+    }
 
     /** Cancel observations and erase old-account state; never cancel a server-owned task. */
     fun clear() {
@@ -59,6 +92,7 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
         warming.clear()
         requests.clear()
         recent.clear()
+        presentation.clear()
         val previous = sessions.toList()
         sessions.clear()
         previous.forEach { it.invalidate() }
@@ -82,6 +116,8 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
     /** Warm the same production opening used after a tap; a page joins its in-flight request. */
     fun warm(repo: Repo, pull: OpenTarget.Pull) {
         val expected = capture(repo) ?: return
+        if (!observing) return
+        val generation = observationGeneration
         val name = pull.label
         if (recent.containsKey(name) || requests.containsKey(name)) return
         while (requests.size >= LIMIT) {
@@ -95,10 +131,10 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
             val overview = async { runCatching { repo.overview(pull) }.getOrNull() }
             try {
                 val opened = diff.await()
-                if (!current(repo, expected)) return@launch
+                if (!observing || generation != observationGeneration || !current(repo, expected)) return@launch
                 if (!recent.containsKey(name)) remember(repo, expected, name, RememberedReview(opened, null))
                 val fetched = overview.await()
-                if (!current(repo, expected)) return@launch
+                if (!observing || generation != observationGeneration || !current(repo, expected)) return@launch
                 if (fetched != null) remembered(repo, expected, name)?.let { kept ->
                     if (kept.overview == null) remember(repo, expected, name, kept.copy(overview = fetched))
                 }

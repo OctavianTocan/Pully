@@ -77,7 +77,22 @@ jobs:
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: ios/NativeServices
         run: |
-          xcodebuild -quiet -scheme PullyNative \
+          mkdir -p ../build
+          xcodebuild -list -json > ../build/NativeServices.schemes.json
+          pully_native_scheme=$(python3 - ../build/NativeServices.schemes.json <<'PY'
+          import json, sys
+
+          with open(sys.argv[1]) as source:
+              inventory = json.load(source)
+          schemes = inventory.get('workspace', {}).get('schemes', [])
+          aggregate = 'PullyNative-Package'
+          if schemes.count(aggregate) != 1:
+              raise SystemExit('Missing the whole PullyNative package test scheme: ' + repr(schemes))
+          print(aggregate)
+          PY
+          )
+          echo "Testing the whole native package: $pully_native_scheme"
+          xcodebuild -quiet -scheme "$pully_native_scheme" \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ../build/NativeServices \
             -resultBundlePath ../build/NativeServices.xcresult \
@@ -146,20 +161,41 @@ jobs:
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: mobile
         run: |
-          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
+          ./gradlew --continue :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
             :shared-client:jvmTest :shared-client:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
             :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
-            -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon --continue
-      - name: Build and test the unsigned iOS host
+            -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
+      - name: Print actual shared test assertions after a failure
+        if: ${{ !cancelled() && steps.shared.outcome == 'failure' }}
+        run: |
+          python3 ios/scripts/print-shared-test-failures.py \
+            mobile/shared-domain/build/test-results mobile/shared-client/build/test-results \
+            mobile/shared-ui/build/test-results
+          python3 -B -m unittest discover -s ios/scripts -p 'test_shared_test_failures.py'
+      - name: Build and test the private iOS simulator host
         id: host
         if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
         run: |
           xcodebuild -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/DerivedData \
+            build CODE_SIGNING_ALLOWED=NO
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/DerivedData \
+            -parallel-testing-enabled NO build-for-testing \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+          pully_app_host=ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app
+          codesign --verify --strict "$pully_app_host"
+          codesign --display --entitlements :- "$pully_app_host" > ios/build/PullyHost.entitlements.plist
+          python3 ios/scripts/verify-keychain-test-host.py \
+            "$pully_app_host" ios/build/PullyHost.entitlements.plist ios/build/PullyEntitlements pully-app
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/DerivedData \
             -resultBundlePath ios/build/Pully.xcresult \
-            -parallel-testing-enabled NO \
-            test CODE_SIGNING_ALLOWED=NO
+            -parallel-testing-enabled NO test-without-building \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
       - name: Require every actual UIKit test and retain readable evidence
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         run: |
@@ -170,7 +206,7 @@ jobs:
         run: |
           python3 ios/scripts/verify-bundled-fonts.py \
             ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app
-      - name: Package the unsigned simulator app
+      - name: Package the private simulator app
         if: ${{ !cancelled() && steps.host.outcome == 'success' }}
         run: |
           ditto -c -k --sequesterRsrc --keepParent \
@@ -221,6 +257,8 @@ jobs:
             ios/build/Keychain.xcresult
             ios/build/KeychainHost.entitlements.plist
             ios/build/KeychainEntitlements
+            ios/build/PullyHost.entitlements.plist
+            ios/build/PullyEntitlements
             ios/build/Pully-simulator.zip
             ios/build/screenshots
             ios/build/diagnostics

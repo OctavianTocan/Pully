@@ -1,0 +1,243 @@
+@cc [owner:OctavianTocan,label:product] pr-current-merge-risk-opens-assessment
+The Overview MUST show a saved merge-risk level only after local experimental opt-in and when the review's known head
+matches the opened diff, and tapping it MUST open the review's full assessment even
+when there are no inline findings. It MUST NOT change GitHub merge readiness.
+It MUST be marked Experimental. Source: Tavi's 21 Oct 2026 merge-risk request and
+follow-up requiring experimental, opt-in-only features, narrowing the original display.
+
+@cc [owner:OctavianTocan,label:design] ai-merge-assessment-uses-mobile-sheet
+The optional merge assessment MUST be a separate section of the mobile review sheet,
+using its plain heading and one card of rows, rather than appending an undifferentiated
+list to the summary. Each category and verdict MUST read together above full-width
+linked evidence. The assessment MUST NOT add nested cards, folding rows, numeric gauges
+or decorative badges. Source: Tavi, 21 Oct 2026, rejecting the experimental UI and asking
+for the app's design principles on mobile; DESIGN.md rules 49, 141, 171 and 172.
+
+@cc [owner:OctavianTocan,label:product] ai-review-shows-merge-assessment
+A review with a merge assessment MUST, only after local experimental opt-in, show its low, medium or high level, all five
+category verdicts and linked evidence, even with zero inline findings. Scores and
+calculations MUST NOT be shown. A legacy review MUST NOT invent an assessment.
+The assessment MUST be marked Experimental and hidden when disabled, including saved
+results and generated posting text. Source: Tavi's 21 Oct 2026 merge-risk request and
+follow-up requiring experimental, opt-in-only features, replacing unconditional display.
+
+@cc [owner:OctavianTocan,label:product;design] shared-ai-code-retains-the-diff-well
+AI code and pseudocode MUST keep the original code-well layout, selected code font,
+syntax colors, sideways scrolling, pinch-to-resize and top-corner copy/toast control.
+Call trees, file trees and flows MUST retain the existing guide geometry, numbered rail,
+labels and file-mention destinations. Source: existing ai-code-works-like-the-diff,
+ai-structures-are-drawn, ai-flow-is-steps-on-a-rail and ai-call-tree-reads-at-a-glance,
+DESIGN.md rules 95 and 154, F59 and N13/N16/N18/N19, preserved by Tavi's 21 Oct iOS decision.
+
+@cc [owner:OctavianTocan,label:security;product] shared-ai-code-cache-belongs-to-its-review
+Private highlighted snippets and probes MUST be owned by the current review session,
+source and head revision, and MUST NOT survive detachment or populate another review.
+Requests MUST contain at most 400 lines and missing result rows MUST remain retryable.
+A late result from an invalid owner MUST NOT refill the cache. Source: Tavi's 21 Oct
+2026 shared session/source ownership plan and existing diff-highlight-respects-server-batches.
+
+@cc [owner:OctavianTocan,label:product;security] shared-ai-code-reloads-for-the-current-view
+A mounted snippet and pseudocode probe MUST reload for a new full view revision,
+including a head A to B to A transition with unchanged final code and theme. Their
+effects MUST stay stable while that view owner is unchanged. Source: Tavi's 21 Oct
+2026 shared session/source ownership plan and the existing real Compose AI renderer.
+
+@cc [owner:OctavianTocan,label:product;motion] ai-work-looks-alive
+AI work in progress is always a live, animated indicator, never a blank or a spinner. No
+grey skeleton bars sit under it: Tavi called the bars under Ask's steps "awful" and took them
+out, so the answer simply arrives where it goes (recording 15 Oct 15:37, 16:24 to 16:37;
+L33; this replaces the hint bars of rule 71).
+
+@cc [owner:OctavianTocan,label:design] ai-thinking-line
+While work runs there is one shimmering line, a present-tense verb and the elapsed seconds
+("Working 12s"); when it ends the line becomes "Worked for 2m 3s" with a chevron that
+opens the steps. The internal tool is never named (rules 18 and 72).
+
+@cc [owner:OctavianTocan,label:design] ai-steps-read-calmly
+Each step is one plain sentence in regular weight after the icon of what it does, the
+icon centred on its line of text. Only a failed step is red: a finished step ("Wrote the
+answer") is never red, and no step ("Started") is greyer than the rest. One thing happens
+at a time, and there is no "Wrote 3 of 6 stops, Active 3s ago, 4s elapsed" row
+(rule 72; recording 15 Oct 13:54, 05:59 to 06:41; K13).
+
+@cc [owner:OctavianTocan,label:product] ai-no-machinery-on-content
+A tour, a note or an answer does not show the model name, token counts or cache numbers,
+and the work log does not start "Started Claude (model id)"; those live in Settings and
+the model sheet. Rewrite is an icon at the card's corner with no word (rule 98; F58).
+
+@cc [owner:OctavianTocan,label:design] ai-links-look-alike
+Links in AI text are teal text with no underline, all in one face: one cite is never in
+the code font while the next is not. They sit on the text line and never grow it (rules
+39 and 96; F40; recording 15 Oct 13:54, 07:36 to 07:44; K16).
+
+@cc [owner:OctavianTocan,label:design] ai-brief-rows-are-sentences
+In the brief, a label and its value, and a finding's severity and its title, are one
+paragraph that wraps as a sentence, never two columns where one wraps into a narrow one
+(recording of 16 Oct 12:10, 19:49 to 20:16; N37).
+
+@cc [owner:OctavianTocan,label:architecture;design;security] shared-diagrams-use-inert-native-vectors
+Both hosts MUST draw the same server Mermaid SVG as inert vector data, retaining its
+viewBox, paths, fills, strokes, text and marker arrows. They MUST NOT execute SVG or
+introduce a WebView. Inline diagrams MUST retain the existing natural size and fit;
+full-screen diagrams MUST retain the existing bounded pinch/drag and close behavior.
+Android MUST keep its AndroidSVG compatibility normalization and vector picture path.
+Source: existing ai-brief-is-data and ai-structures-are-drawn, DESIGN.md rules 95 and
+154, and Tavi's accepted 21 Oct 2026 shared UI/native-adapter plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-diagram-results-belong-to-the-review
+Private Mermaid source and SVG results MUST belong to one review session's current
+source, key, head and view revision. Results from a retired view MUST NOT refill the
+cache or display under a new view. Retained results and request coordination MUST be
+bounded and completed or cancelled requests MUST release their coordination keys.
+Cancellation MUST NOT become a cached failure. Source: Tavi's accepted 21 Oct 2026
+shared session/source ownership plan and maximum-reuse native-adapter decision.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-ai-reading-requires-complete-results
+The shared Brief MUST render every supported typed block, including code and Mermaid
+diagrams, through the same kit and citation destinations. A read-only host MUST NOT
+offer regeneration, paid setup or Analyze choices whose resulting passes it cannot
+render. Standard and Deep MUST retain their existing Brief outcomes before those
+choices become available. Source: Tavi's accepted 21 Oct 2026 maximum-reuse plan and
+explicit requirement to prevent invisible paid work during the ordered extraction.
+
+@cc [owner:OctavianTocan,label:product;security] shared-analysis-adoption-belongs-to-the-view
+Shared-analysis discovery and adoption MUST belong to the originating review source,
+key, head and view revision. Late or cancelled results MUST NOT change another view's
+saved work, reading mode, candidate chips or error. One adoption MUST run at a time;
+a rejected adoption MUST keep its candidate and a visible recoverable error. Source:
+Tavi's accepted 21 Oct 2026 shared session/source ownership plan and existing shared
+analysis chips, adoption and dismissal behavior.
+
+@cc [owner:OctavianTocan,label:product;security] shared-ai-mentions-use-current-repository-paths
+AI mentions MUST retain the existing repository-root path normalization and changed-file
+whole-path/suffix lookup. Code names MUST use the existing unambiguous file-stem lookup;
+private name indexes MUST live with their review session and current files, rather than
+in a process-global cache. Source: existing ai-names-find-their-files and
+ai-links-read-from-the-root, DESIGN.md rules 96 and 124, N17/N20, and Tavi's 21 Oct
+2026 shared session/source ownership plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-ask-thread-controls-keep-their-owner
+Saved Ask threads MUST retain their original plain replies, live work logs, line labels,
+follow-up input and close behavior on a capable host. A read-only host MUST NOT show
+send, stop or close controls or issue their task/write RPCs. Sending and closing MUST
+use the drawn session/source/head/revision; a retired callback or late response MUST
+NOT start work, reload a newer view or publish its error there. A pending question MUST
+be sent at most once and a failed start MUST remain retryable. Source: existing
+ask-replies-are-plain, ask-send-needs-text, DESIGN.md rules 84 and 99, and Tavi's
+21 Oct 2026 complete-result and shared session/source ownership plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-ask-unsent-text-is-thread-owned
+A saved Ask thread's unsent input and focus owner MUST remain stable during ordinary
+recomposition of that same session, full view and thread. A different session/source,
+head revision or thread MUST start with empty input and a new focus owner, including
+a head A to B to A change which composition observes only at its end. Source: existing
+AskComposer draft behavior and Tavi's 21 Oct 2026 shared session/source ownership plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-ai-setup-reuses-the-persisted-model-and-complete-chain
+Analyze and Tour setup MUST use the same source-owned model service as Settings and
+show its persisted engine/model and supported effort before a launch. Choosing a model,
+continuing a stale tour or dismissing setup MUST NOT start work. Every launch MUST check
+the current host capabilities and retain all chosen passes, including Standard/Deep's
+server-owned Brief chain and Deep's parallel critique. A retained control from another
+source, full view revision or disposed setup MUST NOT start or queue work. Source:
+existing ai-run-shows-real-model, ai-presets-start-the-run and tour-update-chooses-model,
+and Tavi's accepted 21 Oct 2026 maximum-reuse and complete AI journey plan.
+
+@cc [owner:OctavianTocan,label:product] shared-analysis-launches-show-real-availability
+Before the pull request has a current loaded view, Analyze presets and the custom
+Analyze button MUST be visibly disabled and MUST NOT play pressed feedback, save a
+new preset or announce a started run. Model and custom-pass editing MAY remain
+available, and Generate tour MUST retain its existing explicit waiting interaction.
+Once ready, one launch MUST start the selected complete analysis chain immediately;
+a second launch while it runs MUST report the existing run without starting another.
+Source: android-tappable-does-something, android-no-dead-ends, DESIGN.md rules53/63/82,
+and Tavi's accepted 21 Oct 2026 maximum-reuse AI setup plan.
+
+@cc [owner:OctavianTocan,label:product;design] shared-chat-keeps-the-original-conversation-and-history
+Both hosts MUST use the original Chat transcript, reference attachment, streaming
+answer, reader-owned scroll, source chips, copy/retry, starter questions and new-chat
+controls. Earlier chats MUST use the existing searchable history and actual clear,
+restore, saved-result and task RPCs. New chat MUST empty the drawn conversation in
+the tap's frame, and a subsequent question MUST wait for that exact clear or restore.
+Source: ask-replies-are-plain, ask-streams-and-cites, ask-scroll-is-the-readers,
+ask-new-chat-is-instant, ask-history-of-chats and Tavi's 21 Oct maximum-reuse plan.
+
+@cc [owner:OctavianTocan,label:security;product] shared-chat-actions-and-drafts-belong-to-the-drawn-view
+Chat input, pending questions and errors MUST belong to the exact session, source,
+head and view revision. Reopening that view MAY retain a draft; a replacement view,
+including an unobserved head A to B to A change, MUST clear it. A retained send,
+retry, stop, clear, restore or source callback MUST check its current drawn owner and
+latest host capabilities before acting. A question waiting for a local chat change
+MUST NOT start after capability revocation or composer disposal and MUST remain
+retryable while its view remains current. An old completion MUST NOT reload,
+navigate, clear a draft or publish an error in a replacement view. A read-only host
+MUST hide mutation and paid controls. Source: shared-ask-thread-controls-keep-their-owner,
+client-invalidates-old-sources and Tavi's 21 Oct shared source ownership plan.
+
+@cc [owner:OctavianTocan,label:product] ai-analyze-is-one-action
+Analyze changes MUST identify summary and file notes as its core outputs; its
+preset/custom rows MUST identify extra tour, brief and review passes. Find problems
+MUST identify findings (bugs, risks and nits) as its output; the two entry points MUST
+NOT imply identical jobs. Tavi's 20 Oct 2026 feedback clarifying Analyze versus Review
+with AI replaces the old unconditional three-output wording of rule 19.
+
+@cc [owner:OctavianTocan,label:design;product] ai-review-sheet-is-plain
+The AI review's findings sheet starts with "AI review (11)" in the sheets' one heading,
+the count in parentheses, and folds nothing (rule 141). Bug, Risk and Nit are one
+segmented pill, the kit's capsule, with All first; there is no Select all. The summary sits
+in one white card and the findings are rows of one white card, never a box inside a box,
+each with the Files sheet's check on its first line, and "Post N selected as a review"
+posts the ticked ones ("no boxes inside boxes", recording of 16 Oct 12:10, 18:24 to 19:43,
+N36, Tavi's decision).
+
+@cc [owner:OctavianTocan,label:product;design] ai-launch-actions-have-no-selection
+An analysis preset or review skill that starts work MUST be a button action with a
+forward affordance and MUST NOT carry selected radio semantics or a selection tick.
+General is not preselected merely because no review exists (Tavi's accompanying
+20 Oct 2026 recording, 00:37 to 01:00).
+
+@cc [owner:OctavianTocan,label:product] ai-run-shows-real-model
+Analyze changes and Find problems MUST show the persisted engine/model and supported
+effort before any run can start, reusing the Tour model picker. Choosing a model MUST
+persist it, return to setup, and MUST NOT start work; the subsequent request MUST use
+that persisted selection. The menu tile and command MUST open setup rather than
+immediately run. Look for problems on the Overview and a failed review's retry MUST
+open that setup too. A retry MUST keep its previous review skill and the persisted
+model/effort defaults and MUST require an explicit run action; findings and setup MUST
+be pages of one sheet (Tavi's accompanying 20 Oct 2026 recording, 01:01 to 01:35, and
+his consistency request applied to all manual run entry points).
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-review-skills-belong-to-the-rpc-source
+The cached-first review skill list MUST live in the active source's existing review
+cache, without a process-global URL-only cache. Replacing endpoint, account or Access
+MUST retire that list and any pending request. A late or cancelled reply MUST NOT
+refill it or publish another source's error. Source: the accepted 21 Oct same-app iOS
+source isolation plan and the original ReviewLenses server-owned policy.
+
+@cc [owner:OctavianTocan,label:security;product] shared-findings-publication-keeps-the-drawn-result
+The same findings panel on both hosts MUST keep its severity filters, selected rows,
+body, current-head publication and retry behavior. Posting MUST require current result
+readiness, complete comment/review host readiness and server write permission, plus
+the drawn result's variant, revision and head. A disposed, revoked or replaced full
+view/result MUST NOT post or publish late selections, errors or review reloads into a
+replacement. One publication MUST run at a time, and releasing an old request MUST
+NOT clear another request's lock. Source: ai-review-sheet-is-plain and the accepted
+21 Oct complete-result and source-owned iOS review plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-findings-confirmed-receipt-survives-sheet-dismissal
+When a publication succeeds for the same current Session, full review revision and
+result, its confirmed finding IDs MUST remain marked posted after the findings sheet
+closes or host readiness is revoked. Reopening that result MUST NOT offer those IDs
+for another post. Retaining this receipt MUST NOT change a closed reader's selection,
+show its error or reload its reviews, and a replacement source, revision or result
+MUST NOT receive it. Source: the original Android result-owned posted markers retained
+by Tavi's 21 Oct 2026 maximum-reuse iOS decision and the accepted source ownership plan.
+
+@cc [owner:OctavianTocan,label:security;product] shared-brief-rewrite-belongs-to-the-drawn-result
+A retained Brief rewrite control MUST require the same current session, full view,
+saved result and latest Brief capability which drew it. Removing the reader, changing
+the source or result, or a head A to B to A transition MUST retire the old callback.
+Both hosts MUST use the same explicit locale-bearing start action and MUST NOT start
+a second Brief while one is running. Source: Tavi's accepted 21 Oct 2026 complete AI
+journey and shared source/view ownership plan, preserving DESIGN.md rule87's explicit
+rewrite control.

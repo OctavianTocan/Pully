@@ -1,17 +1,42 @@
 # Pully iOS host
 
-This internal preview hosts the same shared Compose code used by Android. Its current
-scope is the production Home and repository screens, shared route stack, filters,
-scroll state, profile graphs and pull-request rows, rendered with deterministic
-public-safe fixtures and the shared message catalog. Unsupported review, AI and
-settings routes show an explicit preview limitation before any request.
-Server setup, sign-in and the complete review journey are subsequent slices. It does
-not contain service credentials or configure push, background execution, associated
-domains or distribution signing.
+Ordinary scenes supply the same shared app with separate native Share and personal
+account adapters. The personal vault uses its own device-only, app-private Keychain
+item and is shared across scenes. Its profile stays in public Explore; it does not
+authorize the legacy private workspace or Share imports. `PULLY_PERSONAL_AUTH_ORIGIN`
+is an optional trusted build setting, empty by default. A deployment must configure
+its actual Pully-owned authorization origin before native GitHub sign-in is offered.
+No client secret or legacy server setting supplies that origin. Share's optional
+App Group setup is described below and remains independent of this vault.
+
+Strict Debug fixtures receive neither ordinary adapter. The actual Cocoa error,
+Keychain and lifecycle tests belong to `PullyAccountTests` and the existing signed
+Keychain host; metadata compilation alone does not establish their Apple behavior.
+
+This internal preview hosts the same shared Compose code used by Android. Fresh
+launches use public Explore without constructing the private application graph. The
+existing-server entry connects the real shared account/client to its server, with native
+Keychain storage, restored-session verification, the existing sign-in page and Server
+fields. The existing Home and repository screens retain their shared route stack,
+filters, scroll state, profile graphs, pull-request rows and message catalog. Shared
+settings synchronization and first-party usage policies use their real native adapters.
+Home opens the existing shared ReviewScreen and Overview/Diff readers through the
+same session cache and navigation stack. The complete private source installs its shared
+Analyze, Tour, Brief, Ask/history, viewer progress and settings services; actual native
+journeys remain a release verification requirement. No service credentials are bundled;
+push, background execution, associated domains and distribution signing remain separate.
+
+The deterministic, nonprivate fixture journey requires the Debug launch environment
+`PULLY_UI_TEST_FIXTURES=1` and retains its visible fixture label. It is never selected
+after a live server, sign-in or secure-storage failure. Existing UI smoke tests explicitly
+select this fixture journey; they do not claim live sign-in coverage.
 
 The host supplies UIKit app/scene lifecycle, clipboard, browser and leading-edge
 back recognition through the required `NativeHomeActions` interface.
-`MainViewControllerKt.MainViewController(homeActions:)` from `PullyShared` renders the app; shared
+The scene retains `IosPullyApp(homeActions:accountStorage:)` from `PullyShared`; its
+`viewController` renders the app and its `close()` retires work on scene disconnection.
+Safari, suspension and ordinary route changes preserve that application owner. The
+Debug fixture uses `MainViewControllerKt.MainViewController(homeActions:)`. Shared
 Compose owns safe-area padding, UI, state and navigation. The Xcode project references
 the original Android font files and their existing license notices as resources, so
 both clients use identical font bytes.
@@ -40,11 +65,17 @@ From the repository root, after creating an iPhone simulator:
 export DEVELOPER_DIR=/Applications/Xcode_26.4.1.app/Contents/Developer
 xcodebuild -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
   -destination 'platform=iOS Simulator,id=<simulator-UDID>' \
-  -derivedDataPath ios/build/DerivedData -resultBundlePath ios/build/Pully.xcresult \
-  -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO
+  -derivedDataPath ios/build/DerivedData build CODE_SIGNING_ALLOWED=NO
 python3 ios/scripts/verify-bundled-fonts.py \
   ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app
 ```
+
+Unsigned compilation does not exercise Keychain. To execute the host tests, use the
+ad-hoc simulator signing, exact embedded XML/DER entitlement guard and
+`test-without-building` sequence in `.github/workflows/ios-verify.yml`. It requires no
+Apple Developer membership or signing secret. The app-hosted account tests and dedicated
+native Keychain tests must run with that private simulator identity; an unsigned
+Keychain failure is not an allowed skip.
 
 The UI smoke test checks the shared preview survives launch, rotation and relaunch,
 and keeps light/dark portrait and light landscape screenshots in the test result.
@@ -54,15 +85,15 @@ interactive scenarios choose All, scroll to a known fixture, open its repository
 return through the actual native leading-edge gesture and verify the same filter
 and scroll position after back and background/resume. They also exercise the
 unsupported-review limitation and the existing hold-menu Copy link confirmation.
-A Debug-only launch environment selects the native test appearance before Compose
+A separate Debug-only launch environment selects the native test appearance before Compose
 attaches; ordinary launches use the system appearance. The `iOS verify` PR job
 also runs the actual shared domain tests on JVM and the pinned iPhone simulator,
 links the shared framework, verifies font/locale bytes and retains simulator evidence.
 It also runs native account package tests on macOS and iOS, the actual Keychain
 roundtrip and the shared client's separate NSURLSession loopback integration suite.
-The artifact includes `Pully-simulator.zip`, an unsigned ARM64 simulator app that can
+The artifact includes `Pully-simulator.zip`, a private ad-hoc ARM64 simulator app that can
 be installed with `xcrun simctl install <simulator-UDID> Pully.app` after extraction.
-An unsigned simulator run needs no Apple Developer membership or signing secrets.
+Simulator signing uses only a local ad-hoc identity, with no distribution credentials.
 
 Linux can run the shared JVM and Android checks. A supported macOS host is required
 to link the Kotlin/Native Apple framework and build/run this app. Local XML/script
@@ -71,7 +102,7 @@ No device, signed archive, TestFlight or App Store validation is implied by this
 
 Native credential/configuration and Google token adapters live in
 [`NativeServices`](NativeServices/README.md). They retain the shared Kotlin RPC client
-and keep credentials in app-private Keychain storage. The current fixture screen
+and keep credentials in app-private Keychain storage. The separate fixture screen
 does not expose sign-in. Native Google availability requires a real iOS client and
 registered callback scheme; the adapter documents the exact missing configuration.
 The app bundles its UserDefaults required-reason declaration and retains the SDK's
@@ -146,7 +177,7 @@ extracts its `__TEXT,__entitlements` and `__TEXT,__ents_der` simulator sections,
 requires matching private XML/DER claims. Xcode's ordinary simulator code-signature
 entitlement dictionary may be empty. This local simulator signature needs no
 Apple account or provisioning secrets and does not validate device/distribution
-signing. The Pully preview app artifact is still unsigned. See
+signing. The main Pully simulator artifact has its separately verified private ad-hoc identity. See
 [NativeServices verification](NativeServices/README.md#verification).
 
 ## Shared Home native actions
@@ -178,5 +209,60 @@ navigation. Neither native action attaches Pully session or Access headers.
 The lifecycle and external-link validation cases run in the native Swift package
 suite. Source/PBX checks on Linux do not prove Swift header compatibility, simulator
 clipboard/browser behavior, real edge-pan delivery or Apple lifecycle execution;
-the paired app must compile and run in the macOS lane. The internal preview still
-uses honest fixture data.
+the paired app must compile and run in the macOS lane. Only the explicit Debug fixture
+uses sample data; ordinary launches use the configured server and verified account.
+
+### Live account simulator identity
+
+The shared account runtime uses the actual private Keychain adapter. The main app's
+Debug simulator build therefore has an explicit private application identity and
+XCTest attachment entitlement, restricted to the simulator SDK. No device signing
+identity, provisioning profile, team, sharing group or Apple account is configured.
+CI retains an unsigned compile, then builds the simulator app ad-hoc, verifies its
+actual Mach-O XML/DER identity and signature, and runs both the existing UI suite
+and app-hosted account bridge tests. The bridge tests use the production Swift host,
+shared Kotlin protocol and real Security storage for invalidation ordering, restored
+session confinement, source replacement and credential reset. The earlier dedicated
+native Keychain suite remains mandatory. Source review and Linux parser tests do not
+substitute for this new Mac compilation and execution gate.
+
+### Incoming links
+
+The app registers `pully://open?url=<percent-encoded HTTPS URL>`. For example,
+`pully://open?url=https%3A%2F%2Fgithub.com%2Fpully%2Fmobile-fixtures%2Fpull%2F76`
+opens a pull request. The native boundary accepts GitHub or the currently configured
+HTTPS server origin only, preserves the full destination path, query and fragment,
+and rejects credentials, control characters, oversized input and other envelopes.
+Google callback URLs are offered to the SDK first. This does not bypass the registered
+iOS Google client requirement or wait synchronously for a server sign-in response.
+
+Cold scene URL contexts and browsing activities, and warm URL/activity callbacks,
+feed the retained shared app's one incoming-link inbox. The same shared parser,
+verified current account and Compose stack select the actual repository, PR, file,
+line, conversation or check destination. Pending arrivals wait for a ready account;
+an invalid arrival uses the existing one-shot shared error. No server is reconfigured
+and the app does not inspect the clipboard automatically.
+
+The public `XCUIApplication.open(_:)` test delivers the registered custom URL through
+iOS to the actual Debug account root, reopens the same review at a file anchor,
+checks native Back retains Repo/Inbox context, then terminates and opens a cold URL
+while the genuine isolated Keychain account restores. Shared parser regressions and
+native Foundation receiver tests cover huge identifiers, malformed envelopes, origin
+confinement, SDK callback ordering and disconnected-scene delivery. These tests require
+the existing signed Mac simulator lane; source coverage alone is not execution proof.
+
+Universal Link callbacks are implemented, but automatic HTTPS delivery requires a
+real app/team Associated Domains entitlement and a matching server-hosted AASA file.
+Those external registrations are not configured by this preview. Claiming GitHub's
+domain is not possible; use the custom URL or a supported share handoff instead.
+The separate share-extension work must use an optional provisioned App Group for
+sanitized, source-bound handoff data and keep all credentials in the app-private
+Keychain. An extension cannot promise to foreground Pully; saving and then opening
+the app remains an explicit user action.
+
+`PullyShare.appex` implements that thin system handoff using the same shared-domain
+parser and guarded inbox. The default preview has no provisioned App Group, so its
+extension reports setup is required without exposing Save. See the
+[share adapter](PullyShare/README.md) for the exact source lifetime, protected storage,
+tests and external provisioning requirement. Ordinary app and custom URL routing do
+not require that setup.

@@ -1,0 +1,18 @@
+@cc [owner:OctavianTocan,label:security;architecture] personal-android-storage-is-keystore-backed
+Android personal sessions MUST use a separate non-exportable Android Keystore AES-GCM
+key and an authenticated versioned, bounded, atomically replaced blob in no-backup
+storage. Neither pending nor accepted personal sessions MAY fall back to ordinary
+preferences, legacy account storage or plaintext files. Read/write failures MUST retain
+fixed safe errors. A successful write MUST sync and verify its committed ciphertext
+before secure staging permits server confirmation. A failed post-commit verification
+MUST NOT roll back the already committed file. Source: Tavi's 21 Oct 2026 any-account GitHub request and the accepted
+22 Oct separate native secure-staging boundary.
+
+@cc [owner:OctavianTocan,label:security;product] personal-origin-is-app-configured
+Personal sign-in MUST use the app-owned HTTPS origin selected at build configuration,
+independent of legacy Settings/Access. An unconfigured build MUST keep public browsing
+available and MUST NOT invent a successful connection or probe a legacy server. A
+verified personal profile MUST remain on public Explore until a separately implemented
+personal repository capability exists. It MUST NOT instantiate legacy Home, AI, Stats
+or account workers, or send its bearer to GitHub REST. Source: Tavi's 21 Oct 2026 public
+browsing/personal-account decision and approved 22 Oct native connection implementation.

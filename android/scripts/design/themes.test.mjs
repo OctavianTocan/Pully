@@ -7,7 +7,7 @@ import { describe, it } from 'vitest'
 import { contrast, kotlin, NAMES, ROLES, themes } from '../gen-opencode-themes.mjs'
 import { ANDROID } from './kotlin.mjs'
 
-const GENERATED = join(ANDROID, 'app/src/main/kotlin/com/octaviantocan/pulls/ui/design/OpenCodeThemes.kt')
+const GENERATED = join(ANDROID, '../mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/ui/design/OpenCodeThemes.kt')
 
 /** Looks whose text is under 4.5:1 on their screen as OpenCode draws them; kept as they are rather than repainted. */
 const LOW_CONTRAST = new Set(['solarized/light'])

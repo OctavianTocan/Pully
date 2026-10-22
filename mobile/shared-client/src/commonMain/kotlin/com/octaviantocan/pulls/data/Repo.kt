@@ -6,14 +6,19 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+
+/** A drawn confirmation expects this pending review; null explicitly means there was no pending review. */
+data class ExpectedPendingReview(val id: Long?) {
+    init { require(id == null || id > 0) { "A pending review needs a positive id." } }
+}
 
 /**
  * Every server call the phone makes, named after the RPC it runs. Native transports handle IO and
@@ -151,8 +156,13 @@ class Repo(
     suspend fun deleteComment(target: OpenTarget.Pull, commentId: Long) = call("review-delete") { pull(target); put("commentId", commentId) }
 
     /** `verdict`: APPROVE, REQUEST_CHANGES or COMMENT. Submits the pending review when there is one. */
-    suspend fun submitReview(target: OpenTarget.Pull, verdict: String, body: String) = call("review-submit") { pull(target); put("verdict", verdict); put("body", body) }
-    suspend fun discardReview(target: OpenTarget.Pull) = call("review-discard") { pull(target) }
+    suspend fun submitReview(target: OpenTarget.Pull, verdict: String, body: String, headSha: String? = null, pending: ExpectedPendingReview? = null) = call("review-submit") {
+        pull(target); put("verdict", verdict); put("body", body); headSha?.let { put("headSha", it) }
+        pending?.let { put("pendingReviewId", it.id?.let(::JsonPrimitive) ?: JsonNull) }
+    }
+    suspend fun discardReview(target: OpenTarget.Pull, pending: ExpectedPendingReview? = null) = call("review-discard") {
+        pull(target); pending?.let { put("pendingReviewId", it.id?.let(::JsonPrimitive) ?: JsonNull) }
+    }
 
     // --- AI ---
 
@@ -174,10 +184,10 @@ class Repo(
     /** Long-polls a task for changes after `after`. */
     suspend fun waitTask(id: String, after: Int): JsonObject = call("ai-task-wait") { put("id", id); put("after", after) }.jsonObject
 
-    suspend fun cancelTask(id: String) {
+    suspend fun cancelTask(id: String, bestEffort: Boolean = true) {
         try { call("ai-task-cancel") { put("id", id) } }
         catch (e: CancellationException) { throw e }
-        catch (_: Exception) { /* Explicit cancel is best effort, as before. */ }
+        catch (failure: Exception) { if (!bestEffort) throw failure }
     }
 
     /** This diff's tasks, running or recently finished, newest first: how a reopened page resumes them. */
