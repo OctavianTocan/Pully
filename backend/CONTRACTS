@@ -98,8 +98,13 @@ the account it runs under (architecture, Where the CLIs run).
 
 @cc [owner:OctavianTocan,label:security] server-pi-has-only-pr-tools
 A Pi job gets exactly the PR tools the CLIs get over MCP and nothing more: no shell, files
-or web. Its endpoint and key come only from the environment, and without a base URL every
-Pi job fails with how to set it up (architecture, Pi).
+or web. A LegacyPrivate Pi job's endpoint and key come only from its environment, and
+without a base URL it fails with how to set it up (architecture, Pi). By Tavi's
+21 Oct 2026 per-user provider decision and 22 Oct clarification that AI does not require
+GitHub login, a separately authorized personal/local/default AI capability MAY supply
+its own captured credential and model. That capability MUST retain its own owner,
+allowance and revocation fence; it MUST NOT adopt legacy environment/CLI authority or
+broaden the scoped PR tools.
 
 @cc [owner:OctavianTocan,label:security] server-phone-method-allowlist
 The phone may call only the methods allowed by `phone_allowed` in

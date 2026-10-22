@@ -100,7 +100,8 @@ internal class EngineModels(context: Context) {
 internal fun SettingsPage.title(): String = title(AccountUi.opened?.name)
 
 @Composable
-fun SettingsScreen(nav: Nav) = SettingsScreen(nav, rememberAndroidSettingsServices())
+fun SettingsScreen(nav: Nav, onGitHubAccount: (() -> Unit)? = null) =
+    SettingsScreen(nav, rememberAndroidSettingsServices(), onGitHubAccount)
 
 @Composable
 internal fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, onPage: (SettingsPage) -> Unit) =

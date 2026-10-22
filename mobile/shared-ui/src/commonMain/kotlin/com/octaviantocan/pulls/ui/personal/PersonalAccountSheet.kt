@@ -69,7 +69,7 @@ fun PersonalAccountSheet(
                     CtaButton(t("personal.signOut"), account::signOut, Modifier.fillMaxWidth())
                 }
                 !account.configured -> {
-                    Text(t("explore.signInUnavailable"), style = PullsType.read, color = colors.muted)
+                    GitHubAccountUnavailableText(GitHubAccountEntry.Unavailable.Configuration)
                 }
                 view.checking -> RowsSkeleton(rows = 2)
                 view.saved && !showFlow -> {
