@@ -85,6 +85,10 @@ fun PullyRootScreen(
                 var themes by remember { mutableStateOf(false) }
                 var feedback by remember { mutableStateOf(false) }
                 val openingEpoch = account.sourceEpoch
+                val openingGeneration = root.generation
+                val ownedNative = remember(root, native, openingGeneration) {
+                    SourceHomeActions(native) { root.current && root.generation == openingGeneration }
+                }
                 val readyHome = home?.getOrNull()
                 val readySettings = settingsServices?.getOrNull()
                 val currentAiPolicy by rememberUpdatedState(aiCapabilities)
@@ -105,6 +109,7 @@ fun PullyRootScreen(
                     LocalToaster provides toaster,
                     LocalUriHandler provides uriHandler,
                     LocalReviewActionReadiness provides actionReadiness,
+                    LocalNativeHomeActions provides ownedNative,
                 ) {
                     if (readyHome != null && readySettings != null) UseCommands {
                         appCommands(
@@ -132,7 +137,7 @@ fun PullyRootScreen(
                             }
                         }, { toaster.show("Pully can't open that link") })
                     }
-                    HomeBackEffect(native, motion, backs, navigation.stack.size > 1) { navigation.nav.back() }
+                    HomeBackEffect(ownedNative, motion, backs, navigation.stack.size > 1) { navigation.nav.back() }
                     LaunchedEffect(readyHome) { if (readyHome != null) { withFrameNanos { }; firstFrame() } }
                     val screen = navigation.stack.lastOrNull()
                     LaunchedEffect(state.phase, screen) {

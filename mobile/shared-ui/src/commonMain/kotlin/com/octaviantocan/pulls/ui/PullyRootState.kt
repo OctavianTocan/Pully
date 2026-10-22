@@ -36,6 +36,7 @@ class PullyRootState private constructor(
     private var binding: HomeBinding? = null
     private var closed = false
     private var observationsReady = true
+    internal val current: Boolean get() = !closed && entry?.current?.invoke() != false
 
     val reviewSessions = ReviewSessionCache(scope)
     var generation by mutableLongStateOf(0L)
