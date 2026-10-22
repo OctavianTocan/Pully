@@ -66,6 +66,7 @@ import com.octaviantocan.pulls.ui.design.ModalReveal
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.PullsSpace
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
@@ -137,7 +138,7 @@ internal suspend fun checkAccount(context: Context): ConnectionCheckResult {
  * 12:47). Back leaves Pully.
  */
 @Composable
-internal fun SignInGate(onLeave: () -> Unit) {
+internal fun SignInGate(onLeave: () -> Unit, onExplore: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var epoch by remember { androidx.compose.runtime.mutableLongStateOf(RepoIdentity.generation) }
     DisposableEffect(Unit) {
@@ -148,7 +149,7 @@ internal fun SignInGate(onLeave: () -> Unit) {
     ModalReveal(
         Account.mustSignIn, onLeave,
         DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
-    ) { key(epoch) { SignInPage(epoch) } }
+    ) { key(epoch) { SignInPage(epoch, onExplore) } }
 }
 
 /**
@@ -157,7 +158,7 @@ internal fun SignInGate(onLeave: () -> Unit) {
  * under it, for the test account (Tavi, 16 Oct 16:52). Without Google on the server the email is the page's one action.
  */
 @Composable
-internal fun SignInPage(openingEpoch: Long) {
+internal fun SignInPage(openingEpoch: Long, onExplore: (() -> Unit)? = null) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -263,6 +264,9 @@ internal fun SignInPage(openingEpoch: Long) {
             CtaButton(label, ::next, Modifier.fillMaxWidth().padding(top = 12.dp), enabled = ready)
         }
         CtaButton(com.octaviantocan.pulls.ui.design.t("connection.serverSettings"), { serverSettings = true }, Modifier.fillMaxWidth().padding(top = PullsSpace.x3), container = c.paper2, contentColor = c.text, enabled = busy == null)
+        if (onExplore != null) PillButton(com.octaviantocan.pulls.ui.design.t("explore.browse"), {
+            if (owner.active && RepoIdentity.generation == openingEpoch) onExplore()
+        }, Modifier.fillMaxWidth().padding(top = PullsSpace.x3))
     }
     if (serverSettings) ServerConnectionSheet(onClose = { serverSettings = false })
 }

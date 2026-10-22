@@ -7,6 +7,9 @@ installed. Installation goes through Android's own installer and its approval.
 Updates come only from the configured server's `/android/latest.json` and the APK it
 names, with the same Access headers as every other request. No third-party update
 service or library is in the path.
+Anonymous Explore MUST NOT start configured private-server update checks, downloads or
+installation from an old notification. A late check MUST NOT change the guest's state.
+Source: Tavi's 21 Oct 2026 signed-out public browsing and separate entry-authority plan.
 
 @cc [owner:OctavianTocan,label:product] updater-remembers-the-offer
 The phone remembers the last offer, so the update screen is there before the server

@@ -582,6 +582,7 @@ fun SheetRow(
     iconless: Boolean = false,
     icon: (@Composable () -> Unit)? = null,
     detail: String? = null,
+    labelMaxLines: Int = Int.MAX_VALUE,
     value: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
@@ -596,9 +597,9 @@ fun SheetRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }
-        // A label wraps rather than being cut: no title ends in an ellipsis or a clipped word.
         Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, style = PullsType.row, color = if (danger) c.error else c.text)
+            Text(label, style = PullsType.row, color = if (danger) c.error else c.text, maxLines = labelMaxLines,
+                overflow = if (labelMaxLines == Int.MAX_VALUE) TextOverflow.Clip else TextOverflow.Ellipsis)
             if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)
         }
         if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)

@@ -18,12 +18,13 @@ import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.t
 
 /** Current private-server setup/recovery; hosts replace it with Explore when public browsing is available. */
 @Composable
-fun ConnectionSetupScreen(checking: Boolean, problem: ConnectionProblem?, onRetry: () -> Unit, onServerSettings: () -> Unit) {
+fun ConnectionSetupScreen(checking: Boolean, problem: ConnectionProblem?, onRetry: () -> Unit, onServerSettings: () -> Unit, onExplore: (() -> Unit)? = null) {
     val colors = LocalPullsColors.current
     Column(
         Modifier.fillMaxSize().background(colors.base).padding(top = headerTopPadding()).navigationBarsPadding()
@@ -43,5 +44,6 @@ fun ConnectionSetupScreen(checking: Boolean, problem: ConnectionProblem?, onRetr
             t(if (checking) "connection.checking" else "common.retry"), onRetry,
             Modifier.fillMaxWidth().padding(top = PullsSpace.x3), container = colors.paper2, contentColor = colors.text, enabled = !checking,
         )
+        if (onExplore != null) PillButton(t("explore.browse"), onExplore, Modifier.fillMaxWidth().padding(top = PullsSpace.x3))
     }
 }

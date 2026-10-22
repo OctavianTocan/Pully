@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +35,12 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.withFrameNanos
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Analytics
+import com.octaviantocan.pulls.data.NativeEntry
+import com.octaviantocan.pulls.data.JvmRpcTransport
+import com.octaviantocan.pulls.ui.explore.GuestBrowseSession
+import com.octaviantocan.pulls.ui.explore.GuestPages
+import com.octaviantocan.pulls.ui.explore.NativeEntryMode
+import com.octaviantocan.pulls.ui.explore.NativeEntryState
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FootBarLayer
@@ -69,8 +77,90 @@ import kotlinx.coroutines.launch
 @Composable
 fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     val context = LocalContext.current
+    val entry = remember { NativeEntry.get(context) }
+    val navigation = remember {
+        AppNavigation(initialTarget?.let { runCatching { linkScreen(it, initialAIResult) }.getOrNull() },
+            rootScreen = if (entry.mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
+    }
+    fun select(mode: NativeEntryMode) {
+        if (entry.mode == mode) return
+        val pendingLink = navigation.stack.lastOrNull()?.takeIf { it is Screen.Review || it is Screen.Repo }
+        Commands.close()
+        NativeEntry.select(context, mode)
+        navigation.reset(if (mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
+        if (mode == NativeEntryMode.ExistingServer && pendingLink != null) navigation.stack.add(pendingLink)
+    }
+    key(entry.generation) {
+        if (entry.mode == NativeEntryMode.Explore) {
+            GuestPullsApp(navigation, entry.guestSource()!!, initialTarget, onExistingAccount = { select(NativeEntryMode.ExistingServer) })
+        } else {
+            PrivatePullsApp(navigation, initialTarget, onExplore = { select(NativeEntryMode.Explore) })
+        }
+    }
+}
+
+@Composable
+private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.GuestSource, initialTarget: String?, onExistingAccount: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val session = remember { GuestBrowseSession(JvmRpcTransport(), scope, source, navigation) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { session.foreground() }
+    val toaster = remember { Toaster() }
+    val motion = remember { PageMotion() }
+    var leaving by remember { mutableStateOf(false) }
+    var themePicker by remember { mutableStateOf(false) }
+    PageBack(motion, enabled = navigation.stack.size > 1) { navigation.nav.back() }
+    androidx.activity.compose.BackHandler(enabled = navigation.stack.size == 1) { leaving = true } // motion-ok: the root opens the existing close confirmation
+    LaunchedEffect(Unit) { if (initialTarget != null && runCatching { linkScreen(initialTarget) }.getOrNull() == null) toaster.show(CANT_OPEN, cue = Cue.Error) }
+    val arrival = IncomingLinks.pending
+    LaunchedEffect(arrival) {
+        if (arrival == null || !session.current) return@LaunchedEffect
+        val screen = runCatching { linkScreen(arrival.text, arrival.aiResult) }.getOrNull()
+        if (screen == null) {
+            IncomingLinks.consume(arrival)
+            toaster.show(CANT_OPEN, cue = Cue.Error)
+        } else {
+            session.openIncoming(
+                screen,
+                isPending = { IncomingLinks.pending === arrival },
+                closeSheets = { com.octaviantocan.pulls.ui.design.Sheets.closeAll() },
+                consume = { IncomingLinks.consume(arrival) },
+            )
+        }
+    }
+    val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
-    val navigation = remember { AppNavigation(initialTarget?.let { linkScreen(it, initialAIResult) }) }
+    val dark = com.octaviantocan.pulls.ui.settings.wantsDark(settings)
+    val colorTheme = com.octaviantocan.pulls.ui.design.ColorThemes.of(settings.colorTheme)
+    val moving = com.octaviantocan.pulls.ui.design.rememberMotionEnabled()
+    UseCommands {
+        val group = messages.t("palette.group.general")
+        listOf(
+            Command("home", messages.t("explore.browse"), group) { navigation.nav.home() },
+            Command("account", messages.t("explore.existingAccount"), group, run = onExistingAccount),
+            Command("theme", messages.t("keys.theme"), group) {
+                scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
+            },
+            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette appearance") { themePicker = true },
+        )
+    }
+    CompositionLocalProvider(LocalToaster provides toaster) {
+        val openGitHub = rememberOpenOnGithub()
+        Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
+            GuestPages(navigation, motion, session, onExistingAccount, openGitHub, onCommands = { Commands.open() })
+            if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
+            CommandPalette()
+            if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
+            ToastHost(toaster)
+        }
+    }
+}
+
+@Composable
+private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, onExplore: () -> Unit) {
+    val context = LocalContext.current
+    val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
     val stack = navigation.stack
     // The server is asked for a newer build on start and whenever the app comes back to the front, and an update
     // waiting on "Install unknown apps" carries on once that is allowed.
@@ -147,6 +237,7 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
         listOf(
             Command("settings", messages.t("keys.settings"), group) { nav.settings() },
             Command("home", messages.t("keys.home"), group) { nav.home() },
+            Command("explore", messages.t("explore.browse"), group, run = onExplore),
             Command("theme", messages.t("keys.theme"), group) {
                 // The toggle always goes to the other look than the one asked for; it wipes unless the theme has one look.
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
@@ -201,6 +292,7 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
                     is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place, initialAIResult = current.aiResult)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}
+                    Screen.Explore, is Screen.PublicRepo -> {}
                 }
             }
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
@@ -215,8 +307,8 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
             // On a server with an account, a phone not signed in to it signs in first; once signed in it stays (plan 13).
             if (Updates.available == null) {
-                ConnectionSetupGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
-                SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
+                ConnectionSetupGate(onLeave = { context.findActivity()?.moveTaskToBack(true) }, onExplore = onExplore)
+                SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) }, onExplore = onExplore)
             }
         }
     }
@@ -252,6 +344,8 @@ private fun linkScreen(text: String, aiResult: String? = null): Screen? = when (
 private val Screen.analyticsName: String
     get() = when (this) {
         Screen.Home -> "home"
+        Screen.Explore -> "explore"
+        is Screen.PublicRepo -> "publicrepo"
         is Screen.Repo -> "repo"
         is Screen.Review -> "review"
         Screen.Settings -> "settings"

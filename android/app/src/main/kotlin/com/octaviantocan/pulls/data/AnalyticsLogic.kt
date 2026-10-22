@@ -208,3 +208,41 @@ class ScreenClock {
         return listOf("screen.time" to mapOf("screen" to screen, "seconds" to Math.round(seconds * 10) / 10.0))
     }
 }
+
+class PrivateUsageClock(private var available: Boolean = false) {
+    private val screens = ScreenClock()
+    var inForeground = false
+        private set
+    private var since: Long? = null
+    private var elapsedMs = 0L
+
+    fun show(screen: String, now: Long): List<Pair<String, Map<String, Any?>>> =
+        if (available) screens.show(screen, now) else emptyList()
+
+    fun foreground(now: Long) {
+        inForeground = true
+        elapsedMs = 0
+        since = if (available) now else null
+        if (available) screens.resume(now)
+    }
+
+    fun setPrivateConnection(available: Boolean, now: Long): List<Pair<String, Map<String, Any?>>> {
+        if (this.available == available) return emptyList()
+        val events = if (available) emptyList() else screens.pause(now)
+        since?.let { elapsedMs += now - it }
+        this.available = available
+        since = if (available && inForeground) now else null
+        if (available && inForeground) screens.resume(now)
+        return events
+    }
+
+    fun background(now: Long): List<Pair<String, Map<String, Any?>>> {
+        val events = if (available) screens.pause(now) else emptyList()
+        val seconds = (elapsedMs + (since?.let { now - it } ?: 0L)) / 1000
+        val background = if (available && inForeground) listOf("app.background" to mapOf<String, Any?>("seconds" to seconds)) else emptyList()
+        inForeground = false
+        since = null
+        elapsedMs = 0
+        return events + background
+    }
+}
