@@ -86,9 +86,17 @@ the phone or the page, written into an answer, an error, a log, an AI prompt or 
 log, or be readable through any method the phone may call.
 
 @cc [owner:OctavianTocan,label:security] secrets-come-from-the-environment
-Keys for paid services (TypeSafe, the Pi endpoint, model providers) come only from the
-server's environment. A client names an engine and a model, never a URL or a key, and no
-answer, notice or log line MAY echo a key or any part of it.
+Keys for the LegacyPrivate/default paid-service capability come only from the server's
+environment; its generic engine/model requests MUST NOT override a URL or
+credential. Tavi's 21 Oct 2026 per-user Claude subscription, ChatGPT subscription and
+Pi endpoint decision intentionally adds separate typed, owner-scoped provider
+connections: their supported setup/auth flow MAY accept that user's own endpoint or
+credential into protected custody, never arbitrary legacy RPC. GitHub sign-in MUST NOT
+be a prerequisite for all AI; a separately verified Pully/local principal or explicitly
+labelled anonymous/default allowance MUST have its own credential and budget boundary
+(Tavi, 22 Oct 2026). Missing/failed personal authority MUST NOT silently fall back to
+operator credentials or paid default use. No answer, notice, error, Debug output or
+log line MAY echo a key or any part of it.
 
 @cc [owner:OctavianTocan,label:architecture;design] one-look-two-clients
 The web app and the phone app are one product with one look (DESIGN.md rule 106). Colours,
