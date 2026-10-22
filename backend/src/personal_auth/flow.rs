@@ -153,6 +153,19 @@ impl PersonalAuth {
         self.begin(request, GitHubAuthority::PublicRead, None, None)
     }
 
+    /// Private hosts may explicitly link an already authenticated compatibility account; the public router has no link route.
+    pub(crate) async fn start_legacy_link(
+        &self,
+        request: StartRequest,
+        accounts: crate::account::Accounts,
+        legacy_session: String,
+    ) -> Result<StartReply> {
+        let link = LegacyLink::authorize(accounts, legacy_session)
+            .await
+            .map_err(|_| AuthError::Unauthorized)?;
+        self.begin(request, GitHubAuthority::PublicRead, Some(link), None)
+    }
+
     fn begin(
         &self,
         request: StartRequest,

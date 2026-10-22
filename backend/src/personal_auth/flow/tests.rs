@@ -514,3 +514,57 @@ async fn denied_or_failed_provider_results_are_fixed_safe_states_without_secret_
     assert!(status.contains("unavailable"));
     assert!(h.store.get("personal-auth-v1:state").unwrap().is_none());
 }
+
+#[tokio::test]
+async fn explicit_legacy_host_link_runs_the_same_browser_proof_claim_flow_for_that_actual_account()
+{
+    let h = Harness::new();
+    let accounts = crate::account::Accounts::new(h.store.clone());
+    let (account, session, _) = accounts.fixture_for_test();
+    let proof = random_secret().unwrap();
+    let start = h
+        .service
+        .start_legacy_link(
+            StartRequest {
+                native_challenge: wire::native_challenge(&proof).unwrap(),
+            },
+            accounts,
+            session,
+        )
+        .await
+        .unwrap();
+    h.service
+        .callback(state(&start), Some("fixture-code".into()), false)
+        .await
+        .unwrap();
+    let claimed = h.service.claim(request(&start, &proof)).await.unwrap();
+    assert_eq!(claimed.status.account_id, account.id);
+    assert_eq!(claimed.status.github_id, 42);
+    assert_eq!(claimed.status.authority, GitHubAuthority::PublicRead);
+}
+
+#[tokio::test]
+async fn legacy_link_owner_retired_during_browser_handoff_cannot_install_a_personal_session() {
+    let h = Harness::new();
+    let accounts = crate::account::Accounts::new(h.store.clone());
+    let (_, session, _) = accounts.fixture_for_test();
+    let proof = random_secret().unwrap();
+    let start = h
+        .service
+        .start_legacy_link(
+            StartRequest {
+                native_challenge: wire::native_challenge(&proof).unwrap(),
+            },
+            accounts.clone(),
+            session.clone(),
+        )
+        .await
+        .unwrap();
+    h.service
+        .callback(state(&start), Some("fixture-code".into()), false)
+        .await
+        .unwrap();
+    accounts.sign_out_async(&session).await.unwrap();
+    assert!(h.service.claim(request(&start, &proof)).await.is_err());
+    assert!(h.store.get("personal-auth-v1:state").unwrap().is_none());
+}
