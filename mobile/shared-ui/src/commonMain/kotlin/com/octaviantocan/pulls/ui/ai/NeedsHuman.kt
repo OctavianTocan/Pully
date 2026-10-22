@@ -66,7 +66,7 @@ fun NeedsHuman(session: ReviewSession, engineAvailable: Boolean, canStartPaidWor
     fun line(index: Int): Modifier = if (index == 0) Modifier else Modifier.hairlineTop(c.borderMute)
     val beforeFindings = if (mergeRisk != null) 1 else 0
     val tail = beforeFindings + shown.size + if (findings.isNotEmpty()) 1 else 0
-    val stop = guardedStop(session, listOf("critique"), reviewing && canCritique) { critiqueTask?.let { session.cancelTask(it.id) } }
+    val stop = guardedStop(session, listOf("critique"), critiqueTask, reviewing && canCritique)
     Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
         Text("What needs a human", Modifier.padding(bottom = 2.dp), style = PullsType.xl, color = c.text)
         mergeRisk?.let { risk ->

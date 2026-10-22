@@ -821,9 +821,24 @@ class ReviewSession(
         }
     }
 
-    fun cancelTask(id: String) {
-        if (!active()) return
-        scope.launch { if (active()) repo.cancelTask(id) }
+    fun cancelTask(id: String, beforeDispatch: () -> Boolean = { true }, onError: ((String) -> Unit)? = null) {
+        if (onError == null) {
+            if (!active()) return
+            scope.launch { if (active() && beforeDispatch()) repo.cancelTask(id) }
+            return
+        }
+        val expected = version() ?: return
+        if (!current(expected)) return
+        scope.launch {
+            if (!current(expected) || !beforeDispatch() || !current(expected)) return@launch
+            try {
+                repo.cancelTask(id, bestEffort = false)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (current(expected)) onError?.invoke(failure.message ?: "Pully could not stop this task. Try again.")
+            }
+        }
     }
 
     /** Stops foreground reads only. The lifetime scope, accepted writes and server work are retained. */

@@ -91,7 +91,8 @@ fun AskThreadCard(session: ReviewSession, thread: AskThread, modifier: Modifier 
                         // The log's orb is the Stop button; there is no Stop pill beside it (rule 87).
                         val activities = if (running && task != null) task.activities else turn.activities.ifEmpty { task?.activities.orEmpty() }
                         val outcome = turn.outcome ?: if (task != null && !task.running) outcomeOf(task) else "done"
-                        val stop = guardedStop(session, listOf("ask"), capabilities.canAsk && running && task != null) { if (capabilities.canAsk && owner != null && session.isCurrentView(owner)) task?.let { session.cancelTask(it.id) } }
+                        val stop = guardedStop(session, listOf("ask"), task, capabilities.canAsk && running,
+                            permitted = { owner != null && session.isCurrentView(owner) })
                         AiActivityLogFull(activities, running, Modifier.fillMaxWidth(), startedAt = turn.startedAt, endedAt = task?.endedAt, outcome = outcome, compact = true, onStop = stop, reconnecting = task?.id in session.taskObservationErrors)
                     }
                     val answer = turn.answer ?: task?.result?.takeIf { task.status == "done" }
