@@ -929,6 +929,20 @@ pub async fn handle(
     name: &str,
     args: Value,
 ) -> Option<Result<Value>> {
+    if let Err(error) = state.identity.ensure_current() {
+        return Some(Err(error));
+    }
+    handle_inner(state, name, args).await.map(|result| {
+        state.identity.ensure_current()?;
+        result
+    })
+}
+
+async fn handle_inner(
+    state: &Arc<crate::AppState>,
+    name: &str,
+    args: Value,
+) -> Option<Result<Value>> {
     if let Some(result) = github::handle(state, name, &args).await {
         return Some(result);
     }

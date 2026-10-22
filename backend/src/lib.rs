@@ -8,9 +8,11 @@ pub mod feedback;
 pub mod github_stats;
 pub mod google_sign_in;
 pub mod host;
+pub(crate) mod identity;
 pub mod jev;
 mod lz;
 mod merge_risk;
+pub(crate) mod personal_auth;
 pub mod posted;
 pub mod presentation;
 pub mod review;
@@ -26,6 +28,7 @@ use std::{path::PathBuf, sync::Arc};
 
 #[derive(Clone)]
 pub struct AppState {
+    pub(crate) identity: identity::RequestIdentity,
     pub accounts: account::Accounts,
     pub google_sign_in: Arc<google_sign_in::GoogleSignIn>,
     pub host: host::ServerHost,
@@ -40,6 +43,9 @@ pub struct AppState {
 }
 impl AppState {
     pub async fn ensure_account(&self) -> Result<bool> {
+        if !self.identity.is_legacy() {
+            bail!("Legacy account sign-in is not available in this context");
+        }
         self.account_seed
             .get_or_try_init(|| async { Ok(self.accounts.seed_env().await?.is_some()) })
             .await
@@ -50,8 +56,20 @@ impl AppState {
         Self::from_host(host::ServerHost::new(store, Some(cwd), None))
     }
     pub fn from_host(host: host::ServerHost) -> Result<Arc<Self>> {
+        Self::from_identity_host(host, identity::RequestIdentity::LegacyPrivate)
+    }
+    pub(crate) fn from_identity_host(
+        host: host::ServerHost,
+        identity: identity::RequestIdentity,
+    ) -> Result<Arc<Self>> {
         let store = host.storage.clone();
+        let analytics = if identity.is_legacy() {
+            analytics::Analytics::new()
+        } else {
+            analytics::Analytics::for_tenant(store.root().join("analytics"))
+        };
         Ok(Arc::new(Self {
+            identity,
             host,
             accounts: account::Accounts::new(store.clone()),
             google_sign_in: Arc::new(google_sign_in::GoogleSignIn::new()?),
@@ -64,7 +82,7 @@ impl AppState {
                 .timeout(std::time::Duration::from_secs(60))
                 .build()?,
             jobs: ai::Jobs::default(),
-            analytics: analytics::Analytics::new(),
+            analytics,
             diff_cache: Arc::new(std::sync::Mutex::new(review::DiffCache::default())),
         }))
     }

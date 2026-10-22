@@ -72,7 +72,7 @@ impl Drop for RepoRefreshGuard {
 async fn fetch_repo_page(state: &AppState, args: &Value) -> Result<Value> {
     fetch_repo_page_with(
         args,
-        github::token().await.is_some(),
+        github::token(state).await?.is_some(),
         |method, path, body| async move { github_request(state, method, &path, body).await },
     )
     .await
@@ -422,7 +422,7 @@ async fn fetch_my_pulls(state: &AppState, args: &Value) -> Result<Value> {
     let st = args["state"].as_str().unwrap_or("open");
     ensure!(["open", "closed"].contains(&st), "Invalid pull state");
     ensure!(
-        github::token().await.is_some(),
+        github::token(state).await?.is_some(),
         "GitHub authentication is required"
     );
     let cachekey = format!("my-pulls:{st}");

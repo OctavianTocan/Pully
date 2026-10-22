@@ -244,8 +244,19 @@ not changed since the run began. Its writes MUST NOT count as views
 (server-store-answers-first; review finding 4, 15 Oct 2026).
 
 @cc [owner:OctavianTocan,label:architecture] server-session-shares-state
-RPCs, native requests, tasks and preanalysis MUST share the server's AppState storage
-and cache coordinator (server-ai-work-outlives-the-page; review finding 6, 15 Oct 2026).
+RPCs, native requests, tasks and preanalysis for one principal and credential binding
+MUST share its AppState storage and cache coordinator. Guest and personal account
+contexts MUST NOT share the legacy private server's state or another account's state.
+Tavi's 21 Oct 2026 personal-account/public-browsing decision replaces the former global
+scope; the existing LegacyPrivate context retains its shared instance
+(server-ai-work-outlives-the-page; review finding 6, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:security;architecture] tenant-ai-never-inherits-operator-login
+Nonlegacy contexts MUST NOT start AI work, query operator model catalogs or seed the
+operator's environment account until an explicit personal provider authority and budget
+have been installed for that context. Public ingress MUST remain unavailable until its
+own allowlist, session validation and tenant isolation are implemented and reviewed.
+Source: Tavi's 21 Oct 2026 request for each user's own Claude/ChatGPT/Pi connection.
 
 @cc [owner:OctavianTocan,label:architecture] stored-opening-keeps-newer-heads
 A fetch MUST NOT replace a head stored since this opening observed the cache, including

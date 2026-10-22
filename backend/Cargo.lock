@@ -1114,6 +1114,7 @@ dependencies = [
  "pbkdf2",
  "regex",
  "reqwest",
+ "ring",
  "roxmltree",
  "serde",
  "serde_json",

@@ -533,6 +533,10 @@ async fn run_storage<T: Send + 'static>(
 /// Admission stays independent of the HTTP request once queued. Its complete
 /// storage/pin transaction runs on the blocking pool, including mutex acquisition.
 async fn start_async(state: &Arc<AppState>, req: Value, task: bool) -> Result<String> {
+    anyhow::ensure!(
+        state.identity.is_legacy(),
+        "Connect a personal AI provider before starting work"
+    );
     let (send, result) = tokio::sync::oneshot::channel();
     {
         let mut handles = state.jobs.handles.lock().unwrap();
@@ -932,6 +936,16 @@ pub async fn change_chat(state: &Arc<AppState>, key: &str, id: Option<&str>) -> 
     .await
 }
 pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
+    if let Err(error) = state.identity.ensure_current() {
+        return Some(Err(error));
+    }
+    handle_inner(state, name, args).await.map(|result| {
+        state.identity.ensure_current()?;
+        result
+    })
+}
+
+async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
     let a = if args.is_array() {
         args.get(0).cloned().unwrap_or(json!({}))
     } else {
