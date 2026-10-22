@@ -115,8 +115,14 @@ final class AccountStorageHostTests: XCTestCase {
         observer.before = {
             events.append("invalidating")
             XCTAssertEqual(events, ["revoke", "invalidating"])
-            XCTAssertNil(try storage.context())
-            XCTAssertThrowsError(try storage.save(payload: payload, for: captured))
+            // Observer callbacks cannot throw, so a storage error fails the test here.
+            do {
+                let context = try storage.context()
+                XCTAssertNil(context)
+                XCTAssertThrowsError(try storage.save(payload: payload, for: captured))
+            } catch {
+                XCTFail("Reading the revoked share context failed: \(error)")
+            }
             XCTAssertEqual(host.connection(verification: false)?.generation, before)
             XCTAssertNil(host.connection(verification: false)?.headers["CF-Access-Client-Id"])
         }
@@ -128,7 +134,14 @@ final class AccountStorageHostTests: XCTestCase {
         XCTAssertEqual(events, ["revoke", "invalidating", "published"])
         XCTAssertNil(coordinator.take(namespace: String(repeating: "b", count: 64), server: server))
         let renewed = try XCTUnwrap(storage.context())
-        observer.before = { XCTAssertEqual(try storage.context(), renewed) }
+        observer.before = {
+            do {
+                let context = try storage.context()
+                XCTAssertEqual(context, renewed)
+            } catch {
+                XCTFail("Reading the renewed share context failed: \(error)")
+            }
+        }
         observer.after = {}
         events.removeAll()
         let generation = try XCTUnwrap(host.connection(verification: false)?.generation)
