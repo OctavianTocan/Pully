@@ -33,7 +33,7 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
         if (name in setOf("my-pulls-cached", "my-pulls", "repo-pulls", "github-stats")) {
             return previewTransport.execute(RpcRequest(request.url, emptyMap(), request.body))
         }
-        val result: JsonElement = if (work?.handles(name) == true) work.answer(name, args) else when (name) {
+        val result: JsonElement = try { if (work?.handles(name) == true) work.answer(name, args) else when (name) {
             "account-status" -> json("""{"hasAccount":true}""")
             "account-sign-in" -> {
                 require(request.headers.isEmpty())
@@ -54,6 +54,8 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
             "file-content" -> json("""{"old":"fun review() = \"android\"\n","new":"fun review() = \"shared\"\n"}""")
             "highlight" -> JsonObject(emptyMap()) // The exact renderer's normal unhighlighted-text path.
             else -> error("The root fixture rejects unsupported RPC: $name")
+        } } catch (_: RootJourneyStopRejected) {
+            return RpcResponse(503, buildJsonObject { put("error", RootJourneyWork.STOP_ERROR) }.toString(), "application/json")
         }
         return RpcResponse(200, buildJsonObject { put("result", result) }.toString(), "application/json")
     }
@@ -89,9 +91,14 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
         const val SESSION = "sample-root-session-not-a-real-credential"
         const val KEY = "root-fixture-76"
         fun readOnly(fixtureIdentifier: String) = RootJourneyTransport(null, canonicalIdentifier(fixtureIdentifier))
-        fun fullJourney(store: RootJourneyStateStore, fixtureIdentifier: String? = null, nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() }): RootJourneyTransport {
+        fun fullJourney(
+            store: RootJourneyStateStore,
+            fixtureIdentifier: String? = null,
+            scenario: RootJourneyScenario = RootJourneyScenario.Normal,
+            nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+        ): RootJourneyTransport {
             val identity = fixtureIdentifier?.let(::canonicalIdentifier)
-            return RootJourneyTransport(RootJourneyWork(store, nowMillis), identity)
+            return RootJourneyTransport(RootJourneyWork(store, nowMillis, scenario), identity)
         }
         private fun canonicalIdentifier(value: String): String {
             require(value.matches(Regex("[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"))) {

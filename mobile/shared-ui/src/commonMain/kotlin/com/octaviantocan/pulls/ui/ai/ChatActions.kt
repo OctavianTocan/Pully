@@ -159,10 +159,6 @@ internal class ChatActions(
         })
     }
 
-    fun stop(id: String) {
-        if (canAsk && session.tasks[id]?.let { it.kind == "chat" && it.running } == true) session.cancelTask(id)
-    }
-
     fun loadHistory(force: Boolean = false): Boolean {
         if (!canRead || session.chatHistoryLoading) return false
         session.loadChatHistory(force)

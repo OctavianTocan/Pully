@@ -81,6 +81,7 @@ class ReviewSession(
     private var reviewSequence = 0L
     private var stackSequence = 0L
     private var taskNonce = 0L
+    private val stopRequests = mutableMapOf<String, Any>()
     private var marksSequence = 0L
 
     internal data class Version(val key: String, val head: String, val revision: Long)
@@ -136,6 +137,7 @@ class ReviewSession(
             taskCompletions.clear()
             pendingOutcomes.clear()
             tasks.clear()
+            stopRequests.clear()
             taskObservationErrors.clear()
             saved = null
             reviewed = emptySet()
@@ -821,9 +823,29 @@ class ReviewSession(
         }
     }
 
-    fun cancelTask(id: String) {
-        if (!active()) return
-        scope.launch { if (active()) repo.cancelTask(id) }
+    fun cancelTask(id: String, beforeDispatch: () -> Boolean = { true }, onError: ((String) -> Unit)? = null) {
+        if (onError == null) {
+            if (!active()) return
+            scope.launch { if (active() && beforeDispatch()) repo.cancelTask(id) }
+            return
+        }
+        val expected = version() ?: return
+        if (!current(expected)) return
+        scope.launch {
+            if (!current(expected) || !beforeDispatch() || !current(expected)) return@launch
+            val request = Any()
+            stopRequests[id] = request
+            try {
+                repo.cancelTask(id, bestEffort = false)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (current(expected) && stopRequests[id] === request && tasks[id]?.running == true)
+                    onError(failure.message ?: "Pully could not stop this task. Try again.")
+            } finally {
+                if (stopRequests[id] === request) stopRequests.remove(id)
+            }
+        }
     }
 
     /** Stops foreground reads only. The lifetime scope, accepted writes and server work are retained. */
@@ -878,6 +900,7 @@ class ReviewSession(
         followers.clear()
         taskCompletions.clear()
         pendingOutcomes.clear()
+        stopRequests.clear()
         pageState.clear()
         tourRead = null
         cache.release(this)

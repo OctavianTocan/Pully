@@ -129,9 +129,8 @@ fun TourRunning(session: ReviewSession, modifier: Modifier) {
     val capabilities = LocalAiCapabilities.current
     val canStop = if (tour != null) capabilities.canTour else capabilities.canAnalyze
     val owner = session.captureTourRead()
-    val guarded = guardedStop(session, listOf(kind), task.running && canStop) {
-        if (session.isCurrentTourRead(owner)) session.cancelTask(task.id)
-    }
+    val guarded = guardedStop(session, listOf(kind), task, task.running && canStop,
+        permitted = { session.isCurrentTourRead(owner) })
     val stop = guarded.takeIf { canStop }
     // Every step, the log growing downward in the sheet, with no "+4 more" squeezing the older ones away ("this could just
     // go down": recording 16 Oct 13:06, 06:02 to 06:30; O14). No "Wrote 3 of 6 stops" line: the stops appear on the

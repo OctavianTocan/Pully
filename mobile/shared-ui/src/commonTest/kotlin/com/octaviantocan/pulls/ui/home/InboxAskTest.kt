@@ -590,6 +590,7 @@ internal class InboxAskHarness(scope: CoroutineScope, initialReady: Boolean = tr
     var tasks = emptyList<JsonObject>()
     val snapshots = Channel<JsonObject>(Channel.UNLIMITED)
     var handler: suspend (String, JsonObject) -> JsonElement = ::default
+    var rejectionStatus = 200
     val native = InboxAskNative()
     val observations = HomeObservations(initialReady)
     val settings = AppSettings(InboxAskPreferences(), object : SettingsEffects {
@@ -606,7 +607,7 @@ internal class InboxAskHarness(scope: CoroutineScope, initialReady: Boolean = tr
             calls += name to args
             val envelope = try { val result = handler(name, args); buildJsonObject { put("result", result) } }
             catch (rejected: InboxAskRejection) { buildJsonObject { put("error", rejected.message) } }
-            RpcResponse(200, envelope.toString(), "application/json")
+            RpcResponse(if ("error" in envelope) rejectionStatus else 200, envelope.toString(), "application/json")
         },
     )
     val ask = InboxAsk(repo, scope, settings, native, object : InboxAskEffects {
