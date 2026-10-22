@@ -74,6 +74,9 @@ class PersonalAuthAttempt internal constructor(
     internal val id: String,
     internal val proof: PersonalAuthProof,
     internal val source: RpcSource,
+    internal val authority: PersonalAuthority = PersonalAuthority.PublicRead,
+    internal val accountId: String? = null,
+    internal val githubId: Long? = null,
 ) {
     override fun toString(): String = "PersonalAuthAttempt([redacted])"
 }
@@ -98,9 +101,22 @@ class PersonalAuthClient(
 
     suspend fun start(proof: PersonalAuthProof, source: RpcSource = source()): PersonalAuthAttempt {
         val value = request(PersonalPaths.Start, buildJsonObject { put("nativeChallenge", proof.challenge) }, source).obj()
+        return attempt(value, proof, source)
+    }
+
+    /** Only the runtime's captured, verified account can request the separate repository consent. */
+    internal suspend fun startRepositoryConsent(proof: PersonalAuthProof, session: StoredPersonalSession, source: RpcSource): PersonalAuthAttempt {
+        if (session.origin != origin.base) throw PersonalAuthError(PersonalAuthProblem.InvalidRequest)
+        val value = request(PersonalPaths.RepositoryConsent, buildJsonObject { put("nativeChallenge", proof.challenge) }, source, session.token).obj()
+        return attempt(value, proof, source, session)
+    }
+
+    private fun attempt(value: JsonObject, proof: PersonalAuthProof, source: RpcSource, session: StoredPersonalSession? = null): PersonalAuthAttempt {
+        val authority = if (session == null) PersonalAuthority.PublicRead else PersonalAuthority.PrivateRepositories
         val id = value.string("attemptId").takeIf(::canonicalPersonalSecret) ?: invalidPersonal()
-        val url = value.string("authorizeUrl").also { validateAuthorizeUrl(it, origin) }
-        return PersonalAuthAttempt(url, value.positive("expiresAt"), value.positive("pollAfterMs").takeIf { it in 1_000L..30_000L } ?: invalidPersonal(), id, proof, source)
+        val url = value.string("authorizeUrl").also { validateAuthorizeUrl(it, origin, authority) }
+        return PersonalAuthAttempt(url, value.positive("expiresAt"), value.positive("pollAfterMs").takeIf { it in 1_000L..30_000L } ?: invalidPersonal(), id, proof, source,
+            authority, session?.accountId, session?.githubId)
     }
 
     suspend fun status(attempt: PersonalAuthAttempt): PersonalAttemptStatus {
@@ -129,7 +145,12 @@ class PersonalAuthClient(
         val value = request(PersonalPaths.Claim, attempt.body(), attempt.source).obj()
         val session = value.string("session").also(::validatePersonalSession)
         val status = parseAccount(value["status"].obj())
-        if (status.authority != PersonalAuthority.PublicRead) invalidPersonal()
+        if (status.authority != attempt.authority) {
+            if (attempt.authority == PersonalAuthority.PublicRead) invalidPersonal()
+            throw PersonalAuthError(PersonalAuthProblem.Denied)
+        }
+        if (attempt.accountId != null && (status.accountId != attempt.accountId || status.githubId != attempt.githubId))
+            throw PersonalAuthError(PersonalAuthProblem.Reconnect)
         if (status.sessionExpiresAt != attempt.expiresAt) invalidPersonal()
         return PersonalSession(session, status, origin.base)
     }
@@ -216,6 +237,7 @@ internal expect fun personalAuthTransport(): RpcTransport
 
 private enum class PersonalPaths(val path: String) {
     Capabilities("/api/personal/v1/capabilities"), Start("/api/personal/v1/auth/github/start"),
+    RepositoryConsent("/api/personal/v1/auth/github/repositories/start"),
     Status("/api/personal/v1/auth/github/status"), Claim("/api/personal/v1/auth/github/claim"),
     Cancel("/api/personal/v1/auth/github/cancel"), Session("/api/personal/v1/session"),
     SignOut("/api/personal/v1/session/sign-out"), Disconnect("/api/personal/v1/github/disconnect"),
@@ -238,7 +260,7 @@ private fun parseAccount(value: JsonObject): PersonalAccountStatus {
     return PersonalAccountStatus(account, value.positive("githubId"), login, authority, value.positive("sessionExpiresAt"), access, value.bool("refreshAvailable"))
 }
 
-private fun validateAuthorizeUrl(url: String, origin: PersonalAuthOrigin) {
+private fun validateAuthorizeUrl(url: String, origin: PersonalAuthOrigin, authority: PersonalAuthority) {
     val prefix = "https://github.com/login/oauth/authorize?"
     if (url.length > 4096 || !url.startsWith(prefix) || url.any { it.isWhitespace() || it.code !in 33..126 || it in "#\\" }) invalidPersonal()
     val query = mutableMapOf<String, String>()
@@ -250,7 +272,7 @@ private fun validateAuthorizeUrl(url: String, origin: PersonalAuthOrigin) {
         query["client_id"].isNullOrBlank() || query["client_id"]!!.length > 256 ||
         query["redirect_uri"] != origin.base + "/api/personal/v1/auth/github/callback" ||
         query["response_type"] != "code" || query["code_challenge_method"] != "S256" ||
-        query["scope"] != "offline_access" || query["prompt"] != "select_account" ||
+        query["scope"] != (if (authority == PersonalAuthority.PublicRead) "offline_access" else "repo offline_access") || query["prompt"] != "select_account" ||
         !canonicalPersonalSecret(query["state"].orEmpty()) || !canonicalPersonalSecret(query["code_challenge"].orEmpty())) invalidPersonal()
 }
 

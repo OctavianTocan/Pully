@@ -63,11 +63,15 @@ A registration created before the root acquires its window MUST be retried when 
 scene becomes active; repeated attachment or activation MUST NOT add a second edge
 recognizer for that registration. Source: the accepted 21 Oct 2026 native Back
 continuity repair after actual simulator repository and dialog journeys.
-The shared Back recognizer MUST retain native Back prevention priority while a
-Compose dialog is open, so the framework's click-only Back handler cannot swallow
-its progress gesture. The same scene/root/presentation and shared-consumer gates
-MUST still decide whether it starts or commits. Source: the actual 21 Oct 2026
-modal-only simulator failure and pinned Compose 1.12.2 Dialog/navigation input.
+The shared Back recognizer MUST retain its native touch prevention policy, while an
+enabled same-container/same-edge framework dialog input takes explicit failure
+precedence. Framework dialog progress and completion MUST reach the same captured
+shared sheet/edit consumer before the framework's click-only handler can swallow
+the swipe. One physical swipe MUST NOT also complete an underlying route gesture.
+The same scene/root/presentation and shared-consumer gates MUST still apply. This
+replaces the prevention-only repair with the accepted 22 Oct 2026 modal completion
+repair, based on the actual modal-only simulator failure and pinned Compose 1.12.2
+Dialog/navigation input; ordinary Android Back and native route thresholds stay intact.
 
 @cc [owner:OctavianTocan,label:architecture;security] ios-explicit-browser-uses-native-web-presentation
 The shared explicit browser action MUST accept only HTTP(S) URLs with a host and no
@@ -139,3 +143,40 @@ journeys MUST use only their validated UUID's separate tour directory, retain th
 strict read-only mode and keep unsupported fixture RPC controls unavailable.
 Source: Tavi's accepted 21 Oct 2026 complete maximum-reuse iOS journey and native
 source/lifecycle isolation plan.
+
+@cc [owner:OctavianTocan,label:architecture;security] ios-share-extension-keeps-the-credential-boundary
+The host MUST link only its shared app framework; the extension MUST link only the
+UI-free shared parser framework and pure native handoff support. App Group setup
+MUST NOT widen app-private Keychain access or become a requirement for ordinary app
+launch or CI. Native identity replacement MUST synchronously retire share authority
+before new credentials publish, including a corrupt-store reset. Source: the accepted
+21 Oct 2026 native share handoff, single-stack and credential-isolation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-cocoa-errors-remain-failures
+The personal Cocoa storage bridge MUST pass native read/write errors into the same
+shared vault as exceptions, never as nil or an empty successful result. App scenes
+MUST share one UI-owned personal store and cleanup lifetime, independent of legacy
+account storage. The personal origin MUST come only from the trusted bundle setting;
+an absent setting MUST leave GitHub sign-in unavailable. Actual signed app-hosted
+tests MUST verify Cocoa error propagation and real private Keychain storage before
+native release activation. Source: Tavi's personal GitHub request and the accepted
+22 Oct 2026 opaque native Keychain bridge plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-scene-composes-separate-native-account-authorities
+The ordinary scene MUST supply its private Share handoff and the application-wide
+personal Keychain vault to the same retained shared application. The personal vault
+MUST remain confined to the public workspace and MUST NOT authorize private Share,
+legacy account, Home or AI work. Strict Debug fixtures MUST receive neither ordinary
+adapter. An absent trusted personal origin and unavailable App Group MUST keep their
+respective features unavailable without blocking ordinary entry. Source: Tavi's
+complete iOS request and the accepted 22 Oct 2026 native account/Share composition.
+
+@cc [owner:OctavianTocan,label:product;architecture] ios-settings-journeys-use-real-controls-and-system-editing
+Native Settings/Commands journeys MUST operate the existing shared controls and
+one Compose stack, and MUST verify the displayed value, destination and recovery.
+Keyboard, selection, replacement and paste proofs MUST use actual UIKit input and
+system edit actions, and code-copy proof MUST paste the production copy output into
+an actual shared field. They MUST NOT read a test-runner pasteboard, dispatch an
+in-app test action or replace a control with a hittable text/container proxy. Every
+existing native journey assertion MUST remain intact. Source: Tavi's accepted
+22 Oct 2026 native interaction closure under the original maximum-reuse iOS plan.

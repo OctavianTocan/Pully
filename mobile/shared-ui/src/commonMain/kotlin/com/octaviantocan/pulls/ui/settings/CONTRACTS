@@ -121,6 +121,10 @@ usage and unpriced-cost dash from one shared body. Counts and Gregorian dates MU
 use the app's chosen language; dollars, compact tokens and time units MUST retain
 the existing Android formatting policy. Source: stats-ai-usage, DESIGN.md rules178/181
 and Tavi's 21 Oct 2026 maximum-reuse same-app decision.
+Integer time units MUST preserve the original Android Math.round half-boundary,
+including the representable value immediately below one half. Source: the existing
+Android millisecondRoundingRetainsTheOriginalJvmHalfBoundary proof and the actual
+22 Oct 2026 Native formatting failure under the same maximum-reuse decision.
 
 @cc [owner:OctavianTocan,label:architecture;security] shared-settings-use-one-active-source
 The root MUST provide one active model/catalog services instance to Settings, review
@@ -194,3 +198,12 @@ canonical web-locale lookup. Unknown connection content MUST use the existing ro
 skeletons, while a refresh MUST retain known current status and private drafts.
 Source: strings-from-web-locales, android-no-loading-screens, android-refresh-is-silent
 and Tavi's 21 Oct 2026 same-app iOS decision.
+
+@cc [owner:OctavianTocan,label:security;product] settings-theme-choice-rechecks-its-entry-owner
+A host-owned theme picker MUST reject a retired entry's retained choice, including
+retirement while its theme wipe is queued. It MUST NOT change replacement preferences
+or synchronize that old choice under the replacement account. Source: the accepted
+22 Oct 2026 iOS Guest/private lifetime boundary and shared-commands-retire-private-owner.
+The nested Settings Theme page MUST consume its SettingsServices-owned picker. Native
+palette sheets MUST retain an explicitly captured picker rather than an unowned default.
+Source: the independently confirmed 22 Oct Guest review and its approved resolution.

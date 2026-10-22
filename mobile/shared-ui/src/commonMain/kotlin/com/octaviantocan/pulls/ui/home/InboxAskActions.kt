@@ -57,7 +57,7 @@ internal class InboxAskActions(private val ask: InboxAsk, private val mount: Inb
     fun ask(question: String) { if (canAsk) ask.sendOrQueue(question) { mount.canAsk } }
     fun retry(turn: AskTurn) { if (canAsk && !ask.busy) ask.retry(turn) { mount.canAsk } }
     fun clear() { if (canAsk && !ask.busy) ask.clear { mount.canAsk } }
-    fun stop(task: TaskState?) { if (canAsk) ask.stop(task) { mount.canAsk } }
+    fun stop(task: TaskState?) { if (canAsk) ask.stop(task) { canAsk } }
     fun reconnect() { if (current) ask.retryObservation() }
     fun copy(text: String): Boolean = read { ask.native.copyText(text) }
 }

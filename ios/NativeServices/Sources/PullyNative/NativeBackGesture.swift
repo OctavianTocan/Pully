@@ -134,6 +134,15 @@ public final class NativeBackGesture: NSObject, UIGestureRecognizerDelegate {
         return velocity.x * (rightEdge ? -1 : 1) > 0 && abs(velocity.x) > abs(velocity.y)
     }
 
+    /// A dialog's framework edge input owns that swipe; its shared handler performs dismissal.
+    /// Disabled framework inputs fail immediately, leaving ordinary route Back with this observer.
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard !removed, gestureRecognizer === recognizer, let view,
+              let other = otherGestureRecognizer as? UIScreenEdgePanGestureRecognizer,
+              other !== recognizer, other.view === view, other.edges == recognizer.edges else { return false }
+        return true
+    }
+
     /// Resigning the scene cancels a drag, while keeping the registration ready for a later gesture.
     public func interrupt() {
         guard !removed else { return }

@@ -117,7 +117,7 @@ fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, services: Sett
     val settings = services.settings
     when (page) {
         SettingsPage.Main -> MainPage(nav, services, open = onPage)
-        SettingsPage.Theme -> ColorThemePage(settings)
+        SettingsPage.Theme -> ColorThemePage(services.colorThemes)
         SettingsPage.Language -> LanguagePage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Advanced -> AdvancedPage(nav, services, open = onPage)
         SettingsPage.Server -> ServerPage(remember(services) { services.server() })

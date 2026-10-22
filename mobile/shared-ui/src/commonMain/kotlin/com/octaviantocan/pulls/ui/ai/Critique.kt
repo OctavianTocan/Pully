@@ -208,7 +208,7 @@ private fun CritiquePanelBody(session: ReviewSession, modifier: Modifier, onRetr
 
         if (task != null && (running || task.activities.isNotEmpty())) {
             // The log's orb is the Stop button; there is no Stop pill beside it (rule 87).
-            val stop = guardedStop(session, listOf("critique"), running) { session.cancelTask(task.id) }
+            val stop = guardedStop(session, listOf("critique"), task, running)
             AiActivityLogFull(task.activities, running, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), startedAt = task.startedAt.takeIf { it > 0 }, endedAt = task.endedAt, outcome = outcomeOf(task), onStop = stop, reconnecting = task?.id in session.taskObservationErrors)
         }
         if (failed) {

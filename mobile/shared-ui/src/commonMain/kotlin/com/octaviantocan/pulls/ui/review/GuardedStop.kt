@@ -5,8 +5,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import com.octaviantocan.pulls.data.TaskState
+import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.ai.AiCapabilities
 import com.octaviantocan.pulls.ui.ai.LocalAiCapabilities
+import com.octaviantocan.pulls.ui.design.LocalToaster
 
 /** How long after a run starts the orb ignores a tap, so the tap that started it can never also stop it (rule 63). */
 private const val STOP_GRACE_MS = 700L
@@ -43,4 +46,53 @@ fun guardedStop(session: ReviewSession, kinds: List<String>, running: Boolean, s
         if (lifetime.active && enabled && session.isCurrentFrame(view) && readiness.ai(capabilities).canStop(kinds) &&
             session.millisSinceLastStart(kinds) > STOP_GRACE_MS) latest()
     }) else null
+}
+
+/** The real Stop request keeps its receipt after dispatch; only a new request needs the mounted live control. */
+internal class TaskStopAction(
+    private val session: ReviewSession,
+    private val view: ReviewSession.Version?,
+    private val taskId: String?,
+    private val kinds: List<String>,
+    private val readiness: ReviewActionReadiness,
+    private val capabilities: () -> AiCapabilities,
+    private val permitted: () -> Boolean,
+    private val onError: (String) -> Unit,
+) {
+    private var disposed = false
+
+    private fun canDispatch(): Boolean = !disposed && view != null && taskId != null && session.isCurrentView(view) &&
+        session.tasks[taskId]?.let { it.running && it.kind in kinds } == true && permitted() && readiness.ai(capabilities()).canStop(kinds) &&
+        !disposed && session.isCurrentView(view)
+
+    fun stop() {
+        val id = taskId ?: return
+        if (canDispatch()) session.cancelTask(id, beforeDispatch = ::canDispatch, onError = onError)
+    }
+
+    fun close() { disposed = true }
+}
+
+/** Task-backed user controls surface a rejected Stop through the same shared toast and error cue as other actions. */
+@Composable
+fun guardedStop(
+    session: ReviewSession,
+    kinds: List<String>,
+    task: TaskState?,
+    running: Boolean,
+    permitted: () -> Boolean = { true },
+): (() -> Unit)? {
+    val capabilities by rememberUpdatedState(LocalAiCapabilities.current)
+    val latestPermitted by rememberUpdatedState(permitted)
+    val enabled by rememberUpdatedState(running)
+    val readiness = LocalReviewActionReadiness.current
+    val toaster = LocalToaster.current
+    val view = session.captureView()
+    val action = remember(session, view, task?.id, kinds, readiness, toaster) {
+        TaskStopAction(session, view, task?.id, kinds, readiness, { capabilities }, { enabled && latestPermitted() }) {
+            toaster.show(it, cue = Cue.Error)
+        }
+    }
+    DisposableEffect(action) { onDispose { action.close() } }
+    return guardedStop(session, kinds, running && task?.running == true) { action.stop() }
 }

@@ -20,6 +20,7 @@ class SourceHomeActionsTest {
             override fun observeBack(rightEdge: Boolean, observer: HomeBackObserver): HomeLifecycleSubscription = error("Only the root installs the native gesture")
         }
         val source = SourceHomeActions(native) { current }
+        assertFalse(source.isSharedBackActive(), "A host without native presentation authority must fail closed")
         var starts = 0
         val subscription = source.observeLifecycle(object : HomeLifecycleObserver {
             override fun started() { starts++ }
@@ -40,5 +41,28 @@ class SourceHomeActionsTest {
         assertEquals(3, calls.size)
         subscription.cancel()
         assertEquals("unsubscribe", calls.last())
+    }
+
+    @Test
+    fun dialogBackRequiresBothTheOriginalSourceAndNativePresentationAuthority() {
+        var current = true
+        var active = true
+        var checks = 0
+        val native = object : NativeHomeActions, NativeBackReadiness {
+            override fun isSharedBackActive(): Boolean { checks++; return active }
+            override fun copyText(text: String) = error("No system action is requested")
+            override fun openOnGithub(url: String) = error("No system action is requested")
+            override fun openInBrowser(url: String) = error("No system action is requested")
+            override fun observeLifecycle(observer: HomeLifecycleObserver): HomeLifecycleSubscription = error("No observer is registered")
+            override fun observeBack(rightEdge: Boolean, observer: HomeBackObserver): HomeLifecycleSubscription = error("No second recognizer is registered")
+        }
+        val source = SourceHomeActions(native) { current }
+        assertTrue(source.isSharedBackActive())
+        active = false
+        assertFalse(source.isSharedBackActive())
+        active = true
+        current = false
+        assertFalse(source.isSharedBackActive())
+        assertEquals(2, checks)
     }
 }

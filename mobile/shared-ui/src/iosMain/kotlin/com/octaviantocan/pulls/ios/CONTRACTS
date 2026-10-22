@@ -1,0 +1,53 @@
+@cc [owner:OctavianTocan,label:security;architecture] ios-shared-handoff-requires-verified-foreground-source
+The app MUST activate and consume native handoff storage only for its actual verified
+eligible foreground source, using the existing shared source namespace. A source or
+scene replacement during native reading MUST prevent delivery. Sign-in or confirmed
+anonymous state MUST revoke the native handoff audience; checking, network problems,
+same-account renewal and scene close MUST preserve durable same-source pending data.
+Cross-framework handoff MUST use the bounded canonical payload string, decoded again
+in PullyShared before the existing inbox receives its typed destination. Source:
+the accepted 21 Oct 2026 native share handoff and account-isolation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-share-import-retains-its-verified-foreground-grant
+Native import MUST wait for the current AccountObservationOwner's verified foreground
+grant. A pause and resume during native reading MUST reject the old delivery even
+when the same account/source returns. Scene close MUST preserve durable pending data;
+explicit entry into Explore MUST revoke private handoff authority before publishing
+that mode. Source: the accepted 21 Oct 2026 source-owned native share plan and Tavi's
+22 Oct 2026 shared Guest/private workspace and lifecycle isolation requirements.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-store-is-one-opaque-native-vault
+The native personal-account store MUST adapt the same shared PersonalSessionVault
+through a throwing Cocoa storage port, without requiring Swift to construct an
+unexported client model. One application-wide vault and UI-dispatcher cleanup
+lifetime MUST be shared across scenes. Secure-store failure MUST remain a fixed
+retryable failure rather than an empty successful read or write. Source: Tavi's
+21 Oct 2026 personal-account request and the accepted 22 Oct native bridge plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-personal-identity-retires-all-public-scenes
+Personal promotion or sign-out MUST synchronously revoke every older public runtime
+before any scene observer runs. A late response or retained sign-in callback from
+an older identity MUST NOT publish a profile or dispatch a new attempt. Observer
+cleanup failure in one scene MUST NOT keep another old runtime current. The origin
+MUST come only from explicit trusted application configuration and MUST NOT inherit
+the saved legacy server or grant private authority. Missing configuration MUST keep
+personal work unavailable without preventing Explore. Source: Tavi's public-read
+personal-account decision and the accepted 22 Oct one-vault/multiple-scene plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-foreground-has-an-explicit-native-port
+The mounted personal flow MUST receive synchronous active/inactive events from the
+actual scene, independent of Compose frames and Home's started/background events.
+A host without that real adapter MUST leave personal sign-in unavailable. Ordinary
+inactivity MUST retain the same sign-in owner and MUST NOT cancel an already accepted
+bounded claim. Source: the independent 22 Oct mounted lifecycle finding and accepted
+native activity-adapter plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-personal-mount-keeps-public-authority
+Only the public workspace MAY open the native personal runtime and shared account
+sheet. Its verified profile MUST remain on tokenless public Explore; personal
+connection MUST NOT construct legacy account, Home, AI, Stats or settings observers
+or attach its bearer to public GitHub reads. Entry renewal MUST retire the old
+runtime, sheet, palette and native callbacks before the replacement public workspace
+mounts. Private selection and strict Debug fixture constructors MUST retain their
+existing owners without adopting personal credentials. Source: Tavi's personal
+GitHub/public-browsing request and accepted 22 Oct native public-account mount plan.

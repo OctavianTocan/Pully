@@ -603,3 +603,16 @@ MUST use its source's existing Settings model service and the same tour-copy ada
 as Home. Optional platform check notifications MUST remain absent until an actual
 notification workflow is installed. Source: Tavi's accepted 21 Oct 2026 maximum-reuse
 Compose iOS plan and complete ordinary-source AI and review journeys.
+
+@cc [owner:OctavianTocan,label:product;security] explicit-task-stop-requires-the-server-receipt
+An explicit task Stop MUST report a rejected cancellation through the existing
+shared error message and cue, leave the task running and permit a fresh retry.
+Queued Stop requests MUST recheck their drawn task, full view, source, capability
+and live host eligibility before RPC. Once dispatched, the receipt MUST retain its
+same-source/full-view lifetime through a foreground pause or control dismissal;
+a replacement source/view MUST NOT receive the old error. Internal best-effort
+cleanup MAY keep its existing cancellation behavior. Source: Tavi's complete native
+AI/error-recovery journey and the accepted 22 Oct 2026 Tour Stop rejection finding.
+Only the latest actually dispatched explicit Stop for a still-running task MAY
+publish a rejection; a queued tap that never dispatches MUST NOT supersede an accepted
+receipt. Source: the accepted 22 Oct 2026 full Stop receipt-ordering review, finding 1.

@@ -251,6 +251,7 @@ impl PersonalVault {
                 generation: current.account.generation,
                 expires_at: current.session.expires_at,
                 confirm_by: None,
+                authority: current.session.authority,
             })?,
         )?;
         self.store
@@ -276,6 +277,7 @@ impl PersonalVault {
                         && session.generation == current.account.generation
                         && session.expires_at == current.session.expires_at
                         && session.confirm_by == current.session.confirm_by
+                        && session.authority == current.session.authority
                         && session.deadline() > self.clock.now(),
                     "Personal authorization changed"
                 );

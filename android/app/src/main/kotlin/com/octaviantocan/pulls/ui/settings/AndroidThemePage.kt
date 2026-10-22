@@ -1,9 +1,11 @@
 package com.octaviantocan.pulls.ui.settings
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.data.RepoIdentity
+import com.octaviantocan.pulls.settings.AppSettings
+import com.octaviantocan.pulls.ui.explore.NativeEntryState
 
-/** Android's preferences lookup around the shared picker. */
-@Composable
-internal fun ColorThemeSheet(onClose: () -> Unit) = ColorThemeSheet(AppSettings.get(LocalContext.current), onClose)
+internal fun captureAndroidColorThemePicker(settings: AppSettings, entry: NativeEntryState): ColorThemePicker {
+    val openingEntry = entry.generation
+    val openingSource = RepoIdentity.generation
+    return ColorThemePicker(settings) { entry.generation == openingEntry && RepoIdentity.generation == openingSource }
+}

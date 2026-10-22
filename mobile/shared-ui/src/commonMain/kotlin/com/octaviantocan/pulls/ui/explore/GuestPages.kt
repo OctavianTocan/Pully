@@ -25,6 +25,8 @@ import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.headerTopPadding
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.PullToCommands
+import com.octaviantocan.pulls.ui.personal.PersonalBrowseMount
+import com.octaviantocan.pulls.ui.personal.PersonalBrowsePages
 
 @Composable
 fun GuestPages(
@@ -35,8 +37,10 @@ fun GuestPages(
     onOpenGitHub: (String) -> Unit,
     onGitHubSignIn: (() -> Unit)? = null,
     onCommands: () -> Unit = { Commands.open() },
+    githubAccount: String? = null,
+    personal: PersonalBrowseMount? = null,
 ) {
-    SideEffect { session.keepRoutes() }
+    SideEffect { session.keepRoutes(); personal?.keepRoutes() }
     PullToCommands({ session.runFrom(navigation.stack.last(), onCommands) }, Modifier.fillMaxSize()) {
         AppPages(navigation, motion, Modifier.fillMaxSize()) { screen ->
             when (screen) {
@@ -44,6 +48,7 @@ fun GuestPages(
                     session.repositories, session::openRepository,
                     onGitHubSignIn?.let { action -> { session.runFrom(screen, action) } },
                     { session.runFrom(screen, onExistingAccount) },
+                    githubAccount,
                 )
                 is Screen.PublicRepo -> {
                     val state = remember(session, screen) { session.pulls(screen) }
@@ -52,6 +57,26 @@ fun GuestPages(
                         onDispose { session.release(screen) }
                     }
                     ExplorePullsScreen(state, { session.runFrom(screen, navigation.nav.back) }, { url -> session.runFrom(screen) { onOpenGitHub(url) } })
+                }
+                is Screen.PersonalPulls, is Screen.PersonalRepositories, is Screen.PersonalRepo -> {
+                    val browse = personal?.session
+                    if (browse != null && browse.admits(screen)) PersonalBrowsePages(
+                        browse, screen,
+                        onBack = navigation.nav.back,
+                        onOpenGitHub = onOpenGitHub,
+                        onPrivateConsent = { personal.openRepositoryConsent(browse) },
+                    ) else Column(
+                        Modifier.fillMaxSize().padding(top = headerTopPadding()).padding(horizontal = PullsSpace.x4),
+                        verticalArrangement = Arrangement.spacedBy(PullsSpace.x3),
+                    ) {
+                        Text(t("personal.title"), style = PullsType.xxl, color = LocalPullsColors.current.text)
+                        Text(t(if (personal?.account?.configured == true) "personal.intro" else "explore.signInUnavailable"),
+                            style = PullsType.read, color = LocalPullsColors.current.muted)
+                        if (personal?.account?.configured == true) CtaButton(t("personal.continueGitHub"), {
+                            session.runFrom(screen, personal::openAccount)
+                        }, Modifier.fillMaxWidth())
+                        PillButton(t("personalBrowse.back"), { session.runFrom(screen, navigation.nav.back) })
+                    }
                 }
                 else -> {
                     val colors = LocalPullsColors.current

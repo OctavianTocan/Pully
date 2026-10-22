@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,8 @@ import com.octaviantocan.pulls.ui.explore.GuestBrowseSession
 import com.octaviantocan.pulls.ui.explore.GuestPages
 import com.octaviantocan.pulls.ui.explore.NativeEntryMode
 import com.octaviantocan.pulls.ui.explore.NativeEntryState
+import com.octaviantocan.pulls.ui.personal.PersonalBrowseMount
+import com.octaviantocan.pulls.ui.personal.PersonalBrowseAccountSheet
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FootBarLayer
@@ -59,6 +62,8 @@ import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
 import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
+import com.octaviantocan.pulls.ui.settings.ColorThemePicker
+import com.octaviantocan.pulls.ui.settings.captureAndroidColorThemePicker
 import com.octaviantocan.pulls.ui.settings.AccountCheck
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
 import com.octaviantocan.pulls.ui.settings.SignInGate
@@ -104,12 +109,22 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val session = remember { GuestBrowseSession(JvmRpcTransport(), scope, source, navigation) }
-    DisposableEffect(session) { onDispose { session.close() } }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { session.foreground() }
+    val personal = remember {
+        com.octaviantocan.pulls.data.personal.PersonalAccounts.runtime(context, scope, { source.current }) {
+            Commands.close()
+            NativeEntry.get(context).renewExplore()
+            navigation.reset(Screen.Explore)
+        }
+    }
+    val personalBrowse = remember { PersonalBrowseMount(personal, scope, source, navigation) }
+    DisposableEffect(session, personal, personalBrowse) { onDispose { personalBrowse.close(); personal.close(); session.close() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { personalBrowse.foreground(true); session.foreground(); personal.restore() }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { personalBrowse.foreground(false) }
+    val personalView by personal.view.collectAsState()
     val toaster = remember { Toaster() }
     val motion = remember { PageMotion() }
     var leaving by remember { mutableStateOf(false) }
-    var themePicker by remember { mutableStateOf(false) }
+    var themePicker by remember { mutableStateOf<ColorThemePicker?>(null) }
     PageBack(motion, enabled = navigation.stack.size > 1) { navigation.nav.back() }
     androidx.activity.compose.BackHandler(enabled = navigation.stack.size == 1) { leaving = true } // motion-ok: the root opens the existing close confirmation
     LaunchedEffect(Unit) { if (initialTarget != null && runCatching { linkScreen(initialTarget) }.getOrNull() == null) toaster.show(CANT_OPEN, cue = Cue.Error) }
@@ -142,14 +157,23 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
             Command("theme", messages.t("keys.theme"), group) {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
-            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette appearance") { themePicker = true },
+            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette appearance") {
+                if (session.current) themePicker = captureAndroidColorThemePicker(settings, NativeEntry.get(context))
+            },
         )
     }
     CompositionLocalProvider(LocalToaster provides toaster) {
         val openGitHub = rememberOpenOnGithub()
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
-            GuestPages(navigation, motion, session, onExistingAccount, openGitHub, onCommands = { Commands.open() })
-            if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
+            GuestPages(navigation, motion, session, onExistingAccount, openGitHub,
+                onGitHubSignIn = if (personal.configured) personalBrowse::openAccount else null,
+                onCommands = { Commands.open() }, githubAccount = personalView.account?.login, personal = personalBrowse)
+            PersonalBrowseAccountSheet(personalBrowse,
+                onOpenBrowser = { url ->
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                        .addCategory(android.content.Intent.CATEGORY_BROWSABLE).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                })
+            themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             CommandPalette()
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
             ToastHost(toaster)
@@ -188,7 +212,7 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
     LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
     // Commands' Change theme opens the theme list as a sheet of its own over whatever page is open (K18).
-    var themePicker by remember { mutableStateOf(false) }
+    var themePicker by remember { mutableStateOf<ColorThemePicker?>(null) }
     // Send feedback, from Commands on any page (nav-feedback-from-anywhere).
     var feedback by remember { mutableStateOf(false) }
     AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
@@ -240,7 +264,7 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
             toggleTheme = {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
-            openThemes = { themePicker = true }, feedback = { feedback = true },
+            openThemes = { themePicker = captureAndroidColorThemePicker(settings, NativeEntry.get(context)) }, feedback = { feedback = true },
             update = { scope.launch { updateFromCommand(context, toaster) } },
             whatsNew = { whatsNew = WhatsNew.all(context) },
             explore = onExplore,
@@ -295,12 +319,12 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
                     is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place, initialAIResult = current.aiResult)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}
-                    Screen.Explore, is Screen.PublicRepo -> {}
+                    Screen.Explore, is Screen.PublicRepo, is Screen.PersonalPulls, is Screen.PersonalRepositories, is Screen.PersonalRepo -> {}
                 }
             }
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
-            if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
+            themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             if (feedback) com.octaviantocan.pulls.ui.settings.FeedbackSheet(onClose = { feedback = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()
@@ -345,6 +369,9 @@ private val Screen.analyticsName: String
         Screen.Home -> "home"
         Screen.Explore -> "explore"
         is Screen.PublicRepo -> "publicrepo"
+        is Screen.PersonalPulls -> "personal_pulls"
+        is Screen.PersonalRepositories -> "personal_repositories"
+        is Screen.PersonalRepo -> "personal_repo"
         is Screen.Repo -> "repo"
         is Screen.Review -> "review"
         Screen.Settings -> "settings"
