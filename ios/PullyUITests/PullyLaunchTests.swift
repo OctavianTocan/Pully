@@ -32,9 +32,12 @@ final class PullyLaunchTests: XCTestCase {
         return app
     }
 
-    private func fullRootJourneyApplication() -> XCUIApplication {
+    private func fullRootJourneyApplication(scenario: String? = nil) -> XCUIApplication {
         let app = rootJourneyApplication()
         app.launchEnvironment["PULLY_UI_TEST_ROOT_JOURNEY_MODE"] = "full"
+        if let scenario {
+            app.launchEnvironment["PULLY_UI_TEST_ROOT_JOURNEY_SCENARIO"] = scenario
+        }
         return app
     }
 
@@ -222,6 +225,98 @@ final class PullyLaunchTests: XCTestCase {
         assertSectionSelected("Tour", in: app)
         assertVisibleRow("Fixture tour from the shared review", in: app)
         attachScreenshot(name: "Actual fresh Standard finished after explicit Stop")
+    }
+
+    func testRejectedStopRemainsRunningAndCanRetryAfterProcessReopen() throws {
+        let app = fullRootJourneyApplication(scenario: "stop-rejected-once")
+        app.launch()
+        signInToRootJourney(in: app)
+        openSampleReview(in: app)
+        let started = startSampleAnalysis("Standard", in: app)
+        requireVisible("Tour", in: app).tap()
+        assertVisibleLabel("Writing the tour", in: app)
+        waitForElapsed(since: started, seconds: 1)
+        requireVisible("Stop", in: app).tap()
+        // The actual RPC returns HTTP 503; the real task-backed Stop must expose it without inventing cancellation.
+        assertVisibleLabel("Sample stop unavailable.", in: app, timeout: 10)
+        assertVisibleLabel("Writing the tour", in: app)
+        XCTAssertNotNil(visibleElement("Stop", in: app))
+        attachScreenshot(name: "Actual rejected Stop retained running work and retry")
+
+        app.terminate()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        app.launch()
+        assertVisibleLabel("Fixture data", in: app, timeout: 20)
+        assertHiddenLabel("Sign in to Pully", in: app)
+        openSampleReview(in: app)
+        requireVisible("Tour", in: app).tap()
+        assertVisibleLabel("Writing the tour", in: app)
+        requireVisible("Stop", in: app).tap()
+        assertVisibleLabel("No tour yet", in: app)
+        attachScreenshot(name: "Actual process reopen retried the previously rejected Stop")
+    }
+
+    func testFailedAnalysisReopensAsAnErrorAndFreshStandardRestoresTypedResultsAndSavedChat() throws {
+        let app = fullRootJourneyApplication(scenario: "analysis-failed-once")
+        app.launch()
+        signInToRootJourney(in: app)
+        openSampleReview(in: app)
+        let failedStart = startSampleAnalysis("Standard", in: app)
+        XCUIDevice.shared.press(.home)
+        assertBackgrounded(app)
+        app.terminate()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        waitForSampleServerCompletion(since: failedStart)
+        app.launch()
+        assertVisibleLabel("Fixture data", in: app, timeout: 20)
+        assertHiddenLabel("Sign in to Pully", in: app)
+        openSampleReview(in: app)
+        requireVisible("Tour", in: app).tap()
+        assertVisibleLabel("No tour yet", in: app)
+        assertVisibleRow("The tour could not be written", in: app)
+        assertVisibleRow("Sample analysis failed. Try again.", in: app)
+        attachScreenshot(name: "Actual failed analysis reconciled after process termination")
+        leadingEdgeBack(in: app)
+        assertSectionSelected("Overview", in: app)
+
+        let restarted = startSampleAnalysis("Standard", in: app)
+        XCUIDevice.shared.press(.home)
+        assertBackgrounded(app)
+        waitForSampleServerCompletion(since: restarted)
+        app.activate()
+        assertSectionSelected("Overview", in: app)
+        reveal("Fixture typed Brief uses the same production reader.", contains: true, in: app)
+        reveal("Fixture shared code", contains: true, in: app)
+        reveal("Fixture shared state", contains: true, in: app)
+        attachScreenshot(name: "Actual retried Standard completed Code and Diagram Brief readers")
+        requireVisible("Tour", in: app).tap()
+        assertSectionSelected("Tour", in: app)
+        assertVisibleRow("Fixture tour from the shared review", in: app)
+        requireVisible("Ask", in: app).tap()
+        let question = requireEditor(in: app)
+        question.tap()
+        question.typeText("What changed in this shared review?")
+        requireVisible("Send", in: app).tap()
+        assertVisibleRow("The fixture keeps one shared review session and its native adapters.", in: app, timeout: 20)
+
+        // A second cold launch must read the saved answer, rather than replay the keyboard submission.
+        app.terminate()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+        app.launch()
+        assertVisibleLabel("Fixture data", in: app, timeout: 20)
+        assertHiddenLabel("Sign in to Pully", in: app)
+        openSampleReview(in: app)
+        requireVisible("Tour", in: app).tap()
+        assertSectionSelected("Tour", in: app)
+        requireVisible("Ask", in: app).tap()
+        assertVisibleRow("What changed in this shared review?", in: app)
+        assertVisibleRow("The fixture keeps one shared review session and its native adapters.", in: app)
+        attachScreenshot(name: "Actual second process reopen restored the saved Chat answer")
+        requireVisible("Earlier chats", in: app).tap()
+        assertVisibleLabel("Chats", in: app)
+        requireVisible("A previous fixture question", contains: true, in: app).tap()
+        assertVisibleRow("The earlier fixture conversation is restored through the real client.", in: app, timeout: 20)
+        attachScreenshot(name: "Actual saved history remained usable after failed analysis and reopen")
     }
 
     private func openSampleReview(in app: XCUIApplication) {

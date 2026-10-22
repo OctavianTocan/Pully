@@ -15,11 +15,29 @@ internal interface RootJourneyStateStore {
     fun write(state: String)
 }
 
+@Serializable
+internal enum class RootJourneyScenario(val launchName: String) {
+    Normal("normal"), StopRejectedOnce("stop-rejected-once"), AnalysisFailedOnce("analysis-failed-once");
+
+    companion object {
+        fun fromLaunch(value: String?): RootJourneyScenario =
+            if (value.isNullOrEmpty()) Normal else entries.singleOrNull { it.launchName == value }
+                ?: error("The sample journey scenario is invalid.")
+    }
+}
+
+/** Only the explicit sample-server Stop scenario may produce this fixed, credential-free RPC rejection. */
+internal class RootJourneyStopRejected : Exception()
+
 /** Bounded virtual sample-server work. Its persisted deadlines survive a dead client without replaying a start. */
-internal class RootJourneyWork(private val store: RootJourneyStateStore, private val nowMillis: () -> Long) {
+internal class RootJourneyWork(
+    private val store: RootJourneyStateStore,
+    private val nowMillis: () -> Long,
+    private val scenario: RootJourneyScenario = RootJourneyScenario.Normal,
+) {
     private val guard = Mutex()
     private val codec = Json { encodeDefaults = true }
-    private var state = store.read()?.let(::restore) ?: SampleState()
+    private var state = store.read()?.let(::restore) ?: SampleState(scenario = scenario)
 
     fun handles(name: String): Boolean = name in setOf(
         "review-data", "review-state", "reviewed-get", "reviewed-set", "review-comment", "review-submit", "review-discard",
@@ -94,7 +112,13 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
                 "ai-task-wait" -> snapshot(task(args))
                 "ai-task-cancel" -> {
                     args.keysExactly("id")
-                    task(args).takeIf { it.status == "running" }?.let { it.status = "cancelled"; it.rev++ }
+                    val task = task(args)
+                    if (scenario == RootJourneyScenario.StopRejectedOnce && !state.failureConsumed && task.status == "running") {
+                        state.failureConsumed = true
+                        persist()
+                        throw RootJourneyStopRejected()
+                    }
+                    task.takeIf { it.status == "running" }?.let { it.status = "cancelled"; it.rev++ }
                     empty()
                 }
                 "chat-history" -> {
@@ -166,7 +190,7 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
                 then = emptyList(); variant = null
             }
         }
-        val duration = if (kind == "chat") 750 else WORK_MILLIS
+        val duration = duration(kind)
         val acceptedAt = nowMillis()
         require(acceptedAt >= 0 && acceptedAt <= Long.MAX_VALUE - duration)
         state.clientStarts++
@@ -190,6 +214,11 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
             state.tasks.toList().filter { it.status == "running" && it.dueAt <= now }.forEach { task ->
                 changed = true
                 task.status = "done"; task.rev++
+                if (scenario == RootJourneyScenario.AnalysisFailedOnce && !state.failureConsumed && task.kind == "analyze") {
+                    state.failureConsumed = true
+                    task.status = "failed"
+                    return@forEach
+                }
                 when (task.kind) {
                     "analyze" -> {
                         state.analysis = task.id
@@ -278,6 +307,7 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
         })
         put("rev", task.rev); put("status", task.status); put("startedAt", task.startedAt)
         if (task.status != "running") put("endedAt", task.dueAt)
+        if (task.status == "failed") put("error", ANALYSIS_ERROR)
         if (task.then.isNotEmpty()) put("then", JsonArray(task.then.map(::JsonPrimitive)))
         task.chat?.let { put("text", question(it)) }
     }
@@ -287,6 +317,11 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
     private fun question(chat: String) = if (chat == "seed") SEED_QUESTION else QUESTION
     private fun answer(chat: String) = if (chat == "seed") SEED_ANSWER else ANSWER
     private fun persist() { store.write(codec.encodeToString(state)) }
+    private fun duration(kind: String): Long = when (kind) {
+        "chat" -> 750L
+        "tour", "brief" -> PASS_MILLIS
+        else -> if (scenario == RootJourneyScenario.StopRejectedOnce) STOP_WORK_MILLIS else WORK_MILLIS
+    }
 
     private fun restore(raw: String): SampleState {
         require(raw.length <= 32_000) { "The sample journey state is invalid." }
@@ -295,6 +330,7 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
             codec.decodeFromString<SampleState>(raw)
         } catch (_: Exception) { error("The sample journey state is invalid.") }
         require(restored.version == 1 && restored.nextId in 0..MAX_TASKS && restored.clientStarts in 0..8)
+        require(restored.scenario == scenario && (!restored.failureConsumed || scenario != RootJourneyScenario.Normal))
         require(restored.tasks.size == restored.nextId && restored.tasks.map { it.id }.toSet() == (1..restored.nextId).map { "fixture-task-$it" }.toSet())
         require(restored.tasks.count { it.kind in setOf("analyze", "critique", "chat") } == restored.clientStarts)
         require(restored.history.size <= 2 && restored.history.distinct().size == restored.history.size && restored.history.all { it in setOf("seed", "current") })
@@ -303,15 +339,16 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
         require(restored.variant == null || restored.variant in variants)
         restored.tasks.forEach { task ->
             require(task.id.matches(Regex("fixture-task-[1-9][0-9]?")) && task.id.removePrefix("fixture-task-").toInt() <= restored.nextId)
-            require(task.kind in setOf("analyze", "tour", "brief", "critique", "chat") && task.status in setOf("running", "done", "cancelled"))
-            val duration = when (task.kind) { "tour", "brief" -> PASS_MILLIS; "chat" -> 750L; else -> WORK_MILLIS }
-            require(task.startedAt >= 0 && task.dueAt >= task.startedAt && task.dueAt - task.startedAt == duration)
+            require(task.kind in setOf("analyze", "tour", "brief", "critique", "chat") && task.status in setOf("running", "done", "cancelled", "failed"))
+            require(task.startedAt >= 0 && task.dueAt >= task.startedAt && task.dueAt - task.startedAt == duration(task.kind))
+            if (task.status == "failed") require(scenario == RootJourneyScenario.AnalysisFailedOnce && restored.failureConsumed && task.kind == "analyze")
             require(task.rev == if (task.status == "running") 1 else 2)
             require(task.then == if (task.kind == "analyze") listOf("tour", "brief") else emptyList<String>())
             require(if (task.kind == "chat") task.chat in setOf("seed", "current") else task.chat == null)
             require(if (task.kind == "critique") task.variant in variants else task.variant == null)
             if (task.kind in setOf("tour", "brief")) require(restored.tasks.any { it.kind == "analyze" && it.status == "done" && it.dueAt == task.startedAt })
         }
+        require(restored.tasks.count { it.status == "failed" } == if (scenario == RootJourneyScenario.AnalysisFailedOnce && restored.failureConsumed) 1 else 0)
         mapOf("analyze" to restored.analysis, "tour" to restored.tour, "brief" to restored.brief, "critique" to restored.critique).forEach { (kind, id) ->
             require(id == null || restored.tasks.any { it.id == id && it.kind == kind && it.status == "done" })
         }
@@ -343,9 +380,12 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
         const val SEED_QUESTION = "A previous fixture question"
         const val SEED_ANSWER = "The earlier fixture conversation is restored through the real client."
         const val MERMAID = "flowchart LR\n  Shared[Shared state] --> Native[Native adapters]"
+        const val STOP_ERROR = "Sample stop unavailable."
+        const val ANALYSIS_ERROR = "Sample analysis failed. Try again."
         private const val SAMPLE_DATE = "2026-10-21T10:00:00Z"
         private const val PENDING_REVIEW = 7601L
         private const val WORK_MILLIS = 8_000L
+        private const val STOP_WORK_MILLIS = 45_000L
         private const val PASS_MILLIS = 2_000L
         private const val MAX_TASKS = 16
     }
@@ -354,6 +394,8 @@ internal class RootJourneyWork(private val store: RootJourneyStateStore, private
 @Serializable
 private data class SampleState(
     val version: Int = 1,
+    val scenario: RootJourneyScenario = RootJourneyScenario.Normal,
+    var failureConsumed: Boolean = false,
     var nextId: Int = 0,
     var clientStarts: Int = 0,
     var reviewed: Boolean = false,

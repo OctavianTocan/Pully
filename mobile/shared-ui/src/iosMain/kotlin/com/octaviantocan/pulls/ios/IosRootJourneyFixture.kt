@@ -3,6 +3,7 @@ package com.octaviantocan.pulls.ios
 import com.octaviantocan.pulls.preview.PREVIEW_SERVER
 import com.octaviantocan.pulls.preview.RootJourneyTransport
 import com.octaviantocan.pulls.preview.RootJourneyStateStore
+import com.octaviantocan.pulls.preview.RootJourneyScenario
 import com.octaviantocan.pulls.ui.home.NativeHomeActions
 import com.octaviantocan.pulls.ui.settings.AccountStorage
 import platform.Foundation.NSUserDefaults
@@ -21,6 +22,9 @@ fun rootJourneyFixtureApplication(homeActions: NativeHomeActions, accountStorage
     require(stored.email == null || stored.email == RootJourneyTransport.EMAIL) { "The fixture cannot adopt an ordinary account." }
     val mode = NSProcessInfo.processInfo.environment["PULLY_UI_TEST_ROOT_JOURNEY_MODE"] as? String
     require(mode == null || mode.isEmpty() || mode == "full") { "The root journey fixture mode is invalid." }
+    val rawScenario = NSProcessInfo.processInfo.environment["PULLY_UI_TEST_ROOT_JOURNEY_SCENARIO"] as? String
+    require(mode == "full" || rawScenario.isNullOrEmpty()) { "Sample failure scenarios require the explicit full Debug journey." }
+    val scenario = RootJourneyScenario.fromLaunch(rawScenario)
     val identifier = requireNotNull(NSProcessInfo.processInfo.environment["PULLY_UI_TEST_ROOT_JOURNEY"] as? String) {
         "The root journey fixture requires its isolated UUID."
     }
@@ -32,6 +36,6 @@ fun rootJourneyFixtureApplication(homeActions: NativeHomeActions, accountStorage
             defaults.setObject(state, forKey = key)
             check(defaults.synchronize()) { "The sample journey state could not be saved." }
         }
-    }, fixtureIdentifier = identifier) else RootJourneyTransport.readOnly(identifier)
+    }, fixtureIdentifier = identifier, scenario = scenario) else RootJourneyTransport.readOnly(identifier)
     return IosPullyApp(homeActions, accountStorage, defaults, transport)
 }

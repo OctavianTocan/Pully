@@ -37,3 +37,15 @@ cancel sample work; a cancelled analysis MUST NOT start its automatic passes aft
 reopen, and a subsequent accepted analysis MUST remain usable. Restored sample state
 MUST reject unknown versions, identities, enums, fields and oversized content.
 Source: Tavi's accepted 21 Oct 2026 actual native full-journey and process-reopen plan.
+
+@cc [owner:OctavianTocan,label:product;security] full-root-failure-scenarios-stay-explicit-and-durable
+Deterministic failure scenarios MUST require the same explicit full Debug journey
+and isolated UUID source. They MAY reject one sample Stop with a real 503 RPC reply
+or fail one sample analysis task; their fixed selection and consumed failure MUST
+persist across process reopen. A Stop rejection MUST leave server work running;
+a failed analysis MUST NOT start its automatic passes. Later accepted retry work
+MUST use the original production request and saved-result readers. Unknown scenarios
+or restored state belonging to another scenario MUST fail closed. The normal and
+read-only sample paths and every ordinary live launch MUST retain their behavior.
+Source: Tavi's accepted full native error/retry/reopen journey and the 22 Oct 2026
+confirmed explicit Stop error-receipt repair.
