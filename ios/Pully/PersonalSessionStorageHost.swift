@@ -20,13 +20,13 @@ final class PersonalSessionStorageHost: NSObject, NativePersonalSessionStorage {
         super.init()
     }
 
-    nonisolated func read() throws -> KotlinByteArray? {
+    nonisolated func read() throws -> NativePersonalSessionRead {
         try MainActor.assumeIsolated {
-            guard var bytes = try blobs.read() else { return nil }
+            guard var bytes = try blobs.read() else { return NativePersonalSessionRead(contents: nil) }
             defer { bytes.resetBytes(in: bytes.startIndex..<bytes.endIndex) }
             let result = KotlinByteArray(size: Int32(bytes.count))
             for (index, byte) in bytes.enumerated() { result.set(index: Int32(index), value: Int8(bitPattern: byte)) }
-            return result
+            return NativePersonalSessionRead(contents: result)
         }
     }
 

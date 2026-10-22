@@ -95,9 +95,9 @@ class IosPersonalGuestWorkspaceTest {
         var interrupt = true
         var requests = 0
         val store = IosPersonalSessionStore(object : NativePersonalSessionStorage {
-            override fun read(): ByteArray {
+            override fun read(): NativePersonalSessionRead {
                 if (interrupt) { interrupt = false; actions.activity!!.changed(false) }
-                return """{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42},"pending":[]}""".encodeToByteArray()
+                return NativePersonalSessionRead("""{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42},"pending":[]}""".encodeToByteArray())
             }
             override fun write(contents: ByteArray) = error("No write")
         }, "https://accounts.example", RpcTransport {
@@ -122,7 +122,7 @@ class IosPersonalGuestWorkspaceTest {
         var writes = 0
         var requests = 0
         val store = IosPersonalSessionStore(object : NativePersonalSessionStorage {
-            override fun read(): ByteArray? { reads++; error("Unsupported activity must not probe secure storage") }
+            override fun read(): NativePersonalSessionRead { reads++; error("Unsupported activity must not probe secure storage") }
             override fun write(contents: ByteArray) { writes++; error("No write") }
         }, "https://accounts.example", RpcTransport { requests++; error("No personal request") })
         val entry = NativeEntryState(false)
@@ -141,7 +141,7 @@ class IosPersonalGuestWorkspaceTest {
         val requests = mutableListOf<RpcRequest>()
         var writes = 0
         val storage = object : NativePersonalSessionStorage {
-            override fun read(): ByteArray = """{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42},"pending":[]}""".encodeToByteArray()
+            override fun read(): NativePersonalSessionRead = NativePersonalSessionRead("""{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42},"pending":[]}""".encodeToByteArray())
             override fun write(contents: ByteArray) { writes++; error("Ordinary foreground must not rewrite the accepted vault") }
         }
         val store = IosPersonalSessionStore(storage, "https://accounts.example", RpcTransport {

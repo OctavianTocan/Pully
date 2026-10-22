@@ -14,10 +14,13 @@ import kotlinx.coroutines.SupervisorJob
 import platform.Foundation.NSThread
 import kotlin.time.Clock
 
+/** A nonnull Cocoa result keeps missing bytes separate from Objective-C's nil-on-error convention. */
+class NativePersonalSessionRead(val contents: ByteArray?)
+
 /** Swift errors must cross as Kotlin exceptions, never an empty successful secure read/write. */
 interface NativePersonalSessionStorage {
     @Throws(Exception::class)
-    fun read(): ByteArray?
+    fun read(): NativePersonalSessionRead
 
     @Throws(Exception::class)
     fun write(contents: ByteArray)
@@ -33,7 +36,7 @@ class IosPersonalSessionStore internal constructor(
         this(storage, configuredOrigin, DarwinRpcTransport())
 
     private val vault = PersonalSessionVault(object : PersonalSessionBlobStorage {
-        override fun read(): ByteArray? { requireMainThread(); return storage.read() }
+        override fun read(): ByteArray? { requireMainThread(); return storage.read().contents }
         override fun write(contents: ByteArray) { requireMainThread(); storage.write(contents) }
     })
     private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -50,7 +53,7 @@ class IosPersonalSessionStore internal constructor(
     @Throws(Exception::class)
     fun verifyStorage() {
         requireMainThread()
-        val bytes = try { storage.read() } catch (_: Exception) { throw PersonalAuthError(PersonalAuthProblem.Unavailable) }
+        val bytes = try { storage.read().contents } catch (_: Exception) { throw PersonalAuthError(PersonalAuthProblem.Unavailable) }
         try {
             if (bytes != null && (bytes.isEmpty() || bytes.size > PersonalSessionVault.MAX_BYTES))
                 throw PersonalAuthError(PersonalAuthProblem.Unavailable)
