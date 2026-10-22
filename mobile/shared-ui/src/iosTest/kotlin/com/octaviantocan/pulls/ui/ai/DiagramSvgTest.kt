@@ -1,6 +1,6 @@
 package com.octaviantocan.pulls.ui.ai
 
-import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.asComposeCanvas
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Surface
 import kotlin.test.Test
@@ -55,7 +55,7 @@ class DiagramSvgTest {
         val bitmap = Bitmap()
         try {
             surface.canvas.clear(0)
-            drawing.draw(Canvas(surface.canvas))
+            drawing.draw(surface.canvas.asComposeCanvas())
             assertTrue(bitmap.allocN32Pixels(drawing.pictureWidth, drawing.pictureHeight))
             assertTrue(surface.readPixels(bitmap, 0, 0))
             assertion(bitmap)
