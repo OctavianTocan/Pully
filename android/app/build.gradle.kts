@@ -175,6 +175,7 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("com.caverock:androidsvg-aar:1.4")
     testImplementation(kotlin("test-junit"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     // Android's org.json is a stub in unit tests; the real one lets BookDataTest read the book the way the app does.
     testImplementation("org.json:json:20250517")
 }

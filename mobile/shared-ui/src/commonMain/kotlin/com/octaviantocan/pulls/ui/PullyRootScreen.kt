@@ -45,6 +45,7 @@ fun PullyRootScreen(
     fixture: Boolean = false,
     aiCapabilities: AiCapabilities = AiCapabilities.None,
     reviewCapabilities: ReviewCapabilities = ReviewCapabilities.ReadOnly,
+    onExplore: (() -> Unit)? = null,
 ) {
     val colorTheme = ColorThemes.of(settings.colorTheme)
     val colors = colorTheme.colors(wantsDark(settings))
@@ -70,7 +71,7 @@ fun PullyRootScreen(
             LocalReviewCapabilities provides reviewCapabilities,
         ) {
             // The old source's transient sheets, errors, page motion and saveable stack leave together.
-            key(root.navigation) {
+            key(root.navigation, root.generation) {
                 val navigation = root.navigation
                 val motion = remember { PageMotion() }
                 val backs = remember { SharedBackDispatcher() }
@@ -84,6 +85,10 @@ fun PullyRootScreen(
                 var themes by remember { mutableStateOf(false) }
                 var feedback by remember { mutableStateOf(false) }
                 val openingEpoch = account.sourceEpoch
+                val openingGeneration = root.generation
+                val ownedNative = remember(root, native, openingGeneration) {
+                    SourceHomeActions(native) { root.current && root.generation == openingGeneration }
+                }
                 val readyHome = home?.getOrNull()
                 val readySettings = settingsServices?.getOrNull()
                 val currentAiPolicy by rememberUpdatedState(aiCapabilities)
@@ -104,6 +109,7 @@ fun PullyRootScreen(
                     LocalToaster provides toaster,
                     LocalUriHandler provides uriHandler,
                     LocalReviewActionReadiness provides actionReadiness,
+                    LocalNativeHomeActions provides ownedNative,
                 ) {
                     if (readyHome != null && readySettings != null) UseCommands {
                         appCommands(
@@ -116,6 +122,7 @@ fun PullyRootScreen(
                                 }
                             },
                             openThemes = { themes = true }, feedback = { feedback = true }, update = null, whatsNew = null,
+                            explore = onExplore,
                         )
                     }
                     val arrival = incoming.pending
@@ -130,8 +137,8 @@ fun PullyRootScreen(
                             }
                         }, { toaster.show("Pully can't open that link") })
                     }
-                    HomeBackEffect(native, motion, backs, navigation.stack.size > 1) { navigation.nav.back() }
-                    LaunchedEffect(Unit) { withFrameNanos { }; firstFrame() }
+                    HomeBackEffect(ownedNative, motion, backs, navigation.stack.size > 1) { navigation.nav.back() }
+                    LaunchedEffect(readyHome) { if (readyHome != null) { withFrameNanos { }; firstFrame() } }
                     val screen = navigation.stack.lastOrNull()
                     LaunchedEffect(state.phase, screen) {
                         showScreen(when (screen) {
@@ -158,20 +165,24 @@ fun PullyRootScreen(
                                     Text(t("mobilePreview.title"), Modifier.semantics { heading() }, style = PullsType.lg, color = colors.text)
                                     if (fixture) Text(t("mobilePreview.fixture"), style = PullsType.sm, color = colors.muted)
                                 }
-                                FloatIcon(Lu.cog, if (readySettings != null) "Settings" else "Server", {
-                                    try {
-                                        if (readySettings != null) {
-                                            if (readySettings.current()) navigation.nav.settings()
-                                        } else openServer()
-                                    } catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not open its saved credentials.") }
-                                }, flat = true)
+                                Row(horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
+                                    if (onExplore != null && readySettings == null && signIn?.getOrNull() == null)
+                                        PillButton(t("explore.browse"), onExplore)
+                                    FloatIcon(Lu.cog, if (readySettings != null) "Settings" else "Server", {
+                                        try {
+                                            if (readySettings != null) {
+                                                if (readySettings.current()) navigation.nav.settings()
+                                            } else openServer()
+                                        } catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not open its saved credentials.") }
+                                    }, flat = true)
+                                }
                             }
                             Box(Modifier.weight(1f).fillMaxWidth()) {
                                 when (state.phase) {
                                     AccountPhase.Checking -> RowsSkeleton()
                                     AccountPhase.SignIn -> {
                                         val services = signIn?.getOrNull()
-                                        if (services != null) SignInPage(services, ::SignInArtwork)
+                                        if (services != null) SignInPage(services, ::SignInArtwork, onServerSettings = ::openServer, onExplore = onExplore)
                                         else RootAccountProblem(signIn?.exceptionOrNull()?.message, account::refresh, account::retryStorage) { resetting = openingEpoch }
                                     }
                                     AccountPhase.Problem -> RootAccountProblem(state.problem, account::refresh, account::retryStorage) { resetting = openingEpoch }
@@ -198,7 +209,7 @@ fun PullyRootScreen(
                         FootBarLayer(bars)
                         if (readyHome != null && readySettings != null) {
                             if (navigation.stack.lastOrNull() == Screen.Settings) SettingsScreen(navigation.nav, readySettings)
-                            if (themes) ColorThemeSheet(settings) { themes = false }
+                            if (themes) ColorThemeSheet(settings, readySettings::current) { themes = false }
                             if (feedback) FeedbackSheet(readySettings.feedbackPage) { feedback = false }
                             CommandPalette(remember(readyHome) { root.commands(readyHome) })
                         }
