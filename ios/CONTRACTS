@@ -170,3 +170,13 @@ legacy account, Home or AI work. Strict Debug fixtures MUST receive neither ordi
 adapter. An absent trusted personal origin and unavailable App Group MUST keep their
 respective features unavailable without blocking ordinary entry. Source: Tavi's
 complete iOS request and the accepted 22 Oct 2026 native account/Share composition.
+
+@cc [owner:OctavianTocan,label:product;architecture] ios-settings-journeys-use-real-controls-and-system-editing
+Native Settings/Commands journeys MUST operate the existing shared controls and
+one Compose stack, and MUST verify the displayed value, destination and recovery.
+Keyboard, selection, replacement and paste proofs MUST use actual UIKit input and
+system edit actions, and code-copy proof MUST paste the production copy output into
+an actual shared field. They MUST NOT read a test-runner pasteboard, dispatch an
+in-app test action or replace a control with a hittable text/container proxy. Every
+existing native journey assertion MUST remain intact. Source: Tavi's accepted
+22 Oct 2026 native interaction closure under the original maximum-reuse iOS plan.
