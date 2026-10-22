@@ -11,6 +11,19 @@ edit before popping the shared route stack. A hidden page or an edit removed dur
 the gesture MUST NOT consume it or cause a route pop. Source: the accepted 21 Oct 2026
 iOS plan's native gesture adapter and preservation of Android's edit BackHandler.
 
+@cc [owner:OctavianTocan,label:product;architecture;motion] shared-dialog-native-progress-keeps-one-back-owner
+A native Compose dialog's framework swipe MUST dispatch progress, cancellation and
+completion through the same captured SharedBackDispatcher consumer used by its
+sheet/edit controls. It MUST handle a root modal even when no application route can
+pop. A cancelled gesture, removed/covered consumer or disposed bridge MUST NOT dismiss
+its replacement or fall through to a route pop. Discrete Back MUST still select the
+current shared consumer. The bridge MUST recheck the native host's same scene,
+root-controller and presented-controller authority before every stage; absent or
+revoked authority MUST fail closed without reacquiring a consumer in that gesture.
+Source: Tavi's complete native journey request and the
+accepted 22 Oct 2026 limitation-sheet Back completion repair, preserving DESIGN.md
+rules 78 and 115 and shared-back-cancels-current-edit-first.
+
 @cc [owner:OctavianTocan,label:security;architecture] shared-root-retires-private-source-before-replacement
 The native account source's before-change hook MUST revoke its root lifetime, cancel
 source work and clear Home, review caches and private route/saveable owners before a

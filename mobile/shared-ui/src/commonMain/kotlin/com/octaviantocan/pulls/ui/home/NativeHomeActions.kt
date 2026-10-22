@@ -12,6 +12,11 @@ interface NativeHomeActions {
     fun observeBack(rightEdge: Boolean, observer: HomeBackObserver): HomeLifecycleSubscription
 }
 
+/** Native dialog inputs must consult the host's same scene/root/presentation authority. */
+interface NativeBackReadiness {
+    fun isSharedBackActive(): Boolean
+}
+
 interface HomeLifecycleObserver {
     fun started()
     fun resumed()
