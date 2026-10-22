@@ -43,6 +43,26 @@ class GuestEntryTest {
     }
 
     @Test
+    fun personalAccountChangesRetireThePublicSourceWithoutEnteringThePrivateWorkspace() {
+        val entry = NativeEntryState(false)
+        val opening = entry.guestSource()!!
+        var retired = 0
+        opening.onRetired { retired++ }
+        entry.renewExplore()
+        assertEquals(NativeEntryMode.Explore, entry.mode)
+        assertFalse(opening.current)
+        assertEquals(1, retired)
+        val replacement = entry.guestSource()!!
+        assertTrue(replacement.current)
+        entry.select(NativeEntryMode.ExistingServer)
+        val privateGeneration = entry.generation
+        entry.renewExplore()
+        assertEquals(NativeEntryMode.ExistingServer, entry.mode)
+        assertEquals(privateGeneration, entry.generation)
+        assertFalse(replacement.current)
+    }
+
+    @Test
     fun publicLinkInvitationsNeverConvertPrivateTargetsIntoGitHubRequests() {
         assertNull(guestGitHubUrl(Screen.Review(OpenTarget.Posted("private-diff"))))
         assertNull(guestGitHubUrl(Screen.Review(OpenTarget.Pull("owner", "repo", 1))))
