@@ -70,7 +70,7 @@ protocol, preserving personal-sheet-shares-owned-native-flow and the single-stac
 requirements.
 
 @cc [owner:OctavianTocan,label:security;product] personal-native-admission-precedes-browser-resume
-New personal browser, polling and claim work MUST remain paused until the current
+On iOS, new personal browser, polling and claim work MUST remain paused until the current
 workspace is both actually foreground and admitted by its secure-store probe. A
 delayed consent-start response received during inactivity MUST keep the same attempt
 and open the system browser once after that admission. The native host MUST establish
