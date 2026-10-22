@@ -58,3 +58,12 @@ Only an absent item MAY become a successful missing read; locked, unavailable or
 corrupt storage MUST fail. It MUST NOT use UserDefaults, plaintext, a shared access
 group or the legacy account's credential service. Source: Tavi's 21 Oct 2026
 personal GitHub request and accepted 22 Oct native secure-stage/confirm/publish plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-active-events-are-synchronous
+The personal-account activity adapter MUST synchronously report the actual scene's
+active state on registration and every active/inactive transition. Cancellation
+MUST detach exactly its registration. Reentrant inactivity or disconnection MUST
+prevent an obsolete active event, and a closed adapter MUST remain inactive. The
+existing Home started/background event meanings MUST remain unchanged. Source:
+the accepted 22 Oct native personal lifecycle plan and independent mounted sign-in
+foreground-race finding.

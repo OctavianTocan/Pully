@@ -24,8 +24,9 @@ private final class HomeBackHandle: NSObject, HomeLifecycleSubscription {
 
 /// Required shared-screen services. Kotlin calls this boundary synchronously on its UI thread.
 @MainActor
-final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
+final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness, NativePersonalForegroundActions {
     private let lifecycle: NativeSceneLifecycle
+    private let personalForeground: NativeSceneActivity
     private final class BackRegistration {
         let id = UUID()
         let rightEdge: Bool
@@ -47,6 +48,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
         default: phase = .background
         }
         lifecycle = NativeSceneLifecycle(phase: phase)
+        personalForeground = NativeSceneActivity(active: phase == .foregroundActive)
         sceneActive = phase == .foregroundActive
         super.init()
     }
@@ -79,6 +81,13 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
                 case .stopped: observer.stopped()
                 }
             })
+        }
+    }
+
+    nonisolated func observePersonalForeground(observer: NativePersonalForegroundObserver) -> HomeLifecycleSubscription {
+        MainActor.assumeIsolated {
+            let observation = personalForeground.observe { observer.changed(active: $0) }
+            return HomeBackHandle { observation.cancel() }
         }
     }
 
@@ -150,6 +159,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
     func update(_ phase: NativeSceneLifecycle.Phase) {
         guard !disconnected else { return }
         sceneActive = phase == .foregroundActive
+        personalForeground.update(active: sceneActive)
         if !sceneActive { back?.gesture?.interrupt() }
         else if let registration = back { installBack(registration) }
         lifecycle.update(phase)
@@ -158,6 +168,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
         guard !disconnected else { return }
         disconnected = true
         sceneActive = false
+        personalForeground.close()
         let previous = back
         back = nil
         rootView = nil

@@ -18,6 +18,11 @@ without reviving its old callbacks or input. Strict Debug private fixtures MUST 
 gain a public/network route. An ordinary checking or failed existing connection MUST
 keep an explicit route back to public browsing. Source: Tavi's 21 Oct 2026 fresh-install/public browsing
 decision and the accepted 22 Oct 2026 lazy iOS Guest integration plan.
+Personal promotion or local sign-out MUST retire and recreate only the public
+workspace, synchronously revoke its retained callbacks and reset the same stack to
+Explore. It MUST NOT select or construct the existing-server workspace, change the
+saved entry choice, or alter its credentials. Source: Tavi's separate public-read
+personal-account request and the accepted 22 Oct native personal mount plan.
 
 @cc [owner:OctavianTocan,label:product;security] native-entry-handoff-keeps-the-displayed-link
 Choosing the existing-server entry from a displayed guest link fallback MUST retain

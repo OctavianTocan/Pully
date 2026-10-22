@@ -33,3 +33,11 @@ MUST come only from explicit trusted application configuration and MUST NOT inhe
 the saved legacy server or grant private authority. Missing configuration MUST keep
 personal work unavailable without preventing Explore. Source: Tavi's public-read
 personal-account decision and the accepted 22 Oct one-vault/multiple-scene plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-foreground-has-an-explicit-native-port
+The mounted personal flow MUST receive synchronous active/inactive events from the
+actual scene, independent of Compose frames and Home's started/background events.
+A host without that real adapter MUST leave personal sign-in unavailable. Ordinary
+inactivity MUST retain the same sign-in owner and MUST NOT cancel an already accepted
+bounded claim. Source: the independent 22 Oct mounted lifecycle finding and accepted
+native activity-adapter plan.
