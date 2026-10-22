@@ -1,0 +1,7 @@
+@cc [owner:OctavianTocan,label:architecture;security] native-file-lock-keeps-bsd-semantics
+The native bridge MUST pass the caller's file descriptor and flags unchanged to BSD
+flock and return its actual status without changing errno. It MUST NOT substitute
+process-scoped fcntl locks or add waiting/retry behavior. Swift MUST retain ownership
+of nonblocking acquisition, EINTR/error handling and release on that same descriptor.
+Source: ios-share-record-coordinates-real-processes, ios-share-lock-contention-does-not-block-the-host
+and the actual 22 October 2026 release066db Swift C-name collision.

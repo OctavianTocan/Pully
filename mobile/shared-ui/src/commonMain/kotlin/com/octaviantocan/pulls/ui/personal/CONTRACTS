@@ -14,3 +14,81 @@ navigation stack to Explore, without adopting legacy private authority. Source: 
 21 Oct 2026 any-GitHub/public-browsing request, maximum-reuse iOS decision and accepted
 22 Oct native secure-stage/confirm/publish protocol and independent mounted-account
 ownership review.
+
+@cc [owner:OctavianTocan,label:security;product;architecture] personal-pages-keep-their-verified-account-and-selection
+Your pull requests and repositories MUST consume only the runtime's verified personal
+read capabilities on the host's existing navigation stack. PublicRead MUST remain
+public-only; private lists MUST use the separately confirmed repository-consent
+capability and show each repository's visibility. A route or equal-looking copied
+row MUST NOT mint a capability or replace a selected immutable repository ID/visibility.
+The session MUST admit only its own route instances and current loaded selections.
+Account, authority or entry replacement MUST synchronously cancel reads, clear rows
+and revoke its route inputs/callbacks before the next identity appears. Native
+foreground changes MUST gate new dispatch synchronously and pause read observation;
+returning MUST quietly revalidate the active page, retaining known loaded pagination
+until its complete current answer is ready. Permission/identity denial MUST purge
+affected PR rows. Unknown content MUST use existing skeletons, and PR list titles MUST
+retain the two-line ellipsis limit. These GitHub pages MUST NOT construct legacy
+Repo/Home/AI/Stats or gate independently available default/provider AI. Source:
+Tavi's 21 Oct any-account/public-browsing request, explicit 22 Oct private-repository
+requirement and accepted native personal capability/selection protocol.
+
+@cc [owner:OctavianTocan,label:security;product] personal-page-animation-has-no-read-authority
+Removing a personal route from the shared stack MUST immediately revoke its admission,
+loaded rows and retained selection callbacks. An outgoing renderer lease MAY delay
+disposal but MUST NOT delay revocation or let reinsertion of that same route object
+restore authority. A current typed account-wide rejection MUST clear every retained
+filter/page before the source-owned recovery action opens the shared account flow;
+it MUST NOT offer another read with the same rejected bearer. Back controls MUST
+announce their actual destination or use neutral Back wording. Source: the five
+independently confirmed 22 Oct 2026 personal-read Compound findings, Tavi's accepted
+source-ownership plan and DESIGN.md's single shared navigation/accessibility rules.
+
+@cc [owner:OctavianTocan,label:security;product] personal-private-consent-remains-a-separate-action
+Private repository consent MUST remain an explicit action for the verified account,
+using the shared system-browser flow and secure pending-save/confirmation protocol.
+It MUST NOT silently replace public sign-in or infer permission from inherited scopes.
+The UI MUST explain GitHub's broader repository grant and Pully's current read-only
+use, preserve the connected public account on denied/failed consent, and show no
+private-access success before server confirmation. Source: Tavi's explicit 22 Oct
+private repository request and the reviewed separate repository-consent protocol.
+
+@cc [owner:OctavianTocan,label:product;security;architecture] personal-native-mount-owns-readers-and-account-recovery
+Both ordinary app roots MUST mount personal pages through the existing Guest AppPages
+stack and the same source-owned account/read presentation owner. Anonymous startup
+MUST NOT create a verified reader or fetch personal pages; a verified profile alone
+MUST NOT dispatch list work before its account or personal page is opened. Actual
+native foreground events MUST synchronously gate both sign-in and page dispatch;
+an unavailable secure-store probe MUST keep new personal actions unavailable.
+Account-wide rejection MUST clear every reader and route before opening a normal
+account recovery sheet. If inactive, only the fixed recovery request MAY wait for
+the same current workspace to resume; it MUST NOT retain read authority or open
+private consent automatically. Source/account replacement MUST revoke sheets and
+their captured actions before a new workspace mounts. Source: Tavi's 22 Oct 2026
+request to complete personal native browsing and the accepted five-finding recovery
+protocol, preserving personal-sheet-shares-owned-native-flow and the single-stack
+requirements.
+
+@cc [owner:OctavianTocan,label:security;product] personal-native-admission-precedes-browser-resume
+On iOS, new personal browser, polling and claim work MUST remain paused until the current
+workspace is both actually foreground and admitted by its secure-store probe. A
+delayed consent-start response received during inactivity MUST keep the same attempt
+and open the system browser once after that admission. The native host MUST establish
+its current foreground and browser-availability flags before admitting controller
+resumption. A failed probe, reentrant inactive event or retired source MUST NOT admit
+new work. An already-entered bounded claim MAY finish across ordinary inactivity;
+this readiness gate MUST NOT cancel it. Source: the independently confirmed 22 Oct
+2026 personal-mount consent-resume finding and the accepted native epoch/probe plan.
+@cc [owner:OctavianTocan,label:product;security;architecture] github-account-invitations-explain-unavailable-configuration
+Ordinary Explore and Settings MUST expose a usable Connect GitHub action even when
+the build has no personal authorization origin. It MUST explain that unavailable
+configuration in the shared account presentation and allow public browsing, never
+fabricate connection success or start account work. A failed secure-store probe MUST
+instead explain device unavailability without admitting browser, claim or reader
+work. Configured, admitted entry MUST open the existing normal account sheet/runtime,
+never private consent automatically. An explicit Settings action MAY first select
+the public workspace, but MUST synchronously retire the old private source before
+carrying only a fixed normal-account intent to the new public generation. Retained,
+inactive or retired-source callbacks MUST NOT open or replay that intent. The same
+navigation stack and saved legitimate account MUST be preserved. Source: Tavi's
+22 Oct 2026 installed-app missing-login report and accepted visible GitHub entry plan.

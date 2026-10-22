@@ -21,6 +21,12 @@ sealed interface PersonalSignInState {
     data class Failed(val problem: PersonalAuthProblem) : PersonalSignInState
 }
 
+/** Repository consent is minted by the verified runtime, never from route or form input. */
+sealed class PersonalSignInPurpose {
+    data object Public : PersonalSignInPurpose()
+    internal class Repositories(val session: StoredPersonalSession) : PersonalSignInPurpose()
+}
+
 /**
  * A native UI owner calls this controller on its UI dispatcher. Normal browser background only pauses
  * polling; source/route retirement calls close synchronously. Cleanup uses a longer-lived host scope.
@@ -35,6 +41,7 @@ class PersonalSignInController(
     private val openBrowser: (String) -> Unit,
     private val accept: (PersonalSession) -> Unit,
     private val source: RpcSource = client.source(),
+    private val purpose: PersonalSignInPurpose = PersonalSignInPurpose.Public,
 ) {
     private val lifetime = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext + lifetime)
@@ -54,13 +61,18 @@ class PersonalSignInController(
 
     fun start(): Boolean {
         if (!current() || pending != null || provisional != null || startJob?.isActive == true) return false
+        if (purpose is PersonalSignInPurpose.Repositories && !inForeground) return false
         val revision = ++operation
         mutableState.value = PersonalSignInState.Starting
         startJob = scope.launch {
             try {
                 if (!client.enabled(source)) throw PersonalAuthError(PersonalAuthProblem.NotConfigured)
                 requireCurrent(revision)
-                val attempt = client.start(PersonalAuthProof.create(), source)
+                val proof = PersonalAuthProof.create()
+                val attempt = when (val action = purpose) {
+                    PersonalSignInPurpose.Public -> client.start(proof, source)
+                    is PersonalSignInPurpose.Repositories -> client.startRepositoryConsent(proof, action.session, source)
+                }
                 requireCurrent(revision)
                 // The backend uses ten minutes. A local timer also bounds ownership if the wall clock changes.
                 val seconds = (attempt.expiresAt - nowSeconds()).coerceAtMost(600)

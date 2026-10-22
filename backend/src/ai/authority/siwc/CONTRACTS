@@ -1,0 +1,26 @@
+@cc [owner:OctavianTocan,label:security;architecture] siwc-uses-its-official-registration-contract
+The user-operated SIWC flow MUST use the documented OpenAI public-client registration,
+stable host ID, system browser and exact 127.0.0.1 HTTP loopback callback. Every attempt
+MUST have fresh state, nonce and S256 PKCE. First registration MUST exchange with the
+issued callback client ID, never dynamic_agent_client; returning authorization MUST
+retain its selected issued client and verified subject. Hosted approval MUST NOT be
+inferred from OSS source or an identity-only token. Source: Tavi's 22 Oct provider
+instruction and official OpenAI SIWC registration/sign-in documentation checked that day.
+
+@cc [owner:OctavianTocan,label:security] siwc-identity-and-plan-permission-are-verified
+ID tokens MUST verify an allowed asymmetric signature against the fixed issuer's JWKS,
+exact issuer, issued client audience, expiry, issued-at time and original nonce before
+identity is trusted. The immutable issuer/client/subject tuple MUST own the registration;
+email MUST NOT merge registrations. Inference MUST require the actually granted direct
+ChatGPT plan permission and captured current connection; identity-only consent MUST NOT
+advertise plan usage. Source: official SIWC registration and accounts/session docs,
+and Tavi's 21 Oct account/provider isolation requirement.
+
+@cc [owner:OctavianTocan,label:security;architecture] siwc-tokens-stay-in-protected-custody
+Access, refresh and retained ID tokens MUST stay in owner/registration-bound encrypted
+custody and MUST NOT enter native bodies, browser storage, logs, Debug or arbitrary
+requests. OAuth/JWKS requests MUST refuse redirects/proxies and have finite time/body
+limits and safe errors. Refresh MUST serialize for its registration and atomically
+store the rotating replacement without resurrecting a retired source. Disconnect MUST
+retire local use before remote revocation, and distinguish unconfirmed remote revocation.
+Source: Tavi's 22 Oct custody boundary and official SIWC accounts/session documentation.

@@ -61,7 +61,7 @@ fun ExploreScreen(
                 Column(Modifier.padding(horizontal = PullsSpace.x4), verticalArrangement = Arrangement.spacedBy(PullsSpace.x3)) {
                     Text(t("explore.title"), Modifier.semantics { heading() }, style = PullsType.xxl, color = colors.text)
                     Text(t("explore.intro"), style = PullsType.read, color = colors.muted)
-                    CtaButton(if (githubAccount == null) t("explore.signIn") else t("personal.account", "login" to githubAccount), { state.runIfCurrent { onGitHubSignIn?.invoke() } }, Modifier.fillMaxWidth(), enabled = onGitHubSignIn != null)
+                    CtaButton(if (githubAccount == null) t("personal.connectGitHub") else t("personal.account", "login" to githubAccount), { state.runIfCurrent { onGitHubSignIn?.invoke() } }, Modifier.fillMaxWidth(), enabled = onGitHubSignIn != null)
                     if (onGitHubSignIn == null) Text(t("explore.signInUnavailable"), style = PullsType.sm, color = colors.muted)
                     if (onExistingAccount != null) PillButton(t("explore.existingAccount"), { state.runIfCurrent(onExistingAccount) })
                     Text(

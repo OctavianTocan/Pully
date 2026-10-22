@@ -74,14 +74,34 @@ jobs:
       - name: Test native account storage and configuration rules
         run: swift test --package-path ios/NativeServices
       - name: Test native account and Google SDK rules on the iOS simulator
+        id: native-sdk
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: ios/NativeServices
         run: |
-          xcodebuild -quiet -scheme PullyNative \
+          mkdir -p ../build
+          xcodebuild -list -json > ../build/NativeServices.schemes.json
+          pully_native_scheme=$(python3 - ../build/NativeServices.schemes.json <<'PY'
+          import json, sys
+
+          with open(sys.argv[1]) as source:
+              inventory = json.load(source)
+          schemes = inventory.get('workspace', {}).get('schemes', [])
+          aggregate = 'PullyNative-Package'
+          if schemes.count(aggregate) != 1:
+              raise SystemExit('Missing the whole PullyNative package test scheme: ' + repr(schemes))
+          print(aggregate)
+          PY
+          )
+          echo "Testing the whole native package: $pully_native_scheme"
+          xcodebuild -quiet -scheme "$pully_native_scheme" \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ../build/NativeServices \
             -resultBundlePath ../build/NativeServices.xcresult \
             -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO
+      - name: Print actual native SDK simulator failure evidence
+        if: ${{ !cancelled() && steps.native-sdk.outcome == 'failure' }}
+        run: |
+          python3 ios/scripts/print-shared-test-failures.py --xcresult ios/build/NativeServices.xcresult
       - name: Test actual Keychain in an ad-hoc signed simulator app host
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         run: |

@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Pully internal preview",
+    "reading": "Reading the shared link…",
+    "save": "Save for Pully",
+    "unsupported": "Share a GitHub pull request, repository, commit, compare or a supported link to your Pully server.",
+    "hint": "Save this link, then open Pully to continue with your current account. Saved links expire after 24 hours.",
+    "unavailable": "Pully sharing needs the same provisioned App Group in the app and its extension.",
+    "busy": "Pully sharing is busy. Wait a moment, then share this link again.",
+    "noSource": "Open Pully and sign in before saving a link.",
+    "staleSource": "The Pully account or server changed. Share this link again.",
+    "invalidRecord": "Pully could not read this saved link. Share it again.",
+    "failure": "Pully could not save this link. Unlock the device and share it again."
+  },
   "explore": {
     "title": "Explore",
     "intro": "Discover public projects and their open pull requests. No sign-in needed.",
@@ -580,7 +593,11 @@
     "mergeRisk": {
       "title": "Merge risk",
       "levelLabel": "{level} risk",
-      "level": { "low": "Low", "medium": "Medium", "high": "High" },
+      "level": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
       "category": {
         "alignment": "Alignment",
         "impact": "Impact",
@@ -689,10 +706,22 @@
       "other": "Used {n} tool | Used {n} tools"
     },
     "verb": {
-      "thinking": { "now": "Thinking", "past": "Thought" },
-      "writing": { "now": "Writing", "past": "Wrote" },
-      "readFiles": { "now": "Reading {n} file | Reading {n} files", "past": "Read {n} file | Read {n} files" },
-      "organizing": { "now": "Organizing the groups", "past": "Organized the groups" }
+      "thinking": {
+        "now": "Thinking",
+        "past": "Thought"
+      },
+      "writing": {
+        "now": "Writing",
+        "past": "Wrote"
+      },
+      "readFiles": {
+        "now": "Reading {n} file | Reading {n} files",
+        "past": "Read {n} file | Read {n} files"
+      },
+      "organizing": {
+        "now": "Organizing the groups",
+        "past": "Organized the groups"
+      }
     },
     "usage": {
       "input": "{n} in",
@@ -803,20 +832,62 @@
   },
   "rules": {
     "allFiles": "All files",
-    "code": { "label": "Code", "summary": "Source changes." },
-    "other": { "label": "Other", "summary": "Other changes that don't fit an existing category." },
-    "docs": { "label": "Docs", "summary": "Documentation updates." },
-    "tests": { "label": "Tests", "summary": "Test coverage for the change." },
-    "config": { "label": "Config", "summary": "Configuration changes." },
-    "deps": { "label": "Dependencies", "summary": "Dependency version changes." },
-    "generated": { "label": "Generated", "summary": "Generated or build output changes." },
-    "types": { "label": "Types", "summary": "Type declarations." },
-    "data": { "label": "Data", "summary": "Database schema and migrations." },
-    "styles": { "label": "Styles", "summary": "Stylesheets and styling config." },
-    "scripts": { "label": "Scripts", "summary": "Build, dev and automation scripts." },
-    "ci": { "label": "CI", "summary": "CI workflows and pipelines." },
-    "i18n": { "label": "Translations", "summary": "Locale and translation files." },
-    "assets": { "label": "Assets", "summary": "Images, fonts and media." },
+    "code": {
+      "label": "Code",
+      "summary": "Source changes."
+    },
+    "other": {
+      "label": "Other",
+      "summary": "Other changes that don't fit an existing category."
+    },
+    "docs": {
+      "label": "Docs",
+      "summary": "Documentation updates."
+    },
+    "tests": {
+      "label": "Tests",
+      "summary": "Test coverage for the change."
+    },
+    "config": {
+      "label": "Config",
+      "summary": "Configuration changes."
+    },
+    "deps": {
+      "label": "Dependencies",
+      "summary": "Dependency version changes."
+    },
+    "generated": {
+      "label": "Generated",
+      "summary": "Generated or build output changes."
+    },
+    "types": {
+      "label": "Types",
+      "summary": "Type declarations."
+    },
+    "data": {
+      "label": "Data",
+      "summary": "Database schema and migrations."
+    },
+    "styles": {
+      "label": "Styles",
+      "summary": "Stylesheets and styling config."
+    },
+    "scripts": {
+      "label": "Scripts",
+      "summary": "Build, dev and automation scripts."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI workflows and pipelines."
+    },
+    "i18n": {
+      "label": "Translations",
+      "summary": "Locale and translation files."
+    },
+    "assets": {
+      "label": "Assets",
+      "summary": "Images, fonts and media."
+    },
     "area": "{label} · {area}",
     "rootArea": "repo root",
     "otherAreas": "other areas",
@@ -872,7 +943,10 @@
     },
     "loading": "Loading local changes…",
     "loadFailed": "Couldn't load these changes",
-    "posted": { "title": "This diff opens in the Pully app", "hint": "Diffs that agents post open only on your phone, signed in to the account." },
+    "posted": {
+      "title": "This diff opens in the Pully app",
+      "hint": "Diffs that agents post open only on your phone, signed in to the account."
+    },
     "auth": {
       "title": "Enter the code from your terminal",
       "hint": "pulls.review printed a 6-digit code in the terminal it runs in.",
@@ -940,6 +1014,9 @@
   },
   "personal": {
     "title": "Your GitHub",
+    "connectGitHub": "Connect GitHub",
+    "notConfigured": "GitHub sign-in is not configured in this build. You can still browse public projects.",
+    "deviceUnavailable": "GitHub sign-in is temporarily unavailable on this device. You can still browse public projects.",
     "account": "@{login}",
     "signedIn": "Signed in as @{login}",
     "intro": "Sign in with your GitHub account. You can keep browsing public repositories without signing in.",
@@ -964,6 +1041,39 @@
       "HttpRejected": "The sign-in service could not accept this request. Try again later.",
       "Timeout": "GitHub sign-in took too long to respond. Try again.",
       "Unreachable": "Pully could not reach sign-in. Check your connection and try again."
+    }
+  },
+  "personalBrowse": {
+    "pulls": "Your pull requests",
+    "repositories": "Your repositories",
+    "back": "Back",
+    "publicScope": "Showing your public repositories and open pull requests. Connect repository access to include private projects.",
+    "accountScope": "Repositories and open pull requests your GitHub account can access. Organization approval may still be required.",
+    "public": "Public",
+    "private": "Private",
+    "enablePrivate": "Include private repositories",
+    "consentBody": "GitHub’s repository permission includes read and write access. Pully uses this connection only to read repositories and pull requests. Your organization may require approval.",
+    "emptyRepositories": "No repositories found for this account.",
+    "emptyPulls": "No open pull requests found here.",
+    "incomplete": "Showing part of your GitHub results. More results may be available on GitHub.",
+    "relation": {
+      "ReviewRequested": "Waiting on you",
+      "Authored": "Authored",
+      "Involved": "Involved"
+    },
+    "problem": {
+      "InvalidRequest": "Choose a valid repository or page.",
+      "Unauthorized": "Sign in again to see your GitHub pull requests.",
+      "Reconnect": "Reconnect your GitHub account to continue.",
+      "Forbidden": "This repository or permission is no longer available. Return to your repositories or reconnect your account.",
+      "RateLimited": "GitHub’s read limit has been reached. Wait a moment, then try again.",
+      "Unavailable": "Your GitHub repositories are temporarily unavailable. Try again.",
+      "InvalidResponse": "Pully could not return your repositories. Try again.",
+      "WebPage": "The account service returned a web page. Check your connection and try again.",
+      "Redirect": "The account service sent this request elsewhere. Try again later.",
+      "HttpRejected": "The account service did not accept this request. Try again later.",
+      "Timeout": "Your repositories took too long to respond. Try again.",
+      "Unreachable": "Pully could not reach your repositories. Check your connection and try again."
     }
   }
 }

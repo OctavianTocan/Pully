@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>PullyPersonalAuthOrigin</key>
+    <string>$(PULLY_PERSONAL_AUTH_ORIGIN)</string>
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
@@ -48,6 +50,8 @@
             </array>
         </dict>
     </array>
+    <key>PullyShareAppGroup</key>
+    <string>$(PULLY_SHARE_APP_GROUP)</string>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
     <key>LSRequiresIPhoneOS</key>

@@ -9,6 +9,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private var accountStorage: AccountStorageHost?
     private var application: IosPullyApp?
     private var incomingLinks: NativeIncomingLinks?
+    private var shareHandoff: ShareHandoffHost?
 
     func scene(
         _ scene: UIScene,
@@ -66,6 +67,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         application = nil
         accountStorage?.disconnect()
         accountStorage = nil
+        shareHandoff = nil
         window?.rootViewController = nil
         window = nil
         feedback?.setActive(false)
@@ -75,11 +77,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func createApplication(homeActions: HomeActionsHost) -> UIViewController {
-        let storage = AccountStorageHost()
-        let application = IosPullyApp(homeActions: homeActions, accountStorage: storage)
+        let share = ShareHandoffHost()
+        let storage = AccountStorageHost(identityWillChange: { share.revoke() })
+        let application = IosPullyApp(
+            homeActions: homeActions,
+            accountStorage: storage,
+            shareHandoff: share,
+            personalSessions: PersonalSessionServices.shared
+        )
         let controller = application.viewController
         storage.attach(to: controller)
         accountStorage = storage
+        shareHandoff = share
         self.application = application
         return controller
     }

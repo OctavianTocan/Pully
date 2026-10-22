@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Pully 內部預覽版",
+    "reading": "正在讀取分享的連結…",
+    "save": "儲存至 Pully",
+    "unsupported": "請分享 GitHub 提取要求、儲存庫、提交、比較或 Pully 伺服器支援的連結。",
+    "hint": "儲存此連結，然後開啟 Pully 以使用目前帳號繼續。儲存的連結將在 24 小時後到期。",
+    "unavailable": "Pully 的分享功能要求 App 及其擴充功能使用同一個已設定的 App Group。",
+    "busy": "Pully 正在處理其他分享內容。請稍候再分享此連結。",
+    "noSource": "請先開啟 Pully 並登入，再儲存連結。",
+    "staleSource": "Pully 帳號或伺服器已變更。請重新分享此連結。",
+    "invalidRecord": "Pully 無法讀取此儲存的連結。請重新分享。",
+    "failure": "Pully 無法儲存此連結。請解鎖裝置後重新分享。"
+  },
   "common": {
     "cancel": "取消",
     "save": "儲存",

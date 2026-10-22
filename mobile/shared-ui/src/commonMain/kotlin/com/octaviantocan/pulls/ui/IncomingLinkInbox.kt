@@ -9,6 +9,8 @@ import com.octaviantocan.pulls.data.RepoConfiguration
 import com.octaviantocan.pulls.data.sourceStorageNamespace
 import com.octaviantocan.pulls.ui.home.HomeLink
 import com.octaviantocan.pulls.ui.home.HomeLinks
+import com.octaviantocan.pulls.ui.home.HomeLifecycleObserver
+import com.octaviantocan.pulls.ui.home.decodeSharedLink
 
 /** A pending intent may survive sign-in, but never an unrelated endpoint, Access policy or signed-in account. */
 class IncomingLinkAudience internal constructor(internal val endpoint: String, internal val account: String?) {
@@ -26,26 +28,54 @@ fun incomingLinkAudience(configuration: RepoConfiguration?, email: String?, elig
 
 /** One UI-thread inbox per native application lifetime; it contains no second navigation stack. */
 class IncomingLinkInbox {
-    class Arrival internal constructor(val text: String?, val aiResult: String?, internal val audience: IncomingLinkAudience?)
+    class Arrival internal constructor(val text: String?, val aiResult: String?, internal val audience: IncomingLinkAudience?, internal val link: HomeLink? = null)
     class Reopen(val target: OpenTarget, val place: LinkPlace? = null, val aiResult: String? = null)
 
     var pending by mutableStateOf<Arrival?>(null)
         private set
     var reopened by mutableStateOf<Reopen?>(null)
         private set
+    private var explicitInActivation = false
+    private var nativeForeground: Boolean? = null
 
     fun receive(text: String, audience: IncomingLinkAudience?, aiResult: String? = null) {
-        if (text.isNotBlank()) pending = Arrival(text, aiResult, audience)
+        if (text.isNotBlank()) {
+            explicitInActivation = true
+            pending = Arrival(text, aiResult, audience)
+        }
+    }
+
+    /** Typed share data uses the same audience, awaited sheet exit, route mapping and deduplication as URL delivery. */
+    fun receive(link: HomeLink, audience: IncomingLinkAudience?) {
+        if (!explicitInActivation) pending = Arrival(null, null, audience, link)
+    }
+
+    internal fun receiveShared(payload: String, audience: IncomingLinkAudience?) {
+        if (explicitInActivation) return
+        val link = decodeSharedLink(payload)
+        if (link == null) pending = Arrival(null, null, audience) else receive(link, audience)
+    }
+
+    internal fun activationObserver(): HomeLifecycleObserver = object : HomeLifecycleObserver {
+        override fun started() { nativeForeground = true }
+        override fun resumed() { nativeForeground = true }
+        override fun stopped() {
+            if (nativeForeground == true) explicitInActivation = false
+            nativeForeground = false
+        }
     }
 
     /** Invalid native envelopes are explicit one-shot events, with no rejected URL or credential retained. */
-    fun reject(audience: IncomingLinkAudience?) { pending = Arrival(null, null, audience) }
+    fun reject(audience: IncomingLinkAudience?) {
+        explicitInActivation = true
+        pending = Arrival(null, null, audience)
+    }
 
     fun consume(arrival: Arrival) {
         if (pending === arrival) pending = null
     }
 
-    fun clear() { pending = null; reopened = null }
+    fun clear() { pending = null; reopened = null; explicitInActivation = false }
 
     /** Pending sign-in intents retain their stamped audience; old private reopen events do not. */
     fun retireSource() { reopened = null }
@@ -61,7 +91,7 @@ class IncomingLinkInbox {
         val arrival = pending ?: return false
         if (!current()) return false
         if (!audience.accepts(arrival.audience)) { consume(arrival); return true }
-        val destination = arrival.text?.let { sharedLinkScreen(it, arrival.aiResult) }
+        val destination = arrival.link?.let { sharedLinkScreen(it) } ?: arrival.text?.let { sharedLinkScreen(it, arrival.aiResult) }
         if (destination != null) closeSheets()
         // Awaiting a sheet exit can replace the account or deliver a newer intent.
         if (!current() || pending !== arrival) return false
@@ -81,8 +111,9 @@ class IncomingLinkInbox {
 }
 
 /** The original Android incoming-link mapping, including the exact file/side/line/thread destination. */
-fun sharedLinkScreen(text: String, aiResult: String? = null): Screen? = when (val link = HomeLinks.parseShared(text)) {
+fun sharedLinkScreen(text: String, aiResult: String? = null): Screen? = HomeLinks.parseShared(text)?.let { sharedLinkScreen(it, aiResult) }
+
+fun sharedLinkScreen(link: HomeLink, aiResult: String? = null): Screen = when (link) {
     is HomeLink.Target -> Screen.Review(link.target, from = "link", place = link.place?.let(::PlaceRequest), aiResult = aiResult)
     is HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
-    null -> null
 }

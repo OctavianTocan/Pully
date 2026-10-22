@@ -24,8 +24,9 @@ private final class HomeBackHandle: NSObject, HomeLifecycleSubscription {
 
 /// Required shared-screen services. Kotlin calls this boundary synchronously on its UI thread.
 @MainActor
-final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
+final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness, NativePersonalForegroundActions {
     private let lifecycle: NativeSceneLifecycle
+    private let personalForeground: NativeSceneActivity
     private final class BackRegistration {
         let id = UUID()
         let rightEdge: Bool
@@ -38,6 +39,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
     private var back: BackRegistration?
     private var sceneActive = false
     private var disconnected = false
+    private var phaseEpoch: UInt64 = 0
 
     init(scene: UIWindowScene) {
         let phase: NativeSceneLifecycle.Phase
@@ -47,6 +49,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
         default: phase = .background
         }
         lifecycle = NativeSceneLifecycle(phase: phase)
+        personalForeground = NativeSceneActivity(active: phase == .foregroundActive)
         sceneActive = phase == .foregroundActive
         super.init()
     }
@@ -79,6 +82,13 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
                 case .stopped: observer.stopped()
                 }
             })
+        }
+    }
+
+    nonisolated func observePersonalForeground(observer: NativePersonalForegroundObserver) -> HomeLifecycleSubscription {
+        MainActor.assumeIsolated {
+            let observation = personalForeground.observe { observer.changed(active: $0) }
+            return HomeBackHandle { observation.cancel() }
         }
     }
 
@@ -149,15 +159,21 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
 
     func update(_ phase: NativeSceneLifecycle.Phase) {
         guard !disconnected else { return }
+        phaseEpoch &+= 1
+        let opening = phaseEpoch
         sceneActive = phase == .foregroundActive
+        personalForeground.update(active: sceneActive)
+        guard !disconnected, phaseEpoch == opening else { return }
         if !sceneActive { back?.gesture?.interrupt() }
         else if let registration = back { installBack(registration) }
+        guard !disconnected, phaseEpoch == opening else { return }
         lifecycle.update(phase)
     }
     func disconnect() {
         guard !disconnected else { return }
         disconnected = true
         sceneActive = false
+        personalForeground.close()
         let previous = back
         back = nil
         rootView = nil
