@@ -1,5 +1,5 @@
 use super::{
-    provider::{GitHubAuthority, GitHubProvider, GitHubTokens, VerifiedLogin},
+    provider::{GitHubAuthority, GitHubProvider, GitHubTokens, ReconnectRequired, VerifiedLogin},
     AuthClock, VaultContext, VaultEnvelope, VaultKeys, VaultPurpose,
 };
 use crate::{
@@ -11,7 +11,7 @@ use anyhow::{ensure, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
     sync::{Arc, Mutex, OnceLock, Weak},
     time::Duration,
@@ -77,6 +77,8 @@ struct SessionClaims {
 struct Credentials {
     tokens: GitHubTokens,
     authority: GitHubAuthority,
+    #[serde(default)]
+    verified: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -161,6 +163,8 @@ impl Drop for Binding {
 #[derive(Default)]
 struct Runtime {
     bindings: HashMap<String, Binding>,
+    refresh_locks: HashMap<String, Arc<tokio::sync::Mutex<()>>>,
+    refreshing: Arc<Mutex<HashSet<String>>>,
 }
 static RUNTIMES: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<Runtime>>>>> = OnceLock::new();
 
@@ -282,7 +286,11 @@ impl PersonalVault {
                             .ok_or_else(|| anyhow::anyhow!("Credential revision unavailable"))
                     })?;
                     let generation = previous.map_or(1, |previous| previous.generation);
-                    let credentials = Credentials { tokens, authority };
+                    let credentials = Credentials {
+                        tokens,
+                        authority,
+                        verified: true,
+                    };
                     let status = status(
                         &account_id,
                         github_id,
@@ -362,7 +370,8 @@ impl PersonalVault {
                 .bindings
                 .get(&snapshot.hash)
                 .filter(|binding| {
-                    binding.account_id == snapshot.account_id
+                    snapshot.credentials.verified
+                        && binding.account_id == snapshot.account_id
                         && binding.revision == snapshot.account.revision
                         && binding.deadline > this.clock.now()
                         && RequestIdentity::Account(binding.credential.clone())
@@ -370,6 +379,14 @@ impl PersonalVault {
                             .is_ok()
                 })
                 .map(|binding| binding.credential.clone());
+            ensure!(
+                !runtime
+                    .refreshing
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?
+                    .contains(&snapshot.account_id),
+                "GitHub authorization is refreshing"
+            );
             if cached.is_none() {
                 runtime.bindings.remove(&snapshot.hash);
             }
@@ -382,10 +399,10 @@ impl PersonalVault {
         let verified = provider
             .verify(snapshot.credentials.tokens.access_token.clone())
             .await?;
-        ensure!(
-            verified.github_id() == snapshot.account.github_id,
-            "GitHub identity changed; sign in again"
-        );
+        if verified.github_id() != snapshot.account.github_id {
+            self.invalidate_account(snapshot).await?;
+            return Err(ReconnectRequired.into());
+        }
         let this = self.clone();
         let handle = tokio::runtime::Handle::current();
         blocking(move || {
@@ -393,15 +410,25 @@ impl PersonalVault {
                 .runtime
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?;
-            let current = this.snapshot(hash, false)?;
+            let mut current = this.snapshot(hash, false)?;
+            ensure!(
+                !runtime
+                    .refreshing
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?
+                    .contains(&current.account_id),
+                "GitHub authorization is refreshing"
+            );
             ensure!(
                 current.account.revision == snapshot.account.revision
                     && current.account.generation == snapshot.account.generation,
                 "Personal authorization changed; sign in again"
             );
+            this.confirm_verified(&mut current, verified.login())?;
             let credential = if let Some(binding) =
                 runtime.bindings.get(&current.hash).filter(|binding| {
-                    binding.account_id == current.account_id
+                    current.credentials.verified
+                        && binding.account_id == current.account_id
                         && binding.revision == current.account.revision
                         && binding.deadline > this.clock.now()
                         && RequestIdentity::Account(binding.credential.clone())
@@ -518,18 +545,18 @@ impl PersonalVault {
             .sessions
             .get(&hash)
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("Personal session is unavailable; sign in again"))?;
+            .ok_or(ReconnectRequired)?;
         let account = database
             .accounts
             .get(&session.account_id)
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("Personal session is unavailable; sign in again"))?;
-        ensure!(
-            account.github_id == session.github_id
-                && account.generation == session.generation
-                && session.expires_at > self.clock.now(),
-            "Personal session has expired or changed"
-        );
+            .ok_or(ReconnectRequired)?;
+        if account.github_id != session.github_id
+            || account.generation != session.generation
+            || session.expires_at <= self.clock.now()
+        {
+            return Err(ReconnectRequired.into());
+        }
         let claims: SessionClaims = serde_json::from_slice(&self.keys.open(
             &session_context(&session.account_id, session.github_id, session.generation),
             &session.sealed,
@@ -543,10 +570,7 @@ impl PersonalVault {
                 && claims.expires_at == session.expires_at,
             "Invalid personal session record"
         );
-        let envelope = account
-            .credentials
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("GitHub authorization needs reconnecting"))?;
+        let envelope = account.credentials.as_ref().ok_or(ReconnectRequired)?;
         let credentials: Credentials = serde_json::from_slice(&self.keys.open(
             &credential_context(&session.account_id, account.github_id, account.revision),
             envelope,
@@ -713,5 +737,6 @@ fn safe_storage(_error: anyhow::Error) -> anyhow::Error {
     anyhow::anyhow!("Personal authorization operation failed")
 }
 
+mod refresh;
 #[cfg(test)]
 mod tests;

@@ -309,7 +309,13 @@ impl PersonalAuth {
                         this.0.clock.now(),
                     )
                     .await
-                    .map_err(|_| AuthError::Unavailable)?;
+                    .map_err(|error| {
+                        if error.is::<super::provider::ReconnectRequired>() {
+                            AuthError::Reconnect
+                        } else {
+                            AuthError::Unavailable
+                        }
+                    })?;
                 let login = VerifiedLogin::acquire(this.0.provider.as_ref(), tokens)
                     .await
                     .map_err(|_| AuthError::Unavailable)?;
@@ -337,6 +343,7 @@ impl PersonalAuth {
             attempt.phase = match acquired {
                 Ok(ready) => Phase::Ready(ready),
                 Err(AuthError::Denied) => Phase::Failed(FailureKind::Denied),
+                Err(AuthError::Reconnect) => Phase::Failed(FailureKind::Reconnect),
                 Err(_) => Phase::Failed(FailureKind::Unavailable),
             };
             Ok(())
@@ -447,6 +454,24 @@ impl PersonalAuth {
             .unlink(session)
             .await
             .map_err(|_| AuthError::Unavailable)
+    }
+
+    pub(crate) async fn session_status(
+        &self,
+        session: &str,
+    ) -> Result<super::vault::SessionStatus> {
+        self.0
+            .vault
+            .resolve_or_refresh(session, self.0.provider.clone())
+            .await
+            .map(|resolved| resolved.status)
+            .map_err(|error| {
+                if error.is::<super::provider::ReconnectRequired>() {
+                    AuthError::Reconnect
+                } else {
+                    AuthError::Unavailable
+                }
+            })
     }
 
     fn owned<'a>(

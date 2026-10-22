@@ -76,3 +76,14 @@ MUST NOT cancel the exchange/commit or lose its single-use receipt. Accepted wor
 MUST remain tied to its original attempt and verified subject. Explicit cancellation
 MUST retire publication authority; it MUST NOT make an already-consumed code reusable.
 Source: Tavi's 21 Oct 2026 replay, source-guard and browser-return requirements.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-refresh-rotates-without-resurrecting-sources
+Refresh MUST serialize per stable account and revoke old captured authority before
+using its refresh token. A rotated pair MUST be encrypted before retryable identity
+verification; unverified pairs MUST NOT create authority. Every new access token
+MUST verify the same immutable GitHub subject, and reduced scopes MUST reduce app
+authority. Concurrent refresh MUST NOT reuse a consumed token, and sign-out/unlink
+or a newer credential revision MUST deny stale publication or overwrite. A terminal
+refresh rejection MUST revoke that account's sessions; transient transport or /user
+failure MUST NOT invent a terminal rejection or discard a recoverable rotated pair.
+Source: Tavi's 21 Oct 2026 refresh/revocation and current GitHub token rotation plan.

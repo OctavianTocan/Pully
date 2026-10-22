@@ -11,6 +11,15 @@ const MAX_RESPONSE_BYTES: usize = 32 * 1024;
 const MAX_ACCESS_LIFETIME: u64 = 31 * 24 * 60 * 60;
 const MAX_REFRESH_LIFETIME: u64 = 366 * 24 * 60 * 60;
 
+#[derive(Debug)]
+pub(super) struct ReconnectRequired;
+impl std::fmt::Display for ReconnectRequired {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("GitHub authorization needs reconnecting")
+    }
+}
+impl std::error::Error for ReconnectRequired {}
+
 /// Application authority is independent of an OAuth token's possibly inherited scopes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -123,10 +132,15 @@ impl GitHubTokens {
         }
         let response: Response = serde_json::from_slice(body)
             .map_err(|_| anyhow::anyhow!("Invalid GitHub authorization response"))?;
-        ensure!(
-            response.error.is_none(),
-            "GitHub authorization needs reconnecting"
-        );
+        if let Some(error) = response.error {
+            if matches!(
+                error.as_str(),
+                "bad_refresh_token" | "expired_token" | "invalid_grant" | "bad_verification_code"
+            ) {
+                return Err(ReconnectRequired.into());
+            }
+            bail!("GitHub authorization is temporarily unavailable");
+        }
         let access_token = response.access_token.unwrap_or_default();
         ensure!(
             valid_secret(&access_token, 4096)
@@ -253,10 +267,13 @@ impl OAuthProvider {
             .send()
             .await
             .map_err(|_| anyhow::anyhow!("GitHub authorization is unavailable"))?;
-        ensure!(
-            response.status() == reqwest::StatusCode::OK,
-            "GitHub authorization needs reconnecting"
-        );
+        let status = response.status();
+        if status.is_server_error()
+            || status == reqwest::StatusCode::TOO_MANY_REQUESTS
+            || status.is_redirection()
+        {
+            bail!("GitHub authorization is temporarily unavailable");
+        }
         ensure!(
             response
                 .content_length()
@@ -274,7 +291,16 @@ impl OAuthProvider {
             );
             bytes.extend_from_slice(&chunk);
         }
-        GitHubTokens::from_response(&bytes, now)
+        let decoded = GitHubTokens::from_response(&bytes, now);
+        if status != reqwest::StatusCode::OK {
+            return match decoded {
+                Err(error) if error.is::<ReconnectRequired>() => Err(error),
+                _ => Err(anyhow::anyhow!(
+                    "GitHub authorization is temporarily unavailable"
+                )),
+            };
+        }
+        decoded
     }
 }
 
@@ -472,5 +498,28 @@ mod tests {
         .is_err());
         let body = serde_json::to_vec(&json!({"access_token":"a","token_type":"bearer","expires_in":28800,"refresh_token":"r","refresh_token_expires_in":15897600})).unwrap();
         assert!(GitHubTokens::from_response(&body, u64::MAX).is_err());
+    }
+
+    #[test]
+    fn server_app_misconfiguration_and_temporary_failures_do_not_claim_the_users_refresh_was_revoked(
+    ) {
+        assert!(parse(json!({"error":"bad_refresh_token"}))
+            .err()
+            .unwrap()
+            .is::<ReconnectRequired>());
+        for code in [
+            "incorrect_client_credentials",
+            "temporarily_unavailable",
+            "server_error",
+            "unknown-private-error",
+        ] {
+            let error = parse(json!({"error":code,"error_description":"fixture-secret-detail"}))
+                .err()
+                .unwrap();
+            assert!(!error.is::<ReconnectRequired>());
+            assert!(
+                !error.to_string().contains("fixture-secret") && !error.to_string().contains(code)
+            );
+        }
     }
 }

@@ -18,6 +18,12 @@ struct Provider {
     delayed: AtomicBool,
     started: Notify,
     release: Notify,
+    refresh_calls: AtomicUsize,
+    refresh_block: AtomicBool,
+    refresh_entered: Notify,
+    refresh_release: Notify,
+    refresh_failure: AtomicUsize,
+    reduced: AtomicBool,
 }
 impl Provider {
     fn user(&self, token: &str, id: u64, login: &str) {
@@ -31,8 +37,36 @@ impl GitHubProvider for Provider {
     fn exchange<'a>(&'a self, _: &'a str, _: &'a str, _: u64) -> ProviderFuture<'a, GitHubTokens> {
         Box::pin(async { anyhow::bail!("Unexpected exchange") })
     }
-    fn refresh<'a>(&'a self, _: &'a str, _: u64) -> ProviderFuture<'a, GitHubTokens> {
-        Box::pin(async { anyhow::bail!("Unexpected refresh") })
+    fn refresh<'a>(&'a self, token: &'a str, now: u64) -> ProviderFuture<'a, GitHubTokens> {
+        Box::pin(async move {
+            self.refresh_calls.fetch_add(1, Ordering::SeqCst);
+            if self.refresh_block.load(Ordering::SeqCst) {
+                self.refresh_entered.notify_one();
+                self.refresh_release.notified().await;
+            }
+            match self.refresh_failure.load(Ordering::SeqCst) {
+                1 => anyhow::bail!("GitHub authorization is temporarily unavailable"),
+                2 => return Err(ReconnectRequired.into()),
+                _ => {}
+            }
+            anyhow::ensure!(
+                token == "refresh-before",
+                "Consumed refresh token was reused"
+            );
+            Ok(GitHubTokens {
+                access_token: "access-rotated".into(),
+                expires_at: Some(now + 28800),
+                refresh: Some(RefreshToken {
+                    token: "refresh-after".into(),
+                    expires_at: now + 15897600,
+                }),
+                scopes: if self.reduced.load(Ordering::SeqCst) {
+                    Default::default()
+                } else {
+                    std::collections::BTreeSet::from(["repo".into()])
+                },
+            })
+        })
     }
     fn verify<'a>(&'a self, token: String) -> ProviderFuture<'a, VerifiedGitHubIdentity> {
         Box::pin(async move {
@@ -111,6 +145,228 @@ fn tokens(access: &str) -> GitHubTokens {
         refresh: None,
         scopes: std::collections::BTreeSet::from(["repo".into()]),
     }
+}
+
+async fn expiring(h: &Harness, authority: GitHubAuthority) -> IssuedSession {
+    h.provider.user("access-before", 42, "before");
+    let mut pair = tokens("access-before");
+    pair.expires_at = Some(105);
+    pair.refresh = Some(RefreshToken {
+        token: "refresh-before".into(),
+        expires_at: 10000,
+    });
+    let verified = VerifiedLogin::acquire(h.provider.as_ref(), pair)
+        .await
+        .unwrap();
+    h.vault.install(verified, authority, None).await.unwrap()
+}
+
+#[tokio::test]
+async fn concurrent_refresh_consumes_one_pair_and_retires_old_captured_authority() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PublicRead).await;
+    let old = h.resolve(&issued.session).await.identity().unwrap();
+    h.provider.user("access-rotated", 42, "after");
+    h.provider.refresh_block.store(true, Ordering::SeqCst);
+    let a = {
+        let (vault, provider, session) =
+            (h.vault.clone(), h.provider.clone(), issued.session.clone());
+        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+    };
+    h.provider.refresh_entered.notified().await;
+    assert!(old.ensure_current().is_err());
+    assert!(h
+        .vault
+        .resolve(&issued.session, h.provider.as_ref())
+        .await
+        .is_err());
+    let b = {
+        let (vault, provider, session) =
+            (h.vault.clone(), h.provider.clone(), issued.session.clone());
+        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+    };
+    h.provider.refresh_release.notify_one();
+    assert_eq!(a.await.unwrap().unwrap().status.login, "after");
+    assert_eq!(b.await.unwrap().unwrap().status.github_id, 42);
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 1);
+    let database = decode(h.store.get(STATE_KEY).unwrap()).unwrap();
+    assert_eq!(database.accounts[&issued.status.account_id].revision, 2);
+}
+
+#[tokio::test]
+async fn a_rotated_pair_survives_temporary_identity_verification_failure_without_refresh_reuse() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PublicRead).await;
+    assert!(h
+        .vault
+        .resolve_or_refresh(&issued.session, h.provider.clone())
+        .await
+        .is_err());
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 1);
+    let pending = h.vault.snapshot(sha256(&issued.session), true).unwrap();
+    assert!(!pending.credentials.verified);
+    assert_eq!(pending.credentials.tokens.access_token, "access-rotated");
+    assert_eq!(
+        pending.credentials.tokens.refresh.as_ref().unwrap().token,
+        "refresh-after"
+    );
+    assert!(h.vault.runtime.lock().unwrap().bindings.is_empty());
+    h.provider.user("access-rotated", 42, "after");
+    let ready = h
+        .vault
+        .resolve_or_refresh(&issued.session, h.provider.clone())
+        .await
+        .unwrap();
+    assert_eq!(ready.status.account_id, issued.status.account_id);
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 1);
+    assert!(
+        h.vault
+            .snapshot(sha256(&issued.session), true)
+            .unwrap()
+            .credentials
+            .verified
+    );
+}
+
+#[tokio::test]
+async fn transient_refresh_failure_keeps_the_pair_for_retry_and_never_uses_operator_authority() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PublicRead).await;
+    h.clock.0.store(106, Ordering::SeqCst);
+    h.provider.refresh_failure.store(1, Ordering::SeqCst);
+    assert!(h
+        .vault
+        .resolve_or_refresh(&issued.session, h.provider.clone())
+        .await
+        .is_err());
+    assert!(h.vault.snapshot(sha256(&issued.session), true).is_ok());
+    h.provider.refresh_failure.store(0, Ordering::SeqCst);
+    h.provider.user("access-rotated", 42, "after");
+    assert!(h
+        .vault
+        .resolve_or_refresh(&issued.session, h.provider.clone())
+        .await
+        .unwrap()
+        .identity()
+        .is_ok());
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn terminal_refresh_failure_retires_sessions_and_old_session_cannot_revive_after_reconnect() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PublicRead).await;
+    let captured = h.resolve(&issued.session).await.identity().unwrap();
+    h.provider.refresh_failure.store(2, Ordering::SeqCst);
+    assert!(h
+        .vault
+        .resolve_or_refresh(&issued.session, h.provider.clone())
+        .await
+        .err()
+        .unwrap()
+        .is::<ReconnectRequired>());
+    assert!(captured.ensure_current().is_err());
+    let database = decode(h.store.get(STATE_KEY).unwrap()).unwrap();
+    assert!(database.sessions.is_empty());
+    assert!(database.accounts[&issued.status.account_id]
+        .credentials
+        .is_none());
+    let new = h.sign_in("new-sign-in", 42, "reader").await;
+    assert_eq!(new.status.account_id, issued.status.account_id);
+    assert!(h
+        .vault
+        .resolve(&issued.session, h.provider.as_ref())
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn rotated_access_for_a_different_subject_revokes_instead_of_rebinding_the_account() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PublicRead).await;
+    h.provider.user("access-rotated", 99, "wrong-subject");
+    assert!(h
+        .vault
+        .resolve_or_refresh(&issued.session, h.provider.clone())
+        .await
+        .is_err());
+    let database = decode(h.store.get(STATE_KEY).unwrap()).unwrap();
+    assert!(database.sessions.is_empty());
+    assert_eq!(database.accounts[&issued.status.account_id].github_id, 42);
+    assert!(!database.subjects.contains_key("github.com:99"));
+}
+
+#[tokio::test]
+async fn unlink_during_refresh_denies_the_late_rotated_pair() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PublicRead).await;
+    h.provider.user("access-rotated", 42, "after");
+    h.provider.refresh_block.store(true, Ordering::SeqCst);
+    let refresh = {
+        let (vault, provider, session) =
+            (h.vault.clone(), h.provider.clone(), issued.session.clone());
+        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+    };
+    h.provider.refresh_entered.notified().await;
+    h.vault.unlink(&issued.session).await.unwrap();
+    h.provider.refresh_release.notify_one();
+    assert!(refresh.await.unwrap().is_err());
+    let database = decode(h.store.get(STATE_KEY).unwrap()).unwrap();
+    assert!(database.accounts[&issued.status.account_id]
+        .credentials
+        .is_none());
+    assert!(database.sessions.is_empty());
+}
+
+#[tokio::test]
+async fn scope_reduction_downgrades_authority_even_for_an_explicit_private_connection() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PrivateRepositories).await;
+    assert_eq!(
+        issued.status.authority,
+        GitHubAuthority::PrivateRepositories
+    );
+    h.provider.user("access-rotated", 42, "after");
+    h.provider.reduced.store(true, Ordering::SeqCst);
+    assert_eq!(
+        h.vault
+            .resolve_or_refresh(&issued.session, h.provider.clone())
+            .await
+            .unwrap()
+            .status
+            .authority,
+        GitHubAuthority::PublicRead
+    );
+}
+
+#[tokio::test]
+async fn accepted_refresh_survives_a_dropped_http_observer() {
+    let h = Harness::new();
+    let issued = expiring(&h, GitHubAuthority::PublicRead).await;
+    h.provider.user("access-rotated", 42, "after");
+    h.provider.refresh_block.store(true, Ordering::SeqCst);
+    let refresh = {
+        let (vault, provider, session) =
+            (h.vault.clone(), h.provider.clone(), issued.session.clone());
+        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+    };
+    h.provider.refresh_entered.notified().await;
+    refresh.abort();
+    let _ = refresh.await;
+    h.provider.refresh_release.notify_one();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let current = h.vault.snapshot(sha256(&issued.session), true).unwrap();
+            if current.account.revision == 2 && current.credentials.verified {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 1);
+    assert!(h.resolve(&issued.session).await.identity().is_ok());
 }
 
 #[tokio::test]
