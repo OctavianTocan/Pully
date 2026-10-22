@@ -1,4 +1,5 @@
 //! Native server-side jobs: clients observe revisions; only explicit cancellation stops work.
+pub(crate) mod authority;
 mod lenses;
 mod preview;
 mod provider;
