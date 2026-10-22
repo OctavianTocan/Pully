@@ -46,6 +46,7 @@ def main() -> None:
     if not icon_bundled.is_file() or icon_bundled.read_bytes() != icon_notices.read_bytes():
         raise SystemExit("original Catppuccin icon MIT notice is not bundled")
     locales = verify_locales(repository, app)
+    verify_locales(repository, app / "PlugIns/PullyShare.appex")
     privacy_source = repository / "ios/Pully/PrivacyInfo.xcprivacy"
     privacy_bundled = app / "PrivacyInfo.xcprivacy"
     if not privacy_bundled.is_file() or plistlib.loads(privacy_bundled.read_bytes()) != plistlib.loads(privacy_source.read_bytes()):

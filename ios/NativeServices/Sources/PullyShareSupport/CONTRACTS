@@ -34,3 +34,11 @@ Contention MUST fail promptly with a distinct retryable busy result, preserving 
 unconsumed same-source token and record. A contended revocation MUST return promptly
 and keep imports disabled until both durable sides retire. Source: the accepted
 21 Oct 2026 native share handoff plan and its MainActor lock-contention review finding.
+
+@cc [owner:OctavianTocan,label:architecture;product] ios-share-text-lookup-retains-canonical-fallback
+The native Share text adapter MUST resolve the bundled canonical locale catalogs
+using actual preferred languages and Foundation's regional matching, with canonical
+English fallback for unsupported languages and absent translated keys. It MUST NOT
+persist preferences, read account state, adopt a second translation table or echo an
+unknown storage error. Source: root strings-from-web-locales and the confirmed
+22 October 2026 native composition review finding 1.

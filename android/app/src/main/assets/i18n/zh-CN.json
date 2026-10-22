@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Pully 内部预览版",
+    "reading": "正在读取共享链接…",
+    "save": "保存到 Pully",
+    "unsupported": "请分享 GitHub 拉取请求、仓库、提交、对比或 Pully 服务器支持的链接。",
+    "hint": "保存此链接，然后打开 Pully 以使用当前账户继续。保存的链接将在 24 小时后过期。",
+    "unavailable": "Pully 的共享功能要求应用及其扩展使用同一个已配置的 App Group。",
+    "busy": "Pully 正在处理其他共享内容。请稍候再分享此链接。",
+    "noSource": "请先打开 Pully 并登录，再保存链接。",
+    "staleSource": "Pully 账户或服务器已更改。请重新分享此链接。",
+    "invalidRecord": "Pully 无法读取此已保存的链接。请重新分享。",
+    "failure": "Pully 无法保存此链接。请解锁设备后重新分享。"
+  },
   "common": {
     "cancel": "取消",
     "save": "保存",

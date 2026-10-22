@@ -13,6 +13,7 @@
 		5A0000000000000000000003 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0000000000000000000011; };
 		5A0000000000000000000004 /* PullyShareSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5A0000000000000000000021; };
 		5A0000000000000000000005 /* PullyShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5A0000000000000000000012; settings = {ATTRIBUTES = (RemoveHeadersOnCopy,); }; };
+		5A0000000000000000000007 /* i18n in Share Resources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000021 /* i18n */; };
 		5A0000000000000000000006 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5A0000000000000000000014; };
 		E10000000000000000000040 /* opencode-themes.txt in Resources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000040 /* opencode-themes.txt */; };
 		E10000000000000000000004 /* HomeActionsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000004 /* HomeActionsHost.swift */; };
@@ -330,7 +331,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		5A0000000000000000000043 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (5A0000000000000000000006,); runOnlyForDeploymentPostprocessing = 0; };
+		5A0000000000000000000043 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (5A0000000000000000000006, 5A0000000000000000000007 /* i18n in Share Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 		AA0000000000000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

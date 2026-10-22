@@ -5,13 +5,7 @@ public enum ShareHandoffError: Error, LocalizedError {
     case unavailable, busy, noSource, staleSource, invalidRecord
 
     public var errorDescription: String? {
-        switch self {
-        case .unavailable: return "Pully sharing needs the same provisioned App Group in the app and its extension."
-        case .busy: return "Pully sharing is busy. Wait a moment, then share this link again."
-        case .noSource: return "Open Pully and sign in before saving a link."
-        case .staleSource: return "The Pully account or server changed. Share this link again."
-        case .invalidRecord: return "Pully could not read this saved link. Share it again."
-        }
+        ShareStrings().message(for: self)
     }
 }
 

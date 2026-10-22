@@ -9,6 +9,7 @@ final class ShareViewController: UIViewController {
     private let message = UILabel()
     private let saveButton = UIButton(type: .system)
     private let cancelButton = UIButton(type: .system)
+    private let strings = ShareStrings()
     private var storage: ShareHandoffStorage?
     private var source: ShareSourceContext?
     private var payload: String?
@@ -18,18 +19,18 @@ final class ShareViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         let title = UILabel()
-        title.text = "Pully internal preview"
+        title.text = strings.text(.title)
         title.font = .preferredFont(forTextStyle: .title2)
         title.adjustsFontForContentSizeCategory = true
         title.accessibilityTraits.insert(.header)
         message.numberOfLines = 0
         message.font = .preferredFont(forTextStyle: .body)
         message.adjustsFontForContentSizeCategory = true
-        message.text = "Reading the shared link…"
-        saveButton.setTitle("Save for Pully", for: .normal)
+        message.text = strings.text(.reading)
+        saveButton.setTitle(strings.text(.save), for: .normal)
         saveButton.isHidden = true
         saveButton.addTarget(self, action: #selector(save), for: .touchUpInside)
-        cancelButton.setTitle("Cancel", for: .normal)
+        cancelButton.setTitle(strings.text(.cancel), for: .normal)
         cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
         let column = UIStackView(arrangedSubviews: [title, message, saveButton, cancelButton])
         column.axis = .vertical
@@ -80,11 +81,11 @@ final class ShareViewController: UIViewController {
             let text = links.prefix(16).joined(separator: "\n")
             guard text.utf8.count <= NativeIncomingLink.maximumBytes,
                   let payload = SharedLinkHandoffKt.encodeSharedLink(text: text) else {
-                failMessage("Share a GitHub pull request, repository, commit, compare or a supported link to your Pully server.")
+                failMessage(strings.text(.unsupported))
                 return
             }
             self.payload = payload
-            message.text = "Save this link, then open Pully to continue with your current account. Saved links expire after 24 hours."
+            message.text = strings.text(.hint)
             saveButton.isHidden = false
             return
         }
@@ -121,7 +122,7 @@ final class ShareViewController: UIViewController {
     }
 
     private func fail(_ error: Error) {
-        failMessage((error as? ShareHandoffError)?.errorDescription ?? "Pully could not save this link. Unlock the device and share it again.")
+        failMessage(strings.message(for: error))
     }
 
     private func failMessage(_ text: String) {
