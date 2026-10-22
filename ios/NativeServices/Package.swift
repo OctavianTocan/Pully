@@ -12,7 +12,8 @@ let package = Package(
         .package(url: "https://github.com/google/GoogleSignIn-iOS.git", exact: "10.0.0"),
     ],
     targets: [
-        .target(name: "PullyShareSupport"),
+        .target(name: "PullyFileLock"),
+        .target(name: "PullyShareSupport", dependencies: ["PullyFileLock"]),
         .target(
             name: "PullyNative",
             dependencies: [

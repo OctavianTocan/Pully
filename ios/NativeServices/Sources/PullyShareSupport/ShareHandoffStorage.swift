@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import PullyFileLock
 
 public enum ShareHandoffError: Error, LocalizedError {
     case unavailable, busy, noSource, staleSource, invalidRecord
@@ -186,13 +187,13 @@ private final class ProtectedShareFiles {
         defer { Darwin.close(descriptor) }
         try manager.setAttributes(attributes(directory: false), ofItemAtPath: lock.path)
         // A suspended extension can retain its lock. Never wait for another process on the host's MainActor.
-        while Darwin.flock(descriptor, LOCK_EX | LOCK_NB) != 0 {
+        while pully_file_lock(descriptor, LOCK_EX | LOCK_NB) != 0 {
             let failure = errno
             if failure == EINTR { continue }
             if failure == EWOULDBLOCK || failure == EAGAIN { throw ShareHandoffError.busy }
             throw ShareHandoffError.unavailable
         }
-        defer { _ = Darwin.flock(descriptor, LOCK_UN) }
+        defer { _ = pully_file_lock(descriptor, LOCK_UN) }
         return try operation()
     }
 

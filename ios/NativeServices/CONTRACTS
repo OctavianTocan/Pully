@@ -67,3 +67,11 @@ prevent an obsolete active event, and a closed adapter MUST remain inactive. The
 existing Home started/background event meanings MUST remain unchanged. Source:
 the accepted 22 Oct native personal lifecycle plan and independent mounted sign-in
 foreground-race finding.
+
+@cc [owner:OctavianTocan,label:architecture] ios-native-simulator-tests-use-the-whole-package
+Native SDK simulator verification MUST run the root PullyNative package aggregate
+test scheme, not one library product or a dependency's package scheme. Missing
+aggregate discovery MUST fail with its actual scheme inventory; it MUST NOT narrow
+the test selection. Source: the 22 October 2026 release066db product scheme with
+multiple libraries no longer providing a test action, while all native SDK proofs
+remain required.
