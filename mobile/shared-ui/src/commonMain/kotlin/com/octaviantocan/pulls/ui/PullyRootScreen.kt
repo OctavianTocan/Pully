@@ -46,6 +46,7 @@ fun PullyRootScreen(
     aiCapabilities: AiCapabilities = AiCapabilities.None,
     reviewCapabilities: ReviewCapabilities = ReviewCapabilities.ReadOnly,
     onExplore: (() -> Unit)? = null,
+    onGitHubAccount: (() -> Unit)? = null,
 ) {
     val colorTheme = ColorThemes.of(settings.colorTheme)
     val colors = colorTheme.colors(wantsDark(settings))
@@ -208,7 +209,12 @@ fun PullyRootScreen(
                         }
                         FootBarLayer(bars)
                         if (readyHome != null && readySettings != null) {
-                            if (navigation.stack.lastOrNull() == Screen.Settings) SettingsScreen(navigation.nav, readySettings)
+                            if (navigation.stack.lastOrNull() == Screen.Settings) SettingsScreen(navigation.nav, readySettings,
+                                onGitHubAccount = onGitHubAccount?.let { action -> {
+                                    if (root.current && root.generation == openingGeneration && account.sourceEpoch == openingEpoch &&
+                                        navigation.stack.lastOrNull() == Screen.Settings && readyHome.data.current &&
+                                        readySettings.current() && readyHome.observations.ready) action()
+                                } })
                             if (themes) ColorThemeSheet(settings, readySettings::current) { themes = false }
                             if (feedback) FeedbackSheet(readySettings.feedbackPage) { feedback = false }
                             CommandPalette(remember(readyHome) { root.commands(readyHome) })

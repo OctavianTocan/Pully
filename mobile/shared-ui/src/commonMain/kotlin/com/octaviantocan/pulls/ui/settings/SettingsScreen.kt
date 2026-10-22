@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +41,7 @@ import com.octaviantocan.pulls.sound.Material
 import com.octaviantocan.pulls.sound.cueClickable
 import com.octaviantocan.pulls.sound.directionOf
 import com.octaviantocan.pulls.ui.Nav
+import com.octaviantocan.pulls.ui.personal.GitHubAccountSettingsAction
 import com.octaviantocan.pulls.ui.design.CapsuleTabs
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.EngineMark
@@ -98,25 +100,29 @@ fun SettingsPage.title(openedKeyName: String?): String = when (this) {
  * the code size and font as a sample line.
  */
 @Composable
-fun SettingsScreen(nav: Nav, services: SettingsServices) {
-    androidx.compose.runtime.key(services) { SettingsScreenBody(nav, services) }
+fun SettingsScreen(nav: Nav, services: SettingsServices, onGitHubAccount: (() -> Unit)? = null) {
+    androidx.compose.runtime.key(services) { SettingsScreenBody(nav, services, onGitHubAccount) }
 }
 
 @Composable
-private fun SettingsScreenBody(nav: Nav, services: SettingsServices) {
+private fun SettingsScreenBody(nav: Nav, services: SettingsServices, onGitHubAccount: (() -> Unit)?) {
     var page by remember { mutableStateOf(SettingsPage.Main) }
+    val githubAction = remember(services, onGitHubAccount) {
+        onGitHubAccount?.let { GitHubAccountSettingsAction({ services.current() && page == SettingsPage.Main }, it) }
+    }
+    DisposableEffect(githubAction) { onDispose { githubAction?.close() } }
     LaunchedEffect(page) { if (services.current()) services.showScreen(page.analyticsName) }
     PullsPagedSheet(nav.back, page, parent = { it.parent }, onPage = { if (services.current()) page = it }, title = { it.title(services.account.ui.opened?.name) }) { current ->
-        SettingsPageContent(nav, current, services, onPage = { if (services.current()) page = it })
+        SettingsPageContent(nav, current, services, onPage = { if (services.current()) page = it }, onGitHubAccount = githubAction?.let { it::open })
     }
 }
 
 /** What one page of the Settings sheet holds. */
 @Composable
-fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, services: SettingsServices, onPage: (SettingsPage) -> Unit) {
+fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, services: SettingsServices, onPage: (SettingsPage) -> Unit, onGitHubAccount: (() -> Unit)? = null) {
     val settings = services.settings
     when (page) {
-        SettingsPage.Main -> MainPage(nav, services, open = onPage)
+        SettingsPage.Main -> MainPage(nav, services, open = onPage, onGitHubAccount = onGitHubAccount)
         SettingsPage.Theme -> ColorThemePage(services.colorThemes)
         SettingsPage.Language -> LanguagePage(settings, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Advanced -> AdvancedPage(nav, services, open = onPage)
@@ -154,7 +160,7 @@ fun LayoutChoices(settings: com.octaviantocan.pulls.settings.AppSettings, modifi
 val ZOOMS = listOf("Smaller" to 0.88f, "Default" to 1f, "Larger" to 1.16f)
 
 @Composable
-private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (SettingsPage) -> Unit) {
+private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (SettingsPage) -> Unit, onGitHubAccount: (() -> Unit)?) {
     val c = LocalPullsColors.current
     val settings = services.settings
     val messages = LocalMessages.current
@@ -171,6 +177,13 @@ private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (Se
 
     // Who is signed in and the keys agents post with, first: the phone is where they are made (Tavi, 16 Oct 12:47).
     AccountGroup(services.account, open)
+    if (onGitHubAccount != null) Group(t("personal.title")) {
+        SheetCard {
+            SheetRow(t("personal.connectGitHub"), { if (services.current()) onGitHubAccount() }, first = true, iconless = true) {
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+    }
     Group("Appearance") {
         Box(Modifier.padding(top = 10.dp)) {
             val themes = listOf("system", "light", "dark")

@@ -215,3 +215,12 @@ account-recovery action MUST run only after the purge and only while that reject
 still owns the source; HTML and generic HTTP401 MUST retain connection retry instead.
 Source: the five independently confirmed 22 Oct 2026 personal-read Compound findings
 and Tavi's any-account/private-repository and actionable first-run requirements.
+@cc [owner:OctavianTocan,label:security;architecture] personal-entry-storage-probe-is-not-authority
+A personal-entry secure-storage probe MUST read the actual native blob even when the
+vault has cached a prior successful read. Missing data MUST remain distinct from a
+failed read or present empty/corrupt data, and probe bytes MUST be cleared. Failure
+MUST NOT overwrite the vault, make an RPC or authorize browser/claim/read work. The
+probe MUST retain the existing vault format/cache and check its current source before
+and after native reading; its host MUST supply actual foreground admission before
+new account actions. Source: Tavi's 22 Oct 2026 visible native GitHub-entry request
+and accepted fixed-intent/secure-admission boundary.

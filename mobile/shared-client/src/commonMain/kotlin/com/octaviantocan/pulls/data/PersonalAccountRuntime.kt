@@ -51,6 +51,12 @@ class PersonalAccountRuntime(
     val view: StateFlow<PersonalAccountView> = mutableView.asStateFlow()
     val configured: Boolean get() = client != null
 
+    /** Native admission probes storage without restoring a profile, writing a session or making a request. */
+    fun verifyStorage(): Boolean {
+        if (!current() || !configured) return false
+        return try { vault.verifyStorage(); current() } catch (_: Exception) { false }
+    }
+
     /** Saved and provisional credentials have no read authority before fresh account verification. */
     fun personalReads(): PersonalReadClient? {
         val client = client ?: return null
