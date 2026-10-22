@@ -28,8 +28,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 76
-        versionName = "0.59.0"
+        versionCode = 77
+        versionName = "0.60.0"
         buildConfigField("String", "PERSONAL_AUTH_ORIGIN", "\"$personalAuthOrigin\"")
     }
     signingConfigs {

@@ -16,6 +16,16 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.60.0
+
+Browse public GitHub projects without signing in.
+
+- A new install opens on Explore: popular public repositories, a search bar, and each project's open pull requests, with no sign-in needed. A pull request opens on GitHub.
+![Labeled illustration of Explore listing popular public repositories and one repository's open pull requests](changelog/0.60.0/explore-illustration.png)
+- Connect GitHub sits at the top of Explore and in Settings. Until GitHub sign-in is set up for your server, it says so and lets you keep browsing.
+- Use an existing Pully account stays one tap away on Explore, and a shared Pully link offers it too.
+- When Pully cannot stop an AI task, it now tells you, and Stop stays there to try again.
+
 ## 0.59.0
 
 A clear next step when Pully cannot connect.
