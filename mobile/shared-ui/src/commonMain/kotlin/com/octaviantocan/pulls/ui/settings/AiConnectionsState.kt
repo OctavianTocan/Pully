@@ -166,7 +166,7 @@ class AiConnectionsState(
             AiPiCredentialMode.Clear -> AiCredentialWrite.Clear
             AiPiCredentialMode.Replace -> AiCredentialWrite.Replace(pi.credential)
         }
-        AiPiChange(endpoint, pi.model.trim(), credential)
+        AiPiChange(endpoint, pi.model, credential)
     }.getOrNull()
 
     private fun mutate(

@@ -183,7 +183,9 @@ MUST expose only an endpoint origin and hasCredential, never credential readback
 The form MUST NOT reconstruct a full endpoint from that origin. Submitted keys and
 disposed-page keys MUST be cleared from input, MUST NOT enter saved route state or
 preferences, and MUST NOT appear in errors or request string representations. Only
-typed client-owned error explanations MAY reach the page. Source: Tavi's approved
+typed client-owned error explanations MAY reach the page. A nonempty valid preferred
+model identifier MUST be forwarded unchanged; only an empty string MAY clear it.
+Source: the actual Pi model/setup contract and Tavi's approved
 22 Oct 2026 encrypted per-user Pi connection and credential-isolation plan.
 
 @cc [owner:OctavianTocan,label:product;design] ai-connections-use-shared-locales-and-unknown-skeletons
