@@ -39,6 +39,7 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness, N
     private var back: BackRegistration?
     private var sceneActive = false
     private var disconnected = false
+    private var phaseEpoch: UInt64 = 0
 
     init(scene: UIWindowScene) {
         let phase: NativeSceneLifecycle.Phase
@@ -158,10 +159,14 @@ final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness, N
 
     func update(_ phase: NativeSceneLifecycle.Phase) {
         guard !disconnected else { return }
+        phaseEpoch &+= 1
+        let opening = phaseEpoch
         sceneActive = phase == .foregroundActive
         personalForeground.update(active: sceneActive)
+        guard !disconnected, phaseEpoch == opening else { return }
         if !sceneActive { back?.gesture?.interrupt() }
         else if let registration = back { installBack(registration) }
+        guard !disconnected, phaseEpoch == opening else { return }
         lifecycle.update(phase)
     }
     func disconnect() {

@@ -6,6 +6,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5B0000000000000000000001 /* PersonalSessionStorageHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B0000000000000000000010; };
+		5B0000000000000000000002 /* PersonalSessionStorageHostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B0000000000000000000011; };
 		5A0000000000000000000001 /* ShareHandoffHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0000000000000000000010; };
 		5A0000000000000000000002 /* PullyShareSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5A0000000000000000000020; };
 		5A0000000000000000000003 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A0000000000000000000011; };
@@ -65,6 +67,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5B0000000000000000000010 /* PersonalSessionStorageHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalSessionStorageHost.swift; sourceTree = "<group>"; };
+		5B0000000000000000000011 /* PersonalSessionStorageHostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalSessionStorageHostTests.swift; sourceTree = "<group>"; };
 		5A0000000000000000000010 /* ShareHandoffHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareHandoffHost.swift; sourceTree = "<group>"; };
 		5A0000000000000000000011 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		5A0000000000000000000012 /* PullyShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PullyShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -151,6 +155,7 @@
 				E20000000000000000000004 /* HomeActionsHost.swift */,
 				E20000000000000000000005 /* AccountStorageHost.swift */,
 				5A0000000000000000000010 /* ShareHandoffHost.swift */,
+				5B0000000000000000000010 /* PersonalSessionStorageHost.swift */,
 				A20000000000000000000003 /* Info.plist */,
 				9F0000000000000000000001 /* Simulator.entitlements */,
 				D20000000000000000000001 /* PrivacyInfo.xcprivacy */,
@@ -205,7 +210,7 @@
 			path = NativeKeychainTests;
 			sourceTree = "<group>";
 		};
-		950000000000000000000001 /* PullyAccountTests */ = {isa = PBXGroup; children = (920000000000000000000001,); path = PullyAccountTests; sourceTree = "<group>"; };
+		950000000000000000000001 /* PullyAccountTests */ = {isa = PBXGroup; children = (920000000000000000000001, 5B0000000000000000000011,); path = PullyAccountTests; sourceTree = "<group>"; };
 		5A0000000000000000000051 /* PullyShare */ = {isa = PBXGroup; children = (5A0000000000000000000011, 5A0000000000000000000013, 5A0000000000000000000014,); path = PullyShare; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
@@ -393,6 +398,7 @@
 				E10000000000000000000004 /* HomeActionsHost.swift in Sources */,
 				E10000000000000000000005 /* AccountStorageHost.swift in Sources */,
 				5A0000000000000000000001 /* ShareHandoffHost.swift in Sources */,
+				5B0000000000000000000001 /* PersonalSessionStorageHost.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -404,7 +410,7 @@
 		};
 		F80000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F10000000000000000000001 /* HostAppDelegate.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 		F80000000000000000000002 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (F10000000000000000000002 /* KeychainSecretStoreTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
-		970000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (910000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
+		970000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (910000000000000000000001, 5B0000000000000000000002,); runOnlyForDeploymentPostprocessing = 0; };
 		5A0000000000000000000041 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (5A0000000000000000000003,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
@@ -430,6 +436,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				ONLY_ACTIVE_ARCH = YES;
 				PULLY_SHARE_APP_GROUP = "";
+				PULLY_PERSONAL_AUTH_ORIGIN = "";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -451,6 +458,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				PULLY_SHARE_APP_GROUP = "";
+				PULLY_PERSONAL_AUTH_ORIGIN = "";
 				SWIFT_VERSION = 5.0;
 				VALIDATE_PRODUCT = YES;
 			};

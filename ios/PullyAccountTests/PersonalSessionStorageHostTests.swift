@@ -2,6 +2,7 @@ import Foundation
 import PullyNative
 import PullyShared
 import Security
+import UIKit
 import XCTest
 @testable import Pully
 
@@ -38,6 +39,42 @@ final class PersonalSessionStorageHostTests: XCTestCase {
         XCTAssertThrowsError(try store.verifyStorage())
         XCTAssertEqual(secrets.writes, 0)
     }
+
+    func testReentrantPersonalPauseCannotResumeHomeUntilANewActiveSceneEvent() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let pauses: [NativeSceneLifecycle.Phase] = [.background, .foregroundInactive]
+        for pause in pauses {
+            let host = HomeActionsHost(scene: scene)
+            host.update(.background)
+            let home = PersonalHomeLifecycleProbe()
+            let lifecycle = host.observeLifecycle(observer: home)
+            let foreground = host.observePersonalForeground(observer: PersonalActivityProbe { active in
+                if active { host.update(pause) }
+            })
+            defer { foreground.cancel(); lifecycle.cancel(); host.disconnect() }
+
+            host.update(.foregroundActive)
+            XCTAssertEqual(home.events, pause == .background ? ["stopped"] : ["stopped", "started"])
+            foreground.cancel()
+            host.update(.foregroundActive)
+            XCTAssertEqual(home.events.last, "resumed")
+        }
+    }
+}
+
+@MainActor
+private final class PersonalActivityProbe: NSObject, NativePersonalForegroundObserver {
+    private let action: (Bool) -> Void
+    init(_ action: @escaping (Bool) -> Void) { self.action = action; super.init() }
+    nonisolated func changed(active: Bool) { MainActor.assumeIsolated { action(active) } }
+}
+
+@MainActor
+private final class PersonalHomeLifecycleProbe: NSObject, HomeLifecycleObserver {
+    private(set) var events: [String] = []
+    nonisolated func started() { MainActor.assumeIsolated { events.append("started") } }
+    nonisolated func resumed() { MainActor.assumeIsolated { events.append("resumed") } }
+    nonisolated func stopped() { MainActor.assumeIsolated { events.append("stopped") } }
 }
 
 private final class PersonalFailingSecrets: NativeSecretStore {

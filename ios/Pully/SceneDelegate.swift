@@ -79,7 +79,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func createApplication(homeActions: HomeActionsHost) -> UIViewController {
         let share = ShareHandoffHost()
         let storage = AccountStorageHost(identityWillChange: { share.revoke() })
-        let application = IosPullyApp(homeActions: homeActions, accountStorage: storage, shareHandoff: share)
+        let application = IosPullyApp(
+            homeActions: homeActions,
+            accountStorage: storage,
+            shareHandoff: share,
+            personalSessions: PersonalSessionServices.shared
+        )
         let controller = application.viewController
         storage.attach(to: controller)
         accountStorage = storage

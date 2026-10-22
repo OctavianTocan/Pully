@@ -46,6 +46,13 @@ class IosPullyApp private constructor(
     constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage, personalSessions: IosPersonalSessionStore) :
         this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, null, personalSessions)
 
+    constructor(
+        homeActions: NativeHomeActions,
+        accountStorage: AccountStorage,
+        shareHandoff: NativeSharedLinkHandoff,
+        personalSessions: IosPersonalSessionStore,
+    ) : this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, shareHandoff, personalSessions)
+
     internal constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage, defaults: NSUserDefaults, transport: RootJourneyTransport) :
         this(homeActions, accountStorage, defaults, transport, true, transport.fullJourney, transport.fixtureIdentifier, null, null)
 

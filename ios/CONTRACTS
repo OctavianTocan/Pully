@@ -161,3 +161,12 @@ an absent setting MUST leave GitHub sign-in unavailable. Actual signed app-hoste
 tests MUST verify Cocoa error propagation and real private Keychain storage before
 native release activation. Source: Tavi's personal GitHub request and the accepted
 22 Oct 2026 opaque native Keychain bridge plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-scene-composes-separate-native-account-authorities
+The ordinary scene MUST supply its private Share handoff and the application-wide
+personal Keychain vault to the same retained shared application. The personal vault
+MUST remain confined to the public workspace and MUST NOT authorize private Share,
+legacy account, Home or AI work. Strict Debug fixtures MUST receive neither ordinary
+adapter. An absent trusted personal origin and unavailable App Group MUST keep their
+respective features unavailable without blocking ordinary entry. Source: Tavi's
+complete iOS request and the accepted 22 Oct 2026 native account/Share composition.
