@@ -71,7 +71,9 @@ pnpm run contracts:check
 pnpm run android:design
 ```
 
-After publishing, download `/android/latest.json` and `/android/pulls.apk` from the running
-server, compare SHA-256 with the manifest, inspect the APK version and pinned signing
+After publishing, open `/download` as HTML, then read `/download/latest.json` and download
+the binary URL in its `apkUrl` (`/download/pully.apk`, never the HTML page). Confirm
+`/android/pulls.apk` returns 404 without a redirect. Compare SHA-256 with the manifest,
+inspect the APK version and pinned signing
 certificate, and confirm the checkout is clean and the timer's next run succeeds. This
 verifies the server's update channel; installation on a phone is a separate check.

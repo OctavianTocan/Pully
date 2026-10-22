@@ -390,9 +390,19 @@ The real rendering dependencies compiled and all 16 presentation fixtures passed
 at `fac9ff30`. The earlier partial harness excluded these adapters. Neither
 result claims pixel-identical output or every upstream grammar feature.
 
-`--android-dir` serves existing `latest.json`, `pulls.apk`, `past/index.json`, and
-versioned `past/<version>.apk` artifacts. It does not build, sign, publish, or update
-the Android application. Rollback to the original server requires a separately
+`/download` is the HTML Android download page. It lists the real published current
+build and only indexed past APKs that are actually present. Past builds install beside
+Pully and are opened from Settings → Advanced → Past versions, without their own launcher.
+`--android-dir` keeps the existing artifact storage: `latest.json`, `pulls.apk`,
+`past/index.json`, and versioned `past/<version>.apk` files. Their canonical public URLs
+are `/download/latest.json`, `/download/pully.apk`, and `/download/past/...`; changelog
+images use `/download/changelog/...`. The old `/android/pulls.apk` route is removed
+(404, without a redirect). Read-only latest/history/changelog aliases remain for
+installed clients, with the latest manifest rewritten to the new binary URL.
+The page advertises neither unbuilt history nor an iOS download. It does not build,
+sign, publish, or update the Android application. An upstream proxy/Access deployment
+must permit the intended `/download` routes; this source change does not modify that
+configuration or deploy a release. Rollback to the original server requires a separately
 pinned pre-removal checkout or release and the untouched original cache; the
 current launcher cannot select the removed TypeScript backend.
 

@@ -14,12 +14,12 @@ import com.octaviantocan.pulls.core.parseUpdateManifest
 import java.io.File
 
 /**
- * Checks `{server}/android/latest.json`, downloads the APK, checks the SHA-256, and
+ * Checks `{server}/download/latest.json`, downloads the APK, checks the SHA-256, and
  * hands the bytes to the platform installer. There is no updater library in this path.
  */
 class AppUpdater(private val context: Context) {
     fun check(server: String, headers: Map<String, String>, installedVersionCode: Int): UpdateManifest? {
-        val manifest = parseUpdateManifest(get(server, "android/latest.json", headers))
+        val manifest = parseUpdateManifest(get(server, "download/latest.json", headers))
         return manifest.takeIf { it.isNewerThan(installedVersionCode) }
     }
 

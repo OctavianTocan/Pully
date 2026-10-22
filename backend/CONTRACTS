@@ -168,8 +168,16 @@ The follow-up questions under an Ask answer are written each turn by a small, fa
 not the one answering (rule 99; F70).
 
 @cc [owner:OctavianTocan,label:architecture] server-serves-the-android-build
-The server serves `/android/latest.json` and `/android/pulls.apk` from its Android folder
-with `Cache-Control: no-store`, and answers 404 when no build has been published.
+The server MUST serve `/download` as an HTML page listing only Android artifacts
+actually present with valid published metadata. The latest manifest and APK MUST use
+`/download/latest.json` and `/download/pully.apk`, with `Cache-Control: no-store`;
+unpublished artifacts MUST answer 404. `/android/pulls.apk` MUST answer 404, without a
+redirect or SPA fallback. The old latest-manifest and history metadata/assets MAY
+remain read-only aliases for installed clients, but their manifest MUST name the
+new binary URL and MUST NOT name the HTML page as an installer. Historical apps MUST
+be described honestly as side-by-side versions opened through Pully. Source: Tavi's
+repeated 22 Oct 2026 request for the HTML download page, available real versions and
+removal of the old direct APK route.
 
 @cc [owner:OctavianTocan,label:product] server-new-chat-keeps-the-old-one
 The phone's "new chat" (`chat-clear`) MUST set the current chat aside in the diff's chat
@@ -282,7 +290,8 @@ route and MUST NOT fall back to the server's working directory.
 
 
 @cc [owner:OctavianTocan,label:product] server-past-versions-answer-empty
-`GET /android/past/index.json` answers `{ "versions": [] }` while no past version is built,
+`GET /download/past/index.json`, which the phone reads, and its `/android/past/index.json`
+alias answer `{ "versions": [] }` while no past version is built,
 never a 404, so the phone says none are built yet rather than that the server did not
 answer. `publish-apk.sh` writes the index at once and builds the past versions in the
 background, newest first, adding each to the index as it is built (recording 16 Oct 2026
