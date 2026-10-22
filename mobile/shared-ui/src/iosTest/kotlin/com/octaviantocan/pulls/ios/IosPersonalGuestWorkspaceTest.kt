@@ -38,7 +38,7 @@ class IosPersonalGuestWorkspaceTest {
         val owner = """"accountId":"account-42","githubId":42,"authority":"privateRepositories""""
         val repository = """{"id":42,"owner":"acme","name":"editor","fullName":"acme/editor","description":null,"stars":0,"language":null,"url":"https://github.com/acme/editor","private":true}"""
         val store = IosPersonalSessionStore(object : NativePersonalSessionStorage {
-            override fun read(): ByteArray = """{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42,"authority":"privateRepositories"},"pending":[]}""".encodeToByteArray()
+            override fun read(): NativePersonalSessionRead = NativePersonalSessionRead("""{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42,"authority":"privateRepositories"},"pending":[]}""".encodeToByteArray())
             override fun write(contents: ByteArray) = error("An ordinary read must not rewrite the vault")
         }, "https://accounts.example", RpcTransport { request ->
             requests += request
