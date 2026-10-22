@@ -256,3 +256,38 @@ fn account_identity_never_uses_email_or_a_mutable_login_as_ownership() {
         assert!(!failure.to_string().contains("private-fixture-token"));
     }
 }
+
+#[tokio::test]
+async fn revocation_observers_wake_after_the_canonical_authority_is_retired() {
+    let credential = GitHubCredential::fixture("account-a", 42, "fixture-token");
+    let identity = RequestIdentity::Account(credential.clone());
+    let mut observed = credential.subscribe_revocation().unwrap();
+    assert!(!*observed.borrow());
+    credential.revoke();
+    observed.changed().await.unwrap();
+    assert!(*observed.borrow());
+    assert!(identity.ensure_current().is_err());
+    assert!(credential.subscribe_revocation().is_err());
+}
+
+#[test]
+fn concurrent_subscribe_and_revoke_never_lose_the_retired_authority() {
+    for _ in 0..64 {
+        let credential = GitHubCredential::fixture("account-a", 42, "fixture-token");
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let worker = {
+            let (credential, barrier) = (credential.clone(), barrier.clone());
+            std::thread::spawn(move || {
+                barrier.wait();
+                credential.revoke();
+            })
+        };
+        barrier.wait();
+        let observed = credential.subscribe_revocation();
+        worker.join().unwrap();
+        if let Ok(observed) = observed {
+            assert!(*observed.borrow());
+        }
+        assert!(RequestIdentity::Account(credential).ensure_current().is_err());
+    }
+}

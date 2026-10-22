@@ -1,0 +1,23 @@
+@cc [owner:OctavianTocan,label:security;architecture] ai-owner-is-not-a-github-prerequisite
+An AI principal MUST come from a trusted verified Pully/local owner or an explicitly
+issued anonymous/default allowance; a request body or shared Guest namespace MUST NOT
+mint authority. A principal alone MUST NOT grant a provider credential or paid budget.
+GitHub login MUST NOT be required to configure or use every AI connection. Source:
+Tavi's 22 Oct 2026 AI-without-GitHub and independent provider-capability instruction.
+
+@cc [owner:OctavianTocan,label:security] ai-runs-retain-their-connection-authority
+A provider request, tool action, event and result publication MUST retain the original
+owner, provider kind, connection ID and revision. Source retirement or connection
+replacement/removal MUST retire captured leases before new authority is published.
+Retirement notifications MUST be installed before the corresponding current-state
+check and MUST NOT replace it. Source: Tavi's 21 Oct per-user credential/source plan
+and 22 Oct approved independent Responses/provider implementation boundaries.
+
+@cc [owner:OctavianTocan,label:security;architecture] ai-protocol-code-cannot-resolve-secrets
+Provider protocol adapters MUST obtain request authorization from the captured
+credential capability, which MUST restrict authorization to its exact trusted target
+and method. Adapters MUST NOT read environment, CLI homes, another connection's
+credential, or choose a private first-party endpoint. Refresh and revocation MUST
+remain with credential custody, and credentials MUST NOT enter Debug, output, errors
+or analytics. A request factory MUST enforce disabled redirects/proxies and finite
+network/body limits. Source: Tavi's 22 Oct explicit provider custody and protocol split.

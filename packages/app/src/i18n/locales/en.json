@@ -1014,6 +1014,9 @@
   },
   "personal": {
     "title": "Your GitHub",
+    "connectGitHub": "Connect GitHub",
+    "notConfigured": "GitHub sign-in is not configured in this build. You can still browse public projects.",
+    "deviceUnavailable": "GitHub sign-in is temporarily unavailable on this device. You can still browse public projects.",
     "account": "@{login}",
     "signedIn": "Signed in as @{login}",
     "intro": "Sign in with your GitHub account. You can keep browsing public repositories without signing in.",

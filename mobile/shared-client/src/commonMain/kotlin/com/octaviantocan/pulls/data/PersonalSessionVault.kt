@@ -35,6 +35,9 @@ class PersonalSessionVault(private val storage: PersonalSessionBlobStorage) : Pe
     private var contents: Contents? = null
     private val owned = mutableListOf<StoredPersonalSession>()
 
+    /** A cached vault cannot conceal an unavailable native store before new account work. */
+    fun verifyStorage() { readContents() }
+
     fun accepted(origin: PersonalAuthOrigin): StoredPersonalSession? = load().accepted?.takeIf { it.origin == origin.base }
     fun pending(): List<StoredPersonalSession> = load().pending.filter { record -> owned.none { it.sameCredential(record) } }
 
@@ -108,8 +111,12 @@ class PersonalSessionVault(private val storage: PersonalSessionBlobStorage) : Pe
 
     private fun load(): Contents {
         contents?.let { return it }
+        return readContents().also { contents = it }
+    }
+
+    private fun readContents(): Contents {
         val bytes = try { storage.read() } catch (_: Exception) { unavailable() }
-        val result = if (bytes == null) Contents(null, emptyList()) else try {
+        return if (bytes == null) Contents(null, emptyList()) else try {
             require(bytes.size <= MAX_BYTES)
             val value = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)) as JsonObject
             require((value["version"] as? JsonPrimitive)?.longOrNull == 1L)
@@ -121,8 +128,6 @@ class PersonalSessionVault(private val storage: PersonalSessionBlobStorage) : Pe
             Contents(accepted, pending)
         } catch (_: Exception) { unavailable() }
         finally { bytes.fill(0) }
-        contents = result
-        return result
     }
 
     private fun commit(next: Contents) {

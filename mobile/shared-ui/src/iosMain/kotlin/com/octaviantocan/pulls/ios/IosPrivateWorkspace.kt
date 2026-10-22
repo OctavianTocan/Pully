@@ -179,7 +179,7 @@ internal class IosPrivateWorkspace(
     }
 
     @androidx.compose.runtime.Composable
-    fun Content(onExplore: (() -> Unit)?) {
+    fun Content(onExplore: (() -> Unit)?, onGitHubAccount: (() -> Unit)? = null) {
         val settled = account.state
         LaunchedEffect(settled, account.sourceEpoch) {
             if (current() && settled === account.state && settled.phase == AccountPhase.Ready && settled.problem == null) {
@@ -203,7 +203,7 @@ internal class IosPrivateWorkspace(
             serverServices = ::serverServices,
             limitation = limitation, clearLimitation = { limitation = null },
             firstFrame = analytics::firstFrame, showScreen = ::showScreen, fixture = fixture,
-            aiCapabilities = aiCapabilities, reviewCapabilities = reviewCapabilities, onExplore = onExplore,
+            aiCapabilities = aiCapabilities, reviewCapabilities = reviewCapabilities, onExplore = onExplore, onGitHubAccount = onGitHubAccount,
         )
     }
 
