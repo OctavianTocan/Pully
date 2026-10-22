@@ -937,5 +937,66 @@
     "byFeature": "By feature",
     "byModel": "By model",
     "runsCount": "{n} run | {n} runs"
+  },
+  "aiConnections": {
+    "title": "Your connections",
+    "kinds": {
+      "claudeSubscription": "Claude subscription",
+      "chatGPTSubscription": "ChatGPT subscription",
+      "piEndpoint": "Pi endpoint"
+    },
+    "default": "Default",
+    "sharedDefault": "Shared server default",
+    "inUse": "In use",
+    "available": "Available",
+    "statusLabel": "Status",
+    "endpoint": "Endpoint",
+    "defaultModel": "Default model",
+    "providerDefault": "Provider default",
+    "capabilities": "Capabilities",
+    "modelCatalog": "Model catalog",
+    "aiTasks": "AI tasks",
+    "connecting": "Connecting…",
+    "checkConnection": "Check connection",
+    "reconnect": "Reconnect",
+    "continueConnecting": "Continue connecting",
+    "connect": "Connect",
+    "reenterKey": "Re-enter the endpoint key to retry.",
+    "updating": "Updating…",
+    "remove": "Remove connection",
+    "endpointUrl": "Endpoint URL",
+    "keepEndpoint": "Leave blank to keep the saved endpoint",
+    "endpointKey": "Endpoint key",
+    "keepKey": "Keep saved key",
+    "replaceKey": "Use a new key",
+    "noKey": "No key",
+    "changedEndpointKey": "Choose a new key or No key when changing the endpoint.",
+    "saving": "Saving…",
+    "save": "Save connection",
+    "status": {
+      "Disconnected": "Not connected",
+      "Pending": "Connecting",
+      "Unverified": "Not checked",
+      "Connected": "Connected",
+      "RefreshNeeded": "Reconnect needed",
+      "Unavailable": "Temporarily unavailable",
+      "Unsupported": "Not available"
+    },
+    "notices": {
+      "ClaudeApprovalRequired": "Connecting a Claude subscription requires approval for this service.",
+      "ChatGPTRegistrationRequired": "Connecting a ChatGPT subscription requires this service to be registered with OpenAI.",
+      "PiUnverified": "Configured, but this endpoint has not been checked.",
+      "DeploymentUnsupported": "This connection is not available from this server.",
+      "ProviderUnavailable": "The provider is temporarily unavailable. Try again later.",
+      "RefreshRequired": "Reconnect to continue using this connection."
+    },
+    "problems": {
+      "Unavailable": "Pully could not update this connection. Try again.",
+      "ConnectionChanged": "This connection changed. Refresh and try again.",
+      "AuthorizationExpired": "The connection needs to be authorized again.",
+      "InvalidEndpoint": "Use a valid HTTPS endpoint.",
+      "CredentialRejected": "The endpoint did not accept that key.",
+      "Unsupported": "This connection is not available from this server."
+    }
   }
 }

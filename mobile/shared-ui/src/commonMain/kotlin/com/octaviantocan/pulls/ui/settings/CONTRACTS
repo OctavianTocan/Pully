@@ -185,3 +185,10 @@ disposed-page keys MUST be cleared from input, MUST NOT enter saved route state 
 preferences, and MUST NOT appear in errors or request string representations. Only
 typed client-owned error explanations MAY reach the page. Source: Tavi's approved
 22 Oct 2026 encrypted per-user Pi connection and credential-isolation plan.
+
+@cc [owner:OctavianTocan,label:product;design] ai-connections-use-shared-locales-and-unknown-skeletons
+AI connection kind, status, form, action and recovery copy MUST use the shared
+canonical web-locale lookup. Unknown connection content MUST use the existing row
+skeletons, while a refresh MUST retain known current status and private drafts.
+Source: strings-from-web-locales, android-no-loading-screens, android-refresh-is-silent
+and Tavi's 21 Oct 2026 same-app iOS decision.

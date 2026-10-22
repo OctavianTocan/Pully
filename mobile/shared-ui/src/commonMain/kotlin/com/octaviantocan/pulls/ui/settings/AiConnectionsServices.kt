@@ -6,10 +6,10 @@ import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.ui.home.HomeObservations
 
 /** These are distinct account connections, not aliases for a legacy engine or pasted subscription tokens. */
-enum class AiConnectionKind(val title: String) {
-    ClaudeSubscription("Claude subscription"),
-    ChatGPTSubscription("ChatGPT subscription"),
-    PiEndpoint("Pi endpoint"),
+enum class AiConnectionKind(val titleKey: String) {
+    ClaudeSubscription("aiConnections.kinds.claudeSubscription"),
+    ChatGPTSubscription("aiConnections.kinds.chatGPTSubscription"),
+    PiEndpoint("aiConnections.kinds.piEndpoint"),
 }
 
 enum class AiConnectionStatus { Disconnected, Pending, Unverified, Connected, RefreshNeeded, Unavailable, Unsupported }
