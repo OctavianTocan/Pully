@@ -21,10 +21,11 @@ class StoredPersonalSession internal constructor(
     val token: String,
     val accountId: String,
     val githubId: Long,
+    val authority: PersonalAuthority = PersonalAuthority.PublicRead,
 ) {
     internal fun sameCredential(other: StoredPersonalSession): Boolean = origin == other.origin && token == other.token
     internal fun same(other: StoredPersonalSession): Boolean =
-        sameCredential(other) && accountId == other.accountId && githubId == other.githubId
+        sameCredential(other) && accountId == other.accountId && githubId == other.githubId && authority == other.authority
     override fun toString(): String = "StoredPersonalSession([redacted])"
 }
 
@@ -138,12 +139,17 @@ class PersonalSessionVault(private val storage: PersonalSessionBlobStorage) : Pe
         finally { bytes.fill(0) }
     }
 
-    private fun PersonalSession.record() = StoredPersonalSession(origin, token, status.accountId, status.githubId).validated()
+    private fun PersonalSession.record() = StoredPersonalSession(origin, token, status.accountId, status.githubId, status.authority).validated()
     private fun kotlinx.serialization.json.JsonElement.record(): StoredPersonalSession {
         val value = this as JsonObject
         fun string(name: String) = (value[name] as JsonPrimitive).also { require(it.isString) }.content
         val githubId = (value["githubId"] as JsonPrimitive).also { require(!it.isString) }.longOrNull ?: unavailable()
-        return StoredPersonalSession(string("origin"), string("token"), string("accountId"), githubId).validated()
+        val authority = if ("authority" !in value) PersonalAuthority.PublicRead else when (string("authority")) {
+            "publicRead" -> PersonalAuthority.PublicRead
+            "privateRepositories" -> PersonalAuthority.PrivateRepositories
+            else -> unavailable()
+        }
+        return StoredPersonalSession(string("origin"), string("token"), string("accountId"), githubId, authority).validated()
     }
     private fun StoredPersonalSession.validated(): StoredPersonalSession {
         require(PersonalAuthOrigin.parse(origin).base == origin)
@@ -154,6 +160,7 @@ class PersonalSessionVault(private val storage: PersonalSessionBlobStorage) : Pe
     }
     private fun StoredPersonalSession.json() = buildJsonObject {
         put("origin", origin); put("token", token); put("accountId", accountId); put("githubId", githubId)
+        put("authority", if (authority == PersonalAuthority.PublicRead) "publicRead" else "privateRepositories")
     }
     private fun unavailable(): Nothing = throw PersonalAuthError(PersonalAuthProblem.Unavailable)
 
