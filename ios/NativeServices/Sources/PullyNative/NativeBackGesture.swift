@@ -84,11 +84,20 @@ final class NativeBackGestureSession {
 #if os(iOS)
 import UIKit
 
+/// Match Compose 1.12.2's UIKitBackGestureRecognizer priority on the same content container.
+/// Dialog's framework Back handler consumes progress without dismissing, so it must not
+/// prevent the recognizer which dispatches to Pully's shared sheet/edit/route owner.
+@MainActor
+private final class NativeBackEdgePanGestureRecognizer: UIScreenEdgePanGestureRecognizer {
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { true }
+}
+
 /// One leading-edge recognizer. It never transforms a view or owns a navigation stack.
 @MainActor
 public final class NativeBackGesture: NSObject, UIGestureRecognizerDelegate {
     private weak var view: UIView?
-    private let recognizer = UIScreenEdgePanGestureRecognizer(target: nil, action: nil)
+    private let recognizer = NativeBackEdgePanGestureRecognizer(target: nil, action: nil)
     private let rightEdge: Bool
     private let session: NativeBackGestureSession
     private var removed = false
@@ -110,6 +119,9 @@ public final class NativeBackGesture: NSObject, UIGestureRecognizerDelegate {
                                            cancelled: cancelled, committed: committed)
         super.init()
         recognizer.edges = rightEdge ? .right : .left
+        recognizer.delaysTouchesBegan = true
+        recognizer.delaysTouchesEnded = true
+        recognizer.cancelsTouchesInView = true
         recognizer.delegate = self
         recognizer.addTarget(self, action: #selector(handlePan(_:)))
         view.addGestureRecognizer(recognizer)

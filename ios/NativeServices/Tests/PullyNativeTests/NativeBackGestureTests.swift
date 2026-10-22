@@ -100,6 +100,38 @@ import UIKit
 
 @MainActor
 final class NativeBackGestureContainerTests: XCTestCase {
+    func testComposeDialogBackPriorityCannotPreventTheRegisteredSharedBackRecognizer() async throws {
+        for rightEdge in [false, true] {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+            let content = UIView(frame: window.bounds)
+            window.addSubview(content)
+            let frameworkBack = DialogBackPriorityRecognizer(target: nil, action: nil)
+            content.addGestureRecognizer(frameworkBack)
+            let gesture = NativeBackGesture(view: content, rightEdge: rightEdge, enabled: { true },
+                                            began: {}, changed: { _ in }, cancelled: {}, committed: {})
+            defer {
+                gesture.cancel()
+                content.removeGestureRecognizer(frameworkBack)
+                content.removeFromSuperview()
+            }
+            let registered = try XCTUnwrap(content.gestureRecognizers?.compactMap { $0 as? UIScreenEdgePanGestureRecognizer }
+                .first { $0 !== frameworkBack })
+            // Compose's actual framework Back class has this prevention contract. Its
+            // click-only Dialog handler deliberately does nothing after progress events.
+            XCTAssertTrue(frameworkBack.canPrevent(registered))
+            XCTAssertFalse(registered.canBePrevented(by: frameworkBack))
+            XCTAssertTrue(registered.canPrevent(frameworkBack))
+            XCTAssertFalse(frameworkBack.canBePrevented(by: registered))
+            XCTAssertTrue(registered.delaysTouchesBegan)
+            XCTAssertTrue(registered.delaysTouchesEnded)
+            XCTAssertTrue(registered.cancelsTouchesInView)
+            XCTAssertEqual(registered.edges, rightEdge ? .right : .left)
+            gesture.cancel()
+            XCTAssertFalse(content.gestureRecognizers?.contains(where: { $0 === registered }) == true)
+            XCTAssertTrue(content.gestureRecognizers?.contains(where: { $0 === frameworkBack }) == true)
+        }
+    }
+
     func testRootAndSiblingDialogUseTheSameActualContentAncestor() async throws {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
         let content = UIView(frame: window.bounds)
@@ -139,5 +171,12 @@ final class NativeBackGestureContainerTests: XCTestCase {
         XCTAssertNil(NativeBackGesture.contentContainer(for: root))
         XCTAssertNil(NativeBackGesture.contentContainer(for: window))
     }
+}
+
+/// The pinned framework's UIKitBackGestureRecognizer contract, exercised with real UIKit dispatch.
+@MainActor
+private final class DialogBackPriorityRecognizer: UIScreenEdgePanGestureRecognizer {
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { true }
 }
 #endif

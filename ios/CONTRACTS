@@ -58,6 +58,11 @@ A registration created before the root acquires its window MUST be retried when 
 scene becomes active; repeated attachment or activation MUST NOT add a second edge
 recognizer for that registration. Source: the accepted 21 Oct 2026 native Back
 continuity repair after actual simulator repository and dialog journeys.
+The shared Back recognizer MUST retain native Back prevention priority while a
+Compose dialog is open, so the framework's click-only Back handler cannot swallow
+its progress gesture. The same scene/root/presentation and shared-consumer gates
+MUST still decide whether it starts or commits. Source: the actual 21 Oct 2026
+modal-only simulator failure and pinned Compose 1.12.2 Dialog/navigation input.
 
 @cc [owner:OctavianTocan,label:architecture;security] ios-explicit-browser-uses-native-web-presentation
 The shared explicit browser action MUST accept only HTTP(S) URLs with a host and no
