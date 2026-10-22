@@ -62,10 +62,10 @@ private fun ColumnScope.ServerPageContent(services: ServerPageServices) {
             val probe = try {
                 services.save(ServerPageConfiguration(url, accessId, accessSecret))
             } catch (_: CancellationException) {
-                return@CtaButton
+                return@save
             } catch (failure: Exception) {
                 status = failure.message ?: "Pully could not save the server."
-                return@CtaButton
+                return@save
             }
             checking = true
             status = null
