@@ -32,6 +32,9 @@ kotlin {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
         }
+        jvmMain.dependencies {
+            implementation("com.squareup.okhttp3:okhttp:4.12.0")
+        }
     }
 }
 
