@@ -309,7 +309,7 @@ fn validate_request(request: &ResponsesRequest) -> Result<()> {
     validate_history(&request.input)
 }
 
-fn validate_history(history: &[Value]) -> Result<()> {
+pub(super) fn validate_history(history: &[Value]) -> Result<()> {
     ensure_history_budget(history)?;
     let mut pending_calls = HashSet::new();
     let mut calls_seen = HashSet::new();
