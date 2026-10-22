@@ -15,3 +15,21 @@ when the same account/source returns. Scene close MUST preserve durable pending 
 explicit entry into Explore MUST revoke private handoff authority before publishing
 that mode. Source: the accepted 21 Oct 2026 source-owned native share plan and Tavi's
 22 Oct 2026 shared Guest/private workspace and lifecycle isolation requirements.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-store-is-one-opaque-native-vault
+The native personal-account store MUST adapt the same shared PersonalSessionVault
+through a throwing Cocoa storage port, without requiring Swift to construct an
+unexported client model. One application-wide vault and UI-dispatcher cleanup
+lifetime MUST be shared across scenes. Secure-store failure MUST remain a fixed
+retryable failure rather than an empty successful read or write. Source: Tavi's
+21 Oct 2026 personal-account request and the accepted 22 Oct native bridge plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-personal-identity-retires-all-public-scenes
+Personal promotion or sign-out MUST synchronously revoke every older public runtime
+before any scene observer runs. A late response or retained sign-in callback from
+an older identity MUST NOT publish a profile or dispatch a new attempt. Observer
+cleanup failure in one scene MUST NOT keep another old runtime current. The origin
+MUST come only from explicit trusted application configuration and MUST NOT inherit
+the saved legacy server or grant private authority. Missing configuration MUST keep
+personal work unavailable without preventing Explore. Source: Tavi's public-read
+personal-account decision and the accepted 22 Oct one-vault/multiple-scene plan.

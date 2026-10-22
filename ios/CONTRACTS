@@ -151,3 +151,13 @@ MUST NOT widen app-private Keychain access or become a requirement for ordinary 
 launch or CI. Native identity replacement MUST synchronously retire share authority
 before new credentials publish, including a corrupt-store reset. Source: the accepted
 21 Oct 2026 native share handoff, single-stack and credential-isolation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-cocoa-errors-remain-failures
+The personal Cocoa storage bridge MUST pass native read/write errors into the same
+shared vault as exceptions, never as nil or an empty successful result. App scenes
+MUST share one UI-owned personal store and cleanup lifetime, independent of legacy
+account storage. The personal origin MUST come only from the trusted bundle setting;
+an absent setting MUST leave GitHub sign-in unavailable. Actual signed app-hosted
+tests MUST verify Cocoa error propagation and real private Keychain storage before
+native release activation. Source: Tavi's personal GitHub request and the accepted
+22 Oct 2026 opaque native Keychain bridge plan.
