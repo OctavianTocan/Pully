@@ -1,4 +1,5 @@
 mod github;
+mod review;
 mod wire;
 
 use crate::{
@@ -30,7 +31,7 @@ use wire::*;
 
 const ROUTE_DEADLINE: Duration = Duration::from_secs(45);
 type Result<T> = std::result::Result<T, ReadError>;
-#[derive(Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
 enum Code {
     InvalidRequest,
@@ -40,7 +41,9 @@ enum Code {
     RateLimited,
     Unavailable,
     InvalidResponse,
+    StaleReview,
 }
+#[derive(Debug, Clone)]
 struct ReadError {
     code: Code,
     retry: Option<u64>,
@@ -56,6 +59,12 @@ impl ReadError {
         }
     }
 }
+impl std::fmt::Display for ReadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Personal GitHub read failed")
+    }
+}
+impl std::error::Error for ReadError {}
 impl IntoResponse for ReadError {
     fn into_response(self) -> Response {
         let (status, message) = match self.code {
@@ -83,6 +92,10 @@ impl IntoResponse for ReadError {
                 StatusCode::SERVICE_UNAVAILABLE,
                 "Your GitHub repositories are temporarily unavailable.",
             ),
+            Code::StaleReview => (
+                StatusCode::CONFLICT,
+                "This pull request changed. Open it again to continue.",
+            ),
             Code::InvalidResponse => (
                 StatusCode::BAD_GATEWAY,
                 "GitHub could not return these public repositories.",
@@ -105,6 +118,7 @@ struct Inner {
     http: reqwest::Client,
     origin: url::Url,
     requests: Arc<tokio::sync::Semaphore>,
+    review_requests: Arc<tokio::sync::Semaphore>,
 }
 pub(super) async fn router(auth: PersonalAuth, root: PathBuf) -> anyhow::Result<Router> {
     let tenants = blocking(move || TenantStates::new(root, 256)).await?;
@@ -121,6 +135,7 @@ pub(super) async fn router(auth: PersonalAuth, root: PathBuf) -> anyhow::Result<
         http,
         origin: url::Url::parse("https://api.github.com/")?,
         requests: Arc::new(tokio::sync::Semaphore::new(64)),
+        review_requests: Arc::new(tokio::sync::Semaphore::new(4)),
     }))
 }
 #[cfg(test)]
@@ -146,6 +161,7 @@ pub(super) async fn fixture_router(
         http,
         origin,
         requests: Arc::new(tokio::sync::Semaphore::new(64)),
+        review_requests: Arc::new(tokio::sync::Semaphore::new(4)),
     }))
 }
 fn routes(inner: Inner) -> Router {
@@ -157,6 +173,7 @@ fn routes(inner: Inner) -> Router {
         .route(ACCOUNT_REPOSITORY_PULLS_PATH, get(account_pulls))
         .route(ACCOUNT_PULLS_PATH, get(account_inbox))
         .route(ACCOUNT_CAPABILITIES_PATH, get(account_capabilities))
+        .merge(review::routes())
         .with_state(Arc::new(inner))
         .layer(middleware::from_fn(boundary))
 }
@@ -173,7 +190,14 @@ async fn boundary(request: axum::extract::Request, next: Next) -> Response {
     let invalid = request.method() != Method::GET
         || (request.uri().path() == ACCOUNT_CAPABILITIES_PATH && request.uri().query().is_some())
         || request.uri().path().len() > 512
-        || request.uri().query().is_some_and(|query| query.len() > 512)
+        || request.uri().query().is_some_and(|query| {
+            query.len()
+                > if request.uri().path().ends_with("/review/files") {
+                    16384
+                } else {
+                    512
+                }
+        })
         || request.headers().contains_key(header::TRANSFER_ENCODING)
         || request
             .headers()

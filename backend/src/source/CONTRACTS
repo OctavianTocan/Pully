@@ -1,0 +1,8 @@
+@cc [owner:OctavianTocan,label:security;architecture] injected-github-read-loaders-keep-the-supplied-authority
+Canonical loaders entered with an explicit GitHub read port MUST perform every
+nested request, diff fallback and full-file read through that same port. They MUST
+NOT select an AppState, cached private snapshot, environment token, CLI credential or
+new source while loading. The legacy state wrappers MUST preserve their established
+policy and the canonical DTOs, complete inventories and captured revision checks.
+Source: Tavi's 22 Oct personal-tenant Review adapter completion instruction and
+21 Oct tenant credential/source-isolation requirements.

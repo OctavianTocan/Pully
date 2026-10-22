@@ -1,4 +1,5 @@
 //! A separate, opt-in public surface. It has no handle to legacy AppState or storage.
+mod fence;
 pub(crate) mod github;
 
 use axum::{
