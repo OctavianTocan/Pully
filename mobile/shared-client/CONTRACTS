@@ -70,6 +70,29 @@ sign-in RPC or account commit. A successful synchronous commit MAY advance the s
 Source: Tavi's 21 Oct 2026 maximum-reuse iOS plan and the existing account/source reset
 security boundary, preserving settings-sign-in-page's cancellation behavior.
 
+@cc [owner:OctavianTocan,label:security;architecture] native-usage-queue-is-owned-and-cancellable
+Native usage events MUST retain the existing bounded NDJSON queue, 200-event batch,
+refusal/retry and thirty-minute session rules. Loading durable events MUST merge once
+with events recorded during startup. A batch acknowledgement MUST NOT remove newer
+events, and source retirement or opting out MUST cancel the actual suspended upload.
+Native queue files MUST use opaque server/eligible-account/Access namespaces; an old
+writer MUST NOT replace a newer source's queue. Queue-file work MUST run on one serial
+native worker, and opting out MUST invalidate pending writes before removing the files.
+Source: root analytics-can-be-turned-off, analytics-what-not-how-much and Tavi's
+21 Oct 2026 full same-app iOS implementation request.
+
+@cc [owner:OctavianTocan,label:security;product] client-review-confirmations-send-their-expected-pending-review
+When supplied, a drawn review expectation MUST reach Submit or Discard as
+pendingReviewId, with explicit null for expected-none. Omitted expectations MUST
+retain older callers' wire behavior. Submit's optional drawn head MUST reach the
+existing headSha check. Source: the accepted 21 Oct same-app iOS review plan's
+current-head and drawn confirmation ownership requirements.
+@cc [owner:OctavianTocan,label:product] task-cancel-success-is-explicit
+A caller which announces that a task stopped MUST request confirmed cancellation
+and receive an actual successful RPC response before announcing it. Existing
+best-effort cleanup MAY continue to suppress noncancellation failures. Coroutine
+cancellation MUST always propagate. Source: Tavi's accepted 21 Oct 2026 complete
+native AI journey and the actual held/error Stop regression of 22 Oct 2026.
 @cc [owner:OctavianTocan,label:product;security] anonymous-native-browsing-is-independent
 Anonymous Popular, repository search and PR lists MUST use only fixed HTTPS
 api.github.com REST GETs, with no configured Pully server, Access headers, personal

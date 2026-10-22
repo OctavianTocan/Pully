@@ -63,11 +63,17 @@ internal fun homeBackObserver(
             // An edit cannot inherit a route swipe whose return it just interrupted.
             motion.held = null
             motion.hold = 0f
+            backs.began(consumer!!)
         }
     }
-    override fun changed(progress: Float) { if (consumer == null && moving()) motion.hold = progress.coerceIn(0f, 1f) }
+    override fun changed(progress: Float) {
+        val captured = consumer
+        if (captured != null) backs.changed(captured, progress.coerceIn(0f, 1f))
+        else if (moving()) motion.hold = progress.coerceIn(0f, 1f)
+    }
     override fun cancelled() {
-        returnHold()
+        val captured = consumer
+        if (captured != null) backs.cancelled(captured) else returnHold()
         beganOn = null
         consumer = null
     }
@@ -76,7 +82,7 @@ internal fun homeBackObserver(
         val captured = consumer
         if (captured != null) {
             // A removed/replaced editor cannot turn its gesture into a route pop.
-            backs.consume(captured)
+            if (!backs.consume(captured)) backs.cancelled(captured)
             beganOn = null
             consumer = null
             return

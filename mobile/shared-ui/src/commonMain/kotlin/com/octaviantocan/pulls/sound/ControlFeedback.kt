@@ -16,6 +16,9 @@ object ControlFeedback {
 
     fun install(feedback: NativeControlFeedback) { native = feedback }
 
+    internal fun installed(): NativeControlFeedback =
+        requireNotNull(native) { "Install native control feedback before showing interactive controls." }
+
     fun play(cue: Cue, emphasis: Emphasis = Emphasis.Normal, direction: Direction? = null, input: Input? = null) =
         requireNotNull(native) { "Install native control feedback before showing interactive controls." }.play(cue, emphasis, direction, input)
 

@@ -42,6 +42,26 @@ final class NativeAccountStoreTests: XCTestCase {
         XCTAssertNil(store.configuration().headers["X-Pully-Session"])
     }
 
+    func testModelChoicePersistsWithoutChangingTheVerifiedPrivateSource() async throws {
+        let preferences = MemoryPreferences()
+        let store = try NativeAccountStore(preferences: preferences, secrets: MemorySecrets(), invalidated: {})
+        try store.updateServer(preferences.value, access: NativeAccessCredentials(clientID: "fixture-id", secret: "fixture-secret"))
+        try store.signedIn(session: "fixture-session", email: "person@octaviantocan.com", expectedGeneration: store.generation)
+        let before = store.configuration()
+        try store.updateAnalysis(engine: "codex", model: "sol", expectedGeneration: before.generation)
+        XCTAssertEqual(store.generation, before.generation)
+        XCTAssertEqual(store.configuration().headers, before.headers)
+        XCTAssertEqual(store.activeEmail, "person@octaviantocan.com")
+        XCTAssertEqual(store.configuration().engine, "codex")
+        XCTAssertEqual(store.configuration().model, "sol")
+        XCTAssertEqual(preferences.value.engine, "codex")
+        XCTAssertEqual(preferences.value.model, "sol")
+        try store.signedOut()
+        XCTAssertThrowsError(try store.updateAnalysis(engine: "pi", model: "old choice", expectedGeneration: before.generation))
+        XCTAssertEqual(store.configuration().engine, "codex")
+        XCTAssertEqual(store.configuration().model, "sol")
+    }
+
     func testDifferentInstallationsOnOneOriginNeverShareSession() async throws {
         let preferences = MemoryPreferences()
         let secrets = MemorySecrets()

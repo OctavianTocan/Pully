@@ -63,7 +63,7 @@ fun ColumnScope.ProfileStats(onLogin: (String) -> Unit = {}) {
     LaunchedEffect(stats?.login) { stats?.login?.takeIf { it.isNotBlank() }?.let(onLogin) }
     // An answer with no calendar in it (an older server, an empty year) says so too, rather than leaving the cards' kept
     // places empty for good ("Profile shows no stats": recording 16 Oct 12:10, 07:34 to 07:59; N12).
-    LaunchedEffect(memory) { if (!memory.refresh()) failed = memory.last == null }
+    HomeReadEffect(services.observations, memory) { if (!memory.refresh()) failed = memory.last == null }
     val c = LocalPullsColors.current
     SheetHeading("Last year on GitHub")
     val shown = stats

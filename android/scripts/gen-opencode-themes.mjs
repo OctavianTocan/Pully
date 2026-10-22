@@ -1,4 +1,4 @@
-// Generates app/src/main/kotlin/.../ui/design/OpenCodeThemes.kt and assets/licenses/opencode-themes.txt
+// Generates shared-ui common palettes and Android assets/licenses/opencode-themes.txt
 // from the colour themes built into OpenCode, the terminal coding agent (https://github.com/anomalyco/opencode,
 // formerly sst/opencode, MIT). Each theme becomes a `ColorTheme` with a light and a dark `PullsColors`; a theme
 // OpenCode draws in one look only (Aura, Ayu, and those whose two looks are the same) uses it for both. Pulls' own palette stays the default and is not here.
@@ -17,7 +17,7 @@ import process from 'node:process'
 
 const root = new URL('../../', import.meta.url).pathname
 const VENDOR = join(root, 'android/scripts/opencode-themes')
-const OUT = join(root, 'android/app/src/main/kotlin/com/octaviantocan/pulls/ui/design/OpenCodeThemes.kt')
+const OUT = join(root, 'mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/ui/design/OpenCodeThemes.kt')
 const LICENSE_OUT = join(root, 'android/app/src/main/assets/licenses/opencode-themes.txt')
 const RAW = 'https://raw.githubusercontent.com/anomalyco/opencode/dev'
 const SOURCE = `${RAW}/packages/tui/src/theme`

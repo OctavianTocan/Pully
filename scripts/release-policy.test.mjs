@@ -37,8 +37,11 @@ describe('integration and release workflow boundaries', () => {
     }
     const native = workflow('ios-verify').jobs['ios-release-verify']
     assert.equal(Object.keys(workflow('ios-verify').jobs).length, 1, 'do not duplicate a whole Mac build on main')
-    for (const name of ['Test native account storage and configuration rules', 'Test actual Keychain in an ad-hoc signed simulator app host', 'Test actual Darwin RPC transport against loopback HTTP', 'Test shared domain on JVM and iOS; link Compose framework', 'Build and test the unsigned iOS host', 'Require every actual UIKit test and retain readable evidence', 'Verify original Pully fonts and canonical locales are bundled'])
+    for (const name of ['Test native account storage and configuration rules', 'Test actual Keychain in an ad-hoc signed simulator app host', 'Test actual Darwin RPC transport against loopback HTTP', 'Test shared domain on JVM and iOS; link Compose framework', 'Build and test the private iOS simulator host', 'Require every actual UIKit test and retain readable evidence', 'Verify original Pully fonts and canonical locales are bundled'])
       assert.ok(native.steps.some(step => step.name === name), name)
+    const host = native.steps.find(step => step.name === 'Build and test the private iOS simulator host').run
+    for (const proof of ['build CODE_SIGNING_ALLOWED=NO', 'build-for-testing', 'CODE_SIGN_IDENTITY=-', 'codesign --verify --strict', 'verify-keychain-test-host.py', 'pully-app', 'test-without-building'])
+      assert.ok(host.includes(proof), `Real app-private Keychain host proof: ${proof}`)
     const android = workflow('android-verify').jobs['android-release-verify'].steps.map(s => s.run || '').join('\n')
     for (const task of [':shared-domain:jvmTest', ':shared-client:jvmTest', ':shared-ui:testAndroidHostTest', ':app:testDebugUnitTest', ':app:assembleDebug'])
       assert.ok(android.includes(task), task)

@@ -37,6 +37,7 @@ kotlin {
         commonMain { kotlin.srcDir(layout.buildDirectory.dir("generated/vectorSources")) }
         androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.13.0")
+            implementation("com.caverock:androidsvg-aar:1.4")
         }
         iosMain.dependencies {
             implementation("io.coil-kt.coil3:coil-svg:3.3.0")
@@ -142,7 +143,7 @@ abstract class VectorSources : DefaultTask() {
         }
         fun quote(value: String) = "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$") + "\""
         val vectors = source.get().asFile.listFiles().orEmpty().filter {
-            it.name.startsWith("ic_ph_") || it.name in setOf("ic_si_claude.xml", "ic_si_openai.xml", "ic_carbon_logo_github.xml")
+            it.name.startsWith("ic_ph_") || it.name.startsWith("ic_cat_") || it.name in setOf("ic_si_claude.xml", "ic_si_openai.xml", "ic_si_google.xml", "ic_stat_pulls.xml", "ic_carbon_logo_github.xml")
         }.filter { it.extension == "xml" }.sortedBy { it.name }
         require(vectors.isNotEmpty()) { "Missing canonical icon vectors." }
         val code = buildString {
@@ -150,6 +151,8 @@ abstract class VectorSources : DefaultTask() {
             appendLine("import androidx.compose.ui.graphics.Color")
             appendLine("import androidx.compose.ui.graphics.PathFillType")
             appendLine("import androidx.compose.ui.graphics.SolidColor")
+            appendLine("import androidx.compose.ui.graphics.StrokeCap")
+            appendLine("import androidx.compose.ui.graphics.StrokeJoin")
             appendLine("import androidx.compose.ui.graphics.vector.ImageVector")
             appendLine("import androidx.compose.ui.graphics.vector.PathParser")
             appendLine("import androidx.compose.ui.unit.dp")
@@ -172,10 +175,29 @@ abstract class VectorSources : DefaultTask() {
                     return "${raw.toFloat()}f"
                 }
                 appendLine("    ${quote(file.nameWithoutExtension)} -> ImageVector.Builder(${quote(file.nameWithoutExtension)}, ${number("width", true)}.dp, ${number("height", true)}.dp, ${number("viewportWidth")}, ${number("viewportHeight")}).apply {")
-                for (index in 0 until root.childNodes.length) {
-                    val path = root.childNodes.item(index) as? org.w3c.dom.Element ?: continue
+                fun emitElement(path: org.w3c.dom.Element) {
+                    if (path.tagName == "group") {
+                        for (a in 0 until path.attributes.length) {
+                            val attribute = path.attributes.item(a)
+                            require(attribute.namespaceURI == namespace && attribute.localName in setOf("translateX", "translateY")) {
+                                "Unsupported vector group attribute in ${file.name}"
+                            }
+                        }
+                        fun translation(name: String): String {
+                            val value = path.getAttributeNS(namespace, name).ifBlank { "0" }.toFloat()
+                            require(value.isFinite()) { "Invalid vector group translation in ${file.name}" }
+                            return "${value}f"
+                        }
+                        appendLine("        addGroup(translationX = ${translation("translateX")}, translationY = ${translation("translateY")})")
+                        for (index in 0 until path.childNodes.length) {
+                            val child = path.childNodes.item(index) as? org.w3c.dom.Element ?: continue
+                            emitElement(child)
+                        }
+                        appendLine("        clearGroup()")
+                        return
+                    }
                     require(path.tagName == "path") { "Unsupported vector node in ${file.name}" }
-                    val supported = setOf("pathData", "fillColor", "fillAlpha", "fillType")
+                    val supported = setOf("pathData", "fillColor", "fillAlpha", "fillType", "strokeColor", "strokeWidth", "strokeLineCap", "strokeLineJoin")
                     for (a in 0 until path.attributes.length) {
                         require(path.attributes.item(a).localName in supported) { "Unsupported vector attribute in ${file.name}" }
                     }
@@ -189,7 +211,30 @@ abstract class VectorSources : DefaultTask() {
                         "evenOdd" -> "EvenOdd"
                         else -> error("Unsupported vector fill rule in ${file.name}")
                     }
-                    appendLine("        addPath(pathData = PathParser().parsePathString(${quote(data)}).toNodes(), fill = SolidColor(Color(0x${color.drop(1)})), fillAlpha = ${alpha}f, pathFillType = PathFillType.$rule)")
+                    val stroke = path.getAttributeNS(namespace, "strokeColor")
+                    val strokeArguments = if (stroke.isEmpty()) "" else {
+                        require(stroke.matches(Regex("#[0-9A-Fa-f]{8}"))) { "Unsupported vector stroke color in ${file.name}" }
+                        val width = path.getAttributeNS(namespace, "strokeWidth").ifBlank { "0" }.toFloat()
+                        require(width.isFinite() && width >= 0) { "Invalid vector stroke width in ${file.name}" }
+                        val cap = when (path.getAttributeNS(namespace, "strokeLineCap")) {
+                            "", "butt" -> "Butt"
+                            "round" -> "Round"
+                            "square" -> "Square"
+                            else -> error("Unsupported vector stroke cap in ${file.name}")
+                        }
+                        val join = when (path.getAttributeNS(namespace, "strokeLineJoin")) {
+                            "", "miter" -> "Miter"
+                            "round" -> "Round"
+                            "bevel" -> "Bevel"
+                            else -> error("Unsupported vector stroke join in ${file.name}")
+                        }
+                        ", stroke = SolidColor(Color(0x${stroke.drop(1)})), strokeLineWidth = ${width}f, strokeLineCap = StrokeCap.$cap, strokeLineJoin = StrokeJoin.$join"
+                    }
+                    appendLine("        addPath(pathData = PathParser().parsePathString(${quote(data)}).toNodes(), fill = SolidColor(Color(0x${color.drop(1)})), fillAlpha = ${alpha}f, pathFillType = PathFillType.$rule$strokeArguments)")
+                }
+                for (index in 0 until root.childNodes.length) {
+                    val element = root.childNodes.item(index) as? org.w3c.dom.Element ?: continue
+                    emitElement(element)
                 }
                 appendLine("    }.build()")
             }

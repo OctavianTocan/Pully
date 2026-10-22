@@ -31,3 +31,23 @@ valid supplementary characters, and malformed or out-of-range values MUST remain
 literal text rather than throw while the remote description or comment is read.
 Source: existing PrHtml behavior, DESIGN.md rule 53 and the accepted 21 Oct 2026
 shared Overview reading extraction.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-diff-model-preserves-existing-policy
+Both hosts MUST use the existing diff expansion, split pairing, selected-code,
+annotation-anchor, noisy-file and word-emphasis policies. File trees MUST preserve
+English locale ordering, single-child folder compression and all/some/none review
+state. A one-sided file MUST remain unified even when split is selected. Source:
+existing DiffModel and FileTree behavior, DESIGN.md rules 93 and 94, H10, and Tavi's
+21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-diff-emphasis-belongs-to-row-object
+Word-emphasis ranges MUST belong to the exact diff-line object they were computed
+for. Distinct rows whose data compare equal MUST NOT overwrite each other's
+ranges or receive a different row's emphasis. Source: the existing lineEmphasis
+IdentityHashMap policy retained by Tavi's 21 Oct 2026 shared diff/code plan.
+
+@cc [owner:OctavianTocan,label:product;motion] shared-tour-progress-retains-reading-policy
+The Tour progress ring MUST follow the existing reading-line interpolation and finish
+at the page end, including a short last stop. A missing or empty stop list MUST remain
+at zero. Source: existing tour-strip-is-calm, DESIGN.md rule 97, preserved by Tavi's
+21 Oct 2026 maximum-reuse iOS decision.

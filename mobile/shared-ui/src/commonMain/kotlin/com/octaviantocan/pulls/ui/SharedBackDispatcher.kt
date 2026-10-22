@@ -13,11 +13,16 @@ class SharedBackDispatcher {
     val canConsume: Boolean get() = current() != null
     fun current(): SharedBackConsumer? = entries.lastOrNull { it.eligible() }
 
-    fun register(eligible: () -> Boolean, action: () -> Unit): SharedBackConsumer =
-        SharedBackConsumer(eligible, action).also { entries += it }
+    fun register(eligible: () -> Boolean, gesture: SharedBackGesture? = null, action: () -> Unit): SharedBackConsumer =
+        SharedBackConsumer(eligible, gesture, action).also { entries += it }
 
     fun remove(consumer: SharedBackConsumer) { entries.remove(consumer) }
     fun owns(consumer: SharedBackConsumer): Boolean = consumer in entries && consumer.eligible()
+    fun began(consumer: SharedBackConsumer) { if (owns(consumer) && current() === consumer) consumer.gesture?.began() }
+    fun changed(consumer: SharedBackConsumer, progress: Float) {
+        if (owns(consumer) && current() === consumer) consumer.gesture?.changed(progress)
+    }
+    fun cancelled(consumer: SharedBackConsumer) { consumer.gesture?.cancelled() }
     fun consume(consumer: SharedBackConsumer): Boolean {
         if (!owns(consumer) || current() !== consumer) return false
         consumer.action()
@@ -25,7 +30,18 @@ class SharedBackDispatcher {
     }
 }
 
-class SharedBackConsumer internal constructor(internal val eligible: () -> Boolean, internal val action: () -> Unit)
+/** A nested shared page follows the same native gesture without registering another recognizer. */
+interface SharedBackGesture {
+    fun began()
+    fun changed(progress: Float)
+    fun cancelled()
+}
+
+class SharedBackConsumer internal constructor(
+    internal val eligible: () -> Boolean,
+    internal val gesture: SharedBackGesture?,
+    internal val action: () -> Unit,
+)
 
 val LocalSharedBackDispatcher = staticCompositionLocalOf<SharedBackDispatcher> {
     error("Install the one shared back dispatcher before registering native edit cancellation.")

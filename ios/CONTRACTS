@@ -5,10 +5,14 @@ authentication, storage, links, input, navigation and device services. Source: T
 21 Oct 2026, chosen Compose Multiplatform implementation with maximum Android reuse.
 
 @cc [owner:OctavianTocan,label:product] ios-preview-is-explicit
-Until server/account and review flows are connected, the iOS app MUST identify itself
-as an internal preview and MUST use deterministic nonprivate fixtures. Unsupported
-sign-in, mutation and AI controls MUST NOT appear as working features. Source: Tavi's
-21 Oct 2026 iOS implementation request and the accepted first shared-screen milestone.
+The iOS app MUST identify itself as an internal preview until the complete account,
+review and AI journeys are connected and validated. The ordinary live host MAY read
+its configured server only through the actual shared account/client and secure native
+adapters; a restored session MUST be verified first. Deterministic nonprivate fixtures
+MUST require an explicit Debug launch switch, with a fixture label, and MUST NOT replace
+live server/account errors. Unsupported mutation, review and AI controls MUST remain
+unavailable before work starts. Source: Tavi's 21 Oct 2026 full iOS implementation and
+the accepted staged live-account/Home activation after the first fixture milestone.
 
 @cc [owner:OctavianTocan,label:architecture;design] ios-bundled-locales-match-web
 The iOS app bundle's `i18n/` JSON locale set and each file's bytes MUST equal
@@ -54,6 +58,7 @@ The one recognizer MUST receive both the root Compose view and its sibling dialo
 layers in the same scene window, while a presented native controller MUST prevent
 the underlying shared route or sheet from consuming its gesture. Source: the real
 21 Oct 2026 simulator sheet-dismissal failure and the same shared Back priority.
+
 A registration created before the root acquires its window MUST be retried when the
 scene becomes active; repeated attachment or activation MUST NOT add a second edge
 recognizer for that registration. Source: the accepted 21 Oct 2026 native Back
@@ -72,6 +77,48 @@ The separate open-on-GitHub action MAY use direct system navigation. Neither act
 MAY forward Pully RPC or Access credentials. Source: Tavi's 21 Oct 2026 maximum-reuse
 iOS plan and the shared Overview browser action through NativeHomeActions.
 
+@cc [owner:OctavianTocan,label:security;architecture] ios-live-account-uses-secure-native-adapters
+The scene's account storage host MUST adapt the existing private Keychain store and
+registered native Google flow without implementing account RPCs. A source mutation
+MUST deliver synchronous old-owner invalidation before the new snapshot is readable,
+then publish its completed notification. Native selection cancellation MUST detach
+on MainActor even when the coroutine was cancelled on another dispatcher. A locked
+or corrupt store MUST offer retry/reset without issuing anonymous RPCs. Source:
+Tavi's 21 Oct 2026 full iOS implementation request and accepted account adapter plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-live-simulator-tests-use-the-real-app-identity
+The real Pully simulator host MUST retain a private ad-hoc application identity before
+running account bridge or UI tests that use Keychain. CI MUST first retain unsigned
+compilation, verify the actual signed executable and its matching exact private XML/DER
+claims, then execute the original UI tests and actual app-hosted account bridge tests.
+Simulator entitlements MUST NOT apply to device builds or widen credential sharing.
+The dedicated native Keychain test MUST remain mandatory. Source: Tavi's 21 Oct 2026
+full iOS implementation request, ios-keychain-tests-use-real-private-app-identity,
+and the actual unsigned simulator errSecMissingEntitlement diagnosis.
+
+@cc [owner:OctavianTocan,label:architecture;security] ios-scene-retains-one-live-application
+The scene MUST retain one shared application owner above ordinary routes and native
+browser presentation. Scene disconnection MUST close its account, source caches,
+settings work, analytics, subscriptions and lifetime scope before releasing native
+services. Failed application construction MUST release already-created resources.
+Source: the accepted 21 Oct 2026 native host lifetime and single Compose-stack plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-root-fixture-uses-isolated-real-native-storage
+The actual-root simulator fixture MUST require an explicit Debug launch selection
+with a validated unique UUID. It MUST use a separate preferences suite and the real
+app-private Keychain adapter under its own service, retain that same service for
+restore validation, and never adopt ordinary credentials or standard preferences.
+Fixture preference changes MUST NOT delete or alter ordinary usage queues. Ordinary
+launches MUST retain the actual Darwin transport and secure account owner. Source:
+the accepted 21 Oct 2026 native account/Home/review fixture validation plan.
+
+@cc [owner:OctavianTocan,label:product;architecture] ios-cold-and-warm-links-use-one-shared-inbox
+Cold scene URL contexts and browsing activities, and their warm scene callbacks,
+MUST feed the retained shared application's incoming-link inbox after native Google
+callbacks are handled. Invalid native envelopes MUST use the same current-source
+shared error path once; they MUST NOT become placeholder destinations or log their
+input. Scene disconnection MUST retire delivery before closing the application.
+Source: Tavi's accepted 21 Oct 2026 native/shared link and single-stack plan.
 @cc [owner:OctavianTocan,label:product] ios-journey-tests-observe-the-production-filter
 The native Home journey tests MUST tap the actual production filter control and
 assert its exported selected state. A matching text descendant or parent container
@@ -79,3 +126,16 @@ MUST NOT stand in for that control. The tests MUST retain the existing row, nati
 Back, scroll and foreground continuity assertions. Source: Tavi's accepted 21 Oct
 2026 real iPhone journey plan and DESIGN.md rules49/128 on accessible state and
 retained navigation context.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-complete-services-share-source-and-installation-policy
+The complete native host MUST install the existing shared review, Analyze, Tour,
+Brief, Chat/history and Inbox surfaces with one retained Settings model owner and
+one source-owned Home/Review tour-copy adapter. Temporary verification or scene
+pause MUST restrict fresh actions without replacing the installed renderer policy,
+private drafts or accepted-write owner. Ordinary scene close MUST preserve tour
+files for verified reopening; a true source change MUST revoke writers and purge
+its active namespace before replacement credentials are published. Explicit Debug
+journeys MUST use only their validated UUID's separate tour directory, retain the
+strict read-only mode and keep unsupported fixture RPC controls unavailable.
+Source: Tavi's accepted 21 Oct 2026 complete maximum-reuse iOS journey and native
+source/lifecycle isolation plan.

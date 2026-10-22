@@ -1,0 +1,7 @@
+@cc [owner:OctavianTocan,label:product;architecture] shared-model-settings-keep-server-choices
+The model catalog parser MUST retain the server's ids, grouping, defaults and supported
+efforts. Switching models MUST retain an explicit effort only when the new model lists
+it; a blank model MUST mean the server's default. The shared ordering/name policies
+MUST retain Android's current generation/tier and Pi provider-group behavior.
+Source: settings-model-row-names-the-model, settings-effort-under-model, DESIGN.md
+rule89, N7 and Tavi's 21 Oct 2026 same-app iOS reuse decision.

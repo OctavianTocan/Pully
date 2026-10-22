@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.data
 
 import android.content.Context
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import java.io.File
 import java.security.MessageDigest
@@ -16,20 +15,26 @@ class TourStore(
     private val namespace: String = "",
     private val current: () -> Boolean = { true },
 ) {
-    /** Parsed tours by pull request, so a tour opened twice in a run is read from disk once. */
-    private val parsed = HashMap<String, Tour>()
+    private val stored = StoredTours(object : StoredTourFiles {
+        override fun read(pull: String): String? = fileOf(pull).takeIf { it.isFile }?.readText()
+        override fun exists(pull: String): Boolean = fileOf(pull).isFile
+        override fun remove(pull: String) { fileOf(pull).delete() }
+        override fun write(pull: String, tour: String) {
+            dir.mkdirs()
+            val file = fileOf(pull)
+            val temp = File(dir, "${file.name}.tmp")
+            temp.writeText(tour)
+            if (!temp.renameTo(file)) { file.delete(); temp.renameTo(file) }
+        }
+        override fun prune(limit: Int) {
+            val files = dir.listFiles { file -> file.name.endsWith(".json") }.orEmpty()
+            if (files.size > limit) files.sortedByDescending { it.lastModified() }.drop(limit).forEach { it.delete() }
+        }
+    }, current)
 
     /** The tour kept for [pull], or null when there is none. A file that cannot be read is removed, so it is fetched again. */
     @Synchronized
-    fun get(pull: String): Tour? {
-        if (!current()) return null
-        parsed[pull]?.let { return it }
-        val file = fileOf(pull)
-        if (!file.isFile) return null
-        val tour = runCatching { (Json.parseToJsonElement(file.readText()) as JsonObject).asTour() }.getOrNull()?.takeIf { it.stops.isNotEmpty() }
-        if (tour == null) file.delete() else parsed[pull] = tour
-        return tour
-    }
+    fun get(pull: String): Tour? = stored.get(pull)
 
     /** Whether a readable tour is kept for [pull]. */
     @Synchronized
@@ -40,32 +45,12 @@ class TourStore(
      * same tour (by when it was written) is not written twice.
      */
     @Synchronized
-    fun put(pull: String, json: JsonObject) {
-        if (!current()) return
-        val tour = runCatching { json.asTour() }.getOrNull() ?: return
-        if (tour.stops.isEmpty()) return
-        if (parsed[pull]?.generatedAt == tour.generatedAt && fileOf(pull).isFile) return
-        parsed[pull] = tour
-        runCatching {
-            dir.mkdirs()
-            val file = fileOf(pull)
-            val temp = File(dir, "${file.name}.tmp")
-            temp.writeText(json.toString())
-            if (!temp.renameTo(file)) { file.delete(); temp.renameTo(file) }
-            prune()
-        }
-    }
-
-    private fun prune() {
-        val files = dir.listFiles { file -> file.name.endsWith(".json") }.orEmpty()
-        if (files.size <= LIMIT) return
-        files.sortedByDescending { it.lastModified() }.drop(LIMIT).forEach { it.delete() }
-    }
+    fun put(pull: String, json: JsonObject) = stored.put(pull, json)
 
     private fun fileOf(pull: String): File = File(dir, "${digest(if (namespace.isEmpty()) pull else "$namespace\u0000$pull")}.json")
 
     companion object {
-        const val LIMIT = 200
+        const val LIMIT = StoredTours.LIMIT
 
         @Volatile private var shared: Pair<Pair<String, Long>, TourStore>? = null
 

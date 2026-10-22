@@ -33,4 +33,10 @@ class StatsFormatTest {
         assertEquals("Home", StatsFormat.screen("home"))
         assertEquals("Settings stats", StatsFormat.screen("settings-stats"))
     }
+
+    @Test
+    fun millisecondRoundingRetainsTheOriginalJvmHalfBoundary() {
+        assertEquals("0 ms", StatsFormat.ms(0.49999999999999994))
+        assertEquals("1 ms", StatsFormat.ms(0.5))
+    }
 }

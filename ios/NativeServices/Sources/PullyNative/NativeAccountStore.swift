@@ -80,6 +80,15 @@ public final class NativeAccountStore {
         else { publishConfiguration() }
     }
 
+    /// A model change is a preference, not a new account/Access identity.
+    public func updateAnalysis(engine: String, model: String, expectedGeneration: Int64) throws {
+        guard isCurrent(expectedGeneration) else { throw NativeAccountError.staleIdentity }
+        let next = NativeServerConfiguration(server: serverConfiguration.server, engine: engine, model: model)
+        preferences.save(next)
+        serverConfiguration = next
+        publishConfiguration()
+    }
+
     /// The shared Repo has already verified the Google/password answer; an old answer cannot change this source.
     public func signedIn(session token: String, email: String, expectedGeneration: Int64) throws {
         guard isCurrent(expectedGeneration) else { throw NativeAccountError.staleIdentity }

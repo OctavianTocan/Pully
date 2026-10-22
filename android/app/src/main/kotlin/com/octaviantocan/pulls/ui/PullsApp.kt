@@ -233,21 +233,17 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
     }
     // `KeyboardLayer.vue`'s always-on commands, and the app's own update.
     UseCommands {
-        val group = messages.t("palette.group.general")
-        listOf(
-            Command("settings", messages.t("keys.settings"), group) { nav.settings() },
-            Command("home", messages.t("keys.home"), group) { nav.home() },
-            Command("explore", messages.t("explore.browse"), group, run = onExplore),
-            Command("theme", messages.t("keys.theme"), group) {
-                // The toggle always goes to the other look than the one asked for; it wipes unless the theme has one look.
+        val commandEpoch = com.octaviantocan.pulls.data.RepoIdentity.generation
+        appCommands(
+            { messages.t(it) }, nav,
+            current = { commandEpoch == com.octaviantocan.pulls.data.RepoIdentity.generation },
+            toggleTheme = {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
-            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette opencode appearance") { themePicker = true },
-            Command("update", "Update Pully", group, keywords = "upgrade new version install check latest") {
-                scope.launch { updateFromCommand(context, toaster) }
-            },
-            Command("whatsNew", "What's new", group, keywords = "changelog changes version release notes") { whatsNew = WhatsNew.all(context) },
-            Command("feedback", "Send feedback", group, keywords = "feedback report bug idea note suggest problem") { feedback = true },
+            openThemes = { themePicker = true }, feedback = { feedback = true },
+            update = { scope.launch { updateFromCommand(context, toaster) } },
+            whatsNew = { whatsNew = WhatsNew.all(context) },
+            explore = onExplore,
         )
     }
     // One hook for screen time: the page on top by a fixed name (`screen.view`, `screen.time`). Settings names its own pages.
@@ -279,7 +275,14 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
     // A link tapped in a description, a comment or an answer opens in Pully when Pully would take it from another app, and
     // outside otherwise; "on GitHub" actions go outside on their own (`rememberOpenOnGithub`).
     val uriHandler = remember(context, toaster) { PullyUriHandler(context, toaster) }
-    CompositionLocalProvider(LocalToaster provides toaster, LocalFootBars provides footBars, androidx.compose.ui.platform.LocalUriHandler provides uriHandler) {
+    val nativeHomeActions = com.octaviantocan.pulls.ui.home.rememberAndroidNativeHomeActions()
+    CompositionLocalProvider(
+        com.octaviantocan.pulls.ui.home.LocalNativeHomeActions provides nativeHomeActions,
+        LocalToaster provides toaster, LocalFootBars provides footBars,
+        androidx.compose.ui.platform.LocalUriHandler provides uriHandler,
+        com.octaviantocan.pulls.ui.ai.LocalAiCapabilities provides com.octaviantocan.pulls.ui.ai.AiCapabilities.Full,
+        com.octaviantocan.pulls.ui.review.LocalReviewCapabilities provides com.octaviantocan.pulls.ui.review.ReviewCapabilities.Full,
+    ) {
         val homeServer = remember { com.octaviantocan.pulls.data.Repo(context) }
         val homeServices = rememberAndroidHomeScreenServices(homeServer)
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
@@ -334,11 +337,7 @@ private const val CANT_OPEN = "Pully can't open that link"
  * The page a link from another app opens: a pull request, commit or compare opens its review, a repository its page.
  * `null` for anything else, an issue or a file included.
  */
-private fun linkScreen(text: String, aiResult: String? = null): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parseShared(text)) {
-    is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link", place = link.place?.let(::PlaceRequest), aiResult = aiResult)
-    is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
-    null -> null
-}
+private fun linkScreen(text: String, aiResult: String? = null): Screen? = sharedLinkScreen(text, aiResult)
 
 /** The screen's name in usage stats: a fixed word, never a title or a repository. */
 private val Screen.analyticsName: String

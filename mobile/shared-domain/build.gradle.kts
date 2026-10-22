@@ -22,6 +22,7 @@ kotlin {
             implementation("org.commonmark:commonmark-ext-autolink:0.24.0")
             implementation("org.commonmark:commonmark-ext-task-list-items:0.24.0")
         }
+        jvmTest { resources.srcDir("../../android/app/src/test/resources") }
         commonTest {
             kotlin.srcDir(layout.buildDirectory.dir("generated/briefFixture"))
             kotlin.srcDir(layout.buildDirectory.dir("generated/markdownFixtures"))

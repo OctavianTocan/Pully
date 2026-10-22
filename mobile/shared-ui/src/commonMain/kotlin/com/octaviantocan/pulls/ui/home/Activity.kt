@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +38,8 @@ import com.octaviantocan.pulls.ui.design.PullsSheet
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /*
  * What the server is analyzing, across every pull request. Analysis runs on the server and outlives the page, so
@@ -49,13 +50,14 @@ fun TaskState.asWork(): WorkTask = WorkTask(key = key, kind = kind, status = sta
 
 /** Every diff's running and recent AI tasks, read again every few seconds while the Inbox is on screen (slower when idle). */
 @Composable
-fun rememberWork(repo: Repo): List<WorkTask> {
+fun rememberWork(repo: Repo, observations: HomeObservations): List<WorkTask> {
     val source = runCatching { repo.source() }.getOrNull()
     var tasks by remember(repo, source) { mutableStateOf(emptyList<WorkTask>()) }
-    LaunchedEffect(repo, source) {
-        if (source == null) return@LaunchedEffect
+    HomeReadEffect(observations, repo, source) {
+        if (source == null) return@HomeReadEffect
         while (repo.isCurrent(source)) {
             runCatching { repo.allTasks() }.onSuccess { list ->
+                currentCoroutineContext().ensureActive()
                 if (repo.isCurrent(source)) tasks = list.map { it.asWork() }
             }
             delay(if (tasks.any { it.status == "running" }) 4_000 else 15_000)

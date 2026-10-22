@@ -203,7 +203,7 @@ private class RecordedSettingsEffects : SettingsEffects {
     override fun usageStatsEnabled(enabled: Boolean) { events += "usage:$enabled" }
 }
 
-private class MemorySettingsPreferences : SettingsPreferences {
+internal class MemorySettingsPreferences : SettingsPreferences {
     private val values = mutableMapOf<String, Any>()
     override fun getString(name: String, default: String?): String? = values[name] as? String ?: default
     override fun getBoolean(name: String, default: Boolean): Boolean = values[name] as? Boolean ?: default

@@ -1,15 +1,15 @@
+@cc [owner:OctavianTocan,label:product] shared-data-merge-risk-needs-all-categories
+A critique's merge assessment MUST retain its overall level and all five category
+verdicts and reasons. Missing, incomplete or invalid assessments MUST remain absent,
+without preventing the rest of the review from loading or defaulting to low risk.
+Source: Tavi's 21 Oct 2026 request to implement Warp's merge-risk assessment in Pully.
+
 @cc [owner:OctavianTocan,label:architecture] shared-data-keeps-server-wire-models
 The shared inbox, diff, review and AI models MUST retain the existing server field
 names, nullable states and defaults as their Android callers move across modules.
 Unknown optional server fields MUST NOT prevent parsing a supported response. The
 models MUST NOT call GitHub or model providers. Source: `data-server-is-the-source`
 and Tavi's 21 Oct 2026 decision to share the actual Pully implementation for iOS.
-
-@cc [owner:OctavianTocan,label:product] shared-data-merge-risk-needs-all-categories
-A critique's merge assessment MUST retain its overall level and all five category
-verdicts and reasons. Missing, incomplete or invalid assessments MUST remain absent,
-without preventing the rest of the review from loading or defaulting to low risk.
-Source: Tavi's 21 Oct 2026 request to implement Warp's merge-risk assessment in Pully.
 
 @cc [owner:OctavianTocan,label:product] shared-data-keeps-timestamp-meaning
 An inbox row's valid ISO instant or numeric-offset timestamp MUST retain its epoch
@@ -47,3 +47,19 @@ session renewal for the same eligible owner MUST NOT change the namespace. Only 
 opaque digest MAY leave namespace derivation; raw credentials MUST NOT be persisted or
 logged. Invalid server configuration MUST produce no namespace. Source: the accepted
 21 Oct iOS source-identity plan and its explicit account/server cache boundary.
+
+@cc [owner:OctavianTocan,label:product;security] shared-feedback-reports-the-actual-platform
+Feedback MUST retain Android's existing report fields and note/history parsing. An
+iOS report MUST name its actual app version, generic model and iOS version, omit the
+Android version and SDK fields, and MUST NOT attach device identifiers, credentials
+or analytics content. Source: server-feedback-kept-for-agents and Tavi's 21 Oct 2026
+same-app iOS request with thin native metadata adapters.
+
+@cc [owner:OctavianTocan,label:product;architecture] stored-tours-keep-the-existing-cache-policy
+Both native hosts MUST use the same original TourResult parser, nonempty-stop check,
+generated-time duplicate suppression and 200-tour cache policy. A missing file MUST
+remain repairable; corrupt entries MUST become unavailable and removable. A native
+cache failure MUST NOT hide the current server result, and revoked source handles
+MUST NOT read, remember, write or delete another source's data. Source: existing
+Android TourStore, data-tours-are-kept (CHANGELOG 0.28.0) and Tavi's accepted
+21 Oct 2026 maximum-reuse and private-cache ownership plan.

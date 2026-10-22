@@ -53,7 +53,7 @@ fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit, onA
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                 FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
-                SectionCapsule(selected = 0, live = false, onOverview = {}, onChanges = {}, onTour = {}, onCorner = {}, corner = CapsuleCorner.More)
+                SectionCapsule(selected = 0, live = false, onOverview = {}, onChanges = null, onTour = null, onCorner = null, corner = CapsuleCorner.More)
             }
             Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp)) {
                 if (preview != null) {

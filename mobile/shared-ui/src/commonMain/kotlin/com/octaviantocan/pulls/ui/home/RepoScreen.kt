@@ -116,21 +116,22 @@ private fun RepoScreenBody(owner: String, repo: String, nav: Nav, startOnTours: 
     val toaster = LocalToaster.current
     // The server's tasks, so removing a tour here records them as dismissed and stops one still being written.
     val server = services.repo
-    val workTasks = if (services.capabilities.taskObservation) rememberWork(server) else emptyList()
-    LaunchedEffect(store) { store.load() }
+    val observations = services.observations
+    val workTasks = if (services.capabilities.taskObservation) rememberWork(server, observations) else emptyList()
+    HomeReadEffect(observations, store) { store.load() }
     // Refreshing is the page's own job and quiet: on open, and again when the app comes back to the front.
     var away by remember { mutableStateOf(false) }
     HomeLifecycle(onStop = { away = true }, onStart = {
         if (away) {
             away = false
-            scope.launch { store.refresh() }
+            scope.launch { observations.read { store.refresh() } }
         }
     })
     // Independent of the network, like the web: viewed PRs decorate rows whenever they arrive.
-    LaunchedEffect(store) { if (services.capabilities.reviewRoutes) store.loadViewed() }
+    HomeReadEffect(observations, store) { if (services.capabilities.reviewRoutes) store.loadViewed() }
     // A client-side search is only trustworthy over the full set: typing drains the remaining pages, and so does a
     // quiet refresh, which leaves only the first page.
-    LaunchedEffect(query, store.refreshes) { if (query.isNotBlank()) store.loadAll() }
+    HomeReadEffect(observations, query, store.refreshes) { if (query.isNotBlank()) store.loadAll() }
 
     LaunchedEffect(store.items) { store.items.forEach { if (services.data.current) services.effects.size(owner, repo, it.number, it.additions, it.deletions, it.changedFiles) } }
     val rows = remember(store.items, query, sort) { PullListQuery.sort(PullListQuery.filter(store.items, query), sort) }
@@ -140,7 +141,7 @@ private fun RepoScreenBody(owner: String, repo: String, nav: Nav, startOnTours: 
     val now = rememberNow()
 
     // Fetch the next page once the tail comes within 10 rows, which also covers a short first page.
-    LaunchedEffect(listState, store) {
+    HomeReadEffect(observations, listState, store) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
             .collect { (last, total) -> if (last != null && last >= total - 10 && store.hasMore && store.error == null) store.loadMore() }
     }
@@ -172,7 +173,7 @@ private fun RepoScreenBody(owner: String, repo: String, nav: Nav, startOnTours: 
                         (query.isBlank() || "${it.prTitle} #${it.number}".lowercase().contains(query.trim().lowercase()))
                 }
                 RepoTours(mine, now, stoppable = { entry -> runningTaskId(workTasks, pullKey(entry.owner, entry.repo, entry.number), "tour") != null }, onOpen = { entry -> nav.openFrom(OpenTarget.Pull(entry.owner, entry.repo, entry.number, "github.com"), "repo", true) }) { entry ->
-                    dismissTour(entry, workTasks, tours, server, scope, toaster) { services.data.current }
+                    dismissTour(entry, workTasks, tours, server, scope, toaster, ready = { observations.ready }) { services.data.current }
                 }
                 return@SidePages
             }
@@ -195,7 +196,7 @@ private fun RepoScreenBody(owner: String, repo: String, nav: Nav, startOnTours: 
                             Text(t("pulls.loadFailed"), style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
                             Text(store.error.orEmpty(), style = PullsType.sm, color = c.muted)
                             Text("GitHub access comes from the server's sign-in. Check it there, then retry.", style = PullsType.sm, color = c.muted)
-                            PillButton(t("common.retry"), { scope.launch { store.load() } })
+                            PillButton(t("common.retry"), { scope.launch { observations.read { store.load() } } })
                         }
                     }
                     else -> {
@@ -213,7 +214,7 @@ private fun RepoScreenBody(owner: String, repo: String, nav: Nav, startOnTours: 
                         if (store.error != null && store.items.isNotEmpty()) item {
                             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text(store.error.orEmpty(), Modifier.weight(1f), style = PullsType.sm, color = c.error)
-                                PillButton(t("common.retry"), { scope.launch { if (store.hasMore) store.loadMore() else store.refresh() } })
+                                PillButton(t("common.retry"), { scope.launch { observations.read { if (store.hasMore) store.loadMore() else store.refresh() } } })
                             }
                         }
                     }

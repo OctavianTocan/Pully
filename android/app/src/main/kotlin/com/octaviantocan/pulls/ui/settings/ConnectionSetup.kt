@@ -43,6 +43,6 @@ internal fun ConnectionSetupGate(onLeave: () -> Unit, onExplore: (() -> Unit)? =
 internal fun ServerConnectionSheet(onClose: () -> Unit) {
     PullsSheet(onClose, t("connection.serverSettings"), expandable = false) {
         Spacer(Modifier.height(SheetTopGap))
-        ServerPage()
+        ServerPage(rememberAndroidServerPageServices())
     }
 }
