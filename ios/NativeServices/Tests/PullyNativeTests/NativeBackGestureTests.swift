@@ -100,6 +100,36 @@ import UIKit
 
 @MainActor
 final class NativeBackGestureContainerTests: XCTestCase {
+    func testOnlyTheSameContainersMatchingEdgeInputPrecedesTheRegisteredRouteGesture() async throws {
+        for rightEdge in [false, true] {
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+            let content = UIView(frame: window.bounds)
+            let sibling = UIView(frame: window.bounds)
+            window.addSubview(content)
+            window.addSubview(sibling)
+            let gesture = NativeBackGesture(view: content, rightEdge: rightEdge, enabled: { true },
+                                            began: {}, changed: { _ in }, cancelled: {}, committed: {})
+            defer { gesture.cancel(); content.removeFromSuperview(); sibling.removeFromSuperview() }
+            let registered = try XCTUnwrap(content.gestureRecognizers?.compactMap { $0 as? UIScreenEdgePanGestureRecognizer }.first)
+            let dialog = DialogBackPriorityRecognizer(target: nil, action: nil)
+            dialog.edges = rightEdge ? .right : .left
+            content.addGestureRecognizer(dialog)
+            XCTAssertTrue(gesture.gestureRecognizer(registered, shouldRequireFailureOf: dialog))
+            XCTAssertFalse(gesture.gestureRecognizer(registered, shouldRequireFailureOf: registered))
+            dialog.edges = rightEdge ? .left : .right
+            XCTAssertFalse(gesture.gestureRecognizer(registered, shouldRequireFailureOf: dialog))
+            dialog.edges = registered.edges
+            sibling.addGestureRecognizer(dialog)
+            XCTAssertFalse(gesture.gestureRecognizer(registered, shouldRequireFailureOf: dialog))
+            let scroll = UIPanGestureRecognizer(target: nil, action: nil)
+            content.addGestureRecognizer(scroll)
+            XCTAssertFalse(gesture.gestureRecognizer(registered, shouldRequireFailureOf: scroll))
+            content.addGestureRecognizer(dialog)
+            gesture.cancel()
+            XCTAssertFalse(gesture.gestureRecognizer(registered, shouldRequireFailureOf: dialog))
+        }
+    }
+
     func testComposeDialogBackPriorityCannotPreventTheRegisteredSharedBackRecognizer() async throws {
         for rightEdge in [false, true] {
             let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))

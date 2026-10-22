@@ -30,6 +30,7 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.ui)
             implementation(compose.material3)
+            implementation("org.jetbrains.androidx.navigationevent:navigationevent-compose:1.1.0")
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             implementation("io.coil-kt.coil3:coil-compose:3.3.0")
