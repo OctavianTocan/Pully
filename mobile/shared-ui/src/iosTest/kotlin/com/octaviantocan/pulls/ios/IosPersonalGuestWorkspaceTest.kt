@@ -23,10 +23,71 @@ import kotlinx.coroutines.test.setMain
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class IosPersonalGuestWorkspaceTest {
+    @Test
+    fun theOrdinaryGuestMountUsesItsVerifiedAccountAndRealActivityPortForPersonalPages() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val requests = mutableListOf<RpcRequest>()
+        val actions = ActiveActions()
+        val owner = """"accountId":"account-42","githubId":42,"authority":"privateRepositories""""
+        val repository = """{"id":42,"owner":"acme","name":"editor","fullName":"acme/editor","description":null,"stars":0,"language":null,"url":"https://github.com/acme/editor","private":true}"""
+        val store = IosPersonalSessionStore(object : NativePersonalSessionStorage {
+            override fun read(): ByteArray = """{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42,"authority":"privateRepositories"},"pending":[]}""".encodeToByteArray()
+            override fun write(contents: ByteArray) = error("An ordinary read must not rewrite the vault")
+        }, "https://accounts.example", RpcTransport { request ->
+            requests += request
+            val body = when {
+                request.url.endsWith("/session") -> """{$owner,"login":"reader","sessionExpiresAt":9999999999,"accessExpiresAt":null,"refreshAvailable":false}"""
+                request.url.endsWith("/account/capabilities") -> """{$owner,"privateRepositories":{"consentAvailable":true,"readEnabled":true}}"""
+                request.url.endsWith("/account/pulls?relation=reviewRequested&page=1") -> """{$owner,"relation":"reviewRequested","pulls":[{"repository":$repository,"number":7,"title":"Owned private change","url":"https://github.com/acme/editor/pull/7","author":"reader","draft":false,"createdAt":"2026-10-22","updatedAt":"2026-10-22"}],"nextPage":null,"incomplete":false}"""
+                else -> error("Unexpected personal route")
+            }
+            RpcResponse(200, body, "application/json")
+        })
+        val entry = NativeEntryState(false)
+        val navigation = AppNavigation(rootScreen = Screen.Explore)
+        val workspace = IosGuestWorkspace(actions, settings(), RpcTransport { error("No public page was opened") },
+            backgroundScope, assertNotNull(entry.guestSource()), navigation, IncomingLinkInbox(), { true }, store)
+        try {
+            val mount = assertNotNull(workspace.personalBrowse)
+            actions.activity!!.changed(true); runCurrent()
+            assertEquals(1, requests.size, "A verified profile alone starts no personal lists")
+            val browse = assertNotNull(mount.session)
+            mount.openAccount(); runCurrent()
+            val sheet = assertNotNull(mount.presentation)
+            assertFalse(sheet.repositoryConsent)
+            mount.dismiss(sheet)
+            mount.openPulls(browse)
+            val route = navigation.stack.last() as Screen.PersonalPulls
+            val rows = browse.pulls(route)
+            rows.start(); runCurrent()
+            assertTrue(rows.rows.single().repository.private)
+            assertSame(Screen.Explore, navigation.stack.first())
+            assertEquals(2, navigation.stack.size)
+            actions.activity!!.changed(false)
+            val count = requests.size
+            mount.openRepositories(browse); rows.retry()
+            assertEquals(count, requests.size)
+            assertSame(route, navigation.stack.last())
+            workspace.close()
+            assertNull(mount.session)
+            assertNull(mount.presentation)
+            assertTrue(rows.rows.isEmpty())
+            actions.activity!!.changed(true); mount.openPulls(browse)
+            assertEquals(count, requests.size)
+            assertEquals(listOf(Screen.Explore), navigation.stack.toList())
+            assertTrue(requests.all { it.url.startsWith("https://accounts.example/api/personal/v1/") })
+            assertTrue(requests.all { it.headers["Authorization"] == "Bearer pully_${"A".repeat(43)}" })
+            assertTrue(requests.all { it.headers.keys.none { name -> name.startsWith("CF-Access", true) || name.equals("X-Pully-Session", true) } })
+        } finally { workspace.close(); runCurrent(); Dispatchers.resetMain() }
+    }
+
     @Test
     fun anInactiveEventDuringSecureStorageProbeCannotResumeTheOlderActiveCallback() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

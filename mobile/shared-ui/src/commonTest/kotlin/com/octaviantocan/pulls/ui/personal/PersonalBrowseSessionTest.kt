@@ -418,7 +418,7 @@ class PersonalBrowseSessionTest {
         browse.close(); h.runtime.close()
     }
 
-    private class Harness(private val scope: TestScope) {
+    internal class Harness(private val scope: TestScope) {
         val navigation = AppNavigation(rootScreen = Screen.Explore)
         val entry = NativeEntryState(false)
         val requests = mutableListOf<RpcRequest>()
@@ -432,6 +432,9 @@ class PersonalBrowseSessionTest {
         var rejectWrites = false
         var onWrite: (() -> Unit)? = null
         var onSession: (() -> RpcResponse)? = null
+        var onStart: (suspend (RpcResponse) -> RpcResponse)? = null
+        var onStatus: (suspend () -> RpcResponse)? = null
+        var onClaim: (suspend (RpcResponse) -> RpcResponse)? = null
         var onRecovery: ((PersonalAuthProblem) -> Unit)? = null
         val recoveries = mutableListOf<PersonalAuthProblem>()
         var onRead: (suspend (RpcRequest) -> RpcResponse)? = null
@@ -474,10 +477,14 @@ class PersonalBrowseSessionTest {
                     request.url.endsWith("/start") -> {
                         upgrade = request.url.endsWith("/repositories/start")
                         val authorize = "https://github.com/login/oauth/authorize?client_id=pully-test&redirect_uri=https%3A%2F%2Faccounts.example%2Fapi%2Fpersonal%2Fv1%2Fauth%2Fgithub%2Fcallback&response_type=code&state=$id&code_challenge=$id&code_challenge_method=S256&scope=${if (upgrade) "repo+offline_access" else "offline_access"}&prompt=select_account"
-                        json("""{"attemptId":"$id","authorizeUrl":"$authorize","expiresAt":1800,"pollAfterMs":2000}""")
+                        val response = json("""{"attemptId":"$id","authorizeUrl":"$authorize","expiresAt":1800,"pollAfterMs":2000}""")
+                        onStart?.invoke(response) ?: response
                     }
-                    request.url.endsWith("/status") -> json("""{"phase":"ready"}""")
-                    request.url.endsWith("/claim") -> json("""{"session":"${if (upgrade) privateToken else publicToken}","status":${status(upgrade, true)}}""")
+                    request.url.endsWith("/status") -> onStatus?.invoke() ?: json("""{"phase":"ready"}""")
+                    request.url.endsWith("/claim") -> {
+                        val response = json("""{"session":"${if (upgrade) privateToken else publicToken}","status":${status(upgrade, true)}}""")
+                        onClaim?.invoke(response) ?: response
+                    }
                     request.url.endsWith("/session") -> onSession?.invoke() ?: json(status(request.headers["Authorization"] == "Bearer $privateToken" && !reduced))
                     request.url.endsWith("/cancel") -> json("""{"cancelled":true}""")
                     else -> json("true")
