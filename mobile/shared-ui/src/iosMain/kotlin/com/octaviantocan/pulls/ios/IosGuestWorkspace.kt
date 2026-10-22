@@ -15,14 +15,16 @@ import com.octaviantocan.pulls.ui.explore.NativeEntryState
 import com.octaviantocan.pulls.ui.home.HomeBackEffect
 import com.octaviantocan.pulls.ui.home.HomeLifecycleObserver
 import com.octaviantocan.pulls.ui.home.NativeHomeActions
+import com.octaviantocan.pulls.ui.home.SourceHomeActions
+import com.octaviantocan.pulls.ui.personal.PersonalAccountSheet
 import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
 import com.octaviantocan.pulls.ui.settings.wantsDark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/** The public adapter owns only the existing tokenless session, palette and native lifecycle. */
+/** Public identity remains separate from the tokenless repository session and every private service. */
 internal class IosGuestWorkspace(
-    private val native: NativeHomeActions,
+    native: NativeHomeActions,
     private val settings: AppSettings,
     transport: RpcTransport,
     scope: CoroutineScope,
@@ -30,12 +32,41 @@ internal class IosGuestWorkspace(
     private val navigation: AppNavigation,
     private val incoming: IncomingLinkInbox,
     private val isCurrent: () -> Boolean,
+    private val personalSessions: IosPersonalSessionStore? = null,
 ) : NativeWorkspace {
     private var closed = false
+    private val personalForeground = native as? NativePersonalForegroundActions
     private val session = GuestBrowseSession(transport, scope, source, navigation)
     val current get() = !closed && isCurrent() && session.current
+    private val native = SourceHomeActions(native) { current }
+    private val personal = personalSessions?.takeIf { it.configured && personalForeground != null }?.open(scope) { current }
+    private var foreground by mutableStateOf(false)
+    private var personalAvailable by mutableStateOf(false)
+    private var personalActivityEpoch = 0L
     private val commands = CommandPaletteOwner { current }
     private val links = NativeGuestLinkHandoff(incoming, navigation) { current }
+    private val personalActivity = try {
+        if (personal == null) null else personalForeground?.observePersonalForeground(object : NativePersonalForegroundObserver {
+            override fun changed(active: Boolean) {
+                val opening = ++personalActivityEpoch
+                if (!current) return
+                personal.foreground(active)
+                if (!current || personalActivityEpoch != opening) return
+                foreground = active
+                personalAvailable = false
+                if (!active || !current || personalActivityEpoch != opening || !foreground) return
+                val available = try { requireNotNull(personalSessions).verifyStorage(); true } catch (_: Exception) { false }
+                if (!current || personalActivityEpoch != opening || !foreground) return
+                personalAvailable = available
+                if (available) personal.restore()
+            }
+        })
+    } catch (failure: Throwable) {
+        personal?.close()
+        commands.close()
+        session.close()
+        throw failure
+    }
     private val lifecycle = try {
         native.observeLifecycle(object : HomeLifecycleObserver {
             override fun started() {}
@@ -43,6 +74,8 @@ internal class IosGuestWorkspace(
             override fun stopped() {}
         })
     } catch (failure: Throwable) {
+        personalActivity?.cancel()
+        personal?.close()
         commands.close()
         session.close()
         throw failure
@@ -62,6 +95,8 @@ internal class IosGuestWorkspace(
             val backs = remember { SharedBackDispatcher() }
             val toaster = remember { Toaster() }
             var themes by remember { mutableStateOf(false) }
+            var accountSheet by remember { mutableStateOf(false) }
+            val personalView = personal?.view?.collectAsState()?.value
             val moving = rememberMotionEnabled()
             CompositionLocalProvider(
                 LocalColorTheme provides colorTheme,
@@ -105,7 +140,14 @@ internal class IosGuestWorkspace(
                         navigation, motion, session,
                         { if (current) onExistingAccount() },
                         { url -> if (current) native.openOnGithub(url) },
+                        onGitHubSignIn = if (personalAvailable && personal != null) ({ if (current && foreground && personalAvailable) accountSheet = true }) else null,
                         onCommands = { if (current) Commands.open() },
+                        githubAccount = personalView?.account?.login,
+                    )
+                    if (accountSheet && personal != null) PersonalAccountSheet(
+                        personal,
+                        onOpenBrowser = { url -> if (current && foreground) native.openOnGithub(url) },
+                        onClose = { accountSheet = false },
                     )
                     if (themes) ColorThemeSheet(settings, { current }) { themes = false }
                     CommandPalette(commands)
@@ -121,7 +163,12 @@ internal class IosGuestWorkspace(
     override fun close() {
         if (closed) return
         closed = true
+        personalActivityEpoch++
+        foreground = false
+        personalAvailable = false
         links.clear()
+        personalActivity?.cancel()
+        personal?.close()
         lifecycle.cancel()
         commands.close()
         session.close()

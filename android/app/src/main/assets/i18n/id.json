@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Pratinjau internal Pully",
+    "reading": "Membaca tautan yang dibagikan…",
+    "save": "Simpan untuk Pully",
+    "unsupported": "Bagikan pull request GitHub, repositori, commit, perbandingan, atau tautan yang didukung ke server Pully Anda.",
+    "hint": "Simpan tautan ini, lalu buka Pully untuk melanjutkan dengan akun saat ini. Tautan tersimpan kedaluwarsa setelah 24 jam.",
+    "unavailable": "Berbagi dengan Pully memerlukan App Group yang sama dan telah disediakan di aplikasi serta ekstensinya.",
+    "busy": "Pully sedang memproses tautan bersama. Tunggu sebentar, lalu bagikan tautan ini lagi.",
+    "noSource": "Buka Pully dan masuk sebelum menyimpan tautan.",
+    "staleSource": "Akun atau server Pully telah berubah. Bagikan tautan ini lagi.",
+    "invalidRecord": "Pully tidak dapat membaca tautan tersimpan ini. Bagikan lagi.",
+    "failure": "Pully tidak dapat menyimpan tautan ini. Buka kunci perangkat dan bagikan lagi."
+  },
   "common": {
     "cancel": "Batal",
     "save": "Simpan",

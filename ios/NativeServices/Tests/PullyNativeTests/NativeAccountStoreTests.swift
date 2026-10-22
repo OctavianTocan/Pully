@@ -5,6 +5,54 @@ import XCTest
 
 @MainActor
 final class NativeAccountStoreTests: XCTestCase {
+    func testIdentityRevocationPrecedesPublicationAndDoesNotRotateForSameAccountRenewalOrRestore() async throws {
+        let preferences = MemoryPreferences()
+        let secrets = MemorySecrets()
+        var events: [String] = []
+        let first = try NativeAccountStore(preferences: preferences, secrets: secrets,
+            identityWillChange: { events.append("revoke") }, invalidated: { events.append("invalidate") })
+        try first.signedIn(session: "fixture-session", email: "Person@OctavianTocan.com", expectedGeneration: first.generation)
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try first.signedIn(session: "fixture-renewed-session", email: "person@octaviantocan.com", expectedGeneration: first.generation)
+        XCTAssertEqual(events, ["invalidate"])
+        events.removeAll()
+        let restored = try NativeAccountStore(preferences: preferences, secrets: secrets,
+            identityWillChange: { events.append("revoke") }, invalidated: { events.append("invalidate") })
+        XCTAssertTrue(events.isEmpty)
+        try restored.verifiedRestoredSession(email: "person@octaviantocan.com", expectedGeneration: restored.generation)
+        XCTAssertEqual(events, ["invalidate"])
+        events.removeAll()
+        try restored.updateServer(preferences.value, access: NativeAccessCredentials(clientID: "fixture-id", secret: "fixture-secret"))
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.signedIn(session: "fixture-other-session", email: "other@octaviantocan.com", expectedGeneration: restored.generation)
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.updateServer(NativeServerConfiguration(server: NativeServerAddress("https://another.example")),
+                                 access: NativeAccessCredentials(clientID: "", secret: ""))
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.signedOut()
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.resetCredentials()
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+    }
+
+    func testIdentityFailureRevokesBeforeCredentialCleanupEvenWhenKeychainDeletionFails() async throws {
+        let secrets = MemorySecrets()
+        var events: [String] = []
+        let store = try NativeAccountStore(preferences: MemoryPreferences(), secrets: secrets,
+            identityWillChange: { events.append("revoke") }, invalidated: { events.append("invalidate") })
+        try store.signedIn(session: "fixture-session", email: "person@octaviantocan.com", expectedGeneration: store.generation)
+        events.removeAll()
+        secrets.failRemoving = true
+        XCTAssertThrowsError(try store.signedOut())
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        XCTAssertNil(store.configuration().headers["X-Pully-Session"])
+    }
+
     func testRestoredSessionNeedsServerVerificationBeforeOrdinaryCalls() async throws {
         let preferences = MemoryPreferences()
         let secrets = MemorySecrets()

@@ -9,3 +9,11 @@ The search pill MUST open a supported link or an unambiguous listed PR number an
 otherwise filter the list. A repository switched off MUST stay absent from Inbox,
 Tours and chip counts. The sort MUST remain stable for equal rows. Source: DESIGN.md
 rules 35, 55, 53 and 114; the existing HomeLinks, repoChoices and InboxSort policies.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-share-payload-is-canonical-destination-data
+The share handoff codec MUST use the existing HomeLinks parser, retain its supported
+target and LinkPlace destination, and persist only bounded versioned destination
+fields. It MUST NOT persist raw text, an arbitrary URL query or credentials. Host
+decoding MUST reject unsupported versions, types, extra fields, invalid identifiers
+and impossible destinations before enqueueing the same shared inbox. Source: the
+accepted 21 Oct 2026 native share handoff and maximum-reuse link plan.
