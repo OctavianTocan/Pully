@@ -19,10 +19,15 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 
 /** One controller owns private routes, app caches and the lifetime of its active native source. */
-class PullyRootState(
+class PullyRootState private constructor(
     private val scope: CoroutineScope,
     private val inboxFilter: () -> String,
+    private val entry: Entry?,
 ) {
+    private class Entry(val navigation: AppNavigation, val current: () -> Boolean)
+    constructor(scope: CoroutineScope, inboxFilter: () -> String) : this(scope, inboxFilter, null)
+    constructor(scope: CoroutineScope, inboxFilter: () -> String, navigation: AppNavigation, current: () -> Boolean) :
+        this(scope, inboxFilter, Entry(navigation, current))
     private class HomeBinding(val epoch: Long, val source: RootSource, val services: HomeScreenServices) {
         var review: ReviewFrameServices? = null
         var settings: SettingsServices? = null
@@ -35,14 +40,14 @@ class PullyRootState(
     val reviewSessions = ReviewSessionCache(scope)
     var generation by mutableLongStateOf(0L)
         private set
-    var navigation by mutableStateOf(AppNavigation())
+    var navigation by mutableStateOf(entry?.navigation ?: AppNavigation())
         private set
     var homeUi by mutableStateOf(HomeUi(inboxFilter()))
         private set
 
     /** Ordinary Home/repository/review navigation shares the same application services. */
     fun home(repo: Repo, epoch: Long, create: (RootSource) -> HomeScreenServices): HomeScreenServices {
-        check(!closed) { "Pully's root has closed." }
+        check(!closed && entry?.current?.invoke() != false) { "Pully's root has closed." }
         val identity = try {
             repo.source()
         } catch (failure: Exception) {
@@ -55,7 +60,7 @@ class PullyRootState(
         val openingGeneration = generation
         val sourceScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
         val source = RootSource(identity, sourceScope, HomeObservations(observationsReady)) {
-            !closed && generation == openingGeneration && repo.isCurrent(identity)
+            !closed && entry?.current?.invoke() != false && generation == openingGeneration && repo.isCurrent(identity)
         }
         var created: HomeScreenServices? = null
         try {
@@ -129,7 +134,7 @@ class PullyRootState(
         previous?.services?.data?.invalidate()
         reviewSessions.clear()
         // Replacing the same Compose stack owner also retires its private saveable route keys.
-        navigation = AppNavigation()
+        if (entry == null) navigation = AppNavigation() else entry.navigation.reset(Screen.Home)
         homeUi = HomeUi(inboxFilter())
     }
 

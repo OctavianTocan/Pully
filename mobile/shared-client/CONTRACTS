@@ -81,6 +81,16 @@ native worker, and opting out MUST invalidate pending writes before removing the
 Source: root analytics-can-be-turned-off, analytics-what-not-how-much and Tavi's
 21 Oct 2026 full same-app iOS implementation request.
 
+@cc [owner:OctavianTocan,label:security;product] native-usage-excludes-public-and-unverified-time
+Native private usage MUST use the shared PrivateUsageClock policy and require the
+current connection's verified foreground authority. Public browsing and time spent
+awaiting verification MUST NOT enter private screen or foreground durations. Leaving
+that authority MUST settle the previous interval into its existing source queue and
+cancel uploads before source replacement; public entry MUST preserve consent and
+durable unsent events. Entering private mode after public startup MUST NOT report
+public startup/time as a cold private launch. Source: Tavi's 21 Oct 2026 independent
+Guest decision and the accepted 22 Oct 2026 native usage ownership review.
+
 @cc [owner:OctavianTocan,label:security;product] client-review-confirmations-send-their-expected-pending-review
 When supplied, a drawn review expectation MUST reach Submit or Discard as
 pendingReviewId, with explicit null for expected-none. Omitted expectations MUST

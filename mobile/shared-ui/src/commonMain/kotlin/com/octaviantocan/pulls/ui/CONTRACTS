@@ -5,6 +5,27 @@ stack; native Back adapters MUST pop the same stack, without rebuilding the unde
 page state. Source: Tavi's accepted 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md
 rules 88, 105 and 123.
 
+@cc [owner:OctavianTocan,label:product;security;architecture] native-entry-constructs-only-its-selected-workspace
+A fresh iOS entry MUST mount the existing public GuestPages and tokenless session
+without constructing private account discovery, Home, AI, Stats, settings sync or
+usage observers. A matching locally verified existing connection MAY return to its
+private workspace; restored preferences or Keychain tokens alone MUST NOT prove a
+fresh installation belongs there. An explicit Explore choice MUST preserve saved
+credentials and synchronously settle/retire private services, callbacks, palette
+state and route/saveable owners before public pages mount. Both entries MUST use
+the same supplied AppNavigation; returning to an entry MUST create a fresh source
+without reviving its old callbacks or input. Strict Debug private fixtures MUST NOT
+gain a public/network route. An ordinary checking or failed existing connection MUST
+keep an explicit route back to public browsing. Source: Tavi's 21 Oct 2026 fresh-install/public browsing
+decision and the accepted 22 Oct 2026 lazy iOS Guest integration plan.
+
+@cc [owner:OctavianTocan,label:product;security] native-entry-handoff-keeps-the-displayed-link
+Choosing the existing-server entry from a displayed guest link fallback MUST retain
+that exact destination through private verification/sign-in on the same stack. A
+newer incoming arrival MUST take precedence, and an old private audience MUST still
+be enforced after verification. Source: shared-incoming-links-keep-their-audience,
+guest-incoming-links-commit-before-consumption and the accepted 22 Oct 2026 iOS mount.
+
 @cc [owner:OctavianTocan,label:product;architecture] shared-back-cancels-current-edit-first
 The single native edge-back observer MUST dispatch to the current page's active inline
 edit before popping the shared route stack. A hidden page or an edit removed during

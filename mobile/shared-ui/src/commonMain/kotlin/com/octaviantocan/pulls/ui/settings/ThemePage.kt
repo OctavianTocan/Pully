@@ -35,13 +35,16 @@ import kotlinx.coroutines.launch
  * screen and from the top left when it sits higher. A theme that looks the same as the one on screen (a one-look theme
  * picked again) changes the setting without a wipe, as the Light and Dark choice does (J2).
  */
-fun CoroutineScope.applyColorTheme(settings: AppSettings, theme: ColorTheme, dark: Boolean, motion: Boolean) {
+fun CoroutineScope.applyColorTheme(settings: AppSettings, theme: ColorTheme, dark: Boolean, motion: Boolean, eligible: () -> Boolean = { true }) {
+    if (!eligible()) return
     val current = ColorThemes.of(settings.colorTheme)
     if (current.id == theme.id) return
     val from = ColorThemes.all.indexOf(current)
     val to = ColorThemes.all.indexOf(theme)
     launch {
-        ThemeWipe.run(fromRight = to > from, motion = motion, changes = current.colors(dark) != theme.colors(dark)) { settings.updateColorTheme(theme.id) }
+        ThemeWipe.run(fromRight = to > from, motion = motion, changes = current.colors(dark) != theme.colors(dark)) {
+            if (eligible()) settings.updateColorTheme(theme.id)
+        }
     }
 }
 
@@ -51,7 +54,7 @@ fun CoroutineScope.applyColorTheme(settings: AppSettings, theme: ColorTheme, dar
  * and stays here, so themes can be tried one after the other (K18, L4).
  */
 @Composable
-fun ColumnScope.ColorThemePage(settings: AppSettings) {
+fun ColumnScope.ColorThemePage(settings: AppSettings, eligible: () -> Boolean = { true }) {
     val c = LocalPullsColors.current
     val dark = wantsDark(settings)
     val motion = rememberMotionEnabled()
@@ -59,7 +62,7 @@ fun ColumnScope.ColorThemePage(settings: AppSettings) {
     val chosen = ColorThemes.of(settings.colorTheme)
     // A search over the themes, as the other picking sheets have (recording 15 Oct 15:37, 02:51 to 02:58; L4).
     SearchList(ColorThemes.all, text = { it.name }, placeholder = "Find a theme", empty = "No theme matches") { theme, first ->
-        SheetRow(theme.name, { scope.applyColorTheme(settings, theme, dark, motion) }, first = first, iconless = true) {
+        SheetRow(theme.name, { scope.applyColorTheme(settings, theme, dark, motion, eligible) }, first = first, iconless = true) {
             ThemeDots(theme.colors(dark))
             Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
                 if (theme.id == chosen.id) LuIcon(Lu.check, tint = c.accentTeal, size = 20.dp)
@@ -88,5 +91,10 @@ private fun Dot(color: Color, ring: Color?) {
 /** The same palette list for Commands on either host. */
 @Composable
 fun ColorThemeSheet(settings: AppSettings, onClose: () -> Unit) {
-    PullsSheet(onClose, t("settings.colorTheme")) { ColorThemePage(settings) }
+    ColorThemeSheet(settings, { true }, onClose)
+}
+
+@Composable
+fun ColorThemeSheet(settings: AppSettings, eligible: () -> Boolean, onClose: () -> Unit) {
+    PullsSheet(onClose, t("settings.colorTheme")) { ColorThemePage(settings, eligible) }
 }
