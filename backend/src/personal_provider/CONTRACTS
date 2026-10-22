@@ -1,0 +1,62 @@
+@cc [owner:OctavianTocan,label:security;architecture] personal-provider-never-inherits-operator-authority
+The GitHub-backed personal Pi vault MUST require a current Account principal and its
+stable account ID and immutable GitHub subject; Guest and LegacyPrivate MUST NOT enter
+that credential namespace. By Tavi's 22 Oct 2026 clarification, this is one capability,
+not a prerequisite for configuring or using all AI. The captured principal/credential
+ports MUST permit a separately verified AI/Pully principal or explicit anonymous/local
+or labelled default allowance without fabricating GitHub authority. Missing, failed or
+revoked personal connections MUST NOT read operator environment/CLI credentials or
+silently select shared paid AI. This module MUST NOT register a listener or expose
+arbitrary legacy RPC. Source: Tavi's 21 Oct 2026 per-user provider connections decision,
+its approved multiuser plan and the 22 Oct AI eligibility clarification.
+
+@cc [owner:OctavianTocan,label:security] personal-pi-endpoints-cannot-reach-operator-networks
+Native endpoint input MUST NOT select proxy authority, URL credentials, query
+credentials, fragments, non-HTTPS public endpoints or unapproved ports. Every public
+request MUST validate every resolved address, deny private/reserved/metadata ranges
+and pin the validated addresses for that request. Redirects and ambient proxies
+MUST be disabled. Operator-local exceptions MUST require an exact server-configured
+base and fixed IPs, never a user-controlled bypass flag; the existing trusted legacy
+gateway remains a separate capability. Source: Tavi's 21 Oct 2026 Pi endpoint plan
+and its explicit SSRF/DNS/rebinding requirement.
+
+@cc [owner:OctavianTocan,label:security] personal-provider-secret-state-is-owned-and-encrypted
+Provider secrets MUST remain encrypted under the server-held versioned vault key,
+authenticated to their stable account, immutable subject, connection revision and
+provider purpose. Connection status MUST NOT return a credential or credential-bearing
+URL. Setup MUST distinguish keeping, replacing and clearing an existing secret;
+neither an omitted secret nor a failed update may silently acquire operator authority.
+Source: Tavi's 21 Oct 2026 encrypted per-user provider-vault decision.
+
+@cc [owner:OctavianTocan,label:security;architecture] pi-config-updates-are-revision-conditional
+An update or removal MUST compare the expected connection ID and revision with the
+current stored connection within the atomic mutation. Removed connections MUST retain
+a monotonic revision fence. Changing an endpoint with an existing credential MUST
+require explicit replacement or clearing; Keep MUST NOT forward it to a different
+endpoint. The endpoint, model preference and secret MUST share authenticated encrypted
+storage. Source: Tavi's 21 Oct 2026 per-user credential, source-revision and endpoint
+isolation decision.
+
+@cc [owner:OctavianTocan,label:security;product] pi-catalog-check-is-real-and-bounded
+Models/check MUST use the captured connection's real GET models request with bounded
+time, body and inventory, the canonical Pi model parser and no paid completion call.
+Cached returns and late responses MUST retain source and connection authority. Status
+MUST remain unverified until a successful check, and MUST NOT advertise execution while
+the job adapter is absent. Credential-bearing provider bodies and arbitrary provider
+error text MUST NOT be returned. Source: Tavi's 21 Oct 2026 truthful provider-readiness
+requirement and the 22 Oct actual service-completion instruction.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-provider-work-keeps-its-captured-owner
+Requests, cached results and jobs MUST use the originally captured current principal,
+connection ID and revision. Disconnect or replacement MUST retire old leases and
+pending private publication. Authority MUST be rechecked after awaited work and
+before a cached return; notifications MUST NOT replace canonical current-state checks.
+Source: Tavi's 21 Oct 2026 account switching, per-user provider and source-epoch plan.
+
+@cc [owner:OctavianTocan,label:product;security] provider-readiness-does-not-invent-subscription-access
+ClaudeSubscription, ChatGPTSubscription and PiEndpoint MUST remain distinct connection
+kinds. A configured Pi endpoint or API key MUST NOT be presented as either subscription
+login, upstream entitlement or a completed network verification. Unsupported or
+approval-dependent subscription deployment MUST remain explicit. Source: Tavi's
+21 Oct 2026 three-provider decision and the official-provider review recorded in
+pully-ai-account-options.md.

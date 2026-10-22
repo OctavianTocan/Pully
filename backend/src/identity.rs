@@ -37,6 +37,7 @@ struct Credential {
     token: String,
     revision: uuid::Uuid,
     active: AtomicBool,
+    revoked: tokio::sync::watch::Sender<bool>,
 }
 
 pub(crate) struct VerifiedGitHubIdentity {
@@ -144,6 +145,7 @@ impl VerifiedGitHubIdentity {
             token: self.token,
             revision: uuid::Uuid::new_v4(),
             active: AtomicBool::new(true),
+            revoked: tokio::sync::watch::channel(false).0,
         })))
     }
 }
@@ -151,6 +153,20 @@ impl VerifiedGitHubIdentity {
 impl GitHubCredential {
     pub(crate) fn revoke(&self) {
         self.0.active.store(false, Ordering::SeqCst);
+        self.0.revoked.send_replace(true);
+    }
+    /// @cc [owner:OctavianTocan,label:security] personal-revocation-notification-cannot-grant-authority
+    /// Revocation MUST invalidate the canonical active binding before notifying captured
+    /// work. Subscription MUST install its observer before checking that binding;
+    /// notification loss or races MUST NOT revive authority. Source: Tavi's 21 Oct 2026
+    /// per-user provider/source-revocation decision and approved multiuser plan.
+    pub(crate) fn subscribe_revocation(&self) -> Result<tokio::sync::watch::Receiver<bool>> {
+        let observed = self.0.revoked.subscribe();
+        ensure!(
+            self.0.active.load(Ordering::SeqCst),
+            "Your GitHub connection needs sign-in again"
+        );
+        Ok(observed)
     }
     pub(crate) fn github_id(&self) -> u64 {
         self.0.github_id

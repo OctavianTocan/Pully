@@ -40,6 +40,7 @@ pub(crate) struct AiVaultContext<'a> {
 pub(crate) enum VaultPurpose {
     GitHubCredential,
     PersonalSession,
+    PiCredential,
 }
 
 /// Only authenticated ciphertext and nonsecret format/key metadata can be persisted.
@@ -225,11 +226,15 @@ impl VaultContext<'_> {
                 && self.revision > 0,
             "Invalid personal credential owner"
         );
-        let mut aad = b"pully-personal-github-vault\0github.com\0".to_vec();
-        aad.push(match self.purpose {
-            VaultPurpose::GitHubCredential => 1,
-            VaultPurpose::PersonalSession => 2,
-        });
+        let (prefix, purpose): (&[u8], u8) = match self.purpose {
+            VaultPurpose::GitHubCredential => (b"pully-personal-github-vault\0github.com\0", 1),
+            VaultPurpose::PersonalSession => (b"pully-personal-github-vault\0github.com\0", 2),
+            VaultPurpose::PiCredential => {
+                (b"pully-personal-provider-vault\0pi-openai-compatible\0", 1)
+            }
+        };
+        let mut aad = prefix.to_vec();
+        aad.push(purpose);
         aad.extend_from_slice(&FORMAT.to_be_bytes());
         aad.extend_from_slice(&key_version.to_be_bytes());
         aad.extend_from_slice(&(self.account_id.len() as u32).to_be_bytes());
@@ -334,6 +339,30 @@ mod tests {
                 b"credential"
             )
             .is_err());
+    }
+
+    #[test]
+    fn adding_pi_preserves_both_existing_github_vault_aad_formats() {
+        let mut context = owner();
+        assert_eq!(hex::encode(context.aad(1).unwrap()), "70756c6c792d706572736f6e616c2d6769746875622d7661756c74006769746875622e636f6d00010000000100000001000000096163636f756e742d61000000000000002a0000000000000001");
+        context.purpose = VaultPurpose::PersonalSession;
+        assert_eq!(hex::encode(context.aad(1).unwrap()), "70756c6c792d706572736f6e616c2d6769746875622d7661756c74006769746875622e636f6d00020000000100000001000000096163636f756e742d61000000000000002a0000000000000001");
+    }
+
+    #[test]
+    fn pi_credentials_cannot_be_opened_as_github_credentials_or_sessions() {
+        let keys = keyring(1);
+        let mut context = owner();
+        context.purpose = VaultPurpose::PiCredential;
+        let sealed = keys.seal(&context, b"synthetic-pi-credential").unwrap();
+        assert_eq!(
+            keys.open(&context, &sealed).unwrap(),
+            b"synthetic-pi-credential"
+        );
+        context.purpose = VaultPurpose::GitHubCredential;
+        assert!(keys.open(&context, &sealed).is_err());
+        context.purpose = VaultPurpose::PersonalSession;
+        assert!(keys.open(&context, &sealed).is_err());
     }
 
     #[test]
