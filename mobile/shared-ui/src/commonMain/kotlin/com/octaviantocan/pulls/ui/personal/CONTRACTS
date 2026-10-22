@@ -52,3 +52,30 @@ The UI MUST explain GitHub's broader repository grant and Pully's current read-o
 use, preserve the connected public account on denied/failed consent, and show no
 private-access success before server confirmation. Source: Tavi's explicit 22 Oct
 private repository request and the reviewed separate repository-consent protocol.
+
+@cc [owner:OctavianTocan,label:product;security;architecture] personal-native-mount-owns-readers-and-account-recovery
+Both ordinary app roots MUST mount personal pages through the existing Guest AppPages
+stack and the same source-owned account/read presentation owner. Anonymous startup
+MUST NOT create a verified reader or fetch personal pages; a verified profile alone
+MUST NOT dispatch list work before its account or personal page is opened. Actual
+native foreground events MUST synchronously gate both sign-in and page dispatch;
+an unavailable secure-store probe MUST keep new personal actions unavailable.
+Account-wide rejection MUST clear every reader and route before opening a normal
+account recovery sheet. If inactive, only the fixed recovery request MAY wait for
+the same current workspace to resume; it MUST NOT retain read authority or open
+private consent automatically. Source/account replacement MUST revoke sheets and
+their captured actions before a new workspace mounts. Source: Tavi's 22 Oct 2026
+request to complete personal native browsing and the accepted five-finding recovery
+protocol, preserving personal-sheet-shares-owned-native-flow and the single-stack
+requirements.
+
+@cc [owner:OctavianTocan,label:security;product] personal-native-admission-precedes-browser-resume
+New personal browser, polling and claim work MUST remain paused until the current
+workspace is both actually foreground and admitted by its secure-store probe. A
+delayed consent-start response received during inactivity MUST keep the same attempt
+and open the system browser once after that admission. The native host MUST establish
+its current foreground and browser-availability flags before admitting controller
+resumption. A failed probe, reentrant inactive event or retired source MUST NOT admit
+new work. An already-entered bounded claim MAY finish across ordinary inactivity;
+this readiness gate MUST NOT cancel it. Source: the independently confirmed 22 Oct
+2026 personal-mount consent-resume finding and the accepted native epoch/probe plan.
