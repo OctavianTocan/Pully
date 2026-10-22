@@ -26,3 +26,7 @@ Publication MUST require the exact remote release commit and successful complete
 release checks; unavailable evidence MUST preserve the previous running release.
 Changing source defaults MUST NOT claim that an installed script or live timer was
 migrated. Source: Tavi's 22 Oct 2026 fast-main and protected-release decision.
+Before requesting idle shutdown, the updater MUST recheck its captured source commit,
+tracked cleanliness, fresh release ref and required CI after the build. A change during
+the build MUST leave the previous server running. Source: the same decision and the
+22 Oct independent release-admission review.

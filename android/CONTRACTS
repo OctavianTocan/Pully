@@ -31,9 +31,15 @@ the same code. The manifest MUST identify the clean source commit used for the b
 The source MUST be the exact remotely verified release commit, with all required
 strong checks passed. Building MUST use an immutable checkout and recheck approval
 before replacing served files, so a concurrent caller checkout cannot mix inputs.
+Its synchronous historical index and background builder MUST retain that immutable
+source until completion, even when the caller changes branch. Source: the 22 Oct 2026
+independent release-policy review of the same source-ownership guarantee.
 Concurrent publishers MUST serialize building, version validation and served-file
 replacement, so an older checkout cannot overwrite a newer publication. Historical index
 writers MUST publish complete JSON atomically using their own short index lock.
+Shallow or unavailable version history MUST preserve the existing historical index,
+rather than publishing a partial allowed set. Source: the 22 Oct independent
+release-history preservation review.
 Source: Tavi, 21 Oct 2026, "fix all the things you mentioned", after a manual release left
 uncommitted version edits blocking deployment; "Resolve all reviews and merge those PRs",
 concurrent-publication review.

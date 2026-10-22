@@ -125,17 +125,29 @@ with open(path + ".tmp", "w") as f:
 os.replace(path + ".tmp", path)
 EOF
 echo "published $name ($code) sha256=$sha -> $out"
-# Background historical builders have their own lock and must not keep this one.
-cleanup
-trap - EXIT
-exec 9>&-
 # Past versions (Settings, Advanced): every publish builds the versions not built yet, newest first, in the background
 # so the publish is not held up; the slider fills in as each one lands. Only one such run at a time: a publish during a
 # run waits for the lock and then makes its own pass, so the version it just replaced is built too. Each pass appends
 # to past/build.log. Before this ran on every publish, past/ was never made and the page said "The server did not
 # answer" (recording 16 Oct 09:50, 01:09 to 01:14; M3).
 mkdir -p "$out/past"
-PULLS_REVIEW_ANDROID_DIR="$out" python3 scripts/build-past-ui.py --index >/dev/null
+(cd "$build_root/source" && PULLS_REVIEW_ANDROID_DIR="$out" python3 android/scripts/build-past-ui.py --index >/dev/null)
 echo "--- $(date -u +%FT%TZ) publish of $name" >> "$out/past/build.log"
-nohup flock "$out/past/.lock" env PULLS_REVIEW_ANDROID_DIR="$out" nice python3 scripts/build-past-ui.py >> "$out/past/build.log" 2>&1 &
+# The background process takes ownership of this immutable checkout and its cleanup.
+# All arguments stay positional; the caller's current branch is never consulted.
+nohup bash -c '
+  set -euo pipefail
+  repo_root=$1
+  build_root=$2
+  out=$3
+  cleanup_history() {
+    git -C "$repo_root" worktree remove --force "$build_root/source" >/dev/null 2>&1 || true
+    rmdir "$build_root" 2>/dev/null || true
+  }
+  trap cleanup_history EXIT
+  flock "$out/past/.lock" env PULLS_REVIEW_ANDROID_DIR="$out" nice python3 "$build_root/source/android/scripts/build-past-ui.py"
+' pully-release-history "$repo_root" "$build_root" "$out" >> "$out/past/build.log" 2>&1 9>&- &
+build_root=""
+trap - EXIT
+exec 9>&-
 echo "building past versions in the background; log: $out/past/build.log"

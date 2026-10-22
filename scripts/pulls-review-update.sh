@@ -107,6 +107,12 @@ if [ "$(cat "$state/deployed" 2>/dev/null || true)" != "$head" ]; then
         cargo build --release --locked --manifest-path backend/Cargo.toml &&
         pnpm -F pulls.review run build
     then
+        # Building can take minutes. Revoke admission if the checkout, remote release
+        # or its real CI changed before asking the running server to shut down.
+        if [ "$(git rev-parse HEAD)" != "$head" ] || ! node scripts/release-track.mjs; then
+            echo 'FAIL: release admission changed during the build; previous server left running' >&2
+            exit 1
+        fi
         if start_updated_server; then
             :
         else

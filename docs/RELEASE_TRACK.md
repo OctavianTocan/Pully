@@ -29,6 +29,9 @@ The version comparison must come from this repository's successful release-push 
 run. Historical builds use only that admitted release's first-parent history and
 exclude unshipped cached artifacts without deleting them. Tag publication needs the
 same admission. No tag or deployment is triggered by merging to main.
+Historical publication refuses shallow or unavailable version history before rewriting
+the existing index; fetch complete release history first. Its immutable source remains
+available until the background history worker finishes.
 
 Desired protection is four required main checks (`android-release`, `lint`,
 `typecheck`, `android-design`) and all seven `requiredReleaseChecks` on `release`,

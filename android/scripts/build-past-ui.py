@@ -55,6 +55,8 @@ def version_of(commit: str) -> tuple[str, int] | None:
     try:
         text = git("show", f"{commit}:{GRADLE_FILE}")
     except subprocess.CalledProcessError:
+        if git("ls-tree", "--name-only", commit, "--", GRADLE_FILE).strip():
+            raise SystemExit("Release version history is unavailable; the published index is unchanged.")
         return None
     name = re.search(r'versionName\s*=\s*"([^"]+)"', text)
     code = re.search(r"versionCode\s*=\s*(\d+)", text)
@@ -63,6 +65,8 @@ def version_of(commit: str) -> tuple[str, int] | None:
 
 def versions(approved: str) -> list[dict]:
     """Released first-parent versions; never discover unshipped main version bumps."""
+    if git("rev-parse", "--is-shallow-repository").strip() != "false":
+        raise SystemExit("Complete release history is required; fetch full history before publishing the index.")
     commits = git("rev-list", "--first-parent", approved, "--", GRADLE_FILE).split()
     found: list[dict] = []
     newer_start: str | None = None  # the oldest commit seen so far of the version above

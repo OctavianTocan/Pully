@@ -57,6 +57,15 @@ if [ '${command}' = pnpm ] && [ "$*" = 'run contracts:check' ]; then
     node scripts/release-track.mjs --deployment-only || exit 1
 fi
 if [ "\${BUILD_FAIL:-0}" = 1 ] && [ '${command}' = cargo ]; then exit 19; fi
+if [ '${command}' = cargo ]; then
+    case "\${BUILD_SOURCE_CHANGE:-}" in
+        remote)
+            next=$(git commit-tree HEAD^{tree} -p HEAD -m 'new remote release')
+            git push -q origin "$next:refs/heads/release";;
+        checkout) git checkout -q main;;
+        dirty) echo 'changed during build' >> android/app/build.gradle.kts;;
+    esac
+fi
 `, { mode: 0o755 })
   }
   writeFileSync(join(bin, 'systemctl'), `#!/bin/sh
@@ -163,6 +172,20 @@ describe('Pully deployment updater', () => {
       assert.match(result.stderr, /tracked deployment files are dirty/)
       assert.equal(readFileSync(path, 'utf8'), 'versionCode = 67\n')
       assert.equal(f.calls(), '')
+    }
+  })
+
+  it('revokes admission after a build if the release ref, checkout or tracked source changed', () => {
+    for (const mutation of ['remote', 'checkout', 'dirty']) {
+      const f = fixture()
+      const before = readFileSync(join(f.out, 'latest.json'), 'utf8')
+      const result = f.run({ BUILD_SOURCE_CHANGE: mutation })
+      assert.equal(result.status, 1, result.stderr)
+      assert.match(f.calls(), /cargo build/)
+      assert.doesNotMatch(f.calls(), /idle-shutdown|systemctl|publish/)
+      assert.equal(readFileSync(join(f.state, 'invocation'), 'utf8'), 'old-server')
+      assert.equal(existsSync(join(f.state, 'deployed')), false)
+      assert.equal(readFileSync(join(f.out, 'latest.json'), 'utf8'), before)
     }
   })
 
