@@ -1,0 +1,12 @@
+@cc [owner:OctavianTocan,label:product] shared-file-links-start-at-root
+Repository links MUST preserve the existing FileLinks policy: dot-folders keep
+their dot, ./ and ../ resolve from the repository root without climbing above it,
+percent-encoded UTF-8 decodes while literal plus signs remain plus signs, and
+folders do not become file destinations. Source: existing core-file-links-from-root,
+DESIGN.md rule 124 and J36, retained by Tavi's 21 Oct 2026 iOS reuse decision.
+
+@cc [owner:OctavianTocan,label:product] shared-pull-mentions-stay-listed
+An inbox answer's pull-request mentions MUST resolve only to listed pull requests,
+ignoring owner and repository case. Unknown pull requests MUST remain plain text.
+Source: the existing `PullMentions` policy retained by Tavi's 21 Oct 2026 decision
+to share actual Android behavior with the iOS mode.

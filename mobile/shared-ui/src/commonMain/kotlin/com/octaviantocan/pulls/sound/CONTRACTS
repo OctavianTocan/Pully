@@ -1,0 +1,32 @@
+@cc [owner:OctavianTocan,label:architecture;product] shared-controls-use-native-feedback
+Shared controls MUST retain the existing cue vocabulary and role-to-cue selection.
+A host MUST install its native feedback adapter before presenting interactive shared
+controls. Audio, haptics and their user/system settings MUST remain native services;
+shared controls MUST NOT supply a silent substitute. Source: Tavi's 21 Oct 2026
+maximum-reuse iOS decision; DESIGN.md rules 109 and 120, J20.
+
+@cc [owner:OctavianTocan,label:product] shared-feedback-is-a-completed-activation
+A control cue MUST play only when activation commits, before its action callback.
+Scrolling away from a pressed control MUST remain silent. A hold MUST use the native
+adapter's existing hold effect and MUST disable Compose's independent default buzz.
+Source: existing CueModifiers behavior retained by the 21 Oct iOS decision; J20.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-cuelume-keeps-existing-synthesis
+Android and iOS MUST use the same existing Cuelume recipes, cue shaping, synthesis
+and mixer behavior. Native adapters MAY provide workers, synchronization, resource
+loading, PCM output and system haptics; they MUST NOT substitute generic sounds or
+change the cues' signatures and tempos. Source: Tavi's 21 Oct 2026 maximum-reuse iOS
+decision, DESIGN.md rules 109, 120 and 125, and the existing Cuelume browser goldens.
+
+@cc [owner:OctavianTocan,label:product;design] shared-control-sounds-stay-dry
+A tap, select or toggle MUST retain the existing dry Default material click and
+knock; ringing notes MUST remain outcomes rather than control activations. Turning
+sound off MUST drop pending synthesis and fade voices already playing. Source:
+DESIGN.md rule 125, J3/J16, and retained Android sound-no-ringing-controls behavior.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-gestures-retain-touch-only-roles
+Sheet arrival/settlement, drag thresholds and page changes MUST retain their existing
+native touch feedback roles and MUST NOT play an audible cue merely to obtain a haptic.
+The installed host MUST implement those roles with the saved haptics preference and
+system settings. Source: DESIGN.md rules 109 and 120, J12, and Tavi's 21 Oct 2026
+maximum-reuse iOS decision.

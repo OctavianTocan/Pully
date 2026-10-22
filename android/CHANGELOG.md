@@ -18,7 +18,7 @@ it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 
 ## 0.58.0
 
-Try optional features from Experimental settings.
+Try optional features and Pully’s iPhone preview.
 
 - Settings has an Experimental section with Merge risk and Browser floaty, both off until you enable them.
 ![Experimental settings in the mobile app, with Merge risk and Browser floaty off](changelog/0.58.0/experimental-settings.png)
@@ -26,6 +26,10 @@ Try optional features from Experimental settings.
 ![Native mobile review sheet with a sample merge-risk assessment](changelog/0.58.0/merge-risk.png)
 - Tap the merge-risk level on the Overview to read the assessment, even when the review found no inline problems.
 - Browser floaty now lives in Experimental, starts off, and still asks for your accessibility consent before it can appear.
+- In the internal iPhone preview, filter sample pulls, open their repository and go back with your place kept.
+![Labeled sample-data illustration of opening a repository and returning to the same Inbox position](changelog/0.58.0/interactive-screens-illustration.gif)
+- Hold a sample pull for Copy link and Open on GitHub. Review and AI actions explain when they are still unavailable.
+- Lists, searches and first-screen counts stay with their server and account when you switch sign-in or Access settings.
 
 ## 0.57.0
 

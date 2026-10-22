@@ -1,0 +1,12 @@
+@cc [owner:OctavianTocan,label:architecture;motion] shared-navigation-keeps-one-compose-stack
+Android and iOS MUST use the same Compose route stack and navigation callbacks for
+shared screens. Following a link or opening a repository MUST append a route to that
+stack; native Back adapters MUST pop the same stack, without rebuilding the underlying
+page state. Source: Tavi's accepted 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md
+rules 88, 105 and 123.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-back-cancels-current-edit-first
+The single native edge-back observer MUST dispatch to the current page's active inline
+edit before popping the shared route stack. A hidden page or an edit removed during
+the gesture MUST NOT consume it or cause a route pop. Source: the accepted 21 Oct 2026
+iOS plan's native gesture adapter and preservation of Android's edit BackHandler.

@@ -62,6 +62,9 @@ export function shortPath(path) {
     .replace(/^\.\.\/mobile\/(shared-[^/]+)\/src\/([^/]+Main)\/kotlin\/com\/octaviantocan\/pulls\//, 'platform/$1/$2/')
 }
 
+/** Shared native kit adapters remain kit code while retaining distinct ratchet keys. */
+export const isDesignSource = file => file.startsWith('ui/design/') || /^platform\/shared-[^/]+\/[^/]+Main\/ui\/design\//.test(file)
+
 export function readAndroid(path) {
   return readFileSync(join(ANDROID, path), 'utf8')
 }

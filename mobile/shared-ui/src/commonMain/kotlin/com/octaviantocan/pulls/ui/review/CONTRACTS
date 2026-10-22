@@ -52,3 +52,259 @@ cancellable, capped backoff. The existing progress line MUST say Reconnecting wh
 observation is interrupted. A route or identity change MUST cancel those retries without
 cancelling remote work. Source: the accepted 21 Oct iOS lifecycle plan and the existing
 rule that server tasks survive phone suspension.
+
+@cc [owner:OctavianTocan,label:product] pr-stack-is-a-sheet
+A pull request in a stack says so under its title ("Stacked on #241"), and a tap opens
+the Stack sheet with every layer top first down to the base branch, where a tap on
+another layer opens it (DESIGN.md checklist 51).
+
+@cc [owner:OctavianTocan,label:product;design] pr-stack-layer-reads-like-a-row
+Every layer in the Stack sheet MUST show its place in the stack in the leading column
+("2/3") and, under its title, the Inbox rows' meta line: its number and its author, then
+Merged or Closed, checks and + and − ("I cannot see the user's name ... It's like its
+missing the PR number (not the in-stack one; that one is there), and the username": Tavi,
+17 Oct 20:13; rule 203). The server's stack carries each layer's author for it.
+
+@cc [owner:OctavianTocan,label:product;security] shared-overview-actions-belong-to-route
+Overview action state MUST run at most one action at a time and retain a rejected
+action's error for recovery. A confirmed action MUST refresh before its completion
+callback. Route/account cancellation MUST NOT publish a success/failure cue, error or
+completion callback for a response that arrives after invalidation. Source: Tavi's
+21 Oct 2026 shared state/source ownership plan and the existing ReviewTopUi action policy.
+
+@cc [owner:OctavianTocan,label:product] pr-opens-at-once
+A pull request opened from a row shows its title, number, author, branches and size in
+the first frame, from what the row knew, before GitHub answers. There is no "Loading pull
+request" page; parts still on their way are skeletons (rules 50, 51 and 128; J13, H29).
+
+@cc [owner:OctavianTocan,label:design;product] pr-opening-never-jumps
+While a pull request opens, its head is laid out in its final shape from the first frame
+and values change in place: no skeleton that turns into a numbers row that pushes things
+down, and no button label that steps through "Review changes", "Review 84 files" and
+"Review 83 files" (recording 15 Oct 13:54, 09:58; K22; rule 69).
+
+@cc [owner:OctavianTocan,label:design] pr-sticky-head-stays-solid
+The head of the pull request page stays pinned while the page scrolls ("They're sticky
+and they should be"), and what is pinned stays fully readable: its buttons MUST NOT turn
+half transparent over the numbers and tabs, and nothing sits under the status bar
+(recording 15 Oct 13:54, 01:36 to 03:03; K6).
+
+@cc [owner:OctavianTocan,label:design] pr-title-is-whole
+The title is a plain 26sp heading that wraps whole, never cut and never in a bubble
+(rules 2 and 12). The one exception is the Overview's pinned head: once the page scrolls,
+the title folds to one line and MAY end in an ellipsis, and it is whole again at rest
+("ellipsis allowed", recording of 16 Oct 12:10, 20:34 to 21:03; N38, Tavi's decision).
+
+@cc [owner:OctavianTocan,label:product] pr-edit-in-place
+On a pull request the person may edit, a tap on the title turns it into a field with the
+caret where the finger landed; the text is underlined in the accent and the rest of the
+page fades to a quarter; leaving it saves. There is no Edit button (rules 83 and 110; F20,
+H34, H35). The description is edited on a sheet instead: a tap opens it in a proper text
+field and leaving the sheet saves; the page never scrolls under it (Tavi, recording 15 Oct
+15:37, 08:29 to 08:56; L13). The sheet MUST open with the cursor at the place in the text
+the tap was over, never at its end ("it scrolls me all the way down instead of stopping
+where I was gonna edit", recording 17 Oct 14:45, 01:51 to 01:59; Q3; rule 199).
+
+@cc [owner:OctavianTocan,label:product] pr-edit-blocks-the-page
+While the title or description is being edited, a tap anywhere else only leaves the
+field: nothing under it switches tab, opens or swipes (J17).
+
+@cc [owner:OctavianTocan,label:product;security] pr-no-editing-others-pull-requests
+When GitHub says the person cannot update the pull request, its title and description are
+plain text: no field, no caret, no fade ("I should not be able to change the title or
+change the description", recording 15 Oct 13:54, 09:58 to 10:42; K21).
+
+@cc [owner:OctavianTocan,label:product] pr-branch-copies-with-a-toast
+A tap on the branch copies its name and shows a small toast ("Branch name copied"); the
+pill keeps showing the branch and never turns into "Copied" (rule 83; F21).
+
+@cc [owner:OctavianTocan,label:design] pr-branch-row-is-one-line
+The branch row is head → base on one line. A long branch runs past the edge and the row
+scrolls sideways, fading at the edge it can scroll toward; "…" is the last resort (rules
+74 and 111; H31, J14).
+
+@cc [owner:OctavianTocan,label:design;product] pr-summary-switch-is-not-a-pill
+The author's description and the AI's summary are not switched by a pill ("I don't like
+this"). When the text changes it fades, which he liked (recording 15 Oct 13:54, 10:07 to
+10:20; K23). The switch is the link alone, "Show the AI summary" or "Show the
+description", with no word naming the text above it (recording 16 Oct 09:50, 02:31 to
+02:55; M6).
+
+@cc [owner:OctavianTocan,label:product] pr-commits-and-checks-are-sheets
+Commits is not a tab: tapping Commits opens a sheet like Files, with a "Find a commit"
+search and plain headings, and Checks is a sheet made the same way ("all of these
+components are things that we use everywhere", recording 15 Oct 13:54, 13:25 to 14:03;
+K29).
+
+@cc [owner:OctavianTocan,label:product] pr-commit-opens-its-diff
+Tapping a commit opens the diff of that commit alone (or that diff in a sheet). It MUST
+NOT put a "Viewing commit N of M" box on top of the Overview (recording 15 Oct 13:54,
+10:48 to 11:18; K25).
+
+@cc [owner:OctavianTocan,label:product] pr-narrowed-view-shows-the-way-back
+When the Diff shows part of the pull request (one commit, a range), it says so where the
+reader already looks, with no box over the page: the Diff's file pill names the commit and
+the Overview's Commits number reads just "3" (or "12–15") so it fits its cell, and opens the
+Commits sheet whose first row "All commits" goes back (rule 80; F26). The pill says "Only
+commit 4", never "Commit 4 of 8", which read like a page count (recording 15 Oct 15:37,
+07:06 to 07:17; L11). Tavi's K25 replaced the pinned "Viewing commit" bar
+(recording 15 Oct 13:54, 10:48 to 11:18).
+
+@cc [owner:OctavianTocan,label:design] pr-tabs-are-light
+The Overview's tabs are underline tabs with no counts and no box, easy to hit, and close
+together from the start of the line, not spread across the width (K7, Tavi's call); they
+never cut a label. While the tabs swipe, the gap between the pages is narrow, never a wide
+empty band (rules 38, 54 and 91; recording 15 Oct 13:54, 02:20 to 02:38; K7).
+
+@cc [owner:OctavianTocan,label:motion] pr-tabs-are-side-by-side
+The Overview's tabs sit side by side and move the whole width with the finger, both in
+view while moving, with the underline drawn where the pages are on every frame. A drag
+anywhere on the head (title, meta, numbers, tabs) moves them, except the branch row's own
+scroll and a file row's swipe (rules 107 and 118; J15, J21).
+
+@cc [owner:OctavianTocan,label:motion] pr-last-tab-has-no-empty-page
+On the last tab a swipe toward the next carries on to the Diff or does not move; it never
+drags the page into empty space (recording 15 Oct 13:54, 03:12 to 03:26; K8; rule 93).
+
+@cc [owner:OctavianTocan,label:product] pr-tabs-keep-their-place
+Each of the Overview's tabs keeps its scroll and what is open while another is on
+screen, and the head lifts with whichever tab is in view (rule 118; J9).
+
+@cc [owner:OctavianTocan,label:product] pr-files-fold-and-search
+The files are grouped under fold headings on the Overview, and a fold is kept while the
+pull request is open. Over 80 files every section starts folded. The Files sheet groups
+them under the sheets' plain headings with nothing folded (M7), and has a search where a
+row matches when every typed word is in it (rules 101 and 119).
+
+@cc [owner:OctavianTocan,label:design] pr-counts-sit-side-by-side
+The +N −N of a file row, a file section heading and the Files sheet sit side by side on
+one line, as on Home, never stacked and never clipped (recording 15 Oct 13:54, 10:23 and
+12:16 to 12:58; K24, K27).
+
+@cc [owner:OctavianTocan,label:product;motion] pr-file-row-swipes
+A file row on the Overview swipes like a pull request row: right opens it, left marks it
+reviewed (or not), a tap opens it and a hold opens its actions. Its checkbox sits on the
+first line of text (rule 102; F44, F46).
+
+@cc [owner:OctavianTocan,label:product] pr-conversation-folds
+Every comment in Conversation folds; a person's starts open and a bot's starts folded.
+"commented" is never written, and the age and chevron line up at the right of every
+header (rule 91; F72).
+
+@cc [owner:OctavianTocan,label:product] pr-conversation-narrows
+When both people and bots spoke, chips narrow the Conversation to All, People or Bots
+with their counts, and a narrowed list shows all of its comments (rule 129; J19).
+
+@cc [owner:OctavianTocan,label:product] pr-conversation-skips-the-description
+Conversation MUST NOT show the pull request's description as its first comment: Summary
+already shows it, so the tab starts with what was said after it, and one muted line says
+so when nobody has commented ("the first comment is just the PR's description", recording
+of 16 Oct 12:10, 15:44 to 16:01, N30, Tavi's decision).
+
+@cc [owner:OctavianTocan,label:product] pr-bots-are-githubs-word
+People and Bots split on GitHub's own data: an author is a bot when the server marks it
+(`bot`, from its GraphQL type `Bot`) or its login ends in "[bot]". The app MUST NOT keep a
+list of bot names, so chatgpt-codex-connector, devin-ai-integration and github-actions are
+bots and a person is never one for their name ("without banning names", recording of
+16 Oct 12:10, 16:02 to 16:21, N31).
+
+@cc [owner:OctavianTocan,label:product;design] pr-checks-read-cleanly
+Checks lists failed first, then running, then passed; a row taps through to the check.
+A check's name does not wrap into many lines, and the sheet's close button and its
+heading keep the standard gap (rule 79; recording 15 Oct 13:54, 13:01 to 13:24; K28).
+
+@cc [owner:OctavianTocan,label:design] pr-sheet-rows-in-cards
+In the pull request's sheets the rows sit in the raised cards every other sheet uses,
+one card under each heading, rows at least 60dp with whole titles (rule 79; J24, F27).
+
+@cc [owner:OctavianTocan,label:product;design] pr-groups-say-a-shared-start-once
+File groups in a row named "Prefix › Something" with the same Prefix are listed under one
+line saying the Prefix, and each group's row says only the rest. Two group rows on the
+Overview MUST NOT start with the same words ("Wayland capture producer" four times,
+recording of 16 Oct 12:10, 17:41 to 18:02; N34). A group keeps its fold under its whole
+name.
+
+@cc [owner:OctavianTocan,label:design] pr-texts-never-stand-in-columns
+Two texts MUST NOT sit side by side where one wraps into a narrow column beside the other.
+A file row's whole path runs on after "Worth a look ·" and wraps under it, as one paragraph
+("almost a rule I personally have", recording of 16 Oct 12:10, 19:49 to 20:16; N37).
+
+@cc [owner:OctavianTocan,label:product] pr-opens-current-text
+Opening a pull request, coming back to it, or tapping a link to the one on screen MUST put
+the title and description GitHub holds now in place of a kept copy as soon as the small
+`pr-text` answer arrives, without waiting for the whole overview; a link to the page on
+screen reads it again rather than doing nothing (Tavi, thread message 16 Oct 13:52, "the
+description was not updated").
+
+@cc [owner:OctavianTocan,label:design] pr-metadata-stays-one-line
+The repository, number, author and age MUST remain on one line. Variable names MUST
+yield at their ends while number and age retain their width (DESIGN.md rule 26;
+repository review 15 Oct 2026, finding 13).
+
+@cc [owner:OctavianTocan,label:product;design;motion] ask-bar-rests-short
+A page's Ask bar (the Overview, its opening page and the Tour) MUST rest as a short pill,
+centred, that reads Ask, with no button. A tap opens it to the full width with the cursor
+in its field and its button at the end; left with nothing typed, it goes short again
+("let's not have this send button and let's just have like a shorter bar that says Ask.
+And when you tap on it ... it kind of expands ... and then obviously compacts back
+whenever you get out of that", recording 17 Oct 14:45, 02:26 to 03:19; Q5; rule 197).
+
+@cc [owner:OctavianTocan,label:product;design] pr-description-written-rendered
+The description sheet's field MUST read its Markdown rendered while it is typed, as
+Obsidian's live preview does: headings and strong words heavier, emphasis slanted, code
+in the code face, links in the link ink and a list's dash as a bullet, with the marks
+folded away on every line but the cursor's. Every character MUST stay as typed, so what is
+saved is the Markdown ("It is fine to let me do markdown, but just render it immediately,
+basically. Something like Obsidian", recording 17 Oct 14:45, 02:00 to 02:25; Q4; rule 200).
+
+@cc [owner:OctavianTocan,label:product] pr-number-opens-github
+Tapping a pull request number in its metadata MUST open
+https://github.com/{owner}/{repo}/pull/{number} in an external browser using an explicitly
+selected package, bypassing Pully app-link capture. Commit, compare and posted-diff
+metadata MUST NOT invent a PR link (Tavi, 20 Oct 2026: "Pressing on the PRs number should
+open the PR on GitHub... Pully captures GitHub links... needs to not do that").
+
+@cc [owner:OctavianTocan,label:product;design] pr-files-reviewed-strikethrough
+In the Files bottom sheet, a file whose existing review state is Reviewed MUST strike
+through its filename and folder path. Unreviewed and Changed files MUST remain unstruck;
+the checkbox and existing review state remain the source of truth (Tavi, 20 Oct 2026
+controls feedback).
+
+@cc [owner:OctavianTocan,label:product;design] pr-lifecycle-is-visible
+The pull request detail header MUST visibly say Merged or Closed when GitHub reports
+that lifecycle, using the app's existing state ink and glyphs independently of check
+results. A merge timestamp or an observed merged state MUST take precedence over an
+open, closed or draft copy and MUST disable merge actions; a fresh known open overview
+MAY replace a previously closed copy after reopening. Missing or unrecognized lifecycle
+without terminal evidence MUST NOT be treated as open. A current diff's known state MUST
+replace a cached overview's older state; lifecycle and same-PR link refreshes MUST update
+the displayed status without a manual Refresh. A known lifecycle from the list MUST
+survive the opening preview (Tavi, 20 Oct 2026: "On PRs that have already been merged,
+we have no indication that they've been merged").
+
+@cc [owner:OctavianTocan,label:architecture;product;security] shared-overview-requires-real-host-services
+Both hosts MUST render the same production Overview, Conversation, metadata and reading
+sheets. Clipboard, external GitHub/browser destinations and lifecycle MUST use the one
+required native actions service. Inline-edit Back MUST cancel the field before the
+shared route pops, through the host's existing Back dispatcher; iOS MUST NOT install a
+second competing edge recognizer. A host without that dispatcher MUST keep text editing
+unavailable even when the server grants permission. Source: Tavi's accepted 21 Oct 2026
+shared Overview and native-service plan, preserving pr-edit-in-place and pr-number-opens-github.
+
+@cc [owner:OctavianTocan,label:product;architecture;security] shared-overview-capabilities-precede-ai-actions
+A host MUST declare unavailable AI reading, setup and paid actions before exposing
+Overview controls or issuing their requests. Supported AI content MUST use the actual
+production renderer with citations, task guards and complete outcomes; an empty or
+no-op content provider MUST NOT claim support. Android MUST retain its current Brief,
+AI summary, file note and findings renderers until those implementations move to common
+code. A host without them MUST say that kept AI results are unavailable and MUST NOT
+start invisible work. Source: the accepted 21 Oct 2026 ordered extraction and explicit
+OverviewAiContent decision; full native AI reading remains pending that renderer move.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-overview-commit-days-use-local-calendar
+Commit-day groups MUST retain their existing contiguous order and Today, Yesterday,
+English weekday/date labels in the device's time zone. A missing commit date MUST
+follow the preceding group or read Undated when first. Android MUST retain its current
+java.time formatter; native calendar adaptation MUST NOT change the commit indices or
+selection behavior. Source: existing CommitsSheet/commitDays behavior retained by
+Tavi's 21 Oct 2026 maximum-reuse decision.

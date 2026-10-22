@@ -1,0 +1,11 @@
+@cc [owner:OctavianTocan,label:architecture;product] shared-home-policy-has-no-native-ui
+Home link routing, repository filtering/query models, Inbox sorting/grouping and label
+color arithmetic MUST remain UI-free and shared without a second native implementation.
+Android callers MUST retain their existing packages through the core facade. Source:
+Tavi's 21 Oct 2026 maximum-reuse iOS decision and accepted source extraction plan.
+
+@cc [owner:OctavianTocan,label:product] shared-home-search-preserves-policy
+The search pill MUST open a supported link or an unambiguous listed PR number and
+otherwise filter the list. A repository switched off MUST stay absent from Inbox,
+Tours and chip counts. The sort MUST remain stable for equal rows. Source: DESIGN.md
+rules 35, 55, 53 and 114; the existing HomeLinks, repoChoices and InboxSort policies.

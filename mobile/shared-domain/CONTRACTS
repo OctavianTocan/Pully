@@ -48,3 +48,10 @@ A brief MUST be parsed from the server's plain `{type, props}` tree into known n
 blocks. It MUST NOT execute the tree, and a component the app does not know MUST NOT
 be drawn. Source: architecture, The brief; the `ai-brief-is-data` contract and parser
 are retained by Tavi's 21 Oct 2026 shared-code decision.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-links-keep-github-destinations
+A GitHub link MUST keep its conversation, review, thread, file, side/line, commit-range
+or check-run destination. File anchors MUST remain the lowercase SHA256 of the exact
+UTF8 path, without case or Unicode normalization; platform digest adapters MUST preserve
+known vectors. Source: Tavi, 20 Oct, "It needs to take us to the thing. Seamless parity
+with GitHub", retained by the accepted 21 Oct iOS link-sharing plan.

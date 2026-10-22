@@ -16,6 +16,14 @@ The iOS app bundle's `i18n/` JSON locale set and each file's bytes MUST equal
 without maintaining another set of translation files. Source: Tavi's 21 Oct 2026
 maximum-reuse iOS decision and DESIGN.md's locale source-of-truth enforcement.
 
+@cc [owner:OctavianTocan,label:architecture;design] ios-feedback-is-native-output-of-shared-cuelume
+iOS control feedback MUST synthesize the existing shared Cuelume recipes and DSP.
+Native code MAY adapt PCM output and system haptic generators, but MUST NOT replace
+the cue signatures with generic system sounds. It MUST respect the saved sound and
+haptic preferences, Ring/Silent, and suspension; suspended feedback MUST NOT replay
+on resume. Source: Tavi's 21 Oct 2026 maximum-reuse iOS decision and Android
+sound-follows-the-phone, sound-cue-per-role and DESIGN.md rule 125.
+
 @cc [owner:OctavianTocan,label:security;architecture] ios-keychain-tests-use-real-private-app-identity
 The iOS Keychain roundtrip MUST execute the actual secure-store adapter in a
 genuine app-hosted simulator test with its own private application identifier in
@@ -25,3 +33,49 @@ MUST NOT widen Keychain sharing, and MUST NOT skip or mock a missing entitlement
 as a passing result. Source: Tavi's chosen 21 Oct 2026 native-storage plan and
 the real simulator errSecMissingEntitlement failure; Apple DTS app-host guidance
 and Xcode's simulator entitlement representation observed in the 21 Oct Mac run.
+
+@cc [owner:OctavianTocan,label:architecture;security] ios-home-services-follow-actual-scene-lifecycle
+Shared Home actions MUST use native clipboard writes and external HTTPS GitHub
+navigation, bypassing the app's incoming-link router. Lifecycle registration MUST
+synchronously report the current scene state, then real scene transitions;
+cancellation MUST remove exactly that registration, and disconnection MUST stop
+and release all observers. An obsolete reentrant foreground event MUST NOT resume
+background work. Source: Tavi's 21 Oct 2026 maximum-reuse plan and shared Home
+NativeHomeActions contract, preserving Android foreground lifecycle ownership.
+
+@cc [owner:OctavianTocan,label:architecture;motion] ios-edge-back-drives-shared-navigation
+The iOS leading-edge recognizer MUST report normalized progress and commit or cancel
+to the existing shared PageMotion and navigation stack. It MUST use the shared
+layout direction, reject disabled root navigation, cancel on scene interruption,
+and release replaced or cancelled registrations. It MUST NOT transform the native
+controller or maintain another route stack. Source: Tavi's 21 Oct 2026 maximum-reuse
+iOS plan and the shared NativeHomeActions edge-back integration decision.
+The one recognizer MUST receive both the root Compose view and its sibling dialog
+layers in the same scene window, while a presented native controller MUST prevent
+the underlying shared route or sheet from consuming its gesture. Source: the real
+21 Oct 2026 simulator sheet-dismissal failure and the same shared Back priority.
+A registration created before the root acquires its window MUST be retried when the
+scene becomes active; repeated attachment or activation MUST NOT add a second edge
+recognizer for that registration. Source: the accepted 21 Oct 2026 native Back
+continuity repair after actual simulator repository and dialog journeys.
+The shared Back recognizer MUST retain native Back prevention priority while a
+Compose dialog is open, so the framework's click-only Back handler cannot swallow
+its progress gesture. The same scene/root/presentation and shared-consumer gates
+MUST still decide whether it starts or commits. Source: the actual 21 Oct 2026
+modal-only simulator failure and pinned Compose 1.12.2 Dialog/navigation input.
+
+@cc [owner:OctavianTocan,label:architecture;security] ios-explicit-browser-uses-native-web-presentation
+The shared explicit browser action MUST accept only HTTP(S) URLs with a host and no
+URL credentials, and MUST present the native browser controller from the active
+scene. Its initial navigation MUST bypass Pully and GitHub universal-link routing.
+The separate open-on-GitHub action MAY use direct system navigation. Neither action
+MAY forward Pully RPC or Access credentials. Source: Tavi's 21 Oct 2026 maximum-reuse
+iOS plan and the shared Overview browser action through NativeHomeActions.
+
+@cc [owner:OctavianTocan,label:product] ios-journey-tests-observe-the-production-filter
+The native Home journey tests MUST tap the actual production filter control and
+assert its exported selected state. A matching text descendant or parent container
+MUST NOT stand in for that control. The tests MUST retain the existing row, native
+Back, scroll and foreground continuity assertions. Source: Tavi's accepted 21 Oct
+2026 real iPhone journey plan and DESIGN.md rules49/128 on accessible state and
+retained navigation context.

@@ -3,3 +3,12 @@ The initial iOS host MUST visibly identify itself as an internal preview and its
 rows as fixture data. It MUST NOT offer authentication, mutation or paid AI controls
 before those production services are integrated. Source: Tavi's 21 Oct 2026 iOS
 implementation plan, first shared-code and runnable-host delivery.
+
+@cc [owner:OctavianTocan,label:security;product] ios-preview-capabilities-precede-rpc
+The internal preview MUST render actual shared Home/repository screens and use the
+same Compose route stack as Android. It MUST offer working filters, lists and repository
+navigation. Unsupported review, AI, account or Commands destinations MUST be absent,
+disabled or state their preview limitation before navigation or a request; no invisible
+paid chain or silent navigation callback MAY stand in for a missing renderer. Source:
+Tavi's accepted 21 Oct 2026 maximum-reuse iOS plan and its explicitly capability-gated
+internal preview delivery.

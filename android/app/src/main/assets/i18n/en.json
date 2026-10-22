@@ -1,7 +1,10 @@
 {
   "mobilePreview": {
     "title": "Pully internal preview",
-    "fixtureData": "Fixture data"
+    "fixtureData": "Fixture data",
+    "limitationTitle": "Internal preview limitation",
+    "limitationBody": "This internal preview supports Inbox filters, repository lists and profile settings. Review, AI, account settings and Commands will become available as their existing screens are shared.",
+    "profileUnavailable": "Profile statistics are not included in this internal preview."
   },
   "common": {
     "cancel": "Cancel",

@@ -11,7 +11,6 @@ export const NAME = 'tokens'
 export const RULES = [12, 45, 47, 76]
 export const SPEC_JSON = join(ASSETS, 'book', 'spec.json')
 export const RULES_JSON = join(ASSETS, 'book', 'rules.json')
-const KOTLIN = 'app/src/main/kotlin/com/octaviantocan/pulls/ui/design'
 
 const sameHex = (a, b) => String(a).toUpperCase() === String(b).toUpperCase()
 
@@ -187,7 +186,10 @@ export function check({ update = false } = {}) {
   const { front, rules } = readDesign()
   const tokens = readAndroid(`${SHARED_DESIGN}/Tokens.kt`)
   const scale = readAndroid(`${SHARED_DESIGN}/Scale.kt`)
-  const kit = readAndroid(`${KOTLIN}/Kit.kt`)
+  const kit = readAndroid(`${SHARED_DESIGN}/Kit.kt`)
+  const shadows = ['android', 'ios'].map(platform => readAndroid(
+    `../mobile/shared-ui/src/${platform}Main/kotlin/com/octaviantocan/pulls/ui/design/Shadow.${platform}.kt`,
+  ))
   const problems = [
     ...lintDesign(),
     ...compareColors(front, paletteColors(tokens, 'LightPullsColors'), paletteColors(tokens, 'DarkPullsColors')),
@@ -196,7 +198,7 @@ export function check({ update = false } = {}) {
     ...compareScale('rounded', front.rounded, dpScale(scale, 'PullsRadius'), 'PullsRadius'),
     ...compareScale('spacing', front.spacing, dpScale(scale, 'PullsSpace'), 'PullsSpace', name => name.replace(/^x/, '')),
     ...compareScale('elevation', front.elevation, dpScale(scale, 'PullsElevation'), 'PullsElevation'),
-    ...compareShadows(front, shadowLevels(kit), shadowLayer(kit)),
+    ...shadows.flatMap(shadow => compareShadows(front, shadowLevels(kit), shadowLayer(`${kit}\n${shadow}`))),
   ]
   const generated = [
     [SPEC_JSON, stable(buildSpec(front))],

@@ -1,7 +1,6 @@
 package com.octaviantocan.pulls.ui.design
 
 import androidx.compose.foundation.ScrollState
-import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
@@ -68,8 +67,6 @@ import androidx.compose.ui.window.DialogProperties
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
-import androidx.activity.BackEventCompat
-import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -77,167 +74,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import com.octaviantocan.pulls.core.BACKWARD
 import com.octaviantocan.pulls.core.FORWARD
-import com.octaviantocan.pulls.core.backWay
 import com.octaviantocan.pulls.core.pageWay
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-/** Blur is a render effect: Android 12 and up. Below that the content is simply drawn sharp. */
-val BlurSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
-/** [blur] that costs nothing at zero and does nothing below Android 12; the content may bleed past its bounds. */
-fun Modifier.softBlur(radius: Dp): Modifier =
-    if (BlurSupported && radius > 0.dp) this.blur(radius, BlurredEdgeTreatment.Unbounded) else this
-
-/**
- * Swaps between screens of one page, such as the Inbox and Tours tabs: the leaving content fades
- * out blurring and slides 8dp away, the arriving content fades in sharpening from 8dp the other
- * side (`--p8-*`, 250ms smooth-out). [order] ranks the screens left to right, so a screen further
- * right comes in from the right and one further left from the left: the pages move the way the
- * person went (rule 105). A change [order] cannot know the way of, Back and a back swipe, comes
- * through [motion], which also holds a page under a back swipe (see [PageBack]). A centred title passes
- * [contentAlignment] `Center`, so the one leaving does not ride the edge of a container that shrinks around it.
- * [reach] above 0 makes the pages travel that share of their width instead of 8dp, and [slow] takes 350ms in and 250ms
- * out instead of 250 and 150: a sheet's pages move far and slow enough to see the way they went (H1).
- */
-@Composable
-fun <S> BlurSwitch(
-    target: S,
-    modifier: Modifier = Modifier,
-    order: (S) -> Int,
-    motion: PageMotion? = null,
-    contentAlignment: Alignment = Alignment.TopStart,
-    reach: Float = 0f,
-    slow: Boolean = false,
-    content: @Composable AnimatedContentScope.(S) -> Unit,
-) {
-    val step = with(LocalDensity.current) { PullsMotion.SlideDistance.roundToPx() }
-    val travel = { width: Int -> if (reach > 0f) (width * reach).toInt() else step }
-    val inMs = if (slow) PullsMotion.MEDIUM else PullsMotion.FAST
-    val outMs = if (slow) PullsMotion.FAST else PullsMotion.QUICK
-    val moving = rememberMotionEnabled()
-    val change = remember { WayOfChange(target) }
-    change.update(target, order, motion)
-    val pages = updateTransition(target, label = "blur-switch")
-    if (motion != null) {
-        SideEffect { motion.onScreen = target }
-        // The page a back swipe held keeps where the finger left it until it has gone; then the hold lets go.
-        val settled = pages.currentState
-        LaunchedEffect(settled) { if (settled == pages.targetState) motion.letGo(settled) }
-    }
-    pages.AnimatedContent(
-        modifier = modifier,
-        contentAlignment = contentAlignment,
-        transitionSpec = {
-            if (!moving) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
-            val way = change.way
-            ((fadeIn(tween(inMs, easing = PullsMotion.SmoothOut)) + slideInHorizontally(tween(inMs, easing = PullsMotion.SmoothOut)) { way * travel(it) }) togetherWith
-                (fadeOut(tween(outMs, easing = PullsMotion.SmoothOut)) + slideOutHorizontally(tween(outMs, easing = PullsMotion.SmoothOut)) { -way * travel(it) }))
-                // A screen of another height resizes the container on the same curve, so a sheet grows or shrinks with its page.
-                .using(SizeTransform(clip = true) { _, _ -> tween(inMs, easing = PullsMotion.SmoothOut) })
-        },
-    ) { state ->
-        val blur by transition.animateDp(transitionSpec = { tween(inMs, easing = PullsMotion.SmoothOut) }, label = "blur") {
-            if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurMedium
-        }
-        Box(Modifier.then(if (motion != null) Modifier.heldBy(motion, state) else Modifier).softBlur(blur)) { content(state) }
-    }
-}
-
-/** The way of the change in flight, fixed once when the target changes, so the leaving and arriving pages agree. */
-private class WayOfChange<S>(private var from: S) {
-    var way = FORWARD
-        private set
-
-    fun update(to: S, order: (S) -> Int, motion: PageMotion?) {
-        if (to == from) return
-        way = motion?.take() ?: pageWay(order(from), order(to))
-        from = to
-    }
-}
-
-/**
- * What moved a [BlurSwitch] last, when its order cannot tell (rule 105). Back always goes backward, and a back swipe
- * moves the page with the finger while it is held and then carries on the way the finger went, so a swipe from the
- * right edge sends the pages left. One [PageMotion] drives one [BlurSwitch].
- */
-@Stable
-class PageMotion {
-    private var next: Int? = null
-
-    /** The next change goes [way] ([FORWARD] or [BACKWARD]) whatever the order says. Call it just before the change. */
-    fun next(way: Int) {
-        next = way
-    }
-
-    internal fun take(): Int? = next.also { next = null }
-
-    /** The page the switch shows, which is the one a back swipe takes hold of. */
-    internal var onScreen: Any? = null
-
-    /** The page under a back swipe: it keeps the swipe's offset while it leaves, and nothing else does. */
-    internal var held: Any? by mutableStateOf(null)
-
-    /** A given-up swipe putting its page back, which the next swipe stops so the two do not fight over the hold. */
-    internal var putBack: Job? = null
-
-    /** How far the back swipe has gone, 0 to 1, and which way it moves the page, with the finger. */
-    internal var hold by mutableFloatStateOf(0f)
-    internal var holdWay by mutableIntStateOf(BACKWARD)
-
-    /** The page that held the swipe has gone (or the switch settled elsewhere): drop the hold. */
-    internal fun letGo(settled: Any?) {
-        if (held != null && held != settled) {
-            held = null
-            hold = 0f
-        }
-    }
-}
-
-/** A page under a back swipe follows the finger up to 96dp and fades to 40% on the way, like the rows of a tab swipe (rule 88). */
-private fun Modifier.heldBy(motion: PageMotion, state: Any?): Modifier = graphicsLayer {
-    // Read in the draw layer, all of them every time, so the layer redraws when any changes.
-    val p = motion.hold
-    if (state != motion.held) return@graphicsLayer
-    translationX = -motion.holdWay * p * PullsMotion.FingerRange.toPx()
-    alpha = 1f - 0.6f * p
-}
-
-/**
- * Back for pages drawn by a [BlurSwitch] with [motion] (rule 105). The Back button goes backward. A back swipe moves
- * the page with the finger while it is held, and when it lets go the pages carry on that way: right after a swipe from
- * the left edge, left after one from the right. A swipe given up puts the page back.
- */
-@Composable
-fun PageBack(motion: PageMotion, enabled: Boolean, onBack: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    val latest by rememberUpdatedState(onBack)
-    val moving = rememberMotionEnabled()
-    PredictiveBackHandler(enabled) { events ->
-        motion.putBack?.cancel()
-        motion.held = motion.onScreen
-        var way = BACKWARD
-        try {
-            events.collect { event ->
-                way = backWay(fromRightEdge = event.swipeEdge == BackEventCompat.EDGE_RIGHT)
-                motion.holdWay = way
-                if (moving) motion.hold = event.progress
-            }
-        } catch (e: CancellationException) {
-            val held = motion.held
-            motion.putBack = scope.launch {
-                animate(motion.hold, 0f, animationSpec = tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) { v, _ -> motion.hold = v }
-                if (motion.held == held) motion.held = null
-            }
-            throw e
-        }
-        motion.next(way)
-        latest()
-    }
-}
 
 /**
  * A label replaced by its neighbour, such as the file name between ‹ and › or the stop named on the Tour's strip: the
@@ -481,31 +323,6 @@ fun MenuReveal(visible: Boolean, modifier: Modifier = Modifier, origin: Transfor
 }
 
 /**
- * An icon replaced by another, such as Copy by a tick (`icon swap` on transitions.dev, rule 73):
- * the old one shrinks to a quarter through a 2px blur while the new one grows from a quarter, both at
- * once in 250ms ease-in-out. Nothing moves while [target] stays the same.
- */
-@Composable
-fun <S> IconSwap(target: S, modifier: Modifier = Modifier, content: @Composable (S) -> Unit) {
-    val motion = rememberMotionEnabled()
-    AnimatedContent(
-        targetState = target,
-        modifier = modifier,
-        transitionSpec = {
-            if (!motion) return@AnimatedContent EnterTransition.None togetherWith ExitTransition.None
-            (fadeIn(tween(PullsMotion.FAST, easing = PullsMotion.InOut)) + scaleIn(tween(PullsMotion.FAST, easing = PullsMotion.InOut), PullsMotion.ICON_SCALE)) togetherWith
-                (fadeOut(tween(PullsMotion.FAST, easing = PullsMotion.InOut)) + scaleOut(tween(PullsMotion.FAST, easing = PullsMotion.InOut), PullsMotion.ICON_SCALE))
-        },
-        label = "icon-swap",
-    ) { state ->
-        val blur by transition.animateDp(transitionSpec = { tween(PullsMotion.FAST, easing = PullsMotion.InOut) }, label = "icon-blur") {
-            if (it == EnterExitState.Visible) 0.dp else PullsMotion.BlurSmall
-        }
-        Box(Modifier.softBlur(blur)) { content(state) }
-    }
-}
-
-/**
  * A dialog window that opens in 250ms from 96% size and leaves in 150ms (`modal` on transitions.dev,
  * rule 73). The window is kept until the exit has played, so [visible] going false does not cut it.
  */
@@ -528,157 +345,3 @@ internal fun ModalSurface(state: MutableTransitionState<Boolean>, motion: Boolea
         exit = if (!motion) ExitTransition.None else fadeOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut)) + scaleOut(tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut), PullsMotion.MODAL_SCALE),
     ) { content() }
 }
-
-/**
- * The top padding of a screen header. Row W puts the header 48dp from the top of the screen; a
- * phone whose status bar is taller than 40dp keeps its own inset plus 8dp instead.
- */
-@Composable
-fun headerTopPadding(): Dp = max(WindowInsets.statusBars.asPaddingValues().calculateTopPadding().value + 8f, 48f).dp
-
-/**
- * Content that scrolls under a pinned header or bar dissolves instead of being cut (rule 74). The
- * [top] and [bottom] bands go to the page [color] over their length, and the content in them is
- * blurred a little more the nearer it is to the edge, in [FADE_STEPS] layers of growing radius.
- * Each blurred layer is made from content that reaches [pad] beyond the band on both sides, then
- * clipped to the band: a blur that only saw the band would stretch its own edge into streaks, and
- * one that was not clipped would smear the header above it.
- *
- * [topStrength] and [bottomStrength] (0 to 1) are read in the draw phase, so a list at rest at the
- * top stays sharp. [topInset] (px, also read while drawing) starts the top band lower, under something pinned over the
- * top of the content, such as a list's sticky heading. Below Android 12 there is no blur and the fade alone is drawn.
- */
-@Composable
-fun Modifier.edgeFade(
-    top: Dp = 0.dp,
-    bottom: Dp = 0.dp,
-    color: Color = LocalPullsColors.current.base,
-    blur: Dp = PullsMotion.EdgeBlur,
-    topStrength: () -> Float = { 1f },
-    bottomStrength: () -> Float = { 1f },
-    topInset: () -> Float = { 0f },
-): Modifier {
-    if (top <= 0.dp && bottom <= 0.dp) return this
-    val source = rememberGraphicsLayer()
-    val topLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
-    val bottomLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
-    return this.drawWithContent {
-        source.record { this@drawWithContent.drawContent() }
-        drawLayer(source)
-        if (top > 0.dp) fadeBand(source, topLayers, color, topInset(), top.toPx(), true, blur.toPx(), topStrength())
-        if (bottom > 0.dp) fadeBand(source, bottomLayers, color, size.height - bottom.toPx(), bottom.toPx(), false, blur.toPx(), bottomStrength())
-    }
-}
-
-/** How many blur layers make a band: radius a third, two thirds and all of the blur, reaching all, two thirds and a third of the way in. */
-private const val FADE_STEPS = 3
-
-/** How opaque the page colour is at each tenth of the way out from the inside of a band to its edge: an ease, so the rows go quietly. */
-private val FADE_CURVE = floatArrayOf(0f, 0.03f, 0.12f, 0.26f, 0.44f, 0.62f, 0.78f, 0.9f, 0.97f, 1f)
-
-private fun DrawScope.fadeBand(source: GraphicsLayer, layers: List<GraphicsLayer>, color: Color, y: Float, height: Float, atTop: Boolean, blur: Float, strength: Float) {
-    if (strength <= 0f || height < 1f || size.width < 1f) return
-    val amount = strength.coerceIn(0f, 1f)
-    if (BlurSupported && blur > 0f) {
-        layers.forEachIndexed { i, layer ->
-            val radius = blur * (i + 1) / layers.size
-            val reach = height * (layers.size - i) / layers.size
-            val pad = ceil(radius * 3f)
-            val edge = if (atTop) pad else pad + height
-            layer.renderEffect = BlurEffect(radius, radius, TileMode.Decal)
-            layer.compositingStrategy = CompositingStrategy.Offscreen
-            layer.alpha = amount
-            layer.record(size = IntSize(size.width.toInt(), (height + 2f * pad).toInt())) {
-                translate(top = pad - y) { drawLayer(source) }
-                // raw-value-ok: an alpha mask, never drawn as a colour
-                val keep = Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = edge, endY = if (atTop) edge + reach else edge - reach)
-                drawRect(keep, blendMode = BlendMode.DstIn)
-            }
-            clipRect(0f, y, size.width, y + height) { translate(top = y - pad) { drawLayer(layer) } }
-        }
-    }
-    val stops = Array(FADE_CURVE.size) { n ->
-        val outward = n / (FADE_CURVE.size - 1f)
-        // Index 0 is the inside of the band and the last is the page edge; a top band runs the other way round.
-        val at = if (atTop) 1f - outward else outward
-        at to color.copy(alpha = FADE_CURVE[n])
-    }.sortedBy { it.first }.toTypedArray()
-    drawRect(Brush.verticalGradient(*stops, startY = y, endY = y + height), topLeft = Offset(0f, y), size = Size(size.width, height), alpha = amount)
-}
-
-/**
- * [sideFade] for a row that scrolls sideways with [scroll]: each edge fades over [band] only while there is more past it,
- * so a row at rest at its start is sharp on the left (J14, J23). [color] is what the row sits on.
- */
-@Composable
-fun Modifier.sideScrollFade(scroll: ScrollState, band: Dp = SIDE_BAND, color: Color = LocalPullsColors.current.base): Modifier {
-    val px = with(LocalDensity.current) { band.toPx() }
-    return sideFade(
-        start = band, end = band, color = color,
-        startStrength = { (scroll.value / px).coerceIn(0f, 1f) },
-        endStrength = { ((scroll.maxValue - scroll.value) / px).coerceIn(0f, 1f) },
-    )
-}
-
-/** How far a sideways row fades at an edge it can still scroll toward. */
-val SIDE_BAND = 24.dp
-
-/**
- * [edgeFade] for content that scrolls sideways, such as the branch row (J14): what runs past the [start] and [end] edges
- * dissolves into the page [color] through the same blur, instead of being cut. [startStrength] and [endStrength] (0 to 1,
- * read while drawing) let an edge with nothing past it stay sharp.
- */
-@Composable
-fun Modifier.sideFade(
-    start: Dp = 0.dp,
-    end: Dp = 0.dp,
-    color: Color = LocalPullsColors.current.base,
-    blur: Dp = PullsMotion.BlurMedium,
-    startStrength: () -> Float = { 1f },
-    endStrength: () -> Float = { 1f },
-): Modifier {
-    if (start <= 0.dp && end <= 0.dp) return this
-    val source = rememberGraphicsLayer()
-    val startLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
-    val endLayers = List(FADE_STEPS) { rememberGraphicsLayer() }
-    return this.drawWithContent {
-        source.record { this@drawWithContent.drawContent() }
-        drawLayer(source)
-        if (start > 0.dp) sideBand(source, startLayers, color, 0f, start.toPx(), true, blur.toPx(), startStrength())
-        if (end > 0.dp) sideBand(source, endLayers, color, size.width - end.toPx(), end.toPx(), false, blur.toPx(), endStrength())
-    }
-}
-
-/** [fadeBand] turned on its side: a band [width] px wide from [x], dissolving toward the start edge when [atStart]. */
-private fun DrawScope.sideBand(source: GraphicsLayer, layers: List<GraphicsLayer>, color: Color, x: Float, width: Float, atStart: Boolean, blur: Float, strength: Float) {
-    if (strength <= 0f || width < 1f || size.height < 1f) return
-    val amount = strength.coerceIn(0f, 1f)
-    if (BlurSupported && blur > 0f) {
-        layers.forEachIndexed { i, layer ->
-            val radius = blur * (i + 1) / layers.size
-            val reach = width * (layers.size - i) / layers.size
-            val pad = ceil(radius * 3f)
-            val edge = if (atStart) pad else pad + width
-            layer.renderEffect = BlurEffect(radius, radius, TileMode.Decal)
-            layer.compositingStrategy = CompositingStrategy.Offscreen
-            layer.alpha = amount
-            layer.record(size = IntSize((width + 2f * pad).toInt(), size.height.toInt())) {
-                translate(left = pad - x) { drawLayer(source) }
-                // raw-value-ok: an alpha mask, never drawn as a colour
-                val keep = Brush.horizontalGradient(0f to Color.Black, 1f to Color.Transparent, startX = edge, endX = if (atStart) edge + reach else edge - reach)
-                drawRect(keep, blendMode = BlendMode.DstIn)
-            }
-            clipRect(x, 0f, x + width, size.height) { translate(left = x - pad) { drawLayer(layer) } }
-        }
-    }
-    val stops = Array(FADE_CURVE.size) { n ->
-        val outward = n / (FADE_CURVE.size - 1f)
-        val at = if (atStart) 1f - outward else outward
-        at to color.copy(alpha = FADE_CURVE[n])
-    }.sortedBy { it.first }.toTypedArray()
-    drawRect(Brush.horizontalGradient(*stops, startX = x, endX = x + width), topLeft = Offset(x, 0f), size = Size(width, size.height), alpha = amount)
-}
-
-/** How far a list has scrolled under its top edge: 0 at rest, 1 once it is [band] px past. */
-fun LazyListState.topEdgeStrength(band: Float): Float =
-    if (firstVisibleItemIndex > 0) 1f else (firstVisibleItemScrollOffset / band).coerceIn(0f, 1f)
