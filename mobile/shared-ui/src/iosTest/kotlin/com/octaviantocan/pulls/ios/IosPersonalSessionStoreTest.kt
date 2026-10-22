@@ -49,6 +49,18 @@ class IosPersonalSessionStoreTest {
     }
 
     @Test
+    fun presentEmptyNativeContentsStayInvalidAndAMissingReadCanBeRetried() {
+        val storage = MemoryStorage().apply { bytes = byteArrayOf() }
+        val store = IosPersonalSessionStore(storage, "", RpcTransport { error("No personal request") })
+        assertFailsWith<PersonalAuthError> { store.verifyStorage() }
+        assertEquals(0, assertNotNull(storage.bytes).size)
+        assertEquals(0, storage.writes)
+        storage.bytes = null
+        store.verifyStorage()
+        assertEquals(0, storage.writes)
+    }
+
+    @Test
     fun signOutRevokesEveryScenesRuntimeBeforeCallbacksAndRejectsALateHeldProfile() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val storage = MemoryStorage().apply {
@@ -103,7 +115,7 @@ class IosPersonalSessionStoreTest {
         var bytes: ByteArray? = null
         var unavailable = false
         var writes = 0
-        override fun read(): ByteArray? { check(!unavailable); return bytes?.copyOf() }
+        override fun read(): NativePersonalSessionRead { check(!unavailable); return NativePersonalSessionRead(bytes?.copyOf()) }
         override fun write(contents: ByteArray) { check(!unavailable); writes++; bytes = contents.copyOf() }
     }
 }

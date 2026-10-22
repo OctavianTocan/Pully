@@ -3,6 +3,7 @@ import importlib.util
 import io
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -96,6 +97,52 @@ at Native.assertion</failure></testcase></testsuite>''')
             self.assertGreaterEqual(len(lines), 2)
             self.assertRegex(lines[0], r"^::stop-commands::[0-9a-f]{64}$")
             self.assertEqual(lines[-1], f"::{lines[0].removeprefix('::stop-commands::')}::")
+
+
+class NativeSDKFailureEvidenceTests(unittest.TestCase):
+    def test_actual_summary_and_commands_remain_inside_the_disabled_envelope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "Info.plist").write_text("fixture")
+            summary = '{"testFailures":[{"testName":"SDK","failureText":"Expected true; got false ##[add-mask]legacy"}]}\n::error::assertion'
+            result = SimpleNamespace(returncode=0, stdout=summary, stderr="")
+            output = io.StringIO()
+            with patch.object(reports.sys, "argv", ["print-shared-test-failures.py", "--xcresult", directory]), \
+                    patch.object(reports.subprocess, "run", return_value=result) as command, \
+                    contextlib.redirect_stdout(output):
+                reports.main()
+            command.assert_called_once_with(
+                ["xcrun", "xcresulttool", "get", "test-results", "summary", "--path", directory],
+                capture_output=True, text=True,
+            )
+            lines = output.getvalue().splitlines()
+            self.assertRegex(lines[0], r"^::stop-commands::[0-9a-f]{64}$")
+            self.assertEqual(lines[-1], f"::{lines[0].removeprefix('::stop-commands::')}::")
+            self.assertIn(summary, output.getvalue())
+
+    def test_missing_bundle_and_summary_failure_are_explicit_without_false_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), patch.object(reports.subprocess, "run") as command:
+                reports._print_xcresult(directory)
+            command.assert_not_called()
+            self.assertIn("No completed native SDK xcresult", output.getvalue())
+            (Path(directory) / "Info.plist").write_text("fixture")
+            output = io.StringIO()
+            result = SimpleNamespace(returncode=65, stdout="", stderr="unreadable bundle")
+            with contextlib.redirect_stdout(output), patch.object(reports.subprocess, "run", return_value=result):
+                reports._print_xcresult(directory)
+            self.assertIn('"summaryExitCode": 65', output.getvalue())
+            self.assertIn("unreadable bundle", output.getvalue())
+
+    def test_summary_output_is_bounded_and_retains_the_artifact_pointer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "Info.plist").write_text("fixture")
+            output = io.StringIO()
+            result = SimpleNamespace(returncode=0, stdout="x" * (reports.MAX_XCRESULT_SUMMARY + 20), stderr="")
+            with contextlib.redirect_stdout(output), patch.object(reports.subprocess, "run", return_value=result):
+                reports._print_xcresult(directory)
+            self.assertEqual(output.getvalue().splitlines()[0], "x" * reports.MAX_XCRESULT_SUMMARY)
+            self.assertIn("retain the full xcresult artifact", output.getvalue())
 
 
 if __name__ == "__main__":

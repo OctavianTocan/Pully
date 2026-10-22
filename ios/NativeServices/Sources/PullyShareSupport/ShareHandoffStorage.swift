@@ -178,14 +178,14 @@ private final class ProtectedShareFiles {
     init(directory: URL) { self.directory = directory }
 
     func locked<T>(_ operation: () throws -> T) throws -> T {
-        try manager.createDirectory(at: directory, withIntermediateDirectories: true, attributes: attributes(directory: true))
+        try manager.createDirectory(at: directory, withIntermediateDirectories: true, attributes: ShareFileProtection.attributes(directory: true))
         try rejectSymlink(directory)
-        try manager.setAttributes(attributes(directory: true), ofItemAtPath: directory.path)
+        try manager.setAttributes(ShareFileProtection.attributes(directory: true), ofItemAtPath: directory.path)
         let lock = directory.appendingPathComponent("handoff.lock")
         let descriptor = Darwin.open(lock.path, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
         guard descriptor >= 0 else { throw ShareHandoffError.unavailable }
         defer { Darwin.close(descriptor) }
-        try manager.setAttributes(attributes(directory: false), ofItemAtPath: lock.path)
+        try manager.setAttributes(ShareFileProtection.attributes(directory: false), ofItemAtPath: lock.path)
         // A suspended extension can retain its lock. Never wait for another process on the host's MainActor.
         while pully_file_lock(descriptor, LOCK_EX | LOCK_NB) != 0 {
             let failure = errno
@@ -214,12 +214,8 @@ private final class ProtectedShareFiles {
         let data = try JSONEncoder().encode(value)
         guard data.count <= maximumRecordBytes else { throw ShareHandoffError.invalidRecord }
         let url = directory.appendingPathComponent(name)
-        #if os(iOS)
-        try data.write(to: url, options: [.atomic, .completeFileProtection])
-        #else
-        try data.write(to: url, options: .atomic)
-        #endif
-        try manager.setAttributes(attributes(directory: false), ofItemAtPath: url.path)
+        try data.write(to: url, options: ShareFileProtection.writeOptions)
+        try manager.setAttributes(ShareFileProtection.attributes(directory: false), ofItemAtPath: url.path)
     }
 
     func remove(_ name: String) throws {
@@ -231,8 +227,20 @@ private final class ProtectedShareFiles {
     private func rejectSymlink(_ url: URL) throws {
         guard try url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true else { throw ShareHandoffError.unavailable }
     }
+}
 
-    private func attributes(directory: Bool) -> [FileAttributeKey: Any] {
+/// The permissions and protection class every handoff file and directory asks for.
+/// The iOS Simulator has no Data Protection and reads no class back, so tests check this request there.
+enum ShareFileProtection {
+    static var writeOptions: Data.WritingOptions {
+        #if os(iOS)
+        return [.atomic, .completeFileProtection]
+        #else
+        return .atomic
+        #endif
+    }
+
+    static func attributes(directory: Bool) -> [FileAttributeKey: Any] {
         var value: [FileAttributeKey: Any] = [.posixPermissions: directory ? 0o700 : 0o600]
         #if os(iOS)
         value[.protectionKey] = FileProtectionType.complete
