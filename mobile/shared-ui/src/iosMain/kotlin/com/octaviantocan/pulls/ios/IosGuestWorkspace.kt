@@ -18,6 +18,9 @@ import com.octaviantocan.pulls.ui.home.NativeHomeActions
 import com.octaviantocan.pulls.ui.home.SourceHomeActions
 import com.octaviantocan.pulls.ui.personal.PersonalBrowseMount
 import com.octaviantocan.pulls.ui.personal.PersonalBrowseAccountSheet
+import com.octaviantocan.pulls.ui.personal.GitHubAccountEntry
+import com.octaviantocan.pulls.ui.personal.GitHubAccountEntrySheet
+import com.octaviantocan.pulls.ui.personal.GitHubAccountRequest
 import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
 import com.octaviantocan.pulls.ui.settings.wantsDark
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +37,7 @@ internal class IosGuestWorkspace(
     private val incoming: IncomingLinkInbox,
     private val isCurrent: () -> Boolean,
     private val personalSessions: IosPersonalSessionStore? = null,
+    private val accountRequest: GitHubAccountRequest? = null,
 ) : NativeWorkspace {
     private var closed = false
     private val personalForeground = native as? NativePersonalForegroundActions
@@ -45,10 +49,16 @@ internal class IosGuestWorkspace(
     private var foreground by mutableStateOf(false)
     private var personalAvailable by mutableStateOf(false)
     private var personalActivityEpoch = 0L
+    private val githubAccountEntry = GitHubAccountEntry(
+        current = { current }, foreground = { this.native.isSharedBackActive() },
+        configured = { personalSessions?.configured == true },
+        available = { foreground && personalAvailable && personal != null },
+        mount = { personalBrowse },
+    )
     private val commands = CommandPaletteOwner { current }
     private val links = NativeGuestLinkHandoff(incoming, navigation) { current }
     private val personalActivity = try {
-        if (personal == null) null else personalForeground?.observePersonalForeground(object : NativePersonalForegroundObserver {
+        personalForeground?.observePersonalForeground(object : NativePersonalForegroundObserver {
             override fun changed(active: Boolean) {
                 val opening = ++personalActivityEpoch
                 if (!current) return
@@ -57,11 +67,12 @@ internal class IosGuestWorkspace(
                 foreground = active
                 personalAvailable = false
                 if (!active || !current || personalActivityEpoch != opening || !foreground) return
-                val available = try { requireNotNull(personalSessions).verifyStorage(); true } catch (_: Exception) { false }
+                val available = personal != null && try { requireNotNull(personalSessions).verifyStorage(); true } catch (_: Exception) { false }
                 if (!current || personalActivityEpoch != opening || !foreground) return
                 personalAvailable = available
                 personalBrowse?.availability(available)
-                if (available) personal.restore()
+                if (available) personal?.restore()
+                if (current && personalActivityEpoch == opening && foreground) accountRequest?.deliver(githubAccountEntry)
             }
         })
     } catch (failure: Throwable) {
@@ -101,6 +112,9 @@ internal class IosGuestWorkspace(
             val toaster = remember { Toaster() }
             var themes by remember { mutableStateOf(false) }
             val personalView = personal?.view?.collectAsState()?.value
+            LaunchedEffect(accountRequest?.hasPending, foreground, personalAvailable) {
+                if (current) accountRequest?.deliver(githubAccountEntry)
+            }
             val moving = rememberMotionEnabled()
             CompositionLocalProvider(
                 LocalColorTheme provides colorTheme,
@@ -144,13 +158,14 @@ internal class IosGuestWorkspace(
                         navigation, motion, session,
                         { if (current) onExistingAccount() },
                         { url -> if (current) native.openOnGithub(url) },
-                        onGitHubSignIn = if (personalAvailable && personal != null) ({ if (current && foreground && personalAvailable) personalBrowse?.openAccount() }) else null,
+                        onGitHubSignIn = { githubAccountEntry.open() },
                         onCommands = { if (current) Commands.open() },
                         githubAccount = personalView?.account?.login,
                         personal = personalBrowse,
                     )
                     personalBrowse?.let { mount -> PersonalBrowseAccountSheet(mount,
                         onOpenBrowser = { url -> if (current && foreground && personalAvailable) native.openOnGithub(url) }) }
+                    GitHubAccountEntrySheet(githubAccountEntry)
                     if (themes) ColorThemeSheet(settings, { current }) { themes = false }
                     CommandPalette(commands)
                     ToastHost(toaster)
@@ -165,6 +180,7 @@ internal class IosGuestWorkspace(
     override fun close() {
         if (closed) return
         closed = true
+        githubAccountEntry.close()
         personalBrowse?.close()
         personalActivityEpoch++
         foreground = false

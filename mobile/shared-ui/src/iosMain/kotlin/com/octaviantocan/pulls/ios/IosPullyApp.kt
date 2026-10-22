@@ -17,6 +17,8 @@ import com.octaviantocan.pulls.ui.explore.NativeEntryMode
 import com.octaviantocan.pulls.ui.explore.NativeEntryState
 import com.octaviantocan.pulls.ui.home.NativeHomeActions
 import com.octaviantocan.pulls.ui.home.NativeSharedLinkHandoff
+import com.octaviantocan.pulls.ui.home.NativeBackReadiness
+import com.octaviantocan.pulls.ui.personal.GitHubAccountRequest
 import com.octaviantocan.pulls.ui.home.HomeLifecycleSubscription
 import com.octaviantocan.pulls.ui.settings.AccountStorage
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +65,7 @@ class IosPullyApp private constructor(
     private var closed = false
     private val evidence = NativeEntryEvidence(UserDefaultsSettings(defaults, "pully-entry"), accountStorage)
     private val entry = if (fixture) NativeEntryState(true) else evidence.entry()
+    private val githubAccountRequest = GitHubAccountRequest(entry)
     private val navigation = AppNavigation(rootScreen = if (entry.mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
     private val settings = AppSettings(UserDefaultsSettings(defaults), object : SettingsEffects {
         override fun touched(name: String) { privateWorkspace?.touched(name) }
@@ -77,7 +80,7 @@ class IosPullyApp private constructor(
             shareHandoff?.revoke()
             privateWorkspace = null
             initialWorkspace = false
-            IosGuestWorkspace(homeActions, settings, transport, scope, source, stack, incoming, current, personalSessions)
+            IosGuestWorkspace(homeActions, settings, transport, scope, source, stack, incoming, current, personalSessions, githubAccountRequest)
         },
         createExisting = { stack, current ->
             IosPrivateWorkspace(
@@ -91,7 +94,7 @@ class IosPullyApp private constructor(
         selected = { if (!fixture) evidence.selected(it) },
     )
     private val personalIdentitySubscription = personalSessions?.observeIdentityChanged {
-        if (!closed) workspaces.renewExplore()
+        if (!closed) { githubAccountRequest.clear(); workspaces.renewExplore() }
     }
     private var incomingLifecycle: HomeLifecycleSubscription? = null
 
@@ -102,6 +105,7 @@ class IosPullyApp private constructor(
                 when (val workspace = workspaces.workspace) {
                     is IosGuestWorkspace -> workspace.Content {
                         if (workspace.current) {
+                            githubAccountRequest.clear()
                             workspace.prepareExistingEntry()
                             workspaces.select(NativeEntryMode.ExistingServer)
                         }
@@ -109,9 +113,18 @@ class IosPullyApp private constructor(
                     is IosPrivateWorkspace -> workspace.Content(onExplore = if (fixture) null else {
                         {
                             if (workspaces.workspace === workspace) {
+                                githubAccountRequest.clear()
                                 shareHandoff?.revoke()
                                 workspaces.select(NativeEntryMode.Explore)
                             }
+                        }
+                    }, onGitHubAccount = if (fixture) null else {
+                        {
+                            githubAccountRequest.request(
+                                current = { !closed && workspaces.workspace === workspace },
+                                foreground = { (homeActions as? NativeBackReadiness)?.isSharedBackActive() == true },
+                                selectExplore = { shareHandoff?.revoke(); workspaces.select(NativeEntryMode.Explore) },
+                            )
                         }
                     })
                 }
@@ -137,6 +150,7 @@ class IosPullyApp private constructor(
     fun close() {
         if (closed) return
         closed = true
+        githubAccountRequest.clear()
         runCatching { incomingLifecycle?.cancel() }
         personalIdentitySubscription?.invoke()
         try { workspaces.close() }
