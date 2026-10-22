@@ -14,3 +14,41 @@ navigation stack to Explore, without adopting legacy private authority. Source: 
 21 Oct 2026 any-GitHub/public-browsing request, maximum-reuse iOS decision and accepted
 22 Oct native secure-stage/confirm/publish protocol and independent mounted-account
 ownership review.
+
+@cc [owner:OctavianTocan,label:security;product;architecture] personal-pages-keep-their-verified-account-and-selection
+Your pull requests and repositories MUST consume only the runtime's verified personal
+read capabilities on the host's existing navigation stack. PublicRead MUST remain
+public-only; private lists MUST use the separately confirmed repository-consent
+capability and show each repository's visibility. A route or equal-looking copied
+row MUST NOT mint a capability or replace a selected immutable repository ID/visibility.
+The session MUST admit only its own route instances and current loaded selections.
+Account, authority or entry replacement MUST synchronously cancel reads, clear rows
+and revoke its route inputs/callbacks before the next identity appears. Native
+foreground changes MUST gate new dispatch synchronously and pause read observation;
+returning MUST quietly revalidate the active page, retaining known loaded pagination
+until its complete current answer is ready. Permission/identity denial MUST purge
+affected PR rows. Unknown content MUST use existing skeletons, and PR list titles MUST
+retain the two-line ellipsis limit. These GitHub pages MUST NOT construct legacy
+Repo/Home/AI/Stats or gate independently available default/provider AI. Source:
+Tavi's 21 Oct any-account/public-browsing request, explicit 22 Oct private-repository
+requirement and accepted native personal capability/selection protocol.
+
+@cc [owner:OctavianTocan,label:security;product] personal-page-animation-has-no-read-authority
+Removing a personal route from the shared stack MUST immediately revoke its admission,
+loaded rows and retained selection callbacks. An outgoing renderer lease MAY delay
+disposal but MUST NOT delay revocation or let reinsertion of that same route object
+restore authority. A current typed account-wide rejection MUST clear every retained
+filter/page before the source-owned recovery action opens the shared account flow;
+it MUST NOT offer another read with the same rejected bearer. Back controls MUST
+announce their actual destination or use neutral Back wording. Source: the five
+independently confirmed 22 Oct 2026 personal-read Compound findings, Tavi's accepted
+source-ownership plan and DESIGN.md's single shared navigation/accessibility rules.
+
+@cc [owner:OctavianTocan,label:security;product] personal-private-consent-remains-a-separate-action
+Private repository consent MUST remain an explicit action for the verified account,
+using the shared system-browser flow and secure pending-save/confirmation protocol.
+It MUST NOT silently replace public sign-in or infer permission from inherited scopes.
+The UI MUST explain GitHub's broader repository grant and Pully's current read-only
+use, preserve the connected public account on denied/failed consent, and show no
+private-access success before server confirmation. Source: Tavi's explicit 22 Oct
+private repository request and the reviewed separate repository-consent protocol.

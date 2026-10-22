@@ -317,7 +317,7 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
                     is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place, initialAIResult = current.aiResult)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}
-                    Screen.Explore, is Screen.PublicRepo -> {}
+                    Screen.Explore, is Screen.PublicRepo, is Screen.PersonalPulls, is Screen.PersonalRepositories, is Screen.PersonalRepo -> {}
                 }
             }
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
@@ -367,6 +367,9 @@ private val Screen.analyticsName: String
         Screen.Home -> "home"
         Screen.Explore -> "explore"
         is Screen.PublicRepo -> "publicrepo"
+        is Screen.PersonalPulls -> "personal_pulls"
+        is Screen.PersonalRepositories -> "personal_repositories"
+        is Screen.PersonalRepo -> "personal_repo"
         is Screen.Repo -> "repo"
         is Screen.Review -> "review"
         Screen.Settings -> "settings"
