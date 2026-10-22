@@ -6,6 +6,13 @@ effects MUST NOT introduce a shared-domain or shared-client dependency on Compos
 Source: Tavi's 21 Oct 2026 same-app iOS decision and the accepted shared-presentation
 AppSettings boundary in the iOS implementation plan.
 
+@cc [owner:OctavianTocan,label:product;architecture] shared-experiments-explicit-local-consent
+Every experimental feature MUST default off, persist separately from ordinary choices,
+and remain device-local: account sync, old review data and existing accessibility
+permission MUST NOT enable it. Changes MUST use the host's existing opt-out-aware
+analytics boundary. Source: Tavi's 21 Oct 2026 experimental/opt-in/removability request,
+including the browser floaty follow-up.
+
 @cc [owner:OctavianTocan,label:product] shared-settings-sync-preserves-local-edits
 A local synced preference edit MUST persist its value and notify the host's touched
 callback, which retains ownership of change timestamps and synchronization. Applying

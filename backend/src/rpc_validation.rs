@@ -211,7 +211,11 @@ fn task() -> Schema {
                 ("locale", Str),
                 ("then", opt(arr(Pick(&["tour", "brief"])))),
             ]),
-            "critique" => fields.extend([("variant", Str), ("lens", opt(lens()))]),
+            "critique" => fields.extend([
+                ("variant", Str),
+                ("lens", opt(lens())),
+                ("experiments", opt(obj(vec![("mergeRisk", opt(Bool))]))),
+            ]),
             "ask" => fields.extend([
                 ("threadId", Pattern(r"^[A-Za-z0-9_-]{1,80}$")),
                 (

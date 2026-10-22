@@ -145,6 +145,7 @@ data class Critique(
     val usage: Usage?,
     val variant: String? = null,
     val revision: String? = null,
+    val mergeRisk: MergeRisk? = null,
 )
 
 fun JsonObject.asCritique(): Critique = Critique(
@@ -162,6 +163,7 @@ fun JsonObject.asCritique(): Critique = Critique(
     usage = obj("usage").asUsage(),
     variant = sOrNull("variant"),
     revision = sOrNull("revision"),
+    mergeRisk = obj("mergeRisk")?.asMergeRisk(),
 )
 
 /** `AiAskTurn` and `AiAskThread`. [pulls] are the listed pull requests an inbox answer names, which the app links. */

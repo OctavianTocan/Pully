@@ -23,4 +23,5 @@ interface SettingsEffects {
     fun touched(name: String)
     fun settingsChanged(key: String, value: String)
     fun usageStatsEnabled(enabled: Boolean)
+    fun experimentChanged(feature: String, enabled: Boolean) {}
 }

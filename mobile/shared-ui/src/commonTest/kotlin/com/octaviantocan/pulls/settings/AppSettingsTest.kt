@@ -13,6 +13,37 @@ import kotlin.test.assertTrue
 
 class AppSettingsTest {
     @Test
+    fun experimentsDefaultOffStayLocalAndPersistOnlyAfterExplicitChoices() {
+        val prefs = MemorySettingsPreferences()
+        // Legacy consent and ordinary settings cannot enable the new experiment gates.
+        prefs.edit().putBoolean("disclosure-accepted", true).putBoolean("autoRefresh", true).apply()
+        val events = mutableListOf<String>()
+        val effects = object : SettingsEffects {
+            override fun touched(name: String) { error("Experiments must not sync") }
+            override fun settingsChanged(key: String, value: String) { error("Experiments use their own adapter") }
+            override fun usageStatsEnabled(enabled: Boolean) {}
+            override fun experimentChanged(feature: String, enabled: Boolean) { events += "$feature:$enabled" }
+        }
+        val settings = AppSettings(prefs, effects) { "en" }
+        assertFalse(settings.experiments.mergeRisk)
+        assertFalse(settings.experiments.browserHelper)
+        assertEquals(emptyList(), events)
+        settings.experiments.updateMergeRisk(true)
+        settings.experiments.updateMergeRisk(true)
+        settings.experiments.updateBrowserHelper(true)
+        assertEquals(listOf("merge-risk:true", "browser-helper:true"), events)
+        val reopened = AppSettings(prefs, effects) { "en" }
+        assertTrue(reopened.experiments.mergeRisk)
+        assertTrue(reopened.experiments.browserHelper)
+        assertNull(reopened.syncedValue("experiment.merge-risk"))
+        assertFalse(reopened.applySynced("experiment.merge-risk", JsonPrimitive(true)))
+        reopened.experiments.updateBrowserHelper(false)
+        reopened.experiments.updateMergeRisk(false)
+        assertFalse(AppSettings(prefs, effects) { "en" }.experiments.browserHelper)
+        assertEquals(listOf("merge-risk:true", "browser-helper:true", "browser-helper:false", "merge-risk:false"), events)
+    }
+
+    @Test
     fun newPreferencesKeepExistingDefaultsWithoutMarkingAnyChoiceAsLocal() {
         val preferences = MemorySettingsPreferences()
         val effects = RecordedSettingsEffects()

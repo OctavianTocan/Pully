@@ -3,6 +3,13 @@ A pull request opened from a row shows its title, number, author, branches and s
 the first frame, from what the row knew, before GitHub answers. There is no "Loading pull
 request" page; parts still on their way are skeletons (rules 50, 51 and 128; J13, H29).
 
+@cc [owner:OctavianTocan,label:product] pr-current-merge-risk-opens-assessment
+The Overview MUST show a saved merge-risk level only after local experimental opt-in and when the review's known head
+matches the opened diff, and tapping it MUST open the review's full assessment even
+when there are no inline findings. It MUST NOT change GitHub merge readiness.
+It MUST be marked Experimental. Source: Tavi's 21 Oct 2026 merge-risk request and
+follow-up requiring experimental, opt-in-only features, narrowing the original display.
+
 @cc [owner:OctavianTocan,label:design;product] pr-opening-never-jumps
 While a pull request opens, its head is laid out in its final shape from the first frame
 and values change in place: no skeleton that turns into a numbers row that pushes things

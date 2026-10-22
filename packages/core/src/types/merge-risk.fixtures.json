@@ -1,0 +1,11 @@
+[
+  { "name": "contained and verified", "verdicts": ["good", "small", "good", "low", "good"], "level": "low" },
+  { "name": "just below medium", "verdicts": ["good", "small", "decent", "medium", "good"], "level": "low" },
+  { "name": "just above low", "verdicts": ["good", "medium", "decent", "low", "good"], "level": "medium" },
+  { "name": "just below high", "verdicts": ["poor", "large", "decent", "low", "decent"], "level": "medium" },
+  { "name": "just above medium", "verdicts": ["good", "large", "poor", "medium", "good"], "level": "high" },
+  { "name": "all categories risky", "verdicts": ["poor", "large", "poor", "high", "poor"], "level": "high" },
+  { "name": "verification carries twice the weight", "verdicts": ["good", "small", "poor", "low", "good"], "level": "medium" },
+  { "name": "impact carries twice the weight", "verdicts": ["good", "large", "good", "low", "good"], "level": "medium" },
+  { "name": "monitoring does not apply", "verdicts": ["good", "small", "good", "low", "not-applicable"], "level": "low" }
+]

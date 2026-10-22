@@ -5,6 +5,12 @@ Unknown optional server fields MUST NOT prevent parsing a supported response. Th
 models MUST NOT call GitHub or model providers. Source: `data-server-is-the-source`
 and Tavi's 21 Oct 2026 decision to share the actual Pully implementation for iOS.
 
+@cc [owner:OctavianTocan,label:product] shared-data-merge-risk-needs-all-categories
+A critique's merge assessment MUST retain its overall level and all five category
+verdicts and reasons. Missing, incomplete or invalid assessments MUST remain absent,
+without preventing the rest of the review from loading or defaulting to low risk.
+Source: Tavi's 21 Oct 2026 request to implement Warp's merge-risk assessment in Pully.
+
 @cc [owner:OctavianTocan,label:product] shared-data-keeps-timestamp-meaning
 An inbox row's valid ISO instant or numeric-offset timestamp MUST retain its epoch
 millisecond value on both platforms. Missing or malformed timestamps and millisecond

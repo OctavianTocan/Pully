@@ -9,11 +9,15 @@ the current browser window and repository again before opening Pully (Tavi, 18 O
 
 @cc [owner:OctavianTocan,label:security] browser-helper-opt-in-and-local
 The service MUST require both the in-app disclosure consent and the reader's Android
-accessibility grant. With consent off, interruption, service disconnect, screen lock,
+accessibility grant, plus the device-local experimental opt-in. Existing grants or old
+consent MUST NOT opt into the experiment. With either opt-in off, interruption, service disconnect, screen lock,
 or another app in front, the overlay MUST be removed. The helper MUST NOT persist or log
 browsing URLs, inspect page content, request screenshot or gesture capabilities, or make
 network requests. Only the normalized repository MAY be handed to Pully on an explicit
-tap; Pully's normal repository connection then applies (Tavi, 18 Oct 2026).
+tap; Pully's normal repository connection then applies (Tavi, 18 Oct 2026). Only a
+successful explicit tap MAY record the fixed experiment/action enums through the
+existing analytics opt-out boundary; observations MUST NOT emit analytics. The
+experimental gate and tap-only usage counting are Tavi's 21 Oct 2026 follow-up.
 
 @cc [owner:OctavianTocan,label:design;architecture] browser-helper-native-overlay
 The cross-app helper MAY use a native TextView in TYPE_ACCESSIBILITY_OVERLAY because
