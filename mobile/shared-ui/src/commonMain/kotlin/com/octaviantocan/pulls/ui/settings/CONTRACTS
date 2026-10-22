@@ -121,6 +121,10 @@ usage and unpriced-cost dash from one shared body. Counts and Gregorian dates MU
 use the app's chosen language; dollars, compact tokens and time units MUST retain
 the existing Android formatting policy. Source: stats-ai-usage, DESIGN.md rules178/181
 and Tavi's 21 Oct 2026 maximum-reuse same-app decision.
+Integer time units MUST preserve the original Android Math.round half-boundary,
+including the representable value immediately below one half. Source: the existing
+Android millisecondRoundingRetainsTheOriginalJvmHalfBoundary proof and the actual
+22 Oct 2026 Native formatting failure under the same maximum-reuse decision.
 
 @cc [owner:OctavianTocan,label:architecture;security] shared-settings-use-one-active-source
 The root MUST provide one active model/catalog services instance to Settings, review
