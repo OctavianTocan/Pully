@@ -2,17 +2,16 @@ name: Android verify
 
 on:
   pull_request:
-    paths:
-      - android/**
-      - mobile/**
-      - CONTRACTS
-      - .github/workflows/android-verify.yml
+    branches: [release]
+  push:
+    branches: [release]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  android:
+  android-release-verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -32,3 +31,25 @@ jobs:
       - name: Compile and run JVM tests
         working-directory: android
         run: ./gradlew :shared-domain:jvmTest :shared-client:jvmTest :shared-ui:testAndroidHostTest :core:test :app:testDebugUnitTest :app:assembleDebug --no-daemon
+      - name: Verify the built APK identity, version and pinned signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/37.0.0"
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          badging="$("$tools/aapt2" dump badging "$apk")"
+          python3 - "$badging" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+          source = Path('android/app/build.gradle.kts').read_text()
+          code = re.search(r'^\s*versionCode\s*=\s*(\d+)\s*$', source, re.M).group(1)
+          name = re.search(r'^\s*versionName\s*=\s*"([^"]+)"\s*$', source, re.M).group(1)
+          actual = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", sys.argv[1], re.M)
+          if actual is None or actual.groups() != ('com.octaviantocan.pulls', code, name):
+              sys.exit('Built APK package/version differs from the release source.')
+          PY
+          expected="$(keytool -exportcert -keystore android/app/debug.keystore -alias androiddebugkey -storepass android | sha256sum | cut -d' ' -f1)"
+          signers="$("$tools/apksigner" verify --print-certs "$apk")"
+          actual="$(printf '%s\n' "$signers" | sed -n 's/^.*certificate SHA-256 digest: //p' | sort -u)"
+          test "$actual" = "$expected"

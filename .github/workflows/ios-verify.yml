@@ -2,19 +2,9 @@ name: iOS verify
 
 on:
   pull_request:
-    paths:
-      - mobile/**
-      - ios/**
-      - android/core/**
-      - android/app/src/main/res/font/**
-      - android/app/src/main/assets/licenses/**
-      - android/app/src/main/assets/i18n/**
-      - packages/app/src/i18n/locales/**
-      - android/build.gradle.kts
-      - android/settings.gradle.kts
-      - android/gradle/**
-      - CONTRACTS
-      - .github/workflows/ios-verify.yml
+    branches: [release]
+  push:
+    branches: [release]
   workflow_dispatch:
 
 permissions:
@@ -25,10 +15,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ios:
+  ios-release-verify:
     # Ordinary ARM64 hosted runner; this is not the paid -xlarge runner label.
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       IOS_RUNTIME_VERSION: 26.4.1
@@ -169,6 +159,11 @@ jobs:
             -resultBundlePath ios/build/Pully.xcresult \
             -parallel-testing-enabled NO \
             test CODE_SIGNING_ALLOWED=NO
+      - name: Require every actual UIKit test and retain readable evidence
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        run: |
+          python3 -B -m unittest discover -s ios/scripts -p 'test_host_test_results.py'
+          python3 ios/scripts/print-host-test-results.py ios/build/Pully.xcresult ios/build/host-test-evidence
       - name: Verify original Pully fonts and canonical locales are bundled
         if: ${{ !cancelled() && steps.host.outcome == 'success' }}
         run: |
@@ -203,6 +198,7 @@ jobs:
           name: ios-simulator-evidence
           path: |
             ios/build/Pully.xcresult
+            ios/build/host-test-evidence
             ios/build/NativeServices.xcresult
             ios/build/Keychain.xcresult
             ios/build/KeychainHost.entitlements.plist

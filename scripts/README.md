@@ -7,7 +7,9 @@ the existing `~/apps/pulls-review` checkout, `~/.local/state/pulls-review-update
 `~/.local/share/pulls-review/android` update directory. The `PULLS_REVIEW_REPO`,
 `PULLS_REVIEW_UPDATE_STATE` and `PULLS_REVIEW_ANDROID_DIR` variables override those paths.
 
-The updater requires clean tracked files and a fast-forward to `origin/main`. It preserves
+The updater requires clean tracked files and a fast-forward to `origin/release`. It admits
+only the exact current remote release commit with successful genuine release checks,
+and repeats admission after the build before requesting idle shutdown. It preserves
 local work by refusing dirty checkouts. Before recovering one, pause the update timer, save
 the patch and affected files outside the checkout, then restore only the reviewed edits.
 Never bump release metadata directly in the deployment checkout. Keep `.env`, credentials,
@@ -35,15 +37,18 @@ transition safely: a missing endpoint never permits a blind restart.
 
 Server build failures leave the previous service running and record the failed commit.
 After investigating and correcting a host/toolchain problem, archive the `failed` marker
-to retry that commit; a newer main commit is retried automatically. APK publish failures
+to retry that commit; a newer release commit is retried automatically. APK publish failures
 fail the unit and retry on the next invocation even when the server is already current.
 The timer must be resumed after maintenance.
 
-Android source, resources, build inputs, changelogs and every bundled `CONTRACTS` file
-require a higher `versionCode` and changed current-release notes in the same pull request.
-The always-running `CI / android-release` job checks against the PR base (or previous main
-commit on push). Require the `android-release` status check on main with up-to-date branches,
-so two parallel releases cannot merge with the same version code.
+Main receives fast policy, lint/contracts, types and design checks; a feature does not
+need its own Android version. Promotion to `release` compares APK inputs against the
+actual release base and requires a higher `versionCode` and changed current notes.
+Complete Android/native and the existing backend fixture/smoke jobs run on every
+release PR/push, without path exclusions. The retained `android-release` name is a fast
+integration compatibility context, not full release certification. See
+[the release policy and installed-copy migration](../docs/RELEASE_TRACK.md). The initial
+release branch is not yet protected; no host/timer migration is claimed.
 
 `versionName` may stay the same when completing an unshipped release; its newest changelog
 section must describe the new build. Existing design checks also require release summaries,
@@ -56,8 +61,12 @@ separate short `.index.lock` and unique temporary files before atomic replacemen
 Run the release and deployment tests with:
 
 ```sh
-node --test android/scripts/release.test.mjs android/scripts/publish.test.mjs scripts/pulls-review-update.test.mjs
-node android/scripts/check-release.mjs --base origin/main
+node scripts/release-track.test.mjs
+node scripts/release-policy.test.mjs
+node android/scripts/release.test.mjs
+node android/scripts/publish.test.mjs
+node scripts/pulls-review-update.test.mjs
+node android/scripts/check-release.mjs --base origin/release
 pnpm run contracts:check
 pnpm run android:design
 ```

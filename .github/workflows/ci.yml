@@ -4,13 +4,43 @@ on:
   push:
     branches:
       - main
+      - release
 
   pull_request:
     branches:
       - main
+      - release
 
 jobs:
+  # Legacy required context retained transparently for connections without admin API access.
+  # This is fast integration policy validation, not Android build/release certification.
   android-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Fast integration policy and publication safeguards
+        run: |
+          set -e
+          for suite in scripts/release-track.test.mjs scripts/release-policy.test.mjs android/scripts/release.test.mjs android/scripts/publish.test.mjs scripts/pulls-review-update.test.mjs; do
+            node "$suite"
+          done
+      - name: Explain the retained required context
+        run: echo 'android-release is the legacy fast integration policy context. Full certification is release-prerequisites plus the release verify jobs.' >> "$GITHUB_STEP_SUMMARY"
+
+  release-prerequisites:
+    if: github.base_ref == 'release' || github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -23,9 +53,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - name: Release and deployment regression tests
-        run: node --test android/scripts/release.test.mjs android/scripts/publish.test.mjs scripts/pulls-review-update.test.mjs
-      - name: Android release prerequisites
+      - name: Compare the actual promotion base
         env:
           RELEASE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node android/scripts/check-release.mjs --base "$RELEASE_BASE"
