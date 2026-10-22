@@ -159,6 +159,14 @@ struct Reader<'a> {
 impl Reader<'_> {
     fn current(&self) -> Result<()> {
         self.context.current()?;
+        if let Some(error) = self
+            .failure
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .as_ref()
+        {
+            return Err(error.clone());
+        }
         self.context.github.check_repository(
             &self.captured.repository.scope,
             self.captured.repository.lease,
@@ -172,14 +180,6 @@ impl Reader<'_> {
             .current(&self.captured.scope, self.captured.lease.clone())
         {
             return Err(stale());
-        }
-        if let Some(error) = self
-            .failure
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .as_ref()
-        {
-            return Err(error.clone());
         }
         Ok(())
     }
