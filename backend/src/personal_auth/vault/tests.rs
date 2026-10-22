@@ -370,6 +370,29 @@ async fn accepted_refresh_survives_a_dropped_http_observer() {
 }
 
 #[tokio::test]
+async fn old_mismatched_user_verification_cannot_revoke_a_newer_sign_ins_captured_authority() {
+    let h = Harness::new();
+    let old = h.sign_in("old-access", 42, "before").await;
+    h.provider
+        .user("old-access", 99, "stale-mismatched-subject");
+    h.provider.delayed.store(true, Ordering::SeqCst);
+    let old_read = {
+        let (vault, provider, session) = (h.vault.clone(), h.provider.clone(), old.session);
+        tokio::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
+    };
+    h.provider.started.notified().await;
+    h.provider.delayed.store(false, Ordering::SeqCst);
+    let fresh = h.sign_in("fresh-access", 42, "after").await;
+    let fresh_identity = h.resolve(&fresh.session).await.identity().unwrap();
+    let before = h.store.get(STATE_KEY).unwrap();
+    h.provider.release.notify_one();
+    assert!(old_read.await.unwrap().is_err());
+    assert!(fresh_identity.ensure_current().is_ok());
+    assert_eq!(h.store.get(STATE_KEY).unwrap(), before);
+    assert!(h.resolve(&fresh.session).await.identity().is_ok());
+}
+
+#[tokio::test]
 async fn tokens_are_encrypted_sessions_are_hashed_and_status_is_public_only() {
     let h = Harness::new();
     h.provider.user("fixture-secret-access", 42, "reader");

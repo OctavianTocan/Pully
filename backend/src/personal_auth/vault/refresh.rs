@@ -183,9 +183,10 @@ impl PersonalVault {
                 .runtime
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?;
-            runtime
-                .bindings
-                .retain(|_, binding| binding.account_id != snapshot.account_id);
+            runtime.bindings.retain(|_, binding| {
+                binding.account_id != snapshot.account_id
+                    || binding.revision != snapshot.account.revision
+            });
             this.store
                 .update(STATE_KEY, |value| {
                     let mut database = decode(value)?;
