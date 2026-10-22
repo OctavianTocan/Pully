@@ -1,11 +1,18 @@
 @cc [owner:OctavianTocan,label:security] data-no-user-credentials
-The phone talks to one server, the one set in Settings. The only credentials it holds are
+The legacy private connection talks to the one server set in Settings. Its credentials are
 the optional Cloudflare Access client ID and secret and the account's session, which are
 sent only to that server, stored only on the phone, and never logged or shown back in
 full. The account's password is sent once, to sign in, and never stored (Tavi, 16 Oct
 12:47). The session MUST go only to the server address it signed in on, and the password
 and session MUST NOT go over plain HTTP except to this phone or the emulator's host
 (Devin Review on PR 58).
+Tavi's 21 Oct 2026 personal GitHub decision adds a separate app-owned HTTPS account
+origin. A personal Pully bearer MUST use only that origin's fixed personal routes and
+MUST NOT become a legacy session, Access credential or GitHub REST credential. Android
+MUST encrypt pending and accepted personal bearers with a non-exportable Keystore key
+in storage excluded from backup; native errors MUST NOT expose its contents. GitHub
+and provider credentials MUST remain on the server. This deliberately scopes the old
+one-server-only credential rule to the compatibility connection.
 
 @cc [owner:OctavianTocan,label:product;security] data-account-discovery-keeps-evidence
 A fresh private-server installation MUST retain discovery failures as actionable

@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -104,8 +105,18 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val session = remember { GuestBrowseSession(JvmRpcTransport(), scope, source, navigation) }
-    DisposableEffect(session) { onDispose { session.close() } }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { session.foreground() }
+    val personal = remember {
+        com.octaviantocan.pulls.data.personal.PersonalAccounts.runtime(context, scope, { source.current }) {
+            Commands.close()
+            NativeEntry.get(context).renewExplore()
+            navigation.reset(Screen.Explore)
+        }
+    }
+    DisposableEffect(session, personal) { onDispose { personal.close(); session.close() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { personal.foreground(true); session.foreground(); personal.restore() }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { personal.foreground(false) }
+    val personalView by personal.view.collectAsState()
+    var accountSheet by remember { mutableStateOf(false) }
     val toaster = remember { Toaster() }
     val motion = remember { PageMotion() }
     var leaving by remember { mutableStateOf(false) }
@@ -148,7 +159,14 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     CompositionLocalProvider(LocalToaster provides toaster) {
         val openGitHub = rememberOpenOnGithub()
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
-            GuestPages(navigation, motion, session, onExistingAccount, openGitHub, onCommands = { Commands.open() })
+            GuestPages(navigation, motion, session, onExistingAccount, openGitHub,
+                onGitHubSignIn = if (personal.configured) ({ accountSheet = true }) else null,
+                onCommands = { Commands.open() }, githubAccount = personalView.account?.login)
+            if (accountSheet) com.octaviantocan.pulls.ui.personal.PersonalAccountSheet(personal,
+                onOpenBrowser = { url ->
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                        .addCategory(android.content.Intent.CATEGORY_BROWSABLE).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                }, onClose = { accountSheet = false })
             if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
             CommandPalette()
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })

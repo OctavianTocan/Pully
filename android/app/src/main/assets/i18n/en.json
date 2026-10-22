@@ -937,5 +937,33 @@
     "byFeature": "By feature",
     "byModel": "By model",
     "runsCount": "{n} run | {n} runs"
+  },
+  "personal": {
+    "title": "Your GitHub",
+    "account": "@{login}",
+    "signedIn": "Signed in as @{login}",
+    "intro": "Sign in with your GitHub account. You can keep browsing public repositories without signing in.",
+    "publicAccount": "Your account is connected. Public repositories remain available here.",
+    "continueGitHub": "Continue with GitHub",
+    "finishOnGitHub": "Finish signing in on GitHub, then return to Pully.",
+    "tryAgain": "Try again",
+    "signOut": "Sign out",
+    "cancel": "Cancel sign-in",
+    "problems": {
+      "NotConfigured": "GitHub sign-in is not available yet. You can keep browsing public repositories.",
+      "InvalidRequest": "Pully could not start GitHub sign-in. Try again.",
+      "Unauthorized": "Your Pully session is no longer valid. Sign in again.",
+      "Expired": "This sign-in has expired. Start again.",
+      "RateLimited": "Too many sign-in requests. Wait a moment, then try again.",
+      "Unavailable": "GitHub sign-in is temporarily unavailable. Try again.",
+      "Reconnect": "Reconnect your GitHub account to continue.",
+      "Denied": "GitHub sign-in was not approved. You can try again or keep browsing.",
+      "InvalidResponse": "The sign-in service could not return account data. Try again.",
+      "WebPage": "The sign-in service returned a web page. Try again later.",
+      "Redirect": "The sign-in service redirected the request. Try again later.",
+      "HttpRejected": "The sign-in service could not accept this request. Try again later.",
+      "Timeout": "GitHub sign-in took too long to respond. Try again.",
+      "Unreachable": "Pully could not reach sign-in. Check your connection and try again."
+    }
   }
 }

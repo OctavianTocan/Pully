@@ -153,3 +153,17 @@ Explicit cancellation uses
 only the captured origin/proof; it MUST NOT alter a legitimate returning legacy
 account. Source: Tavi's 21 Oct 2026 personal GitHub request and accepted backend
 personal_auth native ownership/one-use-claim contract.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-secure-vault-keeps-recovery-separate
+The native personal vault MUST atomically persist pending and accepted Pully sessions
+through the host's encrypted secure-storage port. Pending credentials MUST NOT restore
+a principal after process death. Active in-process confirmation stages MUST be excluded
+from unrelated recovery cleanup; losing their owner MUST release that recovery authority.
+Promotion MUST match a staged origin, bearer and immutable account/GitHub subject. A
+replaced or locally signed-out accepted session MUST enter a bounded durable revocation
+queue, and MUST remain there until captured-origin server sign-out succeeds. Queue
+overflow or unavailable secure storage MUST fail closed without dropping another account
+or a recovery credential. Only verified matching publicRead account status MAY become a
+visible personal profile; HTML or temporary unavailability MUST preserve saved credentials.
+Source: Tavi's 21 Oct 2026 personal GitHub request, accepted backend claim-delivery lease
+repair and the 22 Oct native secure-stage/confirm/publish plan.

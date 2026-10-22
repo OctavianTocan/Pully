@@ -35,6 +35,7 @@ fun GuestPages(
     onOpenGitHub: (String) -> Unit,
     onGitHubSignIn: (() -> Unit)? = null,
     onCommands: () -> Unit = { Commands.open() },
+    githubAccount: String? = null,
 ) {
     SideEffect { session.keepRoutes() }
     PullToCommands({ session.runFrom(navigation.stack.last(), onCommands) }, Modifier.fillMaxSize()) {
@@ -44,6 +45,7 @@ fun GuestPages(
                     session.repositories, session::openRepository,
                     onGitHubSignIn?.let { action -> { session.runFrom(screen, action) } },
                     { session.runFrom(screen, onExistingAccount) },
+                    githubAccount,
                 )
                 is Screen.PublicRepo -> {
                     val state = remember(session, screen) { session.pulls(screen) }

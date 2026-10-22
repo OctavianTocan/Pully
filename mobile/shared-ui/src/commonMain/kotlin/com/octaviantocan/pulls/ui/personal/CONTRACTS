@@ -1,0 +1,16 @@
+@cc [owner:OctavianTocan,label:product;security;architecture] personal-sheet-shares-owned-native-flow
+Android and iOS MUST render the same personal account sheet and consume the shared
+source-owned sign-in/account runtime. The native host MUST use the system browser and
+report its actual foreground lifecycle synchronously through the runtime port, before
+any deferred UI update; browser background MUST pause polling without
+discarding the in-memory attempt. Closing the sheet or retiring its entry MUST close
+the controller and release pending recovery ownership synchronously before the host's
+close callback, rather than waiting for composition disposal. Only a securely staged, server-
+confirmed and atomically promoted session MAY appear as connected. GitHub/provider
+tokens MUST NOT reach this UI. Errors MUST use fixed localized recovery, and an absent
+configured capability MUST remain unavailable without blocking anonymous browsing.
+Personal promotion/sign-out MUST revoke the prior public source and reset the same
+navigation stack to Explore, without adopting legacy private authority. Source: Tavi's
+21 Oct 2026 any-GitHub/public-browsing request, maximum-reuse iOS decision and accepted
+22 Oct native secure-stage/confirm/publish protocol and independent mounted-account
+ownership review.
