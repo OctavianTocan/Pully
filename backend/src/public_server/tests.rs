@@ -1,4 +1,5 @@
 use super::*;
+mod personal_review;
 mod review_regressions;
 use crate::personal_auth::{wire, PersonalAuthHost};
 use axum::{

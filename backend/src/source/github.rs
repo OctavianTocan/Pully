@@ -1,3 +1,4 @@
+use super::github_read::{self, GitHubRead, StateGitHubRead};
 use super::*;
 use base64::Engine;
 use futures_util::StreamExt;
@@ -221,10 +222,19 @@ async fn get(state: &AppState, path: &str) -> Result<Value> {
     request(state, reqwest::Method::GET, path, None).await
 }
 pub async fn pages(state: &AppState, path: &str, field: Option<&str>) -> Result<Vec<Value>> {
+    pages_with(&StateGitHubRead(state), path, field).await
+}
+async fn pages_with(read: &dyn GitHubRead, path: &str, field: Option<&str>) -> Result<Vec<Value>> {
     let mut all = vec![];
     for page in 1..=100 {
         let sep = if path.contains('?') { '&' } else { '?' };
-        let mut v = get(state, &format!("{path}{sep}per_page=100&page={page}")).await?;
+        let mut v = github_read::json(
+            read,
+            reqwest::Method::GET,
+            &format!("{path}{sep}per_page=100&page={page}"),
+            None,
+        )
+        .await?;
         let xs = match field {
             Some(key) => v.get_mut(key).and_then(Value::as_array_mut),
             None => v.as_array_mut(),
@@ -239,6 +249,14 @@ pub async fn pages(state: &AppState, path: &str, field: Option<&str>) -> Result<
     bail!("GitHub pagination exceeded safe limit; result is incomplete")
 }
 pub async fn file(state: &AppState, r: &Value, path: &str, sha: &str) -> Result<Value> {
+    file_with(&StateGitHubRead(state), r, path, sha).await
+}
+pub(crate) async fn file_with(
+    read: &dyn GitHubRead,
+    r: &Value,
+    path: &str,
+    sha: &str,
+) -> Result<Value> {
     let prefix = prefix(r)?;
     ensure!(!sha.is_empty(), "Missing file revision");
     ensure!(
@@ -249,14 +267,14 @@ pub async fn file(state: &AppState, r: &Value, path: &str, sha: &str) -> Result<
         "Invalid repository path"
     );
     let path = path.split('/').map(enc).collect::<Vec<_>>().join("/");
-    let (code, _, text) = raw(
-        state,
-        reqwest::Method::GET,
-        &format!("{prefix}/contents/{path}?ref={}", enc(sha)),
-        None,
-        "application/vnd.github+json",
-    )
-    .await?;
+    let (code, _, text) = read
+        .raw(
+            reqwest::Method::GET,
+            &format!("{prefix}/contents/{path}?ref={}", enc(sha)),
+            None,
+            "application/vnd.github+json",
+        )
+        .await?;
     if code == 404 {
         return Ok(Value::Null);
     }
@@ -276,14 +294,14 @@ pub async fn file(state: &AppState, r: &Value, path: &str, sha: &str) -> Result<
         )?;
         return Ok(json!(String::from_utf8_lossy(&b)));
     }
-    let (code, _, text) = raw(
-        state,
-        reqwest::Method::GET,
-        &format!("{prefix}/contents/{path}?ref={}", enc(sha)),
-        None,
-        "application/vnd.github.raw",
-    )
-    .await?;
+    let (code, _, text) = read
+        .raw(
+            reqwest::Method::GET,
+            &format!("{prefix}/contents/{path}?ref={}", enc(sha)),
+            None,
+            "application/vnd.github.raw",
+        )
+        .await?;
     ensure!(code == 200, "GitHub raw file read failed (HTTP {code})");
     Ok(json!(text))
 }
@@ -306,7 +324,7 @@ fn commits(v: &[Value]) -> Vec<Value> {
         .collect()
 }
 async fn normalize(
-    state: &AppState,
+    read: &dyn GitHubRead,
     r: &Value,
     files: Vec<Value>,
     diffpath: &str,
@@ -315,14 +333,14 @@ async fn normalize(
 ) -> Result<Vec<Value>> {
     let needs = files.iter().any(|f| !f["patch"].is_string());
     let fallback = if needs {
-        match raw(
-            state,
-            reqwest::Method::GET,
-            diffpath,
-            None,
-            "application/vnd.github.diff",
-        )
-        .await
+        match read
+            .raw(
+                reqwest::Method::GET,
+                diffpath,
+                None,
+                "application/vnd.github.diff",
+            )
+            .await
         {
             Ok((200, _, t)) => Some(patch::parse_patch(&t)),
             _ => None,
@@ -369,8 +387,8 @@ async fn normalize(
                 let old = if status == "added" || base.is_empty() {
                     Some(String::new())
                 } else {
-                    file(
-                        state,
+                    file_with(
+                        read,
                         r,
                         f["previous_filename"].as_str().unwrap_or(path),
                         base,
@@ -382,7 +400,7 @@ async fn normalize(
                 let new = if status == "removed" {
                     Some(String::new())
                 } else {
-                    file(state, r, path, head)
+                    file_with(read, r, path, head)
                         .await
                         .ok()
                         .and_then(|v| v.as_str().map(str::to_string))
@@ -449,6 +467,9 @@ fn self_diff(a: &str, b: &str) -> Option<Vec<Value>> {
     ])
 }
 pub async fn fetch(state: &AppState, r: &Value) -> Result<Value> {
+    fetch_with(&StateGitHubRead(state), r).await
+}
+pub(crate) async fn fetch_with(read: &dyn GitHubRead, r: &Value) -> Result<Value> {
     let p = prefix(r)?;
     let kind = s(r, "kind");
     if kind == "github-pr" {
@@ -461,35 +482,47 @@ pub async fn fetch(state: &AppState, r: &Value) -> Result<Value> {
             number.chars().all(|c| c.is_ascii_digit()),
             "Invalid PR number"
         );
-        let pr = get(state, &format!("{p}/pulls/{number}")).await?;
+        let pr = github_read::json(
+            read,
+            reqwest::Method::GET,
+            &format!("{p}/pulls/{number}"),
+            None,
+        )
+        .await?;
         let base = s(&pr["base"], "sha");
         let head = s(&pr["head"], "sha");
         let cp = format!("{p}/compare/{}...{}", enc(base), enc(head));
-        let comparison = get(state, &cp).await?;
+        let comparison = github_read::json(read, reqwest::Method::GET, &cp, None).await?;
         let mb = s(&comparison["merge_base_commit"], "sha");
         ensure!(
             !mb.is_empty() && !head.is_empty(),
             "GitHub did not return captured revisions"
         );
-        let files = pages(state, &format!("{p}/pulls/{number}/files"), None).await?;
+        let files = pages_with(read, &format!("{p}/pulls/{number}/files"), None).await?;
         ensure!(
             pr["changed_files"]
                 .as_u64()
                 .is_none_or(|n| n == files.len() as u64),
             "GitHub omitted files from this PR; refusing incomplete diff"
         );
-        let cs = pages(state, &format!("{p}/pulls/{number}/commits"), None).await?;
+        let cs = pages_with(read, &format!("{p}/pulls/{number}/commits"), None).await?;
         ensure!(
             pr["commits"].as_u64().is_none_or(|n| n == cs.len() as u64),
             "GitHub omitted commits from this PR; refusing incomplete diff"
         );
-        let current = get(state, &format!("{p}/pulls/{number}")).await?;
+        let current = github_read::json(
+            read,
+            reqwest::Method::GET,
+            &format!("{p}/pulls/{number}"),
+            None,
+        )
+        .await?;
         ensure!(
             current["head"]["sha"] == pr["head"]["sha"]
                 && current["base"]["sha"] == pr["base"]["sha"],
             "Pull request changed during loading; retry for a consistent snapshot"
         );
-        let files = normalize(state, r, files, &cp, mb, head).await?;
+        let files = normalize(read, r, files, &cp, mb, head).await?;
         let status = rest_pr_state(&pr);
         let mut reference = r.clone();
         reference["number"] = json!(number);
@@ -504,12 +537,30 @@ pub async fn fetch(state: &AppState, r: &Value) -> Result<Value> {
             !base.is_empty() && !head.is_empty(),
             "Compare needs two revisions"
         );
-        let h = get(state, &format!("{p}/commits/{}", enc(head))).await?;
-        let bsnapshot = get(state, &format!("{p}/commits/{}", enc(base))).await?;
+        let h = github_read::json(
+            read,
+            reqwest::Method::GET,
+            &format!("{p}/commits/{}", enc(head)),
+            None,
+        )
+        .await?;
+        let bsnapshot = github_read::json(
+            read,
+            reqwest::Method::GET,
+            &format!("{p}/commits/{}", enc(base)),
+            None,
+        )
+        .await?;
         let hs = s(&h, "sha");
         let cp = format!("{p}/compare/{}...{}", enc(s(&bsnapshot, "sha")), enc(hs));
-        let c = get(state, &format!("{cp}?per_page=100&page=1")).await?;
-        let cs = pages(state, &cp, Some("commits")).await?;
+        let c = github_read::json(
+            read,
+            reqwest::Method::GET,
+            &format!("{cp}?per_page=100&page=1"),
+            None,
+        )
+        .await?;
+        let cs = pages_with(read, &cp, Some("commits")).await?;
         let bs = s(&c["merge_base_commit"], "sha");
         let fs = c["files"]
             .as_array()
@@ -519,23 +570,23 @@ pub async fn fetch(state: &AppState, r: &Value) -> Result<Value> {
             fs.len() < 300,
             "GitHub compare reached its 300-file cap; refusing potentially incomplete diff"
         );
-        let fs = normalize(state, r, fs, &format!("{p}/compare/{bs}...{hs}"), bs, hs).await?;
+        let fs = normalize(read, r, fs, &format!("{p}/compare/{bs}...{hs}"), bs, hs).await?;
         return Ok(
             json!({"ref":r,"title":format!("{base}...{head}"),"url":c["html_url"],"base":{"sha":bs,"ref":base},"head":{"sha":hs,"ref":head},"commits":commits(&cs),"files":fs}),
         );
     }
     ensure!(kind == "github-commit", "Unsupported source kind");
     let cp = format!("{p}/commits/{}", enc(s(r, "sha")));
-    let c = get(state, &cp).await?;
+    let c = github_read::json(read, reqwest::Method::GET, &cp, None).await?;
     let hs = s(&c, "sha");
     let bs = c["parents"][0]["sha"].as_str().unwrap_or("");
     ensure!(!hs.is_empty(), "GitHub did not resolve the commit revision");
-    let fs = pages(state, &format!("{p}/commits/{}", enc(hs)), Some("files")).await?;
+    let fs = pages_with(read, &format!("{p}/commits/{}", enc(hs)), Some("files")).await?;
     ensure!(
         fs.len() < 3000,
         "GitHub commit file cap reached; refusing potentially incomplete diff"
     );
-    let fs = normalize(state, r, fs, &format!("{p}/commits/{hs}"), bs, hs).await?;
+    let fs = normalize(read, r, fs, &format!("{p}/commits/{hs}"), bs, hs).await?;
     let msg = s(&c["commit"], "message");
     let mut result = json!({"ref":r,"title":msg.lines().next().unwrap_or(""),"label":hs.chars().take(7).collect::<String>(),"description":msg.split_once('\n').map_or("",|(_,b)|b.trim()),"url":c["html_url"],"head":{"sha":hs,"ref":hs.chars().take(7).collect::<String>()},"commits":[{"sha":hs,"message":msg}],"files":fs});
     if c["author"].is_object() {
@@ -605,7 +656,11 @@ fn rest_pr_state(pr: &Value) -> &'static str {
     } else if pr["state"] == "closed" || pr["closed_at"].as_str().is_some_and(|at| !at.is_empty()) {
         "closed"
     } else if pr["state"] == "open" {
-        if pr["draft"] == true { "draft" } else { "open" }
+        if pr["draft"] == true {
+            "draft"
+        } else {
+            "open"
+        }
     } else {
         "unknown"
     }
@@ -677,7 +732,11 @@ mod warmer_tests {
                     } else if pr["state"] == "closed" {
                         "closed"
                     } else if pr["state"] == "open" {
-                        if pr["draft"] == true { "draft" } else { "open" }
+                        if pr["draft"] == true {
+                            "draft"
+                        } else {
+                            "open"
+                        }
                     } else {
                         "unknown"
                     };
@@ -686,7 +745,12 @@ mod warmer_tests {
             }
         }
         assert_eq!(rest_pr_state(&json!({})), "unknown");
-        assert_eq!(rest_pr_state(&json!({"state":"closed","merged_at":"2026-10-20T12:00:00Z","draft":true})), "merged");
+        assert_eq!(
+            rest_pr_state(
+                &json!({"state":"closed","merged_at":"2026-10-20T12:00:00Z","draft":true})
+            ),
+            "merged"
+        );
     }
 
     #[tokio::test]

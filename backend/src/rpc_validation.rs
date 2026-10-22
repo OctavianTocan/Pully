@@ -635,6 +635,12 @@ pub(crate) fn cache_entry(value: &Value) -> Result<Value> {
         .map_err(|_| anyhow::anyhow!("Invalid cached diff entry."))
 }
 
+pub(crate) fn canonical_reviews(value: &Value) -> Result<Value> {
+    review_data()
+        .parse(value)
+        .map_err(|_| anyhow::anyhow!("Invalid review data."))
+}
+
 pub(crate) fn cache_session(value: &Value) -> Result<Value> {
     nullable(session())
         .parse(value)
