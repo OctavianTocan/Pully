@@ -17,3 +17,12 @@ idle shutdown. Missing idle-update support MUST defer rather than fall back to c
 work. After shutdown the updater MUST ensure the replacement is started, never restart a
 replacement which may already have accepted new work. Source: Tavi, 21 Oct 2026,
 "Resolve all reviews and merge those PRs", active-work deployment review.
+
+@cc [owner:OctavianTocan,label:security;architecture] deployment-consumes-the-verified-release-track
+Main MUST be a fast integration branch and MUST NOT automatically restart the server
+or publish an APK. Both the current updater and a captured legacy main-tracking
+installed updater MUST fail before building or restarting unverified main source.
+Publication MUST require the exact remote release commit and successful complete
+release checks; unavailable evidence MUST preserve the previous running release.
+Changing source defaults MUST NOT claim that an installed script or live timer was
+migrated. Source: Tavi's 22 Oct 2026 fast-main and protected-release decision.

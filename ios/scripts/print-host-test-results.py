@@ -20,11 +20,11 @@ def require_complete_tests(summary):
 def main():
     """
     @cc [owner:OctavianTocan,label:architecture;product] ios-early-ui-evidence-preserves-the-full-gate
-    The early UIKit diagnostic MUST compile the checked-out source with the pinned Apple
+    The release UIKit verification MUST compile the checked-out source with the pinned Apple
     toolchain and run the actual host test suite. It MUST reject zero, failed or skipped
     tests and retain readable xcresult and accessibility evidence. It MUST NOT replace,
-    skip or weaken the full native, Keychain, Darwin, shared-test or Android merge gates.
-    Source: Tavi's 21 Oct 2026 request to parallelize and shorten the iOS CI feedback loop.
+    skip or weaken the full native, Keychain, Darwin, shared-test or Android release-promotion gates.
+    Source: Tavi's 22 Oct 2026 fast-main and strongly verified release-branch decision.
     """
     bundle, output = map(Path, sys.argv[1:])
     if not (bundle / "Info.plist").is_file():

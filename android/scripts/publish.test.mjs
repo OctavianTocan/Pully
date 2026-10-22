@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { afterEach, describe, it } from 'node:test'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
+import { releaseFixtureGate } from '../../scripts/release-track.test-support.mjs'
 
 const publisher = fileURLToPath(new URL('./publish-apk.sh', import.meta.url))
 const pastBuilder = fileURLToPath(new URL('./build-past-ui.py', import.meta.url))
@@ -17,7 +18,7 @@ afterEach(() => {
     rmSync(path, { recursive: true, force: true })
 })
 
-function fixture({ have = 65, code = 66, output, build = 'exit 0' } = {}) {
+function fixture({ have = 65, code = 66, output, build = ':' } = {}) {
   const home = mkdtempSync(join(tmpdir(), 'pully-publish-test-'))
   temporary.push(home)
   const repo = join(home, 'repo')
@@ -27,28 +28,34 @@ function fixture({ have = 65, code = 66, output, build = 'exit 0' } = {}) {
   for (const path of [join(android, 'scripts'), join(android, 'app/build/outputs/apk/debug'), out, join(sdk, 'build-tools/37.0.0')])
     mkdirSync(path, { recursive: true })
   copyFileSync(publisher, join(android, 'scripts/publish-apk.sh'))
+  mkdirSync(join(repo, 'scripts'), { recursive: true })
+  writeFileSync(join(repo, 'scripts/release-track.mjs'), '// The fixture PATH invokes the actual production admission with synthetic CI responses.\n')
   writeFileSync(join(android, 'scripts/build-past-ui.py'), '')
-  writeFileSync(join(android, 'gradlew'), `#!/bin/sh\n${build}\n`, { mode: 0o755 })
+  writeFileSync(join(android, 'gradlew'), `#!/bin/sh\nset -e\n${build}\nmkdir -p app/build/outputs/apk/debug\ncat build-input.txt > app/build/outputs/apk/debug/app-debug.apk\n`, { mode: 0o755 })
   writeFileSync(join(android, 'CHANGELOG.md'), '## 0.52.0\n\nLinks work.\n\n- A change.\n')
   writeFileSync(join(android, 'app/build.gradle.kts'), `versionCode = ${code}\nversionName = "0.52.0"\n`)
   const bytes = `new APK bytes ${code}`
+  writeFileSync(join(android, 'build-input.txt'), bytes)
   writeFileSync(join(android, 'app/build/outputs/apk/debug/app-debug.apk'), bytes)
   writeFileSync(join(android, '.gitignore'), 'app/build/\n')
   writeFileSync(join(sdk, 'build-tools/37.0.0/aapt2'), `#!/bin/sh\necho "package: name='com.octaviantocan.pulls' versionCode='${code}' versionName='0.52.0'"\n`, { mode: 0o755 })
   const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
-  git('init', '-b', 'main')
+  git('init', '-b', 'release')
   git('config', 'user.email', 'test@example.com')
   git('config', 'user.name', 'Publisher test')
   git('add', '.')
   git('commit', '-m', 'fixture')
+  git('clone', '--bare', repo, join(home, 'origin.git'))
+  git('remote', 'add', 'origin', join(home, 'origin.git'))
+  const bin = releaseFixtureGate(home)
   writeFileSync(join(out, 'latest.json'), JSON.stringify({ versionCode: have, versionName: '0.51.0', sha256: 'previous' }))
   writeFileSync(join(out, 'pulls.apk'), 'previous APK bytes')
   const options = {
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, JAVA_HOME: home, ANDROID_HOME: sdk, PULLS_REVIEW_ANDROID_DIR: out },
+    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, JAVA_HOME: home, ANDROID_HOME: sdk, PULLS_REVIEW_ANDROID_DIR: out },
   }
   const args = [join(android, 'scripts/publish-apk.sh'), 'https://example.com']
-  const run = () => spawnSync('/bin/bash', args, options)
+  const run = (extra = {}) => spawnSync('/bin/bash', args, { ...options, env: { ...options.env, ...extra } })
   const start = () => {
     const child = spawn('/bin/bash', args, options)
     let stderr = ''
@@ -71,6 +78,64 @@ async function waitFor(path) {
 }
 
 describe('APK publication safeguards', () => {
+  it('refuses manual main publication or incomplete release checks before starting Gradle', () => {
+    for (const main of [false, true]) {
+      const f = fixture({ build: 'touch "$HOME/entered"' })
+      if (main)
+        f.git('checkout', '-b', 'main')
+      const before = readFileSync(join(f.out, 'latest.json'), 'utf8')
+      const result = f.run(main ? {} : { RELEASE_FIXTURE_CI: 'skipped' })
+      assert.notEqual(result.status, 0)
+      assert.equal(existsSync(join(f.home, 'entered')), false)
+      assert.equal(readFileSync(join(f.out, 'latest.json'), 'utf8'), before)
+      assert.equal(readFileSync(join(f.out, 'pulls.apk'), 'utf8'), 'previous APK bytes')
+    }
+  })
+
+  it('builds immutable approved inputs even if the caller switches to unreviewed main during Gradle', async () => {
+    const f = fixture({ build: 'touch "$HOME/entered"\nwhile [ ! -e "$HOME/release" ]; do sleep 0.01; done' })
+    const approved = f.git('rev-parse', 'HEAD')
+    const task = f.start()
+    try {
+      await waitFor(join(f.home, 'entered'))
+      f.git('checkout', '-b', 'main')
+      writeFileSync(join(f.android, 'build-input.txt'), 'unreviewed inputs')
+      f.git('add', '.')
+      f.git('commit', '-m', 'unreviewed inputs')
+      writeFileSync(join(f.home, 'release'), '')
+      const result = await task.done
+      assert.equal(result.status, 0, result.stderr)
+      assert.equal(readFileSync(join(f.out, 'pulls.apk'), 'utf8'), f.bytes)
+      assert.equal(JSON.parse(readFileSync(join(f.out, 'latest.json'))).sourceCommit, approved)
+      assert.equal(f.git('branch', '--show-current'), 'main')
+    }
+    finally {
+      writeFileSync(join(f.home, 'release'), '')
+      await task.done
+    }
+  })
+
+  it('refuses a release ref changed during the immutable build before replacing served files', async () => {
+    const f = fixture({ build: 'touch "$HOME/entered"\nwhile [ ! -e "$HOME/release" ]; do sleep 0.01; done' })
+    const before = readFileSync(join(f.out, 'latest.json'), 'utf8')
+    const task = f.start()
+    try {
+      await waitFor(join(f.home, 'entered'))
+      writeFileSync(join(f.android, 'build-input.txt'), 'next release inputs')
+      f.git('add', '.')
+      f.git('commit', '-m', 'next release')
+      f.git('push', 'origin', 'release')
+      writeFileSync(join(f.home, 'release'), '')
+      assert.notEqual((await task.done).status, 0)
+      assert.equal(readFileSync(join(f.out, 'latest.json'), 'utf8'), before)
+      assert.equal(readFileSync(join(f.out, 'pulls.apk'), 'utf8'), 'previous APK bytes')
+    }
+    finally {
+      writeFileSync(join(f.home, 'release'), '')
+      await task.done
+    }
+  })
+
   it('publishes a newer build with its clean source commit and permits identical retries', () => {
     const f = fixture()
     const result = f.run()
@@ -177,6 +242,37 @@ finally:
         if writer.poll() is None: writer.kill()
         writer.wait()
 `, pastBuilder, home], { encoding: 'utf8', timeout: 15000 })
+    assert.equal(result.status, 0, result.stderr)
+  })
+
+  it('excludes unshipped main versions and orphaned cached APKs from the release history index', () => {
+    const f = fixture()
+    const approved = f.git('rev-parse', 'HEAD')
+    f.git('checkout', '-b', 'main')
+    writeFileSync(join(f.android, 'app/build.gradle.kts'), 'versionCode = 67\nversionName = "0.53.0"\n')
+    f.git('add', '.')
+    f.git('commit', '-m', 'unshipped version')
+    const result = spawnSync('python3', ['-c', `
+import importlib.util, json, pathlib, sys
+script, repo, approved, directory = sys.argv[1:]
+spec = importlib.util.spec_from_file_location('past', script)
+past = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(past)
+past.REPO = pathlib.Path(repo)
+past.ANDROID = past.REPO / 'android'
+known = past.versions(approved)
+assert [item['versionName'] for item in known] == ['0.52.0']
+dest = pathlib.Path(directory)
+dest.mkdir()
+for name, commit in [('0.52.0', approved), ('0.53.0', 'unshipped')]:
+    meta = dict(versionName=name, versionCode=66, packageName='fixture', commit=commit, date='fixture', subject='Fixture', sha256='fixture', size=1)
+    (dest / (name + '.json')).write_text(json.dumps(meta))
+    (dest / (name + '.apk')).write_bytes(b'x')
+past.write_index(dest, {(item['versionName'], item['commit']) for item in known})
+index = json.loads((dest / 'index.json').read_text())
+assert [item['versionName'] for item in index['versions']] == ['0.52.0']
+assert (dest / '0.53.0.apk').exists(), 'Do not delete operator cache artifacts'
+`, pastBuilder, join(f.home, 'repo'), approved, join(f.home, 'history')], { encoding: 'utf8' })
     assert.equal(result.status, 0, result.stderr)
   })
 })

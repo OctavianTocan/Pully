@@ -13,9 +13,17 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
     echo 'FAIL: tracked deployment files are dirty; preserve the patch and restore a clean checkout before updating' >&2
     exit 1
 fi
-git fetch -q origin main
-git merge -q --ff-only origin/main
+if [ "$(git symbolic-ref --quiet --short HEAD || true)" != release ]; then
+    echo 'FAIL: automatic deployment requires the release branch; migrate the installed updater and checkout before resuming its timer' >&2
+    exit 1
+fi
+git fetch -q origin release
+git merge -q --ff-only FETCH_HEAD
+# This guard also refuses an unverified release branch if protection is unavailable.
 head=$(git rev-parse HEAD)
+if [ "$(cat "$state/deployed" 2>/dev/null || true)" != "$head" ]; then
+    node scripts/release-track.mjs
+fi
 
 start_updated_server() {
     active=$(systemctl --user show pulls-review.service --property=ActiveState --value) || return 1
@@ -134,6 +142,7 @@ if [ "$want" -lt "$have" ]; then
     exit 1
 fi
 if [ "$want" -gt "$have" ]; then
+    node scripts/release-track.mjs
     export JAVA_HOME=${JAVA_HOME:-$HOME/opt/jdk-21}
     export ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk}
     export PATH=$HOME/.local/bin:$PATH

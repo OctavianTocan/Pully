@@ -5,10 +5,15 @@ description: Build the Android app and publish it so the installed phone app off
 
 # Publish and test the Android app
 
-Android pull requests are compiled, JVM-tested and assembled by `android-verify.yml`; `ci.yml`
-also checks the Android design. These checks do not publish an installed-app update. `release.yml`
-only runs for `v*` tags and publishes the packages. Merging to `main` changes no installed app.
+Main pull requests receive fast policy, lint/contracts, types and Android design checks.
+Release promotion pull requests and release pushes run the full `android-verify.yml`,
+native and backend suites, plus monotonic version/notes/illustration checks. These checks
+do not publish an installed-app update. `release.yml` only runs for `v*` tags and refuses
+anything except the current verified release commit. Merging to `main` changes no installed app.
 A person (or an agent with the toolchain and the server's output directory) has to run the steps below.
+Read [the release track](../../../docs/RELEASE_TRACK.md) for exact checks and the separate
+installed-updater migration. Publishing requires a clean exact remote release checkout
+with all genuine release checks green; main and unverified source fail closed.
 
 ## Building in a cloud sandbox
 
