@@ -4,6 +4,7 @@ import org.jetbrains.skia.Path
 import org.jetbrains.skia.PathSegment
 import org.jetbrains.skia.PathVerb
 import org.jetbrains.skia.Point
+import org.jetbrains.skia.impl.use
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2

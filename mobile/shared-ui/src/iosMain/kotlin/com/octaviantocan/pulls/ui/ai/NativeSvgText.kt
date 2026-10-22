@@ -12,6 +12,7 @@ import org.jetbrains.skia.Path
 import org.jetbrains.skia.PathVerb
 import org.jetbrains.skia.Point
 import org.jetbrains.skia.TextBlob
+import org.jetbrains.skia.impl.use
 import org.jetbrains.skia.shaper.Shaper
 import org.jetbrains.skia.shaper.ShapingOptions
 import platform.UIKit.UIFont
