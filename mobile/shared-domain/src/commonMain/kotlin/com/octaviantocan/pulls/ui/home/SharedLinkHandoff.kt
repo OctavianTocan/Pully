@@ -28,7 +28,6 @@ fun decodeSharedLink(payload: String): HomeLink? {
         val data = Json.decodeFromString<SharedLinkData>(payload)
         if (data.version != 1) return null
         val link = data.unpack() ?: return null
-        // Reject irrelevant or malformed fields instead of silently retaining data outside the destination schema.
         if (link.pack() != data) return null
         // Serialization can coerce a quoted number; compare the shallow validated wire tree to enforce actual types.
         link.takeIf { Json.parseToJsonElement(payload) == Json.parseToJsonElement(Json.encodeToString(data)) }

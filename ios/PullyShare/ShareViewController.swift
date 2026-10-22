@@ -106,7 +106,6 @@ final class ShareViewController: UIViewController {
     @objc private func save() {
         guard active, let storage, let source, let payload else { return }
         do {
-            // The same cross-process lock rechecks the originally captured source after asynchronous item loading.
             try storage.save(payload: payload, for: source)
             active = false
             self.payload = nil

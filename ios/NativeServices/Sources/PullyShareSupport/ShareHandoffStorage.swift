@@ -62,7 +62,7 @@ public final class ShareHandoffStorage {
         guard context.valid else { throw ShareHandoffError.invalidRecord }
         try files.locked {
             let previous: ShareSourceContext? = try files.read("source.json")
-            if previous == context { return } // Preserve an unconsumed same-source handoff across process recreation.
+            if previous == context { return }
             // Publish the new audience before retiring data: even a crash cannot import an older token's record.
             try files.write(context, "source.json")
             try files.remove("pending.json")
@@ -129,21 +129,18 @@ public final class ShareHandoffCoordinator {
     public func take(namespace: String, server: String) -> ShareHandoffRecord? {
         guard namespace.count == 64, namespace.allSatisfy({ $0.isHexDigit && !$0.isUppercase }),
               let origin = NativeIncomingLink.serverOrigin(server), let storage else { return nil }
-        if disabled { revoke() } // A later unlock/retry must first complete the failed durable revocation.
+        if disabled { revoke() }
         guard !disabled else { return nil }
         do {
             let context: ShareSourceContext
             do { context = try activate(namespace: namespace, origin: origin, storage: storage) }
             catch ShareHandoffError.invalidRecord {
-                // Corrupt identity is never evidence that an old pending record belongs to this source.
-                // Retire both durable sides before one bounded attempt to publish fresh authority.
                 revoke()
                 guard !disabled else { return nil }
                 context = try activate(namespace: namespace, origin: origin, storage: storage)
             }
             return try storage.take(for: context)
         } catch {
-            // Optional/protected container failures cannot import data or block ordinary account work.
             return nil
         }
     }
@@ -173,7 +170,6 @@ public final class ShareHandoffCoordinator {
         disabled = true
         let privateRetired = (try? files.locked { try files.remove("identity.json") }) != nil
         let sharedRetired = storage.map { (try? $0.revoke()) != nil } ?? true
-        // If either durable side could not be retired, imports stay disabled for this owner.
         disabled = !privateRetired || !sharedRetired
     }
 }
@@ -214,7 +210,7 @@ private final class ProtectedShareFiles {
         try rejectSymlink(url)
         let size = (metadata[.size] as? NSNumber)?.intValue ?? maximumRecordBytes + 1
         guard size <= maximumRecordBytes else { throw ShareHandoffError.invalidRecord }
-        let data = try Data(contentsOf: url) // Protected/unavailable IO is not malformed JSON.
+        let data = try Data(contentsOf: url)
         do { return try JSONDecoder().decode(T.self, from: data) }
         catch { throw ShareHandoffError.invalidRecord }
     }

@@ -76,7 +76,6 @@ class IosPersonalSessionStore internal constructor(
             onIdentityChanged = {
                 requireMainThread()
                 epoch++
-                // Every old runtime is already revoked, including another scene whose cleanup fails.
                 observers.values.toList().forEach { observer -> try { observer() } catch (_: Exception) { } }
             },
             transport = transport,
