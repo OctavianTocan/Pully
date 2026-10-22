@@ -46,7 +46,7 @@ class SharedLinkHandoffTest {
     }
 
     @Test
-    funMalformedOrFutureDataCannotReenterTheSharedStack() {
+    fun malformedOrFutureDataCannotReenterTheSharedStack() {
         val valid = assertNotNull(encodeSharedLink(pull))
         for (payload in listOf(
             "not JSON", "x".repeat(16 * 1024 + 1), valid.replace("\"version\":1", "\"version\":2"),
