@@ -1,7 +1,9 @@
 import type { DiffsPayload, FileChange } from '../../../types/diff'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { assessMergeRisk, MERGE_RISK_CATEGORIES } from '../../../types/merge-risk'
 import { setCliRunner } from './cli-stream'
 import { buildCritiquePrompt, citesOnGithub, CRITIQUE_SCHEMA, CRITIQUE_SYSTEM_PROMPT, critiqueReviewBody, findingCommentBody, hunkIndexOf, MAX_FINDINGS, numberHunkLines, prContextOf, resolveFindings, runCritique } from './critique'
+import { MERGE_RISK_PROMPT } from './merge-risk'
 import { resolveModel } from './model'
 import { MENTION_RULE } from './prompt'
 import { defaultLlmSettings } from './settings'
@@ -34,6 +36,7 @@ function diffWith(...files: FileChange[]): DiffsPayload {
 }
 
 const raw = (overrides: Record<string, unknown> = {}) => ({ path: 'a.ts', side: 'RIGHT', line: 11, severity: 'bug', title: 'Breaks', body: 'It breaks.', ...overrides })
+const mergeRisk = Object.fromEntries(MERGE_RISK_CATEGORIES.map((key, index) => [key, { verdict: ['good', 'large', 'poor', 'high', 'poor'][index], reasons: ['Missing proof for [the change](a.ts#L11).'] }]))
 
 afterEach(() => setCliRunner(undefined))
 
@@ -134,6 +137,14 @@ describe('comment bodies', () => {
     expect(critiqueReviewBody({ summary: 'Sound.', findings: [], dropped: 0, engine: 'codex', model: 'gpt-5', lens: 'security', generatedAt: '' }))
       .toBe('Sound.\n\n<sub>Reviewed with codex/gpt-5, through the security lens on pulls.review.</sub>')
   })
+
+  it('includes all merge verdicts and citations in a posted review without scores', () => {
+    const body = critiqueReviewBody({ summary: 'Nothing to flag inline.', mergeRisk: assessMergeRisk(mergeRisk), findings: [], dropped: 0, engine: 'codex', generatedAt: '' }, { mergeRisk: true })
+    expect(body).toContain('Merge risk (experimental): high')
+    expect(body).toContain('**Verification: poor**')
+    expect(citesOnGithub(diffWith(file('a.ts')))(body)).toContain('https://github.com/o/r/blob/head1/a.ts#L11')
+    expect(body).not.toMatch(/score|2\.25|1\.5/)
+  })
 })
 
 describe('buildCritiquePrompt', () => {
@@ -143,6 +154,8 @@ describe('buildCritiquePrompt', () => {
     expect(prompt).toContain('L11           -old()')
     expect(prompt).toContain('       R12    +second()')
     expect(prompt).toContain('### pnpm-lock.yaml [modified, +2/-1]\n(generated file, not yours to review)')
+    expect(prompt).not.toContain(MERGE_RISK_PROMPT)
+    expect(buildCritiquePrompt(diffWith(file('a.ts')), undefined, { mergeRisk: true })).toContain(MERGE_RISK_PROMPT)
     expect(prompt).toMatch(/## Review lens: security\n\n[\s\S]*Look for injection\.$/)
   })
 })
@@ -158,25 +171,40 @@ describe('runCritique', () => {
   const resolved = resolveModel({ ...defaultLlmSettings, provider: 'claude-code', claudeCodeModel: 'opus', claudeCodeEffort: 'high' })!
 
   it('runs the CLI with the schema and context, and anchors the answer', async () => {
-    const runner = vi.fn(async () => ({ text: JSON.stringify({ summary: ' One bug. ', findings: [raw(), raw({ path: 'gone.ts' })] }), usage: { costUsd: 0.5, model: 'claude-opus' } }))
+    const runner = vi.fn(async () => ({ text: JSON.stringify({ summary: ' One bug. ', mergeRisk, findings: [raw(), raw({ path: 'gone.ts' })] }), usage: { costUsd: 0.5, model: 'claude-opus' } }))
     setCliRunner(runner)
     const result = await runCritique(diffWith(file('a.ts')), resolved)
     expect(runner).toHaveBeenCalledWith(expect.objectContaining({ engine: 'claude-code', model: 'opus', effort: 'high', schema: CRITIQUE_SCHEMA, context: expect.objectContaining({ headSha: 'head1' }) }), expect.anything())
     expect(result).toMatchObject({ summary: 'One bug.', dropped: 1, headSha: 'head1', engine: 'claude-code', model: 'claude-opus', usage: { costUsd: 0.5 } })
     expect(result.findings).toHaveLength(1)
+    expect(result.mergeRisk).toBeUndefined()
   })
 
   it('accepts a fenced JSON answer', async () => {
-    setCliRunner(async () => ({ text: '```json\n{"summary":"Nothing to flag.","findings":[]}\n```' }))
+    setCliRunner(async () => ({ text: `\`\`\`json\n${JSON.stringify({ summary: 'Nothing to flag.', mergeRisk, findings: [] })}\n\`\`\`` }))
     await expect(runCritique(diffWith(file('a.ts')), resolved)).resolves.toMatchObject({ summary: 'Nothing to flag.', findings: [] })
   })
 
   it('drops the object\'s closing quote and brace left inside the summary', async () => {
-    setCliRunner(async () => ({ text: JSON.stringify({ summary: 'Nothing to flag."}', findings: [] }) }))
+    setCliRunner(async () => ({ text: JSON.stringify({ summary: 'Nothing to flag."}', mergeRisk, findings: [] }) }))
     await expect(runCritique(diffWith(file('a.ts')), resolved)).resolves.toMatchObject({ summary: 'Nothing to flag.' })
   })
 
   it('refuses API providers', async () => {
     await expect(runCritique(diffWith(), resolveModel({ ...defaultLlmSettings, provider: 'anthropic', anthropicApiKey: 'k' })!)).rejects.toThrow('Claude Code or Codex')
+  })
+
+  it('rejects a new review with missing merge evidence instead of inventing low risk', async () => {
+    setCliRunner(async () => ({ text: JSON.stringify({ summary: 'Sound.', findings: [] }) }))
+    await expect(runCritique(diffWith(file('a.ts')), resolved, { experiments: { mergeRisk: true } })).rejects.toThrow()
+  })
+
+  it('only extends the schema and computes risk for an opted-in run', async () => {
+    const runner = vi.fn(async () => ({ text: JSON.stringify({ summary: 'Sound.', mergeRisk, findings: [] }) }))
+    setCliRunner(runner)
+    const result = await runCritique(diffWith(file('a.ts')), resolved, { experiments: { mergeRisk: true } })
+    expect(result.mergeRisk?.level).toBe('high')
+    expect(runner).toHaveBeenCalledWith(expect.objectContaining({ key: expect.stringContaining(':experimental-merge-risk'), schema: expect.objectContaining({ required: ['summary', 'findings', 'mergeRisk'] }) }), expect.anything())
+    expect(critiqueReviewBody(result)).not.toContain('Merge risk')
   })
 })

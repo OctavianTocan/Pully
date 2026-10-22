@@ -3,6 +3,22 @@ Anything that starts AI work shows its running work log, its first line and its 
 the same frame as the tap, before the server answers. A page that tap opens never shows
 its "nothing yet" state first ("I feel very lied to", rule 121; J28, J31).
 
+@cc [owner:OctavianTocan,label:product] ai-review-shows-merge-assessment
+A review with a merge assessment MUST, only after local experimental opt-in, show its low, medium or high level, all five
+category verdicts and linked evidence, even with zero inline findings. Scores and
+calculations MUST NOT be shown. A legacy review MUST NOT invent an assessment.
+The assessment MUST be marked Experimental and hidden when disabled, including saved
+results and generated posting text. Source: Tavi's 21 Oct 2026 merge-risk request and
+follow-up requiring experimental, opt-in-only features, replacing unconditional display.
+
+@cc [owner:OctavianTocan,label:design] ai-merge-assessment-uses-mobile-sheet
+The optional merge assessment MUST be a separate section of the mobile review sheet,
+using its plain heading and one card of rows, rather than appending an undifferentiated
+list to the summary. Each category and verdict MUST read together above full-width
+linked evidence. The assessment MUST NOT add nested cards, folding rows, numeric gauges
+or decorative badges. Source: Tavi, 21 Oct 2026, rejecting the experimental UI and asking
+for the app's design principles on mobile; DESIGN.md rules 49, 141, 171 and 172.
+
 @cc [owner:OctavianTocan,label:product] ai-nothing-between-states
 When AI work ends the page goes straight from the work log to what the work made, and
 from one pass to the next pass's log; no empty or start page shows between (rule 122;

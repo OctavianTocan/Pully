@@ -510,6 +510,29 @@
   },
   "critique": {
     "title": "AI review",
+    "mergeRisk": {
+      "title": "Merge risk",
+      "levelLabel": "{level} risk",
+      "level": { "low": "Low", "medium": "Medium", "high": "High" },
+      "category": {
+        "alignment": "Alignment",
+        "impact": "Impact",
+        "verification": "Verification",
+        "rollbackCost": "Rollback cost",
+        "errorDetection": "Error detection"
+      },
+      "verdict": {
+        "poor": "Poor",
+        "decent": "Decent",
+        "good": "Good",
+        "large": "Large",
+        "medium": "Medium",
+        "small": "Small",
+        "high": "High",
+        "low": "Low",
+        "not-applicable": "N/A"
+      }
+    },
     "run": "Review with AI",
     "rerun": "Re-review",
     "running": "Reviewing… {time}",
@@ -517,7 +540,7 @@
     "withLens": "Reviewed through the {lens} skill",
     "usage": "Cost, tokens in and out, and time taken",
     "findingCount": "{n} finding | {n} findings",
-    "noFindings": "No bugs or risks found.",
+    "noFindings": "No inline problems found.",
     "allFiltered": "No findings of the selected severities.",
     "dropped": "{n} finding was left out: it pointed outside the diff or repeated another. | {n} findings were left out: they pointed outside the diff or repeated others.",
     "outdated": "This review is of an older commit; review again to post its findings.",
@@ -622,6 +645,11 @@
     }
   },
   "settings": {
+    "experiments": {
+      "title": "Experimental",
+      "mergeRisk": "Merge risk",
+      "browserHelper": "Browser floaty"
+    },
     "browserHelper": {
       "group": "Browser",
       "title": "Browser helper",
