@@ -285,7 +285,8 @@ route and MUST NOT fall back to the server's working directory.
 
 
 @cc [owner:OctavianTocan,label:product] server-past-versions-answer-empty
-`GET /android/past/index.json` answers `{ "versions": [] }` while no past version is built,
+`GET /download/past/index.json`, which the phone reads, and its `/android/past/index.json`
+alias answer `{ "versions": [] }` while no past version is built,
 never a 404, so the phone says none are built yet rather than that the server did not
 answer. `publish-apk.sh` writes the index at once and builds the past versions in the
 background, newest first, adding each to the index as it is built (recording 16 Oct 2026
