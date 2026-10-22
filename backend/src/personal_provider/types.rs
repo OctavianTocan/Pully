@@ -62,9 +62,9 @@ pub(crate) struct ExpectedConnection {
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) enum PiCredentialChange {
-    Keep,
+    Keep {},
     Replace { value: String },
-    Clear,
+    Clear {},
 }
 
 #[derive(Deserialize)]

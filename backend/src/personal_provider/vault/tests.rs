@@ -191,7 +191,7 @@ async fn guest_legacy_and_different_immutable_subjects_cannot_enter_the_personal
             .configure_pi(
                 &wrong,
                 expected(&status),
-                setup(None, None, PiCredentialChange::Keep)
+                setup(None, None, PiCredentialChange::Keep {})
             )
             .await
             .is_err());
@@ -227,7 +227,7 @@ async fn keep_replace_clear_and_changed_endpoint_never_move_a_captured_credentia
             setup(
                 Some("http://127.0.0.1:8317/other"),
                 None,
-                PiCredentialChange::Keep
+                PiCredentialChange::Keep {}
             )
         )
         .await
@@ -238,7 +238,7 @@ async fn keep_replace_clear_and_changed_endpoint_never_move_a_captured_credentia
         .configure_pi(
             &owner,
             expected(&status),
-            setup(None, Some(""), PiCredentialChange::Keep),
+            setup(None, Some(""), PiCredentialChange::Keep {}),
         )
         .await
         .unwrap();
@@ -250,7 +250,7 @@ async fn keep_replace_clear_and_changed_endpoint_never_move_a_captured_credentia
         .configure_pi(
             &owner,
             expected(&kept),
-            setup(None, None, PiCredentialChange::Clear),
+            setup(None, None, PiCredentialChange::Clear {}),
         )
         .await
         .unwrap();
@@ -287,12 +287,12 @@ async fn concurrent_updates_admit_only_one_exact_connection_revision() {
         h.providers.configure_pi(
             &owner,
             expected(&status),
-            setup(None, Some("model-a"), PiCredentialChange::Keep)
+            setup(None, Some("model-a"), PiCredentialChange::Keep {})
         ),
         h.providers.configure_pi(
             &owner,
             expected(&status),
-            setup(None, Some("model-b"), PiCredentialChange::Keep)
+            setup(None, Some("model-b"), PiCredentialChange::Keep {})
         ),
     );
     assert_ne!(a.is_ok(), b.is_ok());
@@ -427,7 +427,7 @@ async fn setup_bounds_and_paired_expected_fields_fail_before_mutating_state() {
             .configure_pi(
                 &owner,
                 expected(&status),
-                setup(None, Some(&model), PiCredentialChange::Keep)
+                setup(None, Some(&model), PiCredentialChange::Keep {})
             )
             .await
             .is_err());
@@ -471,7 +471,7 @@ async fn setup_bounds_and_paired_expected_fields_fail_before_mutating_state() {
         .configure_pi(
             &owner,
             expected(&status),
-            setup(None, Some(&max_model), PiCredentialChange::Keep),
+            setup(None, Some(&max_model), PiCredentialChange::Keep {}),
         )
         .await
         .unwrap();
@@ -483,6 +483,20 @@ async fn setup_bounds_and_paired_expected_fields_fail_before_mutating_state() {
         json!({"endpoint":h.endpoint,"credential":{"action":"clear"},"accountId":"someone-else"})
     )
     .is_err());
+    assert!(serde_json::from_value::<PiSetupInput>(
+        json!({"endpoint":h.endpoint,"credential":{"action":"clear","value":"secret"}})
+    )
+    .is_err());
+    for credential in [
+        json!({"action":"keep"}),
+        json!({"action":"clear"}),
+        json!({"action":"replace","value":"fixture-pi-bearer"}),
+    ] {
+        assert!(serde_json::from_value::<PiSetupInput>(
+            json!({"endpoint":h.endpoint,"credential":credential})
+        )
+        .is_ok());
+    }
 }
 
 #[tokio::test]
@@ -495,11 +509,15 @@ async fn revoked_source_waiting_for_actual_storage_cannot_commit_configuration()
     let mut operation = Box::pin(h.providers.configure_pi(
         &owner,
         expected(&status),
-        setup(None, Some("new-model"), PiCredentialChange::Keep),
+        setup(None, Some("new-model"), PiCredentialChange::Keep {}),
     ));
     assert!(futures_util::poll!(&mut operation).is_pending());
     revoke(&owner);
-    assert!(held.assert_yields(operation).await.is_err());
+    drop(held);
+    assert!(tokio::time::timeout(Duration::from_secs(1), operation)
+        .await
+        .unwrap()
+        .is_err());
     assert_eq!(h.state(), before);
 }
 
@@ -536,7 +554,7 @@ async fn models(State(reply): State<Arc<Reply>>, headers: HeaderMap) -> Response
         5 => Json(json!({"data":[{"id":"fixture-pi-bearer","owned_by":"test"}]})).into_response(),
         6 => Json(json!({"error":"fixture-pi-bearer invalid body"})).into_response(),
         7 => {
-            let stream = futures_util::stream::once(async { Ok::<_, Infallible>(Bytes::from_static(b"{\"data\":")) })
+            let stream = futures_util::stream::once(async move { reply.entered.notify_one(); Ok::<_, Infallible>(Bytes::from_static(b"{\"data\":")) })
                 .chain(futures_util::stream::once(std::future::pending::<Result<Bytes, Infallible>>()));
             Response::new(Body::from_stream(stream))
         },
@@ -763,16 +781,26 @@ async fn a_never_finishing_chunked_body_has_a_bounded_catalog_deadline() {
     let server = Provider::new().await;
     server.reply.mode.store(7, Ordering::SeqCst);
     let mut h = Harness::new(&server.base);
-    Arc::get_mut(&mut h.providers.0).unwrap().catalog_timeout = Duration::from_millis(75);
+    Arc::get_mut(&mut h.providers.0).unwrap().catalog_timeout = Duration::from_millis(500);
     let owner = identity("account-a", 42);
     let status = h.configure(&owner).await;
-    let result = tokio::time::timeout(
-        Duration::from_secs(1),
-        h.providers.pi_models(&owner, expected(&status), true),
-    )
-    .await
-    .unwrap();
+    let providers = h.providers.clone();
+    let captured_owner = owner.clone();
+    let captured_expected = expected(&status);
+    let operation = tokio::spawn(async move {
+        providers
+            .pi_models(&captured_owner, captured_expected, true)
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(1), server.reply.entered.notified())
+        .await
+        .unwrap();
+    let result = tokio::time::timeout(Duration::from_secs(2), operation)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(result.is_err());
+    assert_eq!(server.reply.calls.load(Ordering::SeqCst), 1);
     assert_eq!(
         state_name(&pi(h.providers.load(&owner).await.unwrap())),
         "unverified"

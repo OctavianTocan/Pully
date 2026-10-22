@@ -264,7 +264,7 @@ impl PersonalProviders {
             .as_ref()
             .is_some_and(|old| old.endpoint != endpoint.as_str());
         let credential = match input.credential {
-            PiCredentialChange::Keep => {
+            PiCredentialChange::Keep {} => {
                 ensure!(
                     !changed_endpoint || old.as_ref().is_none_or(|old| old.credential.is_none()),
                     "Changing a Pi endpoint requires replacing or clearing its credential"
@@ -275,7 +275,7 @@ impl PersonalProviders {
                 validate_credential(&value)?;
                 Some(value)
             }
-            PiCredentialChange::Clear => None,
+            PiCredentialChange::Clear {} => None,
         };
         let mut retired = owner.subscribe_retirement()?;
         tokio::select! {
