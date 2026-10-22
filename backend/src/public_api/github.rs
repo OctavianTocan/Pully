@@ -74,6 +74,7 @@ struct Budget {
 pub(crate) use super::fence::{IdentityFence, IdentityLease};
 pub(crate) type RepositoryFence = IdentityFence<u64>;
 pub(crate) type RepositoryLease = IdentityLease<u64>;
+type RepositoryProbe = super::fence::IdentityProbe;
 
 struct PublicCache {
     entries: HashMap<String, Cached>,

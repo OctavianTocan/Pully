@@ -158,7 +158,10 @@ fn github_side(value: &Value) -> Result<&'static str> {
     }
 }
 const THREADS_QUERY: &str = r#"query ReviewThreads($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor} nodes{id isResolved comments(first:1){nodes{fullDatabaseId}}}}}}}"#;
-async fn resolutions(read: &dyn GitHubRead, pull: &Pull) -> Result<BTreeMap<u64, Value>> {
+async fn resolutions(state: &AppState, pull: &Pull) -> Result<BTreeMap<u64, Value>> {
+    resolutions_with(&StateGitHubRead(state), pull).await
+}
+async fn resolutions_with(read: &dyn GitHubRead, pull: &Pull) -> Result<BTreeMap<u64, Value>> {
     let mut out = BTreeMap::new();
     let mut cursor = Value::Null;
     loop {
@@ -254,7 +257,7 @@ async fn review_data_with(read: &dyn GitHubRead, pull: &Pull) -> Result<Value> {
     } else {
         Vec::new()
     };
-    let resolution = resolutions(read, pull).await.unwrap_or_default();
+    let resolution = resolutions_with(read, pull).await.unwrap_or_default();
     Ok(normalize_reviews(
         &comments,
         &reviews,
