@@ -397,6 +397,9 @@ replaying feedback on resume; a retired source or replacement operation MUST NOT
 receive it. A queued Stop MUST recheck its drawn control before dispatch. Cleanup
 cancellation MUST retain its existing best-effort behavior. Source: Tavi's accepted
 22 Oct 2026 complete native AI Stop/error journey and the real RPC rejection review.
+Only the latest actually dispatched explicit Stop for the still-running Inbox task
+MAY publish a rejection; an unsent queued tap MUST NOT supersede an accepted receipt.
+Source: the accepted 22 Oct 2026 full Stop receipt-ordering review, finding 1.
 
 @cc [owner:OctavianTocan,label:security;product] home-write-dispatch-requires-current-verified-readiness
 Posted deletion and an explicit running-tour Stop MUST check the current source and

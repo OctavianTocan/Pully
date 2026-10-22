@@ -59,6 +59,7 @@ class InboxAsk(
     private var retired = false
     private var epoch = 0L
     private var readSequence = 0L
+    private var stopRequest: Any? = null
     private var observation = 0L
     private var observing = false
     private var loader: Job? = null
@@ -111,6 +112,7 @@ class InboxAsk(
         epoch++; revision++; readSequence++
         saved = null; followed = null; sent = null; sentAt = null
         problem = null; observationProblem = null; draft = ""; clearing = false; acceptedQuestion = null
+        stopRequest = null
         observationSubscription?.cancel(); observationSubscription = null
         mounts.toList().forEach { it.close() }
         mounts.clear()
@@ -203,17 +205,21 @@ class InboxAsk(
         if (!canAsk || !permitted() || drawn == null || followed?.id != drawn.id || followed?.running != true) return
         val request = epoch
         scope.launch {
+            val stop = Any()
             try {
                 if (!owns(request) || !canAsk || !permitted() || followed?.id != drawn.id || followed?.running != true) return@launch
+                stopRequest = stop
                 problem = null
                 repo.cancelTask(drawn.id, bestEffort = false)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                if (owns(request) && followed?.id == drawn.id) {
+                if (owns(request) && stopRequest === stop && followed?.id == drawn.id && followed?.running == true) {
                     problem = failure.message ?: "Request failed"
                     feedback(Cue.Error)
                 }
+            } finally {
+                if (stopRequest === stop) stopRequest = null
             }
         }
     }

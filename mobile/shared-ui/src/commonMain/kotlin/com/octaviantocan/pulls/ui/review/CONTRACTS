@@ -613,3 +613,6 @@ same-source/full-view lifetime through a foreground pause or control dismissal;
 a replacement source/view MUST NOT receive the old error. Internal best-effort
 cleanup MAY keep its existing cancellation behavior. Source: Tavi's complete native
 AI/error-recovery journey and the accepted 22 Oct 2026 Tour Stop rejection finding.
+Only the latest actually dispatched explicit Stop for a still-running task MAY
+publish a rejection; a queued tap that never dispatches MUST NOT supersede an accepted
+receipt. Source: the accepted 22 Oct 2026 full Stop receipt-ordering review, finding 1.
