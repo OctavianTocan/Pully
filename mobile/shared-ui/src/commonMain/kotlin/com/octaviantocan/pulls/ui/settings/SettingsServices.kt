@@ -38,6 +38,7 @@ class SettingsServices(
     val showScreen: (String) -> Unit,
 ) {
     private var closed = false
+    val colorThemes = ColorThemePicker(settings, ::current)
     fun current() = !closed && owner()
     /** Called by the root before replacement credentials become usable, not by ordinary page navigation. */
     fun close() {

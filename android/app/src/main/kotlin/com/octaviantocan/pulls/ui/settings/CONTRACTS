@@ -159,3 +159,10 @@ state again whenever Pully resumes. Android permission alone MUST NOT display th
 as on when Pully consent is off. After consent, the page MUST offer Disable helper, which
 withdraws Pully's consent and hides the helper immediately without requiring the reader
 to change Android settings first (Tavi, 18 Oct 2026, opt-in browser helper request).
+
+@cc [owner:OctavianTocan,label:security;product] settings-palette-belongs-to-opening-android-entry
+Both public and existing-server palette sheets MUST capture their opening native entry
+and repository-source generations. A retained choice or queued wipe from either old
+generation MUST NOT edit preferences or touch SettingsSync for a replacement account.
+An eligible current picker MUST retain the shared theme wipe and immediate preference
+updates. Source: the independently confirmed 22 Oct 2026 Guest theme-ownership review.
