@@ -34,31 +34,31 @@ All paths below are fixed under a trusted HTTPS Pully auth origin, separate from
 the user's legacy private-server configuration. Native requests carry no Access
 headers, legacy `X-Pully-Session`, cookies or user-selected redirect/configuration.
 
-* `GET /api/personal/v1/capabilities` returns `{github:{enabled:Boolean}}`.
-* `POST /api/personal/v1/auth/github/start` accepts only `nativeChallenge` and
+- `GET /api/personal/v1/capabilities` returns `{github:{enabled:Boolean}}`.
+- `POST /api/personal/v1/auth/github/start` accepts only `nativeChallenge` and
   returns `attemptId`, `authorizeUrl`, `expiresAt` and `pollAfterMs`.
-* The native client makes 32 CSPRNG bytes, encodes them as 43-character base64url
+- The native client makes 32 CSPRNG bytes, encodes them as 43-character base64url
   without padding (`nativeProof`), and sends
   `BASE64URL_NO_PAD(SHA256(ASCII(nativeProof)))` as its challenge.
-* `POST .../status`, `.../claim` and `.../cancel` require `attemptId` and
+- `POST .../status`, `.../claim` and `.../cancel` require `attemptId` and
   `nativeProof` in JSON bodies. They accept no query parameters. State and GitHub
   PKCE use separate server-generated randomness.
-* The system browser uses the fixed GitHub authorize origin. A fixed callback
+- The system browser uses the fixed GitHub authorize origin. A fixed callback
   consumes state once, exchanges the code with S256 PKCE and verifies `GET /user`.
   The native app resumes polling with the same in-memory proof after browser return.
   Ordinary background pauses polling without cancellation; explicit cancel,
   source/entry retirement, expiry and process death retire native ownership.
-* `status` returns `pending`, `ready`, `failed`, `cancelled` or a typed expired
+- `status` returns `pending`, `ready`, `failed`, `cancelled` or a typed expired
   failure. A successful one-use `claim` returns only the newly issued Pully
   `session` and redacted `status`. GitHub tokens never reach native clients.
-* The claim's session is provisional: its `sessionExpiresAt` is the original
+- The claim's session is provisional: its `sessionExpiresAt` is the original
   attempt deadline, at most ten minutes after start. Secure-store the bearer, then
   use bearer-authenticated `GET /api/personal/v1/session` before that deadline to
   confirm delivery. The confirmed response returns the ordinary thirty-day session
   deadline. Do not publish the new source before confirmation. An expired or lost
   claim requires fresh sign-in; unconfirmed sessions expire and are reclaimed before
   a later sign-in's capacity check, without replaying a claim or retaining its bearer.
-* The client must consume its pending attempt before publishing the accepted session
+- The client must consume its pending attempt before publishing the accepted session
   to its new source. After a claim is consumed, source retirement or failed storage/
   confirmation must sign out the captured session. Remove its local credential only
   after revocation succeeds; an uncertain failure must retain a cleanup-only secure
@@ -115,10 +115,10 @@ They do not authenticate a real GitHub account or verify deployed callback links
 
 Current GitHub documentation used for the protocol:
 
-* [OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps):
+- [OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps):
   S256 PKCE, state, fixed token exchange, `offline_access`, expiring access/refresh
   pairs, refresh rotation and revalidating the authenticated user.
-* [Scopes](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps):
+- [Scopes](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps):
   public read without regular scopes, inherited grants and the breadth of `repo`.
-* [Authenticated user](https://docs.github.com/en/rest/users/users#get-the-authenticated-user)
+- [Authenticated user](https://docs.github.com/en/rest/users/users#get-the-authenticated-user)
   and [organization SSO](https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-single-sign-on/authorizing-an-app-for-single-sign-on).
