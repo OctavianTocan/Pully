@@ -138,6 +138,34 @@ async fn tenant_capacity_is_bounded() {
 }
 
 #[tokio::test]
+async fn revoked_bindings_release_capacity_without_adopting_their_private_store() {
+    let root = std::env::temp_dir().join(format!("pully-tenant-churn-{}", uuid::Uuid::new_v4()));
+    let tenants = TenantStates::new(root.clone(), 1).unwrap();
+    let old = GitHubCredential::fixture("account-a", 42, "fixture-old-token");
+    let first = tenants.account(old.clone()).await.unwrap();
+    first
+        .host
+        .storage
+        .set("private-result", &json!({"owner":"old-binding"}))
+        .unwrap();
+    let fresh = GitHubCredential::fixture("account-a", 42, "fixture-fresh-token");
+    assert!(tenants.account(fresh.clone()).await.is_err());
+
+    old.revoke();
+    let second = tenants.account(fresh.clone()).await.unwrap();
+    assert!(first.identity.ensure_current().is_err());
+    assert_ne!(first.host.storage.root(), second.host.storage.root());
+    assert!(second.host.storage.get("private-result").unwrap().is_none());
+    assert_eq!(
+        first.host.storage.get("private-result").unwrap(),
+        Some(json!({"owner":"old-binding"}))
+    );
+    assert!(Arc::ptr_eq(&second, &tenants.account(fresh).await.unwrap()));
+    assert!(tenants.account(old).await.is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn guests_and_personal_accounts_cannot_use_operator_ai_or_mutate_github() {
     let root =
         std::env::temp_dir().join(format!("pully-tenant-authority-{}", uuid::Uuid::new_v4()));

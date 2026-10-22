@@ -21,9 +21,10 @@ impl std::fmt::Display for ReconnectRequired {
 impl std::error::Error for ReconnectRequired {}
 
 /// Application authority is independent of an OAuth token's possibly inherited scopes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum GitHubAuthority {
+    #[default]
     PublicRead,
     PrivateRepositories,
 }
@@ -245,6 +246,8 @@ impl VerifiedLogin {
 pub(super) struct OAuthProvider {
     config: Arc<OAuthConfig>,
     client: reqwest::Client,
+    #[cfg(test)]
+    fixture_origin: Option<Url>,
 }
 
 impl OAuthProvider {
@@ -255,13 +258,45 @@ impl OAuthProvider {
             .timeout(Duration::from_secs(30))
             .build()
             .map_err(|_| anyhow::anyhow!("Could not configure GitHub authorization"))?;
-        Ok(Self { config, client })
+        Ok(Self {
+            config,
+            client,
+            #[cfg(test)]
+            fixture_origin: None,
+        })
+    }
+
+    #[cfg(test)]
+    pub(super) fn fixture(config: Arc<OAuthConfig>, origin: Url) -> Result<Self> {
+        ensure!(
+            origin.scheme() == "http"
+                && origin.host_str() == Some("127.0.0.1")
+                && origin.path() == "/",
+            "Invalid fixture origin"
+        );
+        let mut provider = Self::new(config)?;
+        provider.client = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(5))
+            .build()?;
+        provider.fixture_origin = Some(origin);
+        Ok(provider)
     }
 
     async fn token_request(&self, fields: &[(&str, &str)], now: u64) -> Result<GitHubTokens> {
+        let token_url = TOKEN_URL;
+        #[cfg(test)]
+        let token_url = self
+            .fixture_origin
+            .as_ref()
+            .map(|origin| origin.join("login/oauth/access_token"))
+            .transpose()?
+            .map(|url| url.to_string())
+            .unwrap_or_else(|| token_url.to_owned());
         let response = self
             .client
-            .post(TOKEN_URL)
+            .post(token_url)
             .header(reqwest::header::ACCEPT, "application/json")
             .header(reqwest::header::USER_AGENT, "pully")
             .form(fields)
@@ -351,6 +386,32 @@ impl GitHubProvider for OAuthProvider {
     }
 
     fn verify<'a>(&'a self, token: String) -> ProviderFuture<'a, VerifiedGitHubIdentity> {
+        #[cfg(test)]
+        if let Some(origin) = &self.fixture_origin {
+            return Box::pin(async move {
+                let response = self
+                    .client
+                    .get(origin.join("user")?)
+                    .bearer_auth(&token)
+                    .send()
+                    .await?;
+                ensure!(
+                    response.status() == reqwest::StatusCode::OK,
+                    "Fixture identity unavailable"
+                );
+                let mut bytes = Vec::new();
+                let mut stream = response.bytes_stream();
+                while let Some(chunk) = stream.next().await {
+                    let chunk = chunk?;
+                    ensure!(
+                        bytes.len() + chunk.len() <= MAX_RESPONSE_BYTES,
+                        "Fixture identity too large"
+                    );
+                    bytes.extend_from_slice(&chunk);
+                }
+                VerifiedGitHubIdentity::fixture_response(token, &bytes)
+            });
+        }
         Box::pin(VerifiedGitHubIdentity::verify(token))
     }
 }

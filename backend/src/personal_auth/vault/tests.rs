@@ -143,6 +143,64 @@ impl Harness {
             .unwrap()
     }
 }
+
+#[tokio::test]
+async fn legacy_session_claims_default_to_public_read_and_outer_authority_cannot_be_forged() {
+    let h = Harness::new();
+    let public = h.sign_in("public-before", 42, "reader").await;
+    let source = Arc::new(h.resolve(&public.session).await);
+    h.provider.user("private-after", 42, "reader");
+    let verified = VerifiedLogin::acquire(h.provider.as_ref(), tokens("private-after"))
+        .await
+        .unwrap();
+    let private = h
+        .vault
+        .install_upgrade(verified, source, h.clock.now() + 600)
+        .await
+        .unwrap();
+    assert_eq!(
+        h.resolve(&private.session).await.status.authority,
+        GitHubAuthority::PrivateRepositories
+    );
+    let hash = session_hash(&public.session).unwrap();
+    h.store
+        .update(STATE_KEY, |value| {
+            let mut database = decode(value)?;
+            let stored = database.sessions.get_mut(&hash).unwrap();
+            let context = session_context(&stored.account_id, stored.github_id, stored.generation);
+            let mut claims: serde_json::Value =
+                serde_json::from_slice(&h.vault.keys.open(&context, &stored.sealed)?)?;
+            claims.as_object_mut().unwrap().remove("authority");
+            stored.sealed = h.vault.keys.seal(&context, &serde_json::to_vec(&claims)?)?;
+            let mut raw = serde_json::to_value(database)?;
+            raw["sessions"][&hash]
+                .as_object_mut()
+                .unwrap()
+                .remove("authority");
+            Ok(raw)
+        })
+        .unwrap();
+    assert_eq!(
+        h.resolve(&public.session).await.status.authority,
+        GitHubAuthority::PublicRead
+    );
+    h.store
+        .update(STATE_KEY, |value| {
+            let mut raw = value.unwrap();
+            raw["sessions"][&hash]["authority"] = serde_json::json!("privateRepositories");
+            Ok(raw)
+        })
+        .unwrap();
+    assert!(h
+        .vault
+        .resolve(&public.session, h.provider.as_ref())
+        .await
+        .is_err());
+    assert_eq!(
+        h.resolve(&private.session).await.status.authority,
+        GitHubAuthority::PrivateRepositories
+    );
+}
 fn tokens(access: &str) -> GitHubTokens {
     GitHubTokens {
         access_token: access.into(),

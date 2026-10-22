@@ -46,6 +46,10 @@ pub(crate) struct VerifiedGitHubIdentity {
 }
 
 impl VerifiedGitHubIdentity {
+    #[cfg(test)]
+    pub(crate) fn fixture_response(token: String, body: &[u8]) -> Result<Self> {
+        Self::verified_response(token, body)
+    }
     pub(crate) fn github_id(&self) -> u64 {
         self.github_id
     }
@@ -263,6 +267,7 @@ impl TenantStates {
         crate::store::blocking(move || {
             identity.ensure_current()?;
             let mut states = states.lock().unwrap_or_else(|e| e.into_inner());
+            states.retain(|_, state| state.identity.ensure_current().is_ok());
             if let Some(state) = states.get(&key) {
                 return Ok(state.clone());
             }

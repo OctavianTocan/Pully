@@ -68,10 +68,25 @@ headers, legacy `X-Pully-Session`, cookies or user-selected redirect/configurati
 
 `*At` timestamps are Unix epoch seconds. `pollAfterMs` is milliseconds (2000).
 Public sign-in always has `publicRead` application authority, even when GitHub
-returns an inherited `repo` grant. The wire also names `privateRepositories` for
-the separately reviewed explicit capability-upgrade boundary; this public factory
-does not expose a private-upgrade route. GitHub's `repo` grant is broad read/write
-access and cannot bypass organization approval or SSO.
+returns an inherited `repo` grant. The separate bearer-authenticated
+`POST /api/personal/v1/auth/github/repositories/start` accepts the same
+`{nativeChallenge}` body and opens Pully's actual GitHub `repo` consent. It captures
+the initiating personal session, account, immutable subject and credential
+revision. The existing callback/status/one-use claim/confirmation sequence issues
+a new `privateRepositories` session only for that same still-current source and
+an actual repository grant. A different selected GitHub account, sign-out, newer
+credential revision or reduced grant cannot create that authority. Native upgrade
+attempts must remain a distinct purpose from public sign-in and preserve the same
+secure pending-save, confirmation, source-retirement and cleanup protocol.
+
+Each session authenticates its own maximum application authority inside its sealed
+claims. Old records without that field default to `publicRead`; an older public
+session does not inherit a later private upgrade. Credential refresh can reduce
+the effective authority but cannot broaden that session maximum. The separate
+typed `/api/personal/v1/github/account/*` reads require `privateRepositories`;
+ordinary public routes remain public-only. GitHub's `repo` grant is broad read/write
+access, while the application exposes only fixed reads in this slice, and cannot
+bypass organization approval or SSO.
 
 `GET /api/personal/v1/session`, `POST /api/personal/v1/session/sign-out` and
 `POST /api/personal/v1/github/disconnect` accept only a personal Pully bearer in
