@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +47,13 @@ import com.octaviantocan.pulls.data.GoogleSignIn
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerError
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.data.RepoIdentity
+import com.octaviantocan.pulls.data.ServerEndpoint
+import com.octaviantocan.pulls.data.carriesSecrets
+import com.octaviantocan.pulls.data.checkAccountConnection
+import com.octaviantocan.pulls.data.connectionProblem
+import com.octaviantocan.pulls.data.ConnectionProblem
+import com.octaviantocan.pulls.data.SignInController
 import com.octaviantocan.pulls.data.SettingsSync
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -57,6 +65,7 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.ModalReveal
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
@@ -80,29 +89,45 @@ import kotlinx.coroutines.launch
 internal fun AccountCheck() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var epoch by remember { androidx.compose.runtime.mutableLongStateOf(RepoIdentity.generation) }
+    DisposableEffect(Unit) {
+        val unsubscribe = RepoIdentity.observeInvalidation { scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) { epoch = RepoIdentity.generation } }
+        epoch = RepoIdentity.generation
+        onDispose { unsubscribe() }
+    }
+    LaunchedEffect(epoch) { checkAccount(context) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { checkAccount(context) } }
 }
 
-internal suspend fun checkAccount(context: Context) {
+internal suspend fun checkAccount(context: Context): ConnectionCheckResult {
     Account.load(context)
+    val revision = Account.beginConnectionCheck()
     val repo = Repo(context)
-    val status = try {
-        repo.accountStatus()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        // An older server has no accounts to ask about; an unreachable one is asked again on the next return.
-        return
-    }
-    Account.noteServer(context, status)
-    if (!status.hasAccount || Account.email == null) return
     try {
-        if (repo.accountEmail() == null) Account.signedOut(context) else SettingsSync.sync(context)
+        val config = ServerStore.load(context)
+        if (runCatching { ServerEndpoint.parse(config.url) }.isFailure ||
+            config.accessId.isBlank() != config.accessSecret.isBlank() ||
+            config.headers().isNotEmpty() && !carriesSecrets(config.url)) {
+            Account.connectionFailed(revision, ConnectionProblem.Configuration)
+            return connectionCheckResult(revision, ConnectionProblem.Configuration)
+        }
+        val connection = checkAccountConnection(repo, Account.email)
+        if (!Account.ownsConnectionCheck(revision)) return ConnectionCheckResult.Superseded
+        connection.status?.let { Account.noteServer(context, it) }
+        Account.connectionAnswered(context, revision)
+        if (connection.sessionExpired) Account.signedOut(context)
+        else if (connection.status?.hasAccount == true && Account.email != null) {
+            try { SettingsSync.sync(context) } catch (e: CancellationException) { throw e } catch (_: Exception) { }
+        }
+        return connectionCheckResult(revision)
     } catch (e: CancellationException) {
         throw e
-    } catch (e: ServerError) {
-        if (e.status == 401) Account.signedOut(context)
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+        val outcome = connectionCheckResult(revision, connectionProblem(e))
+        if (outcome is ConnectionCheckResult.Failed) Account.connectionFailed(revision, outcome.problem)
+        return outcome
+    } finally {
+        Account.finishConnectionCheck(revision)
     }
 }
 
@@ -113,10 +138,17 @@ internal suspend fun checkAccount(context: Context) {
  */
 @Composable
 internal fun SignInGate(onLeave: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var epoch by remember { androidx.compose.runtime.mutableLongStateOf(RepoIdentity.generation) }
+    DisposableEffect(Unit) {
+        val unsubscribe = RepoIdentity.observeInvalidation { scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) { epoch = RepoIdentity.generation } }
+        epoch = RepoIdentity.generation
+        onDispose { unsubscribe() }
+    }
     ModalReveal(
         Account.mustSignIn, onLeave,
         DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
-    ) { SignInPage() }
+    ) { key(epoch) { SignInPage(epoch) } }
 }
 
 /**
@@ -125,11 +157,20 @@ internal fun SignInGate(onLeave: () -> Unit) {
  * under it, for the test account (Tavi, 16 Oct 16:52). Without Google on the server the email is the page's one action.
  */
 @Composable
-internal fun SignInPage() {
+internal fun SignInPage(openingEpoch: Long) {
     val c = LocalPullsColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val motion = rememberMotionEnabled()
+    val repo = remember { Repo(context) }
+    val source = remember { repo.source() }
+    val owner = remember { object { var active = true } }
+    DisposableEffect(Unit) { onDispose { owner.active = false } }
+    val controller = remember {
+        SignInController(repo, source, { owner.active && RepoIdentity.generation == openingEpoch }) { session, signedAs ->
+            Account.signedIn(context, session, signedAs)
+        }
+    }
     val server = remember { ServerStore.load(context).url.removePrefix("https://").removePrefix("http://").trimEnd('/') }
     val googleClientId = Account.googleClientId
     var email by remember { mutableStateOf("") }
@@ -138,23 +179,20 @@ internal fun SignInPage() {
     var shown by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf<SignInWay?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
+    var serverSettings by remember { mutableStateOf(false) }
     val ready = busy == null && email.isNotBlank() && (!asked || password.isNotEmpty())
-    fun signIn(way: SignInWay, attempt: suspend (Repo) -> Pair<String, String>?) {
+    fun signIn(way: SignInWay, attempt: suspend () -> Boolean) {
         if (busy != null) return
         busy = way
         problem = null
         scope.launch {
             try {
-                attempt(Repo(context))?.let { (session, signedAs) ->
-                    Account.signedIn(context, session, signedAs)
-                    SettingsSync.sync(context)
-                }
+                if (attempt()) SettingsSync.sync(context)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                problem = e.message ?: "Pully could not sign in."
-            }
-            busy = null
+                problem = (e as? ServerError)?.message ?: "Pully could not sign in. Try again or check Server settings."
+            } finally { busy = null }
         }
     }
     fun next() {
@@ -163,11 +201,11 @@ internal fun SignInPage() {
             asked = true
             return
         }
-        signIn(SignInWay.Password) { it.signIn(email.trim(), password) }
+        signIn(SignInWay.Password) { controller.password(email.trim(), password); true }
     }
-    fun google(clientId: String) = signIn(SignInWay.Google) { repo ->
+    fun google(clientId: String) = signIn(SignInWay.Google) {
         // Closing Google's account sheet is not a failure: the page stays as it was.
-        GoogleSignIn.idToken(context, clientId)?.let { repo.signInWithGoogle(it) }
+        controller.google { GoogleSignIn.idToken(context, clientId) }
     }
     Column(
         Modifier.fillMaxSize().background(c.base).padding(top = headerTopPadding()).imePadding().navigationBarsPadding()
@@ -224,7 +262,9 @@ internal fun SignInPage() {
         } else {
             CtaButton(label, ::next, Modifier.fillMaxWidth().padding(top = 12.dp), enabled = ready)
         }
+        CtaButton(com.octaviantocan.pulls.ui.design.t("connection.serverSettings"), { serverSettings = true }, Modifier.fillMaxWidth().padding(top = PullsSpace.x3), container = c.paper2, contentColor = c.text, enabled = busy == null)
     }
+    if (serverSettings) ServerConnectionSheet(onClose = { serverSettings = false })
 }
 
 /** Which way the page is signing in, so only that button says "Signing in…". */

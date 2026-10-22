@@ -24,7 +24,7 @@ class RpcRequest(
     }
 }
 
-class RpcResponse(val status: Int, val body: String, val contentType: String = "")
+class RpcResponse(val status: Int, val body: String, val contentType: String = "", internal val location: String = "")
 
 /** Shared bound for an RPC response; lite diff opening remains the normal large-diff path. */
 const val RPC_RESPONSE_LIMIT = 64 * 1024 * 1024

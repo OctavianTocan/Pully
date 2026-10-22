@@ -54,6 +54,7 @@ import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
 import com.octaviantocan.pulls.ui.settings.AccountCheck
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
 import com.octaviantocan.pulls.ui.settings.SignInGate
+import com.octaviantocan.pulls.ui.settings.ConnectionSetupGate
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.update.UpdateGate
 import com.octaviantocan.pulls.ui.update.WhatsNewSheet
@@ -213,7 +214,10 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
             // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pully.
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
             // On a server with an account, a phone not signed in to it signs in first; once signed in it stays (plan 13).
-            if (Updates.available == null) SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
+            if (Updates.available == null) {
+                ConnectionSetupGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
+                SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
+            }
         }
     }
 }

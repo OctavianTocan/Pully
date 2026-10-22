@@ -4,10 +4,12 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -23,22 +25,27 @@ class RpcClient(server: String, private val transport: RpcTransport, headers: Ma
         val request = request("rpc", buildJsonObject { put("name", name); put("args", args) }.toString())
         val response = execute(request)
         val status = response.status
-        if (status in 300..399) throw ServerError(status, "The server redirected the request. Check its address and Access configuration.", kind = ServerErrorKind.Redirect)
-        val text = response.body
-        if (response.contentType.substringBefore(';').trim().equals("text/html", ignoreCase = true) || text.trimStart().startsWith('<'))
-            throw ServerError(status, "The server returned a sign-in page. Check its Access configuration.", kind = ServerErrorKind.AccessRequired)
-        if (text.isBlank()) throw ServerError(status, "The server returned nothing (HTTP $status).", kind = ServerErrorKind.Empty)
+        val text = response.body.trimStart('\uFEFF', ' ', '\t', '\r', '\n')
+        val format = responseFormat(response.contentType, text)
+        fun failure(kind: ServerErrorKind, message: String): Nothing = throw ServerError(status, message, kind = kind, format = format)
+        if (status in 300..399) {
+            if (isAccessLogin(response.location)) failure(ServerErrorKind.AccessRequired, "This server requires Access authorization. Check Server settings.")
+            failure(ServerErrorKind.Redirect, "The server redirected the request. Check its address in Server settings.")
+        }
+        if (format == RpcResponseFormat.Html)
+            failure(ServerErrorKind.HtmlResponse, "The server returned a web page instead of Pully data. Try again or check Server settings.")
+        if (text.isBlank()) failure(ServerErrorKind.Empty, "The server returned nothing. Try again.")
         val parsed = runCatching { Json.parseToJsonElement(text) as? JsonObject }.getOrNull()
-            ?: throw ServerError(status, "The server returned an invalid RPC response (HTTP $status).", kind = ServerErrorKind.InvalidResponse)
+            ?: failure(if (status in 200..299) ServerErrorKind.InvalidResponse else ServerErrorKind.Http, "Pully could not read the server's response. Try again or check Server settings.")
         val error = parsed["error"]?.takeUnless { it == JsonNull }
         if (error != null || status !in 200..299) {
             val message = (error as? JsonPrimitive)?.takeIf { it.isString }?.content
-                ?: "The server rejected the request (HTTP $status)."
-            throw ServerError(status, message, kind = when (status) {
+            if (error != null && message == null) failure(ServerErrorKind.InvalidResponse, "Pully could not read the server's response. Try again.")
+            failure(if (message == null) ServerErrorKind.Http else when (status) {
                 401 -> ServerErrorKind.Unauthorized
                 403 -> ServerErrorKind.Forbidden
                 else -> ServerErrorKind.Server
-            })
+            }, message?.let { safeMessage(it, name, args, status) } ?: "The server could not complete this request. Try again.")
         }
         return parsed["result"] ?: JsonNull
     }
@@ -57,12 +64,58 @@ class RpcClient(server: String, private val transport: RpcTransport, headers: Ma
         // A caller's cancellation still propagates; our own network deadline is a recoverable load failure.
         currentCoroutineContext().ensureActive()
         throw RpcTimeoutException()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        // Native exception messages may include addresses, query strings or credentials.
+        throw RpcConnectionException()
+    }
+
+    private fun safeMessage(message: String, name: String, args: JsonObject, status: Int): String {
+        if (name == "account-sign-in" && status == 429)
+            return "Too many sign-in attempts. Wait 15 minutes before trying again."
+        if (name in setOf("account-sign-in", "account-google-sign-in"))
+            return "Pully could not sign in. Check your account or choose another, then try again."
+        if (hasCredential(args)) return "The server could not complete this request. Try again."
+        if (message.trimStart().startsWith('<')) return "The server could not complete this request. Try again."
+        var safe = message
+        val secrets = headers.values.filter { it.isNotEmpty() }.flatMap { listOf(it, JsonPrimitive(it).toString().drop(1).dropLast(1)) }
+        secrets.distinct().sortedByDescending { it.length }.forEach { safe = safe.replace(it, "[redacted]") }
+        return safe.take(1200)
+    }
+
+    private fun hasCredential(value: JsonElement): Boolean = when (value) {
+        is JsonObject -> value.any { (key, nested) ->
+            key.lowercase() in setOf("password", "idtoken", "session", "apikey", "accesssecret", "secret", "token", "authorization") || hasCredential(nested)
+        }
+        is JsonArray -> value.any(::hasCredential)
+        else -> false
     }
 }
 
-enum class ServerErrorKind { Server, Empty, InvalidResponse, AccessRequired, Unauthorized, Forbidden, Redirect }
+private fun isAccessLogin(location: String): Boolean = Regex(
+    """https://[a-z0-9-]+\.cloudflareaccess\.com(?::443)?/cdn-cgi/access/login(?:/[^?#]*)?(?:[?#].*)?""",
+    RegexOption.IGNORE_CASE,
+).matches(location)
+
+private fun responseFormat(contentType: String, text: String): RpcResponseFormat {
+    val mime = contentType.substringBefore(';').trim().lowercase()
+    return when {
+        mime in setOf("text/html", "application/xhtml+xml") || text.startsWith("<!doctype html", true) || text.startsWith("<html", true) -> RpcResponseFormat.Html
+        text.isBlank() -> RpcResponseFormat.Empty
+        mime == "application/json" || mime.endsWith("+json") -> RpcResponseFormat.Json
+        else -> RpcResponseFormat.Other
+    }
+}
+
+enum class ServerErrorKind { Server, Empty, InvalidResponse, HtmlResponse, Http, AccessRequired, Unauthorized, Forbidden, Redirect }
+
+/** Bounded diagnostics: never contains a response body, URL, headers or credential values. */
+enum class RpcResponseFormat { Unknown, Empty, Html, Json, Other }
 
 /** Same HTTP status API Android callers already use, with a portable recoverable error category. */
-class ServerError(val status: Int, message: String, cause: Throwable? = null, val kind: ServerErrorKind = ServerErrorKind.Server) : IllegalStateException(message, cause)
+class ServerError(val status: Int, message: String, cause: Throwable? = null, val kind: ServerErrorKind = ServerErrorKind.Server, val format: RpcResponseFormat = RpcResponseFormat.Unknown) : IllegalStateException(message, cause)
 
 class RpcTimeoutException : IllegalStateException("The server request timed out.")
+
+class RpcConnectionException : IllegalStateException("Pully could not reach the server. Check your connection and try again.")

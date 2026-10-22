@@ -29,10 +29,30 @@ connect/read/total timeouts and release native connections on every outcome.
 Source: accepted 21 Oct 2026 iOS plan, long-running AI suspension and recovery.
 
 @cc [owner:OctavianTocan,label:product] client-errors-identify-recovery
-An Access HTML page, account/session rejection, forbidden response, redirect,
-malformed envelope and server-declared RPC error MUST remain distinguishable.
+An HTML response, account/session rejection, forbidden RPC response, non-RPC HTTP
+failure, redirect, malformed envelope and server-declared RPC error MUST remain
+distinguishable. HTML alone MUST NOT be presented as proof of account expiry or a
+specific proxy/login cause. Only a redirect to the fixed HTTPS Cloudflare Access
+login origin/path MAY be identified as Access authorization. Failure diagnostics
+MUST retain status and bounded response-format categories without raw pages,
+redirect URLs, native exception messages or reflected credentials.
 Missing or explicit-null results MUST retain the existing null result behavior.
-Source: accepted 21 Oct 2026 iOS plan, API parity and recoverable service access.
+A genuine account-sign-in RPC 429 MUST retain fixed client-owned wait guidance for
+the backend's password lockout, without displaying the server's credential-bearing
+message. An HTML or non-RPC HTTP 429 MUST retain its actual response category instead.
+Source: 21 Oct 2026 first-run Compound review and the existing password throttle.
+Source: accepted 21 Oct 2026 iOS plan, API parity and recoverable service access;
+Tavi's 21 Oct reinstall screenshot and request for clear first-run actions.
+
+@cc [owner:OctavianTocan,label:product;security] client-account-discovery-requires-evidence
+Account discovery MUST accept only a boolean hasAccount and an optional nonempty
+string Google client ID. Malformed account-me results MUST NOT become an expired
+session. Connection checks MUST retain an established account when verification
+receives HTML, non-RPC HTTP failure, an unavailable server or invalid account data;
+an actual RPC session rejection or a different verified email MAY retire it.
+An older server's successful Pully response MAY prove connectivity, without
+inventing account capabilities. A source change MUST invalidate the whole check.
+Source: Tavi's 21 Oct 2026 reinstall screenshot and clear first-run guidance request.
 
 @cc [owner:OctavianTocan,label:security;architecture] client-native-integration-is-real
 The explicit Darwin integration run MUST exercise the production NSURLSession
@@ -40,3 +60,12 @@ transport against a nonprivate loopback fixture, including redirect refusal,
 cancellation, native deadlines and response bounds. It MUST fail when its fixture
 is absent; ordinary common tests MUST remain usable without that fixture. Source:
 Tavi's 21 Oct 2026 iOS implementation request and accepted native-adapter test plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] sign-in-belongs-to-its-opening-source
+A sign-in attempt MUST remain bound to the server, Access/account source and UI owner
+that opened it. After native account selection and before accepting a server reply,
+the controller MUST reject an obsolete owner/source; an old Google token MUST NOT be
+sent to a newly configured server. Dismissing native Google selection MUST perform no
+sign-in RPC or account commit. A successful synchronous commit MAY advance the source.
+Source: Tavi's 21 Oct 2026 maximum-reuse iOS plan and the existing account/source reset
+security boundary, preserving settings-sign-in-page's cancellation behavior.

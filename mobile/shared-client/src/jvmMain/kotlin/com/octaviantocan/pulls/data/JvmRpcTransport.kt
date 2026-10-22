@@ -47,7 +47,7 @@ class JvmRpcTransport : RpcTransport {
                         bytes.write(buffer, 0, count)
                     }
                 }
-                val response = RpcResponse(status, bytes.toByteArray().decodeToString(), connection.contentType.orEmpty())
+                val response = RpcResponse(status, bytes.toByteArray().decodeToString(), connection.contentType.orEmpty(), connection.getHeaderField("Location").orEmpty())
                 if (continuation.isActive) continuation.resume(response)
             } catch (error: Exception) {
                 if (continuation.isActive) continuation.resumeWithException(error)

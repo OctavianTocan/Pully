@@ -47,6 +47,7 @@ import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
+import com.octaviantocan.pulls.data.Account
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Direction
 import com.octaviantocan.pulls.sound.Emphasis
@@ -553,10 +554,11 @@ private fun ColumnScope.LanguagePage(settings: AppSettings, onDone: () -> Unit) 
 
 /** Phone only: which server to talk to, and the Cloudflare Access service token in front of it. */
 @Composable
-private fun ColumnScope.ServerPage() {
+internal fun ColumnScope.ServerPage() {
     val context = LocalContext.current
     val c = LocalPullsColors.current
     val scope = rememberCoroutineScope()
+    val messages = LocalMessages.current
     val saved = remember { ServerStore.load(context) }
     var url by remember { mutableStateOf(saved.url) }
     var accessId by remember { mutableStateOf(saved.accessId) }
@@ -585,19 +587,24 @@ private fun ColumnScope.ServerPage() {
     Text("The secret is stored only on this phone.", Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), style = PullsType.sm, color = c.muted)
     CtaButton(
         if (checking) "Checking…" else t("common.save"),
-        {
+        save@ {
+            if (runCatching { com.octaviantocan.pulls.data.ServerEndpoint.parse(url) }.isFailure ||
+                accessId.isBlank() != accessSecret.isBlank() ||
+                accessId.isNotBlank() && !com.octaviantocan.pulls.data.carriesSecrets(url)) {
+                status = messages.t("connection.problem.Configuration")
+                return@save
+            }
             val current = ServerStore.load(context)
             ServerStore.save(context, current.copy(url = url, accessId = accessId, accessSecret = accessSecret))
             checking = true
             status = null
             scope.launch {
                 status = try {
-                    Repo(context).repoInfo()
-                    "Saved. The server answered."
+                    checkAccount(context).messageKey?.let { messages.t(it) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    "Saved, but the server did not answer: ${e.message ?: e}"
+                    messages.t("connection.problem.Unreachable")
                 }
                 checking = false
             }

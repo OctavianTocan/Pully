@@ -26,7 +26,10 @@ Settings, Sounds has a Vibration switch, and with it off nothing vibrates (rule 
 
 @cc [owner:OctavianTocan,label:product] settings-server-is-advanced
 The server address, the Access token, Past versions and the UI Book sit under an
-Advanced row at the bottom of Settings, not on its main page (H9).
+Advanced row at the bottom of Settings, not on its main page (H9). The first-connection
+and sign-in screens MAY open the same Server settings directly so configuration can
+be corrected while normal navigation is covered. Tavi's 21 Oct 2026 reinstall/setup
+request adds this recovery entry point without moving the main Settings rows.
 
 @cc [owner:OctavianTocan,label:product] settings-model-row-names-the-model
 The Model row shows the chosen model's name and the engine's own mark in colour, never a
@@ -116,6 +119,16 @@ alone, and Continue shows the password field under it, for the test account. It 
 sign-up (Tavi, 16 Oct 16:52: "you should add the Google button, and then, under an email,
 only an email field. If they put in their email and they press Continue, then they can put
 in the password as well"). Closing Google's account sheet changes nothing.
+Changing the server, Access credentials or account source MUST reset retained form
+inputs and revoke pending sign-in authority before another request or session commit.
+The form's displayed server and inputs MUST belong to its opening source, including
+through a modal exit animation (21 Oct 2026 first-run review, direct server recovery).
+
+@cc [owner:OctavianTocan,label:product] settings-connection-feedback-keeps-outcome
+Saving server configuration MUST distinguish a failed connection from a check replaced
+by newer discovery. Supersession alone MUST NOT display an Unreachable error; an actual
+failure MUST keep that attempt's recovery category rather than a later global category.
+Source: Tavi's 21 Oct 2026 first-run request and review of concurrent Save/discovery.
 
 @cc [owner:OctavianTocan,label:product;security] settings-agent-keys-on-the-phone
 Settings has an Account section with the signed-in email and an Agent keys page. The page
