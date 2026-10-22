@@ -59,3 +59,20 @@ redirects, target accounts or application authority to public sign-in. A success
 single-use claim MAY return the newly issued Pully session once in its HTTPS body.
 Unix timestamp fields MUST use seconds and pollAfterMs MUST use milliseconds.
 Source: Tavi's 21 Oct 2026 server-owned authorization and bounded native handoff plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-attempt-is-single-use-and-proof-owned
+An OAuth attempt MUST be bounded in count, start/poll rate and lifetime. Its state
+MUST be random, stored only as a hash and consumed before code exchange. PKCE MUST
+use a separate server-owned random verifier and S256 challenge. Status, claim and
+cancel MUST require the initiating native proof using a constant-time verifier;
+wrong proof MUST NOT consume another client's valid attempt. Claim MUST publish a
+session at most once, and cancellation/expiry MUST deny late exchange or claim
+results and revoke a session created during that race. Normal browser/background
+handoff MUST NOT cancel an attempt. Source: Tavi's 21 Oct 2026 native OAuth plan.
+
+@cc [owner:OctavianTocan,label:architecture;security] personal-accepted-exchange-outlives-observer
+Once callback state or a native claim has been accepted, dropping the HTTP observer
+MUST NOT cancel the exchange/commit or lose its single-use receipt. Accepted work
+MUST remain tied to its original attempt and verified subject. Explicit cancellation
+MUST retire publication authority; it MUST NOT make an already-consumed code reusable.
+Source: Tavi's 21 Oct 2026 replay, source-guard and browser-return requirements.

@@ -440,6 +440,15 @@ impl PersonalVault {
 
     pub(super) async fn sign_out(&self, session: &str) -> Result<()> {
         let hash = session_hash(session)?;
+        self.sign_out_hash(hash).await
+    }
+
+    /// Internal cancellation uses only the hash retained after a one-use native claim.
+    pub(super) async fn sign_out_hash(&self, hash: String) -> Result<()> {
+        ensure!(
+            hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            "Invalid personal session"
+        );
         let this = self.clone();
         blocking(move || {
             let mut runtime = this

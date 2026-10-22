@@ -221,6 +221,10 @@ impl VerifiedLogin {
     pub(super) fn into_parts(self) -> (VerifiedGitHubIdentity, GitHubTokens) {
         (self.identity, self.tokens)
     }
+
+    pub(super) fn github_id(&self) -> u64 {
+        self.identity.github_id()
+    }
 }
 
 pub(super) struct OAuthProvider {

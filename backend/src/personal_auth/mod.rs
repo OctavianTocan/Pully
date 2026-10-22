@@ -1,10 +1,12 @@
 //! Personal GitHub authorization primitives. No listener or legacy RPC exposes this module.
 mod crypto;
+mod flow;
 mod provider;
 mod vault;
 pub(crate) mod wire;
 
 pub(crate) use crypto::{VaultContext, VaultEnvelope, VaultKeys, VaultPurpose};
+pub(crate) use flow::{AuthError, PersonalAuth};
 
 pub(super) trait AuthClock: Send + Sync {
     fn now(&self) -> u64;
