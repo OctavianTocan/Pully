@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.octaviantocan.pulls.browser.BrowserHelperSettings
+import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -28,6 +29,7 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetHeading
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.t
 
@@ -51,21 +53,19 @@ private fun rememberBrowserHelperState(): BrowserHelperState {
     val context = LocalContext.current
     var state by remember(context) { mutableStateOf(browserHelperState(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { state = browserHelperState(context) }
+    val optedIn = AppSettings.get(context).experiments.browserHelper
+    if (!optedIn) return state.copy(allowed = false)
     return state
 }
 
 /** A page row, never a switch that grants accessibility access before its disclosure. */
 @Composable
-internal fun BrowserHelperGroup(open: () -> Unit) {
+internal fun BrowserHelperExperimentRow(open: () -> Unit) {
     val c = LocalPullsColors.current
     val state = rememberBrowserHelperState()
-    Group(t("settings.browserHelper.group")) {
-        SheetCard {
-            SheetRow(t("settings.browserHelper.title"), open, first = true, iconless = true) {
-                Text(t("settings.browserHelper.${state.statusKey}"), style = PullsType.sm, color = c.muted)
-                LuIcon(Lu.chev, tint = c.faint)
-            }
-        }
+    SheetRow(t("settings.experiments.browserHelper"), open, iconless = true) {
+        Text(t("settings.browserHelper.${state.statusKey}"), style = PullsType.sm, color = c.muted)
+        LuIcon(Lu.chev, tint = c.faint)
     }
 }
 
@@ -76,6 +76,7 @@ internal fun ColumnScope.BrowserHelperPage() {
     val context = LocalContext.current
     val messages = LocalMessages.current
     val toaster = LocalToaster.current
+    val experiments = AppSettings.get(context).experiments
     var state by remember(context) { mutableStateOf(browserHelperState(context)) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { state = browserHelperState(context) }
 
@@ -84,6 +85,7 @@ internal fun ColumnScope.BrowserHelperPage() {
             .onFailure { toaster.show(messages.t("settings.browserHelper.settingsUnavailable")) }
     }
 
+    SheetHeading(t("settings.experiments.title"), first = true)
     SheetCard {
         Column(
             Modifier.fillMaxWidth().padding(PullsSpace.x4),
@@ -100,6 +102,7 @@ internal fun ColumnScope.BrowserHelperPage() {
         CtaButton(
             t("settings.browserHelper.continue"),
             {
+                experiments.updateBrowserHelper(true)
                 BrowserHelperSettings.setAllowed(context, true)
                 state = browserHelperState(context)
                 openAndroidSettings()
@@ -115,6 +118,7 @@ internal fun ColumnScope.BrowserHelperPage() {
                 LuIcon(Lu.chev, tint = c.faint)
             }
             SheetRow(t("settings.browserHelper.disable"), {
+                experiments.updateBrowserHelper(false)
                 BrowserHelperSettings.setAllowed(context, false)
                 state = browserHelperState(context)
             }, iconless = true)

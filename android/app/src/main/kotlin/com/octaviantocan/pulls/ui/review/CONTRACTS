@@ -1,3 +1,10 @@
+@cc [owner:OctavianTocan,label:product] pr-current-merge-risk-opens-assessment
+The Overview MUST show a saved merge-risk level only after local experimental opt-in and when the review's known head
+matches the opened diff, and tapping it MUST open the review's full assessment even
+when there are no inline findings. It MUST NOT change GitHub merge readiness.
+It MUST be marked Experimental. Source: Tavi's 21 Oct 2026 merge-risk request and
+follow-up requiring experimental, opt-in-only features, narrowing the original display.
+
 @cc [owner:OctavianTocan,label:product] pr-no-analyze-card
 The Overview is the pull request: no Analyze card and nothing that asks for an analysis.
 A tour starts from the tour icon, and Analyze changes in ⋯ opens the model-visible setup

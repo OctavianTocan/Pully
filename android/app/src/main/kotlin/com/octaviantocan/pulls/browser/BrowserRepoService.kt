@@ -41,7 +41,8 @@ import java.lang.ref.WeakReference
 
 /**
  * A user-enabled accessibility overlay, never a browser-history collector. Only known native address-bar IDs
- * are inspected. No page text, clipboard, URL persistence, analytics or network calls belong in this service.
+ * are inspected. No page text, clipboard, URL persistence or network calls belong in this service.
+ * Only a successful explicit tap counts usage; observations never generate analytics.
  */
 class BrowserRepoService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
@@ -246,6 +247,8 @@ class BrowserRepoService : AccessibilityService() {
                     startActivity(Intent(this@BrowserRepoService, MainActivity::class.java)
                         .setAction(Intent.ACTION_VIEW).setData(Uri.parse(target))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                }.onSuccess {
+                    com.octaviantocan.pulls.data.Analytics.track("experiment.use", "experiment" to "browser-helper", "action" to "open")
                 }
             }
         }

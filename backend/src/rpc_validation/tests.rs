@@ -37,6 +37,22 @@ fn rejected(name: &str, input: Value) {
 }
 
 #[test]
+fn experimental_review_opt_in_is_optional_and_requires_a_boolean() {
+    let request = valid_task("critique");
+    assert!(arguments("ai-task-start", request.clone()).is_ok());
+    for flag in [json!(true), json!(false)] {
+        let mut request = request.clone();
+        request["experiments"] = json!({"mergeRisk":flag.clone()});
+        assert_eq!(arguments("ai-task-start", request).unwrap()["experiments"]["mergeRisk"], flag);
+    }
+    for flag in [json!("true"), json!(1), json!([]), json!({})] {
+        let mut request = request.clone();
+        request["experiments"] = json!({"mergeRisk":flag});
+        rejected("ai-task-start", request);
+    }
+}
+
+#[test]
 fn every_declared_argument_object_rejects_missing_or_scalar_inputs() {
     for name in [
         "source-key",

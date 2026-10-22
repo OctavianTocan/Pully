@@ -67,11 +67,16 @@ import kotlinx.serialization.json.put
 /** Starts an AI review through [lens] (null: the general review), like `critique.run`. [effort] overrides the Settings effort. */
 internal fun ReviewSession.runCritique(context: android.content.Context, lens: String?, effort: String? = null) {
     val config = ServerStore.load(context)
-    val variant = critiqueVariant(opened?.headSha, config.engine, config.model, (effort ?: settings.effort).ifBlank { null }, lens)
+    val experimental = settings.experiments.mergeRisk
+    val variant = critiqueVariant(opened?.headSha, config.engine, config.model, (effort ?: settings.effort).ifBlank { null }, lens) + if (experimental) ":experimental-merge-risk" else ""
     startAiTask("critique", effort = effort, extra = {
         put("variant", variant)
         if (lens != null) put("lens", lens)
+        if (experimental) {
+            put("experiments", kotlinx.serialization.json.buildJsonObject { put("mergeRisk", true) })
+        }
     })
+    if (experimental) com.octaviantocan.pulls.data.Analytics.track("experiment.use", "experiment" to "merge-risk", "action" to "review")
 }
 
 /**
@@ -209,6 +214,8 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier, onRet
     val task = rememberLiveTask(session, "critique")
     val running = task?.running == true
     val result = session.saved?.critique
+    val experimental = session.settings.experiments.mergeRisk
+    val mergeRisk = result?.mergeRisk?.takeIf { experimental }
     if (result == null && task == null) return
 
     // A new result: default selection is every finding but nits; the post body is the default body.
@@ -217,7 +224,12 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier, onRet
         ui.selected = result.findings.filter { it.severity != "nit" }.map { it.id }.toSet()
         ui.posted = emptySet()
         ui.postError = null
-        ui.postBody = critiqueReviewBody(result.summary, result.engine, result.model, result.lens)
+    }
+    val bodyIdentity = result?.let { "${identity(it)}|$experimental" }
+    if (result != null && ui.critiqueBodyFor != bodyIdentity) {
+        ui.critiqueBodyFor = bodyIdentity
+        val summary = listOfNotNull(result.summary, mergeRisk?.let { experimentalMergeRiskMarkdown(it) }).joinToString("\n\n")
+        ui.postBody = critiqueReviewBody(summary, result.engine, result.model, result.lens)
     }
 
     val requester = remember { BringIntoViewRequester() }
@@ -264,6 +276,7 @@ internal fun CritiquePanelImpl(session: ReviewSession, modifier: Modifier, onRet
                     if (result.summary.isNotBlank()) AiMarkdown(session, result.summary, Modifier.fillMaxWidth())
                 }
             }
+            mergeRisk?.let { ExperimentalMergeRisk(session, it) }
             if (result.findings.isEmpty()) Text(t("critique.noFindings"), Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp), style = PullsType.sm, color = c.fade)
             else {
                 SeverityTabs(ui.severities, Modifier.padding(top = 16.dp)) { ui.severities = it; session.findingSeverities = it }

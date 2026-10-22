@@ -726,3 +726,14 @@ async fn ai_storage_followup_reads_yield_before_completion() {
     shutdown(&state).await;
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn experimental_reviews_cannot_join_an_ordinary_running_review() {
+    let ordinary = json!({"key":"same-pr","kind":"critique","variant":"same"});
+    let mut experiment = ordinary.clone();
+    experiment["experiments"] = json!({"mergeRisk":true});
+    assert!(!same(&ordinary, &experiment, true));
+    assert!(!same(&experiment, &ordinary, true));
+    experiment["experiments"]["mergeRisk"] = json!(false);
+    assert!(same(&ordinary, &experiment, true));
+}

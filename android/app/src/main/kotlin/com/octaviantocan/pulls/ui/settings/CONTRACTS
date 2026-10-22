@@ -37,6 +37,16 @@ Settings carries no lines that explain its rows ("Claude Code and Codex run on t
 machine...", "The server uses its own GitHub sign-in...", "Pulls asks your server for a
 new version..."): "These are just unnecessary straight up" (H8).
 
+@cc [owner:OctavianTocan,label:product;design] settings-experiments-use-mobile-rows
+Experimental features MUST use the mobile Settings sheet's plain section heading,
+grouped SheetRow controls and existing switches. They MUST NOT introduce an explanatory
+intro, decorative badges or a second navigation row just to reach the two choices.
+Browser floaty MUST keep its required consent page inside the same Settings sheet.
+This feature's settings and assessment UI MUST target the mobile app; desktop screens
+are outside the scope of this change.
+Source: Tavi, 21 Oct 2026, rejecting the experimental UI as ugly and asking for the app's
+design principles on mobile; DESIGN.md rules 49, 78, 87 and 141.
+
 @cc [owner:OctavianTocan,label:product] settings-is-the-liked-sheet
 Settings is a sheet in the mobile style, with its pages inside it. Tavi called it "much,
 much better than before"; it MUST NOT regress to the old style (rules 49 and 78; F11).
@@ -114,7 +124,7 @@ once with Copy, and revokes one from its own page, which says what revoking does
 ("please make sure this is possible from the phone": Tavi, 16 Oct 12:47).
 
 @cc [owner:OctavianTocan,label:product;security] settings-browser-helper-consent
-The main Settings page MUST offer Browser helper as a page, with the helper off until
+Settings, Experimental MUST offer Browser helper as a page, with the helper off until
 the reader affirmatively continues past its accessibility disclosure. Before that action,
 the page MUST say that accessibility can read browser address bars and screen content,
 that the helper uses only the address-bar URL for its GitHub repository button, that it
@@ -123,7 +133,8 @@ usual server connection. It MUST say an unknown URL hides the button and browser
 varies. Continuing MAY record consent and open Android's accessibility settings, but MUST
 NOT enable the service programmatically. The consent disclosure is required permission
 information, rather than a helper line under a setting (Tavi, 18 Oct 2026, browser helper
-request).
+request). Its move into Experimental is Tavi's 21 Oct 2026 browser-floaty follow-up;
+the experiment also requires an explicit local opt-in, independently of old consent.
 
 @cc [owner:OctavianTocan,label:product;security] settings-browser-helper-status-and-stop
 The Browser helper page MUST read both Pully's consent and Android's enabled-service

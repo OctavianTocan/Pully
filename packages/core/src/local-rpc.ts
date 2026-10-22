@@ -1,3 +1,4 @@
+import type { ReviewExperiments } from './types/experiments'
 import * as v from 'valibot'
 
 /**
@@ -344,7 +345,7 @@ interface AiTaskRequestBase {
  */
 export type AiTaskRequest
   = | AiTaskRequestBase & { kind: 'analyze', locale: string, then?: AiFollowUp[] }
-    | AiTaskRequestBase & { kind: 'critique', variant: string, lens?: string }
+    | AiTaskRequestBase & { kind: 'critique', variant: string, lens?: string, experiments?: ReviewExperiments }
     | AiTaskRequestBase & { kind: 'ask', threadId: string, selection: AiTaskSelection, question: string }
     | AiTaskRequestBase & { kind: 'chat', locale: string, text?: string, retry?: boolean }
     | AiTaskRequestBase & { kind: 'tour', locale: string }

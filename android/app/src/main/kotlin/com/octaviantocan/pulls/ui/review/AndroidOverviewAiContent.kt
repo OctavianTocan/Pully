@@ -112,6 +112,7 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
@@ -177,13 +178,34 @@ private fun AndroidNeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, on
     val sorted = findings.sortedBy { rank[it.severity] ?: 2 }
     var all by rememberSaveable(session.key) { mutableStateOf(false) }
     val shown = sorted.take(firstFew(sorted.size, all))
-    if (findings.isEmpty() && !reviewing && !session.hasAiResult) return
+    val critique = session.saved?.critique
+    val mergeRisk = critique?.takeIf { session.settings.experiments.mergeRisk && it.headSha != null && it.headSha == session.opened?.headSha }?.mergeRisk
+    if (findings.isEmpty() && !reviewing && !session.hasAiResult && critique == null) return
     // The first row has nothing above it; every later one has a hairline.
     fun line(index: Int): Modifier = if (index == 0) Modifier else Modifier.hairlineTop(c.borderMute)
-    val tail = shown.size + if (findings.isNotEmpty()) 1 else 0
+    val beforeFindings = if (mergeRisk != null) 1 else 0
+    val tail = beforeFindings + shown.size + if (findings.isNotEmpty()) 1 else 0
     val stop = guardedStop(session, listOf("critique"), reviewing) { critiqueTask?.let { session.cancelTask(it.id) } }
     Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
         Text("What needs a human", Modifier.padding(bottom = 2.dp), style = PullsType.xl, color = c.text)
+        mergeRisk?.let { risk ->
+            Row(
+                Modifier.fillMaxWidth().cueClickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2),
+            ) {
+                Text(
+                    buildAnnotatedString {
+                        append("${t("critique.mergeRisk.title")}: ")
+                        withStyle(SpanStyle(color = if (risk.level == "high") c.amber else c.activeText, fontWeight = FontWeight.Medium)) {
+                            append(t("critique.mergeRisk.level.${risk.level}"))
+                        }
+                        withStyle(SpanStyle(color = c.muted)) { append(" · ${t("settings.experiments.title")}") }
+                    },
+                    Modifier.weight(1f), style = PullsType.sm, color = c.activeText,
+                )
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
         shown.forEachIndexed { index, finding ->
             Text(
                 buildAnnotatedString {
@@ -191,7 +213,7 @@ private fun AndroidNeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, on
                     append(" ")
                     appendCite("${finding.path.substringAfterLast('/')}:${finding.line}", c.activeText) { onCite(Cite(finding.path, finding.line)) }
                 },
-                Modifier.fillMaxWidth().then(line(index)).cueClickable(role = Role.Button, onClickLabel = finding.title) { session.focusFinding(finding) }.padding(vertical = 11.dp),
+                Modifier.fillMaxWidth().then(line(index + beforeFindings)).cueClickable(role = Role.Button, onClickLabel = finding.title) { session.focusFinding(finding) }.padding(vertical = 11.dp),
                 style = PullsType.sm.copy(lineHeight = PullsType.sm.fontSize * 1.45f), color = c.text,
             )
         }
@@ -199,7 +221,7 @@ private fun AndroidNeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, on
         if (findings.isNotEmpty()) {
             // The findings sheet is where findings are picked and posted as a review, so it is offered however long the list.
             Text(
-                "Open the review", Modifier.fillMaxWidth().then(line(shown.size)).cueClickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
+                "Open the review", Modifier.fillMaxWidth().then(line(shown.size + beforeFindings)).cueClickable(role = Role.Button) { onSheet("findings") }.padding(vertical = 11.dp),
                 style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.activeText,
             )
         }
@@ -215,7 +237,7 @@ private fun AndroidNeedsHuman(session: ReviewSession, onCite: (Cite) -> Unit, on
                 Text("Looking for problems…", Modifier.weight(1f).shimmer(), style = PullsType.sm, color = c.muted)
             }
             findings.isEmpty() && session.saved?.critique != null -> Text(
-                "The review found nothing that needs you.", Modifier.fillMaxWidth().then(line(tail)).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,
+                t("critique.noFindings"), Modifier.fillMaxWidth().then(line(tail)).padding(vertical = 11.dp), style = PullsType.sm, color = c.muted,
             )
             findings.isEmpty() -> Row(
                 Modifier.fillMaxWidth().then(line(tail)).cueClickable(role = Role.Button) { onSheet("review") }.padding(vertical = 11.dp),

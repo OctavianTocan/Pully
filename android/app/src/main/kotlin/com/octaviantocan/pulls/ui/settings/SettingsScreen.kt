@@ -196,7 +196,7 @@ internal fun SettingsPage.title(): String = when (this) {
     SettingsPage.WhatsNew -> "What's new"
     SettingsPage.Stats -> t("stats.title")
     SettingsPage.Links -> "GitHub links"
-    SettingsPage.BrowserHelper -> t("settings.browserHelper.title")
+    SettingsPage.BrowserHelper -> t("settings.experiments.browserHelper")
     SettingsPage.Account -> "Account"
     SettingsPage.AgentKeys -> "Agent keys"
     SettingsPage.AgentKey -> AccountUi.opened?.name ?: "Agent key"
@@ -369,7 +369,7 @@ private fun ColumnScope.MainPage(nav: Nav, settings: AppSettings, open: (Setting
         }
     }
     GithubLinksGroup(open = { open(SettingsPage.Links) })
-    BrowserHelperGroup(open = { open(SettingsPage.BrowserHelper) })
+    ExperimentalSettings(settings) { open(SettingsPage.BrowserHelper) }
     // Usage stats, on until turned off; off drops what is queued (root CONTRACTS, analytics-can-be-turned-off). What it
     // counts is said to a screen reader, not in a line under the row (settings-no-helper-lines).
     Group(t("stats.title")) {

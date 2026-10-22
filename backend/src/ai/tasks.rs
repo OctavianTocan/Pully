@@ -589,7 +589,7 @@ async fn perform_task(
             return grouping::analyze(state, run, job, &entry, &heading, invoke_provider).await
         }
         "critique" => {
-            job["schema"] = critique_schema();
+            job["schema"] = crate::review_experiments::schema(critique_schema(), r);
             let lens = if !text(r, "lens").is_empty() {
                 run_storage(state, run, |state, run| {
                     super::lens(state, text(&run.request, "lens"))
@@ -599,7 +599,7 @@ async fn perform_task(
             } else {
                 String::new()
             };
-            job["prompt"]=json!(format!("{heading}\nReview for actionable bugs, risks and nits. Read relevant evidence. Each finding must anchor to a real diff line on the correct side. No speculative findings. Lens instructions: {lens}"));
+            job["prompt"]=json!(format!("{heading}\nReview for actionable bugs, risks and nits. Read relevant evidence. Each finding must anchor to a real diff line on the correct side. No speculative findings. Lens instructions: {lens}{}", crate::review_experiments::instructions(r)));
         }
         "ask" => {
             let ts = threads(
@@ -694,7 +694,8 @@ async fn perform_task(
     match kind {
         "critique" => {
             let mut result: Value = serde_json::from_str(&answer)?;
-            validate_schema(&critique_schema(), &result)?;
+            validate_schema(&job["schema"], &result)?;
+            crate::review_experiments::prepare(&mut result, r)?;
             let original = array(&result["findings"]);
             let mut ids = std::collections::HashSet::new();
             let kept: Vec<Value> = original
@@ -1234,5 +1235,7 @@ fn validate_brief_refs(value: &Value, diff: &Value) -> Result<()> {
 
 #[cfg(test)]
 mod chat_tests;
+#[cfg(test)]
+mod merge_risk_tests;
 #[cfg(test)]
 mod tests;

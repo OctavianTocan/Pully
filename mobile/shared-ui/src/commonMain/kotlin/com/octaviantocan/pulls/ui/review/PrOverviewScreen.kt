@@ -104,6 +104,7 @@ import com.octaviantocan.pulls.ui.design.Orb
 import com.octaviantocan.pulls.ui.design.PullsCheck
 import com.octaviantocan.pulls.ui.design.PullsMotion
 import com.octaviantocan.pulls.ui.design.PullsRadius
+import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.ReviewState
 import com.octaviantocan.pulls.ui.design.RowsSkeleton

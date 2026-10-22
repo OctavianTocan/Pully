@@ -1,6 +1,7 @@
 import type { DiffsPayload } from './diff'
 import * as v from 'valibot'
 import { DiffSideSchema } from './comment-threads'
+import { MergeRiskSchema } from './merge-risk'
 
 export const GroupSourceSchema = v.picklist([
   'none',
@@ -173,6 +174,8 @@ export const CritiqueUsageSchema = v.object({
 /** A finished AI critique of one diff at one head commit. */
 export const CritiqueResultSchema = v.object({
   summary: v.string(),
+  /** Whole-change merge assessment; absent on reviews generated before merge-risk support. */
+  mergeRisk: v.optional(MergeRiskSchema),
   findings: v.array(CritiqueFindingSchema),
   /** Findings the model returned that were discarded: off-diff anchors, duplicates, or over the cap. */
   dropped: v.number(),

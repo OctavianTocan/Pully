@@ -11,6 +11,12 @@ class AppSettings private constructor(context: Context) : com.octaviantocan.pull
         override fun touched(name: String) = SettingsSync.touched(context, name)
         override fun settingsChanged(key: String, value: String) = Analytics.track("settings.change", "key" to key, "value" to value)
         override fun usageStatsEnabled(enabled: Boolean) = Analytics.setEnabled(enabled)
+        override fun experimentChanged(feature: String, enabled: Boolean) {
+            Analytics.track("experiment.toggle", "experiment" to feature, "enabled" to enabled)
+            if (feature == "browser-helper" && !enabled) {
+                com.octaviantocan.pulls.browser.BrowserHelperSettings.setAllowed(context, false)
+            }
+        }
     },
 ) {
     companion object {
