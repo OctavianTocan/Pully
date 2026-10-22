@@ -9,6 +9,8 @@ import com.octaviantocan.pulls.data.RepoConfiguration
 import com.octaviantocan.pulls.data.sourceStorageNamespace
 import com.octaviantocan.pulls.ui.home.HomeLink
 import com.octaviantocan.pulls.ui.home.HomeLinks
+import com.octaviantocan.pulls.ui.home.HomeLifecycleObserver
+import com.octaviantocan.pulls.ui.home.decodeSharedLink
 
 /** A pending intent may survive sign-in, but never an unrelated endpoint, Access policy or signed-in account. */
 class IncomingLinkAudience internal constructor(internal val endpoint: String, internal val account: String?) {
@@ -33,22 +35,47 @@ class IncomingLinkInbox {
         private set
     var reopened by mutableStateOf<Reopen?>(null)
         private set
+    private var explicitInActivation = false
+    private var nativeForeground: Boolean? = null
 
     fun receive(text: String, audience: IncomingLinkAudience?, aiResult: String? = null) {
-        if (text.isNotBlank()) pending = Arrival(text, aiResult, audience)
+        if (text.isNotBlank()) {
+            explicitInActivation = true
+            pending = Arrival(text, aiResult, audience)
+        }
     }
 
     /** Typed share data uses the same audience, awaited sheet exit, route mapping and deduplication as URL delivery. */
-    fun receive(link: HomeLink, audience: IncomingLinkAudience?) { pending = Arrival(null, null, audience, link) }
+    fun receive(link: HomeLink, audience: IncomingLinkAudience?) {
+        if (!explicitInActivation) pending = Arrival(null, null, audience, link)
+    }
+
+    internal fun receiveShared(payload: String, audience: IncomingLinkAudience?) {
+        if (explicitInActivation) return
+        val link = decodeSharedLink(payload)
+        if (link == null) pending = Arrival(null, null, audience) else receive(link, audience)
+    }
+
+    internal fun activationObserver(): HomeLifecycleObserver = object : HomeLifecycleObserver {
+        override fun started() { nativeForeground = true }
+        override fun resumed() { nativeForeground = true }
+        override fun stopped() {
+            if (nativeForeground == true) explicitInActivation = false
+            nativeForeground = false
+        }
+    }
 
     /** Invalid native envelopes are explicit one-shot events, with no rejected URL or credential retained. */
-    fun reject(audience: IncomingLinkAudience?) { pending = Arrival(null, null, audience) }
+    fun reject(audience: IncomingLinkAudience?) {
+        explicitInActivation = true
+        pending = Arrival(null, null, audience)
+    }
 
     fun consume(arrival: Arrival) {
         if (pending === arrival) pending = null
     }
 
-    fun clear() { pending = null; reopened = null }
+    fun clear() { pending = null; reopened = null; explicitInActivation = false }
 
     /** Pending sign-in intents retain their stamped audience; old private reopen events do not. */
     fun retireSource() { reopened = null }

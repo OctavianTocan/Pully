@@ -233,8 +233,7 @@ internal class IosPrivateWorkspace(
 
     private fun receiveSharedLink(payload: String) {
         if (shareSource() == null) return
-        val link = decodeSharedLink(payload)
-        if (link == null) incoming.reject(incomingAudience()) else incoming.receive(link, incomingAudience())
+        incoming.receiveShared(payload, incomingAudience())
     }
 
     private fun receiveLink(text: String) {

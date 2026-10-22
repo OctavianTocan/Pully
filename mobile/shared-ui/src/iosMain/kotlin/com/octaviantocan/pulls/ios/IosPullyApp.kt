@@ -17,6 +17,7 @@ import com.octaviantocan.pulls.ui.explore.NativeEntryMode
 import com.octaviantocan.pulls.ui.explore.NativeEntryState
 import com.octaviantocan.pulls.ui.home.NativeHomeActions
 import com.octaviantocan.pulls.ui.home.NativeSharedLinkHandoff
+import com.octaviantocan.pulls.ui.home.HomeLifecycleSubscription
 import com.octaviantocan.pulls.ui.settings.AccountStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -92,8 +93,10 @@ class IosPullyApp private constructor(
     private val personalIdentitySubscription = personalSessions?.observeIdentityChanged {
         if (!closed) workspaces.renewExplore()
     }
+    private var incomingLifecycle: HomeLifecycleSubscription? = null
 
     val viewController: UIViewController = try {
+        if (shareHandoff != null) incomingLifecycle = homeActions.observeLifecycle(incoming.activationObserver())
         ComposeUIViewController {
             key(workspaces.generation) {
                 when (val workspace = workspaces.workspace) {
@@ -115,6 +118,7 @@ class IosPullyApp private constructor(
             }
         }
     } catch (failure: Throwable) {
+        runCatching { incomingLifecycle?.cancel() }
         personalIdentitySubscription?.invoke()
         workspaces.close()
         scope.cancel()
@@ -133,6 +137,7 @@ class IosPullyApp private constructor(
     fun close() {
         if (closed) return
         closed = true
+        runCatching { incomingLifecycle?.cancel() }
         personalIdentitySubscription?.invoke()
         try { workspaces.close() }
         finally { privateWorkspace = null; incoming.clear(); scope.cancel() }

@@ -118,6 +118,16 @@ Compose Back stack as ordinary links. Raw rejected handoff payloads MUST NOT be
 retained or turned into placeholder destinations. Source: the accepted 21 Oct 2026
 native share handoff, single-stack and account-isolation plan.
 
+@cc [owner:OctavianTocan,label:product;security] explicit-native-arrival-outranks-older-durable-share
+A native URL/activity arrival MUST take precedence over a saved share imported later
+in the same foreground activation, including after that explicit arrival is consumed.
+Verification pause/resume and source replacement MUST NOT erase that priority. Only
+the actual native background transition MAY start a fresh activation; an initial or
+repeated background report MUST preserve a newly queued cold-launch intent. A
+superseded saved record MAY be consumed without delivery, retaining all existing
+source, foreground-grant and audience checks. Source: the confirmed 22 October 2026
+native composition review finding 2 and Tavi's one-stack incoming-link requirements.
+
 @cc [owner:OctavianTocan,label:security;architecture] shared-root-sheets-share-one-source-lifetime
 The root MUST retain one Settings, model/catalog, Stats, Feedback and Commands bundle
 for its active Home source. Ordinary navigation and sheet dismissal MUST retain that
