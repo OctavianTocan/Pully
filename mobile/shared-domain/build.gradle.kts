@@ -6,8 +6,13 @@ plugins {
 kotlin {
     jvmToolchain(21)
     jvm()
-    iosArm64()
-    iosSimulatorArm64()
+    listOf(iosArm64(), iosSimulatorArm64()).forEach {
+        // The extension links only the UI-free parser. The main app links PullyShared instead.
+        it.binaries.framework {
+            baseName = "PullyLinks"
+            isStatic = true
+        }
+    }
     sourceSets {
         commonMain.dependencies {
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")

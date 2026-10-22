@@ -16,6 +16,7 @@ public final class NativeAccountStore {
     private var preferences: NativeServerPreferences
     private let secrets: NativeSecretStore
     private let invalidated: @MainActor () -> Void
+    private let identityWillChange: @MainActor () -> Void
     private var access: NativeAccessCredentials?
     private var session: SessionRecord?
     private var invalidationDepth = 0
@@ -25,11 +26,13 @@ public final class NativeAccountStore {
     public init(
         preferences: NativeServerPreferences = DefaultsServerPreferences(),
         secrets: NativeSecretStore = KeychainSecretStore(),
+        identityWillChange: @escaping @MainActor () -> Void = {},
         invalidated: @escaping @MainActor () -> Void
     ) throws {
         self.preferences = preferences
         self.secrets = secrets
         self.invalidated = invalidated
+        self.identityWillChange = identityWillChange
         serverConfiguration = try preferences.load()
         let initial = NativeRepoConfiguration(
             server: serverConfiguration.server.url, headers: [:], engine: serverConfiguration.engine,
@@ -68,6 +71,7 @@ public final class NativeAccountStore {
         if credentials.isEmpty { try secrets.remove(accessKey(value.server)) }
         else { try secrets.write(encoder.encode(credentials), for: accessKey(value.server)) }
 
+        if changedServer || changedAccess { identityWillChange() }
         if changedServer {
             do { try clearSession() }
             catch { invalidate(); throw error }
@@ -103,6 +107,7 @@ public final class NativeAccountStore {
                 try secrets.remove(sessionKey(serverConfiguration.server, previous.email))
             }
         } catch {
+            identityWillChange()
             preferences.allowsRestoringSession = false
             session = nil
             sessionState = .signedOut
@@ -111,6 +116,7 @@ public final class NativeAccountStore {
             try? secrets.remove(activeKey(serverConfiguration.server))
             throw error
         }
+        if session?.email != email { identityWillChange() }
         session = saved
         sessionState = .verified
         preferences.allowsRestoringSession = true
@@ -130,6 +136,7 @@ public final class NativeAccountStore {
 
     /// A failed network verification leaves verificationRequired intact; an explicit account-me rejection uses this.
     public func signedOut() throws {
+        identityWillChange()
         do {
             try clearSession()
             invalidate()
@@ -145,6 +152,7 @@ public final class NativeAccountStore {
 
     /// Explicit device reset includes Access credentials and inactive records for every configured server.
     public func resetCredentials() throws {
+        identityWillChange()
         session = nil
         access = nil
         sessionState = .signedOut
