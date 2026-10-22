@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class NativePersonalSessionBlobStoreTests: XCTestCase {
-    func testMissingIsDifferentFromUnreadableAndFailedReplacementRetainsThePreviousBlob() throws {
+    func testMissingIsDifferentFromUnreadableAndFailedReplacementRetainsThePreviousBlob() async throws {
         let secrets = PersonalMemorySecrets()
         let store = NativePersonalSessionBlobStore(secrets: secrets)
         XCTAssertNil(try store.read())
@@ -20,7 +20,7 @@ final class NativePersonalSessionBlobStoreTests: XCTestCase {
         XCTAssertEqual(secrets.removals, 0)
     }
 
-    func testBoundsNeverOverwriteOrEraseAnExistingRecord() throws {
+    func testBoundsNeverOverwriteOrEraseAnExistingRecord() async throws {
         let secrets = PersonalMemorySecrets()
         let store = NativePersonalSessionBlobStore(secrets: secrets)
         let maximum = Data(repeating: 1, count: NativePersonalSessionBlobStore.maximumBytes)

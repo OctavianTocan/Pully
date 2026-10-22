@@ -11,8 +11,8 @@ import com.octaviantocan.pulls.data.RpcTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import platform.Foundation.NSDate
 import platform.Foundation.NSThread
+import kotlin.time.Clock
 
 /** Swift errors must cross as Kotlin exceptions, never an empty successful secure read/write. */
 interface NativePersonalSessionStorage {
@@ -71,7 +71,7 @@ class IosPersonalSessionStore internal constructor(
         val opening = epoch
         return PersonalAccountRuntime(
             origin, vault, parentScope, cleanupScope,
-            nowSeconds = { NSDate().timeIntervalSince1970.toLong() },
+            nowSeconds = { Clock.System.now().epochSeconds },
             isCurrent = { epoch == opening && current() },
             onIdentityChanged = {
                 requireMainThread()

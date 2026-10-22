@@ -67,6 +67,8 @@ class IosPersonalSessionStoreTest {
         val store = IosPersonalSessionStore(storage, "https://accounts.example", transport)
         val first = assertNotNull(store.open(backgroundScope) { true })
         val second = assertNotNull(store.open(backgroundScope) { true })
+        first.foreground(true)
+        second.foreground(true)
         var notified = 0
         val detachFirst = store.observeIdentityChanged {
             assertNull(second.openSignIn(backgroundScope) { error("The old scene cannot launch a browser") })

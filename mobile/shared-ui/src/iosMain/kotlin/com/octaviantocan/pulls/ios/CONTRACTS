@@ -41,3 +41,13 @@ A host without that real adapter MUST leave personal sign-in unavailable. Ordina
 inactivity MUST retain the same sign-in owner and MUST NOT cancel an already accepted
 bounded claim. Source: the independent 22 Oct mounted lifecycle finding and accepted
 native activity-adapter plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-personal-mount-keeps-public-authority
+Only the public workspace MAY open the native personal runtime and shared account
+sheet. Its verified profile MUST remain on tokenless public Explore; personal
+connection MUST NOT construct legacy account, Home, AI, Stats or settings observers
+or attach its bearer to public GitHub reads. Entry renewal MUST retire the old
+runtime, sheet, palette and native callbacks before the replacement public workspace
+mounts. Private selection and strict Debug fixture constructors MUST retain their
+existing owners without adopting personal credentials. Source: Tavi's personal
+GitHub/public-browsing request and accepted 22 Oct native public-account mount plan.

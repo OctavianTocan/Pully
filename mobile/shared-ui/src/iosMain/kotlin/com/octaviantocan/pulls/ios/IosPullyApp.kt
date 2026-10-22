@@ -35,15 +35,19 @@ class IosPullyApp private constructor(
     fullJourney: Boolean,
     fixtureIdentifier: String?,
     private val shareHandoff: NativeSharedLinkHandoff?,
+    personalSessions: IosPersonalSessionStore?,
 ) {
     constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage) :
-        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, null)
+        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, null, null)
 
     constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage, shareHandoff: NativeSharedLinkHandoff) :
-        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, shareHandoff)
+        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, shareHandoff, null)
+
+    constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage, personalSessions: IosPersonalSessionStore) :
+        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, null, personalSessions)
 
     internal constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage, defaults: NSUserDefaults, transport: RootJourneyTransport) :
-        this(homeActions, accountStorage, defaults, transport, true, transport.fullJourney, transport.fixtureIdentifier, null)
+        this(homeActions, accountStorage, defaults, transport, true, transport.fullJourney, transport.fixtureIdentifier, null, null)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val incoming = IncomingLinkInbox()
@@ -65,7 +69,7 @@ class IosPullyApp private constructor(
             shareHandoff?.revoke()
             privateWorkspace = null
             initialWorkspace = false
-            IosGuestWorkspace(homeActions, settings, transport, scope, source, stack, incoming, current)
+            IosGuestWorkspace(homeActions, settings, transport, scope, source, stack, incoming, current, personalSessions)
         },
         createExisting = { stack, current ->
             IosPrivateWorkspace(
@@ -78,6 +82,9 @@ class IosPullyApp private constructor(
         },
         selected = { if (!fixture) evidence.selected(it) },
     )
+    private val personalIdentitySubscription = personalSessions?.observeIdentityChanged {
+        if (!closed) workspaces.renewExplore()
+    }
 
     val viewController: UIViewController = try {
         ComposeUIViewController {
@@ -101,6 +108,7 @@ class IosPullyApp private constructor(
             }
         }
     } catch (failure: Throwable) {
+        personalIdentitySubscription?.invoke()
         workspaces.close()
         scope.cancel()
         throw failure
@@ -118,6 +126,7 @@ class IosPullyApp private constructor(
     fun close() {
         if (closed) return
         closed = true
+        personalIdentitySubscription?.invoke()
         try { workspaces.close() }
         finally { privateWorkspace = null; incoming.clear(); scope.cancel() }
     }
