@@ -49,3 +49,15 @@ or restored state belonging to another scenario MUST fail closed. The normal and
 read-only sample paths and every ordinary live launch MUST retain their behavior.
 Source: Tavi's accepted full native error/retry/reopen journey and the 22 Oct 2026
 confirmed explicit Stop error-receipt repair.
+
+@cc [owner:OctavianTocan,label:product;security] full-root-settings-use-bounded-real-client-operations
+Only the explicit full Debug journey MAY support its fixed sample agent-key,
+model, Stats and Feedback operations. The sample account MUST use the existing
+shared services and exact RPC DTOs, reject other keys, arbitrary notes, unknown
+arguments and private device identifiers, and keep the one-time key out of its
+durable state and subsequent lists. Its explicit settings-retry-once scenario MUST
+persist each validated operation's consumed failure before returning a real 503;
+invalid requests MUST NOT consume a failure or create a successful receipt.
+Read-only and ordinary launches MUST retain their existing behavior. Source:
+Tavi's accepted complete native Settings/Commands/key/Stats/Feedback and real
+keyboard, OS selection, paste and code-copy journey closure, 22 Oct 2026.

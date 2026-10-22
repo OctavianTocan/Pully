@@ -12,10 +12,11 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
     override suspend fun execute(request: RpcRequest): RpcResponse {
         require(request.url == "$PREVIEW_SERVER/api/rpc") { "The root fixture cannot leave its fixed sample server." }
         require(request.headers.isEmpty() || request.headers == mapOf("X-Pully-Session" to SESSION)) { "The root fixture cannot accept real credentials." }
+        require(request.body.length <= 64_000) { "The sample RPC envelope is too large." }
         val call = Json.parseToJsonElement(request.body).jsonObject
         require(call.keys == setOf("name", "args")) { "The sample RPC envelope is invalid." }
         val name = call.getValue("name").jsonPrimitive.content
-        val args = call["args"] as? JsonObject ?: JsonObject(emptyMap())
+        val args = requireNotNull(call["args"] as? JsonObject) { "The sample RPC arguments must be an object." }
         work?.validateRead(name, args)
         if (name !in setOf("account-status", "account-sign-in")) require(request.headers["X-Pully-Session"] == SESSION) { "Sign in to the sample account first." }
         if (name in setOf("github-pr", "pr-overview", "pr-text", "review-data", "pr-stack")) {
@@ -56,6 +57,8 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
             else -> error("The root fixture rejects unsupported RPC: $name")
         } } catch (_: RootJourneyStopRejected) {
             return RpcResponse(503, buildJsonObject { put("error", RootJourneyWork.STOP_ERROR) }.toString(), "application/json")
+        } catch (failure: RootJourneySettingsRejected) {
+            return RpcResponse(503, buildJsonObject { put("error", requireNotNull(failure.message)) }.toString(), "application/json")
         }
         return RpcResponse(200, buildJsonObject { put("result", result) }.toString(), "application/json")
     }

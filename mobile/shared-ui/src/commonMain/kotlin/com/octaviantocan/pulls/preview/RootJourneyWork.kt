@@ -17,7 +17,8 @@ internal interface RootJourneyStateStore {
 
 @Serializable
 internal enum class RootJourneyScenario(val launchName: String) {
-    Normal("normal"), StopRejectedOnce("stop-rejected-once"), AnalysisFailedOnce("analysis-failed-once");
+    Normal("normal"), StopRejectedOnce("stop-rejected-once"), AnalysisFailedOnce("analysis-failed-once"),
+    SettingsRetryOnce("settings-retry-once");
 
     companion object {
         fun fromLaunch(value: String?): RootJourneyScenario =
@@ -43,7 +44,7 @@ internal class RootJourneyWork(
         "review-data", "review-state", "reviewed-get", "reviewed-set", "review-comment", "review-submit", "review-discard",
         "ai-models", "lens-list", "ai-task-start", "ai-task-list", "ai-task-list-all", "ai-task-wait", "ai-task-cancel",
         "chat-history", "chat-clear", "chat-restore", "mermaid-svg",
-    )
+    ) || name in RootJourneySettings.OPERATIONS
 
     fun validateRead(name: String, args: JsonObject) {
         val allowed = when (name) {
@@ -84,6 +85,14 @@ internal class RootJourneyWork(
         }
         return guard.withLock {
             advance()
+            if (name in RootJourneySettings.OPERATIONS) {
+                try {
+                    return@withLock state.settings.answer(name, args, scenario == RootJourneyScenario.SettingsRetryOnce)
+                } finally {
+                    // A consumed sample 503 is durable even though the client receives a failure.
+                    persist()
+                }
+            }
             val result = when (name) {
                 "review-data" -> { args.pullOnly(); reviewData() }
                 "review-state" -> { args.keyOnly(); savedState() }
@@ -103,7 +112,7 @@ internal class RootJourneyWork(
                 "ai-models" -> {
                     args.keysExactly("engine", "refresh"); require(args.text("engine") == ENGINE)
                     require(args["refresh"]?.jsonPrimitive?.booleanOrNull != null)
-                    json("""{"models":[{"id":"$MODEL","name":"Fixture review model","description":"Nonnetwork sample model.","efforts":["minimal","medium","high"],"defaultEffort":"medium","isDefault":true}],"account":"Sample account","version":"sample-v1"}""")
+                    json("""{"models":[{"id":"$MODEL","name":"Fixture review model","description":"Nonnetwork sample model.","efforts":["minimal","medium","high"],"defaultEffort":"medium","isDefault":true},{"id":"$ALTERNATE_MODEL","name":"Fixture alternate model","description":"Second fixed sample model.","efforts":["minimal","medium","high"],"defaultEffort":"medium"}],"account":"Sample account","version":"sample-v1"}""")
                 }
                 "lens-list" -> { args.keysExactly(); JsonArray(emptyList()) }
                 "ai-task-start" -> JsonPrimitive(start(args))
@@ -155,7 +164,7 @@ internal class RootJourneyWork(
         require(kind in setOf("analyze", "critique", "chat")) { "This sample supports its bounded Analyze and Chat journey only." }
         val model = args["model"] as? JsonObject ?: error("The sample model is required.")
         require(model.keys.all { it in setOf("engine", "model", "effort") })
-        require(model.text("engine") == ENGINE && (model.textOrNull("model") == null || model.textOrNull("model") == MODEL))
+        require(model.text("engine") == ENGINE && model.textOrNull("model") in setOf(null, MODEL, ALTERNATE_MODEL))
         val effort = model.textOrNull("effort")
         require(effort == null || effort in setOf("minimal", "medium", "high")) { "The sample model effort is invalid." }
         require(state.clientStarts < 8 && state.tasks.size < MAX_TASKS)
@@ -330,12 +339,13 @@ internal class RootJourneyWork(
             codec.decodeFromString<SampleState>(raw)
         } catch (_: Exception) { error("The sample journey state is invalid.") }
         require(restored.version == 1 && restored.nextId in 0..MAX_TASKS && restored.clientStarts in 0..8)
-        require(restored.scenario == scenario && (!restored.failureConsumed || scenario != RootJourneyScenario.Normal))
+        require(restored.scenario == scenario && (!restored.failureConsumed || scenario in setOf(RootJourneyScenario.StopRejectedOnce, RootJourneyScenario.AnalysisFailedOnce)))
+        restored.settings.validate(scenario == RootJourneyScenario.SettingsRetryOnce)
         require(restored.tasks.size == restored.nextId && restored.tasks.map { it.id }.toSet() == (1..restored.nextId).map { "fixture-task-$it" }.toSet())
         require(restored.tasks.count { it.kind in setOf("analyze", "critique", "chat") } == restored.clientStarts)
         require(restored.history.size <= 2 && restored.history.distinct().size == restored.history.size && restored.history.all { it in setOf("seed", "current") })
         require(restored.chat in setOf("empty", "seed", "current") && (!restored.pendingComment || restored.comment && !restored.submitted))
-        val variants = setOf(critiqueVariant(HEAD, ENGINE, "", "high", null), critiqueVariant(HEAD, ENGINE, MODEL, "high", null))
+        val variants = listOf("", MODEL, ALTERNATE_MODEL).map { critiqueVariant(HEAD, ENGINE, it, "high", null) }.toSet()
         require(restored.variant == null || restored.variant in variants)
         restored.tasks.forEach { task ->
             require(task.id.matches(Regex("fixture-task-[1-9][0-9]?")) && task.id.removePrefix("fixture-task-").toInt() <= restored.nextId)
@@ -373,6 +383,7 @@ internal class RootJourneyWork(
         const val BLOB = "fixture-review-blob"
         const val ENGINE = "claude-code"
         const val MODEL = "fixture-review-model"
+        const val ALTERNATE_MODEL = "fixture-alternate-model"
         const val COMMENT = "Fixture line comment."
         const val SUMMARY = "Fixture review summary."
         const val QUESTION = "What changed in this shared review?"
@@ -410,6 +421,7 @@ private data class SampleState(
     var chat: String = "empty",
     val history: MutableList<String> = mutableListOf("seed"),
     val tasks: MutableList<SampleTask> = mutableListOf(),
+    val settings: RootJourneySettings = RootJourneySettings(),
 )
 
 @Serializable

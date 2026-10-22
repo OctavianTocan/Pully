@@ -685,3 +685,305 @@ final class PullyLaunchTests: XCTestCase {
         add(attachment)
     }
 }
+
+// Additional real UIKit journeys share every existing helper and preserve the original suite verbatim.
+extension PullyLaunchTests {
+    @objc func testSettingsModelEffortAndCommandsKeepTheSameVerifiedWorkspace() {
+        let app = fullRootJourneyApplication()
+        app.launch()
+        signInToRootJourney(in: app)
+        selectAll(in: app)
+        openJourneySettings(in: app)
+        revealJourneyButton("Model", contains: true, in: app).tap()
+        assertVisibleLabel("Select model", in: app)
+        requireJourneyButton("Fixture alternate model", contains: true, in: app).tap()
+        assertHiddenLabel("Select model", in: app)
+        assertVisibleRow("Fixture alternate model", in: app)
+        revealJourneyButton("Effort", contains: true, in: app).tap()
+        requireJourneyButton("High", in: app).tap()
+        assertVisibleRow("High", in: app)
+        attachScreenshot(name: "Actual Settings saved the second model and high effort")
+        leadingEdgeBack(in: app)
+        assertAllSelected(in: app)
+
+        app.terminate()
+        app.launch()
+        assertVisibleLabel("Fixture data", in: app, timeout: 20)
+        assertHiddenLabel("Sign in to Pully", in: app)
+        openJourneySettings(in: app)
+        revealJourneyButton("Model", contains: true, in: app)
+        assertVisibleRow("Fixture alternate model", in: app)
+        assertVisibleRow("High", in: app)
+        attachScreenshot(name: "Actual native storage restored model and effort")
+        leadingEdgeBack(in: app)
+        assertAllSelected(in: app)
+
+        pullToOpenJourneyCommands(in: app)
+        let search = requireEditor(in: app)
+        search.typeText("Send feedback")
+        assertEditorValue("Send feedback", editor: search, in: app)
+        requireJourneyButton("Send feedback", in: app).tap()
+        assertHiddenLabel("Commands", in: app)
+        assertVisibleRow("Fixture feedback from before this launch.", in: app)
+        attachScreenshot(name: "Actual Commands search opened the shared Feedback sheet")
+        leadingEdgeBack(in: app)
+        assertSoftwareKeyboard(false, in: app)
+        assertAllSelected(in: app)
+        assertVisibleRow("Share the existing Pully review interface", in: app)
+        assertHiddenLabel("Back", in: app)
+    }
+
+    @objc func testAgentKeyCreationRetryNativePasteCopyOnceAndNestedBack() {
+        let app = fullRootJourneyApplication(scenario: "settings-retry-once")
+        app.launch()
+        signInToRootJourney(in: app)
+        selectAll(in: app)
+        openJourneySettings(in: app)
+        revealJourneyButton("Agent keys", contains: true, in: app).tap()
+        assertVisibleLabel("No keys yet.", in: app)
+        let name = requireEditor(in: app)
+        name.tap()
+        name.typeText("Replace this name")
+        assertEditorValue("Replace this name", editor: name, in: app)
+        selectAllNativeText(in: name, app: app)
+        copyAndVerifyNativeSelection("Replace this name", editor: name, app: app)
+        name.typeText("Fixture UIKit agent")
+        assertEditorValue("Fixture UIKit agent", editor: name, in: app)
+        requireJourneyButton("Make key", in: app).tap()
+        assertVisibleRow("Sample key creation unavailable. Try again.", in: app)
+        assertEditorValue("Fixture UIKit agent", editor: name, in: app)
+        requireJourneyButton("Make key", in: app).tap()
+        let key = "pully_sample_key_not_a_real_credential"
+        assertVisibleRow(key, in: app)
+        revealJourneyButton("Copy key", in: app).tap()
+        assertVisibleLabel("Copied the key", in: app)
+        let clearedName = requireEditor(in: app)
+        assertEditorValue("", editor: clearedName, in: app)
+        pasteNativeText(into: clearedName, app: app)
+        assertEditorValue(key, editor: clearedName, in: app)
+        attachScreenshot(name: "Actual native key copy pasted through the OS edit menu")
+
+        // The keyboard is open: one physical Back leaves this nested page, never the underlying Inbox.
+        assertSoftwareKeyboard(true, in: app)
+        leadingEdgeBack(in: app)
+        assertSoftwareKeyboard(false, in: app)
+        assertHiddenLabel("Make key", in: app)
+        revealJourneyButton("Agent keys", contains: true, in: app).tap()
+        assertVisibleLabel("Make key", in: app)
+        assertHiddenLabel(key, in: app)
+        assertEditorValue("", editor: requireEditor(in: app), in: app)
+        requireJourneyButton("Fixture UIKit agent", contains: true, in: app).tap()
+        assertVisibleLabel("Revoke key", in: app)
+        assertVisibleLabel("Never", in: app)
+        leadingEdgeBack(in: app)
+        assertVisibleLabel("Make key", in: app)
+        requireJourneyButton("Fixture UIKit agent", contains: true, in: app).tap()
+        requireJourneyButton("Revoke key", in: app).tap()
+        assertVisibleLabel("No keys yet.", in: app)
+        assertHiddenLabel("Fixture UIKit agent", in: app)
+        attachScreenshot(name: "Actual nested key Back and revoke returned to the same account list")
+        leadingEdgeBack(in: app)
+        leadingEdgeBack(in: app)
+        assertAllSelected(in: app)
+        assertHiddenLabel("Back", in: app)
+    }
+
+    @objc func testStatsRetryRangesAndFeedbackDraftSurviveKeyboardBackAndSendFailure() {
+        let app = fullRootJourneyApplication(scenario: "settings-retry-once")
+        app.launch()
+        signInToRootJourney(in: app)
+        selectAll(in: app)
+        openJourneySettings(in: app)
+        revealJourneyButton("Stats", in: app).tap()
+        assertVisibleRow("Couldn't load the stats.", in: app)
+        requireJourneyButton("Retry", in: app).tap()
+        assertVisibleRow("73", in: app)
+        requireJourneyButton("30 days", in: app).tap()
+        assertVisibleRow("303", in: app)
+        requireJourneyButton("90 days", in: app).tap()
+        assertVisibleRow("903", in: app)
+        attachScreenshot(name: "Actual Stats retried and loaded each selected RPC range")
+        leadingEdgeBack(in: app)
+        revealJourneyButton("Send feedback", in: app).tap()
+        assertVisibleRow("Fixture feedback from before this launch.", in: app)
+        let editor = requireEditor(in: app)
+        editor.tap()
+        editor.typeText("Replace this draft")
+        selectAllNativeText(in: editor, app: app)
+        let note = "Fixture feedback after native text replacement."
+        editor.typeText(note)
+        assertEditorValue(note, editor: editor, in: app)
+        requireJourneyButton("Send feedback", in: app).tap()
+        assertVisibleRow("Sample feedback unavailable. Try again.", in: app)
+        assertEditorValue(note, editor: editor, in: app)
+        editor.tap()
+        assertSoftwareKeyboard(true, in: app)
+        leadingEdgeBack(in: app)
+        assertSoftwareKeyboard(false, in: app)
+        assertHiddenLabel("Sample feedback unavailable. Try again.", in: app)
+        revealJourneyButton("Send feedback", in: app).tap()
+        assertEditorValue(note, editor: requireEditor(in: app), in: app)
+        attachScreenshot(name: "Actual nested Feedback retained its draft after failed send and keyboard Back")
+        requireJourneyButton("Send feedback", in: app).tap()
+        assertVisibleLabel("Feedback sent", in: app)
+        assertSoftwareKeyboard(false, in: app)
+        revealJourneyButton("Send feedback", in: app).tap()
+        assertEditorValue("", editor: requireEditor(in: app), in: app)
+        assertVisibleRow(note, in: app)
+        attachScreenshot(name: "Actual confirmed feedback came back through the account history RPC")
+        leadingEdgeBack(in: app)
+        leadingEdgeBack(in: app)
+        assertAllSelected(in: app)
+        assertHiddenLabel("Back", in: app)
+    }
+
+    @objc func testBriefCodeCopyPastesThroughTheOSIntoTheActualFeedbackField() {
+        let app = fullRootJourneyApplication()
+        app.launch()
+        signInToRootJourney(in: app)
+        openSampleReview(in: app)
+        let started = startSampleAnalysis("Standard", in: app)
+        XCUIDevice.shared.press(.home)
+        assertBackgrounded(app)
+        waitForSampleServerCompletion(since: started)
+        app.activate()
+        openJourneySettings(in: app)
+        revealJourneyButton("Send feedback", in: app).tap()
+        let clipboardEditor = requireEditor(in: app)
+        assertEditorValue("", editor: clipboardEditor, in: app)
+        clipboardEditor.tap()
+        let clipboardSeed = "Different native clipboard value before code copy."
+        clipboardEditor.typeText(clipboardSeed)
+        assertEditorValue(clipboardSeed, editor: clipboardEditor, in: app)
+        selectAllNativeText(in: clipboardEditor, app: app)
+        copyAndVerifyNativeSelection(clipboardSeed, editor: clipboardEditor, app: app)
+        clipboardEditor.typeText(XCUIKeyboardKey.delete.rawValue)
+        assertEditorValue("", editor: clipboardEditor, in: app)
+        leadingEdgeBack(in: app)
+        assertSoftwareKeyboard(false, in: app)
+        leadingEdgeBack(in: app)
+        assertSectionSelected("Overview", in: app)
+        reveal("Fixture shared code", in: app)
+        revealJourneyButton("Copy the code", in: app).tap()
+        assertVisibleLabel("Code copied", in: app)
+        openJourneySettings(in: app)
+        revealJourneyButton("Send feedback", in: app).tap()
+        let editor = requireEditor(in: app)
+        assertEditorValue("", editor: editor, in: app)
+        pasteNativeText(into: editor, app: app)
+        let code = "fun review() = \"shared\""
+        assertEditorValue(code, editor: editor, in: app)
+        attachScreenshot(name: "Actual Brief code copied and pasted with the native menu")
+        requireJourneyButton("Send feedback", in: app).tap()
+        assertVisibleLabel("Feedback sent", in: app)
+        revealJourneyButton("Send feedback", in: app).tap()
+        assertVisibleRow(code, in: app)
+        assertEditorValue("", editor: requireEditor(in: app), in: app)
+        leadingEdgeBack(in: app)
+        leadingEdgeBack(in: app)
+        assertSectionSelected("Overview", in: app)
+        reveal("Fixture typed Brief uses the same production reader.", contains: true, in: app)
+        attachScreenshot(name: "Actual nested Settings Back retained the same completed review")
+    }
+
+    private func openJourneySettings(in app: XCUIApplication) {
+        requireJourneyButton("Settings", in: app).tap()
+        _ = revealJourneyButton("Agent keys", contains: true, in: app)
+    }
+
+    private func pullToOpenJourneyCommands(in app: XCUIApplication) {
+        // Actual nested-scroll input passes the production 84dp threshold; no test-side palette action.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.33))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.83)))
+        assertVisibleLabel("Commands", in: app)
+        assertSoftwareKeyboard(true, in: app)
+    }
+
+    private func selectAllNativeText(in editor: XCUIElement, app: XCUIApplication) {
+        editor.press(forDuration: 1.2)
+        requireNativeEditAction("Select All", in: app).tap()
+    }
+
+    private func copyAndVerifyNativeSelection(_ expected: String, editor: XCUIElement, app: XCUIApplication) {
+        requireNativeEditAction("Copy", in: app).tap()
+        editor.typeText(XCUIKeyboardKey.delete.rawValue)
+        assertEditorValue("", editor: editor, in: app)
+        pasteNativeText(into: editor, app: app)
+        assertEditorValue(expected, editor: editor, in: app)
+        selectAllNativeText(in: editor, app: app)
+    }
+
+    private func pasteNativeText(into editor: XCUIElement, app: XCUIApplication) {
+        editor.tap()
+        editor.press(forDuration: 1.2)
+        requireNativeEditAction("Paste", in: app).tap()
+    }
+
+    private func requireNativeEditAction(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        // Both menu roles are exported by supported iOS text-edit menus; accept no app text/container proxy.
+        func action() -> XCUIElement? {
+            (app.menuItems.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex +
+             app.buttons.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex)
+                .first { $0.exists && $0.isHittable && !$0.frame.isEmpty && app.frame.intersects($0.frame) }
+        }
+        let available = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in action() != nil }, object: nil)
+        guard XCTWaiter.wait(for: [available], timeout: 10) == .completed, let item = action() else {
+            attachDiagnostics(app, name: "Missing native text edit action: \(title)")
+            XCTFail("The actual OS text edit menu did not offer \(title)")
+            return app.menuItems[title]
+        }
+        return item
+    }
+
+    @discardableResult
+    private func revealJourneyButton(_ title: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement {
+        for _ in 0..<8 {
+            if let button = visibleJourneyButton(title, contains: contains, in: app) { return button }
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.73))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)))
+        }
+        return requireJourneyButton(title, contains: contains, in: app)
+    }
+
+    private func visibleJourneyButton(_ title: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement? {
+        app.buttons.matching(NSPredicate(format: contains ? "label CONTAINS %@" : "label == %@", title)).allElementsBoundByIndex
+            .first { $0.exists && $0.isHittable && !$0.frame.isEmpty && app.frame.intersects($0.frame) }
+    }
+
+    private func requireJourneyButton(_ title: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement {
+        let available = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.visibleJourneyButton(title, contains: contains, in: app) != nil
+        }, object: nil)
+        guard XCTWaiter.wait(for: [available], timeout: 10) == .completed,
+              let item = visibleJourneyButton(title, contains: contains, in: app) else {
+            attachDiagnostics(app, name: "Missing actual button: \(title)")
+            XCTFail("The actual button did not become hittable: \(title)")
+            return app.buttons[title]
+        }
+        return item
+    }
+
+    private func assertEditorValue(_ expected: String, editor: XCUIElement, in app: XCUIApplication,
+                                   file: StaticString = #filePath, line: UInt = #line) {
+        let matches = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            editor.exists && editor.isHittable && (editor.value as? String) == expected
+        }, object: nil)
+        guard XCTWaiter.wait(for: [matches], timeout: 10) == .completed else {
+            attachDiagnostics(app, name: "Actual editor value mismatch")
+            XCTFail("The actual editor did not contain the expected value", file: file, line: line)
+            return
+        }
+    }
+
+    private func assertSoftwareKeyboard(_ visible: Bool, in app: XCUIApplication,
+                                        file: StaticString = #filePath, line: UInt = #line) {
+        let keyboard = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.keyboards.firstMatch.exists == visible
+        }, object: nil)
+        guard XCTWaiter.wait(for: [keyboard], timeout: 10) == .completed else {
+            attachDiagnostics(app, name: visible ? "Expected actual software keyboard" : "Software keyboard did not leave")
+            XCTFail("The actual software keyboard did not reach the expected state", file: file, line: line)
+            return
+        }
+    }
+}
