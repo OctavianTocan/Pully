@@ -9,6 +9,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 class GuestBrowseSession(
     transport: RpcTransport,
@@ -48,6 +50,15 @@ class GuestBrowseSession(
             is Screen.PublicRepo -> pages.firstOrNull { it.screen === screen }?.state?.foreground()
             else -> Unit
         }
+    }
+
+    suspend fun openIncoming(screen: Screen, isPending: () -> Boolean, closeSheets: suspend () -> Unit, consume: () -> Unit) {
+        if (!current || !isPending()) return
+        closeSheets()
+        currentCoroutineContext().ensureActive()
+        if (!current || !isPending()) return
+        if (navigation.stack.lastOrNull() != screen) navigation.stack.add(screen)
+        consume()
     }
 
     fun pulls(screen: Screen.PublicRepo): ExplorePullsState {

@@ -9,6 +9,7 @@ import com.octaviantocan.pulls.ui.Screen
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -140,6 +141,77 @@ class GuestBrowseSessionTest {
         assertEquals(6, h.requests.size)
         assertTrue(session.repositories.repositories.isEmpty())
         session.close()
+    }
+
+    @Test
+    fun incomingLinksRemainPendingUntilSheetsCloseAndOpenExactlyOnce() = runTest {
+        val navigation = AppNavigation(rootScreen = Screen.Explore)
+        val session = GuestBrowseSession(PublicFixture(), backgroundScope, NativeEntryState(false).guestSource()!!, navigation)
+        val screen = Screen.Repo("public-owner", "public-repo")
+        val closing = CompletableDeferred<Unit>()
+        var pending = true
+        var consumed = 0
+        val delivery = backgroundScope.launch {
+            session.openIncoming(screen, { pending }, { closing.await() }) {
+                assertEquals(screen, navigation.stack.last())
+                pending = false
+                consumed++
+            }
+        }
+        runCurrent()
+        assertTrue(pending)
+        assertEquals(listOf(Screen.Explore), navigation.stack.toList())
+        closing.complete(Unit)
+        runCurrent()
+        assertTrue(delivery.isCompleted)
+        assertFalse(pending)
+        assertEquals(listOf(Screen.Explore, screen), navigation.stack.toList())
+        session.openIncoming(screen, { pending }, { error("Consumed arrival closed sheets again") }) { consumed++ }
+        assertEquals(1, consumed)
+        session.close()
+    }
+
+    @Test
+    fun aNewerIncomingArrivalSurvivesAnOlderSheetClose() = runTest {
+        val navigation = AppNavigation(rootScreen = Screen.Explore)
+        val session = GuestBrowseSession(PublicFixture(), backgroundScope, NativeEntryState(false).guestSource()!!, navigation)
+        val first = Any()
+        val newer = Any()
+        var pending = first
+        val closing = CompletableDeferred<Unit>()
+        backgroundScope.launch {
+            session.openIncoming(Screen.Repo("old-owner", "old-repo"), { pending === first }, { closing.await() }) {
+                error("An obsolete arrival consumed its replacement")
+            }
+        }
+        runCurrent()
+        pending = newer
+        closing.complete(Unit)
+        runCurrent()
+        assertSame(newer, pending)
+        assertEquals(listOf(Screen.Explore), navigation.stack.toList())
+        session.close()
+    }
+
+    @Test
+    fun sourceRetirementAndCoroutineCancellationRejectDeferredIncomingRoutes() = runTest {
+        for (retireSource in listOf(false, true)) {
+            val entry = NativeEntryState(false)
+            val navigation = AppNavigation(rootScreen = Screen.Explore)
+            val session = GuestBrowseSession(PublicFixture(), backgroundScope, entry.guestSource()!!, navigation)
+            val closing = CompletableDeferred<Unit>()
+            val delivery = backgroundScope.launch {
+                session.openIncoming(Screen.Repo("public-owner", "public-repo"), { true }, {
+                    withContext(NonCancellable) { closing.await() }
+                }) { error("A retired incoming route was consumed") }
+            }
+            runCurrent()
+            if (retireSource) entry.select(NativeEntryMode.ExistingServer) else delivery.cancel()
+            closing.complete(Unit)
+            runCurrent()
+            assertEquals(listOf(Screen.Explore), navigation.stack.toList())
+            session.close()
+        }
     }
 
     private class PublicFixture : RpcTransport {

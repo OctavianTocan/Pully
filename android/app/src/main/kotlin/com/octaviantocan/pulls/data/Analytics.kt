@@ -69,12 +69,11 @@ object Analytics {
     private val sending = Mutex()
     private var ticker: Job? = null
 
-    private val screens = ScreenClock()
+    private val clock = PrivateUsageClock()
     @Volatile private var processStart = 0L
     @Volatile private var activityStart = 0L
     @Volatile private var activities = 0
     @Volatile private var opened = false
-    @Volatile private var frontSince: Long? = null
 
     private class Queued(val seq: Long, val line: String)
 
@@ -89,6 +88,7 @@ object Analytics {
         session = prefs.getString("session", null)?.takeIf(AnalyticsRules::validId) ?: newId().also { prefs.edit().putString("session", it).apply() }
         enabled = on
         this.privateConnection = privateConnection
+        clock.setPrivateConnection(privateConnection, SystemClock.elapsedRealtime())
         io.execute { load() }
         installCrashHandler()
     }
@@ -123,14 +123,14 @@ object Analytics {
     /** [name] is the screen on top now: one of a fixed set of lowercase words, never a title or a repository. */
     fun showScreen(name: String) {
         screen = name
-        emit(screens.show(name, SystemClock.elapsedRealtime()))
+        emit(clock.show(name, SystemClock.elapsedRealtime()))
     }
 
     /** `MainActivity.onCreate`: the start of a launch, for `app.open`. One [restored] after a rotation is not a launch. */
     fun activityCreated(restored: Boolean) {
         activityStart = SystemClock.elapsedRealtime()
         activities += 1
-        opened = restored
+        opened = restored || !privateConnection
     }
 
     /** The first frame of Home after a launch: sends `app.open` once for the activity. */
@@ -145,7 +145,7 @@ object Analytics {
     fun foreground() {
         val context = app ?: return
         val now = SystemClock.elapsedRealtime()
-        frontSince = now
+        clock.foreground(now)
         val prefs = prefs(context)
         val away = prefs.getLong("backgroundAt", -1L).takeIf { it >= 0 }
         val wall = System.currentTimeMillis()
@@ -155,7 +155,6 @@ object Analytics {
             prefs.edit().putString("session", next).apply()
         }
         prefs.edit().remove("backgroundAt").apply()
-        screens.resume(now)
         startTicker()
     }
 
@@ -163,9 +162,7 @@ object Analytics {
     fun background() {
         val context = app ?: return
         val now = SystemClock.elapsedRealtime()
-        emit(screens.pause(now))
-        frontSince?.let { track("app.background", "seconds" to (now - it) / 1000) }
-        frontSince = null
+        emit(clock.background(now))
         prefs(context).edit().putLong("backgroundAt", System.currentTimeMillis()).apply()
         ticker?.cancel()
         ticker = null
@@ -181,7 +178,7 @@ object Analytics {
         val context = app ?: return
         enabled = on
         if (on) {
-            if (frontSince != null) startTicker()
+            if (clock.inForeground) startTicker()
             return
         }
         ticker?.cancel()
@@ -194,13 +191,14 @@ object Analytics {
     /** Guest mode pauses private telemetry without changing consent or discarding a returning account's queue. */
     fun setPrivateConnection(available: Boolean) {
         if (privateConnection == available) return
+        emit(clock.setPrivateConnection(available, SystemClock.elapsedRealtime()))
         connectionRevision++
         privateConnection = available
         ticker?.cancel()
         ticker = null
         val context = app ?: return
         if (available) {
-            if (frontSince != null) startTicker()
+            if (clock.inForeground) startTicker()
         } else runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK) }
     }
 

@@ -35,8 +35,17 @@ the host navigation callback; Explore MUST NOT create an independent native/chil
 back stack. The initial list slice MUST label PR actions as opening GitHub until a
 public review route actually exists. Account invitations MUST reflect real server
 sign-in capability rather than inventing OAuth success or sending operator secrets.
+Public PR list titles MUST keep the existing two-line ellipsis limit; ordinary
+sheet labels MUST retain their full wrapping (android-whole-identifiers).
 Source: mobile-reuses-production-ui, shared-navigation-keeps-one-compose-stack and
 Tavi's 21 Oct 2026 guest browsing/personal sign-in request.
+
+@cc [owner:OctavianTocan,label:product;architecture] guest-incoming-links-commit-before-consumption
+A valid guest arrival MUST remain pending while its existing sheets close. Only a
+current, uncancelled guest source holding that same pending arrival MAY append its
+route and then consume it. A replaced arrival or retired source MUST NOT navigate
+or consume its successor. Source: shared-navigation-keeps-one-compose-stack and the
+22 Oct 2026 Compound guest link review.
 
 @cc [owner:OctavianTocan,label:product;design] explore-refresh-keeps-known-content
 Unknown public list content MUST use the existing skeletons rather than loading text

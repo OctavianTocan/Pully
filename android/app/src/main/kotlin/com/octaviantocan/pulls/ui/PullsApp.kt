@@ -116,12 +116,17 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     val arrival = IncomingLinks.pending
     LaunchedEffect(arrival) {
         if (arrival == null || !session.current) return@LaunchedEffect
-        IncomingLinks.consume(arrival)
         val screen = runCatching { linkScreen(arrival.text, arrival.aiResult) }.getOrNull()
-        if (screen == null) toaster.show(CANT_OPEN, cue = Cue.Error)
-        else {
-            com.octaviantocan.pulls.ui.design.Sheets.closeAll()
-            if (navigation.stack.last() != screen) navigation.stack.add(screen)
+        if (screen == null) {
+            IncomingLinks.consume(arrival)
+            toaster.show(CANT_OPEN, cue = Cue.Error)
+        } else {
+            session.openIncoming(
+                screen,
+                isPending = { IncomingLinks.pending === arrival },
+                closeSheets = { com.octaviantocan.pulls.ui.design.Sheets.closeAll() },
+                consume = { IncomingLinks.consume(arrival) },
+            )
         }
     }
     val settings = com.octaviantocan.pulls.data.AppSettings.get(context)

@@ -110,6 +110,7 @@ fun ExplorePullsScreen(state: ExplorePullsState, onBack: () -> Unit, onOpenGitHu
         itemsIndexed(state.pulls, key = { _, pull -> pull.number }) { index, pull ->
             SheetRow(
                 pull.title, { state.open(pull, onOpenGitHub) }, first = index == 0, iconless = true,
+                labelMaxLines = 2,
                 detail = listOfNotNull("#${pull.number}", pull.author, t(if (pull.draft) "explore.draft" else "explore.open")).joinToString(" · "),
                 value = { Text(t("explore.github"), style = PullsType.sm, color = colors.muted) },
             )

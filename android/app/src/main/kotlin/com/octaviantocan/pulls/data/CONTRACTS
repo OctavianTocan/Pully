@@ -92,6 +92,9 @@ In the anonymous Explore entry mode, private analytics MUST be paused without ch
 the saved Usage stats choice or discarding a returning account's queued events. Guest
 startup and workers MUST NOT send events to an unverified/private server. Source:
 Tavi's 21 Oct 2026 ordinary signed-out browsing and isolated guest-authority decision.
+Guest intervals MUST NOT later enter private screen/foreground durations, and a
+private entry reached after guest startup MUST NOT be counted as a slow app launch
+(22 Oct 2026 Compound guest review).
 
 @cc [owner:OctavianTocan,label:security] data-analytics-counts-not-content
 An event's props MUST carry only counts, timings, fixed choices, on or off values and a
