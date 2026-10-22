@@ -60,6 +60,8 @@ import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
 import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
+import com.octaviantocan.pulls.ui.settings.ColorThemePicker
+import com.octaviantocan.pulls.ui.settings.captureAndroidColorThemePicker
 import com.octaviantocan.pulls.ui.settings.AccountCheck
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
 import com.octaviantocan.pulls.ui.settings.SignInGate
@@ -120,7 +122,7 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     val toaster = remember { Toaster() }
     val motion = remember { PageMotion() }
     var leaving by remember { mutableStateOf(false) }
-    var themePicker by remember { mutableStateOf(false) }
+    var themePicker by remember { mutableStateOf<ColorThemePicker?>(null) }
     PageBack(motion, enabled = navigation.stack.size > 1) { navigation.nav.back() }
     androidx.activity.compose.BackHandler(enabled = navigation.stack.size == 1) { leaving = true } // motion-ok: the root opens the existing close confirmation
     LaunchedEffect(Unit) { if (initialTarget != null && runCatching { linkScreen(initialTarget) }.getOrNull() == null) toaster.show(CANT_OPEN, cue = Cue.Error) }
@@ -153,7 +155,9 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
             Command("theme", messages.t("keys.theme"), group) {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
-            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette appearance") { themePicker = true },
+            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette appearance") {
+                if (session.current) themePicker = captureAndroidColorThemePicker(settings, NativeEntry.get(context))
+            },
         )
     }
     CompositionLocalProvider(LocalToaster provides toaster) {
@@ -167,7 +171,7 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
                     context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
                         .addCategory(android.content.Intent.CATEGORY_BROWSABLE).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                 }, onClose = { accountSheet = false })
-            if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
+            themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             CommandPalette()
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
             ToastHost(toaster)
@@ -206,7 +210,7 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
     LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
     // Commands' Change theme opens the theme list as a sheet of its own over whatever page is open (K18).
-    var themePicker by remember { mutableStateOf(false) }
+    var themePicker by remember { mutableStateOf<ColorThemePicker?>(null) }
     // Send feedback, from Commands on any page (nav-feedback-from-anywhere).
     var feedback by remember { mutableStateOf(false) }
     AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
@@ -258,7 +262,7 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
             toggleTheme = {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
-            openThemes = { themePicker = true }, feedback = { feedback = true },
+            openThemes = { themePicker = captureAndroidColorThemePicker(settings, NativeEntry.get(context)) }, feedback = { feedback = true },
             update = { scope.launch { updateFromCommand(context, toaster) } },
             whatsNew = { whatsNew = WhatsNew.all(context) },
             explore = onExplore,
@@ -318,7 +322,7 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
             }
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
             if (stack.last() == Screen.Settings) SettingsScreen(nav)
-            if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
+            themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             if (feedback) com.octaviantocan.pulls.ui.settings.FeedbackSheet(onClose = { feedback = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()

@@ -157,3 +157,12 @@ Saving server configuration MUST distinguish a failed connection from a check re
 by newer discovery. Supersession alone MUST NOT display an Unreachable error; an actual
 failure MUST keep that attempt's recovery category rather than a later global category.
 Source: Tavi's 21 Oct 2026 first-run request and review of concurrent Save/discovery.
+
+@cc [owner:OctavianTocan,label:security;product] settings-theme-choice-rechecks-its-entry-owner
+A host-owned theme picker MUST reject a retired entry's retained choice, including
+retirement while its theme wipe is queued. It MUST NOT change replacement preferences
+or synchronize that old choice under the replacement account. Source: the accepted
+22 Oct 2026 iOS Guest/private lifetime boundary and shared-commands-retire-private-owner.
+The nested Settings Theme page MUST consume its SettingsServices-owned picker. Native
+palette sheets MUST retain an explicitly captured picker rather than an unowned default.
+Source: the independently confirmed 22 Oct Guest review and its approved resolution.
