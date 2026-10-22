@@ -10,6 +10,8 @@ use std::{
 };
 use tokio::sync::watch;
 
+pub(crate) mod siwc;
+
 pub(crate) type AiFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
