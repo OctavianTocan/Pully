@@ -16,6 +16,7 @@ import com.octaviantocan.pulls.ui.Screen
 import com.octaviantocan.pulls.ui.explore.NativeEntryMode
 import com.octaviantocan.pulls.ui.explore.NativeEntryState
 import com.octaviantocan.pulls.ui.home.NativeHomeActions
+import com.octaviantocan.pulls.ui.home.NativeSharedLinkHandoff
 import com.octaviantocan.pulls.ui.settings.AccountStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,12 +34,16 @@ class IosPullyApp private constructor(
     fixture: Boolean,
     fullJourney: Boolean,
     fixtureIdentifier: String?,
+    private val shareHandoff: NativeSharedLinkHandoff?,
 ) {
     constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage) :
-        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null)
+        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, null)
+
+    constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage, shareHandoff: NativeSharedLinkHandoff) :
+        this(homeActions, accountStorage, NSUserDefaults.standardUserDefaults, DarwinRpcTransport(), false, true, null, shareHandoff)
 
     internal constructor(homeActions: NativeHomeActions, accountStorage: AccountStorage, defaults: NSUserDefaults, transport: RootJourneyTransport) :
-        this(homeActions, accountStorage, defaults, transport, true, transport.fullJourney, transport.fixtureIdentifier)
+        this(homeActions, accountStorage, defaults, transport, true, transport.fullJourney, transport.fixtureIdentifier, null)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val incoming = IncomingLinkInbox()
@@ -57,6 +62,7 @@ class IosPullyApp private constructor(
     private val workspaces = NativeWorkspaceOwner(
         entry, navigation,
         createGuest = { source, stack, current ->
+            shareHandoff?.revoke()
             privateWorkspace = null
             initialWorkspace = false
             IosGuestWorkspace(homeActions, settings, transport, scope, source, stack, incoming, current)
@@ -67,6 +73,7 @@ class IosPullyApp private constructor(
                 settings, stack, incoming, current,
                 verified = { runtime -> if (!fixture && current()) evidence.verified(runtime) },
                 coldStart = initialWorkspace,
+                shareHandoff = shareHandoff,
             ).also { privateWorkspace = it; initialWorkspace = false }
         },
         selected = { if (!fixture) evidence.selected(it) },
@@ -83,7 +90,12 @@ class IosPullyApp private constructor(
                         }
                     }
                     is IosPrivateWorkspace -> workspace.Content(onExplore = if (fixture) null else {
-                        { if (workspaces.workspace === workspace) workspaces.select(NativeEntryMode.Explore) }
+                        {
+                            if (workspaces.workspace === workspace) {
+                                shareHandoff?.revoke()
+                                workspaces.select(NativeEntryMode.Explore)
+                            }
+                        }
                     })
                 }
             }

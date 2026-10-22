@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import com.octaviantocan.pulls.data.IosUsageAnalytics
 import com.octaviantocan.pulls.data.RepoConfiguration
 import com.octaviantocan.pulls.data.sourceStorageNamespace
@@ -20,6 +21,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import platform.Foundation.NSBundle
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSHomeDirectory
@@ -41,6 +44,7 @@ internal class IosPrivateWorkspace(
     private val current: () -> Boolean,
     private val verified: (AccountRuntime) -> Unit,
     coldStart: Boolean,
+    private val shareHandoff: NativeSharedLinkHandoff? = null,
 ) : NativeWorkspace {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val root: PullyRootState
@@ -55,6 +59,9 @@ internal class IosPrivateWorkspace(
     private var displayedScreen = "start"
     private var limitation by mutableStateOf<HomePreviewFeature?>(null)
     private var closed = false
+    private var shareReady = false
+    private var shareGrant = 0L
+    private val sharedImports = shareHandoff?.let { SharedLinkImport(it, ::shareSource, ::receiveSharedLink) }
 
     init {
         var createdAccount: AccountRuntime? = null
@@ -90,6 +97,7 @@ internal class IosPrivateWorkspace(
             account = AccountRuntime(
                 accountStorage, transport, scope, { settings.effort },
                 invalidated = {
+                    pauseSharedImports()
                     analytics.setPrivateConnection(false)
                     root.invalidate()
                     if (!closed) tours.invalidateSource()
@@ -107,8 +115,14 @@ internal class IosPrivateWorkspace(
             observations = AccountObservationOwner(
                 scope,
                 verify = { refresh -> if (refresh) account.refreshAndWait() else account.awaitCurrentVerification() },
-                pause = { root.pauseObservations(); analytics.setPrivateConnection(false) },
-                resume = { root.resumeObservations(); analytics.setPrivateConnection(true) },
+                pause = { pauseSharedImports(); root.pauseObservations(); analytics.setPrivateConnection(false) },
+                resume = {
+                    root.resumeObservations()
+                    analytics.setPrivateConnection(true)
+                    shareGrant++
+                    shareReady = true
+                    sharedImports?.sync()
+                },
             )
             createdObservations = observations
             observationOwner = observations
@@ -142,10 +156,17 @@ internal class IosPrivateWorkspace(
                 }
             })
             createdLifecycle = lifecycle
+            if (shareHandoff != null) scope.launch {
+                snapshotFlow { account.state to account.sourceEpoch }.collect { (settled, epoch) ->
+                    if (closed || !current() || account.state !== settled || account.sourceEpoch != epoch || settled.problem != null) return@collect
+                    if (settled.phase == AccountPhase.SignIn || settled.phase == AccountPhase.Ready && owner() == null) shareHandoff.revoke()
+                }
+            }
             if (!resumed) account.start()
         } catch (failure: Throwable) {
             // A native controller/service construction failure cannot strand observers or app work.
             closed = true
+            sharedImports?.close()
             runCatching { createdLifecycle?.cancel() }
             runCatching { createdObservations?.close() }
             runCatching { createdTours?.close() }
@@ -197,6 +218,25 @@ internal class IosPrivateWorkspace(
     }
     override fun beforeLeave() { analytics.setPrivateConnection(false) }
 
+    private fun pauseSharedImports() {
+        shareReady = false
+        shareGrant++
+    }
+
+    private fun shareSource(): ShareImportSource? {
+        if (closed || !current() || fixture || !shareReady || account.state.phase != AccountPhase.Ready || account.state.problem != null) return null
+        val connection = accountStorage.connection(false) ?: return null
+        val owner = owner() ?: return null
+        val namespace = sourceStorageNamespace(connection.server, owner, true, connection.headers) ?: return null
+        return ShareImportSource(namespace, connection.server, account.sourceEpoch, connection.generation, shareGrant)
+    }
+
+    private fun receiveSharedLink(payload: String) {
+        if (shareSource() == null) return
+        val link = decodeSharedLink(payload)
+        if (link == null) incoming.reject(incomingAudience()) else incoming.receive(link, incomingAudience())
+    }
+
     private fun receiveLink(text: String) {
         if (!closed && current()) incoming.receive(text, incomingAudience())
     }
@@ -238,6 +278,7 @@ internal class IosPrivateWorkspace(
     override fun close() {
         if (closed) return
         closed = true
+        sharedImports?.close()
         lifecycle.cancel()
         observations.close()
         tours.close()

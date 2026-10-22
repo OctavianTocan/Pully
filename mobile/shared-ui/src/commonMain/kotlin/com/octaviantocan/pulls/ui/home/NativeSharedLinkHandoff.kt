@@ -6,7 +6,13 @@ interface NativeSharedLinkHandoff {
     fun revoke()
 }
 
-internal data class ShareImportSource(val namespace: String, val server: String, val epoch: Long, val generation: Long)
+internal data class ShareImportSource(
+    val namespace: String,
+    val server: String,
+    val epoch: Long,
+    val generation: Long,
+    val foregroundGrant: Long = 0,
+)
 
 /** Retains no route or credential. The app's one existing inbox receives the data after the native read. */
 internal class SharedLinkImport(

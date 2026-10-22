@@ -8,6 +8,27 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class SharedLinkImportTest {
+    @Test fun aForegroundCycleDuringNativeReadRetiresTheOpeningGrant() {
+        var source = ShareImportSource("a".repeat(64), "https://server.example", 1, 1, 1)
+        val messages = mutableListOf<String>()
+        var cycleDuringRead = true
+        val native = object : NativeSharedLinkHandoff {
+            override fun take(namespace: String, server: String): String? {
+                if (cycleDuringRead) {
+                    source = source.copy(foregroundGrant = source.foregroundGrant + 1)
+                    cycleDuringRead = false
+                }
+                return "canonical-link"
+            }
+            override fun revoke() = error("A foreground cycle preserves the durable same-source token.")
+        }
+        val owner = SharedLinkImport(native, { source }, messages::add)
+        owner.sync()
+        assertTrue(messages.isEmpty())
+        owner.sync()
+        assertEquals(listOf("canonical-link"), messages)
+    }
+
     @Test fun noReadyForegroundSourceMeansNoNativeReadAndSourceChangesDuringReadCannotDeliver() {
         var source: ShareImportSource? = null
         val messages = mutableListOf<String>()

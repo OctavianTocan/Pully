@@ -7,3 +7,11 @@ same-account renewal and scene close MUST preserve durable same-source pending d
 Cross-framework handoff MUST use the bounded canonical payload string, decoded again
 in PullyShared before the existing inbox receives its typed destination. Source:
 the accepted 21 Oct 2026 native share handoff and account-isolation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-share-import-retains-its-verified-foreground-grant
+Native import MUST wait for the current AccountObservationOwner's verified foreground
+grant. A pause and resume during native reading MUST reject the old delivery even
+when the same account/source returns. Scene close MUST preserve durable pending data;
+explicit entry into Explore MUST revoke private handoff authority before publishing
+that mode. Source: the accepted 21 Oct 2026 source-owned native share plan and Tavi's
+22 Oct 2026 shared Guest/private workspace and lifecycle isolation requirements.
