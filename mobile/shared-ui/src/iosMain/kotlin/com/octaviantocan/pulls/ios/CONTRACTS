@@ -1,0 +1,9 @@
+@cc [owner:OctavianTocan,label:security;architecture] ios-shared-handoff-requires-verified-foreground-source
+The app MUST activate and consume native handoff storage only for its actual verified
+eligible foreground source, using the existing shared source namespace. A source or
+scene replacement during native reading MUST prevent delivery. Sign-in or confirmed
+anonymous state MUST revoke the native handoff audience; checking, network problems,
+same-account renewal and scene close MUST preserve durable same-source pending data.
+Cross-framework handoff MUST use the bounded canonical payload string, decoded again
+in PullyShared before the existing inbox receives its typed destination. Source:
+the accepted 21 Oct 2026 native share handoff and account-isolation plan.

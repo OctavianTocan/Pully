@@ -1,0 +1,23 @@
+@cc [owner:OctavianTocan,label:architecture;security] ios-share-extension-only-adapts-system-input
+The extension MUST use the existing shared-domain parser and bounded canonical
+codec; it MUST NOT contain account RPC, settings, Compose screens or credentials.
+Saving MUST recheck the originally captured source token through the coordinated
+storage after asynchronous system item loading. A replaced source MUST require a
+new explicit share. Unsupported input or unavailable provisioning MUST show an
+actionable error without a Save action. Source: the accepted 21 Oct 2026 native
+share handoff and maximum-reuse plan.
+
+@cc [owner:OctavianTocan,label:product;security] ios-share-does-not-promise-host-foregrounding
+The share adapter MUST explain that saving requires the user to open Pully, then
+complete the extension after Save. It MUST NOT use responder tricks, private APIs,
+arbitrary extension URL opening or a misleading Open Pully control. App Group setup
+MUST remain optional for the ordinary app and CI; configuration text alone MUST NOT
+claim that the OS granted a shared container. Source: the accepted 21 Oct 2026 user
+mediated native share handoff and external-provisioning constraints.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-share-bundles-its-required-reason-manifest
+The extension MUST bundle its own required-reason API manifest for the native
+container file metadata it reads. It MUST declare access limited to its own or
+App Group containers and MUST NOT adopt the host's unrelated UserDefaults reason.
+Source: the accepted 21 Oct 2026 native share storage and credential-boundary plan,
+and Apple's required-reason manifest requirement for FileTimestamp APIs.

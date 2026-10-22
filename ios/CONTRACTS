@@ -143,3 +143,11 @@ journeys MUST use only their validated UUID's separate tour directory, retain th
 strict read-only mode and keep unsupported fixture RPC controls unavailable.
 Source: Tavi's accepted 21 Oct 2026 complete maximum-reuse iOS journey and native
 source/lifecycle isolation plan.
+
+@cc [owner:OctavianTocan,label:architecture;security] ios-share-extension-keeps-the-credential-boundary
+The host MUST link only its shared app framework; the extension MUST link only the
+UI-free shared parser framework and pure native handoff support. App Group setup
+MUST NOT widen app-private Keychain access or become a requirement for ordinary app
+launch or CI. Native identity replacement MUST synchronously retire share authority
+before new credentials publish, including a corrupt-store reset. Source: the accepted
+21 Oct 2026 native share handoff, single-stack and credential-isolation plan.

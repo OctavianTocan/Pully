@@ -38,3 +38,11 @@ for the shared parser, never reconfigure a server or implement another route sta
 Google callbacks MUST be consumed before ordinary links in the same batch; a closed
 scene receiver MUST be inert. Source: the accepted 21 Oct 2026 iOS native link plan,
 including cold/warm delivery, auth priority and source isolation.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-share-source-revocation-precedes-publication
+The optional identity-replacement hook MUST run synchronously before publishing a
+different endpoint, Access policy or account, and before sign-out or credential
+reset publishes an anonymous source. Same-account session renewal, successful
+restored verification, retries and scene recreation MUST NOT rotate a share source
+token. Handoff storage failure MUST fail closed for imports without blocking ordinary
+credential cleanup. Source: the accepted 21 Oct 2026 native share handoff plan.

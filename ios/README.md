@@ -245,3 +245,10 @@ The separate share-extension work must use an optional provisioned App Group for
 sanitized, source-bound handoff data and keep all credentials in the app-private
 Keychain. An extension cannot promise to foreground Pully; saving and then opening
 the app remains an explicit user action.
+
+`PullyShare.appex` implements that thin system handoff using the same shared-domain
+parser and guarded inbox. The default preview has no provisioned App Group, so its
+extension reports setup is required without exposing Save. See the
+[share adapter](PullyShare/README.md) for the exact source lifetime, protected storage,
+tests and external provisioning requirement. Ordinary app and custom URL routing do
+not require that setup.

@@ -4,14 +4,19 @@ import PackageDescription
 let package = Package(
     name: "PullyNative",
     platforms: [.iOS(.v17), .macOS(.v14)],
-    products: [.library(name: "PullyNative", targets: ["PullyNative"])],
+    products: [
+        .library(name: "PullyNative", targets: ["PullyNative"]),
+        .library(name: "PullyShareSupport", targets: ["PullyShareSupport"]),
+    ],
     dependencies: [
         .package(url: "https://github.com/google/GoogleSignIn-iOS.git", exact: "10.0.0"),
     ],
     targets: [
+        .target(name: "PullyShareSupport"),
         .target(
             name: "PullyNative",
             dependencies: [
+                "PullyShareSupport",
                 .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS", condition: .when(platforms: [.iOS])),
             ]
         ),
@@ -19,7 +24,7 @@ let package = Package(
         // compiles that same source as an app-hosted unit test, without mocking Security.
         .testTarget(
             name: "PullyNativeTests",
-            dependencies: ["PullyNative"],
+            dependencies: ["PullyNative", "PullyShareSupport"],
             exclude: ["KeychainSecretStoreTests.swift"]
         ),
     ],

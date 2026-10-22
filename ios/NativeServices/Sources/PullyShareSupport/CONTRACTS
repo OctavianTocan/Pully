@@ -1,0 +1,36 @@
+@cc [owner:OctavianTocan,label:security;architecture] ios-share-record-is-sanitized-and-source-bound
+The App Group MUST contain only an opaque source token, a public HTTPS origin and
+one bounded versioned canonical link payload with a nonce and expiry. Account names,
+sessions, Access credentials, settings, model keys and raw shared text MUST NOT enter
+it. The host-private source namespace MUST remain outside the group. Source: the
+accepted 21 Oct 2026 native share handoff and app-private credential plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-share-record-coordinates-real-processes
+Activation, replacement, revocation, save and consumption MUST coordinate through
+one cross-process OS lock and protected atomic files. A writer that captured an
+older token MUST fail after revocation or replacement. Consumption MUST remove the
+record under that lock before delivery, so two processes cannot import it twice.
+Expired, malformed and foreign-token records MUST NOT open a route. Source: the
+accepted 21 Oct 2026 native handoff concurrency and file-protection plan.
+
+@cc [owner:OctavianTocan,label:product;security] ios-share-token-persists-only-for-the-same-eligible-source
+A pending handoff and its opaque token MUST survive app-process recreation and
+same-account verification or renewal. A genuine source replacement MUST permanently
+retire the prior token before new-source import. Unavailable or protected storage
+MUST fail closed for import; it MUST NOT block ordinary account cleanup. Source:
+the accepted 21 Oct 2026 persistent source-owned share handoff plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-share-corrupt-authority-recovers-with-bounded-revocation
+Malformed or oversized private identity or shared source data MUST retire both
+durable sides before a bounded attempt to activate a fresh token. Failed retirement
+MUST keep imports disabled. Unavailable or protected reads MUST NOT be classified as
+malformed data, rotate a valid token or discard a pending record. A malformed pending
+record MAY be removed without rotating its valid source. Source: the accepted
+21 Oct 2026 native share handoff recovery and same-source persistence plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-share-lock-contention-does-not-block-the-host
+Host and extension handoff operations MUST NOT wait for another process's file lock.
+Contention MUST fail promptly with a distinct retryable busy result, preserving an
+unconsumed same-source token and record. A contended revocation MUST return promptly
+and keep imports disabled until both durable sides retire. Source: the accepted
+21 Oct 2026 native share handoff plan and its MainActor lock-contention review finding.
