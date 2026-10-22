@@ -61,6 +61,8 @@ struct StoredSession {
     expires_at: u64,
     // A lost one-use claim cannot occupy a long-lived session slot without bearer confirmation.
     confirm_by: Option<u64>,
+    #[serde(default)]
+    authority: GitHubAuthority,
     sealed: VaultEnvelope,
 }
 impl StoredSession {
@@ -80,6 +82,8 @@ struct SessionClaims {
     generation: u64,
     expires_at: u64,
     confirm_by: Option<u64>,
+    #[serde(default)]
+    authority: GitHubAuthority,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -111,6 +115,9 @@ pub(super) struct IssuedSession {
 
 pub(super) struct AuthenticatedSession {
     credential: GitHubCredential,
+    hash: String,
+    revision: u64,
+    generation: u64,
     deadline: u64,
     clock: Arc<dyn AuthClock>,
     pub status: SessionStatus,
@@ -229,6 +236,34 @@ impl PersonalVault {
         link: Option<LegacyLink>,
         confirm_by: u64,
     ) -> Result<IssuedSession> {
+        self.install_authorized(login, requested, link, confirm_by, None)
+            .await
+    }
+
+    pub(super) async fn install_upgrade(
+        &self,
+        login: VerifiedLogin,
+        source: Arc<AuthenticatedSession>,
+        confirm_by: u64,
+    ) -> Result<IssuedSession> {
+        self.install_authorized(
+            login,
+            GitHubAuthority::PrivateRepositories,
+            None,
+            confirm_by,
+            Some(source),
+        )
+        .await
+    }
+
+    async fn install_authorized(
+        &self,
+        login: VerifiedLogin,
+        requested: GitHubAuthority,
+        link: Option<LegacyLink>,
+        confirm_by: u64,
+        source: Option<Arc<AuthenticatedSession>>,
+    ) -> Result<IssuedSession> {
         let this = self.clone();
         blocking(move || {
             let mut runtime = this
@@ -257,6 +292,29 @@ impl PersonalVault {
             this.store
                 .update(STATE_KEY, |value| {
                     let mut database = decode(value)?;
+                    if let Some(source) = &source {
+                        source.identity()?;
+                        let captured = database
+                            .sessions
+                            .get(&source.hash)
+                            .ok_or(ReconnectRequired)?;
+                        this.validate_session(&source.hash, captured)?;
+                        let account = database
+                            .accounts
+                            .get(&captured.account_id)
+                            .ok_or(ReconnectRequired)?;
+                        ensure!(
+                            captured.account_id == source.status.account_id
+                                && captured.github_id == github_id
+                                && captured.github_id == source.status.github_id
+                                && captured.generation == source.generation
+                                && captured.confirm_by.is_none()
+                                && captured.deadline() > now
+                                && account.generation == source.generation
+                                && account.revision == source.revision,
+                            "The repository consent source changed"
+                        );
+                    }
                     database
                         .sessions
                         .retain(|_, session| session.deadline() > now);
@@ -329,6 +387,7 @@ impl PersonalVault {
                         generation,
                         expires_at,
                         confirm_by: Some(confirm_by),
+                        authority,
                     };
                     let stored_session = StoredSession {
                         account_id: account_id.clone(),
@@ -336,6 +395,7 @@ impl PersonalVault {
                         generation,
                         expires_at,
                         confirm_by: Some(confirm_by),
+                        authority,
                         sealed: this.keys.seal(
                             &session_context(&account_id, github_id, generation),
                             &serde_json::to_vec(&claims)?,
@@ -609,7 +669,8 @@ impl PersonalVault {
                 && claims.github_id == session.github_id
                 && claims.generation == session.generation
                 && claims.expires_at == session.expires_at
-                && claims.confirm_by == session.confirm_by,
+                && claims.confirm_by == session.confirm_by
+                && claims.authority == session.authority,
             "Invalid personal session record"
         );
         Ok(())
@@ -620,8 +681,11 @@ impl PersonalVault {
         snapshot: &Snapshot,
         credential: GitHubCredential,
     ) -> Result<AuthenticatedSession> {
-        let resolved = AuthenticatedSession {
+        let mut resolved = AuthenticatedSession {
             credential,
+            hash: snapshot.hash.clone(),
+            revision: snapshot.account.revision,
+            generation: snapshot.account.generation,
             deadline: deadline(snapshot),
             clock: self.clock.clone(),
             status: status(
@@ -633,6 +697,9 @@ impl PersonalVault {
                 self.clock.now(),
             ),
         };
+        if snapshot.session.authority == GitHubAuthority::PublicRead {
+            resolved.status.authority = GitHubAuthority::PublicRead;
+        }
         resolved.identity()?;
         Ok(resolved)
     }

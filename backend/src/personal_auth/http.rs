@@ -29,6 +29,7 @@ pub(crate) fn configured_router(service: PersonalAuth) -> Router {
     Router::new()
         .route(wire::CAPABILITIES_PATH, get(capabilities))
         .route(wire::START_PATH, post(start))
+        .route(wire::REPOSITORY_CONSENT_PATH, post(repository_consent))
         .route(wire::STATUS_PATH, post(status))
         .route(wire::CLAIM_PATH, post(claim))
         .route(wire::CANCEL_PATH, post(cancel))
@@ -47,6 +48,7 @@ async fn boundary(request: Request, next: Next) -> Response {
         wire::SESSION_PATH,
         wire::SIGN_OUT_PATH,
         wire::DISCONNECT_PATH,
+        wire::REPOSITORY_CONSENT_PATH,
     ]
     .contains(&path);
     let forbidden = [
@@ -106,7 +108,7 @@ fn parse<T: DeserializeOwned>(
     serde_json::from_slice(&body).map_err(|_| AuthError::InvalidRequest)
 }
 
-fn bearer(headers: &HeaderMap) -> Result<&str, AuthError> {
+pub(crate) fn bearer(headers: &HeaderMap) -> Result<&str, AuthError> {
     let mut values = headers.get_all(header::AUTHORIZATION).iter();
     let value = values
         .next()
@@ -134,6 +136,16 @@ async fn start(
     body: std::result::Result<Bytes, BytesRejection>,
 ) -> Result<Json<wire::StartReply>, AuthError> {
     service.start(parse(&headers, body)?).map(Json)
+}
+async fn repository_consent(
+    State(service): State<PersonalAuth>,
+    headers: HeaderMap,
+    body: std::result::Result<Bytes, BytesRejection>,
+) -> Result<Json<wire::StartReply>, AuthError> {
+    service
+        .start_repository_consent(bearer(&headers)?, parse(&headers, body)?)
+        .await
+        .map(Json)
 }
 async fn status(
     State(service): State<PersonalAuth>,

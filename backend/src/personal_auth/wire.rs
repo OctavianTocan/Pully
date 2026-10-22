@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 
 pub(crate) const CAPABILITIES_PATH: &str = "/api/personal/v1/capabilities";
 pub(crate) const START_PATH: &str = "/api/personal/v1/auth/github/start";
+pub(crate) const REPOSITORY_CONSENT_PATH: &str = "/api/personal/v1/auth/github/repositories/start";
 pub(crate) const STATUS_PATH: &str = "/api/personal/v1/auth/github/status";
 pub(crate) const CLAIM_PATH: &str = "/api/personal/v1/auth/github/claim";
 pub(crate) const CANCEL_PATH: &str = "/api/personal/v1/auth/github/cancel";
