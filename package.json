@@ -23,7 +23,7 @@
     "android:design": "node android/scripts/design/check.mjs",
     "android:design:update": "node android/scripts/design/check.mjs --update",
     "android:design:test": "vitest run android/scripts/design",
-    "contracts:check": "cc-check format > /dev/null",
+    "contracts:check": "node scripts/release-track.mjs --deployment-only && cc-check format > /dev/null",
     "test": "pnpm -F pulls.review run test && vitest run",
     "test:watch": "vitest",
     "release": "bumpp -r",

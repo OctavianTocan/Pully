@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Rebuilds past versions of the Android app from git, for Settings, Advanced, Past versions.
 
-Each version is built from the last commit on the first-parent history that still carried its versionName, so it is
+Each version is built from the verified release's first-parent history at the last commit that still carried its versionName, so it is
 the app as it was when the next version replaced it. Every build is changed in the same few ways and nothing else:
 
 - its own package, `com.octaviantocan.pulls.v0_20_0`, so it installs beside the current app and the others;
@@ -12,8 +12,8 @@ the app as it was when the next version replaced it. Every build is changed in t
 - the pinned debug key, so a rebuild on any machine installs over the last one.
 
 The APKs go to `<android dir>/past/<version>.apk` with `index.json` beside them, where the server serves them under
-`/android/past/` (backend/src/transport.rs). The version the checkout is on is the current app, so it is never
-built here.
+`/android/past/` (backend/src/transport.rs). The verified release version is the current app, so it is never
+built here. Unshipped main versions and orphaned cached APKs never enter the published index.
 
     android/scripts/build-past-ui.py               build every version not built yet
     android/scripts/build-past-ui.py 0.20.0 0.9.0  build (or rebuild) these
@@ -55,15 +55,19 @@ def version_of(commit: str) -> tuple[str, int] | None:
     try:
         text = git("show", f"{commit}:{GRADLE_FILE}")
     except subprocess.CalledProcessError:
+        if git("ls-tree", "--name-only", commit, "--", GRADLE_FILE).strip():
+            raise SystemExit("Release version history is unavailable; the published index is unchanged.")
         return None
     name = re.search(r'versionName\s*=\s*"([^"]+)"', text)
     code = re.search(r"versionCode\s*=\s*(\d+)", text)
     return (name.group(1), int(code.group(1))) if name and code else None
 
 
-def versions() -> list[dict]:
-    """Every versionName on the first-parent history, oldest first, with the last commit that carried it."""
-    commits = git("rev-list", "--first-parent", "HEAD", "--", GRADLE_FILE).split()
+def versions(approved: str) -> list[dict]:
+    """Released first-parent versions; never discover unshipped main version bumps."""
+    if git("rev-parse", "--is-shallow-repository").strip() != "false":
+        raise SystemExit("Complete release history is required; fetch full history before publishing the index.")
+    commits = git("rev-list", "--first-parent", approved, "--", GRADLE_FILE).split()
     found: list[dict] = []
     newer_start: str | None = None  # the oldest commit seen so far of the version above
     current: dict | None = None
@@ -73,7 +77,7 @@ def versions() -> list[dict]:
             continue
         name, code = version
         if current is None or current["versionName"] != name:
-            end = "HEAD" if newer_start is None else f"{newer_start}^"
+            end = approved if newer_start is None else f"{newer_start}^"
             current = {"versionName": name, "versionCode": code, "commit": git("rev-parse", end).strip()}
             found.append(current)
         newer_start = commit
@@ -223,23 +227,25 @@ def build(item: dict, dest: Path) -> None:
             git("worktree", "remove", "--force", str(checkout))
 
 
-def write_index(dest: Path) -> None:
+def write_index(dest: Path, allowed=None) -> None:
     """index.json: every built version, oldest first, with the summary today's changelog gives it."""
     dest.mkdir(parents=True, exist_ok=True)
     # --index runs beside the historical builder; both rescan while holding the
     # same short index lock, independently of the long-running build lock.
     with (dest / ".index.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        _write_index(dest)
+        _write_index(dest, allowed)
 
 
-def _write_index(dest: Path) -> None:
+def _write_index(dest: Path, allowed=None) -> None:
     summaries = changelog_summaries()
     entries = []
     for meta_path in dest.glob("*.json"):
         if meta_path.name == "index.json":
             continue
         meta = json.loads(meta_path.read_text())
+        if allowed is not None and (meta.get("versionName"), meta.get("commit")) not in allowed:
+            continue
         if not (dest / f"{meta['versionName']}.apk").exists():
             continue
         entries.append({
@@ -267,11 +273,22 @@ def _write_index(dest: Path) -> None:
 
 
 def main(args: list[str]) -> int:
+    if "--list" in args:
+        git("fetch", "-q", "origin", "release")
+        approved = git("rev-parse", "FETCH_HEAD").strip()
+    else:
+        approved = subprocess.run(
+            ["node", str(REPO / "scripts/release-track.mjs"), "--print-sha"],
+            cwd=REPO, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", approved):
+        raise SystemExit("The verified release source is unavailable.")
+    known = versions(approved)
+    allowed = {(item["versionName"], item["commit"]) for item in known}
     dest = out_dir()
     if "--index" in args:
-        write_index(dest)
+        write_index(dest, allowed)
         return 0
-    known = versions()
     current = known[-1]["versionName"] if known else None
     if "--list" in args:
         for item in known:
@@ -289,15 +306,15 @@ def main(args: list[str]) -> int:
         wanted = [item for item in known if item["versionName"] != current and not (dest / f"{item['versionName']}.apk").exists()]
     failed = []
     # The newest first, and the index written after each one, so the slider fills in while the rest still build.
-    write_index(dest)
+    write_index(dest, allowed)
     for item in reversed(wanted):
         try:
             build(item, dest)
-            write_index(dest)
+            write_index(dest, allowed)
         except (subprocess.CalledProcessError, SystemExit, OSError) as error:
             print(f"{item['versionName']} did not build: {error}", file=sys.stderr)
             failed.append(item["versionName"])
-    write_index(dest)
+    write_index(dest, allowed)
     if failed:
         print(f"not built: {', '.join(failed)}", file=sys.stderr)
         return 1

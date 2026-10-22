@@ -97,6 +97,10 @@ Keep remote access on a trusted network or behind an authenticated proxy: the
 general phone RPCs have no application login. Account-owned methods additionally
 require a Pully session, and `/api/v1` uses agent keys.
 
+Integration uses fast main checks; full native, Android and backend verification gates
+release promotion. See [the release track and deployment migration](./docs/RELEASE_TRACK.md)
+before running an updater or publisher.
+
 ## Packages
 
 | Package                                       | What it is                                                                                      |

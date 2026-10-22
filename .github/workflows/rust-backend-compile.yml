@@ -1,15 +1,11 @@
 name: Rust backend compile
 
 on:
+  pull_request:
+    branches: [release]
   push:
-    branches:
-      - feat/rust-backend-20261015
-    paths:
-      - backend/src/**
-      - backend/Cargo.toml
-      - backend/Cargo.lock
-      - backend/scripts/**
-      - .github/workflows/rust-backend-compile.yml
+    branches: [release, feat/rust-backend-20261015]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  compile:
+  backend-release-verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
