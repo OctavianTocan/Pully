@@ -400,6 +400,92 @@ async fn cancellation_after_a_successful_claim_revokes_its_exact_session_and_cap
 }
 
 #[tokio::test]
+async fn lost_claim_observers_past_the_attempt_deadline_cannot_exhaust_the_account_session_cap() {
+    let h = Harness::new();
+    for lost_handoffs in 1..=33 {
+        let (start, proof) = h.ready().await;
+        let held = HeldLock::storage(&h.store);
+        let claim = {
+            let service = h.service.clone();
+            let request = request(&start, &proof);
+            tokio::spawn(async move { service.claim(request).await })
+        };
+        wait_phase(&h.service, &start.attempt_id, |phase| {
+            matches!(phase, Phase::Claiming)
+        })
+        .await;
+        claim.abort();
+        assert!(matches!(claim.await, Err(error) if error.is_cancelled()));
+        drop(held);
+        wait_phase(&h.service, &start.attempt_id, |phase| {
+            matches!(phase, Phase::Claimed(_) | Phase::Failed(_))
+        })
+        .await;
+        assert!(
+            matches!(
+                h.service.0.attempts.lock().unwrap().attempts[&start.attempt_id].phase,
+                Phase::Claimed(_)
+            ),
+            "lost handoff {lost_handoffs} exhausted session capacity"
+        );
+        h.clock.0.store(start.expires_at + 1, Ordering::SeqCst);
+        assert!(matches!(
+            h.service.cancel(request(&start, &proof)).await,
+            Err(AuthError::Expired)
+        ));
+    }
+    let (start, proof) = h.ready().await;
+    let claimed = h.service.claim(request(&start, &proof)).await.unwrap();
+    let confirmed = h.service.session_status(&claimed.session).await.unwrap();
+    assert_eq!(confirmed.github_id, 42);
+    assert!(confirmed.session_expires_at > start.expires_at);
+    let value = h.store.get("personal-auth-v1:state").unwrap().unwrap();
+    assert_eq!(value["accounts"].as_object().unwrap().len(), 1);
+    assert_eq!(value["sessions"].as_object().unwrap().len(), 1);
+    assert!(value["sessions"][sha256(&claimed.session)]["confirmBy"].is_null());
+}
+
+#[tokio::test]
+async fn bearer_confirmation_keeps_a_received_session_current_after_its_attempt_expires() {
+    let h = Harness::new();
+    let (start, proof) = h.ready().await;
+    let claimed = h.service.claim(request(&start, &proof)).await.unwrap();
+    assert_eq!(claimed.status.session_expires_at, start.expires_at);
+    let confirmed = h.service.session_status(&claimed.session).await.unwrap();
+    assert_eq!(confirmed.session_expires_at, 100 + 30 * 24 * 60 * 60);
+    h.clock.0.store(start.expires_at + 1, Ordering::SeqCst);
+    assert!(matches!(
+        h.service.status(request(&start, &proof)),
+        Err(AuthError::Expired)
+    ));
+    assert_eq!(
+        h.service
+            .session_status(&claimed.session)
+            .await
+            .unwrap()
+            .session_expires_at,
+        confirmed.session_expires_at
+    );
+}
+
+#[tokio::test]
+async fn an_unconfirmed_session_cannot_be_promoted_after_the_original_attempt_deadline() {
+    let h = Harness::new();
+    let (start, proof) = h.ready().await;
+    let claimed = h.service.claim(request(&start, &proof)).await.unwrap();
+    h.clock.0.store(start.expires_at, Ordering::SeqCst);
+    assert!(matches!(
+        h.service.session_status(&claimed.session).await,
+        Err(AuthError::Reconnect)
+    ));
+    let value = h.store.get("personal-auth-v1:state").unwrap().unwrap();
+    assert_eq!(
+        value["sessions"][sha256(&claimed.session)]["confirmBy"],
+        start.expires_at
+    );
+}
+
+#[tokio::test]
 async fn browser_handoff_keeps_pending_attempt_until_return_without_background_cancellation() {
     let h = Harness::new();
     let (start, proof) = h.start();

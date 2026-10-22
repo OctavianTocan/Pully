@@ -59,7 +59,16 @@ struct StoredSession {
     github_id: u64,
     generation: u64,
     expires_at: u64,
+    // A lost one-use claim cannot occupy a long-lived session slot without bearer confirmation.
+    confirm_by: Option<u64>,
     sealed: VaultEnvelope,
+}
+impl StoredSession {
+    fn deadline(&self) -> u64 {
+        self.confirm_by
+            .unwrap_or(self.expires_at)
+            .min(self.expires_at)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -70,6 +79,7 @@ struct SessionClaims {
     github_id: u64,
     generation: u64,
     expires_at: u64,
+    confirm_by: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -217,6 +227,7 @@ impl PersonalVault {
         login: VerifiedLogin,
         requested: GitHubAuthority,
         link: Option<LegacyLink>,
+        confirm_by: u64,
     ) -> Result<IssuedSession> {
         let this = self.clone();
         blocking(move || {
@@ -225,6 +236,7 @@ impl PersonalVault {
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?;
             let now = this.clock.now();
+            ensure!(confirm_by > now, "Personal sign-in has expired");
             runtime.bindings.retain(|_, binding| binding.deadline > now);
             let (identity, tokens) = login.into_parts();
             ensure!(
@@ -239,6 +251,7 @@ impl PersonalVault {
             let expires_at = now
                 .checked_add(SESSION_LIFETIME)
                 .ok_or_else(|| anyhow::anyhow!("Invalid session expiry"))?;
+            let confirm_by = confirm_by.min(expires_at);
             let target = link.as_ref().map(LegacyLink::current_account).transpose()?;
             let mut issued = None;
             this.store
@@ -246,7 +259,7 @@ impl PersonalVault {
                     let mut database = decode(value)?;
                     database
                         .sessions
-                        .retain(|_, session| session.expires_at > now);
+                        .retain(|_, session| session.deadline() > now);
                     let subject = format!("github.com:{github_id}");
                     let existing = database.subjects.get(&subject).cloned();
                     if let (Some(existing), Some(target)) = (&existing, &target) {
@@ -295,7 +308,7 @@ impl PersonalVault {
                         &account_id,
                         github_id,
                         &login_name,
-                        expires_at,
+                        confirm_by,
                         &credentials,
                         now,
                     );
@@ -315,12 +328,14 @@ impl PersonalVault {
                         github_id,
                         generation,
                         expires_at,
+                        confirm_by: Some(confirm_by),
                     };
                     let stored_session = StoredSession {
                         account_id: account_id.clone(),
                         github_id,
                         generation,
                         expires_at,
+                        confirm_by: Some(confirm_by),
                         sealed: this.keys.seal(
                             &session_context(&account_id, github_id, generation),
                             &serde_json::to_vec(&claims)?,
@@ -370,7 +385,8 @@ impl PersonalVault {
                 .bindings
                 .get(&snapshot.hash)
                 .filter(|binding| {
-                    snapshot.credentials.verified
+                    snapshot.session.confirm_by.is_none()
+                        && snapshot.credentials.verified
                         && binding.account_id == snapshot.account_id
                         && binding.revision == snapshot.account.revision
                         && binding.deadline > this.clock.now()
@@ -553,23 +569,11 @@ impl PersonalVault {
             .ok_or(ReconnectRequired)?;
         if account.github_id != session.github_id
             || account.generation != session.generation
-            || session.expires_at <= self.clock.now()
+            || session.deadline() <= self.clock.now()
         {
             return Err(ReconnectRequired.into());
         }
-        let claims: SessionClaims = serde_json::from_slice(&self.keys.open(
-            &session_context(&session.account_id, session.github_id, session.generation),
-            &session.sealed,
-        )?)
-        .map_err(|_| anyhow::anyhow!("Invalid personal session record"))?;
-        ensure!(
-            claims.hash == hash
-                && claims.account_id == session.account_id
-                && claims.github_id == session.github_id
-                && claims.generation == session.generation
-                && claims.expires_at == session.expires_at,
-            "Invalid personal session record"
-        );
+        self.validate_session(&hash, &session)?;
         let envelope = account.credentials.as_ref().ok_or(ReconnectRequired)?;
         let credentials: Credentials = serde_json::from_slice(&self.keys.open(
             &credential_context(&session.account_id, account.github_id, account.revision),
@@ -593,6 +597,24 @@ impl PersonalVault {
         })
     }
 
+    fn validate_session(&self, hash: &str, session: &StoredSession) -> Result<()> {
+        let claims: SessionClaims = serde_json::from_slice(&self.keys.open(
+            &session_context(&session.account_id, session.github_id, session.generation),
+            &session.sealed,
+        )?)
+        .map_err(|_| anyhow::anyhow!("Invalid personal session record"))?;
+        ensure!(
+            claims.hash == hash
+                && claims.account_id == session.account_id
+                && claims.github_id == session.github_id
+                && claims.generation == session.generation
+                && claims.expires_at == session.expires_at
+                && claims.confirm_by == session.confirm_by,
+            "Invalid personal session record"
+        );
+        Ok(())
+    }
+
     fn resolved(
         &self,
         snapshot: &Snapshot,
@@ -606,7 +628,7 @@ impl PersonalVault {
                 &snapshot.account_id,
                 snapshot.account.github_id,
                 &snapshot.account.login,
-                snapshot.session.expires_at,
+                snapshot.session.deadline(),
                 &snapshot.credentials,
                 self.clock.now(),
             ),
@@ -651,6 +673,9 @@ fn decode(value: Option<serde_json::Value>) -> Result<Database> {
             hash.len() == 64
                 && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
                 && session.expires_at > 0
+                && session
+                    .confirm_by
+                    .is_none_or(|deadline| deadline > 0 && deadline <= session.expires_at)
                 && database
                     .accounts
                     .get(&session.account_id)
@@ -715,8 +740,8 @@ fn deadline(snapshot: &Snapshot) -> u64 {
         .credentials
         .tokens
         .expires_at
-        .unwrap_or(snapshot.session.expires_at)
-        .min(snapshot.session.expires_at)
+        .unwrap_or(snapshot.session.deadline())
+        .min(snapshot.session.deadline())
 }
 fn session_hash(session: &str) -> Result<String> {
     ensure!(

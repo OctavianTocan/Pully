@@ -36,7 +36,8 @@ current GitHub OAuth App scope and refresh documentation.
 @cc [owner:OctavianTocan,label:security;architecture] personal-session-is-bound-to-one-stable-user
 Persisted personal sessions MUST contain only hashes of high-entropy Pully session
 bearers. Session claims MUST authenticate their own hash, stable account, immutable
-GitHub subject, generation and expiry, independently of credential envelopes. A
+GitHub subject, generation, expiry and provisional confirmation deadline,
+independently of credential envelopes. A
 copied or expired session MUST NOT return a credential. Sign-out MUST revoke the
 matching captured authority; unlink MUST revoke every captured authority and session
 for that account. After an awaited identity verification, the current session and
@@ -72,10 +73,17 @@ handoff MUST NOT cancel an attempt. Source: Tavi's 21 Oct 2026 native OAuth plan
 
 @cc [owner:OctavianTocan,label:architecture;security] personal-accepted-exchange-outlives-observer
 Once callback state or a native claim has been accepted, dropping the HTTP observer
-MUST NOT cancel the exchange/commit or lose its single-use receipt. Accepted work
-MUST remain tied to its original attempt and verified subject. Explicit cancellation
-MUST retire publication authority; it MUST NOT make an already-consumed code reusable.
-Source: Tavi's 21 Oct 2026 replay, source-guard and browser-return requirements.
+MUST NOT cancel the exchange/commit. Accepted work MUST remain tied to its original
+attempt and verified subject. A newly issued session MUST remain provisional until
+a bearer-authenticated session lookup confirms delivery before the original
+attempt deadline. An unconfirmed session MUST expire at that deadline and MUST NOT
+consume capacity needed by a later verified sign-in. Native clients MUST secure-store
+the bearer before confirmation and MUST confirm before publishing the new source.
+Confirmation MUST preserve one-use claim delivery and hash-only persistence; it
+MUST NOT replay the OAuth code or return a prior bearer. Explicit cancellation MUST
+retire publication authority; it MUST NOT make an already-consumed code reusable.
+Source: Tavi's 21 Oct 2026 replay, source-guard and browser-return requirements,
+clarified by the confirmed lost-claim recovery finding in the 22 Oct full auth review.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-refresh-rotates-without-resurrecting-sources
 Refresh MUST serialize per stable account and revoke old captured authority before

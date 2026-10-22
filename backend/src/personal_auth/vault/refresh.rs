@@ -220,7 +220,10 @@ impl PersonalVault {
     }
 
     pub(super) fn confirm_verified(&self, current: &mut Snapshot, login: &str) -> Result<()> {
-        if current.credentials.verified && current.account.login == login {
+        if current.credentials.verified
+            && current.account.login == login
+            && current.session.confirm_by.is_none()
+        {
             return Ok(());
         }
         current.credentials.verified = true;
@@ -233,6 +236,23 @@ impl PersonalVault {
             ),
             &serde_json::to_vec(&current.credentials)?,
         )?;
+        let mut confirmed_session = current.session.clone();
+        confirmed_session.confirm_by = None;
+        confirmed_session.sealed = self.keys.seal(
+            &session_context(
+                &current.account_id,
+                current.account.github_id,
+                current.account.generation,
+            ),
+            &serde_json::to_vec(&SessionClaims {
+                hash: current.hash.clone(),
+                account_id: current.account_id.clone(),
+                github_id: current.account.github_id,
+                generation: current.account.generation,
+                expires_at: current.session.expires_at,
+                confirm_by: None,
+            })?,
+        )?;
         self.store
             .update(STATE_KEY, |value| {
                 let mut database = decode(value)?;
@@ -242,15 +262,30 @@ impl PersonalVault {
                     .ok_or_else(|| anyhow::anyhow!("Personal authorization changed"))?;
                 ensure!(
                     account.revision == current.account.revision
-                        && account.generation == current.account.generation
-                        && database.sessions.contains_key(&current.hash),
+                        && account.generation == current.account.generation,
                     "Personal authorization changed"
                 );
+                let session = database
+                    .sessions
+                    .get_mut(&current.hash)
+                    .ok_or(ReconnectRequired)?;
+                self.validate_session(&current.hash, session)?;
+                ensure!(
+                    session.account_id == current.account_id
+                        && session.github_id == current.account.github_id
+                        && session.generation == current.account.generation
+                        && session.expires_at == current.session.expires_at
+                        && session.confirm_by == current.session.confirm_by
+                        && session.deadline() > self.clock.now(),
+                    "Personal authorization changed"
+                );
+                *session = confirmed_session.clone();
                 account.credentials = Some(sealed);
                 account.login = current.account.login.clone();
                 Ok(serde_json::to_value(database)?)
             })
             .map_err(safe_storage)?;
+        current.session = confirmed_session;
         Ok(())
     }
 }

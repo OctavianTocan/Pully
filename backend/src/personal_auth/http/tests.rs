@@ -153,6 +153,7 @@ async fn real_http_browser_callback_native_claim_and_session_sign_out_use_the_ac
     let session = claimed["session"].as_str().unwrap();
     assert_eq!(claimed["status"]["githubId"], 42);
     assert_eq!(claimed["status"]["authority"], "publicRead");
+    assert_eq!(claimed["status"]["sessionExpiresAt"], start["expiresAt"]);
     assert!(
         !claimed.to_string().contains("fixture-access")
             && !claimed.to_string().contains("fixture-refresh")
@@ -165,7 +166,9 @@ async fn real_http_browser_callback_native_claim_and_session_sign_out_use_the_ac
         .await
         .unwrap();
     assert_eq!(profile.status(), StatusCode::OK);
-    assert_eq!(profile.json::<Value>().await.unwrap()["githubId"], 42);
+    let confirmed: Value = profile.json().await.unwrap();
+    assert_eq!(confirmed["githubId"], 42);
+    assert_eq!(confirmed["sessionExpiresAt"], 100 + 30 * 24 * 60 * 60);
     let stored = h
         .store
         .get("personal-auth-v1:state")

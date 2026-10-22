@@ -127,7 +127,12 @@ impl Harness {
             .await
             .unwrap();
         self.vault
-            .install(verified, GitHubAuthority::PublicRead, None)
+            .install(
+                verified,
+                GitHubAuthority::PublicRead,
+                None,
+                self.clock.now() + 600,
+            )
             .await
             .unwrap()
     }
@@ -158,7 +163,10 @@ async fn expiring(h: &Harness, authority: GitHubAuthority) -> IssuedSession {
     let verified = VerifiedLogin::acquire(h.provider.as_ref(), pair)
         .await
         .unwrap();
-    h.vault.install(verified, authority, None).await.unwrap()
+    h.vault
+        .install(verified, authority, None, h.clock.now() + 600)
+        .await
+        .unwrap()
 }
 
 #[tokio::test]
@@ -407,7 +415,7 @@ async fn tokens_are_encrypted_sessions_are_hashed_and_status_is_public_only() {
         .unwrap();
     let issued = h
         .vault
-        .install(login, GitHubAuthority::PublicRead, None)
+        .install(login, GitHubAuthority::PublicRead, None, 700)
         .await
         .unwrap();
     let stored = serde_json::to_string(&h.store.get(STATE_KEY).unwrap().unwrap()).unwrap();
@@ -429,6 +437,78 @@ async fn tokens_are_encrypted_sessions_are_hashed_and_status_is_public_only() {
         issued.status.account_id
     );
     assert_eq!(resolved.status.authority, GitHubAuthority::PublicRead);
+}
+
+#[tokio::test]
+async fn removing_or_extending_a_provisional_deadline_cannot_bypass_its_authenticated_claims() {
+    let h = Harness::new();
+    let issued = h.sign_in("access-before", 42, "reader").await;
+    let hash = sha256(&issued.session);
+    let original = h.store.get(STATE_KEY).unwrap().unwrap();
+    for changed_deadline in [serde_json::Value::Null, serde_json::json!(701)] {
+        let mut modified = original.clone();
+        modified["sessions"][&hash]["confirmBy"] = changed_deadline;
+        h.store.set(STATE_KEY, &modified).unwrap();
+        assert!(h
+            .vault
+            .resolve(&issued.session, h.provider.as_ref())
+            .await
+            .is_err());
+        assert_eq!(h.store.get(STATE_KEY).unwrap().unwrap(), modified);
+    }
+    h.store.set(STATE_KEY, &original).unwrap();
+    assert_eq!(
+        h.resolve(&issued.session).await.status.session_expires_at,
+        100 + SESSION_LIFETIME
+    );
+}
+
+#[tokio::test]
+async fn verification_finishing_after_the_provisional_deadline_cannot_confirm_delivery() {
+    let h = Harness::new();
+    let issued = h.sign_in("access-before", 42, "reader").await;
+    h.provider.delayed.store(true, Ordering::SeqCst);
+    let resolve = {
+        let (vault, provider, session) =
+            (h.vault.clone(), h.provider.clone(), issued.session.clone());
+        tokio::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
+    };
+    h.provider.started.notified().await;
+    h.clock.0.store(700, Ordering::SeqCst);
+    h.provider.release.notify_one();
+    assert!(resolve.await.unwrap().is_err());
+    let value = h.store.get(STATE_KEY).unwrap().unwrap();
+    assert_eq!(value["sessions"][sha256(&issued.session)]["confirmBy"], 700);
+}
+
+#[tokio::test]
+async fn reopening_the_vault_preserves_pending_expiry_and_confirmed_delivery() {
+    let h = Harness::new();
+    let pending = h.sign_in("access-pending", 42, "reader").await;
+    let received = h.sign_in("access-received", 42, "reader").await;
+    let confirmed_expiry = h.resolve(&received.session).await.status.session_expires_at;
+    drop(h.vault);
+    h.clock.0.store(701, Ordering::SeqCst);
+    let reopened = PersonalVault::new(
+        h.store.clone(),
+        Arc::new(VaultKeys::new(1, BTreeMap::from([(1, [73; 32])])).unwrap()),
+        h.clock.clone(),
+    )
+    .unwrap();
+    assert!(reopened
+        .resolve(&pending.session, h.provider.as_ref())
+        .await
+        .is_err());
+    let restored = reopened
+        .resolve(&received.session, h.provider.as_ref())
+        .await
+        .unwrap();
+    assert_eq!(restored.status.session_expires_at, confirmed_expiry);
+    assert_eq!(
+        restored.identity().unwrap().account_id().unwrap(),
+        received.status.account_id
+    );
+    assert_eq!(h.provider.calls.load(Ordering::SeqCst), 4);
 }
 
 #[tokio::test]
@@ -620,7 +700,7 @@ async fn legacy_link_requires_the_actual_still_current_legacy_session() {
         .unwrap();
     assert!(h
         .vault
-        .install(login, GitHubAuthority::PublicRead, Some(stale_link))
+        .install(login, GitHubAuthority::PublicRead, Some(stale_link), 700)
         .await
         .is_err());
     assert!(h.store.get(STATE_KEY).unwrap().is_none());
@@ -633,7 +713,7 @@ async fn legacy_link_requires_the_actual_still_current_legacy_session() {
         .unwrap();
     let issued = h
         .vault
-        .install(login, GitHubAuthority::PublicRead, Some(link))
+        .install(login, GitHubAuthority::PublicRead, Some(link), 700)
         .await
         .unwrap();
     assert_eq!(issued.status.account_id, account.id);
@@ -663,7 +743,7 @@ async fn explicit_link_does_not_merge_two_preexisting_personal_accounts() {
         .unwrap();
     assert!(h
         .vault
-        .install(login, GitHubAuthority::PublicRead, Some(link))
+        .install(login, GitHubAuthority::PublicRead, Some(link), 700)
         .await
         .is_err());
     assert!(h.resolve(&issued.session).await.identity().is_ok());
@@ -680,7 +760,7 @@ async fn expiration_revokes_already_captured_authority_and_still_allows_unlink()
         .unwrap();
     let issued = h
         .vault
-        .install(login, GitHubAuthority::PublicRead, None)
+        .install(login, GitHubAuthority::PublicRead, None, 700)
         .await
         .unwrap();
     let identity = h.resolve(&issued.session).await.identity().unwrap();

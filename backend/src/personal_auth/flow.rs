@@ -366,7 +366,7 @@ impl PersonalAuth {
     }
 
     pub(crate) async fn claim(&self, request: AttemptRequest) -> Result<ClaimReply> {
-        let ready = {
+        let (ready, confirm_by) = {
             let mut attempts = self.0.attempts.lock().map_err(|_| AuthError::Unavailable)?;
             let attempt = self.owned(&mut attempts, &request)?;
             if !matches!(attempt.phase, Phase::Ready(_)) {
@@ -375,14 +375,14 @@ impl PersonalAuth {
             let Phase::Ready(ready) = std::mem::replace(&mut attempt.phase, Phase::Claiming) else {
                 return Err(AuthError::Reconnect);
             };
-            ready
+            (ready, attempt.expires_at)
         };
         let this = self.clone();
         tokio::spawn(async move {
             let issued = match this
                 .0
                 .vault
-                .install(ready.login, ready.authority, ready.link)
+                .install(ready.login, ready.authority, ready.link, confirm_by)
                 .await
             {
                 Ok(issued) => issued,

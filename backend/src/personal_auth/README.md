@@ -51,9 +51,20 @@ headers, legacy `X-Pully-Session`, cookies or user-selected redirect/configurati
 * `status` returns `pending`, `ready`, `failed`, `cancelled` or a typed expired
   failure. A successful one-use `claim` returns only the newly issued Pully
   `session` and redacted `status`. GitHub tokens never reach native clients.
-* The client must consume its pending attempt before publishing an accepted session
-  to its new source. Retiring an obsolete attempt uses best-effort cancel against
-  its captured origin; explicit cancel after a claim revokes that exact session.
+* The claim's session is provisional: its `sessionExpiresAt` is the original
+  attempt deadline, at most ten minutes after start. Secure-store the bearer, then
+  use bearer-authenticated `GET /api/personal/v1/session` before that deadline to
+  confirm delivery. The confirmed response returns the ordinary thirty-day session
+  deadline. Do not publish the new source before confirmation. An expired or lost
+  claim requires fresh sign-in; unconfirmed sessions expire and are reclaimed before
+  a later sign-in's capacity check, without replaying a claim or retaining its bearer.
+* The client must consume its pending attempt before publishing the accepted session
+  to its new source. After a claim is consumed, source retirement or failed storage/
+  confirmation must sign out the captured session. Remove its local credential only
+  after revocation succeeds; an uncertain failure must retain a cleanup-only secure
+  record that cannot restore a principal.
+  Retiring an obsolete pending attempt uses best-effort cancel against its captured
+  origin; explicit cancel after a claim revokes that exact session.
 
 `*At` timestamps are Unix epoch seconds. `pollAfterMs` is milliseconds (2000).
 Public sign-in always has `publicRead` application authority, even when GitHub
@@ -79,7 +90,8 @@ does not copy legacy API keys, caches or other data.
 
 AES-256-GCM envelopes authenticate account ID, GitHub subject, credential revision,
 record purpose, provider, format and key version. Session claims separately
-authenticate their hashed bearer, account, subject, generation and expiry. No key,
+authenticate their hashed bearer, account, subject, generation, expiry and provisional
+confirmation deadline. No key,
 OAuth configuration, GitHub token or raw session wrapper implements Debug.
 
 Refresh serializes per stable account, retires the old captured binding, and saves
