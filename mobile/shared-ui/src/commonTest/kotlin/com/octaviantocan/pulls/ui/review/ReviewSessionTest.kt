@@ -13,6 +13,7 @@ import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoConfiguration
 import com.octaviantocan.pulls.data.RpcResponse
 import com.octaviantocan.pulls.data.RpcTransport
+import com.octaviantocan.pulls.data.RpcConnectionException
 import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.settings.AppSettings
@@ -220,7 +221,7 @@ class ReviewSessionTest {
         page.startTask("tour", onDone = { completed += it })
         runCurrent()
         assertTrue(page.tasks["task-1"]?.running == true)
-        assertEquals("Network unavailable", page.taskObservationErrors["task-1"])
+        assertEquals(RpcConnectionException().message, page.taskObservationErrors["task-1"])
         testScheduler.advanceTimeBy(91_000)
         runCurrent()
         assertEquals(listOf(0L, 1_000L, 3_000L, 7_000L, 15_000L, 31_000L, 61_000L, 91_000L), attempts)
@@ -561,7 +562,7 @@ internal suspend fun TestScope.assertMountedRouteRecovery() {
 }
 
 /** This composition tests state ownership, without platform UI nodes or an Android test runner. */
-private class NoNodes : AbstractApplier<Unit>(Unit) {
+internal class NoNodes : AbstractApplier<Unit>(Unit) {
     override fun insertTopDown(index: Int, instance: Unit) = Unit
     override fun insertBottomUp(index: Int, instance: Unit) = Unit
     override fun remove(index: Int, count: Int) = Unit

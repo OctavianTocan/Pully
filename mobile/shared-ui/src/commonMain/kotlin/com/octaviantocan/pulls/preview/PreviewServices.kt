@@ -78,7 +78,7 @@ private val fixtures = listOf(
     )
 }
 
-private val previewTransport = RpcTransport { request ->
+internal val previewTransport = RpcTransport { request ->
     require(request.url == "$PREVIEW_SERVER/api/rpc" && request.headers.isEmpty()) { "Fixture requests never leave their fixed source." }
     val call = Json.parseToJsonElement(request.body).jsonObject
     val args = call["args"] as? JsonObject ?: JsonObject(emptyMap())

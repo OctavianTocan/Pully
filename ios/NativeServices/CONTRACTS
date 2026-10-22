@@ -21,3 +21,20 @@ existing server's web client ID, and MUST leave signature, audience, expiry and
 email-allowlist validation to that server. It MUST NOT add GitHub OAuth or store a
 Google client secret. Source: root google-sign-in-same-account and the chosen
 21 Oct 2026 iOS plan's Authentication section.
+
+@cc [owner:OctavianTocan,label:security;product] ios-model-choice-preserves-the-private-source
+A model/engine preference change MUST retain the configured server, Access credentials,
+verified session and source generation. A request from an older source generation MUST
+NOT update the current model preferences. The real native preferences MUST keep the
+choice for the next launch, without another RPC client or credential store. Source:
+settings-model-row-names-the-model, client-invalidates-old-sources and Tavi's 21 Oct
+2026 maximum-reuse iOS settings decision, preserving Android ServerStore.save behavior.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-incoming-envelopes-feed-the-shared-owner
+Native URL delivery MUST accept only bounded credential-free HTTPS links to GitHub
+or the configured server origin, either directly or inside the single explicit
+pully://open?url= envelope. It MUST preserve the destination's path, query and fragment
+for the shared parser, never reconfigure a server or implement another route stack.
+Google callbacks MUST be consumed before ordinary links in the same batch; a closed
+scene receiver MUST be inert. Source: the accepted 21 Oct 2026 iOS native link plan,
+including cold/warm delivery, auth priority and source isolation.

@@ -6,6 +6,17 @@ import kotlin.test.assertNull
 
 class PrLinksTest {
     @Test
+    fun invalidOrHugePullNumbersAreUnsupportedInsteadOfThrowingOrOpeningTheirPrefix() {
+        for (number in listOf("0", "2147483648", "9".repeat(100))) {
+            for (text in listOf("https://github.com/a/b/pull/$number/files", "https://server.example/gh/a/b/$number", "a/b#$number", "a/b/$number")) {
+                assertNull(PrLinks.parse(text), text)
+            }
+        }
+        assertNull(PrLinks.parse("https://github.com/a/b/pull/76not-a-number"))
+        assertEquals(OpenTarget.Pull("a", "b", Int.MAX_VALUE, "github.com"), PrLinks.parse("https://github.com/a/b/pull/${Int.MAX_VALUE}#issuecomment-9"))
+    }
+
+    @Test
     fun parsesGithubPullUrls() {
         val target = PrLinks.parse("https://github.com/antfu/pulls.review/pull/62/files?w=1")
         assertEquals(OpenTarget.Pull("antfu", "pulls.review", 62, "github.com"), target)

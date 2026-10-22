@@ -6,6 +6,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var feedback: ControlFeedbackHost?
     private var homeActions: HomeActionsHost?
+    private var accountStorage: AccountStorageHost?
+    private var application: IosPullyApp?
+    private var incomingLinks: NativeIncomingLinks?
 
     func scene(
         _ scene: UIScene,
@@ -25,12 +28,30 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         default: break
         }
         #endif
-        // Shared Compose owns layout, safe-area insets, state and navigation.
-        let controller = MainViewControllerKt.MainViewController(homeActions: nativeHomeActions)
+        // Ordinary launches use the actual secure account/shared client. Fixtures require an explicit Debug switch.
+        let controller: UIViewController
+        #if DEBUG
+        if let fixtureID = ProcessInfo.processInfo.environment["PULLY_UI_TEST_ROOT_JOURNEY"] {
+            controller = createRootJourneyApplication(homeActions: nativeHomeActions, fixtureID: fixtureID)
+        } else if ProcessInfo.processInfo.environment["PULLY_UI_TEST_FIXTURES"] == "1" {
+            controller = MainViewControllerKt.MainViewController(homeActions: nativeHomeActions)
+        } else {
+            controller = createApplication(homeActions: nativeHomeActions)
+        }
+        #else
+        controller = createApplication(homeActions: nativeHomeActions)
+        #endif
         window.rootViewController = controller
+        incomingLinks = NativeIncomingLinks(
+            google: { NativeGoogleSignIn.shared.handle($0) },
+            configuredServer: { [weak self] in self?.accountStorage?.connection(verification: false)?.server },
+            open: { [weak self] in self?.application?.receiveLink(text: $0) },
+            rejected: { [weak self] in self?.application?.rejectIncomingLink() }
+        )
         self.window = window
         window.makeKeyAndVisible()
         nativeHomeActions.attach(to: controller.view)
+        incomingLinks?.receive(connectionOptions.urlContexts.map(\.url), activities: Array(connectionOptions.userActivities))
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) { homeActions?.update(.foregroundInactive) }
@@ -38,15 +59,61 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneWillResignActive(_ scene: UIScene) { feedback?.setActive(false); homeActions?.update(.foregroundInactive) }
     func sceneDidEnterBackground(_ scene: UIScene) { homeActions?.update(.background) }
     func sceneDidDisconnect(_ scene: UIScene) {
+        // Retire shared routes/work before releasing their native storage, clipboard and lifecycle adapters.
+        incomingLinks?.close()
+        incomingLinks = nil
+        application?.close()
+        application = nil
+        accountStorage?.disconnect()
+        accountStorage = nil
+        window?.rootViewController = nil
+        window = nil
         feedback?.setActive(false)
         feedback = nil
         homeActions?.disconnect()
         homeActions = nil
     }
 
-    func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
-        for context in contexts {
-            if NativeGoogleSignIn.shared.handle(context.url) { break }
+    private func createApplication(homeActions: HomeActionsHost) -> UIViewController {
+        let storage = AccountStorageHost()
+        let application = IosPullyApp(homeActions: homeActions, accountStorage: storage)
+        let controller = application.viewController
+        storage.attach(to: controller)
+        accountStorage = storage
+        self.application = application
+        return controller
+    }
+
+    #if DEBUG
+    /// The actual root uses an isolated real Keychain service, preferences and a transport with no network path.
+    private func createRootJourneyApplication(homeActions: HomeActionsHost, fixtureID: String) -> UIViewController {
+        guard let id = UUID(uuidString: fixtureID),
+              let defaults = UserDefaults(suiteName: "com.octaviantocan.pully.root-fixture.\(id.uuidString)") else {
+            preconditionFailure("The root journey fixture requires a unique UUID.")
         }
+        defaults.set("https://fixtures.pully.invalid", forKey: "pulls-server.url")
+        defaults.set("claude-code", forKey: "pulls-server.engine")
+        defaults.set("", forKey: "pulls-server.model")
+        let storage = AccountStorageHost(
+            preferences: DefaultsServerPreferences(defaults: defaults),
+            secrets: KeychainSecretStore(service: "com.octaviantocan.pully.root-fixture.\(id.uuidString).credentials")
+        )
+        let application = IosRootJourneyFixtureKt.rootJourneyFixtureApplication(
+            homeActions: homeActions, accountStorage: storage, defaults: defaults
+        )
+        let controller = application.viewController
+        storage.attach(to: controller)
+        accountStorage = storage
+        self.application = application
+        return controller
+    }
+    #endif
+
+    func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
+        incomingLinks?.receive(contexts.map(\.url))
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        incomingLinks?.receive(userActivity)
     }
 }

@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
  */
 @Stable
 class ReviewTopUi(private val feedback: (Cue, Emphasis) -> Unit = { cue, emphasis -> ControlFeedback.play(cue, emphasis) }) {
+    /** The live route policy also guards a visible Undo after its original confirmation page closes. */
+    internal var reviewCapabilities = ReviewCapabilities.None
     /** `merge`, `update-branch`, `close`, `reopen`, `ready` or `draft` while it runs. */
     var busy by mutableStateOf<String?>(null)
     var actionError by mutableStateOf<String?>(null)

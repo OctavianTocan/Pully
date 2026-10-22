@@ -429,7 +429,7 @@ fn clean_event(raw: &Value, rx: &str) -> Option<Event> {
     let app = raw.get("app")?.as_str()?;
     if name.len() > 64
         || (name != "crash" && !patterns().name.is_match(name))
-        || !matches!(app, "android" | "web" | "server")
+        || !matches!(app, "android" | "ios" | "web" | "server")
         || patterns().key.is_match(name)
     {
         return None;
@@ -1115,7 +1115,12 @@ mod tests {
             "at https://prs.example.com/assets/index.js:1:2"
         );
         assert!(clean_event(&json!({ "name": "open", "app": "web" }), RX).is_none());
-        assert!(clean_event(&json!({ "name": "pr.open", "app": "ios" }), RX).is_none());
+        assert!(clean_event(&json!({ "name": "pr.open", "app": "unknown" }), RX).is_none());
+        let ios = clean_event(&json!({ "name": "pr.open", "app": "ios", "props": {
+            "repo": "acme/app", "number": 7, "prompt": "private input", "path": "private/file.kt"
+        }}), RX).unwrap();
+        assert_eq!(ios.app, "ios");
+        assert_eq!(ios.props, json!({ "repo": "acme/app", "number": 7 }).as_object().unwrap().clone());
         assert!(clean_event(&json!({ "name": "crash", "app": "android" }), RX).is_some());
         let events = vec![json!({ "name": "ui.tap", "app": "web" }); 250];
         assert_eq!(clean_batch(&json!({ "events": events }), RX).len(), 200);

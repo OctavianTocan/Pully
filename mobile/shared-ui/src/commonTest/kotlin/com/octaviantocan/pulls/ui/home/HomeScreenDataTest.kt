@@ -3,7 +3,9 @@ package com.octaviantocan.pulls.ui.home
 import com.octaviantocan.pulls.data.*
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
@@ -11,6 +13,72 @@ import kotlin.test.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeScreenDataTest {
+    @Test
+    fun pausingARepositoryReadRejectsItsUncooperativeReplyWithoutWritingTheDeviceCopy() = runTest {
+        val h = DataHarness()
+        val reads = HomeObservations()
+        val release = CompletableDeferred<Unit>()
+        h.handler = { _, _ -> withContext(NonCancellable) { release.await(); page(8) } }
+        val store = h.data.repository("a", "b")
+        val load = backgroundScope.launch { reads.read { store.load() } }
+        runCurrent()
+        assertEquals(listOf("repo-pulls"), h.calls)
+        reads.pause()
+        release.complete(Unit); runCurrent()
+        assertTrue(load.isCancelled)
+        assertTrue(store.items.isEmpty())
+        assertTrue(h.disk.writes.isEmpty())
+        assertFalse(store.isLoading)
+        assertNull(store.error)
+        reads.close(); h.data.invalidate()
+    }
+
+    @Test
+    fun aPausedReadCannotPublishItsLateNetworkFailureAsARepositoryOrProfileError() = runTest {
+        val h = DataHarness()
+        val reads = HomeObservations()
+        val release = CompletableDeferred<Unit>()
+        h.handler = { _, _ -> withContext(NonCancellable) { release.await(); error("The fixture network is offline.") } }
+        val store = h.data.repository("a", "b")
+        var profileFailed = false
+        val repository = backgroundScope.launch { reads.read { store.load() } }
+        val profile = backgroundScope.launch { reads.read { if (!h.data.stats.refresh()) profileFailed = true } }
+        runCurrent()
+        assertEquals(setOf("repo-pulls", "github-stats"), h.calls.toSet())
+        reads.pause()
+        release.complete(Unit); runCurrent()
+        assertTrue(repository.isCancelled)
+        assertTrue(profile.isCancelled)
+        assertNull(store.error)
+        assertFalse(profileFailed)
+        assertFalse(store.isLoading)
+        assertTrue(h.memory.values.isEmpty())
+        reads.close(); h.data.invalidate()
+    }
+
+    @Test
+    fun aPausedInboxLoadCannotPublishItsLateFailureOrStartAFallbackFreshRequest() = runTest {
+        val h = DataHarness()
+        val reads = HomeObservations()
+        val release = CompletableDeferred<Unit>()
+        h.handler = { _, _ -> withContext(NonCancellable) { release.await(); error("The fixture network is offline.") } }
+        val sync = MyPullsSync(
+            cached = { state -> h.repo.myPullsCached(state)?.asSnapshot() },
+            fresh = { state -> h.repo.myPulls(state) },
+        )
+        val load = backgroundScope.launch { reads.read { sync.select("closed") } }
+        runCurrent()
+        assertEquals(listOf("my-pulls-cached"), h.calls)
+        reads.pause()
+        release.complete(Unit); runCurrent()
+        assertTrue(load.isCancelled)
+        assertNull(sync.error)
+        assertNull(sync.pulls)
+        assertFalse(sync.updating)
+        assertEquals(listOf("my-pulls-cached"), h.calls)
+        reads.close(); sync.invalidate(); h.data.invalidate()
+    }
+
     @Test
     fun repositoryShowsDeviceRowsWhileTheServerAnswersThenKeepsItsNewFirstPage() = runTest {
         val h = DataHarness()

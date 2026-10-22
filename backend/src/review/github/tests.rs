@@ -70,6 +70,33 @@ fn comments_are_threaded_and_pending_review_is_separate() {
     assert_eq!(data["pendingReview"]["nodeId"], "node");
     assert_eq!(list(&data["summaries"]).len(), 1);
 }
+
+#[test]
+fn pending_review_confirmations_reject_replacement_and_new_unseen_reviews() {
+    let original = json!({"id": 7});
+    let replacement = json!({"id": 8});
+    assert!(verify_expected_pending(&json!({}), None).is_ok());
+    assert!(verify_expected_pending(&json!({}), Some(&original)).is_ok());
+    assert!(verify_expected_pending(&json!({"pendingReviewId": 7}), Some(&original)).is_ok());
+    assert!(verify_expected_pending(&json!({"pendingReviewId": 7}), Some(&replacement)).is_err());
+    assert!(verify_expected_pending(&json!({"pendingReviewId": 7}), None).is_err());
+    assert!(verify_expected_pending(&json!({"pendingReviewId": null}), None).is_ok());
+    assert!(
+        verify_expected_pending(&json!({"pendingReviewId": null}), Some(&replacement)).is_err()
+    );
+    for invalid in [
+        json!(0),
+        json!(-1),
+        json!(1.5),
+        json!(true),
+        json!({}),
+        json!("invalid"),
+    ] {
+        assert!(
+            verify_expected_pending(&json!({"pendingReviewId": invalid}), Some(&original)).is_err()
+        );
+    }
+}
 #[test]
 fn mergeability_preserves_draft_conflict_and_admin_states() {
     let mut o = json!({"state":"open","mergeable":"mergeable","mergeStateStatus":"behind","viewer":{"canPush":true,"canMergeAsAdmin":false},"merge":{"methods":["merge"]}});

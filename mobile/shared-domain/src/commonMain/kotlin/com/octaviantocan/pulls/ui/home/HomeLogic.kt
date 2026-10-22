@@ -53,7 +53,8 @@ object HomeLinks {
             val (owner, repo, kind, rest) = match.destructured
             val place = LinkPlaces.parse(trimmed)
             return when (kind) {
-                "pull" -> Regex("""^\d+""").find(rest)?.value?.let { HomeLink.Target(OpenTarget.Pull(owner, repo, it.toInt(), "github.com"), place) }
+                "pull" -> Regex("""^(\d+)(?:/|$)""").find(rest)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
+                    ?.let { HomeLink.Target(OpenTarget.Pull(owner, repo, it, "github.com"), place) }
                 "commit" -> HomeLink.Target(OpenTarget.Commit(owner, repo, rest.replace(Regex("/.*$"), "")), place)
                 "compare" -> splitRange(rest)?.let { (base, head) -> HomeLink.Target(OpenTarget.Compare(owner, repo, base, head), place) }
                 else -> HomeLink.Repo(owner, repo)

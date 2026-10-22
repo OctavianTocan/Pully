@@ -12,3 +12,28 @@ disabled or state their preview limitation before navigation or a request; no in
 paid chain or silent navigation callback MAY stand in for a missing renderer. Source:
 Tavi's accepted 21 Oct 2026 maximum-reuse iOS plan and its explicitly capability-gated
 internal preview delivery.
+
+@cc [owner:OctavianTocan,label:security;product] ios-root-fixture-cannot-leave-its-sample-source
+The explicit Debug root journey fixture MUST run the actual account, Home and review
+client/session/screens with a fixed nonnetwork transport. It MUST accept only its
+sample server and sample session, reject another review/file and unsupported RPC,
+and visibly label its data. Its default read-only mode MUST reject paid and review
+writes. A separate explicitly selected Debug full-journey mode MAY accept only its
+bounded fixed sample model/task/comment/chat shapes in its isolated preferences;
+it MUST reject ordinary credentials, unknown arguments and arbitrary content.
+It MUST NOT substitute for an ordinary
+launch failure or send usage events. Source: Tavi's accepted 21 Oct 2026 actual-root
+simulator validation plan and maximum-reuse iOS decision, extended by the accepted
+full native review/AI/background/reopen validation plan of 21 Oct 2026.
+
+@cc [owner:OctavianTocan,label:product;security] full-root-fixture-keeps-work-on-its-sample-server
+The complete Debug journey MUST exercise the real Repo, shared session and native
+controls. Accepted sample tasks MUST persist bounded identities and completion
+deadlines before acknowledgement; elapsed sample-server time MUST reconcile saved
+Tour/typed Brief/Chat after background or process termination without replaying a
+client start. Waits MUST suspend and remain cancellable, and server-owned Analyze
+passes MUST retain the actual Standard/Deep request chain. Only explicit Stop MAY
+cancel sample work; a cancelled analysis MUST NOT start its automatic passes after
+reopen, and a subsequent accepted analysis MUST remain usable. Restored sample state
+MUST reject unknown versions, identities, enums, fields and oversized content.
+Source: Tavi's accepted 21 Oct 2026 actual native full-journey and process-reopen plan.

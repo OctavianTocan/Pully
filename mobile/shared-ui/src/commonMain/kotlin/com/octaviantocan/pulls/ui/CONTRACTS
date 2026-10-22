@@ -10,3 +10,90 @@ The single native edge-back observer MUST dispatch to the current page's active 
 edit before popping the shared route stack. A hidden page or an edit removed during
 the gesture MUST NOT consume it or cause a route pop. Source: the accepted 21 Oct 2026
 iOS plan's native gesture adapter and preservation of Android's edit BackHandler.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-root-retires-private-source-before-replacement
+The native account source's before-change hook MUST revoke its root lifetime, cancel
+source work and clear Home, review caches and private route/saveable owners before a
+replacement usable credential snapshot is published. Ordinary same-source navigation
+MUST retain that application owner and its state. Source: the accepted 21 Oct 2026
+iOS account verification, source isolation and single shared-navigation plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-ai-host-policy-precedes-work
+AI components MUST consult the same host capabilities before exposing mutation or
+paid-work controls. A host without complete result readers MUST NOT start invisible
+work; enabling analysis MUST include the existing Standard/Deep Brief result chain.
+Android MUST retain its complete existing controls. Source: the accepted 21 Oct 2026
+iOS reuse plan, preserving the existing AI preset chains and complete task outcomes.
+
+@cc [owner:OctavianTocan,label:product;security] shared-review-write-policy-keeps-server-permissions
+Shared review components MUST check the host's actual renderer/action readiness before
+exposing or invoking writes. Host readiness MUST NOT replace the existing session's
+server permission checks. A host without the complete comment, review or edit flow
+MUST leave those mutation controls unavailable, while Android retains its existing
+complete actions. Source: the accepted 21 Oct 2026 iOS shared-review reuse plan and
+its requirement to gate unsupported actions before RPC.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-viewer-progress-has-workflow-readiness
+The host's Reviewed and automatic next-file workflow MUST have an explicit readiness
+capability before exposing or invoking progress mutations. Viewer progress MUST NOT
+require GitHub comment or pull-request write permission. Android MUST retain its
+existing complete workflow. Source: the accepted 21 Oct 2026 iOS reuse plan's actual
+review journey and the existing session.setReviewed viewer-progress semantics.
+
+@cc [owner:OctavianTocan,label:architecture;motion] shared-review-back-follows-the-existing-nested-page
+The review frame's nested page motion MUST consume the root's single native edge
+gesture before the application route stack. It MUST follow gesture progress, return
+on cancellation and leave the underlying route unchanged on commit. A removed or
+covered consumer MUST NOT turn its gesture into another page's Back. Source: Tavi's
+21 Oct 2026 maximum-reuse iOS plan and DESIGN.md rules 88, 93, 105 and 123.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-commands-retire-private-owner
+The host MUST close its Commands owner before replacement credentials become usable.
+Retirement MUST clear the palette's query, expanded groups and scope. Retained rows,
+keyboard actions and disposed page callbacks MUST NOT run through a retired owner;
+closing the palette MUST recheck that owner before invoking a command. Android's
+source observer MUST replay changes between owner capture and registration. Source:
+Tavi's accepted 21 Oct 2026 source isolation and shared Commands implementation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-incoming-links-keep-their-audience
+An incoming intent MUST use the same Compose navigation stack and retain its file,
+line, side, thread, commit, check and saved-result destination. An intent captured for
+one configured endpoint, Access policy or signed-in account MUST NOT open for another.
+A same-endpoint signed-out intent MAY wait for verified sign-in. Routing MUST recheck
+the current source and arrival after closing sheets; a newer arrival MUST NOT be lost.
+The audience check MUST precede any suspending sheet exit; a rejected old-source
+intent MUST NOT close the current source's Settings, readers or transient controls.
+Rejected native envelopes MUST report one invalid-link event without retaining their
+URL. Source retirement MUST discard delivered reopen events; a pending sign-in intent
+MAY remain only with its opening audience still enforced.
+Source: Tavi's accepted 21 Oct 2026 iOS link and account isolation plan and the existing
+nav-link-closes-what-was-open and pr-links-land-on-the-thing requirements.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-root-sheets-share-one-source-lifetime
+The root MUST retain one Settings, model/catalog, Stats, Feedback and Commands bundle
+for its active Home source. Ordinary navigation and sheet dismissal MUST retain that
+bundle and unsent feedback. Before replacement credentials become usable, root
+retirement MUST close the old bundle, clear one-time keys and feedback, and revoke
+retained commands. A bundle that loses its source while being constructed MUST be
+closed without being installed. Source: Tavi's accepted 21 Oct 2026 single shared
+app lifetime and source-isolated account/Settings implementation plan.
+
+@cc [owner:OctavianTocan,label:security;product] review-actions-read-live-readiness-before-fresh-work
+Retained Review, Diff, AI setup, Brief, Chat, findings, progress, Undo and command
+controls MUST intersect their drawn capability with the host's live source and
+foreground readiness before a new request or queued next write. Synchronous
+revocation MUST take effect before recomposition. This action gate MUST NOT retire
+the session or its full view, clear drafts, cancel accepted requests or stop remote
+work. Source: Tavi's accepted 21 Oct 2026 complete iOS journeys and shared lifecycle
+plan, preserving shared-review-scene-stop-pauses-local-observation.
+Temporary foreground revocation MUST NOT remove an installed same-view form's
+remembered private input. Confirmed writes MUST settle their success or failure
+under their captured source/view and actual installation policy, even while new
+dispatch is paused. Accepted history restoration MUST survive its sheet's ordinary
+close and wait for verified read authority before reopening Ask. Source: the
+independent 21 Oct 2026 complete frame-action review and its three accepted fixes.
+That accepted reconciliation MUST observe full-view and installation-policy retirement
+throughout every paused read or resume wait, including a second pause during its
+post-write saved-state read. Retirement MUST release the accepted change without
+requiring foreground resume or starting its queued question. Source: the accepted
+22 Oct 2026 independent frame-receipt read-wait review.

@@ -62,6 +62,7 @@ import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.design.PullsRadius
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
@@ -161,6 +162,7 @@ fun EditableText(
             currentCoroutineContext().ensureActive()
             result.onSuccess { toaster.show(saved, cue = Cue.Success) }
                 .onFailure {
+                    if (it is CancellationException) throw it
                     shown = before
                     toaster.show("Couldn't save: ${it.message ?: it}", cue = Cue.Error)
                 }
@@ -249,6 +251,7 @@ fun EditableInSheet(
             currentCoroutineContext().ensureActive()
             result.onSuccess { toaster.show(saved, cue = Cue.Success) }
                 .onFailure {
+                    if (it is CancellationException) throw it
                     shown = before
                     toaster.show("Couldn't save: ${it.message ?: it}", cue = Cue.Error)
                 }

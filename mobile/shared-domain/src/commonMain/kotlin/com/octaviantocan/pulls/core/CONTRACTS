@@ -10,3 +10,18 @@ An inbox answer's pull-request mentions MUST resolve only to listed pull request
 ignoring owner and repository case. Unknown pull requests MUST remain plain text.
 Source: the existing `PullMentions` policy retained by Tavi's 21 Oct 2026 decision
 to share actual Android behavior with the iOS mode.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-file-diff-links-keep-the-github-anchor
+FileLinks MUST retain its Android package and API on both hosts. A file diff link
+MUST append the lower-case SHA-256 of the exact UTF-8 path bytes, without case folding
+or normalization, and append `/files` only for a pull request. It MUST use the same
+platform digest as existing LinkPlaces rather than maintain another digest algorithm.
+Source: the original FileLinks implementation and anchor test retained by Tavi's
+21 Oct 2026 maximum-reuse iOS decision; DESIGN.md rule 124.
+
+@cc [owner:OctavianTocan,label:product] shared-sketch-parsing-retains-structure-and-text
+Call and file-tree parsing MUST retain row order, hierarchy, name/comment boundaries,
+ancestor paths and guide continuations from the existing Sketch parser. Pseudocode
+runs MUST rejoin to the exact input line while preserving their token kind. Source:
+existing Sketch.kt/SketchTest, DESIGN.md rule 95 and F59, preserved by Tavi's
+21 Oct 2026 maximum-reuse iOS decision.

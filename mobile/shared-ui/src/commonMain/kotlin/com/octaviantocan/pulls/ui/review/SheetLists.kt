@@ -228,6 +228,7 @@ private fun CheckMark(bucket: String) {
  */
 @Composable
 fun FilesSheet(session: ReviewSession, ui: OverviewUi, current: String?, onOpen: (String) -> Unit, onClose: () -> Unit) {
+    val progress = rememberReviewProgressActions(session)
     var query by remember { mutableStateOf("") }
     val total = session.files.size
     LocalOverviewServices.current.TrackSearch("files", query, if (query.isBlank()) 0 else session.files.count { matchesSearch(it.path, query) })
@@ -235,7 +236,7 @@ fun FilesSheet(session: ReviewSession, ui: OverviewUi, current: String?, onOpen:
         if (total > 1) SheetSearch(query, { query = it }, "Find a file", Modifier.padding(top = SheetTopGap, bottom = 6.dp))
         FilesList(
             fileSections(session, ui), query, current, state = session::reviewState, attention = session.attention,
-            onToggle = { file, reviewed -> session.setReviewed(listOf(file.sha), reviewed) },
+            onToggle = if (progress.enabled) ({ file, reviewed -> progress.mark(file, reviewed); Unit }) else null,
             onOpen = { path -> onOpen(path); onClose() },
         )
     }
@@ -248,13 +249,14 @@ fun FileActionsSheet(session: ReviewSession, file: ReviewFile, onOpen: () -> Uni
     val native = LocalOverviewServices.current.native
     val toaster = LocalToaster.current
     val reviewed = session.reviewState(file) == ReviewState.Reviewed
+    val progress = rememberReviewProgressActions(session)
     val name = file.path.substringAfterLast('/')
     PullsSheet(onClose, name) {
         Text(file.path, Modifier.padding(start = 4.dp, end = 4.dp, top = 2.dp), style = PullsType.sm.copy(fontFamily = PullsType.mono), color = c.muted)
         SheetCard {
             // The four are words; a speech bubble on Ask carried no fact, and one glyph short of a column looks broken (rule 48).
             SheetRow("Open", { onClose(); onOpen() }, first = true, iconless = true)
-            SheetRow(if (reviewed) "Mark as not reviewed" else "Mark reviewed", { session.setReviewed(listOf(file.sha), !reviewed); onClose() }, iconless = true)
+            if (progress.enabled) SheetRow(if (reviewed) "Mark as not reviewed" else "Mark reviewed", { if (progress.mark(file, !reviewed)) onClose() }, iconless = true)
             SheetRow("Copy path", { native.copyText(file.path); toaster.show("Copied $name", cue = Cue.Success); onClose() }, iconless = true)
             if (LocalOverviewServices.current.ai.canStartPaidWork) SheetRow("Ask about this file", { onClose(); onAsk() }, iconless = true)
         }
@@ -270,7 +272,7 @@ fun ColumnScope.FilesList(
     query: String,
     current: String?,
     state: (ReviewFile) -> ReviewState,
-    onToggle: (ReviewFile, Boolean) -> Unit,
+    onToggle: ((ReviewFile, Boolean) -> Unit)?,
     onOpen: (String) -> Unit,
     attention: Map<String, String> = emptyMap(),
 ) {
@@ -328,7 +330,7 @@ fun ColumnScope.FilesList(
                 first = index == 0,
                 selected = file.path == current,
                 onClick = { onOpen(file.path) },
-                leading = { PullsCheck(reviewed, onClick = { onToggle(file, !reviewed) }, label = "Mark ${file.path} reviewed") },
+                leading = { PullsCheck(reviewed, onClick = onToggle?.let { toggle -> { toggle(file, !reviewed) } }, label = "Mark ${file.path} reviewed") },
                 // Side by side, as the Inbox shows them (K27).
                 trailing = { DiffCounts(file.additions, file.deletions) },
             )

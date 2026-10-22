@@ -7,6 +7,8 @@ import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.data.Repo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.put
 
@@ -55,6 +57,7 @@ class RepoPullsStore(
         error = null
         try {
             val raw = repo.repoPulls(owner, name, fresh = fresh)
+            currentCoroutineContext().ensureActive()
             val page = raw.asRepoPullsPage()
             if (!active() || current != generation) return false
             items = page.items; totalCount = page.totalCount; next = page.next
@@ -66,6 +69,7 @@ class RepoPullsStore(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
             if (active() && current == generation) {
                 error = e.message ?: e.toString()
                 effects.error("repo.load", e.message)
@@ -85,6 +89,7 @@ class RepoPullsStore(
         val current = ++viewedGeneration
         try {
             val result = repo.call("repo-viewed") { put("owner", owner); put("repo", name) }
+            currentCoroutineContext().ensureActive()
             if (!active() || current != viewedGeneration) return
             viewed = (result as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { e ->
                 val o = e as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
@@ -92,7 +97,7 @@ class RepoPullsStore(
                 int("number") to Viewed(int("additions"), int("deletions"), int("groups"), (o["hasAiResult"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true")
             }.toMap()
         } catch (e: CancellationException) { throw e }
-        catch (_: Exception) { /* Independent cached decorations remain best effort. */ }
+        catch (_: Exception) { currentCoroutineContext().ensureActive() /* Independent cached decorations remain best effort. */ }
     }
 
     /**
@@ -103,11 +108,12 @@ class RepoPullsStore(
         if (!active()) return
         val beforeRead = generation
         if (items.isEmpty()) pages.read(owner, name)?.let { kept ->
+            currentCoroutineContext().ensureActive()
             if (active() && generation == beforeRead && items.isEmpty()) { items = kept.items; totalCount = kept.totalCount; next = kept.next }
         }
         if (!active() || generation != beforeRead) return
         if (items.isEmpty()) isLoading = true
-        if (fetchFirstPage()) followOldAnswer()
+        if (fetchFirstPage()) { refreshes++; followOldAnswer() }
     }
 
     /** The server answered from a copy older than a minute: ask again for GitHub's own, quietly. */
@@ -117,7 +123,7 @@ class RepoPullsStore(
         }
     }
 
-    /** How many quiet refreshes have landed: a search keys on it to fetch the later pages again after one. */
+    /** First-page answers received: search drains later pages again after a load or quiet refresh. */
     var refreshes by mutableIntStateOf(0)
         private set
 
@@ -136,11 +142,13 @@ class RepoPullsStore(
         error = null
         try {
             val page = repo.repoPulls(owner, name, cursor).asRepoPullsPage()
+            currentCoroutineContext().ensureActive()
             if (!active() || current != generation) return
             items = items + page.items; totalCount = page.totalCount; next = page.next
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
             if (active() && current == generation) error = e.message ?: e.toString()
         } finally {
             if (active() && current == generation) isLoadingMore = false

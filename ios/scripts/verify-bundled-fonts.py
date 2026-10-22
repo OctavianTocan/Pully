@@ -36,6 +36,15 @@ def main() -> None:
     markdown_bundled = app / markdown_notices.name
     if not markdown_bundled.is_file() or markdown_bundled.read_bytes() != markdown_notices.read_bytes():
         raise SystemExit("original Markdown parser license notices are not bundled")
+    theme_notices = repository / "android/app/src/main/assets/licenses/opencode-themes.txt"
+    theme_bundled = app / theme_notices.name
+    if not theme_bundled.is_file() or theme_bundled.read_bytes() != theme_notices.read_bytes():
+        raise SystemExit("original OpenCode theme license notices are not bundled")
+
+    icon_notices = repository / "android/app/src/main/assets/licenses/catppuccin.txt"
+    icon_bundled = app / icon_notices.name
+    if not icon_bundled.is_file() or icon_bundled.read_bytes() != icon_notices.read_bytes():
+        raise SystemExit("original Catppuccin icon MIT notice is not bundled")
     locales = verify_locales(repository, app)
     privacy_source = repository / "ios/Pully/PrivacyInfo.xcprivacy"
     privacy_bundled = app / "PrivacyInfo.xcprivacy"

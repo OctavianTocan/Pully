@@ -5,6 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.PullRow
+import com.octaviantocan.pulls.data.PostedRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.ui.Nav
@@ -23,12 +24,15 @@ data class HomeScreenCapabilities(
     val profileStats: Boolean,
     val settingsRoute: Boolean,
     val commands: Boolean,
+    val uiBookRoute: Boolean = false,
 )
 
 enum class HomePreviewFeature { Review, Tour, InboxAsk, PostedDelete, Settings, UiBook, Commands }
 
-/** The current Android Ask renderer remains an explicit dependency until its AI widgets are shared. */
+/** One source-owned actual Inbox Ask surface, shared by Home and both native hosts. */
 interface HomeAskSurface {
+    /** Retire private conversation/draft state before publishing replacement credentials. */
+    fun invalidate()
     fun sendOrQueue(question: String)
     @Composable fun Content(listed: List<ListedPull>, onOpen: (ListedPull) -> Unit, onClose: () -> Unit)
 }
@@ -59,6 +63,7 @@ class HomeScreenServices(
     val reviewSessions: ReviewSessionCache? = null,
     val tourCopies: HomeTourCopies? = null,
     val ask: HomeAskSurface? = null,
+    val observations: HomeObservations = HomeObservations(),
 ) {
     init {
         require(!capabilities.inboxAsk || ask != null) { "Inbox Ask needs its complete renderer before it can read or start work." }
@@ -84,6 +89,13 @@ class HomeScreenServices(
         reviewSessions?.warm(repo, OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"))
     }
 
+    /** The live gate admits a new write; its same-source receipt survives an ordinary scene pause. */
+    suspend fun deletePosted(row: PostedRow): Boolean {
+        if (!data.current || !observations.ready || !capabilities.deletePosted) return false
+        data.posted.delete(row)
+        return data.current
+    }
+
     private fun current(action: () -> Unit) { if (data.current) action() }
 
     /** Unsupported destinations give an explicit limitation before any navigation or paid work. */
@@ -100,7 +112,7 @@ class HomeScreenServices(
         openRepo = { owner, repo -> current { nav.openRepo(owner, repo) } },
         openRepoTours = { owner, repo -> current { nav.openRepoTours(owner, repo) } }, home = nav.home,
         settings = { current { if (capabilities.settingsRoute) nav.settings() else unavailable(HomePreviewFeature.Settings) } },
-        uiBook = { current { if (capabilities.settingsRoute) nav.uiBook() else unavailable(HomePreviewFeature.UiBook) } },
+        uiBook = { current { if (capabilities.uiBookRoute) nav.uiBook() else unavailable(HomePreviewFeature.UiBook) } },
         back = nav.back,
     )
 }

@@ -28,6 +28,17 @@ import kotlin.test.assertTrue
 
 class HomeLinksTest {
     @Test
+    fun incomingPullNumbersCannotCrashOrBecomeAnotherPullRequest() {
+        for (number in listOf("0", "2147483648", "9".repeat(100), "76invalid")) {
+            val url = "https://github.com/a/b/pull/$number/files"
+            assertNull(HomeLinks.parse(url))
+            assertNull(HomeLinks.parseShared("Please read $url"))
+        }
+        assertEquals(HomeLink.Target(OpenTarget.Pull("a", "b", Int.MAX_VALUE, "github.com"), LinkPlace.Files()),
+            HomeLinks.parseShared("https://github.com/a/b/pull/${Int.MAX_VALUE}/files"))
+    }
+
+    @Test
     fun opensPullsCommitsComparesAndRepos() {
         assertEquals(HomeLink.Target(OpenTarget.Pull("antfu", "pulls.review", 106, "github.com"), LinkPlace.Files()), HomeLinks.parse("https://github.com/antfu/pulls.review/pull/106/files"))
         assertEquals(HomeLink.Target(OpenTarget.Commit("a", "b", "abc1234")), HomeLinks.parse("github.com/a/b/commit/abc1234/x"))

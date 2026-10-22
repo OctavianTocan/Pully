@@ -22,7 +22,11 @@ import com.octaviantocan.pulls.data.RepoIdentity
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TourStore
 import com.octaviantocan.pulls.data.sourceStorageNamespace
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.Emphasis
+import com.octaviantocan.pulls.sound.Sounds
 import com.octaviantocan.pulls.ui.Commands
+import com.octaviantocan.pulls.ui.ai.AiCapabilities
 import com.octaviantocan.pulls.ui.ai.cliEngine
 import com.octaviantocan.pulls.ui.design.LocalToaster
 import com.octaviantocan.pulls.ui.rememberOpenOnGithub
@@ -143,22 +147,28 @@ internal fun rememberAndroidHomeScreenServices(repo: Repo): HomeScreenServices {
     val parentScope = rememberCoroutineScope()
     val toaster = LocalToaster.current
     val home = rememberHomeState(repo)
-    val askEpoch = remember(repo, home) { RepoIdentity.generation }
-    val askScope = remember(repo, home) { CoroutineScope(parentScope.coroutineContext + SupervisorJob(parentScope.coroutineContext[Job])) }
-    DisposableEffect(askScope, askEpoch) {
-        val unsubscribe = RepoIdentity.observeInvalidation { askScope.cancel() }
-        if (RepoIdentity.generation != askEpoch) askScope.cancel()
-        onDispose { unsubscribe(); askScope.cancel() }
-    }
-    return remember(repo, home, native) {
+    val askEpoch = remember(repo, home, native) { RepoIdentity.generation }
+    val askScope = remember(repo, home, native) { CoroutineScope(parentScope.coroutineContext + SupervisorJob(parentScope.coroutineContext[Job])) }
+    val services = remember(repo, home, native, askScope) {
         val data = androidHomeScreenData(context, repo)
         val settings = AppSettings.get(context)
         val source = runCatching { repo.source() }.getOrNull()
-        val epoch = RepoIdentity.generation
+        val epoch = askEpoch
         val current = { RepoIdentity.generation == epoch && source != null && repo.isCurrent(source) }
         val tourStore = TourStore.get(context)
         val canAsk = cliEngine(context)
-        val ask = if (canAsk) InboxAsk(repo, askScope, settings) else null
+        val observations = HomeObservations()
+        val ask = if (canAsk) InboxAsk(
+            repo, askScope, settings, native,
+            object : InboxAskEffects {
+                override fun nowMillis() = System.currentTimeMillis()
+                override fun track(name: String, vararg props: Pair<String, Any?>) = Analytics.track(name, *props)
+                override fun feedback(cue: Cue, emphasis: Emphasis) = Sounds.play(cue, emphasis)
+            },
+            current = current,
+            capabilities = { AiCapabilities.Full },
+            observations = observations,
+        ) else null
         HomeScreenServices(
             repo, settings, home, data,
             native = native,
@@ -166,7 +176,7 @@ internal fun rememberAndroidHomeScreenServices(repo: Repo): HomeScreenServices {
             capabilities = HomeScreenCapabilities(
                 reviewRoutes = true, tourRoutes = true, startTour = true, inboxAsk = canAsk,
                 taskObservation = true, postedDiffs = true, deletePosted = true, profileStats = true,
-                settingsRoute = true, commands = true,
+                settingsRoute = true, commands = true, uiBookRoute = true,
             ),
             unavailable = { toaster.show("This feature is unavailable") },
             openCommands = { Commands.open() },
@@ -175,13 +185,22 @@ internal fun rememberAndroidHomeScreenServices(repo: Repo): HomeScreenServices {
                 override suspend fun contains(pull: String): Boolean = withContext(Dispatchers.IO) { current() && tourStore.has(pull) && current() }
                 override suspend fun put(pull: String, tour: JsonObject) = withContext(Dispatchers.IO) { if (current()) tourStore.put(pull, tour) }
             },
-            ask = ask?.let { conversation -> object : HomeAskSurface {
-                override fun sendOrQueue(question: String) { if (!data.current) return; if (conversation.accepting) conversation.ask(question) else conversation.input = question }
-                @Composable override fun Content(listed: List<com.octaviantocan.pulls.core.ListedPull>, onOpen: (com.octaviantocan.pulls.core.ListedPull) -> Unit, onClose: () -> Unit) =
-                    InboxAskSheet(conversation, listed, onOpen, onClose)
-            } },
+            ask = ask,
+            observations = observations,
         )
     }
+    DisposableEffect(services, askScope, askEpoch) {
+        fun retire() {
+            services.observations.close()
+            services.ask?.invalidate()
+            askScope.cancel()
+        }
+        val unsubscribe = RepoIdentity.observeInvalidation { retire() }
+        // Identity may change after composition and before this listener is registered.
+        if (RepoIdentity.generation != askEpoch) retire()
+        onDispose { unsubscribe(); retire() }
+    }
+    return services
 }
 
 /** Startup warming uses the same source-owned profile cache as the shared profile sheet. */
