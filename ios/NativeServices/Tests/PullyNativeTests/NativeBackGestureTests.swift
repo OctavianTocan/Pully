@@ -173,7 +173,7 @@ final class NativeBackGestureContainerTests: XCTestCase {
     }
 }
 
-/// The pinned framework's UIKitBackGestureRecognizer contract, exercised with real UIKit dispatch.
+/// The pinned framework's prevention policy, checked beside Pully's registered recognizer.
 @MainActor
 private final class DialogBackPriorityRecognizer: UIScreenEdgePanGestureRecognizer {
     override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
