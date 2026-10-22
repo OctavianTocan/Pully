@@ -225,6 +225,52 @@ async fn actual_start_callback_claim_vault_path_keeps_all_github_tokens_server_s
 }
 
 #[tokio::test]
+async fn sign_out_during_repository_consent_exchange_denies_late_upgrade_installation() {
+    let h = Harness::new();
+    let (initial, proof) = h.ready().await;
+    let issued = h.service.claim(request(&initial, &proof)).await.unwrap();
+    h.service.session_status(&issued.session).await.unwrap();
+    let private_proof = random_secret().unwrap();
+    let consent = h
+        .service
+        .start_repository_consent(
+            &issued.session,
+            StartRequest {
+                native_challenge: wire::native_challenge(&private_proof).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+    h.provider.block.store(true, Ordering::SeqCst);
+    let service = h.service.clone();
+    let callback_state = state(&consent);
+    let callback = tokio::spawn(async move {
+        service
+            .callback(callback_state, Some("fixture-code".into()), false)
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(2), h.provider.entered.notified())
+        .await
+        .unwrap();
+    h.service.sign_out(&issued.session).await.unwrap();
+    let after_sign_out = h.store.get("personal-auth-v1:state").unwrap();
+    h.provider.release.notify_one();
+    callback.await.unwrap().unwrap();
+    let status = h.service.status(request(&consent, &private_proof)).unwrap();
+    assert!(matches!(status.phase, AttemptPhase::Failed));
+    assert!(matches!(status.failure, Some(FailureKind::Denied)));
+    assert!(h
+        .service
+        .claim(request(&consent, &private_proof))
+        .await
+        .is_err());
+    assert_eq!(
+        h.store.get("personal-auth-v1:state").unwrap(),
+        after_sign_out
+    );
+}
+
+#[tokio::test]
 async fn wrong_proof_cannot_status_cancel_or_consume_the_legitimate_claim() {
     let h = Harness::new();
     let (start, proof) = h.ready().await;

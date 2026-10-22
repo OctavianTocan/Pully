@@ -33,6 +33,17 @@ broader application authority. Scope MUST NOT bypass organization approval or SS
 Source: Tavi's 21 Oct 2026 public-first and explicit private-access decision and the
 current GitHub OAuth App scope and refresh documentation.
 
+@cc [owner:OctavianTocan,label:security;product] personal-repository-consent-is-source-and-session-bound
+Repository consent MUST require a current personal session, fixed Pully-owned
+GitHub repo authorization, the same immutable GitHub subject and a still-current
+initiating session/revision at credential installation. Sign-out, source replacement
+or a different selected GitHub user MUST deny the upgrade. Each Pully session MUST
+authenticate its own maximum application authority; an older publicRead session
+MUST NOT inherit a later session's private access. Missing authority in older durable
+records MUST mean publicRead, and a reduced GitHub grant MUST still reduce effective
+authority. Source: Tavi's 22 Oct 2026 own-account private-access requirement while
+preserving the existing publicRead contract and canonical source isolation.
+
 @cc [owner:OctavianTocan,label:security;architecture] personal-session-is-bound-to-one-stable-user
 Persisted personal sessions MUST contain only hashes of high-entropy Pully session
 bearers. Session claims MUST authenticate their own hash, stable account, immutable
@@ -106,3 +117,13 @@ bearer may authenticate personal session methods. Browser callback cookies MUST 
 choose identity or authorize a claim; callback content MUST contain no credentials,
 code or state and MUST forbid referrer disclosure. Source: Tavi's 21 Oct 2026 public
 auth boundary and later external registration/deployment prerequisite decision.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-host-startup-does-not-guess-authority
+The typed auth-host factory MUST accept only explicit isolated storage, validated
+Pully OAuth configuration and in-memory vault keys from trusted startup. Missing
+configuration MUST create only disabled discovery without opening storage; invalid
+configured startup MUST fail with a fixed path- and credential-safe error. It MUST
+NOT load environment/HOME defaults, seed legacy accounts or bind a listener. The
+separate listener owner MUST control the storage path and its ancestors during
+startup. Source: Tavi's 22 Oct 2026 requirement to complete concrete configured-host
+composition while preserving the 21 Oct personal/legacy authority boundary.
