@@ -150,6 +150,13 @@ jobs:
             :shared-client:jvmTest :shared-client:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
             :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
             -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
+      - name: Print actual shared test assertions after a failure
+        if: ${{ !cancelled() && steps.shared.outcome == 'failure' }}
+        run: |
+          python3 ios/scripts/print-shared-test-failures.py \
+            mobile/shared-domain/build/test-results mobile/shared-client/build/test-results \
+            mobile/shared-ui/build/test-results
+          python3 -B -m unittest discover -s ios/scripts -p 'test_shared_test_failures.py'
       - name: Build and test the private iOS simulator host
         id: host
         if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
