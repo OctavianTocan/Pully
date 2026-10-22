@@ -77,7 +77,22 @@ jobs:
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: ios/NativeServices
         run: |
-          xcodebuild -quiet -scheme PullyNative \
+          mkdir -p ../build
+          xcodebuild -list -json > ../build/NativeServices.schemes.json
+          pully_native_scheme=$(python3 - ../build/NativeServices.schemes.json <<'PY'
+          import json, sys
+
+          with open(sys.argv[1]) as source:
+              inventory = json.load(source)
+          schemes = inventory.get('workspace', {}).get('schemes', [])
+          aggregate = 'PullyNative-Package'
+          if schemes.count(aggregate) != 1:
+              raise SystemExit('Missing the whole PullyNative package test scheme: ' + repr(schemes))
+          print(aggregate)
+          PY
+          )
+          echo "Testing the whole native package: $pully_native_scheme"
+          xcodebuild -quiet -scheme "$pully_native_scheme" \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ../build/NativeServices \
             -resultBundlePath ../build/NativeServices.xcresult \
