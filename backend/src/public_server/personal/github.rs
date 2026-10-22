@@ -200,7 +200,8 @@ impl PersonalGitHub {
             }
             bytes.extend_from_slice(&chunk);
         }
-        let text = String::from_utf8(bytes).map_err(|_| ReadError::new(Code::InvalidResponse))?;
+        // Diffs and raw files of non-UTF-8 sources stay readable, as in the legacy loaders.
+        let text = String::from_utf8_lossy(&bytes).into_owned();
         if text.contains(&token) {
             return Err(ReadError::new(Code::InvalidResponse));
         }

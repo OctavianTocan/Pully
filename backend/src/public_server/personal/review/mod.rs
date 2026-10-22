@@ -120,11 +120,14 @@ async fn capture(
     let identity = match pull {
         Ok(identity) => identity,
         Err(error) => {
-            github
-                .reviews
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .deny(&scope, probe);
+            // Only a confirmed denial retires other readers; a rate limit or outage leaves them current.
+            if matches!(error.code, Code::Forbidden) {
+                github
+                    .reviews
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .deny(&scope, probe);
+            }
             return Err(error);
         }
     };

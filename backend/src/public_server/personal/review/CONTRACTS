@@ -12,7 +12,8 @@ Every nested read and final publication MUST retain the captured session, reposi
 and PR leases. The transport MUST recheck these leases after a shared-permit wait
 before charging the request budget or sending to GitHub, and before and after every
 awaited response chunk, including end of stream. A confirmed denial, replacement or
-new revision MUST retire older readers without retiring another tenant. A stale
+new revision MUST retire older readers without retiring another tenant; a rate limit,
+outage or malformed PR response MUST NOT retire them. A stale
 selection MUST fail explicitly,
 never return another head or a partial file inventory. Source: Tavi's 22 Oct full
 personal Review completion instruction and the reviewed repository retirement policy.

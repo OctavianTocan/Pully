@@ -58,6 +58,7 @@ impl Gate {
 struct Provider {
     denied: AtomicBool,
     moved: AtomicBool,
+    pull_unavailable: AtomicBool,
     gates: Mutex<HashMap<String, Arc<Gate>>>,
     calls: Mutex<Vec<String>>,
     challenge: Mutex<Option<String>>,
@@ -71,6 +72,7 @@ impl Provider {
         Self {
             denied: AtomicBool::new(false),
             moved: AtomicBool::new(false),
+            pull_unavailable: AtomicBool::new(false),
             gates: Default::default(),
             calls: Default::default(),
             challenge: Default::default(),
@@ -147,7 +149,9 @@ async fn respond(State(state): State<Arc<Provider>>, request: Request) -> Respon
     match path.as_str() {
         REPOSITORY if state.denied.load(Ordering::SeqCst) => StatusCode::NOT_FOUND.into_response(),
         REPOSITORY => Json(json!({"id":701,"owner":{"login":"reader-a"},"name":"project","full_name":"reader-a/project","private":true,"stargazers_count":0})).into_response(),
+        PULL if state.pull_unavailable.load(Ordering::SeqCst) => StatusCode::SERVICE_UNAVAILABLE.into_response(),
         PULL => Json(state.pull()).into_response(),
+        "/repos/reader-a/project/contents/latin1.txt" => Response::new(Body::from(&b"caf\xe9\n"[..])),
         CONTENTS => Json(json!({"type":"file","size":4,"encoding":"base64","content":"bmV3Cg=="})).into_response(),
         "/repos/reader-a/project/contents/stream.rs" => {
             let stream=futures_util::stream::unfold((0,state),|(step,state)|async move {
@@ -598,4 +602,54 @@ async fn ce_review_transient_optional_graphql_failure_keeps_real_review_data() {
         "line note"
     );
     assert!(body["value"]["threads"][0].get("resolved").is_none());
+}
+#[tokio::test]
+async fn ce_review_transient_pull_failure_keeps_older_readers_current() {
+    let fixture = Fixture::new().await;
+    let context = fixture.context().await;
+    let captured = capture(&context, "reader-a", "project", 7, 701, None)
+        .await
+        .unwrap();
+    fixture
+        .provider
+        .pull_unavailable
+        .store(true, Ordering::SeqCst);
+    let error = capture(&context, "reader-a", "project", 7, 701, None)
+        .await
+        .err()
+        .unwrap();
+    assert!(matches!(error.code, Code::Unavailable));
+    reader(&context, &captured)
+        .current()
+        .expect("a transient PR read failure retired a current reader");
+    fixture
+        .provider
+        .pull_unavailable
+        .store(false, Ordering::SeqCst);
+    fixture.provider.denied.store(true, Ordering::SeqCst);
+    assert!(capture(&context, "reader-a", "project", 7, 701, None)
+        .await
+        .is_err());
+    assert!(reader(&context, &captured).current().is_err());
+}
+#[tokio::test]
+async fn ce_review_non_utf8_raw_bodies_stay_readable() {
+    let fixture = Fixture::new().await;
+    let context = fixture.context().await;
+    let captured = capture(&context, "reader-a", "project", 7, 701, None)
+        .await
+        .unwrap();
+    let reader = reader(&context, &captured);
+    let (status, _, text) = reader
+        .request(
+            Method::GET,
+            "/repos/reader-a/project/contents/latin1.txt",
+            None,
+            "application/vnd.github.raw",
+        )
+        .await
+        .unwrap();
+    assert_eq!(status, 200);
+    assert_eq!(text, "caf\u{fffd}\n");
+    reader.current().unwrap();
 }
