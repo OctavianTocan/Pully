@@ -2,6 +2,7 @@
 //! storage/proxy operations require the terminal-code session and a same-origin POST.
 use crate::{required, text, AppState};
 mod account;
+mod downloads;
 #[path = "devframe.rs"]
 mod devframe;
 use anyhow::{bail, Context, Result};
@@ -19,7 +20,7 @@ use serde_json::{json, Value};
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -574,29 +575,10 @@ async fn static_file(
         )
             .into_response();
     }
-    let android = path.starts_with("/android/");
-    let result = if android {
-        let relative = path.trim_start_matches("/android/");
-        static PAST_APK: OnceLock<regex::Regex> = OnceLock::new();
-        static CHANGELOG_IMAGE: OnceLock<regex::Regex> = OnceLock::new();
-        let allowed = matches!(relative, "latest.json" | "pulls.apk" | "past/index.json")
-            || PAST_APK
-                .get_or_init(|| regex::Regex::new(r"^past/\d+\.\d+\.\d+\.apk$").unwrap())
-                .is_match(relative)
-            || CHANGELOG_IMAGE
-                .get_or_init(|| {
-                    regex::Regex::new(r"^changelog/\d+\.\d+\.\d+/[a-z0-9-]+\.(png|webp|gif|jpg)$")
-                        .unwrap()
-                })
-                .is_match(relative);
-        if !allowed {
-            return error(
-                StatusCode::NOT_FOUND,
-                "No Android build has been published.",
-            );
-        }
-        return android_file_response(&state.app.host, relative).await;
-    } else if let Some(root) = &state.assets {
+    if path == "/download" || path.starts_with("/download/") || path.starts_with("/android/") {
+        return downloads::response(&state.app.host, path).await;
+    }
+    let result = if let Some(root) = &state.assets {
         if path.starts_with("/api/") {
             return error(StatusCode::NOT_FOUND, "Unknown API route.");
         }
@@ -1495,7 +1477,7 @@ mod privacy_tests {
         .unwrap();
         let response = static_file(
             State(state.clone()),
-            "/android/pulls.apk".parse().unwrap(),
+            "/download/pully.apk".parse().unwrap(),
             HeaderMap::new(),
         )
         .await;

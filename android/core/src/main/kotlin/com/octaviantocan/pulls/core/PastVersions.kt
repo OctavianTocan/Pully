@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * One past version of the app as the server lists it at `/android/past/index.json`: rebuilt from [commit] by
+ * One past version of the app as the server lists it at `/download/past/index.json`: rebuilt from [commit] by
  * `android/scripts/build-past-ui.py` as its own app, [packageName], beside the current one. [versionCode] is the
  * version's own, not the offset one the rebuilt app carries.
  */

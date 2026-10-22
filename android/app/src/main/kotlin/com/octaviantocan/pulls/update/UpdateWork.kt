@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * The background check for a new version. There is no push service: the phone asks the server's
- * `/android/latest.json` every quarter of an hour while it has a network (Android may stretch that when the
+ * `/download/latest.json` every quarter of an hour while it has a network (Android may stretch that when the
  * phone sleeps), and notifies once per version.
  */
 object UpdateChecks {

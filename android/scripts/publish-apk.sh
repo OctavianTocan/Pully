@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the debug APK and publishes it where the pulls.review server serves app updates
-# (`GET /android/pulls.apk` and `/android/latest.json`, see backend/src/transport.rs).
+# (`GET /download/pully.apk` and `/download/latest.json`; `/download` is the HTML page).
 # The installed app compares versionCode with the manifest and offers the update.
 #
 # latest.json carries android/CHANGELOG.md whole (`changelog`), so the phone can list every
@@ -93,7 +93,7 @@ if [ -d "$build_android/changelog" ]; then
   mkdir -p "$out/changelog"
   cp -R "$build_android/changelog/." "$out/changelog/"
 fi
-python3 - "$out/latest.json" "$code" "$name" "$sha" "${base%/}/android/pulls.apk" "$notes" "$build_android/CHANGELOG.md" "$source_commit" <<'EOF'
+python3 - "$out/latest.json" "$code" "$name" "$sha" "${base%/}/download/pully.apk" "$notes" "$build_android/CHANGELOG.md" "$source_commit" <<'EOF'
 import json, os, re, sys
 path, code, name, sha, url, notes, changelog_path, source_commit = sys.argv[1:]
 changelog = open(changelog_path).read() if os.path.exists(changelog_path) else ""
