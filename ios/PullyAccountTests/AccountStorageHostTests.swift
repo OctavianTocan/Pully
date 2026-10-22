@@ -19,10 +19,11 @@ final class AccountStorageHostTests: XCTestCase {
     func testReplacementConnectionAppearsOnlyAfterSynchronousPrivateStateCleanup() throws {
         let (preferences, secrets) = try fixture()
         let host = AccountStorageHost(preferences: preferences, secrets: secrets)
-        defer { host.disconnect() }
         let observer = AccountBridgeObserver()
         let subscription = host.observe(observer: observer)
-        defer { subscription.cancel() }
+        // Subscription cancellation is asynchronous, so the teardown disconnect would otherwise
+        // replay the replacement assertions against the already published session.
+        defer { observer.before = {}; observer.after = {}; subscription.cancel(); host.disconnect() }
         var cleaned = false
         observer.before = {
             XCTAssertNil(host.connection(verification: false)?.headers["X-Pully-Session"])

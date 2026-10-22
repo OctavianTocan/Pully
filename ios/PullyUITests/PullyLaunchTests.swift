@@ -44,13 +44,11 @@ final class PullyLaunchTests: XCTestCase {
     private func signInToRootJourney(in app: XCUIApplication) {
         assertVisibleLabel("Fixture data", in: app, timeout: 20)
         assertVisibleLabel("Sign in to Pully", in: app)
-        let email = app.textFields["Email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 10))
+        let email = requireInput("Email", in: app)
         email.tap()
         email.typeText("root-fixture@pully.invalid")
         requireVisible("Continue", in: app).tap()
-        let password = app.secureTextFields["Password"]
-        XCTAssertTrue(password.waitForExistence(timeout: 10))
+        let password = requireInput("Password", in: app)
         password.tap()
         password.typeText("sample-root-password")
         requireVisible("Sign in", in: app).tap()
@@ -356,6 +354,26 @@ final class PullyLaunchTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [elapsed], timeout: seconds + 1.5), .completed)
     }
 
+    /// Compose exposes its fields as text views whose label is the field label followed by the placeholder.
+    private func requireInput(_ label: String, in app: XCUIApplication,
+                              file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let named = NSPredicate(format: "label == %@ OR label BEGINSWITH %@", label, "\(label),")
+        func input() -> XCUIElement? {
+            (app.textFields.matching(named).allElementsBoundByIndex
+                + app.secureTextFields.matching(named).allElementsBoundByIndex
+                + app.textViews.matching(named).allElementsBoundByIndex).first { element in
+                element.exists && element.isHittable && !element.frame.isEmpty && app.frame.intersects(element.frame)
+            }
+        }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in input() != nil }, object: nil)
+        guard XCTWaiter.wait(for: [ready], timeout: 10) == .completed, let field = input() else {
+            attachDiagnostics(app, name: "Missing text input: \(label)")
+            XCTFail("Missing text input: \(label)", file: file, line: line)
+            return app.textFields[label]
+        }
+        return field
+    }
+
     private func requireEditor(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         func editor() -> XCUIElement? {
             (app.textFields.allElementsBoundByIndex + app.textViews.allElementsBoundByIndex).first { element in
@@ -557,6 +575,8 @@ final class PullyLaunchTests: XCTestCase {
         assertHiddenLabel("Internal preview limitation", in: app)
         assertAllSelected(in: app)
         requireVisible(title, contains: true, in: app).press(forDuration: 1)
+        // The hold sheet shows the complete pull request first; its GitHub actions sit below the fold.
+        revealInSheet("Copy link", in: app)
         assertVisibleLabel("Copy link", in: app)
         XCTAssertNil(visibleElement("Start a tour", in: app))
         XCTAssertNil(visibleElement("Delete", in: app))
@@ -565,6 +585,14 @@ final class PullyLaunchTests: XCTestCase {
         // The app writes via the real UIKit adapter. Reading another process's pasteboard
         // would add a privacy prompt; native service tests verify the value boundary.
         attachScreenshot(name: "Production hold menu copy confirmation")
+    }
+
+    private func revealInSheet(_ label: String, in app: XCUIApplication) {
+        _ = requireVisible("Close", in: app)
+        for _ in 0..<4 where visibleElement(label, in: app) == nil {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
+        }
     }
 
     private func leadingEdgeBack(in app: XCUIApplication) {

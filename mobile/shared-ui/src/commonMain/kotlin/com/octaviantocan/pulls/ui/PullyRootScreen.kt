@@ -164,7 +164,7 @@ fun PullyRootScreen(
                             ) {
                                 Column {
                                     Text(t("mobilePreview.title"), Modifier.semantics { heading() }, style = PullsType.lg, color = colors.text)
-                                    if (fixture) Text(t("mobilePreview.fixture"), style = PullsType.sm, color = colors.muted)
+                                    if (fixture) Text(t("mobilePreview.fixtureData"), style = PullsType.sm, color = colors.muted)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
                                     if (onExplore != null && readySettings == null && signIn?.getOrNull() == null)
