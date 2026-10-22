@@ -96,6 +96,7 @@ impl PersonalGitHub {
         body: Option<Value>,
         accept: &str,
         max_body: usize,
+        current: &(dyn Fn() -> Result<()> + Sync),
     ) -> Result<(u16, Value, String)> {
         if url.origin() != self.origin.origin()
             || !url.username().is_empty()
@@ -103,14 +104,18 @@ impl PersonalGitHub {
         {
             return Err(ReadError::new(Code::InvalidRequest));
         }
-        context.current()?;
+        let check_current = || {
+            context.current()?;
+            current()
+        };
+        check_current()?;
         let _permit = self
             .permits
             .clone()
             .acquire_owned()
             .await
             .map_err(|_| ReadError::new(Code::Unavailable))?;
-        context.current()?;
+        check_current()?;
         {
             let mut budget = self
                 .budget
@@ -129,14 +134,11 @@ impl PersonalGitHub {
             }
             budget.requests += 1;
         }
-        let token = self
-            .state
-            .identity
-            .github_token(|| async { None })
-            .await
+        let token = self.state.identity.github_token(|| async { None }).await;
+        check_current()?;
+        let token = token
             .map_err(|_| ReadError::new(Code::Unauthorized))?
             .ok_or_else(|| ReadError::new(Code::Unauthorized))?;
-        context.current()?;
         let mut request = self
             .http
             .request(method, url)
@@ -147,11 +149,10 @@ impl PersonalGitHub {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let response = request
-            .send()
-            .await
-            .map_err(|_| ReadError::new(Code::Unavailable))?;
-        context.current()?;
+        check_current()?;
+        let response = request.send().await;
+        check_current()?;
+        let response = response.map_err(|_| ReadError::new(Code::Unavailable))?;
         let status = response.status().as_u16();
         if status == 429
             || (status == 403
@@ -188,19 +189,22 @@ impl PersonalGitHub {
         }
         let mut bytes = Vec::new();
         let mut body = response.bytes_stream();
-        while let Some(chunk) = body.next().await {
+        loop {
+            check_current()?;
+            let chunk = body.next().await;
+            check_current()?;
+            let Some(chunk) = chunk else { break };
             let chunk = chunk.map_err(|_| ReadError::new(Code::Unavailable))?;
             if chunk.len() > max_body.saturating_sub(bytes.len()) {
                 return Err(ReadError::new(Code::InvalidResponse));
             }
             bytes.extend_from_slice(&chunk);
-            context.current()?;
         }
         let text = String::from_utf8(bytes).map_err(|_| ReadError::new(Code::InvalidResponse))?;
         if text.contains(&token) {
             return Err(ReadError::new(Code::InvalidResponse));
         }
-        context.current()?;
+        check_current()?;
         Ok((200, serde_json::json!({}), text))
     }
     pub(super) fn url(&self, path: &str) -> Result<url::Url> {
@@ -250,6 +254,7 @@ impl PersonalGitHub {
                 None,
                 "application/vnd.github+json",
                 MAX_BODY,
+                &|| context.current(),
             )
             .await?;
         if status == 404 {

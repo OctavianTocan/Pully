@@ -231,6 +231,7 @@ impl Reader<'_> {
                 body,
                 accept,
                 MAX_BODY.min(remaining),
+                &|| self.current(),
             )
             .await?;
         self.bytes
@@ -250,6 +251,15 @@ impl Reader<'_> {
                 .github
                 .check_output(self.context, &value)
                 .await?;
+            if graphql
+                && value["errors"].as_array().is_some_and(|errors| {
+                    errors.iter().any(|error| {
+                        matches!(error["type"].as_str(), Some("FORBIDDEN" | "NOT_FOUND"))
+                    })
+                })
+            {
+                return Err(ReadError::new(Code::Forbidden));
+            }
             if path.split('?').next()
                 == Some(format!("{prefix}pulls/{}", self.captured.identity.target.number).as_str())
             {

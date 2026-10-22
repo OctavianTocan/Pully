@@ -9,8 +9,11 @@ The existing PublicRead routes and sessions MUST remain unchanged. Source: Tavi'
 Opening MUST require the selected numeric repository ID. Follow-up reads MUST pin
 that ID, immutable PR ID, number, full base/head SHAs and repository visibility.
 Every nested read and final publication MUST retain the captured session, repository
-and PR leases. A confirmed denial, replacement or new revision MUST retire older
-readers without retiring another tenant. A stale selection MUST fail explicitly,
+and PR leases. The transport MUST recheck these leases after a shared-permit wait
+before charging the request budget or sending to GitHub, and before and after every
+awaited response chunk, including end of stream. A confirmed denial, replacement or
+new revision MUST retire older readers without retiring another tenant. A stale
+selection MUST fail explicitly,
 never return another head or a partial file inventory. Source: Tavi's 22 Oct full
 personal Review completion instruction and the reviewed repository retirement policy.
 
@@ -21,8 +24,12 @@ Relative paths MUST be validated before transport; client URLs, refs, raw RPC na
 headers and GraphQL operations MUST NOT be forwarded. Bodies, cumulative reads,
 requests, concurrency and the whole route MUST remain bounded. A swallowed optional
 canonical-loader failure MUST NOT turn a revoked or denied personal read into success.
+HTTP 200 GraphQL errors with structured type FORBIDDEN or NOT_FOUND MUST become sticky
+typed permission denials and retire the captured PR lease, including with partial data.
+Other transient optional GraphQL failures MUST preserve the canonical fallback.
 Source: Tavi's 22 Oct reuse and private-account read instructions; root canonical-data,
-credential-isolation and finite-work requirements.
+credential-isolation and finite-work requirements; confirmed 22 Oct Review-read
+boundary findings 1 and 2.
 
 @cc [owner:OctavianTocan,label:product;security] personal-review-does-not-imply-write-or-ai-authority
 Read results MAY retain actual GitHub viewer permissions, but this slice MUST NOT
