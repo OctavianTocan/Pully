@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 /** Android's original preferences and background owner around the shared newer-wins implementation. */
 object SettingsSync {
     val SYNCED = AccountSettingsSync.SYNCED
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val scope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     private var shared: AccountSettingsSync? = null
 
     @Synchronized

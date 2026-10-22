@@ -12,10 +12,11 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
     override suspend fun execute(request: RpcRequest): RpcResponse {
         require(request.url == "$PREVIEW_SERVER/api/rpc") { "The root fixture cannot leave its fixed sample server." }
         require(request.headers.isEmpty() || request.headers == mapOf("X-Pully-Session" to SESSION)) { "The root fixture cannot accept real credentials." }
+        require(request.body.length <= 64_000) { "The sample RPC envelope is too large." }
         val call = Json.parseToJsonElement(request.body).jsonObject
         require(call.keys == setOf("name", "args")) { "The sample RPC envelope is invalid." }
         val name = call.getValue("name").jsonPrimitive.content
-        val args = call["args"] as? JsonObject ?: JsonObject(emptyMap())
+        val args = requireNotNull(call["args"] as? JsonObject) { "The sample RPC arguments must be an object." }
         work?.validateRead(name, args)
         if (name !in setOf("account-status", "account-sign-in")) require(request.headers["X-Pully-Session"] == SESSION) { "Sign in to the sample account first." }
         if (name in setOf("github-pr", "pr-overview", "pr-text", "review-data", "pr-stack")) {
@@ -33,7 +34,7 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
         if (name in setOf("my-pulls-cached", "my-pulls", "repo-pulls", "github-stats")) {
             return previewTransport.execute(RpcRequest(request.url, emptyMap(), request.body))
         }
-        val result: JsonElement = if (work?.handles(name) == true) work.answer(name, args) else when (name) {
+        val result: JsonElement = try { if (work?.handles(name) == true) work.answer(name, args) else when (name) {
             "account-status" -> json("""{"hasAccount":true}""")
             "account-sign-in" -> {
                 require(request.headers.isEmpty())
@@ -54,6 +55,10 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
             "file-content" -> json("""{"old":"fun review() = \"android\"\n","new":"fun review() = \"shared\"\n"}""")
             "highlight" -> JsonObject(emptyMap()) // The exact renderer's normal unhighlighted-text path.
             else -> error("The root fixture rejects unsupported RPC: $name")
+        } } catch (_: RootJourneyStopRejected) {
+            return RpcResponse(503, buildJsonObject { put("error", RootJourneyWork.STOP_ERROR) }.toString(), "application/json")
+        } catch (failure: RootJourneySettingsRejected) {
+            return RpcResponse(503, buildJsonObject { put("error", requireNotNull(failure.message)) }.toString(), "application/json")
         }
         return RpcResponse(200, buildJsonObject { put("result", result) }.toString(), "application/json")
     }
@@ -89,9 +94,14 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
         const val SESSION = "sample-root-session-not-a-real-credential"
         const val KEY = "root-fixture-76"
         fun readOnly(fixtureIdentifier: String) = RootJourneyTransport(null, canonicalIdentifier(fixtureIdentifier))
-        fun fullJourney(store: RootJourneyStateStore, fixtureIdentifier: String? = null, nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() }): RootJourneyTransport {
+        fun fullJourney(
+            store: RootJourneyStateStore,
+            fixtureIdentifier: String? = null,
+            scenario: RootJourneyScenario = RootJourneyScenario.Normal,
+            nowMillis: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
+        ): RootJourneyTransport {
             val identity = fixtureIdentifier?.let(::canonicalIdentifier)
-            return RootJourneyTransport(RootJourneyWork(store, nowMillis), identity)
+            return RootJourneyTransport(RootJourneyWork(store, nowMillis, scenario), identity)
         }
         private fun canonicalIdentifier(value: String): String {
             require(value.matches(Regex("[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"))) {

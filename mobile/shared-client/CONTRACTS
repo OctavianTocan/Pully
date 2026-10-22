@@ -81,6 +81,16 @@ native worker, and opting out MUST invalidate pending writes before removing the
 Source: root analytics-can-be-turned-off, analytics-what-not-how-much and Tavi's
 21 Oct 2026 full same-app iOS implementation request.
 
+@cc [owner:OctavianTocan,label:security;product] native-usage-excludes-public-and-unverified-time
+Native private usage MUST use the shared PrivateUsageClock policy and require the
+current connection's verified foreground authority. Public browsing and time spent
+awaiting verification MUST NOT enter private screen or foreground durations. Leaving
+that authority MUST settle the previous interval into its existing source queue and
+cancel uploads before source replacement; public entry MUST preserve consent and
+durable unsent events. Entering private mode after public startup MUST NOT report
+public startup/time as a cold private launch. Source: Tavi's 21 Oct 2026 independent
+Guest decision and the accepted 22 Oct 2026 native usage ownership review.
+
 @cc [owner:OctavianTocan,label:security;product] client-review-confirmations-send-their-expected-pending-review
 When supplied, a drawn review expectation MUST reach Submit or Discard as
 pendingReviewId, with explicit null for expected-none. Omitted expectations MUST
@@ -122,10 +132,12 @@ native protocol; backend personal_auth/wire.rs RFC7636 fixture.
 Personal account requests MUST use only the fixed personal-auth routes of a trusted
 HTTPS origin, separate from legacy server configuration. The native adapter MUST NOT
 inherit legacy Access headers, cookies, authenticators or shared HTTP caches. Only
-personal session routes MAY send a validated Pully bearer; ownership proofs MUST be
+personal session/read routes and the explicit repository-consent start MAY send a validated Pully bearer; ownership proofs MUST be
 sent only in status/claim/cancel JSON bodies. GitHub credentials MUST remain on the
 server. The browser URL MUST use fixed HTTPS GitHub authorization, the captured Pully
-callback, S256 and public-read consent. Source changes/cancellation MUST reject late
+callback and S256. Ordinary sign-in MUST request only public-read consent; a separate
+repository-consent purpose MUST capture the verified initiating account/session and
+request only the fixed repo/offline_access grant. Source changes/cancellation MUST reject late
 results; retired cleanup MAY contact only the captured origin with its own cancelled
 attempt/session. HTTP and parse errors MUST retain fixed safe categories, and HTML
 or generic HTTP401 MUST NOT imply session expiry. Source: Tavi's 21 Oct 2026 personal
@@ -159,11 +171,56 @@ The native personal vault MUST atomically persist pending and accepted Pully ses
 through the host's encrypted secure-storage port. Pending credentials MUST NOT restore
 a principal after process death. Active in-process confirmation stages MUST be excluded
 from unrelated recovery cleanup; losing their owner MUST release that recovery authority.
-Promotion MUST match a staged origin, bearer and immutable account/GitHub subject. A
+Promotion MUST match a staged origin, bearer, immutable account/GitHub subject and
+application authority. Native records without an authority marker MUST remain publicRead;
+a stored publicRead maximum MUST NOT restore privateRepositories authority. A
 replaced or locally signed-out accepted session MUST enter a bounded durable revocation
 queue, and MUST remain there until captured-origin server sign-out succeeds. Queue
 overflow or unavailable secure storage MUST fail closed without dropping another account
-or a recovery credential. Only verified matching publicRead account status MAY become a
+or a recovery credential. Only verified matching account status within the securely
+stored session's maximum authority MAY become a
 visible personal profile; HTML or temporary unavailability MUST preserve saved credentials.
 Source: Tavi's 21 Oct 2026 personal GitHub request, accepted backend claim-delivery lease
 repair and the 22 Oct native secure-stage/confirm/publish plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-reads-keep-verified-account-authority
+A personal read client MUST be issued only from a currently verified personal profile
+and its matching accepted secure-vault session. Pending or merely saved credentials
+MUST NOT issue it. Every request and result MUST retain the captured origin, session,
+account/GitHub subject and current native entry; a changed vault or retired entry MUST
+reject late data and errors. Only fixed personal GET routes MAY carry that Pully bearer,
+with no legacy/Access/cookie authority or GitHub API fallback. Every successful envelope
+MUST match the captured immutable account/GitHub identity and the route's explicit
+application authority. Public-only reads MUST retain publicRead envelopes and exclude
+private data, even for an upgraded account. Account/private reads MUST require the
+separately confirmed privateRepositories session, use only the account route family,
+and require explicit repository visibility. Selected repository reads MUST retain
+their numeric repository ID and visibility. HTTP concurrency,
+body, page and total deadlines MUST remain bounded. Only a valid typed service error
+MAY identify session rejection; HTML or a generic HTTP401 MUST NOT expire the account.
+Account/capability retirement MUST synchronously clear registered page owners before
+another identity can publish data. This GitHub read capability MUST NOT gate independent
+default/provider AI. Source: Tavi's 21 Oct any-account/public browsing request,
+22 Oct explicit access to the user's private repositories,
+and the accepted 22 Oct isolated personal read protocol.
+
+@cc [owner:OctavianTocan,label:security;product] personal-rejection-revokes-before-secure-cleanup
+A current typed account/session rejection from restoration or a personal read MUST
+synchronously revoke verified authority, visible profile and every registered read
+owner before attempting fallible secure-vault retirement. A failed retirement MUST
+preserve the durable credential for recovery, without issuing old or new read handles
+until fresh matching verification. A rejection received for a superseded origin,
+bearer, verification or native source MUST NOT revoke its replacement. The source-owned
+account-recovery action MUST run only after the purge and only while that rejection
+still owns the source; HTML and generic HTTP401 MUST retain connection retry instead.
+Source: the five independently confirmed 22 Oct 2026 personal-read Compound findings
+and Tavi's any-account/private-repository and actionable first-run requirements.
+@cc [owner:OctavianTocan,label:security;architecture] personal-entry-storage-probe-is-not-authority
+A personal-entry secure-storage probe MUST read the actual native blob even when the
+vault has cached a prior successful read. Missing data MUST remain distinct from a
+failed read or present empty/corrupt data, and probe bytes MUST be cleared. Failure
+MUST NOT overwrite the vault, make an RPC or authorize browser/claim/read work. The
+probe MUST retain the existing vault format/cache and check its current source before
+and after native reading; its host MUST supply actual foreground admission before
+new account actions. Source: Tavi's 22 Oct 2026 visible native GitHub-entry request
+and accepted fixed-intent/secure-admission boundary.

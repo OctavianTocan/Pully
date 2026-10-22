@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Vista previa interna de Pully",
+    "reading": "Leyendo el enlace compartido…",
+    "save": "Guardar para Pully",
+    "unsupported": "Comparte una solicitud de cambios de GitHub, un repositorio, un commit, una comparación o un enlace compatible con tu servidor Pully.",
+    "hint": "Guarda este enlace y abre Pully para continuar con tu cuenta actual. Los enlaces guardados caducan a las 24 horas.",
+    "unavailable": "Para compartir, Pully necesita el mismo App Group aprovisionado en la app y en su extensión.",
+    "busy": "Pully está procesando un enlace compartido. Espera un momento y vuelve a compartir este enlace.",
+    "noSource": "Abre Pully e inicia sesión antes de guardar un enlace.",
+    "staleSource": "La cuenta o el servidor de Pully ha cambiado. Vuelve a compartir este enlace.",
+    "invalidRecord": "Pully no pudo leer este enlace guardado. Vuelve a compartirlo.",
+    "failure": "Pully no pudo guardar este enlace. Desbloquea el dispositivo y vuelve a compartirlo."
+  },
   "common": {
     "cancel": "Cancelar",
     "save": "Guardar",

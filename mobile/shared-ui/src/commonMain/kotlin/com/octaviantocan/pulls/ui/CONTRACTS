@@ -5,11 +5,52 @@ stack; native Back adapters MUST pop the same stack, without rebuilding the unde
 page state. Source: Tavi's accepted 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md
 rules 88, 105 and 123.
 
+@cc [owner:OctavianTocan,label:product;security;architecture] native-entry-constructs-only-its-selected-workspace
+A fresh iOS entry MUST mount the existing public GuestPages and tokenless session
+without constructing private account discovery, Home, AI, Stats, settings sync or
+usage observers. A matching locally verified existing connection MAY return to its
+private workspace; restored preferences or Keychain tokens alone MUST NOT prove a
+fresh installation belongs there. An explicit Explore choice MUST preserve saved
+credentials and synchronously settle/retire private services, callbacks, palette
+state and route/saveable owners before public pages mount. Both entries MUST use
+the same supplied AppNavigation; returning to an entry MUST create a fresh source
+without reviving its old callbacks or input. Strict Debug private fixtures MUST NOT
+gain a public/network route. An ordinary checking or failed existing connection MUST
+keep an explicit route back to public browsing. Source: Tavi's 21 Oct 2026 fresh-install/public browsing
+decision and the accepted 22 Oct 2026 lazy iOS Guest integration plan.
+Personal promotion or local sign-out MUST retire and recreate only the public
+workspace, synchronously revoke its retained callbacks and reset the same stack to
+Explore. It MUST NOT select or construct the existing-server workspace, change the
+saved entry choice, or alter its credentials. Source: Tavi's separate public-read
+personal-account request and the accepted 22 Oct native personal mount plan.
+
+@cc [owner:OctavianTocan,label:product;security] native-entry-handoff-keeps-the-displayed-link
+Choosing the existing-server entry from a displayed guest link fallback MUST retain
+that exact destination through private verification/sign-in on the same stack. A
+newer incoming arrival MUST take precedence, and an old private audience MUST still
+be enforced after verification. Entry selection MUST NOT copy a raw Guest repository
+or review route into the private stack before the restored arrival passes that
+audience check. Source: shared-incoming-links-keep-their-audience,
+guest-incoming-links-commit-before-consumption and the accepted 22 Oct 2026 iOS mount.
+
 @cc [owner:OctavianTocan,label:product;architecture] shared-back-cancels-current-edit-first
 The single native edge-back observer MUST dispatch to the current page's active inline
 edit before popping the shared route stack. A hidden page or an edit removed during
 the gesture MUST NOT consume it or cause a route pop. Source: the accepted 21 Oct 2026
 iOS plan's native gesture adapter and preservation of Android's edit BackHandler.
+
+@cc [owner:OctavianTocan,label:product;architecture;motion] shared-dialog-native-progress-keeps-one-back-owner
+A native Compose dialog's framework swipe MUST dispatch progress, cancellation and
+completion through the same captured SharedBackDispatcher consumer used by its
+sheet/edit controls. It MUST handle a root modal even when no application route can
+pop. A cancelled gesture, removed/covered consumer or disposed bridge MUST NOT dismiss
+its replacement or fall through to a route pop. Discrete Back MUST still select the
+current shared consumer. The bridge MUST recheck the native host's same scene,
+root-controller and presented-controller authority before every stage; absent or
+revoked authority MUST fail closed without reacquiring a consumer in that gesture.
+Source: Tavi's complete native journey request and the
+accepted 22 Oct 2026 limitation-sheet Back completion repair, preserving DESIGN.md
+rules 78 and 115 and shared-back-cancels-current-edit-first.
 
 @cc [owner:OctavianTocan,label:security;architecture] shared-root-retires-private-source-before-replacement
 The native account source's before-change hook MUST revoke its root lifetime, cancel
@@ -68,6 +109,24 @@ URL. Source retirement MUST discard delivered reopen events; a pending sign-in i
 MAY remain only with its opening audience still enforced.
 Source: Tavi's accepted 21 Oct 2026 iOS link and account isolation plan and the existing
 nav-link-closes-what-was-open and pr-links-land-on-the-thing requirements.
+
+@cc [owner:OctavianTocan,label:architecture;security] shared-share-data-enters-the-existing-inbox
+Sanitized share data MUST be decoded by the same shared-domain codec and enter the
+existing incoming-link inbox as its typed HomeLink destination. It MUST retain the
+same opening audience, suspending sheet-exit fences, same-target reopen policy and
+Compose Back stack as ordinary links. Raw rejected handoff payloads MUST NOT be
+retained or turned into placeholder destinations. Source: the accepted 21 Oct 2026
+native share handoff, single-stack and account-isolation plan.
+
+@cc [owner:OctavianTocan,label:product;security] explicit-native-arrival-outranks-older-durable-share
+A native URL/activity arrival MUST take precedence over a saved share imported later
+in the same foreground activation, including after that explicit arrival is consumed.
+Verification pause/resume and source replacement MUST NOT erase that priority. Only
+the actual native background transition MAY start a fresh activation; an initial or
+repeated background report MUST preserve a newly queued cold-launch intent. A
+superseded saved record MAY be consumed without delivery, retaining all existing
+source, foreground-grant and audience checks. Source: the confirmed 22 October 2026
+native composition review finding 2 and Tavi's one-stack incoming-link requirements.
 
 @cc [owner:OctavianTocan,label:security;architecture] shared-root-sheets-share-one-source-lifetime
 The root MUST retain one Settings, model/catalog, Stats, Feedback and Commands bundle

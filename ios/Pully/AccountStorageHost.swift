@@ -44,6 +44,7 @@ final class AccountStorageHost: NSObject, AccountStorage {
     private nonisolated let connections = AccountConnectionRelay()
     private var preferences: NativeServerPreferences
     private let secrets: NativeSecretStore
+    private let identityWillChange: @MainActor () -> Void
     private var store: NativeAccountStore?
     private var startupProblem: String?
     private var observers: [UUID: AccountStorageObserver] = [:]
@@ -54,10 +55,12 @@ final class AccountStorageHost: NSObject, AccountStorage {
 
     init(
         preferences: NativeServerPreferences = DefaultsServerPreferences(),
-        secrets: NativeSecretStore = KeychainSecretStore()
+        secrets: NativeSecretStore = KeychainSecretStore(),
+        identityWillChange: @escaping @MainActor () -> Void = {}
     ) {
         self.preferences = preferences
         self.secrets = secrets
+        self.identityWillChange = identityWillChange
         super.init()
         do { try loadStorage() }
         catch { startupProblem = safeMessage(error) }
@@ -133,6 +136,7 @@ final class AccountStorageHost: NSObject, AccountStorage {
             mutate {
                 if let store { try store.resetCredentials() }
                 else {
+                    identityWillChange()
                     invalidateObservers()
                     // A corrupt or locked store never silently falls back to anonymous requests.
                     // This explicit reset clears only this app's credential service.
@@ -208,7 +212,7 @@ final class AccountStorageHost: NSObject, AccountStorage {
     }
 
     private func loadStorage() throws {
-        let value = try NativeAccountStore(preferences: preferences, secrets: secrets) { [weak self] in
+        let value = try NativeAccountStore(preferences: preferences, secrets: secrets, identityWillChange: identityWillChange) { [weak self] in
             self?.invalidateObservers()
         }
         store = value

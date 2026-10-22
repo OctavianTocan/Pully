@@ -294,7 +294,8 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                         placeholder = if (rows.isEmpty()) "Ask Pully…" else "Ask a follow-up…",
                         onSend = { if (ask(ui.chatInput)) actions.changeInput("") },
                         sendEnabled = actions.canAsk && !busy && ui.chatInput.isNotBlank(),
-                        onStop = guardedStop(session, listOf("chat"), actions.canAsk && streaming && task != null) { task?.let { actions.stop(it.id) } },
+                        onStop = guardedStop(session, listOf("chat"), task, actions.canAsk && streaming,
+                            permitted = { actions.canAsk }),
                         // With nothing typed the button opens the chats this pull request had (Tavi, L36), and only when it had
                         // some (P4).
                         onHistory = if (actions.canAsk && !busy && !session.chatHistory.isNullOrEmpty()) ({ if (actions.canAsk) history = true }) else null,

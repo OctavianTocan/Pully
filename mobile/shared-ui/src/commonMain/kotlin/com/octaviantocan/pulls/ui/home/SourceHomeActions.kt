@@ -1,7 +1,8 @@
 package com.octaviantocan.pulls.ui.home
 
 /** Retained private rows/readers cannot send old-owner input to native services after credential replacement. */
-internal class SourceHomeActions(private val native: NativeHomeActions, private val current: () -> Boolean) : NativeHomeActions {
+internal class SourceHomeActions(private val native: NativeHomeActions, private val current: () -> Boolean) : NativeHomeActions, NativeBackReadiness {
+    override fun isSharedBackActive() = current() && (native as? NativeBackReadiness)?.isSharedBackActive() == true
     override fun copyText(text: String) { if (current()) native.copyText(text) }
     override fun openOnGithub(url: String) { if (current()) native.openOnGithub(url) }
     override fun openInBrowser(url: String) { if (current()) native.openInBrowser(url) }

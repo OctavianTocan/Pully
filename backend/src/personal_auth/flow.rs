@@ -55,12 +55,13 @@ struct Pending {
     verifier: String,
     authority: GitHubAuthority,
     link: Option<LegacyLink>,
-    expected_github_id: Option<u64>,
+    upgrade: Option<CurrentPersonalSession>,
 }
 struct Ready {
     login: VerifiedLogin,
     authority: GitHubAuthority,
     link: Option<LegacyLink>,
+    upgrade: Option<CurrentPersonalSession>,
 }
 enum Phase {
     Pending(Pending),
@@ -103,7 +104,59 @@ struct Inner {
 #[derive(Clone)]
 pub(crate) struct PersonalAuth(Arc<Inner>);
 
+/// Canonical resolved authority, never reconstructed from the public session status.
+#[derive(Clone)]
+pub(crate) struct CurrentPersonalSession(Arc<super::vault::AuthenticatedSession>);
+impl CurrentPersonalSession {
+    pub(crate) fn identity(&self) -> anyhow::Result<crate::identity::RequestIdentity> {
+        self.0.identity()
+    }
+    pub(crate) fn status(&self) -> anyhow::Result<&super::vault::SessionStatus> {
+        self.identity()?;
+        Ok(&self.0.status)
+    }
+}
+
 impl PersonalAuth {
+    #[cfg(test)]
+    pub(crate) async fn fixture(
+        config: OAuthConfig,
+        store: Store,
+        keys: VaultKeys,
+        origin: url::Url,
+    ) -> anyhow::Result<Self> {
+        let config = Arc::new(config);
+        let provider = Arc::new(OAuthProvider::fixture(config.clone(), origin)?);
+        blocking(move || {
+            let clock: Arc<dyn AuthClock> = Arc::new(SystemClock);
+            let vault = PersonalVault::new(store, Arc::new(keys), clock.clone())?;
+            Self::construct(config, provider, vault, clock)
+        })
+        .await
+    }
+    /// @cc [owner:OctavianTocan,label:security;architecture] personal-read-authority-comes-from-the-vault
+    /// A personal read handler MUST obtain its current request identity only from the
+    /// canonical session/vault resolver, including refresh and delivery confirmation.
+    /// A status body, caller account/email or inherited OAuth scope MUST NOT construct
+    /// that authority. Source: Tavi's 21 Oct 2026 isolation-before-ingress decision and
+    /// 22 Oct requirement to complete the executable personal read boundary.
+    pub(crate) async fn authenticate(&self, session: &str) -> Result<CurrentPersonalSession> {
+        let resolved = self
+            .0
+            .vault
+            .resolve_or_refresh(session, self.0.provider.clone())
+            .await
+            .map_err(|error| {
+                if error.is::<super::provider::ReconnectRequired>() {
+                    AuthError::Reconnect
+                } else {
+                    AuthError::Unavailable
+                }
+            })?;
+        resolved.identity().map_err(|_| AuthError::Unauthorized)?;
+        Ok(CurrentPersonalSession(Arc::new(resolved)))
+    }
+
     pub(crate) async fn new(
         config: OAuthConfig,
         store: Store,
@@ -153,6 +206,22 @@ impl PersonalAuth {
         self.begin(request, GitHubAuthority::PublicRead, None, None)
     }
 
+    /// The separate repository-consent action captures the existing personal source.
+    pub(crate) async fn start_repository_consent(
+        &self,
+        session: &str,
+        request: StartRequest,
+    ) -> Result<StartReply> {
+        let source = self.authenticate(session).await?;
+        source.identity().map_err(|_| AuthError::Unauthorized)?;
+        self.begin(
+            request,
+            GitHubAuthority::PrivateRepositories,
+            None,
+            Some(source),
+        )
+    }
+
     /// Private hosts may explicitly link an already authenticated compatibility account; the public router has no link route.
     pub(crate) async fn start_legacy_link(
         &self,
@@ -171,7 +240,7 @@ impl PersonalAuth {
         request: StartRequest,
         authority: GitHubAuthority,
         link: Option<LegacyLink>,
-        expected_github_id: Option<u64>,
+        upgrade: Option<CurrentPersonalSession>,
     ) -> Result<StartReply> {
         let challenge = wire::parse_fixed_secret(&request.native_challenge)
             .map_err(|_| AuthError::InvalidRequest)?;
@@ -217,7 +286,7 @@ impl PersonalAuth {
                         verifier,
                         authority,
                         link,
-                        expected_github_id,
+                        upgrade,
                     }),
                 },
             );
@@ -313,6 +382,9 @@ impl PersonalAuth {
         let this = self.clone();
         tokio::spawn(async move {
             let acquired = async {
+                if let Some(source) = &pending.upgrade {
+                    source.identity().map_err(|_| AuthError::Denied)?;
+                }
                 let tokens = this
                     .0
                     .provider
@@ -332,16 +404,17 @@ impl PersonalAuth {
                 let login = VerifiedLogin::acquire(this.0.provider.as_ref(), tokens)
                     .await
                     .map_err(|_| AuthError::Unavailable)?;
-                if pending
-                    .expected_github_id
-                    .is_some_and(|id| id != login.github_id())
-                {
-                    return Err(AuthError::Denied);
+                if let Some(source) = &pending.upgrade {
+                    let status = source.status().map_err(|_| AuthError::Denied)?;
+                    if status.github_id != login.github_id() {
+                        return Err(AuthError::Denied);
+                    }
                 }
                 Ok(Ready {
                     login,
                     authority: pending.authority,
                     link: pending.link,
+                    upgrade: pending.upgrade,
                 })
             }
             .await;
@@ -379,12 +452,21 @@ impl PersonalAuth {
         };
         let this = self.clone();
         tokio::spawn(async move {
-            let issued = match this
-                .0
-                .vault
-                .install(ready.login, ready.authority, ready.link, confirm_by)
-                .await
-            {
+            let install = match ready.upgrade {
+                Some(source) => {
+                    this.0
+                        .vault
+                        .install_upgrade(ready.login, source.0, confirm_by)
+                        .await
+                }
+                None => {
+                    this.0
+                        .vault
+                        .install(ready.login, ready.authority, ready.link, confirm_by)
+                        .await
+                }
+            };
+            let issued = match install {
                 Ok(issued) => issued,
                 Err(_) => {
                     if let Ok(mut attempts) = this.0.attempts.lock() {

@@ -8,7 +8,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.window.Dialog as ComposeDialog
 import androidx.compose.ui.window.DialogProperties
-import com.octaviantocan.pulls.ui.SharedBackHandler
+import com.octaviantocan.pulls.ui.SharedDialogBack
 
 internal actual object SheetPlatform {
     /** Compose's native scene layer supplies focus, dismissal and real UIKit safe-area/keyboard insets. */
@@ -26,7 +26,7 @@ internal actual object SheetPlatform {
                 animateTransition = false,
             ),
         ) {
-            SharedBackHandler(onDismissRequest)
+            SharedDialogBack(onDismissRequest)
             content()
         }
     }
