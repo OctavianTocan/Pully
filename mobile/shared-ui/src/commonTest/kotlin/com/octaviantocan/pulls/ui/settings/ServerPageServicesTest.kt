@@ -17,7 +17,7 @@ class ServerPageServicesTest {
         var requests = 0
         val repo = Repo({ RepoConfiguration("https://pully.example", generation = generation) }, RpcTransport {
             requests++
-            RpcResponse(200, "{\"result\":{}}")
+            RpcResponse(200, "{\"result\":{\"hasAccount\":false}}")
         })
         val original = serverConnectionCheck(repo)
         generation++
