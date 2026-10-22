@@ -110,6 +110,38 @@ class GuestBrowseSessionTest {
         assertEquals(listOf(Screen.Explore), navigation.stack.toList())
     }
 
+    @Test
+    fun foregroundOnlyReloadsTheActivePublicRouteAndRetiredSessionsDoNothing() = runTest {
+        val h = PublicFixture()
+        val entry = NativeEntryState(false)
+        val navigation = AppNavigation(rootScreen = Screen.Explore)
+        val session = GuestBrowseSession(h, backgroundScope, entry.guestSource()!!, navigation)
+        session.foreground()
+        session.repositories.start()
+        runCurrent()
+        assertEquals(1, h.requests.size)
+        session.openRepository(session.repositories.repositories.single())
+        val page = navigation.stack.last() as Screen.PublicRepo
+        val pulls = session.pulls(page)
+        pulls.start()
+        runCurrent()
+        session.foreground()
+        runCurrent()
+        assertEquals(5, h.requests.size)
+        assertEquals(1, h.requests.count { "/search/" in it.url })
+        navigation.nav.back()
+        session.foreground()
+        runCurrent()
+        assertEquals(6, h.requests.size)
+        assertEquals(2, h.requests.count { "/search/" in it.url })
+        entry.select(NativeEntryMode.ExistingServer)
+        session.foreground()
+        runCurrent()
+        assertEquals(6, h.requests.size)
+        assertTrue(session.repositories.repositories.isEmpty())
+        session.close()
+    }
+
     private class PublicFixture : RpcTransport {
         val requests = mutableListOf<RpcRequest>()
         val repository = """{"id":42,"owner":{"login":"public-owner"},"name":"public-repo","full_name":"public-owner/public-repo","private":false,"description":null,"stargazers_count":123,"language":"Kotlin"}"""

@@ -37,3 +37,12 @@ public review route actually exists. Account invitations MUST reflect real serve
 sign-in capability rather than inventing OAuth success or sending operator secrets.
 Source: mobile-reuses-production-ui, shared-navigation-keeps-one-compose-stack and
 Tavi's 21 Oct 2026 guest browsing/personal sign-in request.
+
+@cc [owner:OctavianTocan,label:product;design] explore-refresh-keeps-known-content
+Unknown public list content MUST use the existing skeletons rather than loading text
+or a spinner. Returning to the foreground MUST quietly revalidate only the active
+public page, coalescing an in-flight request and retaining its query, known rows and
+loaded pagination until a complete current answer replaces them. A confirmed
+repository visibility/identity denial MUST still clear its prior PR rows. Explore
+MUST NOT expose a Refresh action or refresh indicator. Source: android-no-loading-screens,
+android-refresh-is-silent and the 22 Oct 2026 guest contract review.

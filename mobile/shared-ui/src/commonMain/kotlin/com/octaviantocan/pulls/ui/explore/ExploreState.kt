@@ -57,6 +57,8 @@ class ExploreRepositoriesState(client: PublicBrowseClient, scope: CoroutineScope
         private set
     var loading by mutableStateOf(false)
         private set
+    var refreshing by mutableStateOf(false)
+        private set
     var problem by mutableStateOf<PublicBrowseProblem?>(null)
         private set
     var incomplete by mutableStateOf(false)
@@ -67,8 +69,10 @@ class ExploreRepositoriesState(client: PublicBrowseClient, scope: CoroutineScope
         private set
     private var started = false
     private var attemptedPage = 1
+    private var loadedPages = 0
 
     fun start() { if (!started && owner.valid) { started = true; search() } }
+    fun foreground() { if (owner.valid && !loading) { if (!started) start() else load(1, quiet = hasLoaded) } }
     fun search() {
         if (!owner.valid) return
         started = true
@@ -77,24 +81,39 @@ class ExploreRepositoriesState(client: PublicBrowseClient, scope: CoroutineScope
     }
     fun editQuery(value: String) { if (owner.valid) query = value.take(80) }
     fun loadMore() { if (!loading) nextPage?.let(::load) }
-    fun retry() { if (!loading) load(attemptedPage) }
+    fun retry() { if (!loading) load(attemptedPage, quiet = hasLoaded && attemptedPage == 1) }
     fun runIfCurrent(action: () -> Unit) { if (owner.valid) action() }
     fun open(repository: ExploreRepository, action: (ExploreRepository) -> Unit) {
         if (owner.valid && repositories.any { it.id == repository.id && it.fullName == repository.fullName }) action(repository)
     }
 
-    private fun load(page: Int) {
+    private fun load(page: Int, quiet: Boolean = false) {
         val query = submittedQuery
+        val throughPage = if (quiet) loadedPages else page
         owner.load(
-            before = { attemptedPage = page; loading = true; problem = null; if (page == 1) { repositories = emptyList(); nextPage = null; incomplete = false; hasLoaded = false } },
-            fetch = { owner.client.repositories(query, page, owner.source) },
-            accept = { answer -> repositories = (if (page == 1) answer.repositories else repositories + answer.repositories).distinctBy { it.id }; nextPage = answer.nextPage; incomplete = answer.incomplete; hasLoaded = true },
-            fail = { problem = it }, finish = { loading = false },
+            before = { attemptedPage = page; loading = true; refreshing = quiet; problem = null; if (page == 1 && !quiet) { repositories = emptyList(); nextPage = null; incomplete = false; hasLoaded = false; loadedPages = 0 } },
+            fetch = {
+                buildList {
+                    var next = page
+                    do {
+                        val answer = owner.client.repositories(query, next, owner.source)
+                        add(answer)
+                        next = answer.nextPage ?: break
+                    } while (quiet && next <= throughPage)
+                }
+            },
+            accept = { answers ->
+                val rows = answers.flatMap { it.repositories }
+                repositories = (if (page == 1) rows else repositories + rows).distinctBy { it.id }
+                nextPage = answers.last().nextPage; incomplete = answers.any { it.incomplete }; hasLoaded = true
+                loadedPages = if (quiet) answers.size else page
+            },
+            fail = { problem = it }, finish = { loading = false; refreshing = false },
         )
     }
 
     fun close() {
-        owner.close(); query = ""; submittedQuery = ""; repositories = emptyList(); nextPage = null; loading = false; problem = null; incomplete = false; hasLoaded = false
+        owner.close(); query = ""; submittedQuery = ""; repositories = emptyList(); nextPage = null; loading = false; refreshing = false; problem = null; incomplete = false; hasLoaded = false; loadedPages = 0
     }
 }
 
@@ -105,6 +124,8 @@ class ExplorePullsState(val repository: ExploreRepository, client: PublicBrowseC
         private set
     var loading by mutableStateOf(false)
         private set
+    var refreshing by mutableStateOf(false)
+        private set
     var problem by mutableStateOf<PublicBrowseProblem?>(null)
         private set
     var nextPage by mutableStateOf<Int?>(null)
@@ -113,27 +134,42 @@ class ExplorePullsState(val repository: ExploreRepository, client: PublicBrowseC
         private set
     private var started = false
     private var attemptedPage = 1
+    private var loadedPages = 0
 
     fun start() { if (!started && owner.valid) { started = true; load(1) } }
-    fun refresh() = load(1)
-    fun retry() { if (!loading) load(attemptedPage) }
+    fun foreground() { if (owner.valid && !loading) { if (!started) start() else load(1, quiet = hasLoaded) } }
+    fun retry() { if (!loading) load(attemptedPage, quiet = hasLoaded && attemptedPage == 1) }
     fun loadMore() { if (!loading) nextPage?.let(::load) }
     fun open(pull: ExplorePull, action: (String) -> Unit) {
         if (owner.valid && pulls.any { it == pull }) action(pull.url)
     }
     fun runIfCurrent(action: () -> Unit) { if (owner.valid) action() }
 
-    private fun load(page: Int) {
+    private fun load(page: Int, quiet: Boolean = false) {
+        val throughPage = if (quiet) loadedPages else page
         owner.load(
-            before = { attemptedPage = page; loading = true; problem = null; if (page == 1) { pulls = emptyList(); nextPage = null; hasLoaded = false } },
-            fetch = { owner.client.pulls(repository.owner, repository.name, page, owner.source, repository.id) },
-            accept = { answer -> pulls = (if (page == 1) answer.pulls else pulls + answer.pulls).distinctBy { it.number }; nextPage = answer.nextPage; hasLoaded = true },
+            before = { attemptedPage = page; loading = true; refreshing = quiet; problem = null; if (page == 1 && !quiet) { pulls = emptyList(); nextPage = null; hasLoaded = false; loadedPages = 0 } },
+            fetch = {
+                buildList {
+                    var next = page
+                    do {
+                        val answer = owner.client.pulls(repository.owner, repository.name, next, owner.source, repository.id)
+                        add(answer)
+                        next = answer.nextPage ?: break
+                    } while (quiet && next <= throughPage)
+                }
+            },
+            accept = { answers ->
+                val rows = answers.flatMap { it.pulls }
+                pulls = (if (page == 1) rows else pulls + rows).distinctBy { it.number }
+                nextPage = answers.last().nextPage; hasLoaded = true; loadedPages = if (quiet) answers.size else page
+            },
             fail = { failure ->
                 problem = failure
-                if (failure == PublicBrowseProblem.RepositoryUnavailable || failure == PublicBrowseProblem.InvalidResponse) { pulls = emptyList(); nextPage = null }
-            }, finish = { loading = false },
+                if (failure == PublicBrowseProblem.RepositoryUnavailable || failure == PublicBrowseProblem.InvalidResponse) { pulls = emptyList(); nextPage = null; hasLoaded = false; loadedPages = 0 }
+            }, finish = { loading = false; refreshing = false },
         )
     }
 
-    fun close() { owner.close(); pulls = emptyList(); nextPage = null; loading = false; problem = null; hasLoaded = false }
+    fun close() { owner.close(); pulls = emptyList(); nextPage = null; loading = false; refreshing = false; problem = null; hasLoaded = false; loadedPages = 0 }
 }

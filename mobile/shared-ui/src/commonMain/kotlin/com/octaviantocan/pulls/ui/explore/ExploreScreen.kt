@@ -33,6 +33,7 @@ import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PillInput
 import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.edgeFade
 import com.octaviantocan.pulls.ui.design.floatingBar
@@ -76,7 +77,7 @@ fun ExploreScreen(
             }
             item(key = "status") {
                 Column(Modifier.padding(PullsSpace.x4), verticalArrangement = Arrangement.spacedBy(PullsSpace.x3)) {
-                    BrowseStatus(state.loading, state.problem, state.hasLoaded && state.repositories.isEmpty(), "explore.emptyRepositories", state::retry)
+                    BrowseStatus(state.loading && !state.refreshing, state.problem, state.hasLoaded && state.repositories.isEmpty(), "explore.emptyRepositories", state::retry)
                     if (state.incomplete && state.problem == null) Text(t("explore.incomplete"), style = PullsType.sm, color = colors.muted)
                     if (state.nextPage != null && state.problem == null) PillButton(t("explore.loadMore"), state::loadMore, enabled = !state.loading)
                 }
@@ -115,9 +116,8 @@ fun ExplorePullsScreen(state: ExplorePullsState, onBack: () -> Unit, onOpenGitHu
         }
         item(key = "status") {
             Column(Modifier.padding(PullsSpace.x4), verticalArrangement = Arrangement.spacedBy(PullsSpace.x3)) {
-                BrowseStatus(state.loading, state.problem, state.hasLoaded && state.pulls.isEmpty(), "explore.emptyPulls", state::retry)
+                BrowseStatus(state.loading && !state.refreshing, state.problem, state.hasLoaded && state.pulls.isEmpty(), "explore.emptyPulls", state::retry)
                 if (state.nextPage != null && state.problem == null) PillButton(t("explore.loadMore"), state::loadMore, enabled = !state.loading)
-                if (state.hasLoaded && state.problem == null) PillButton(t("common.refresh"), state::refresh, enabled = !state.loading)
             }
         }
     }
@@ -127,7 +127,7 @@ fun ExplorePullsScreen(state: ExplorePullsState, onBack: () -> Unit, onOpenGitHu
 private fun BrowseStatus(loading: Boolean, problem: PublicBrowseProblem?, empty: Boolean, emptyKey: String, onRetry: () -> Unit) {
     val colors = LocalPullsColors.current
     when {
-        loading -> Text(t("common.loading"), style = PullsType.read, color = colors.muted)
+        loading -> RowsSkeleton(rows = 3)
         problem != null -> {
             Text(t("explore.problem.${problem.name}"), style = PullsType.read, color = colors.muted)
             PillButton(t("common.retry"), onRetry)

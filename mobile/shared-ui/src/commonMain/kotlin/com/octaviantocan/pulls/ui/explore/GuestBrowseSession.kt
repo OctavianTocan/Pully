@@ -41,6 +41,15 @@ class GuestBrowseSession(
         if (current && navigation.stack.lastOrNull() === screen) action()
     }
 
+    fun foreground() {
+        if (!current) return
+        when (val screen = navigation.stack.lastOrNull()) {
+            Screen.Explore -> repositories.foreground()
+            is Screen.PublicRepo -> pages.firstOrNull { it.screen === screen }?.state?.foreground()
+            else -> Unit
+        }
+    }
+
     fun pulls(screen: Screen.PublicRepo): ExplorePullsState {
         pages.firstOrNull { it.screen === screen }?.let { return it.state }
         val page = Page(screen)

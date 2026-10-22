@@ -105,6 +105,7 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     val scope = rememberCoroutineScope()
     val session = remember { GuestBrowseSession(JvmRpcTransport(), scope, source, navigation) }
     DisposableEffect(session) { onDispose { session.close() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { session.foreground() }
     val toaster = remember { Toaster() }
     val motion = remember { PageMotion() }
     var leaving by remember { mutableStateOf(false) }
