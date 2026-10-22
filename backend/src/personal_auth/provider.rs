@@ -49,6 +49,7 @@ impl OAuthConfig {
                 && callback.username().is_empty()
                 && callback.password().is_none()
                 && callback.port().is_none()
+                && callback.path() == super::wire::CALLBACK_PATH
                 && callback.query().is_none()
                 && callback.fragment().is_none(),
             "Invalid Pully OAuth callback configuration"
@@ -374,7 +375,7 @@ mod tests {
         OAuthConfig::new(
             "pully-fixture-client".into(),
             "fixture-server-secret".into(),
-            "https://auth.pully.example/github/callback",
+            "https://auth.pully.example/api/personal/v1/auth/github/callback",
         )
         .unwrap()
     }
@@ -398,7 +399,7 @@ mod tests {
         assert_eq!(fields["code_challenge_method"], "S256");
         assert_eq!(
             fields["redirect_uri"],
-            "https://auth.pully.example/github/callback"
+            "https://auth.pully.example/api/personal/v1/auth/github/callback"
         );
         assert_eq!(fields["prompt"], "select_account");
         assert!(!url.as_str().contains("fixture-server-secret"));

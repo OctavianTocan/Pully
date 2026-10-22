@@ -87,3 +87,14 @@ or a newer credential revision MUST deny stale publication or overwrite. A termi
 refresh rejection MUST revoke that account's sessions; transient transport or /user
 failure MUST NOT invent a terminal rejection or discard a recoverable rotated pair.
 Source: Tavi's 21 Oct 2026 refresh/revocation and current GitHub token rotation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-http-surface-is-explicit-and-isolated
+Personal auth MUST remain an explicit router factory with no production listener or
+legacy RPC registration. Unconfigured discovery MUST report disabled without loading
+operator account/provider state. Configured handlers MUST accept only their fixed
+typed paths, reject legacy session/Access credentials, bound bodies/query data and
+return fixed credential-safe failures with no-store responses. Only a Pully personal
+bearer may authenticate personal session methods. Browser callback cookies MUST NOT
+choose identity or authorize a claim; callback content MUST contain no credentials,
+code or state and MUST forbid referrer disclosure. Source: Tavi's 21 Oct 2026 public
+auth boundary and later external registration/deployment prerequisite decision.

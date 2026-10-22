@@ -11,6 +11,10 @@ pub(crate) const START_PATH: &str = "/api/personal/v1/auth/github/start";
 pub(crate) const STATUS_PATH: &str = "/api/personal/v1/auth/github/status";
 pub(crate) const CLAIM_PATH: &str = "/api/personal/v1/auth/github/claim";
 pub(crate) const CANCEL_PATH: &str = "/api/personal/v1/auth/github/cancel";
+pub(crate) const CALLBACK_PATH: &str = "/api/personal/v1/auth/github/callback";
+pub(crate) const SESSION_PATH: &str = "/api/personal/v1/session";
+pub(crate) const SIGN_OUT_PATH: &str = "/api/personal/v1/session/sign-out";
+pub(crate) const DISCONNECT_PATH: &str = "/api/personal/v1/github/disconnect";
 
 #[derive(Serialize)]
 pub(crate) struct Capabilities {

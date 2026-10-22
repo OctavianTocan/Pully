@@ -73,15 +73,15 @@ impl Drop for Root {
         let _ = std::fs::remove_dir_all(&self.0);
     }
 }
-struct Harness {
+pub(in crate::personal_auth) struct Harness {
     _root: Root,
-    store: Store,
-    service: PersonalAuth,
+    pub(in crate::personal_auth) store: Store,
+    pub(in crate::personal_auth) service: PersonalAuth,
     clock: Arc<Clock>,
     provider: Arc<Provider>,
 }
 impl Harness {
-    fn new() -> Self {
+    pub(in crate::personal_auth) fn new() -> Self {
         let root = Root(
             std::env::temp_dir().join(format!("pully-personal-flow-{}", uuid::Uuid::new_v4())),
         );
@@ -92,7 +92,7 @@ impl Harness {
             OAuthConfig::new(
                 "pully-own-fixture-app".into(),
                 "fixture-server-secret".into(),
-                "https://auth.pully.example/github/callback",
+                "https://auth.pully.example/api/personal/v1/auth/github/callback",
             )
             .unwrap(),
         );
