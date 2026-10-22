@@ -1,0 +1,9 @@
+@cc [owner:OctavianTocan,label:product;architecture;security] native-diagram-vectors-retain-shaped-labels-and-arrowheads
+The iOS SVG adapter MUST preserve the inert server renderer's inherited font and paint
+properties, positioned text/tspan chunks, native shaped glyph positions, and local
+marker geometry at the path's endpoint or corner tangent. It MUST use the same shared
+Compose canvas and MUST NOT silently omit an unsupported label or marker. Unsupported,
+external-resource, entity-bearing or over-budget documents MUST fail into the existing
+safe diagram-rendering error path. Android's renderer and compatibility normalization
+MUST remain unchanged. Source: shared-diagrams-use-inert-native-vectors, the accepted
+21 Oct 2026 native adapter plan, and the 22 Oct actual release88 SVG rendering failures.

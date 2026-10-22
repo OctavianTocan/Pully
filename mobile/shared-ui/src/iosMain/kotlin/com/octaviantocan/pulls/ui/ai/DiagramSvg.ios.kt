@@ -7,9 +7,9 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.svg.SVGDOM
 import org.jetbrains.skia.svg.SVGLength
 
-/** Skiko's existing native SVG engine paints the same server document onto the Compose Skia canvas. */
+/** Native shaping and marker expansion fill the two gaps in Skia's inert SVG DOM. */
 actual fun parseDiagramSvg(source: String): DiagramSvg {
-    val data = Data.makeFromBytes(androidSvgSafe(source).encodeToByteArray())
+    val data = Data.makeFromBytes(nativeDiagramVectors(source).encodeToByteArray())
     val document = try { SVGDOM(data) } finally { data.close() }
     val root = document.root
     if (root == null) {
