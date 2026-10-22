@@ -863,6 +863,12 @@ impl Session {
         Ok(())
     }
 
+    /// @cc [owner:OctavianTocan,label:architecture] chatgpt-stored-pending-history-is-not-a-request
+    /// A same-binding saved conversation MAY have no completed continuation while its first
+    /// task is pending, failed or stopped. Nonempty saved continuations MUST retain the
+    /// canonical nested Responses validation, and every incoming/merged provider request
+    /// MUST retain its nonempty validation. Source: Tavi's22Oct2026 runtime/recovery
+    /// requirement and the approved persisted-pending-state correction.
     fn read(&self) -> Result<Stored> {
         let Some(value) = self.runtime.store.get(&self.partition)? else {
             return Ok(Stored {
@@ -878,7 +884,9 @@ impl Session {
         );
         let history: Vec<Value> =
             serde_json::from_value(value["history"].clone()).map_err(|_| unavailable())?;
-        validate_history(&history)?;
+        if !history.is_empty() {
+            validate_history(&history)?;
+        }
         let raw = value["tasks"]
             .as_array()
             .context("AI history is not valid")?;
