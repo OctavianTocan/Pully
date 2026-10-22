@@ -4,6 +4,7 @@
 import json
 from pathlib import Path
 import secrets
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
@@ -11,6 +12,7 @@ import xml.etree.ElementTree as ET
 MAX_FAILURES = 20
 MAX_MESSAGE = 2000
 MAX_DETAILS = 8000
+MAX_XCRESULT_SUMMARY = 64000
 
 
 def report_failures(path):
@@ -63,11 +65,43 @@ def _print_reports():
     print(json.dumps({"reportsFound": len(reports), "failuresPrinted": count}), flush=True)
 
 
+def _print_xcresult(bundle):
+    """
+    @cc [owner:OctavianTocan,label:architecture] ios-sdk-failure-summary-is-actual-diagnostic-evidence
+    A failed native SDK simulator step MUST retain bounded actual xcresult summary
+    output in the same CI log without replacing its original exit status or tests.
+    Missing bundles and summary-tool errors MUST be identified as unavailable
+    evidence, never a passing test receipt. Source: Tavi's 22 Oct 2026 strong
+    release-verification request and the observed quiet SDK test failure on 20e88954.
+    """
+    if not (Path(bundle) / "Info.plist").is_file():
+        print("No completed native SDK xcresult is available; inspect the failed test step.", flush=True)
+        return
+    try:
+        result = subprocess.run(
+            ["xcrun", "xcresulttool", "get", "test-results", "summary", "--path", bundle],
+            capture_output=True, text=True,
+        )
+    except OSError as error:
+        print(json.dumps({"summaryToolUnavailable": str(error)[:MAX_MESSAGE]}), flush=True)
+        return
+    if result.returncode:
+        print(json.dumps({"summaryExitCode": result.returncode}), flush=True)
+        print(result.stderr[:MAX_DETAILS], flush=True)
+        return
+    print(result.stdout[:MAX_XCRESULT_SUMMARY], flush=True)
+    if len(result.stdout) > MAX_XCRESULT_SUMMARY:
+        print("Further SDK summary text omitted; retain the full xcresult artifact.", flush=True)
+
+
 def main():
     token = secrets.token_hex(32)
     print(f"::stop-commands::{token}", flush=True)
     try:
-        _print_reports()
+        if len(sys.argv) == 3 and sys.argv[1] == "--xcresult":
+            _print_xcresult(sys.argv[2])
+        else:
+            _print_reports()
     finally:
         print(f"::{token}::", flush=True)
 

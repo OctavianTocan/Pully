@@ -72,8 +72,8 @@ fun GuestPages(
                         Text(t("personal.title"), style = PullsType.xxl, color = LocalPullsColors.current.text)
                         Text(t(if (personal?.account?.configured == true) "personal.intro" else "explore.signInUnavailable"),
                             style = PullsType.read, color = LocalPullsColors.current.muted)
-                        if (personal?.account?.configured == true) CtaButton(t("personal.continueGitHub"), {
-                            session.runFrom(screen, personal::openAccount)
+                        if (onGitHubSignIn != null) CtaButton(t("personal.connectGitHub"), {
+                            session.runFrom(screen, onGitHubSignIn)
                         }, Modifier.fillMaxWidth())
                         PillButton(t("personalBrowse.back"), { session.runFrom(screen, navigation.nav.back) })
                     }

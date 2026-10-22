@@ -11,7 +11,8 @@ completion instruction.
 @cc [owner:OctavianTocan,label:security;architecture] personal-public-read-is-a-typed-capability
 The personal GitHub surface MUST expose only the fixed GET repositories, selected
 repository pulls and own-pulls routes under api/personal/v1/github, its separate
-account family and typed account capabilities. A handler
+account family and typed account capabilities, plus its fixed Account-only review
+opening, overview, diff, file-pair and review-data GET routes. A handler
 MUST resolve the actual current personal bearer through the canonical auth vault;
 caller account/email, cookies, Access credentials and broader inherited OAuth scopes
 MUST NOT select authority. Existing public routes MUST retain publicRead authority
@@ -21,7 +22,9 @@ and return its captured account/immutable GitHub identity and repository visibil
 No arbitrary RPC, URL or method MAY be forwarded. This intentionally extends the
 21 Oct public-first boundary for Tavi's 22 Oct clarification that a signed-in user
 must reach their own accessible private repositories and PRs; it MUST NOT silently
-broaden existing public sessions or route semantics.
+broaden existing public sessions or route semantics. The fixed review read extension
+implements Tavi's 22 Oct full personal-account app instruction; it grants no arbitrary
+RPC, GitHub writes or AI capability.
 
 @cc [owner:OctavianTocan,label:security] personal-read-sources-and-repositories-stay-current
 Every awaited GitHub read and final publication MUST retain the original canonical

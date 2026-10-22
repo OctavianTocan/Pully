@@ -21,8 +21,10 @@ The native personal-account store MUST adapt the same shared PersonalSessionVaul
 through a throwing Cocoa storage port, without requiring Swift to construct an
 unexported client model. One application-wide vault and UI-dispatcher cleanup
 lifetime MUST be shared across scenes. Secure-store failure MUST remain a fixed
-retryable failure rather than an empty successful read or write. Source: Tavi's
-21 Oct 2026 personal-account request and the accepted 22 Oct native bridge plan.
+retryable failure rather than an empty successful read or write. A missing record
+MUST remain distinct from a thrown read and from an existing empty or corrupt blob
+across the Cocoa boundary. Source: Tavi's 21 Oct 2026 personal-account request and
+the accepted 22 Oct native bridge plan.
 
 @cc [owner:OctavianTocan,label:security;product] ios-personal-identity-retires-all-public-scenes
 Personal promotion or sign-out MUST synchronously revoke every older public runtime

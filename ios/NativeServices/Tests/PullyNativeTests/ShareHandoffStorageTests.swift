@@ -1,5 +1,5 @@
 import Foundation
-import PullyShareSupport
+@testable import PullyShareSupport
 import XCTest
 
 final class ShareHandoffStorageTests: XCTestCase {
@@ -72,9 +72,20 @@ final class ShareHandoffStorageTests: XCTestCase {
             XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
             #if os(iOS)
             let protection = (attributes[.protectionKey] as? FileProtectionType)?.rawValue ?? attributes[.protectionKey] as? String
+            #if targetEnvironment(simulator)
+            // The simulator has no Data Protection and reports no class; any class it does report must be complete.
+            if let protection { XCTAssertEqual(protection, FileProtectionType.complete.rawValue) }
+            #else
             XCTAssertEqual(protection, FileProtectionType.complete.rawValue)
             #endif
+            #endif
         }
+        #if os(iOS)
+        // Where the class cannot be read back, prove every write and attribute update requests it.
+        XCTAssertTrue(ShareFileProtection.writeOptions.contains(.completeFileProtection))
+        XCTAssertEqual(ShareFileProtection.attributes(directory: false)[.protectionKey] as? FileProtectionType, .complete)
+        XCTAssertEqual(ShareFileProtection.attributes(directory: true)[.protectionKey] as? FileProtectionType, .complete)
+        #endif
         XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: files.path)[.posixPermissions] as? NSNumber)?.intValue, 0o700)
         let context = try String(contentsOf: files.appendingPathComponent("source.json"), encoding: .utf8)
         XCTAssertFalse(context.contains("namespace"))

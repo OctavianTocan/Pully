@@ -1,7 +1,10 @@
 //! Native server-side jobs: clients observe revisions; only explicit cancellation stops work.
+pub(crate) mod authority;
+pub(crate) mod chatgpt_jobs;
+pub(crate) mod chatgpt_responses;
 mod lenses;
 mod preview;
-mod provider;
+pub(crate) mod provider;
 pub(super) use preview::safe_preview;
 mod tasks;
 mod tools;

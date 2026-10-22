@@ -74,6 +74,7 @@ jobs:
       - name: Test native account storage and configuration rules
         run: swift test --package-path ios/NativeServices
       - name: Test native account and Google SDK rules on the iOS simulator
+        id: native-sdk
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: ios/NativeServices
         run: |
@@ -97,6 +98,10 @@ jobs:
             -derivedDataPath ../build/NativeServices \
             -resultBundlePath ../build/NativeServices.xcresult \
             -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO
+      - name: Print actual native SDK simulator failure evidence
+        if: ${{ !cancelled() && steps.native-sdk.outcome == 'failure' }}
+        run: |
+          python3 ios/scripts/print-shared-test-failures.py --xcresult ios/build/NativeServices.xcresult
       - name: Test actual Keychain in an ad-hoc signed simulator app host
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         run: |

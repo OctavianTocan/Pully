@@ -29,11 +29,12 @@ pub(super) struct PersonalGitHub {
     permits: Arc<tokio::sync::Semaphore>,
     budget: Mutex<Budget>,
     repositories: Mutex<RepositoryFence>,
+    pub(super) reviews: Mutex<super::review::PullFence>,
 }
-struct RepositoryRead {
-    repository: ReadRepository,
-    scope: String,
-    lease: RepositoryLease,
+pub(super) struct RepositoryRead {
+    pub(super) repository: ReadRepository,
+    pub(super) scope: String,
+    pub(super) lease: RepositoryLease,
 }
 impl PersonalGitHub {
     pub(super) fn new(state: Arc<AppState>, http: reqwest::Client, origin: url::Url) -> Self {
@@ -47,12 +48,13 @@ impl PersonalGitHub {
                 requests: 0,
             }),
             repositories: Mutex::new(RepositoryFence::default()),
+            reviews: Default::default(),
         }
     }
     pub(super) fn current(&self) -> bool {
         self.state.identity.ensure_current().is_ok()
     }
-    fn check_repository(&self, scope: &str, lease: RepositoryLease) -> Result<()> {
+    pub(super) fn check_repository(&self, scope: &str, lease: RepositoryLease) -> Result<()> {
         if self
             .repositories
             .lock()
@@ -64,7 +66,7 @@ impl PersonalGitHub {
             Err(ReadError::new(Code::Forbidden))
         }
     }
-    fn retire_repository(&self, read: &RepositoryRead) {
+    pub(super) fn retire_repository(&self, read: &RepositoryRead) {
         self.repositories
             .lock()
             .unwrap_or_else(|error| error.into_inner())
@@ -86,20 +88,34 @@ impl PersonalGitHub {
             .map(str::to_owned)
             .ok_or_else(|| ReadError::new(Code::InvalidResponse))
     }
-    async fn get(
+    pub(super) async fn raw(
         &self,
         context: &Context,
-        segments: &[&str],
-        query: &[(&str, String)],
-    ) -> Result<Value> {
-        context.current()?;
+        method: reqwest::Method,
+        url: url::Url,
+        body: Option<Value>,
+        accept: &str,
+        max_body: usize,
+        current: &(dyn Fn() -> Result<()> + Sync),
+    ) -> Result<(u16, Value, String)> {
+        if url.origin() != self.origin.origin()
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err(ReadError::new(Code::InvalidRequest));
+        }
+        let check_current = || {
+            context.current()?;
+            current()
+        };
+        check_current()?;
         let _permit = self
             .permits
             .clone()
             .acquire_owned()
             .await
             .map_err(|_| ReadError::new(Code::Unavailable))?;
-        context.current()?;
+        check_current()?;
         {
             let mut budget = self
                 .budget
@@ -118,32 +134,25 @@ impl PersonalGitHub {
             }
             budget.requests += 1;
         }
-        let mut url = self.origin.clone();
-        url.path_segments_mut()
-            .map_err(|_| ReadError::new(Code::InvalidRequest))?
-            .clear()
-            .extend(segments);
-        url.query_pairs_mut()
-            .extend_pairs(query.iter().map(|(name, value)| (*name, value.as_str())));
-        let token = self
-            .state
-            .identity
-            .github_token(|| async { None })
-            .await
+        let token = self.state.identity.github_token(|| async { None }).await;
+        check_current()?;
+        let token = token
             .map_err(|_| ReadError::new(Code::Unauthorized))?
             .ok_or_else(|| ReadError::new(Code::Unauthorized))?;
-        context.current()?;
-        let response = self
+        let mut request = self
             .http
-            .get(url)
-            .header("accept", "application/vnd.github+json")
+            .request(method, url)
+            .header("accept", accept)
             .header("x-github-api-version", "2022-11-28")
             .header("user-agent", "Pully/personal-read")
-            .bearer_auth(&token)
-            .send()
-            .await
-            .map_err(|_| ReadError::new(Code::Unavailable))?;
-        context.current()?;
+            .bearer_auth(&token);
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        check_current()?;
+        let response = request.send().await;
+        check_current()?;
+        let response = response.map_err(|_| ReadError::new(Code::Unavailable))?;
         let status = response.status().as_u16();
         if status == 429
             || (status == 403
@@ -163,34 +172,98 @@ impl PersonalGitHub {
         if status == 401 {
             return Err(ReadError::new(Code::Reconnect));
         }
-        if matches!(status, 403 | 404) {
+        if status == 403 {
             return Err(ReadError::new(Code::Forbidden));
+        }
+        if status == 404 {
+            return Ok((404, serde_json::json!({}), String::new()));
         }
         if status != 200 {
             return Err(ReadError::new(Code::Unavailable));
         }
         if response
             .content_length()
-            .is_some_and(|length| length > MAX_BODY as u64)
+            .is_some_and(|length| length > max_body as u64)
         {
             return Err(ReadError::new(Code::InvalidResponse));
         }
         let mut bytes = Vec::new();
         let mut body = response.bytes_stream();
-        while let Some(chunk) = body.next().await {
+        loop {
+            check_current()?;
+            let chunk = body.next().await;
+            check_current()?;
+            let Some(chunk) = chunk else { break };
             let chunk = chunk.map_err(|_| ReadError::new(Code::Unavailable))?;
-            if chunk.len() > MAX_BODY.saturating_sub(bytes.len()) {
+            if chunk.len() > max_body.saturating_sub(bytes.len()) {
                 return Err(ReadError::new(Code::InvalidResponse));
             }
             bytes.extend_from_slice(&chunk);
-            context.current()?;
         }
-        let body: Value =
-            serde_json::from_slice(&bytes).map_err(|_| ReadError::new(Code::InvalidResponse))?;
-        if contains_secret(&body, &token) {
+        // Diffs and raw files of non-UTF-8 sources stay readable, as in the legacy loaders.
+        let text = String::from_utf8_lossy(&bytes).into_owned();
+        if text.contains(&token) {
             return Err(ReadError::new(Code::InvalidResponse));
         }
-        context.current()?;
+        check_current()?;
+        Ok((200, serde_json::json!({}), text))
+    }
+    pub(super) fn url(&self, path: &str) -> Result<url::Url> {
+        if !path.starts_with('/') || path.starts_with("//") {
+            return Err(ReadError::new(Code::InvalidRequest));
+        }
+        let url = self
+            .origin
+            .join(path)
+            .map_err(|_| ReadError::new(Code::InvalidRequest))?;
+        if url.origin() != self.origin.origin() || url.fragment().is_some() {
+            return Err(ReadError::new(Code::InvalidRequest));
+        }
+        Ok(url)
+    }
+    pub(super) async fn check_output(&self, context: &Context, value: &Value) -> Result<()> {
+        let token = self
+            .state
+            .identity
+            .github_token(|| async { None })
+            .await
+            .map_err(|_| ReadError::new(Code::Unauthorized))?
+            .ok_or_else(|| ReadError::new(Code::Unauthorized))?;
+        if contains_secret(value, &token) {
+            return Err(ReadError::new(Code::InvalidResponse));
+        }
+        context.current()
+    }
+    pub(super) async fn get(
+        &self,
+        context: &Context,
+        segments: &[&str],
+        query: &[(&str, String)],
+    ) -> Result<Value> {
+        let mut url = self.origin.clone();
+        url.path_segments_mut()
+            .map_err(|_| ReadError::new(Code::InvalidRequest))?
+            .clear()
+            .extend(segments);
+        url.query_pairs_mut()
+            .extend_pairs(query.iter().map(|(name, value)| (*name, value.as_str())));
+        let (status, _, text) = self
+            .raw(
+                context,
+                reqwest::Method::GET,
+                url,
+                None,
+                "application/vnd.github+json",
+                MAX_BODY,
+                &|| context.current(),
+            )
+            .await?;
+        if status == 404 {
+            return Err(ReadError::new(Code::Forbidden));
+        }
+        let body =
+            serde_json::from_str(&text).map_err(|_| ReadError::new(Code::InvalidResponse))?;
+        self.check_output(context, &body).await?;
         Ok(body)
     }
     pub(super) async fn repositories(
@@ -231,7 +304,7 @@ impl PersonalGitHub {
         context.current()?;
         Ok(values)
     }
-    async fn accessible_repository(
+    pub(super) async fn accessible_repository(
         &self,
         context: &Context,
         owner: &str,

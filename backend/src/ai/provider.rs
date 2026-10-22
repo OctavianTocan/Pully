@@ -750,7 +750,7 @@ fn pi_text_entries(body: &Value) -> Vec<&Value> {
     }
     entries
 }
-fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
+pub(crate) fn pi_models(body: &Value, preferred: &str) -> Vec<Value> {
     let entries = pi_text_entries(body);
     let fallback = entries
         .iter()

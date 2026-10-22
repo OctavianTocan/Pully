@@ -79,3 +79,16 @@ resumption. A failed probe, reentrant inactive event or retired source MUST NOT 
 new work. An already-entered bounded claim MAY finish across ordinary inactivity;
 this readiness gate MUST NOT cancel it. Source: the independently confirmed 22 Oct
 2026 personal-mount consent-resume finding and the accepted native epoch/probe plan.
+@cc [owner:OctavianTocan,label:product;security;architecture] github-account-invitations-explain-unavailable-configuration
+Ordinary Explore and Settings MUST expose a usable Connect GitHub action even when
+the build has no personal authorization origin. It MUST explain that unavailable
+configuration in the shared account presentation and allow public browsing, never
+fabricate connection success or start account work. A failed secure-store probe MUST
+instead explain device unavailability without admitting browser, claim or reader
+work. Configured, admitted entry MUST open the existing normal account sheet/runtime,
+never private consent automatically. An explicit Settings action MAY first select
+the public workspace, but MUST synchronously retire the old private source before
+carrying only a fixed normal-account intent to the new public generation. Retained,
+inactive or retired-source callbacks MUST NOT open or replay that intent. The same
+navigation stack and saved legitimate account MUST be preserved. Source: Tavi's
+22 Oct 2026 installed-app missing-login report and accepted visible GitHub entry plan.

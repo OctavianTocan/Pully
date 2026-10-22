@@ -16,8 +16,11 @@ final class PersonalSessionStorageHostTests: XCTestCase {
         let host = PersonalSessionStorageHost(blobs: NativePersonalSessionBlobStore(secrets: secrets))
         let store = IosPersonalSessionStore(storage: host, configuredOrigin: "")
         XCTAssertFalse(store.configured)
+        XCTAssertNil(try host.read().contents)
         try store.verifyStorage()
         try secrets.write(Data("not-a-vault".utf8), for: "vault-v1")
+        let contents = try XCTUnwrap(try host.read().contents)
+        XCTAssertEqual((0..<contents.size).map { UInt8(bitPattern: contents.get(index: $0)) }, Array("not-a-vault".utf8))
         // Use a new application lifetime to prove durable validation, not its in-memory cache.
         let reopened = IosPersonalSessionStore(storage: host, configuredOrigin: "")
         XCTAssertThrowsError(try reopened.verifyStorage())

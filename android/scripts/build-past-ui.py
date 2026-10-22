@@ -12,7 +12,7 @@ the app as it was when the next version replaced it. Every build is changed in t
 - the pinned debug key, so a rebuild on any machine installs over the last one.
 
 The APKs go to `<android dir>/past/<version>.apk` with `index.json` beside them, where the server serves them under
-`/android/past/` (backend/src/transport.rs). The verified release version is the current app, so it is never
+`/download/past/` (backend/src/transport.rs). The verified release version is the current app, so it is never
 built here. Unshipped main versions and orphaned cached APKs never enter the published index.
 
     android/scripts/build-past-ui.py               build every version not built yet

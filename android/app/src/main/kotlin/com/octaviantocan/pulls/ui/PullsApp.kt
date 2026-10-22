@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.withFrameNanos
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Analytics
@@ -44,6 +45,9 @@ import com.octaviantocan.pulls.ui.explore.NativeEntryMode
 import com.octaviantocan.pulls.ui.explore.NativeEntryState
 import com.octaviantocan.pulls.ui.personal.PersonalBrowseMount
 import com.octaviantocan.pulls.ui.personal.PersonalBrowseAccountSheet
+import com.octaviantocan.pulls.ui.personal.GitHubAccountEntry
+import com.octaviantocan.pulls.ui.personal.GitHubAccountEntrySheet
+import com.octaviantocan.pulls.ui.personal.GitHubAccountRequest
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FootBarLayer
@@ -83,12 +87,16 @@ import kotlinx.coroutines.launch
 fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     val context = LocalContext.current
     val entry = remember { NativeEntry.get(context) }
+    val accountRequest = remember(entry) { GitHubAccountRequest(entry) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val openingEntry = entry.generation
     val navigation = remember {
         AppNavigation(initialTarget?.let { runCatching { linkScreen(it, initialAIResult) }.getOrNull() },
             rootScreen = if (entry.mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
     }
     fun select(mode: NativeEntryMode) {
         if (entry.mode == mode) return
+        accountRequest.clear()
         val pendingLink = navigation.stack.lastOrNull()?.takeIf { it is Screen.Review || it is Screen.Repo }
         Commands.close()
         NativeEntry.select(context, mode)
@@ -97,29 +105,53 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     }
     key(entry.generation) {
         if (entry.mode == NativeEntryMode.Explore) {
-            GuestPullsApp(navigation, entry.guestSource()!!, initialTarget, onExistingAccount = { select(NativeEntryMode.ExistingServer) })
+            GuestPullsApp(navigation, entry.guestSource()!!, initialTarget, accountRequest, onExistingAccount = { select(NativeEntryMode.ExistingServer) })
         } else {
-            PrivatePullsApp(navigation, initialTarget, onExplore = { select(NativeEntryMode.Explore) })
+            PrivatePullsApp(navigation, initialTarget, onExplore = { select(NativeEntryMode.Explore) }, onGitHubAccount = {
+                accountRequest.request(
+                    current = { entry.generation == openingEntry && entry.mode == NativeEntryMode.ExistingServer },
+                    foreground = { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
+                    selectExplore = { select(NativeEntryMode.Explore) },
+                )
+            })
         }
     }
 }
 
 @Composable
-private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.GuestSource, initialTarget: String?, onExistingAccount: () -> Unit) {
+private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.GuestSource, initialTarget: String?, accountRequest: GitHubAccountRequest, onExistingAccount: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val session = remember { GuestBrowseSession(JvmRpcTransport(), scope, source, navigation) }
     val personal = remember {
         com.octaviantocan.pulls.data.personal.PersonalAccounts.runtime(context, scope, { source.current }) {
             Commands.close()
+            accountRequest.clear()
             NativeEntry.get(context).renewExplore()
             navigation.reset(Screen.Explore)
         }
     }
     val personalBrowse = remember { PersonalBrowseMount(personal, scope, source, navigation) }
-    DisposableEffect(session, personal, personalBrowse) { onDispose { personalBrowse.close(); personal.close(); session.close() } }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { personalBrowse.foreground(true); session.foreground(); personal.restore() }
+    val githubAccountEntry = remember(personalBrowse, lifecycle) {
+        GitHubAccountEntry(
+            current = { session.current },
+            foreground = { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
+            configured = { personal.configured },
+            available = { personal.verifyStorage().also(personalBrowse::availability) },
+            mount = { personalBrowse },
+        )
+    }
+    DisposableEffect(session, personal, personalBrowse, githubAccountEntry) { onDispose { githubAccountEntry.close(); personalBrowse.close(); personal.close(); session.close() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val available = personal.verifyStorage()
+        personalBrowse.foreground(true, available)
+        session.foreground()
+        if (available) personal.restore()
+        accountRequest.deliver(githubAccountEntry)
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { personalBrowse.foreground(false) }
+    LaunchedEffect(accountRequest.hasPending, githubAccountEntry) { accountRequest.deliver(githubAccountEntry) }
     val personalView by personal.view.collectAsState()
     val toaster = remember { Toaster() }
     val motion = remember { PageMotion() }
@@ -166,13 +198,14 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
         val openGitHub = rememberOpenOnGithub()
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             GuestPages(navigation, motion, session, onExistingAccount, openGitHub,
-                onGitHubSignIn = if (personal.configured) personalBrowse::openAccount else null,
+                onGitHubSignIn = { githubAccountEntry.open() },
                 onCommands = { Commands.open() }, githubAccount = personalView.account?.login, personal = personalBrowse)
             PersonalBrowseAccountSheet(personalBrowse,
                 onOpenBrowser = { url ->
                     context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
                         .addCategory(android.content.Intent.CATEGORY_BROWSABLE).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
                 })
+            GitHubAccountEntrySheet(githubAccountEntry)
             themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             CommandPalette()
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
@@ -182,8 +215,10 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
 }
 
 @Composable
-private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, onExplore: () -> Unit) {
+private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, onExplore: () -> Unit, onGitHubAccount: () -> Unit) {
     val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val githubSource = com.octaviantocan.pulls.data.RepoIdentity.generation
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
     val stack = navigation.stack
     // The server is asked for a newer build on start and whenever the app comes back to the front, and an update
@@ -323,7 +358,10 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
                 }
             }
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
-            if (stack.last() == Screen.Settings) SettingsScreen(nav)
+            if (stack.last() == Screen.Settings) SettingsScreen(nav, onGitHubAccount = {
+                if (githubSource == com.octaviantocan.pulls.data.RepoIdentity.generation &&
+                    lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && stack.lastOrNull() == Screen.Settings) onGitHubAccount()
+            })
             themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             if (feedback) com.octaviantocan.pulls.ui.settings.FeedbackSheet(onClose = { feedback = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })

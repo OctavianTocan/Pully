@@ -124,6 +124,7 @@ describe('APK publication safeguards', () => {
       assert.equal(result.status, 0, result.stderr)
       assert.equal(readFileSync(join(f.out, 'pulls.apk'), 'utf8'), f.bytes)
       assert.equal(JSON.parse(readFileSync(join(f.out, 'latest.json'))).sourceCommit, approved)
+      assert.equal(JSON.parse(readFileSync(join(f.out, 'latest.json'))).apkUrl, 'https://example.com/download/pully.apk')
       assert.equal(f.git('branch', '--show-current'), 'main')
       assert.deepEqual(JSON.parse(readFileSync(join(f.out, 'past/index.json'))).versions, [])
       await waitForHistory(f.home)
