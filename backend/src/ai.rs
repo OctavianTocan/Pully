@@ -1,7 +1,7 @@
 //! Native server-side jobs: clients observe revisions; only explicit cancellation stops work.
 mod lenses;
 mod preview;
-mod provider;
+pub(crate) mod provider;
 pub(super) use preview::safe_preview;
 mod tasks;
 mod tools;

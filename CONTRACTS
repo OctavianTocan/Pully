@@ -94,6 +94,10 @@ account-owned vault. Jobs MUST name the captured connection/revision and model, 
 accept arbitrary execution URLs or keys. Personal or guest work MUST NOT inherit
 operator environment/CLI credentials, and a failed personal connection MUST NOT
 silently select an operator-funded default. A guest has no personal paid authority.
+By Tavi's 22 Oct 2026 clarification, configuring or using AI MUST NOT require a GitHub
+login. A separately verified AI/Pully principal or explicitly labelled shared-default
+allowance MAY authorize AI independently; it MUST NOT impersonate a GitHub account or
+be silently substituted for a failed personal connection.
 No answer, notice, ordinary status or log line MAY echo a key or any part of it.
 
 @cc [owner:OctavianTocan,label:architecture;design] one-look-two-clients
