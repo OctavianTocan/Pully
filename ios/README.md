@@ -1,15 +1,29 @@
 # Pully iOS host
 
-This internal preview hosts the same shared Compose code used by Android. Ordinary
-launches connect the real shared account/client to the configured server, with native
+Ordinary scenes supply the same shared app with separate native Share and personal
+account adapters. The personal vault uses its own device-only, app-private Keychain
+item and is shared across scenes. Its profile stays in public Explore; it does not
+authorize the legacy private workspace or Share imports. `PULLY_PERSONAL_AUTH_ORIGIN`
+is an optional trusted build setting, empty by default. A deployment must configure
+its actual Pully-owned authorization origin before native GitHub sign-in is offered.
+No client secret or legacy server setting supplies that origin. Share's optional
+App Group setup is described below and remains independent of this vault.
+
+Strict Debug fixtures receive neither ordinary adapter. The actual Cocoa error,
+Keychain and lifecycle tests belong to `PullyAccountTests` and the existing signed
+Keychain host; metadata compilation alone does not establish their Apple behavior.
+
+This internal preview hosts the same shared Compose code used by Android. Fresh
+launches use public Explore without constructing the private application graph. The
+existing-server entry connects the real shared account/client to its server, with native
 Keychain storage, restored-session verification, the existing sign-in page and Server
 fields. The existing Home and repository screens retain their shared route stack,
 filters, scroll state, profile graphs, pull-request rows and message catalog. Shared
 settings synchronization and first-party usage policies use their real native adapters.
-Home now opens the existing shared ReviewScreen and Overview/Diff readers through the
-same session cache and navigation stack. AI, viewer-progress writes and full settings
-remain unavailable before work until their complete workflows are installed and proven.
-The complete review journey is still being connected. No service credentials are bundled;
+Home opens the existing shared ReviewScreen and Overview/Diff readers through the
+same session cache and navigation stack. The complete private source installs its shared
+Analyze, Tour, Brief, Ask/history, viewer progress and settings services; actual native
+journeys remain a release verification requirement. No service credentials are bundled;
 push, background execution, associated domains and distribution signing remain separate.
 
 The deterministic, nonprivate fixture journey requires the Debug launch environment
@@ -245,3 +259,10 @@ The separate share-extension work must use an optional provisioned App Group for
 sanitized, source-bound handoff data and keep all credentials in the app-private
 Keychain. An extension cannot promise to foreground Pully; saving and then opening
 the app remains an explicit user action.
+
+`PullyShare.appex` implements that thin system handoff using the same shared-domain
+parser and guarded inbox. The default preview has no provisioned App Group, so its
+extension reports setup is required without exposing Save. See the
+[share adapter](PullyShare/README.md) for the exact source lifetime, protected storage,
+tests and external provisioning requirement. Ordinary app and custom URL routing do
+not require that setup.

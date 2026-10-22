@@ -18,8 +18,10 @@ Source: Tavi's 21 Oct 2026 iOS decision and chosen account/cache ownership plan.
 Native Google sign-in MUST remain unavailable without a registered iOS client and
 its reversed-client-ID callback scheme. It MUST request an ID token for the
 existing server's web client ID, and MUST leave signature, audience, expiry and
-email-allowlist validation to that server. It MUST NOT add GitHub OAuth or store a
-Google client secret. Source: root google-sign-in-same-account and the chosen
+email-allowlist validation to that server. The Google adapter MUST NOT add GitHub
+OAuth or store a Google client secret. The separately owned public personal-account
+flow MUST NOT reuse Google or legacy account authority. Source: root
+google-sign-in-same-account, Tavi's separate personal GitHub request and the chosen
 21 Oct 2026 iOS plan's Authentication section.
 
 @cc [owner:OctavianTocan,label:security;product] ios-model-choice-preserves-the-private-source
@@ -38,3 +40,30 @@ for the shared parser, never reconfigure a server or implement another route sta
 Google callbacks MUST be consumed before ordinary links in the same batch; a closed
 scene receiver MUST be inert. Source: the accepted 21 Oct 2026 iOS native link plan,
 including cold/warm delivery, auth priority and source isolation.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-share-source-revocation-precedes-publication
+The optional identity-replacement hook MUST run synchronously before publishing a
+different endpoint, Access policy or account, and before sign-out or credential
+reset publishes an anonymous source. Same-account session renewal, successful
+restored verification, retries and scene recreation MUST NOT rotate a share source
+token. Handoff storage failure MUST fail closed for imports without blocking ordinary
+credential cleanup. Source: the accepted 21 Oct 2026 native share handoff plan.
+
+@cc [owner:OctavianTocan,label:security] ios-personal-blob-has-separate-private-storage
+The personal Pully session vault MUST use a separate app-private, nonsynchronizing
+Keychain item accessible only while unlocked on this device. The native adapter
+MUST atomically replace the complete bounded blob, preserve its previous contents
+on failure, and reject empty or oversized data without deleting another credential.
+Only an absent item MAY become a successful missing read; locked, unavailable or
+corrupt storage MUST fail. It MUST NOT use UserDefaults, plaintext, a shared access
+group or the legacy account's credential service. Source: Tavi's 21 Oct 2026
+personal GitHub request and accepted 22 Oct native secure-stage/confirm/publish plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] ios-personal-active-events-are-synchronous
+The personal-account activity adapter MUST synchronously report the actual scene's
+active state on registration and every active/inactive transition. Cancellation
+MUST detach exactly its registration. Reentrant inactivity or disconnection MUST
+prevent an obsolete active event, and a closed adapter MUST remain inactive. The
+existing Home started/background event meanings MUST remain unchanged. Source:
+the accepted 22 Oct native personal lifecycle plan and independent mounted sign-in
+foreground-race finding.

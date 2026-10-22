@@ -16,6 +16,75 @@ import kotlin.test.*
 @OptIn(ExperimentalCoroutinesApi::class)
 class NativeWorkspaceOwnerTest {
     @Test
+    fun personalRenewalClosesTheOldPublicSessionAndKeepsOneExploreStackWithoutPrivateWork() = runTest {
+        val entry = NativeEntryState(false)
+        val navigation = AppNavigation(rootScreen = Screen.Explore)
+        val held = CompletableDeferred<RpcResponse>()
+        val sessions = mutableListOf<GuestBrowseSession>()
+        val currents = mutableListOf<() -> Boolean>()
+        var selected = 0
+        val owner = NativeWorkspaceOwner(entry, navigation,
+            createGuest = { source, stack, current ->
+                assertSame(navigation, stack)
+                assertTrue(sessions.none { it.current })
+                currents += current
+                val session = GuestBrowseSession(RpcTransport { withContext(NonCancellable) { held.await() } }, backgroundScope, source, stack)
+                sessions += session
+                object : NativeWorkspace {
+                    override fun close() { assertFalse(current()); session.close() }
+                }
+            },
+            createExisting = { _, _ -> error("A public account must not construct private services") },
+            selected = { selected++ },
+        )
+        val old = sessions.single()
+        old.repositories.editQuery("old personal query")
+        old.repositories.start(); runCurrent()
+        navigation.stack.add(Screen.Repo("public-owner", "public-repo"))
+        val oldEpoch = entry.generation
+        owner.renewExplore()
+        assertEquals(oldEpoch + 1, entry.generation)
+        assertEquals(NativeEntryMode.Explore, entry.mode)
+        assertEquals(listOf(Screen.Explore), navigation.stack.toList())
+        assertSame(navigation, owner.navigation)
+        assertFalse(currents.first()())
+        assertTrue(currents.last()())
+        assertEquals(0, selected, "Identity renewal must not overwrite a saved entry choice")
+        old.repositories.runIfCurrent { error("The old public callback survived renewal") }
+        held.complete(RpcResponse(200, """{"items":[],"incomplete_results":false}""", "application/json"))
+        runCurrent()
+        assertEquals("", old.repositories.query)
+        assertTrue(old.repositories.repositories.isEmpty())
+        assertFalse(old.current)
+        assertTrue(sessions.last().current)
+        owner.close()
+        owner.renewExplore()
+        assertEquals(2, sessions.size)
+    }
+
+    @Test
+    fun aPersonalChangeDoesNotRenewOrCloseTheSelectedPrivateWorkspace() {
+        val entry = NativeEntryState(true)
+        val navigation = AppNavigation()
+        navigation.nav.settings()
+        var closed = false
+        val owner = NativeWorkspaceOwner(entry, navigation,
+            createGuest = { _, _, _ -> error("Private entry must remain private") },
+            createExisting = { _, current -> object : NativeWorkspace {
+                override fun close() { assertFalse(current()); closed = true }
+            } },
+            selected = { error("A personal identity must not select a legacy entry") },
+        )
+        val original = owner.workspace
+        owner.renewExplore()
+        assertSame(original, owner.workspace)
+        assertEquals(listOf(Screen.Home, Screen.Settings), navigation.stack.toList())
+        assertEquals(0L, owner.generation)
+        assertFalse(closed)
+        owner.close()
+    }
+
+    @Test
     fun freshPublicFactoryRunsNoPrivateAccountObserverOrRpcAndUsesTheSuppliedStack() = runTest {
         val storage = EntryAccountStorage()
         val entry = NativeEntryState(false, NativeEntryMode.ExistingServer)

@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Pully internal preview",
+    "reading": "Reading the shared link…",
+    "save": "Save for Pully",
+    "unsupported": "Share a GitHub pull request, repository, commit, compare or a supported link to your Pully server.",
+    "hint": "Save this link, then open Pully to continue with your current account. Saved links expire after 24 hours.",
+    "unavailable": "Pully sharing needs the same provisioned App Group in the app and its extension.",
+    "busy": "Pully sharing is busy. Wait a moment, then share this link again.",
+    "noSource": "Open Pully and sign in before saving a link.",
+    "staleSource": "The Pully account or server changed. Share this link again.",
+    "invalidRecord": "Pully could not read this saved link. Share it again.",
+    "failure": "Pully could not save this link. Unlock the device and share it again."
+  },
   "explore": {
     "title": "Explore",
     "intro": "Discover public projects and their open pull requests. No sign-in needed.",

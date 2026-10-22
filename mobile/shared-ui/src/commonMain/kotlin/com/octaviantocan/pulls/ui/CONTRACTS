@@ -18,6 +18,11 @@ without reviving its old callbacks or input. Strict Debug private fixtures MUST 
 gain a public/network route. An ordinary checking or failed existing connection MUST
 keep an explicit route back to public browsing. Source: Tavi's 21 Oct 2026 fresh-install/public browsing
 decision and the accepted 22 Oct 2026 lazy iOS Guest integration plan.
+Personal promotion or local sign-out MUST retire and recreate only the public
+workspace, synchronously revoke its retained callbacks and reset the same stack to
+Explore. It MUST NOT select or construct the existing-server workspace, change the
+saved entry choice, or alter its credentials. Source: Tavi's separate public-read
+personal-account request and the accepted 22 Oct native personal mount plan.
 
 @cc [owner:OctavianTocan,label:product;security] native-entry-handoff-keeps-the-displayed-link
 Choosing the existing-server entry from a displayed guest link fallback MUST retain
@@ -104,6 +109,24 @@ URL. Source retirement MUST discard delivered reopen events; a pending sign-in i
 MAY remain only with its opening audience still enforced.
 Source: Tavi's accepted 21 Oct 2026 iOS link and account isolation plan and the existing
 nav-link-closes-what-was-open and pr-links-land-on-the-thing requirements.
+
+@cc [owner:OctavianTocan,label:architecture;security] shared-share-data-enters-the-existing-inbox
+Sanitized share data MUST be decoded by the same shared-domain codec and enter the
+existing incoming-link inbox as its typed HomeLink destination. It MUST retain the
+same opening audience, suspending sheet-exit fences, same-target reopen policy and
+Compose Back stack as ordinary links. Raw rejected handoff payloads MUST NOT be
+retained or turned into placeholder destinations. Source: the accepted 21 Oct 2026
+native share handoff, single-stack and account-isolation plan.
+
+@cc [owner:OctavianTocan,label:product;security] explicit-native-arrival-outranks-older-durable-share
+A native URL/activity arrival MUST take precedence over a saved share imported later
+in the same foreground activation, including after that explicit arrival is consumed.
+Verification pause/resume and source replacement MUST NOT erase that priority. Only
+the actual native background transition MAY start a fresh activation; an initial or
+repeated background report MUST preserve a newly queued cold-launch intent. A
+superseded saved record MAY be consumed without delivery, retaining all existing
+source, foreground-grant and audience checks. Source: the confirmed 22 October 2026
+native composition review finding 2 and Tavi's one-stack incoming-link requirements.
 
 @cc [owner:OctavianTocan,label:security;architecture] shared-root-sheets-share-one-source-lifetime
 The root MUST retain one Settings, model/catalog, Stats, Feedback and Commands bundle
