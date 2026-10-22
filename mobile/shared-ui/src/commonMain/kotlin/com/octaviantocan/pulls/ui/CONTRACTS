@@ -23,7 +23,9 @@ decision and the accepted 22 Oct 2026 lazy iOS Guest integration plan.
 Choosing the existing-server entry from a displayed guest link fallback MUST retain
 that exact destination through private verification/sign-in on the same stack. A
 newer incoming arrival MUST take precedence, and an old private audience MUST still
-be enforced after verification. Source: shared-incoming-links-keep-their-audience,
+be enforced after verification. Entry selection MUST NOT copy a raw Guest repository
+or review route into the private stack before the restored arrival passes that
+audience check. Source: shared-incoming-links-keep-their-audience,
 guest-incoming-links-commit-before-consumption and the accepted 22 Oct 2026 iOS mount.
 
 @cc [owner:OctavianTocan,label:product;architecture] shared-back-cancels-current-edit-first

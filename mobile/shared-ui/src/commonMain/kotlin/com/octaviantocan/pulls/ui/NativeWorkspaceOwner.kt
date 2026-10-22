@@ -40,13 +40,9 @@ class NativeWorkspaceOwner(
 
     fun select(mode: NativeEntryMode) {
         if (closed || entry.mode == mode) return
-        val pending = navigation.stack.lastOrNull()?.takeIf {
-            entry.mode == NativeEntryMode.Explore && mode == NativeEntryMode.ExistingServer && (it is Screen.Repo || it is Screen.Review)
-        }
         retire()
         entry.select(mode)
         navigation.reset(if (mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
-        pending?.let(navigation.stack::add)
         selected(mode)
         workspace = create()
     }

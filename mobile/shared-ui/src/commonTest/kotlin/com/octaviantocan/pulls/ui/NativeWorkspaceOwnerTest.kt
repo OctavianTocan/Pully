@@ -128,7 +128,7 @@ class NativeWorkspaceOwnerTest {
         val fallback = Screen.Repo("public-owner", "public-repo")
         navigation.stack.add(fallback)
         owner.select(NativeEntryMode.ExistingServer)
-        assertEquals(listOf(Screen.Home, fallback), navigation.stack.toList())
+        assertEquals(listOf(Screen.Home), navigation.stack.toList())
         owner.select(NativeEntryMode.Explore)
         assertEquals(listOf(Screen.Explore), navigation.stack.toList())
         assertSame(navigation, owner.navigation)
