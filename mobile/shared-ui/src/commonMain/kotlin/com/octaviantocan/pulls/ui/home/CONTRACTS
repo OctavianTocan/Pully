@@ -388,6 +388,16 @@ MUST require both a ready gate and an actually foreground mounted reader. Accept
 server writes MUST keep their separate source lifetime. Source: the accepted
 21 Oct 2026 verified-source and Inbox pause/resume iOS plan.
 
+@cc [owner:OctavianTocan,label:product;security] shared-inbox-stop-keeps-a-rejected-task-running
+An explicit Inbox Ask Stop MUST require a successful server cancellation receipt;
+rejection MUST retain the authoritative running task and expose its error for retry.
+A visible eligible reader MUST receive the existing Error feedback. An accepted
+same-source rejection MUST remain readable after ordinary dismissal or pause without
+replaying feedback on resume; a retired source or replacement operation MUST NOT
+receive it. A queued Stop MUST recheck its drawn control before dispatch. Cleanup
+cancellation MUST retain its existing best-effort behavior. Source: Tavi's accepted
+22 Oct 2026 complete native AI Stop/error journey and the real RPC rejection review.
+
 @cc [owner:OctavianTocan,label:security;product] home-write-dispatch-requires-current-verified-readiness
 Posted deletion and an explicit running-tour Stop MUST check the current source and
 verified foreground readiness before sending a new write, including a retained or

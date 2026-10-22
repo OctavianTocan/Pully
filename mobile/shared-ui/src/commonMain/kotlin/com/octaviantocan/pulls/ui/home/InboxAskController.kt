@@ -205,11 +205,15 @@ class InboxAsk(
         scope.launch {
             try {
                 if (!owns(request) || !canAsk || !permitted() || followed?.id != drawn.id || followed?.running != true) return@launch
-                repo.cancelTask(drawn.id)
+                problem = null
+                repo.cancelTask(drawn.id, bestEffort = false)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                if (owns(request) && canAsk && followed?.id == drawn.id) problem = failure.message ?: "Request failed"
+                if (owns(request) && followed?.id == drawn.id) {
+                    problem = failure.message ?: "Request failed"
+                    feedback(Cue.Error)
+                }
             }
         }
     }
