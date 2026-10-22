@@ -395,3 +395,11 @@ queued callback. An accepted same-source receipt MUST still settle after an ordi
 scene pause; a replacement source MUST NOT receive its rows, cues or errors. A failed
 or unstarted Stop MUST NOT announce that the tour stopped. Source: Tavi's accepted
 21 Oct 2026 full native review/AI journey and verified scene lifecycle plan.
+
+@cc [owner:OctavianTocan,label:architecture;security] native-dialog-back-authority-belongs-to-its-host-and-source
+A native Dialog Back bridge MUST use the host's real active-scene/root/presentation
+authority. A source-bound native adapter MUST additionally reject a retired source,
+and a host which provides no authority MUST fail closed. The adapter MUST NOT install
+a second recognizer or infer native foreground from server verification. Source: the
+accepted 22 Oct 2026 actual limitation-sheet Back completion repair, preserving
+shared-inbox-verification-and-native-foreground-are-independent.

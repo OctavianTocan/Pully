@@ -24,7 +24,7 @@ private final class HomeBackHandle: NSObject, HomeLifecycleSubscription {
 
 /// Required shared-screen services. Kotlin calls this boundary synchronously on its UI thread.
 @MainActor
-final class HomeActionsHost: NSObject, NativeHomeActions {
+final class HomeActionsHost: NSObject, NativeHomeActions, NativeBackReadiness {
     private let lifecycle: NativeSceneLifecycle
     private final class BackRegistration {
         let id = UUID()
@@ -64,6 +64,10 @@ final class HomeActionsHost: NSObject, NativeHomeActions {
             guard sceneActive, !disconnected, let controller = rootView?.window?.rootViewController else { return }
             _ = NativeHomeSystemActions.openInBrowser(url, presenting: controller)
         }
+    }
+
+    nonisolated func isSharedBackActive() -> Bool {
+        MainActor.assumeIsolated { !disconnected && sharedContentIsActive }
     }
 
     nonisolated func observeLifecycle(observer: HomeLifecycleObserver) -> HomeLifecycleSubscription {
