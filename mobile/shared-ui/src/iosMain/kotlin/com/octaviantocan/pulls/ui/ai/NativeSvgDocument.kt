@@ -15,7 +15,13 @@ private const val MAX_SVG_BYTES = 4 * 1024 * 1024
 internal const val MAX_NATIVE_VECTOR_CHARACTERS = 32 * 1024 * 1024
 
 internal sealed interface NativeSvgPart
-internal class NativeSvgText(var value: String) : NativeSvgPart
+internal class NativeSvgText(value: String) : NativeSvgPart {
+    private val buffer = StringBuilder(value)
+    var value: String
+        get() = buffer.toString()
+        set(value) { buffer.clear().append(value) }
+    fun append(value: String) { buffer.append(value) }
+}
 internal class NativeSvgElement(
     val name: String,
     val attributes: Map<String, String>,
@@ -96,7 +102,7 @@ private class NativeSvgReader : NSObject(), NSXMLParserDelegateProtocol {
         }
         val previous = element.children.lastOrNull() as? NativeSvgText
         if (previous == null) element.children += NativeSvgText(foundCharacters)
-        else previous.value += foundCharacters
+        else previous.append(foundCharacters)
     }
 
     private fun abort(parser: NSXMLParser) {
