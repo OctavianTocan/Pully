@@ -4,6 +4,8 @@ import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.core.LinkPlace
 import com.octaviantocan.pulls.core.LinkPlaces
 import com.octaviantocan.pulls.data.RepoConfiguration
+import com.octaviantocan.pulls.ui.home.decodeSharedLink
+import com.octaviantocan.pulls.ui.home.encodeSharedLink
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -23,6 +25,43 @@ class IncomingLinkInboxTest {
         requireNotNull(incomingLinkAudience(RepoConfiguration(server, mapOf("CF-Access-Client-Secret" to access, "X-Pully-Session" to session)), account, account != null))
     private suspend fun open(audience: IncomingLinkAudience = audience(), current: () -> Boolean = { true }, close: suspend () -> Unit = {}, invalid: () -> Unit = {}) =
         inbox.openPending(audience, navigation, current, close, invalid)
+
+    @Test fun actualSanitizedCodecDataUsesTheSamePendingRouteAndSameTargetReopen() = runTest {
+        navigation.stack.add(Screen.Repo("octo", "repo"))
+        val file = LinkPlaces.fileAnchor("src/main.kt")
+        val encoded = assertNotNull(encodeSharedLink("https://github.com/octo/repo/pull/12/files?session=sample#diff-${file}L42"))
+        inbox.receive(assertNotNull(decodeSharedLink(encoded)), audience())
+        assertNull(assertNotNull(inbox.pending).text)
+        assertNotNull(assertNotNull(inbox.pending).link)
+        assertFalse(open(current = { false }))
+        assertTrue(open())
+        val original = navigation.stack.last() as Screen.Review
+        assertEquals(LinkPlace.Files(file, 42, true), original.place?.place)
+        inbox.receive(assertNotNull(decodeSharedLink(assertNotNull(encodeSharedLink("https://github.com/octo/repo/pull/12/checks?check_run_id=77")))), audience())
+        assertTrue(open())
+        assertSame(original, navigation.stack.last())
+        assertEquals(LinkPlace.Checks(77), assertNotNull(inbox.reopened).place)
+        navigation.nav.back()
+        assertEquals(listOf(Screen.Home, Screen.Repo("octo", "repo")), navigation.stack.toList())
+    }
+
+    @Test fun typedShareCannotCrossAnAccountReplacementWhileSheetExitIsSuspended() = runTest {
+        val link = assertNotNull(decodeSharedLink(assertNotNull(encodeSharedLink("https://github.com/octo/repo/pull/12"))))
+        inbox.receive(link, audience())
+        val arrival = inbox.pending
+        var active = true
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val opening = launch { assertFalse(open(current = { active }, close = { entered.complete(Unit); release.await() })) }
+        entered.await()
+        active = false
+        release.complete(Unit)
+        opening.join()
+        assertSame(arrival, inbox.pending)
+        assertTrue(open(audience(account = "other@example.test"), close = { error("An obsolete share must not close current sheets.") }))
+        assertNull(inbox.pending)
+        assertEquals(listOf(Screen.Home), navigation.stack.toList())
+    }
 
     @Test fun signedOutIntentWaitsThenOpensOverHomeAfterSameSourceSignIn() = runTest {
         inbox.receive("https://github.com/octo/repo/pull/12", audience(account = null))

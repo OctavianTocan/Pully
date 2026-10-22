@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Interne Pully-Vorschau",
+    "reading": "Geteilter Link wird gelesen…",
+    "save": "Für Pully speichern",
+    "unsupported": "Teile einen GitHub-Pull-Request, ein Repository, einen Commit, einen Vergleich oder einen unterstützten Link zu deinem Pully-Server.",
+    "hint": "Speichere diesen Link und öffne dann Pully, um mit deinem aktuellen Konto fortzufahren. Gespeicherte Links verfallen nach 24 Stunden.",
+    "unavailable": "Zum Teilen benötigt Pully dieselbe bereitgestellte App Group in der App und ihrer Erweiterung.",
+    "busy": "Pully verarbeitet gerade einen geteilten Link. Warte kurz und teile diesen Link erneut.",
+    "noSource": "Öffne Pully und melde dich an, bevor du einen Link speicherst.",
+    "staleSource": "Das Pully-Konto oder der Server wurde geändert. Teile diesen Link erneut.",
+    "invalidRecord": "Pully konnte diesen gespeicherten Link nicht lesen. Teile ihn erneut.",
+    "failure": "Pully konnte diesen Link nicht speichern. Entsperre das Gerät und teile ihn erneut."
+  },
   "common": {
     "cancel": "Abbrechen",
     "save": "Speichern",

@@ -47,6 +47,15 @@ class NativeWorkspaceOwner(
         workspace = create()
     }
 
+    /** A personal identity changes the public source, never the separately saved private entry. */
+    fun renewExplore() {
+        if (closed || entry.mode != NativeEntryMode.Explore) return
+        retire()
+        entry.renewExplore()
+        navigation.reset(Screen.Explore)
+        workspace = create()
+    }
+
     private fun retire() {
         val previous = workspace
         try { previous?.beforeLeave() }
