@@ -37,6 +37,13 @@ oldest, so they reach an account without them but never override another phone's
 Access secrets, the session, Update notifications and Usage stats stay on the phone
 ("start saving settings, both on the mobile app and also sync it": Tavi, 16 Oct 12:47).
 
+@cc [owner:OctavianTocan,label:architecture;product] settings-sync-policy-keeps-native-owner-lazy
+The SettingsSync newer/disowned policy and SYNCED inventory MUST remain callable
+without initializing Android preferences, account state or a Main-dispatched job owner.
+Only a context-backed synchronization operation MAY construct that native owner.
+Source: Tavi's 21 Oct 2026 shared settings reuse and the accepted 22 Oct 2026 Android
+release account-policy initialization regression.
+
 @cc [owner:OctavianTocan,label:architecture] data-server-is-the-source
 The private Inbox, diffs, tours and AI work MUST come from the configured server's API,
 the same actions the web app runs. Tavi's 21 Oct 2026 anonymous browsing decision permits
