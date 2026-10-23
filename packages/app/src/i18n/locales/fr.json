@@ -1,4 +1,17 @@
 {
+  "nativeShare": {
+    "title": "Aperçu interne de Pully",
+    "reading": "Lecture du lien partagé…",
+    "save": "Enregistrer pour Pully",
+    "unsupported": "Partagez une pull request GitHub, un dépôt, un commit, une comparaison ou un lien pris en charge vers votre serveur Pully.",
+    "hint": "Enregistrez ce lien, puis ouvrez Pully pour continuer avec votre compte actuel. Les liens enregistrés expirent après 24 heures.",
+    "unavailable": "Le partage Pully nécessite le même App Group provisionné dans l’app et son extension.",
+    "busy": "Pully traite un autre partage. Patientez un instant, puis partagez à nouveau ce lien.",
+    "noSource": "Ouvrez Pully et connectez-vous avant d’enregistrer un lien.",
+    "staleSource": "Le compte ou le serveur Pully a changé. Partagez à nouveau ce lien.",
+    "invalidRecord": "Pully n’a pas pu lire ce lien enregistré. Partagez-le à nouveau.",
+    "failure": "Pully n’a pas pu enregistrer ce lien. Déverrouillez l’appareil et partagez-le à nouveau."
+  },
   "common": {
     "cancel": "Annuler",
     "save": "Enregistrer",

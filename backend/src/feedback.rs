@@ -60,6 +60,7 @@ pub fn clean(input: &Value, now_ms: u64) -> Result<Map<String, Value>> {
     );
     put(&mut device_out, "model", short(device, "model", 64));
     put(&mut device_out, "android", short(device, "android", 16));
+    put(&mut device_out, "ios", short(device, "ios", 16));
     put(&mut device_out, "sdk", number(device, "sdk"));
     out.insert("device".into(), Value::Object(device_out));
     // The screen is one of the app's fixed names (`home`, `review`, `settings-stats`).
@@ -260,6 +261,22 @@ mod tests {
         assert!(item.get("screen").is_none());
         assert!(item.get("theme").is_none());
         assert_eq!(item["device"]["model"].as_str().unwrap().len(), 64);
+    }
+
+    #[test]
+    fn keeps_bounded_ios_version_without_inventing_android_or_device_identifiers() {
+        let item = clean(
+            &json!({"text":"A native note", "device": {
+                "manufacturer":"Apple", "model":"iPhone", "ios":"1".repeat(40),
+                "identifierForVendor":"private", "name":"A person's phone"
+            }}),
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            item["device"],
+            json!({"manufacturer":"Apple", "model":"iPhone", "ios":"1".repeat(16)})
+        );
     }
 
     #[test]

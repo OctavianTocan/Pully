@@ -1,0 +1,25 @@
+@cc [owner:OctavianTocan,label:product] shared-ai-flow-keeps-every-line
+Flow parsing MUST retain unparsed lines as notes in their original order and retain
+per-hop labels, including chains written across lines. An input with no hop MUST keep
+its original text rendering. Source: existing ai-structures-are-drawn, DESIGN.md rule 95,
+F59 and N19, preserved by Tavi's 21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:product] shared-ask-selections-keep-their-commit-side
+Selected-line links MUST retain their current head for added/context lines and base
+commit with the previous path for removed lines. Outside GitHub or without that side's
+commit, no link MAY be manufactured. File path segments MUST retain UTF-8 percent
+encoding without encoding path separators. Source: existing AskSelection.kt and its
+original Android tests, retained by Tavi's 21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:product] shared-stale-tour-needs-known-different-heads
+A kept Tour MUST be considered stale only when its known original head differs from
+the known current head. Its prompt identity MUST retain both heads and the generated
+tour timestamp, so a newly generated tour can be prompted independently. Source:
+existing tour-stale-entry-asks-once and Tavi's 20 Oct 2026 stale-tour decision,
+preserved by the accepted 21 Oct maximum-reuse plan.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-ai-setup-keeps-the-existing-pages
+The shared review frame and both hosts MUST use these same existing Analyze and Tour
+page models, including the original parent links and stale-tour identity. They MUST
+NOT maintain a second set of overlay page types. Source: Tavi's accepted 21 Oct 2026
+maximum-reuse plan and the original AnalyzeSheet and TourSheet navigation.

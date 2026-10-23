@@ -1,7 +1,20 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+val personalAuthOrigin = providers.gradleProperty("pully.personalAuthOrigin").orElse("").get()
+require(personalAuthOrigin.isEmpty() || Regex("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?/?").matches(personalAuthOrigin)) {
+    "pully.personalAuthOrigin must be an app-owned HTTPS origin."
+}
+if (personalAuthOrigin.isNotEmpty()) {
+    val configuredOrigin = URI(personalAuthOrigin)
+    require(configuredOrigin.host != null && (configuredOrigin.port == -1 || configuredOrigin.port in 1..65535)) {
+        "pully.personalAuthOrigin must have a valid host and port."
+    }
 }
 
 android {
@@ -15,8 +28,9 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 74
-        versionName = "0.57.0"
+        versionCode = 77
+        versionName = "0.60.0"
+        buildConfigField("String", "PERSONAL_AUTH_ORIGIN", "\"$personalAuthOrigin\"")
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
@@ -30,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
@@ -159,12 +174,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-svg:3.3.0")
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("com.caverock:androidsvg-aar:1.4")
-    implementation("org.commonmark:commonmark:0.24.0")
-    implementation("org.commonmark:commonmark-ext-gfm-tables:0.24.0")
-    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.24.0")
-    implementation("org.commonmark:commonmark-ext-autolink:0.24.0")
-    implementation("org.commonmark:commonmark-ext-task-list-items:0.24.0")
     testImplementation(kotlin("test-junit"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     // Android's org.json is a stub in unit tests; the real one lets BookDataTest read the book the way the app does.
     testImplementation("org.json:json:20250517")
 }

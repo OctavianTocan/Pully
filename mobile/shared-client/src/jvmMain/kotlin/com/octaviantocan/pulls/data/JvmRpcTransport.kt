@@ -24,17 +24,18 @@ class JvmRpcTransport : RpcTransport {
             var connection: HttpURLConnection? = null
             try {
                 connection = (URL(request.url).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
+                    requestMethod = request.method.value
                     connectTimeout = request.connectTimeoutMs
                     readTimeout = request.readTimeoutMs
                     instanceFollowRedirects = false
-                    doOutput = true
-                    setRequestProperty("Content-Type", "application/json")
+                    useCaches = false
+                    doOutput = request.method == RpcMethod.Post
+                    if (doOutput) setRequestProperty("Content-Type", "application/json")
                     request.headers.forEach { (name, value) -> setRequestProperty(name, value) }
                 }
                 active.set(connection)
                 if (cancelled.get()) return@Runnable
-                connection.outputStream.use { it.write(request.body.encodeToByteArray()) }
+                if (request.method == RpcMethod.Post) connection.outputStream.use { it.write(request.body.encodeToByteArray()) }
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream
                 val bytes = ByteArrayOutputStream()
@@ -43,11 +44,15 @@ class JvmRpcTransport : RpcTransport {
                     while (true) {
                         val count = input.read(buffer)
                         if (count < 0) break
-                        require(bytes.size() <= RPC_RESPONSE_LIMIT - count) { "The server response is too large." }
+                        require(bytes.size() <= request.responseLimit - count) { "The server response is too large." }
                         bytes.write(buffer, 0, count)
                     }
                 }
-                val response = RpcResponse(status, bytes.toByteArray().decodeToString(), connection.contentType.orEmpty())
+                val response = RpcResponse(
+                    status, bytes.toByteArray().decodeToString(), connection.contentType.orEmpty(), connection.getHeaderField("Location").orEmpty(),
+                    connection.getHeaderField("X-RateLimit-Remaining")?.trim()?.toLongOrNull()?.takeIf { it >= 0 },
+                    connection.getHeaderField("Retry-After")?.trim()?.toIntOrNull()?.takeIf { it >= 0 }?.coerceAtMost(3600),
+                )
                 if (continuation.isActive) continuation.resume(response)
             } catch (error: Exception) {
                 if (continuation.isActive) continuation.resumeWithException(error)

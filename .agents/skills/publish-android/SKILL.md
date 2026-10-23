@@ -5,10 +5,15 @@ description: Build the Android app and publish it so the installed phone app off
 
 # Publish and test the Android app
 
-Android pull requests are compiled, JVM-tested and assembled by `android-verify.yml`; `ci.yml`
-also checks the Android design. These checks do not publish an installed-app update. `release.yml`
-only runs for `v*` tags and publishes the packages. Merging to `main` changes no installed app.
+Main pull requests receive fast policy, lint/contracts, types and Android design checks.
+Release promotion pull requests and release pushes run the full `android-verify.yml`,
+native and backend suites, plus monotonic version/notes/illustration checks. These checks
+do not publish an installed-app update. `release.yml` only runs for `v*` tags and refuses
+anything except the current verified release commit. Merging to `main` changes no installed app.
 A person (or an agent with the toolchain and the server's output directory) has to run the steps below.
+Read [the release track](../../../docs/RELEASE_TRACK.md) for exact checks and the separate
+installed-updater migration. Publishing requires a clean exact remote release checkout
+with all genuine release checks green; main and unverified source fail closed.
 
 ## Building in a cloud sandbox
 
@@ -32,11 +37,12 @@ so say "compiled and unit-tested", never "tried on a phone", unless a device was
 Needs JDK 21 (the script uses `mise where java` unless `JAVA_HOME` is set), the Android SDK (`ANDROID_HOME`, default
 `~/Android/Sdk`) and the server running with access to the output directory.
 
-1. Bump `versionCode` and `versionName` in `android/app/build.gradle.kts`. The app offers an update only
+1. For a release promotion with APK changes, bump `versionCode` and `versionName` in `android/app/build.gradle.kts`. The app offers an update only
    when the published `versionCode` is higher than the installed one. Add the version's section at the top of
    `android/CHANGELOG.md`: one summary sentence, then a bullet per change, in plain words for the person using
    the app (`pnpm run android:design` fails without it). The app shows it after the update.
-2. Merge to `main`, check it out on the build machine.
+2. Promote the reviewed main commit through a pull request into `release`. Wait for the complete release-push
+   checks to pass, fetch complete release history, then check out the clean exact `origin/release` commit on the build machine.
 3. Run `android/scripts/publish-apk.sh <public-base-url> [notes]` with the explicit publishing
    server URL (for this channel, `https://prs.octaviantocan.com`). It runs `./gradlew :app:assembleDebug`, reads the version from the
    APK (falling back to `build.gradle.kts`), then writes `pulls.apk` and `latest.json`
@@ -44,7 +50,7 @@ Needs JDK 21 (the script uses `mise where java` unless `JAVA_HOME` is set), the 
    `$PULLS_REVIEW_ANDROID_DIR`, default `~/.local/share/pulls-review/android`. `notes` is this version's
    summary from `android/CHANGELOG.md` (the notes argument replaces it) and `changelog` is the whole file, so
    the phone can list every version it skipped.
-4. The pulls.review server serves them at `GET /android/pulls.apk` and `GET /android/latest.json`
+4. The pulls.review server serves them at `GET /download/pully.apk` and `GET /download/latest.json`
    (`backend/src/transport.rs`). It must run with the same `PULLS_REVIEW_ANDROID_DIR`.
 5. On the phone the installed app compares its version code with `latest.json` and offers the update: a card
    above the Home search while the app is open, and from 0.17.0 a notification within about 15 minutes when it
@@ -66,7 +72,7 @@ and Access token.
 
 - `python3 android/scripts/build-past-ui.py` builds every version not built yet into
   `$PULLS_REVIEW_ANDROID_DIR/past/` (`<version>.apk` and `index.json`), which the server serves at
-  `/android/past/`. The first run builds about forty versions, one Gradle build each; `--list` shows what it
+  `/download/past/`. The first run builds about forty versions, one Gradle build each; `--list` shows what it
   would build from which commit, and naming versions rebuilds just those.
 - `publish-apk.sh` writes `past/index.json` and starts it in the background after every publish (one run at a time, a later publish queued behind it,
   `flock` on `past/.lock`, log in `past/build.log`), so the slider fills in newest first without holding up the

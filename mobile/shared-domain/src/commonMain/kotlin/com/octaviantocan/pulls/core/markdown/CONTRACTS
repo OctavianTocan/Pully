@@ -1,0 +1,13 @@
+@cc [owner:OctavianTocan,label:architecture;product] shared-markdown-semantic-parity
+The parser boundary MUST preserve Android's existing CommonMark 0.24.0 feature
+semantics, including tables and alignment, autolinks, task lists, strike, emphasis,
+links and images, headings, code blocks, breaks and inert HTML nodes. Android MUST
+retain its current parser and extensions; the Apple adapter MUST consume a proven
+GFM syntax tree and MUST NOT replace Markdown parsing with regular expressions.
+Shared goldens MUST run on both platforms, with direct parser parity on the JVM.
+Source: Tavi's 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md rules 95 and 96.
+
+@cc [owner:OctavianTocan,label:architecture] shared-markdown-stays-ui-free
+Semantic nodes and parsing MUST have no Compose, Android, transport or native UI
+dependencies. Parser objects MUST NOT escape into the shared renderer or feature
+state. Source: Tavi's 21 Oct 2026 chosen shared-domain/shared-presentation boundaries.

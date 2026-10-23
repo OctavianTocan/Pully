@@ -49,6 +49,41 @@ class JvmRpcTransportTest {
     }
 
     @Test
+    fun publicGetHasNoBodyOrJsonContentTypeAndKeepsOnlyNumericQuotaMetadata() = runBlocking {
+        Server { exchange ->
+            assertEquals("GET", exchange.requestMethod)
+            assertEquals("/public?query=native%20mobile", exchange.requestURI.toASCIIString())
+            assertTrue(exchange.requestBody.use { it.readBytes() }.isEmpty())
+            assertTrue(exchange.requestHeaders.getFirst("Content-Type").isNullOrEmpty())
+            for (name in listOf("Authorization", "Cookie", "X-Pully-Session", "CF-Access-Client-Secret")) assertTrue(exchange.requestHeaders.getFirst(name).isNullOrEmpty())
+            exchange.responseHeaders.add("X-RateLimit-Remaining", "0")
+            exchange.responseHeaders.add("Retry-After", "120")
+            exchange.sendResponseHeaders(200, 2)
+            exchange.responseBody.use { it.write("{}".encodeToByteArray()) }
+        }.use { server ->
+            val response = JvmRpcTransport().execute(RpcRequest("${server.url}/public?query=native%20mobile", emptyMap(), "", method = RpcMethod.Get, responseLimit = 32))
+            assertEquals("{}", response.body)
+            assertEquals(0L, response.rateLimitRemaining)
+            assertEquals(120, response.retryAfterSeconds)
+        }
+    }
+
+    @Test
+    fun thePublicGetResponseBudgetIsAppliedInsteadOfTheLargeDiffBudget(): Unit = runBlocking {
+        Server { exchange ->
+            exchange.requestBody.close()
+            val bytes = "x".repeat(64).encodeToByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }.use { server ->
+            val error = assertFailsWith<IllegalArgumentException> {
+                JvmRpcTransport().execute(RpcRequest("${server.url}/public", emptyMap(), "", method = RpcMethod.Get, responseLimit = 32))
+            }
+            assertEquals("The server response is too large.", error.message)
+        }
+    }
+
+    @Test
     fun refusesCrossOriginRedirectWithoutForwardingHeadersOrBody() = runBlocking {
         val leaked = AtomicInteger()
         Server { exchange -> leaked.incrementAndGet(); exchange.sendResponseHeaders(204, -1); exchange.close() }.use { target ->
@@ -64,6 +99,21 @@ class JvmRpcTransportTest {
                 assertEquals(ServerErrorKind.Redirect, failure.kind)
                 assertEquals(0, leaked.get())
             }
+        }
+    }
+
+    @Test
+    fun retainsAccessRedirectMetadataWithoutFollowingOrExposingItsUrl() = runBlocking {
+        Server { exchange ->
+            exchange.requestBody.close()
+            exchange.responseHeaders.add("Location", "https://fixture.cloudflareaccess.com/cdn-cgi/access/login/server.example?secret=fixture-private")
+            exchange.sendResponseHeaders(302, -1)
+            exchange.close()
+        }.use { server ->
+            val failure = assertFailsWith<ServerError> { RpcClient(server.url, JvmRpcTransport()).call("account-status") }
+            assertEquals(302, failure.status)
+            assertEquals(ServerErrorKind.AccessRequired, failure.kind)
+            assertTrue(!failure.message.orEmpty().contains("fixture-private"))
         }
     }
 

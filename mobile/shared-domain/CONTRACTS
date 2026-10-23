@@ -48,3 +48,24 @@ A brief MUST be parsed from the server's plain `{type, props}` tree into known n
 blocks. It MUST NOT execute the tree, and a component the app does not know MUST NOT
 be drawn. Source: architecture, The brief; the `ai-brief-is-data` contract and parser
 are retained by Tavi's 21 Oct 2026 shared-code decision.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-links-keep-github-destinations
+A GitHub link MUST keep its conversation, review, thread, file, side/line, commit-range
+or check-run destination. File anchors MUST remain the lowercase SHA256 of the exact
+UTF8 path, without case or Unicode normalization; platform digest adapters MUST preserve
+known vectors. Source: Tavi, 20 Oct, "It needs to take us to the thing. Seamless parity
+with GitHub", retained by the accepted 21 Oct iOS link-sharing plan.
+
+@cc [owner:OctavianTocan,label:product] shared-pull-links-reject-invalid-numbers
+The PrLinks and HomeLinks parsers MUST return no target for zero, malformed or
+out-of-range pull numbers. An incoming number MUST NOT throw or open a valid numeric
+prefix of a malformed number. Supported tabs and anchors MUST remain intact. Source:
+the accepted 21 Oct 2026 iOS cold/warm, malformed and huge-identifier link validation
+plan and shared-links-keep-github-destinations.
+
+@cc [owner:OctavianTocan,label:security;product] mobile-analytics-retains-first-party-policy
+Both hosts MUST retain the existing event envelope, property filtering, bounded queue,
+batch/status policy, session timing and screen-time rules. Android's default app label
+MUST remain android; native iOS MUST identify itself as ios. The platform stack adapter
+MUST NOT introduce third-party telemetry. Source: root analytics-stays-on-our-server,
+analytics-what-not-how-much and Tavi's 21 Oct 2026 same-app iOS decision.

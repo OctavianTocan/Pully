@@ -18,7 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,9 +33,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.withFrameNanos
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.Analytics
+import com.octaviantocan.pulls.data.NativeEntry
+import com.octaviantocan.pulls.data.JvmRpcTransport
+import com.octaviantocan.pulls.ui.explore.GuestBrowseSession
+import com.octaviantocan.pulls.ui.explore.GuestPages
+import com.octaviantocan.pulls.ui.explore.NativeEntryMode
+import com.octaviantocan.pulls.ui.explore.NativeEntryState
+import com.octaviantocan.pulls.ui.personal.PersonalBrowseMount
+import com.octaviantocan.pulls.ui.personal.PersonalBrowseAccountSheet
+import com.octaviantocan.pulls.ui.personal.GitHubAccountEntry
+import com.octaviantocan.pulls.ui.personal.GitHubAccountEntrySheet
+import com.octaviantocan.pulls.ui.personal.GitHubAccountRequest
 import com.octaviantocan.pulls.ui.book.UiBook
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FootBarLayer
@@ -46,13 +61,17 @@ import com.octaviantocan.pulls.ui.design.ToastHost
 import com.octaviantocan.pulls.ui.design.Toaster
 import com.octaviantocan.pulls.ui.design.themeWipe
 import com.octaviantocan.pulls.ui.home.HomeScreen
+import com.octaviantocan.pulls.ui.home.rememberAndroidHomeScreenServices
 import com.octaviantocan.pulls.ui.home.HomeUi
 import com.octaviantocan.pulls.ui.home.RepoScreen
 import com.octaviantocan.pulls.ui.review.ReviewScreen
 import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
+import com.octaviantocan.pulls.ui.settings.ColorThemePicker
+import com.octaviantocan.pulls.ui.settings.captureAndroidColorThemePicker
 import com.octaviantocan.pulls.ui.settings.AccountCheck
 import com.octaviantocan.pulls.ui.settings.SettingsScreen
 import com.octaviantocan.pulls.ui.settings.SignInGate
+import com.octaviantocan.pulls.ui.settings.ConnectionSetupGate
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.ui.update.UpdateGate
 import com.octaviantocan.pulls.ui.update.WhatsNewSheet
@@ -64,27 +83,144 @@ import com.octaviantocan.pulls.update.Updates
 import com.octaviantocan.pulls.update.WhatsNew
 import kotlinx.coroutines.launch
 
-/** The web routes: `/` home, `/:owner/:repo` a repo's PRs, a diff page, and the settings modal as a screen. */
-internal sealed interface Screen {
-    data object Home : Screen
-    data class Repo(val owner: String, val repo: String, val tours: Boolean = false) : Screen
-    /**
-     * [tour] opens the pull request on its tour instead of its overview; [from] is where it was opened, for `pr.open`;
-     * [place] is the thing on it a link pointed at, which the page goes to once it is there.
-     */
-    data class Review(val target: OpenTarget, val tour: Boolean = false, val from: String = "other", val place: PlaceRequest? = null, val aiResult: String? = null) : Screen
-    data object Settings : Screen
-    data object UiBook : Screen
-}
-
-/** A screen and how deep in the stack it sits: what [BlurSwitch] ranks, so opening slides one way and back the other. */
-private data class Layer(val screen: Screen, val depth: Int)
-
 @Composable
 fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     val context = LocalContext.current
+    val entry = remember { NativeEntry.get(context) }
+    val accountRequest = remember(entry) { GitHubAccountRequest(entry) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val openingEntry = entry.generation
+    val navigation = remember {
+        AppNavigation(initialTarget?.let { runCatching { linkScreen(it, initialAIResult) }.getOrNull() },
+            rootScreen = if (entry.mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
+    }
+    fun select(mode: NativeEntryMode) {
+        if (entry.mode == mode) return
+        accountRequest.clear()
+        val pendingLink = navigation.stack.lastOrNull()?.takeIf { it is Screen.Review || it is Screen.Repo }
+        Commands.close()
+        NativeEntry.select(context, mode)
+        navigation.reset(if (mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
+        if (mode == NativeEntryMode.ExistingServer && pendingLink != null) navigation.stack.add(pendingLink)
+    }
+    key(entry.generation) {
+        if (entry.mode == NativeEntryMode.Explore) {
+            GuestPullsApp(navigation, entry.guestSource()!!, initialTarget, accountRequest, onExistingAccount = { select(NativeEntryMode.ExistingServer) })
+        } else {
+            PrivatePullsApp(navigation, initialTarget, onExplore = { select(NativeEntryMode.Explore) }, onGitHubAccount = {
+                accountRequest.request(
+                    current = { entry.generation == openingEntry && entry.mode == NativeEntryMode.ExistingServer },
+                    foreground = { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
+                    selectExplore = { select(NativeEntryMode.Explore) },
+                )
+            })
+        }
+    }
+}
+
+@Composable
+private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.GuestSource, initialTarget: String?, accountRequest: GitHubAccountRequest, onExistingAccount: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val session = remember { GuestBrowseSession(JvmRpcTransport(), scope, source, navigation) }
+    val personal = remember {
+        com.octaviantocan.pulls.data.personal.PersonalAccounts.runtime(context, scope, { source.current }) {
+            Commands.close()
+            accountRequest.clear()
+            NativeEntry.get(context).renewExplore()
+            navigation.reset(Screen.Explore)
+        }
+    }
+    val personalBrowse = remember { PersonalBrowseMount(personal, scope, source, navigation) }
+    val githubAccountEntry = remember(personalBrowse, lifecycle) {
+        GitHubAccountEntry(
+            current = { session.current },
+            foreground = { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) },
+            configured = { personal.configured },
+            available = { personal.verifyStorage().also(personalBrowse::availability) },
+            mount = { personalBrowse },
+        )
+    }
+    DisposableEffect(session, personal, personalBrowse, githubAccountEntry) { onDispose { githubAccountEntry.close(); personalBrowse.close(); personal.close(); session.close() } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val available = personal.verifyStorage()
+        personalBrowse.foreground(true, available)
+        session.foreground()
+        if (available) personal.restore()
+        accountRequest.deliver(githubAccountEntry)
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { personalBrowse.foreground(false) }
+    LaunchedEffect(accountRequest.hasPending, githubAccountEntry) { accountRequest.deliver(githubAccountEntry) }
+    val personalView by personal.view.collectAsState()
+    val toaster = remember { Toaster() }
+    val motion = remember { PageMotion() }
+    var leaving by remember { mutableStateOf(false) }
+    var themePicker by remember { mutableStateOf<ColorThemePicker?>(null) }
+    PageBack(motion, enabled = navigation.stack.size > 1) { navigation.nav.back() }
+    androidx.activity.compose.BackHandler(enabled = navigation.stack.size == 1) { leaving = true } // motion-ok: the root opens the existing close confirmation
+    LaunchedEffect(Unit) { if (initialTarget != null && runCatching { linkScreen(initialTarget) }.getOrNull() == null) toaster.show(CANT_OPEN, cue = Cue.Error) }
+    val arrival = IncomingLinks.pending
+    LaunchedEffect(arrival) {
+        if (arrival == null || !session.current) return@LaunchedEffect
+        val screen = runCatching { linkScreen(arrival.text, arrival.aiResult) }.getOrNull()
+        if (screen == null) {
+            IncomingLinks.consume(arrival)
+            toaster.show(CANT_OPEN, cue = Cue.Error)
+        } else {
+            session.openIncoming(
+                screen,
+                isPending = { IncomingLinks.pending === arrival },
+                closeSheets = { com.octaviantocan.pulls.ui.design.Sheets.closeAll() },
+                consume = { IncomingLinks.consume(arrival) },
+            )
+        }
+    }
+    val settings = com.octaviantocan.pulls.data.AppSettings.get(context)
     val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
-    val stack = remember { mutableStateListOf<Screen>(Screen.Home).apply { initialTarget?.let { linkScreen(it, initialAIResult) }?.let(::add) } }
+    val dark = com.octaviantocan.pulls.ui.settings.wantsDark(settings)
+    val colorTheme = com.octaviantocan.pulls.ui.design.ColorThemes.of(settings.colorTheme)
+    val moving = com.octaviantocan.pulls.ui.design.rememberMotionEnabled()
+    UseCommands {
+        val group = messages.t("palette.group.general")
+        listOf(
+            Command("home", messages.t("explore.browse"), group) { navigation.nav.home() },
+            Command("account", messages.t("explore.existingAccount"), group, run = onExistingAccount),
+            Command("theme", messages.t("keys.theme"), group) {
+                scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
+            },
+            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette appearance") {
+                if (session.current) themePicker = captureAndroidColorThemePicker(settings, NativeEntry.get(context))
+            },
+        )
+    }
+    CompositionLocalProvider(LocalToaster provides toaster) {
+        val openGitHub = rememberOpenOnGithub()
+        Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
+            GuestPages(navigation, motion, session, onExistingAccount, openGitHub,
+                onGitHubSignIn = { githubAccountEntry.open() },
+                onCommands = { Commands.open() }, githubAccount = personalView.account?.login, personal = personalBrowse)
+            PersonalBrowseAccountSheet(personalBrowse,
+                onOpenBrowser = { url ->
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                        .addCategory(android.content.Intent.CATEGORY_BROWSABLE).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                })
+            GitHubAccountEntrySheet(githubAccountEntry)
+            themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
+            CommandPalette()
+            if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
+            ToastHost(toaster)
+        }
+    }
+}
+
+@Composable
+private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, onExplore: () -> Unit, onGitHubAccount: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val githubSource = com.octaviantocan.pulls.data.RepoIdentity.generation
+    val messages = com.octaviantocan.pulls.ui.design.LocalMessages.current
+    val stack = navigation.stack
     // The server is asked for a newer build on start and whenever the app comes back to the front, and an update
     // waiting on "Install unknown apps" carries on once that is allowed.
     val scope = rememberCoroutineScope()
@@ -111,24 +247,11 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
     LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
     // Commands' Change theme opens the theme list as a sheet of its own over whatever page is open (K18).
-    var themePicker by remember { mutableStateOf(false) }
+    var themePicker by remember { mutableStateOf<ColorThemePicker?>(null) }
     // Send feedback, from Commands on any page (nav-feedback-from-anywhere).
     var feedback by remember { mutableStateOf(false) }
     AskForUpdateNotifications(waiting = whatsNew.isNotEmpty() || Updates.available != null)
-    val nav = remember {
-        Nav(
-            openTarget = { stack.add(Screen.Review(it)) },
-            openTour = { stack.add(Screen.Review(it, tour = true)) },
-            openFrom = { target, from, tour -> stack.add(Screen.Review(target, tour = tour, from = from)) },
-            openPlace = { target, from, place -> stack.add(Screen.Review(target, from = from, place = PlaceRequest(place))) },
-            openRepo = { owner, repo -> stack.add(Screen.Repo(owner, repo)) },
-            openRepoTours = { owner, repo -> stack.add(Screen.Repo(owner, repo, tours = true)) },
-            home = { stack.clear(); stack.add(Screen.Home) },
-            settings = { if (stack.last() != Screen.Settings) stack.add(Screen.Settings) },
-            uiBook = { if (stack.last() != Screen.UiBook) stack.add(Screen.UiBook) },
-            back = { if (stack.size > 1) stack.removeAt(stack.lastIndex) },
-        )
-    }
+    val nav = navigation.nav
     // Back slides the page backward, and a back swipe moves the page with the finger before it goes (rule 105).
     val pageMotion = remember { PageMotion() }
     PageBack(pageMotion, enabled = stack.size > 1) { nav.back() }
@@ -169,20 +292,17 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     }
     // `KeyboardLayer.vue`'s always-on commands, and the app's own update.
     UseCommands {
-        val group = messages.t("palette.group.general")
-        listOf(
-            Command("settings", messages.t("keys.settings"), group) { nav.settings() },
-            Command("home", messages.t("keys.home"), group) { nav.home() },
-            Command("theme", messages.t("keys.theme"), group) {
-                // The toggle always goes to the other look than the one asked for; it wipes unless the theme has one look.
+        val commandEpoch = com.octaviantocan.pulls.data.RepoIdentity.generation
+        appCommands(
+            { messages.t(it) }, nav,
+            current = { commandEpoch == com.octaviantocan.pulls.data.RepoIdentity.generation },
+            toggleTheme = {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },
-            Command("colorTheme", messages.t("keys.colorTheme"), group, keywords = "theme colour color palette opencode appearance") { themePicker = true },
-            Command("update", "Update Pully", group, keywords = "upgrade new version install check latest") {
-                scope.launch { updateFromCommand(context, toaster) }
-            },
-            Command("whatsNew", "What's new", group, keywords = "changelog changes version release notes") { whatsNew = WhatsNew.all(context) },
-            Command("feedback", "Send feedback", group, keywords = "feedback report bug idea note suggest problem") { feedback = true },
+            openThemes = { themePicker = captureAndroidColorThemePicker(settings, NativeEntry.get(context)) }, feedback = { feedback = true },
+            update = { scope.launch { updateFromCommand(context, toaster) } },
+            whatsNew = { whatsNew = WhatsNew.all(context) },
+            explore = onExplore,
         )
     }
     // One hook for screen time: the page on top by a fixed name (`screen.view`, `screen.time`). Settings names its own pages.
@@ -214,23 +334,35 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
     // A link tapped in a description, a comment or an answer opens in Pully when Pully would take it from another app, and
     // outside otherwise; "on GitHub" actions go outside on their own (`rememberOpenOnGithub`).
     val uriHandler = remember(context, toaster) { PullyUriHandler(context, toaster) }
-    CompositionLocalProvider(LocalToaster provides toaster, LocalFootBars provides footBars, androidx.compose.ui.platform.LocalUriHandler provides uriHandler) {
+    val nativeHomeActions = com.octaviantocan.pulls.ui.home.rememberAndroidNativeHomeActions()
+    CompositionLocalProvider(
+        com.octaviantocan.pulls.ui.home.LocalNativeHomeActions provides nativeHomeActions,
+        LocalToaster provides toaster, LocalFootBars provides footBars,
+        androidx.compose.ui.platform.LocalUriHandler provides uriHandler,
+        com.octaviantocan.pulls.ui.ai.LocalAiCapabilities provides com.octaviantocan.pulls.ui.ai.AiCapabilities.Full,
+        com.octaviantocan.pulls.ui.review.LocalReviewCapabilities provides com.octaviantocan.pulls.ui.review.ReviewCapabilities.Full,
+    ) {
+        val homeServer = remember { com.octaviantocan.pulls.data.Repo(context) }
+        val homeServices = rememberAndroidHomeScreenServices(homeServer)
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             // Settings is a modal over the page it was opened from, as on the web. A page that opens slides in and
             // the one under it slides away (rule 73), and back slides the other way, ranked by how deep the page is.
-            val here = stack.indexOfLast { it != Screen.Settings }.coerceAtLeast(0)
-            BlurSwitch(Layer(stack.getOrNull(here) ?: Screen.Home, here), Modifier.fillMaxSize(), order = { it.depth }, motion = pageMotion) { layer ->
-                when (val current = layer.screen) {
-                    Screen.Home -> HomeScreen(nav, homeUi)
-                    is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, startOnTours = current.tours)
+            AppPages(navigation, pageMotion, Modifier.fillMaxSize()) { current ->
+                when (current) {
+                    Screen.Home -> HomeScreen(nav, homeUi, homeServices)
+                    is Screen.Repo -> RepoScreen(current.owner, current.repo, nav, current.tours, homeServices)
                     is Screen.Review -> ReviewScreen(current.target, nav, startOnTour = current.tour, openedFrom = current.from, place = current.place, initialAIResult = current.aiResult)
                     Screen.UiBook -> UiBook(nav.back)
                     Screen.Settings -> {}
+                    Screen.Explore, is Screen.PublicRepo, is Screen.PersonalPulls, is Screen.PersonalRepositories, is Screen.PersonalRepo -> {}
                 }
             }
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
-            if (stack.last() == Screen.Settings) SettingsScreen(nav)
-            if (themePicker) ColorThemeSheet(onClose = { themePicker = false })
+            if (stack.last() == Screen.Settings) SettingsScreen(nav, onGitHubAccount = {
+                if (githubSource == com.octaviantocan.pulls.data.RepoIdentity.generation &&
+                    lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && stack.lastOrNull() == Screen.Settings) onGitHubAccount()
+            })
+            themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             if (feedback) com.octaviantocan.pulls.ui.settings.FeedbackSheet(onClose = { feedback = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
             CommandPalette()
@@ -239,7 +371,10 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
             // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pully.
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
             // On a server with an account, a phone not signed in to it signs in first; once signed in it stays (plan 13).
-            if (Updates.available == null) SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
+            if (Updates.available == null) {
+                ConnectionSetupGate(onLeave = { context.findActivity()?.moveTaskToBack(true) }, onExplore = onExplore)
+                SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) }, onExplore = onExplore)
+            }
         }
     }
 }
@@ -264,16 +399,17 @@ private const val CANT_OPEN = "Pully can't open that link"
  * The page a link from another app opens: a pull request, commit or compare opens its review, a repository its page.
  * `null` for anything else, an issue or a file included.
  */
-private fun linkScreen(text: String, aiResult: String? = null): Screen? = when (val link = com.octaviantocan.pulls.ui.home.HomeLinks.parseShared(text)) {
-    is com.octaviantocan.pulls.ui.home.HomeLink.Target -> Screen.Review(link.target, from = "link", place = link.place?.let(::PlaceRequest), aiResult = aiResult)
-    is com.octaviantocan.pulls.ui.home.HomeLink.Repo -> Screen.Repo(link.owner, link.repo)
-    null -> null
-}
+private fun linkScreen(text: String, aiResult: String? = null): Screen? = sharedLinkScreen(text, aiResult)
 
 /** The screen's name in usage stats: a fixed word, never a title or a repository. */
 private val Screen.analyticsName: String
     get() = when (this) {
         Screen.Home -> "home"
+        Screen.Explore -> "explore"
+        is Screen.PublicRepo -> "publicrepo"
+        is Screen.PersonalPulls -> "personal_pulls"
+        is Screen.PersonalRepositories -> "personal_repositories"
+        is Screen.PersonalRepo -> "personal_repo"
         is Screen.Repo -> "repo"
         is Screen.Review -> "review"
         Screen.Settings -> "settings"

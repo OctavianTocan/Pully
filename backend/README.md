@@ -142,6 +142,72 @@ devices, or deployment security.
 
 ## Command-line options
 
+### Isolated public and personal listener
+
+`--public-listen 127.0.0.1:7391` (or `PULLY_PUBLIC_LISTEN`) selects a separate,
+default-disabled executable mode before checkout discovery, compatibility account
+seeding, operator credentials, cache warming, agents or legacy RPC initialize.
+Without personal configuration it serves tokenless public browsing and reports
+GitHub sign-in as unavailable. It does not expose `/api/rpc`, `/android/*` or
+account-key routes. Do not combine it with legacy targets, agents or preanalysis.
+
+Personal sign-in additionally requires all three explicit options:
+
+- `--public-data-dir` / `PULLY_PUBLIC_DATA_DIR`: an absolute isolated storage root.
+- `--personal-oauth-config` / `PULLY_PERSONAL_OAUTH_CONFIG_FILE`: an absolute
+  owner-private JSON file containing `clientId`, `clientSecret` and the fixed HTTPS
+  `callback` ending in `/api/personal/v1/auth/github/callback`.
+- `--personal-vault-keys` / `PULLY_PERSONAL_VAULT_KEYS_FILE`: an absolute
+  owner-private JSON file containing `activeVersion` and `keys`, a map from
+  positive key-version strings to base64url-without-padding encoded 32-byte keys.
+
+The secret files must be regular files with Unix permissions such as `0600`, with
+no symlink ancestors. Trusted startup must control the root and its ancestors.
+Missing configuration remains disabled; partial or invalid configuration fails
+with a fixed error. There is no environment-token, GitHub CLI, HOME or legacy-store
+fallback. The service keeps provider credentials encrypted and exposes only a
+hash-backed Pully session to the native client. Real Pully OAuth registration,
+registered callback, HTTPS termination and deployment remain external setup.
+
+Ordinary sign-in retains `publicRead`, even if GitHub returns an inherited broader
+grant. Its fixed bearer-authenticated GET routes are:
+
+- `/api/personal/v1/github/repositories?page=1`
+- `/api/personal/v1/github/repositories/{owner}/{repo}/pulls?page=1`
+- `/api/personal/v1/github/pulls?relation=reviewRequested&page=1`; `authored` and
+  `involved` are also accepted relations.
+
+Responses carry the captured `accountId`, immutable `githubId` and authority;
+selected-repository responses include its immutable ID. Pages contain at most 20
+entries, pages range from 1 through 10, and `incomplete` distinguishes a capped or
+changed inventory. Whole reads have a 45-second deadline and 2 MiB response bound.
+Private repositories are rejected in this capability. A signed-in user can choose
+repository access through `POST /api/personal/v1/auth/github/repositories/start`,
+using the current Pully bearer and the same native-proof challenge body. This opens
+the real GitHub `repo` authorization with Pully's own client; it requires the same
+immutable GitHub user and still-current initiating session when installing the
+result. The existing callback, proof-owned claim and secure-save/session-confirm
+protocol then returns a new session with `privateRepositories` only when the real
+grant permits it. Existing public sessions retain their own public maximum.
+
+`GET /api/personal/v1/github/account/capabilities` returns the current account,
+GitHub ID, authority and `privateRepositories:{consentAvailable,readEnabled}`.
+With that explicit capability, the separate `/api/personal/v1/github/account/`
+`repositories`, `repositories/{owner}/{repo}/pulls` and `pulls` GET routes include
+the user's accessible private repositories. They retain the same bounded paging
+and relation fields; each repository additionally carries `private: Boolean`.
+Every upstream request uses only that account's token and rechecks access/identity
+before publication. GitHub's OAuth App `repo` scope is broad read/write, while this
+typed application surface exposes reads only. Organization approval and SSO remain
+GitHub-enforced; a denied or reduced grant is not bypassed.
+
+The app-owned optional HTTPS personal-service origin is separate from legacy
+Server Settings and Cloudflare Access. An unconfigured app does not guess a host.
+This listener does not expose personal Inbox/AI jobs or paid provider routes.
+Configuring and using AI remains independent of GitHub sign-in; a non-GitHub/local
+principal or labelled shared-default allowance needs its own explicit credential
+and budget capability, without operator GitHub or private-cache fallback.
+
 | Option                         | Default / behavior                                                                           |
 | ------------------------------ | -------------------------------------------------------------------------------------------- |
 | `[TARGET]`                     | Optional local branch, commit, or `A..B` / `A...B` range to open                             |
@@ -324,9 +390,19 @@ The real rendering dependencies compiled and all 16 presentation fixtures passed
 at `fac9ff30`. The earlier partial harness excluded these adapters. Neither
 result claims pixel-identical output or every upstream grammar feature.
 
-`--android-dir` serves existing `latest.json`, `pulls.apk`, `past/index.json`, and
-versioned `past/<version>.apk` artifacts. It does not build, sign, publish, or update
-the Android application. Rollback to the original server requires a separately
+`/download` is the HTML Android download page. It lists the real published current
+build and only indexed past APKs that are actually present. Past builds install beside
+Pully and are opened from Settings → Advanced → Past versions, without their own launcher.
+`--android-dir` keeps the existing artifact storage: `latest.json`, `pulls.apk`,
+`past/index.json`, and versioned `past/<version>.apk` files. Their canonical public URLs
+are `/download/latest.json`, `/download/pully.apk`, and `/download/past/...`; changelog
+images use `/download/changelog/...`. The old `/android/pulls.apk` route is removed
+(404, without a redirect). Read-only latest/history/changelog aliases remain for
+installed clients, with the latest manifest rewritten to the new binary URL.
+The page advertises neither unbuilt history nor an iOS download. It does not build,
+sign, publish, or update the Android application. An upstream proxy/Access deployment
+must permit the intended `/download` routes; this source change does not modify that
+configuration or deploy a release. Rollback to the original server requires a separately
 pinned pre-removal checkout or release and the untouched original cache; the
 current launcher cannot select the removed TypeScript backend.
 

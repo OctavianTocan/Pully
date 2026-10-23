@@ -45,6 +45,31 @@ class DarwinRpcTransportIntegrationTest {
     }
 
     @Test
+    fun sendsTokenlessPublicGetWithoutABodyAndReadsNumericQuotaMetadata() = runBlocking {
+        val raw = DarwinRpcTransport().execute(RpcRequest("$base/public-echo?query=native%20mobile", emptyMap(), "", method = RpcMethod.Get, responseLimit = 4096))
+        val answer = Json.parseToJsonElement(raw.body).jsonObject
+        assertEquals("GET", answer.s("method"))
+        assertEquals("/public-echo?query=native%20mobile", answer.s("path"))
+        assertEquals("", answer.s("contentType"))
+        assertEquals(JsonPrimitive(false), answer["hasBody"])
+        assertEquals(JsonPrimitive(false), answer["hasAuthority"])
+        assertEquals(0L, raw.rateLimitRemaining)
+        assertEquals(120, raw.retryAfterSeconds)
+    }
+
+    @Test
+    fun aPublicGetUsesItsSmallerResponseLimit(): Unit = runBlocking {
+        withTimeout(5_000) {
+            val error = assertFailsWith<IllegalStateException> {
+                DarwinRpcTransport().execute(RpcRequest("$base/public-oversize", emptyMap(), "", method = RpcMethod.Get, responseLimit = 32))
+            }
+            if (error is CancellationException) throw error
+            assertEquals("The server response is too large.", error.message)
+            awaitState("public-oversize", "disconnected")
+        }
+    }
+
+    @Test
     fun preservesHttpStatusAndAccessContentType(): Unit = runBlocking {
         val transport = DarwinRpcTransport()
         val raw = transport.execute(RpcRequest("$base/status/api/rpc", emptyMap(), "{}"))
@@ -57,11 +82,14 @@ class DarwinRpcTransportIntegrationTest {
         val html = transport.execute(RpcRequest("$base/access/api/rpc", emptyMap(), "{}"))
         assertEquals("text/html", html.contentType)
         val access = assertFailsWith<ServerError> { RpcClient("$base/access", transport).call("fixture-status") }
-        assertEquals(ServerErrorKind.AccessRequired, access.kind)
+        assertEquals(ServerErrorKind.HtmlResponse, access.kind)
     }
 
     @Test
     fun refusesRedirectWithoutForwardingCredentialsOrBody() = runBlocking {
+        val raw = DarwinRpcTransport().execute(RpcRequest("$base/redirect/api/rpc", emptyMap(), "{}"))
+        assertEquals(307, raw.status)
+        assertTrue(raw.location.endsWith("/redirect-target"))
         val failure = assertFailsWith<ServerError> {
             RpcClient("$base/redirect", DarwinRpcTransport(), mapOf("X-Pully-Session" to "fixture-private-session"))
                 .call("fixture-redirect", buildJsonObject { put("text", "fixture-private-body") })

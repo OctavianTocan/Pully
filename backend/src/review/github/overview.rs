@@ -452,7 +452,7 @@ pub(super) async fn overview(state: &AppState, args: &Value) -> Result<Value> {
         });
     }
     let at = crate::now_ms();
-    let value = normalize_overview(&graphql(state, OVERVIEW_QUERY, pull.variables()).await?)?;
+    let value = read_with(&StateGitHubRead(state), args).await?;
     let stored = json!({"at":at,"updatedAt":value["overview"]["updatedAt"].as_str().unwrap_or(""),"value":value});
     // A slower earlier fetch may answer its caller but cannot replace a newer cached overview.
     let _ = state
@@ -468,6 +468,11 @@ pub(super) async fn overview(state: &AppState, args: &Value) -> Result<Value> {
         })
         .await;
     Ok(value)
+}
+
+pub(super) async fn read_with(read: &dyn GitHubRead, args: &Value) -> Result<Value> {
+    let pull = Pull::from(args)?;
+    normalize_overview(&graphql_with(read, OVERVIEW_QUERY, pull.variables()).await?)
 }
 
 /// @cc [owner:OctavianTocan,label:product] rust-overview-bots-from-github
@@ -546,19 +551,34 @@ mod mergeability_tests {
     #[test]
     fn mergeability_normalization_never_bypasses_unknown_fields() {
         for (mergeable, status) in [
-            (Value::Null, json!("CLEAN")), (json!("MERGEABLE"), Value::Null),
-            (json!("UNKNOWN"), json!("BLOCKED")), (json!(""), json!("CLEAN")),
-            (json!("MERGEABLE"), json!("NEW_STATUS")), (json!("NEW_STATE"), json!("BEHIND")),
+            (Value::Null, json!("CLEAN")),
+            (json!("MERGEABLE"), Value::Null),
+            (json!("UNKNOWN"), json!("BLOCKED")),
+            (json!(""), json!("CLEAN")),
+            (json!("MERGEABLE"), json!("NEW_STATUS")),
+            (json!("NEW_STATE"), json!("BEHIND")),
         ] {
             let value = normalize_overview(&raw_pr(mergeable, status)).unwrap();
             assert_eq!(value["mergeability"]["ready"], false, "{value}");
             assert_eq!(value["mergeability"]["blocker"], "checking");
-            assert!(value["overview"]["mergeable"] == "unknown" || value["overview"]["mergeStateStatus"] == "unknown");
+            assert!(
+                value["overview"]["mergeable"] == "unknown"
+                    || value["overview"]["mergeStateStatus"] == "unknown"
+            );
         }
         let mut missing = raw_pr(Value::Null, Value::Null);
-        missing["repository"]["pullRequest"].as_object_mut().unwrap().remove("mergeable");
-        missing["repository"]["pullRequest"].as_object_mut().unwrap().remove("mergeStateStatus");
-        assert_eq!(normalize_overview(&missing).unwrap()["mergeability"]["blocker"], "checking");
+        missing["repository"]["pullRequest"]
+            .as_object_mut()
+            .unwrap()
+            .remove("mergeable");
+        missing["repository"]["pullRequest"]
+            .as_object_mut()
+            .unwrap()
+            .remove("mergeStateStatus");
+        assert_eq!(
+            normalize_overview(&missing).unwrap()["mergeability"]["blocker"],
+            "checking"
+        );
     }
 
     #[test]

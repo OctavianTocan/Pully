@@ -3,7 +3,7 @@
 // run: its page routes, preview registry and spec specimens are regex-readable on purpose.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ANDROID, ASSETS, blank, composables, kotlinFiles, matching, readAndroid, shortPath } from './kotlin.mjs'
+import { ANDROID, ASSETS, blank, composables, isDesignSource, kotlinFiles, matching, readAndroid, shortPath } from './kotlin.mjs'
 import { readDesign, stable } from './spec.mjs'
 
 export const NAME = 'book'
@@ -27,7 +27,7 @@ const short = path => path.slice(path.indexOf('android/'))
 export function designComposables(sources) {
   const found = {}
   for (const [file, source] of Object.entries(sources)) {
-    if (!file.startsWith(`${DESIGN_DIR}/`)) {
+    if (!isDesignSource(file)) {
       continue
     }
     for (const c of composables(source, file).filter(d => !d.private && d.top)) {

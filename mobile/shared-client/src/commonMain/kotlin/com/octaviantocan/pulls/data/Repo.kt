@@ -6,12 +6,19 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+
+/** A drawn confirmation expects this pending review; null explicitly means there was no pending review. */
+data class ExpectedPendingReview(val id: Long?) {
+    init { require(id == null || id > 0) { "A pending review needs a positive id." } }
+}
 
 /**
  * Every server call the phone makes, named after the RPC it runs. Native transports handle IO and
@@ -149,8 +156,13 @@ class Repo(
     suspend fun deleteComment(target: OpenTarget.Pull, commentId: Long) = call("review-delete") { pull(target); put("commentId", commentId) }
 
     /** `verdict`: APPROVE, REQUEST_CHANGES or COMMENT. Submits the pending review when there is one. */
-    suspend fun submitReview(target: OpenTarget.Pull, verdict: String, body: String) = call("review-submit") { pull(target); put("verdict", verdict); put("body", body) }
-    suspend fun discardReview(target: OpenTarget.Pull) = call("review-discard") { pull(target) }
+    suspend fun submitReview(target: OpenTarget.Pull, verdict: String, body: String, headSha: String? = null, pending: ExpectedPendingReview? = null) = call("review-submit") {
+        pull(target); put("verdict", verdict); put("body", body); headSha?.let { put("headSha", it) }
+        pending?.let { put("pendingReviewId", it.id?.let(::JsonPrimitive) ?: JsonNull) }
+    }
+    suspend fun discardReview(target: OpenTarget.Pull, pending: ExpectedPendingReview? = null) = call("review-discard") {
+        pull(target); pending?.let { put("pendingReviewId", it.id?.let(::JsonPrimitive) ?: JsonNull) }
+    }
 
     // --- AI ---
 
@@ -172,10 +184,10 @@ class Repo(
     /** Long-polls a task for changes after `after`. */
     suspend fun waitTask(id: String, after: Int): JsonObject = call("ai-task-wait") { put("id", id); put("after", after) }.jsonObject
 
-    suspend fun cancelTask(id: String) {
+    suspend fun cancelTask(id: String, bestEffort: Boolean = true) {
         try { call("ai-task-cancel") { put("id", id) } }
         catch (e: CancellationException) { throw e }
-        catch (_: Exception) { /* Explicit cancel is best effort, as before. */ }
+        catch (failure: Exception) { if (!bestEffort) throw failure }
     }
 
     /** This diff's tasks, running or recently finished, newest first: how a reopened page resumes them. */
@@ -250,10 +262,26 @@ class Repo(
      * Whether the server has an account to sign in to, and the client ID Google signs in for when it takes Google
      * sign-in; asked without a session, so a server never set up locks nobody out.
      */
-    suspend fun accountStatus(): AccountStatus = call("account-status").jsonObject.let { AccountStatus(it.b("hasAccount"), it.sOrNull("googleClientId")) }
+    suspend fun accountStatus(): AccountStatus {
+        val result = call("account-status") as? JsonObject ?: invalidAccountResponse()
+        val account = (result["hasAccount"] as? JsonPrimitive)?.takeUnless { it.isString }?.booleanOrNull ?: invalidAccountResponse()
+        val client = result["googleClientId"]?.takeUnless { it == JsonNull }?.let {
+            (it as? JsonPrimitive)?.takeIf { it.isString && it.content.isNotBlank() }?.content ?: invalidAccountResponse()
+        }
+        return AccountStatus(account, client)
+    }
 
     /** The signed-in account's email, or null when the session is not one the server knows. */
-    suspend fun accountEmail(): String? = (call("account-me") as? JsonObject)?.s("email")?.ifBlank { null }
+    suspend fun accountEmail(): String? {
+        val result = call("account-me")
+        if (result == JsonNull) return null
+        val account = result as? JsonObject ?: invalidAccountResponse()
+        return (account["email"] as? JsonPrimitive)?.takeIf { it.isString && it.content.isNotBlank() }?.content ?: invalidAccountResponse()
+    }
+
+    private fun invalidAccountResponse(): Nothing = throw ServerError(
+        200, "Pully could not read the server's account response. Try again.", kind = ServerErrorKind.InvalidResponse, format = RpcResponseFormat.Json,
+    )
 
     suspend fun agentKeys(): List<AgentKey> = call("agent-keys").objects().map { it.asAgentKey() }
 

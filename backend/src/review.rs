@@ -9,6 +9,7 @@ use std::{
     sync::Arc,
 };
 mod github;
+pub(crate) use github::{read_with as github_read_with, ReadKind as GitHubReadKind};
 const DIFF_LIMIT: usize = 50;
 const DIFF_BYTES: u64 = 50 * 1024 * 1024;
 
@@ -846,7 +847,28 @@ async fn file_content(state: &Arc<crate::AppState>, args: &Value) -> Result<Valu
     let owned = state.clone();
     let owned_key = key.to_owned();
     let e = crate::store::blocking(move || entry(&owned, &owned_key)).await?;
-    let diff = &e["diff"];
+    let requests = snapshot_file_reads(&e["diff"], path)?;
+    let old = match requests.old {
+        Some(request) => crate::source::load_file(state, &request).await?,
+        None => Value::Null,
+    };
+    let new = match requests.new {
+        Some(request) => crate::source::load_file(state, &request).await?,
+        None => Value::Null,
+    };
+    if requests.require_new && new.is_null() {
+        bail!("That file is not in the repository at this commit.");
+    }
+    Ok(json!({"old":old,"new":new}))
+}
+
+pub(crate) struct SnapshotFileReads {
+    pub old: Option<Value>,
+    pub new: Option<Value>,
+    pub require_new: bool,
+}
+
+pub(crate) fn snapshot_file_reads(diff: &Value, path: &str) -> Result<SnapshotFileReads> {
     if diff["ref"]["kind"] == "posted" || diff["ref"]["kind"] == "paste" {
         bail!("This diff has no full files, only its patch.");
     }
@@ -855,39 +877,25 @@ async fn file_content(state: &Arc<crate::AppState>, args: &Value) -> Result<Valu
         .map(Vec::as_slice)
         .unwrap_or_default()
         .iter()
-        .find(|f| f["path"] == path);
+        .find(|file| file["path"] == path);
     let Some(file) = file else {
-        if !diff["head"]["sha"].is_string() || path.split('/').any(|p| p == "..") {
+        if !diff["head"]["sha"].is_string() || path.split('/').any(|part| part == "..") {
             bail!("This diff has no full file for that path.");
         }
-        let content = crate::source::load_file(
-            state,
-            &json!({"ref":diff["ref"],"path":path,"sha":diff["head"]["sha"]}),
-        )
-        .await?;
-        if content.is_null() {
-            bail!("That file is not in the repository at this commit.");
-        }
-        return Ok(json!({"old":null,"new":content}));
+        return Ok(SnapshotFileReads {
+            old: None,
+            new: Some(json!({"ref":diff["ref"],"path":path,"sha":diff["head"]["sha"]})),
+            require_new: true,
+        });
     };
     if !diff["base"]["sha"].is_string() || !diff["head"]["sha"].is_string() {
         bail!("This diff has no full file for that path.");
     }
-    let old = if file["status"] == "added" {
-        Value::Null
-    } else {
-        crate::source::load_file(state,&json!({"ref":diff["ref"],"path":file.get("previousPath").unwrap_or(&file["path"]),"sha":diff["base"]["sha"]})).await?
-    };
-    let new = if file["status"] == "removed" {
-        Value::Null
-    } else {
-        crate::source::load_file(
-            state,
-            &json!({"ref":diff["ref"],"path":path,"sha":diff["head"]["sha"]}),
-        )
-        .await?
-    };
-    Ok(json!({"old":old,"new":new}))
+    Ok(SnapshotFileReads {
+        old: (file["status"] != "added").then(|| json!({"ref":diff["ref"],"path":file.get("previousPath").unwrap_or(&file["path"]),"sha":diff["base"]["sha"]})),
+        new: (file["status"] != "removed").then(|| json!({"ref":diff["ref"],"path":path,"sha":diff["head"]["sha"]})),
+        require_new: false,
+    })
 }
 /// @cc [owner:OctavianTocan,label:security] rust-patches-match-requested-head
 /// Patch reads naming a head MUST reject a different stored head rather than mixing
@@ -925,6 +933,20 @@ fn diff_patches(state: &crate::AppState, args: &Value) -> Result<Value> {
     Ok(json!({"files":found}))
 }
 pub async fn handle(
+    state: &Arc<crate::AppState>,
+    name: &str,
+    args: Value,
+) -> Option<Result<Value>> {
+    if let Err(error) = state.identity.ensure_current() {
+        return Some(Err(error));
+    }
+    handle_inner(state, name, args).await.map(|result| {
+        state.identity.ensure_current()?;
+        result
+    })
+}
+
+async fn handle_inner(
     state: &Arc<crate::AppState>,
     name: &str,
     args: Value,

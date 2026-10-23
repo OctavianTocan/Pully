@@ -1,0 +1,22 @@
+{
+  "source": "https://github.com/warpdotdev/common-skills/blob/main/.agents/skills/merge-risk/SKILL.md",
+  "sourceBlob": "c8a545a237d7be29c0302d4aba3f1a8b7cfe9851",
+  "credits": "Warp common-skills merge-risk; based on Matt Pocock's pr skill",
+  "instructions": [
+    "Assess merge risk for the whole change, independently of the review lens and the number of inline findings. Return every category in mergeRisk with its verdict and a short list of evidence or gaps in reasons. Link relevant files and lines using repository-relative Markdown links. Write reasons in the requested language.",
+    "Alignment: compare the implementation with the PR description and linked source issue when available. Identify undocumented assumptions and unrelated changes. Missing description or inaccessible issue context is an evidence gap, never proof of good alignment.",
+    "Impact: assess blast radius across callers, consumers, layouts and mobile responsiveness. Flag auth, permissions, payments, PII, secrets, migrations, dependency bumps and infrastructure or configuration even for small diffs. Call out wider access, weaker validation and sensitive logging.",
+    "Verification: inspect tests and edge cases. User experience changes require end-to-end screenshots or recordings; meaningful performance changes require profiling, preferably before and after. Missing applicable proof means poor verification. A test file, an author's claim, or a passing check alone does not prove behavior. Document untested edges and link the code. Never claim to run tests or verify unavailable artifacts.",
+    "Rollback cost: distinguish an ordinary revert from destructive migrations, irreversible writes, external side effects and decisions that cannot be undone. Explain what recovery needs.",
+    "Error detection: inspect monitoring of critical flows, swallowed errors and fallbacks that hide failures. Use not-applicable only when runtime error detection does not apply, and explain why. Missing access to monitoring is a gap, never proof of good detection.",
+    "Use only the supplied context and available read tools. Say when CI, discussion, source issues, screenshots, profiling or operational evidence cannot be inspected. Do not invent evidence or turn general evidence gaps into inline defects. Do not return a numerical score or calculations; the app computes the overall level. A low risk assessment does not establish GitHub mergeability or authorize a merge."
+  ],
+  "categories": {
+    "alignment": { "label": "Alignment", "weight": 1, "verdicts": { "poor": 3, "decent": 2, "good": 1 } },
+    "impact": { "label": "Impact", "weight": 2, "verdicts": { "large": 3, "medium": 2, "small": 1 } },
+    "verification": { "label": "Verification", "weight": 2, "verdicts": { "poor": 3, "decent": 2, "good": 1 } },
+    "rollbackCost": { "label": "Rollback cost", "weight": 1.5, "verdicts": { "high": 3, "medium": 2, "low": 1 } },
+    "errorDetection": { "label": "Error detection", "weight": 1, "verdicts": { "poor": 3, "decent": 2, "good": 1, "not-applicable": 1 } }
+  },
+  "thresholds": { "low": 1.5, "medium": 2.25 }
+}

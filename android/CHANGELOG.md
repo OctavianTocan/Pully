@@ -16,6 +16,41 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.60.0
+
+Browse public GitHub projects without signing in.
+
+- A new install opens on Explore: popular public repositories, a search bar, and each project's open pull requests, with no sign-in needed. A pull request opens on GitHub.
+![Labeled illustration of Explore listing popular public repositories and one repository's open pull requests](changelog/0.60.0/explore-illustration.png)
+- Connect GitHub sits at the top of Explore and in Settings. Until GitHub sign-in is set up for your server, it says so and lets you keep browsing.
+- Use an existing Pully account stays one tap away on Explore, and a shared Pully link offers it too.
+- When Pully cannot stop an AI task, it now tells you, and Stop stays there to try again.
+- A message raised inside a sheet, like Feedback sent or Copied the key, now shows over the sheet instead of hidden under it, and a screen reader names the Stop button.
+
+## 0.59.0
+
+A clear next step when Pully cannot connect.
+
+- A new installation explains connection problems and offers Server settings and Retry, with those settings also reachable from sign-in.
+![Labeled illustration of private-server connection recovery and its Server settings action](changelog/0.59.0/connection-recovery-illustration.png)
+- A web page or unavailable server shows a useful recovery message, and keeps an existing sign-in while you try again.
+- Changing servers clears the old sign-in form and keeps passwords, pending sign-ins and remembered account details with their original server.
+
+## 0.58.0
+
+Try optional features and Pully’s iPhone preview.
+
+- Settings has an Experimental section with Merge risk and Browser floaty, both off until you enable them.
+![Experimental settings in the mobile app, with Merge risk and Browser floaty off](changelog/0.58.0/experimental-settings.png)
+- New AI reviews can show a merge-risk assessment, with verdicts and evidence in the review sheet.
+![Native mobile review sheet with a sample merge-risk assessment](changelog/0.58.0/merge-risk.png)
+- Tap the merge-risk level on the Overview to read the assessment, even when the review found no inline problems.
+- Browser floaty now lives in Experimental, starts off, and still asks for your accessibility consent before it can appear.
+- In the internal iPhone preview, filter sample pulls, open their repository and go back with your place kept.
+![Labeled sample-data illustration of opening a repository and returning to the same Inbox position](changelog/0.58.0/interactive-screens-illustration.gif)
+- Hold a sample pull for Copy link and Open on GitHub. Review and AI actions explain when they are still unavailable.
+- Lists, searches and first-screen counts stay with their server and account when you switch sign-in or Access settings.
+
 ## 0.57.0
 
 Reviews recover after a lost connection.

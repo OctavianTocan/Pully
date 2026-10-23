@@ -1,0 +1,16 @@
+@cc [owner:OctavianTocan,label:security;architecture] shared-first-screen-counts-belong-to-source
+Native first-screen pull-request size hints MUST belong to the active source lease.
+Changing server, account or Access authorization MUST revoke previous leases; a late
+old writer or invalidator MUST NOT alter the current source's counts. Native memory
+MUST remain bounded while the existing Android large-list behavior stays compatible.
+Source: Tavi's accepted 21 Oct 2026 iOS source-isolation and maximum-reuse plan.
+
+@cc [owner:OctavianTocan,label:security;product] shared-opening-counts-belong-to-native-source
+Both hosts MUST populate first-frame pull-request sizes through a lease for their
+current opaque endpoint/account/Access identity and invalidate it on source changes.
+An invalidated or replaced lease MUST NOT read, refill or invalidate the current
+source's sizes. Native memory MUST remain bounded while the existing Android
+large-list behavior stays compatible. Unknown new list counts MUST remove an older
+revision's counts. The existing Android put/get API MUST remain available. Source:
+the accepted 21 Oct 2026 identity isolation plan and existing PullSizes first-frame
+behavior (pr-opens-at-once).

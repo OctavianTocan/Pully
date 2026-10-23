@@ -1,7 +1,10 @@
 //! Native server-side jobs: clients observe revisions; only explicit cancellation stops work.
+pub(crate) mod authority;
+pub(crate) mod chatgpt_jobs;
+pub(crate) mod chatgpt_responses;
 mod lenses;
 mod preview;
-mod provider;
+pub(crate) mod provider;
 pub(super) use preview::safe_preview;
 mod tasks;
 mod tools;
@@ -485,7 +488,11 @@ fn same(a: &Value, b: &Value, task: bool) -> bool {
     a["kind"] == b["kind"]
         && match text(a, "kind") {
             "analyze" => a["expectedHeadSha"] == b["expectedHeadSha"],
-            "critique" => a["variant"] == b["variant"],
+            "critique" => {
+                a["variant"] == b["variant"]
+                    && crate::review_experiments::merge_risk_enabled(a)
+                        == crate::review_experiments::merge_risk_enabled(b)
+            }
             "ask" => a["threadId"] == b["threadId"],
             _ => true,
         }
@@ -529,6 +536,10 @@ async fn run_storage<T: Send + 'static>(
 /// Admission stays independent of the HTTP request once queued. Its complete
 /// storage/pin transaction runs on the blocking pool, including mutex acquisition.
 async fn start_async(state: &Arc<AppState>, req: Value, task: bool) -> Result<String> {
+    anyhow::ensure!(
+        state.identity.is_legacy(),
+        "Connect a personal AI provider before starting work"
+    );
     let (send, result) = tokio::sync::oneshot::channel();
     {
         let mut handles = state.jobs.handles.lock().unwrap();
@@ -928,6 +939,16 @@ pub async fn change_chat(state: &Arc<AppState>, key: &str, id: Option<&str>) -> 
     .await
 }
 pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
+    if let Err(error) = state.identity.ensure_current() {
+        return Some(Err(error));
+    }
+    handle_inner(state, name, args).await.map(|result| {
+        state.identity.ensure_current()?;
+        result
+    })
+}
+
+async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
     let a = if args.is_array() {
         args.get(0).cloned().unwrap_or(json!({}))
     } else {

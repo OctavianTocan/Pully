@@ -22,6 +22,7 @@ open class AppSettings(
     private val effects: SettingsEffects,
     defaultLocale: () -> String = Messages::detect,
 ) {
+    val experiments = ExperimentalFeatures(prefs, effects::experimentChanged)
 
     /** `system`, `dark` or `light`; `system` (follow the phone) until Settings picks one. */
     var theme by mutableStateOf(prefs.getString("theme", "system") ?: "system")

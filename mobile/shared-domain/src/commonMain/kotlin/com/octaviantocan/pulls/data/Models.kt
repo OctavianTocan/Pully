@@ -208,7 +208,7 @@ fun JsonObject.asPull(): PullRow {
 // Retain the ISO_INSTANT forms Android accepted before this parser moved to common Kotlin.
 private val pullTimestamp = Regex("""^([+-]?\d{4,10}-\d{2}-\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.(\d{0,9}))?([Zz]|[+-]\d{2}:\d{2}(?::\d{2})?)$""")
 
-private fun pullTimestampMillis(text: String): Long? = runCatching {
+fun pullTimestampMillis(text: String): Long? = runCatching {
     val (date, hour, minute, second, fraction, offset) = pullTimestamp.matchEntire(text)?.destructured ?: return null
     require(!date.startsWith('-') || date.dropLast(6).drop(1).any { it != '0' })
     if (offset.length > 1) {

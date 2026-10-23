@@ -1,0 +1,10 @@
+@cc [owner:OctavianTocan,label:product;security] first-connection-offers-recovery
+Before a private-server installation has a verified Pully connection, the shared
+connection screen MUST explain its next step and offer working Retry and Server
+settings actions. It MUST distinguish a failed response from an empty connected
+Inbox and MUST NOT show raw responses, parser/native exception details or imply
+GitHub/account authorization from HTML alone. A returning verified account MUST
+retain offline access. Public-capable hosts MUST offer public browsing as the
+ordinary signed-out path rather than requiring operator Access credentials.
+Source: Tavi's 21 Oct 2026 reinstall screenshot and follow-up asking for personal
+GitHub sign-in plus public-repository browsing without sign-in.

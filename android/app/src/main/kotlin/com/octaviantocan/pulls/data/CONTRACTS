@@ -1,11 +1,31 @@
 @cc [owner:OctavianTocan,label:security] data-no-user-credentials
-The phone talks to one server, the one set in Settings. The only credentials it holds are
+The legacy private connection talks to the one server set in Settings. Its credentials are
 the optional Cloudflare Access client ID and secret and the account's session, which are
 sent only to that server, stored only on the phone, and never logged or shown back in
 full. The account's password is sent once, to sign in, and never stored (Tavi, 16 Oct
 12:47). The session MUST go only to the server address it signed in on, and the password
 and session MUST NOT go over plain HTTP except to this phone or the emulator's host
 (Devin Review on PR 58).
+Tavi's 21 Oct 2026 personal GitHub decision adds a separate app-owned HTTPS account
+origin. A personal Pully bearer MUST use only that origin's fixed personal routes and
+MUST NOT become a legacy session, Access credential or GitHub REST credential. Android
+MUST encrypt pending and accepted personal bearers with a non-exportable Keystore key
+in storage excluded from backup; native errors MUST NOT expose its contents. GitHub
+and provider credentials MUST remain on the server. This deliberately scopes the old
+one-server-only credential rule to the compatibility connection.
+
+@cc [owner:OctavianTocan,label:product;security] data-account-discovery-keeps-evidence
+A fresh private-server installation MUST retain discovery failures as actionable
+connection state instead of silently presenting an empty connected Inbox. A successful
+Pully response MAY establish connectivity without inventing account capabilities for
+an older server. HTML, non-RPC authentication failures, unavailable or malformed account
+responses MUST NOT forget an existing session. A source change MUST retire discovered
+capabilities and hide an identity belonging to a different server; stale checks MUST
+NOT overwrite the current source or a newer check. Source: Tavi's 21 Oct 2026 reinstall
+screenshot and request for clear account/connection guidance.
+Unmarked legacy capabilities MUST be rediscovered rather than attributed to the current
+server. A matching saved session MUST retain offline access during that discovery
+(21 Oct 2026 first-run review, legacy server replacement regression).
 
 @cc [owner:OctavianTocan,label:product] data-settings-sync
 While signed in, the phone's choices of look, language, layout, fonts, code size, sounds,
@@ -17,9 +37,19 @@ oldest, so they reach an account without them but never override another phone's
 Access secrets, the session, Update notifications and Usage stats stay on the phone
 ("start saving settings, both on the mobile app and also sync it": Tavi, 16 Oct 12:47).
 
+@cc [owner:OctavianTocan,label:architecture;product] settings-sync-policy-keeps-native-owner-lazy
+The SettingsSync newer/disowned policy and SYNCED inventory MUST remain callable
+without initializing Android preferences, account state or a Main-dispatched job owner.
+Only a context-backed synchronization operation MAY construct that native owner.
+Source: Tavi's 21 Oct 2026 shared settings reuse and the accepted 22 Oct 2026 Android
+release account-policy initialization regression.
+
 @cc [owner:OctavianTocan,label:architecture] data-server-is-the-source
-The phone reads pull requests, diffs, tours and AI work from its server's API, the same
-actions the web app runs; it never calls GitHub or a model provider itself.
+The private Inbox, diffs, tours and AI work MUST come from the configured server's API,
+the same actions the web app runs. Tavi's 21 Oct 2026 anonymous browsing decision permits
+the separate shared Explore client to call fixed HTTPS api.github.com REST GETs for
+public repository discovery and PR lists without any private credentials or cache.
+The phone MUST NOT call model providers or use an operator/personal token for Explore.
 
 @cc [owner:OctavianTocan,label:product] data-ai-work-notice-follows-server
 The app's ongoing AI notification MUST describe actual running analysis, tour, brief or
@@ -72,6 +102,13 @@ in Settings, with the same Access headers as `/api/rpc`, at most 200 a call. It 
 use any analytics, crash or telemetry package (message 15 Oct 20:58, "We will track them
 directly on our server. No need for fancy packages", and 21:12, "doit"; plan "Pulls
 analytics on our own server").
+In the anonymous Explore entry mode, private analytics MUST be paused without changing
+the saved Usage stats choice or discarding a returning account's queued events. Guest
+startup and workers MUST NOT send events to an unverified/private server. Source:
+Tavi's 21 Oct 2026 ordinary signed-out browsing and isolated guest-authority decision.
+Guest intervals MUST NOT later enter private screen/foreground durations, and a
+private entry reached after guest startup MUST NOT be counted as a slow app launch
+(22 Oct 2026 Compound guest review).
 
 @cc [owner:OctavianTocan,label:security] data-analytics-counts-not-content
 An event's props MUST carry only counts, timings, fixed choices, on or off values and a

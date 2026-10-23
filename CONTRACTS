@@ -25,15 +25,21 @@ by hand. Adding a `CONTRACTS` file needs no other change for it to show there
 (message 15 Oct, "a section under the UI book for code contracts").
 
 @cc [owner:OctavianTocan,label:security;architecture] phone-api-one-account
-The phone's API (`POST /api/rpc` and `GET /android/*`) stays behind Cloudflare Access with
+The legacy private phone API (`POST /api/rpc` and `GET /android/*`) stays behind Cloudflare Access with
 the headers the phone is given in Settings, as before. The phone signs in once and stays
 signed in until Sign out: with Google (see `google-sign-in-same-account`), or with email and
 password for the one test account seeded from the environment. Nobody can make an account
-with a password, and there is no GitHub connection. The account's own methods (its keys,
+with a password in that compatibility flow. The account's own methods (its keys,
 synced settings and posted diffs) MUST need that session; the rest of the phone API is
 reached as before. This replaces "no login" by Tavi's decision of 16 Oct 12:40 and 12:47
 (plan "Posted diffs"); Google accounts and the password kept for test users are his of
-16 Oct 16:52.
+16 Oct 16:52. Tavi's 21 Oct 2026 any-account GitHub and anonymous browsing decision adds
+separate guest and personal principals; it MUST NOT broaden the legacy private API's
+ingress or adopt its shared operator GitHub credential. Anonymous native browsing MAY
+use fixed tokenless public GitHub REST reads. Personal GitHub sign-in MUST use a
+Pully-owned authorization flow, verified immutable GitHub identity and the user's own
+isolated credential/state. Existing Google accounts MUST remain compatible; email
+matching alone MUST NOT link a personal GitHub identity to an existing account.
 
 @cc [owner:OctavianTocan,label:security;product] google-sign-in-same-account
 Google sign-in makes the email's account the first time and signs in to it after, with no
@@ -47,14 +53,19 @@ else is refused with no session. Google-created accounts have no password unless
 configured as the environment-seeded test account. Without that client ID the server takes no Google sign-in and the phone shows no Google button.
 
 @cc [owner:OctavianTocan,label:security] agent-api-needs-a-key
-`/api/v1/*` is the only part of the server meant to sit outside Cloudflare Access, and it
+The account-key agent API `/api/v1/*` may sit outside Cloudflare Access, and it
 MUST answer 401 to every call without a valid account key, whatever the path's case or
 doubled slashes (`/API/v1`, `//api//v1`; Tavi, 16 Oct 14:32). A key reaches only its own
 account's posted diffs and its feedback: no phone method, no GitHub token, no AI run, no
 other account (Tavi, 16 Oct 12:47: "that endpoint doesn't really allow them to do anything
 unless they pass a valid API key"). The feedback is added by Tavi's ask of 20 Oct 06:10 ("we
 can then act on all my feedback later on"); a key reads it and marks it done or open, and
-can do nothing else to it.
+can do nothing else to it. Tavi's 21 Oct 2026 anonymous public-browsing decision also
+permits a separately configured, default-disabled read-only public service with only
+`GET /api/public/v1/capabilities`, `/api/public/v1/repositories` and
+`/api/public/v1/repositories/{owner}/{repo}/pulls`. That service MUST use a tokenless
+fixed GitHub origin and isolated public state, reject forwarded credentials and
+arbitrary legacy RPC, and MUST NOT initialize operator account, Git, agent or AI state.
 
 @cc [owner:OctavianTocan,label:security;product] posted-diffs-not-on-the-web
 A diff an agent posted opens only in the phone app, signed in to the account. The web page
@@ -75,9 +86,21 @@ the phone or the page, written into an answer, an error, a log, an AI prompt or 
 log, or be readable through any method the phone may call.
 
 @cc [owner:OctavianTocan,label:security] secrets-come-from-the-environment
-Keys for paid services (TypeSafe, the Pi endpoint, model providers) come only from the
-server's environment. A client names an engine and a model, never a URL or a key, and no
-answer, notice or log line MAY echo a key or any part of it.
+Keys for the LegacyPrivate/default paid-service capability (TypeSafe, the Pi endpoint,
+model providers) come only from the server's environment; its generic engine/model
+requests MUST NOT override a URL or credential. Tavi's 21 Oct 2026 per-user Claude
+subscription, ChatGPT subscription and Pi endpoint decision intentionally adds separate
+typed, owner-scoped provider connections: their supported setup/auth flow MAY accept that
+user's own endpoint or credential into protected custody (for Pi, an encrypted
+account-owned vault), never arbitrary legacy RPC. Jobs MUST name the captured
+connection/revision and model, not accept arbitrary execution URLs or keys. Personal or
+guest work MUST NOT inherit operator environment/CLI credentials, and missing/failed
+personal authority MUST NOT silently fall back to operator credentials or paid default
+use. A guest has no personal paid authority. GitHub sign-in MUST NOT be a prerequisite
+for all AI; a separately verified Pully/local principal or explicitly labelled
+anonymous/shared-default allowance MUST have its own credential and budget boundary and
+MUST NOT impersonate a GitHub account (Tavi, 22 Oct 2026). No answer, notice, error,
+Debug output or log line MAY echo a key or any part of it.
 
 @cc [owner:OctavianTocan,label:architecture;design] one-look-two-clients
 The web app and the phone app are one product with one look (DESIGN.md rule 106). Colours,

@@ -86,6 +86,15 @@ describe('kotlin readers', () => {
     assert.equal(composables(actual)[0].source, actual)
   })
 
+  it('keeps native kit definitions in Book coverage without treating adapter members as components', () => {
+    const native = 'platform/shared-ui/androidMain/ui/design/AndroidPageBack.kt'
+    const sources = {
+      [native]: '@Composable\nfun PageBack() {}',
+      'ui/design/SheetWindow.kt': 'internal expect object SheetPlatform {\n    @Composable\n    fun Dialog()\n}',
+    }
+    assert.deepEqual(Object.keys(book.designComposables(sources)), ['PageBack'])
+  })
+
   it('reads palettes, type roles with their wide twin, and dp scales', () => {
     const tokens = [
       'val LightPullsColors = PullsColors(dark = false, base = Color(0xFFFDFCF9), scrim = Color(0x99000000), accentTeal = Color(0xFF24929C))',
@@ -352,6 +361,9 @@ describe('motion', () => {
     assert.deepEqual(scan('// motion-ok: puts the old text back; nothing moves\nBackHandler { editing = false }'), [])
     assert.equal(scan('// motion-ok:\nBackHandler { editing = false }').length, 1)
     assert.deepEqual(scan('PredictiveBackHandler(enabled) { events -> }', 'ui/design/Motion.kt'), [])
+    assert.deepEqual(scan('PredictiveBackHandler(enabled) { events -> }', 'platform/shared-ui/androidMain/ui/design/AndroidPageBack.kt'), [])
+    assert.equal(scan('slideOutHorizontally(spec) { -travel }', 'platform/shared-ui/iosMain/ui/design/NativeMotion.kt').length, 1)
+    assert.equal(scan('PredictiveBackHandler { close() }', 'platform/shared-ui/androidMain/ui/home/Screen.kt').length, 1)
   })
 
   it('declares the rule DESIGN.md lists for it', () => {

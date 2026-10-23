@@ -1,0 +1,57 @@
+@cc [owner:OctavianTocan,label:product;security;architecture] explore-is-public-with-an-owned-lifetime
+Explore MUST show anonymous Popular/search and public repository PR pages without
+Access credentials or account sign-in. It MUST consume only the explicit tokenless
+public client, never legacy Inbox/review stores or AI authority. Its route state MUST
+cancel replaced requests, ignore stale results/errors and reject retired callbacks;
+source retirement MUST clear inputs and rows. A popped public page MAY retain inert
+rows only through its exit animation; popped callbacks/results MUST already be revoked.
+Public repository selection and pagination MUST
+retain the selected immutable repository ID, and a confirmed visibility/identity denial
+MUST clear prior PR rows. Source: Tavi's 21 Oct 2026 signed-out browsing and personal
+GitHub request, approved direct-native guest slice and public-boundary review.
+
+@cc [owner:OctavianTocan,label:product;security] fresh-entry-does-not-inherit-a-private-workspace
+A fresh/reinstalled native app without matching verified existing-connection evidence
+MUST open Explore, even if a restored preference selected the existing-server entry.
+A legitimate returning connection MUST retain its existing workspace unless the user
+chose public browsing. That choice MUST preserve the saved private account. Selecting
+another entry MUST revoke retained callbacks and pending results before mounting its
+pages; returning to Explore MUST NOT revive a previous guest source. Public startup
+MUST NOT instantiate private Home, account discovery, AI or Stats observers. Source:
+Tavi's 21 Oct 2026 reinstall screenshot and no-sign-in public browsing request.
+
+@cc [owner:OctavianTocan,label:architecture;security] guest-links-keep-public-and-private-authority-separate
+Guest links MUST use the same Compose navigation stack and MUST NOT mount private
+review/repository clients. Until native public review exists, a verified-format GitHub
+link MAY offer an explicit fixed-origin Open on GitHub action. Private/server links
+MUST offer the existing-account entry or public browsing without fetching private data.
+Source: Tavi's 21 Oct 2026 public browsing decision, nav-links-inside-open-like-outside
+and the approved staged public list/PR implementation.
+
+@cc [owner:OctavianTocan,label:design;architecture] explore-reuses-pully-and-the-shared-stack
+Android and iOS MUST use the same Explore state and presentation, Pully's existing
+design kit and the host's shared Compose route stack. Opening a repository MUST use
+the host navigation callback; Explore MUST NOT create an independent native/child
+back stack. The initial list slice MUST label PR actions as opening GitHub until a
+public review route actually exists. Account invitations MUST reflect real server
+sign-in capability rather than inventing OAuth success or sending operator secrets.
+Public PR list titles MUST keep the existing two-line ellipsis limit; ordinary
+sheet labels MUST retain their full wrapping (android-whole-identifiers).
+Source: mobile-reuses-production-ui, shared-navigation-keeps-one-compose-stack and
+Tavi's 21 Oct 2026 guest browsing/personal sign-in request.
+
+@cc [owner:OctavianTocan,label:product;architecture] guest-incoming-links-commit-before-consumption
+A valid guest arrival MUST remain pending while its existing sheets close. Only a
+current, uncancelled guest source holding that same pending arrival MAY append its
+route and then consume it. A replaced arrival or retired source MUST NOT navigate
+or consume its successor. Source: shared-navigation-keeps-one-compose-stack and the
+22 Oct 2026 Compound guest link review.
+
+@cc [owner:OctavianTocan,label:product;design] explore-refresh-keeps-known-content
+Unknown public list content MUST use the existing skeletons rather than loading text
+or a spinner. Returning to the foreground MUST quietly revalidate only the active
+public page, coalescing an in-flight request and retaining its query, known rows and
+loaded pagination until a complete current answer replaces them. A confirmed
+repository visibility/identity denial MUST still clear its prior PR rows. Explore
+MUST NOT expose a Refresh action or refresh indicator. Source: android-no-loading-screens,
+android-refresh-is-silent and the 22 Oct 2026 guest contract review.

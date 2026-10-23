@@ -1,7 +1,84 @@
 {
+  "nativeShare": {
+    "title": "Pully internal preview",
+    "reading": "Reading the shared link…",
+    "save": "Save for Pully",
+    "unsupported": "Share a GitHub pull request, repository, commit, compare or a supported link to your Pully server.",
+    "hint": "Save this link, then open Pully to continue with your current account. Saved links expire after 24 hours.",
+    "unavailable": "Pully sharing needs the same provisioned App Group in the app and its extension.",
+    "busy": "Pully sharing is busy. Wait a moment, then share this link again.",
+    "noSource": "Open Pully and sign in before saving a link.",
+    "staleSource": "The Pully account or server changed. Share this link again.",
+    "invalidRecord": "Pully could not read this saved link. Share it again.",
+    "failure": "Pully could not save this link. Unlock the device and share it again."
+  },
+  "explore": {
+    "title": "Explore",
+    "intro": "Discover public projects and their open pull requests. No sign-in needed.",
+    "signIn": "Sign in with GitHub",
+    "signInUnavailable": "GitHub sign-in is being set up. You can browse public projects now.",
+    "existingAccount": "Use an existing Pully account",
+    "browse": "Browse public projects",
+    "accountLink": "Continue with your Pully account",
+    "accountLinkBody": "Use the account for your connected workspace to open this shared review, or keep exploring public projects.",
+    "publicLink": "Open this link on GitHub",
+    "publicLinkBody": "You can read this link on GitHub, use an existing Pully account, or keep exploring public projects.",
+    "openLink": "Open on GitHub",
+    "popular": "Popular repositories",
+    "results": "Results for “{query}”",
+    "stars": "{count} stars",
+    "searchPlaceholder": "Search public repositories",
+    "search": "Search",
+    "loadMore": "Load more",
+    "incomplete": "GitHub returned part of the results. Try a more specific search.",
+    "emptyRepositories": "No public repositories found. Try another name or search.",
+    "back": "Back to Explore",
+    "publicPulls": "Open pull requests",
+    "opensOnGitHub": "Choose a pull request to open it on GitHub.",
+    "emptyPulls": "This public repository has no open pull requests.",
+    "draft": "Draft",
+    "open": "Open",
+    "github": "GitHub",
+    "problem": {
+      "InvalidSearch": "Search with a repository name or a few words, up to 80 characters.",
+      "RateLimited": "GitHub’s public browsing limit has been reached. Try again later.",
+      "RepositoryUnavailable": "This repository is no longer available for public browsing. Return to Explore to choose another.",
+      "Unavailable": "Public repositories are temporarily unavailable. Try again in a moment.",
+      "InvalidResponse": "GitHub could not return this public project. Try again.",
+      "WebPage": "The connection returned a web page. Check your connection and try again.",
+      "Redirect": "This repository moved. Search for its current name in Explore.",
+      "Timeout": "GitHub took too long to respond. Try again.",
+      "Unreachable": "Pully could not reach GitHub. Check your connection and try again."
+    }
+  },
+  "connection": {
+    "welcome": "Welcome to Pully",
+    "intro": "Read pull requests, explore changes and follow reviews.",
+    "serverSettings": "Server settings",
+    "checking": "Connecting…",
+    "saved": "Saved. Pully is connected.",
+    "emptyInbox": "Paste a GitHub pull request link below to open one.",
+    "problem": {
+      "FirstConnection": "Choose a Pully server to get started. It may ask you to sign in after connecting.",
+      "Configuration": "Check the server address. If your server needs Access credentials, enter both fields.",
+      "Access": "This server needs access authorization before Pully can connect. Check Server settings or ask the person who runs it.",
+      "HttpRejected": "The server did not allow Pully to connect. Check the server address or ask the person who runs it.",
+      "WebPage": "Your server opened a web page instead of Pully. Check its address or access settings, then try again.",
+      "SignIn": "Your server could not confirm your account. Try again or check Server settings.",
+      "Forbidden": "Your account does not have access to this request. Check the account or server you are using.",
+      "Redirect": "Your server sent Pully to another address. Check the server address and access settings.",
+      "Unavailable": "Your server is not available right now. Try again in a moment.",
+      "InvalidResponse": "Your server did not send a response Pully can use. Check its address, then try again.",
+      "Timeout": "Your server took too long to respond. Check your connection and try again.",
+      "Unreachable": "Pully could not reach your server. Check your connection or Server settings, then try again."
+    }
+  },
   "mobilePreview": {
     "title": "Pully internal preview",
-    "fixtureData": "Fixture data"
+    "fixtureData": "Fixture data",
+    "limitationTitle": "Internal preview limitation",
+    "limitationBody": "This internal preview supports Inbox filters, repository lists and profile settings. Review, AI, account settings and Commands will become available as their existing screens are shared.",
+    "profileUnavailable": "Profile statistics are not included in this internal preview."
   },
   "common": {
     "cancel": "Cancel",
@@ -498,6 +575,9 @@
     "approve": "Approve",
     "requestChanges": "Request changes",
     "discard": "Discard review",
+    "noPendingReview": "There is no pending review to discard.",
+    "confirmDiscard": "Discard this pending review and its {n} comment. | Discard this pending review and its {n} comments.",
+    "pendingReviewChanged": "The pending review changed. Go back to read it before discarding.",
     "leaveComment": "Leave a comment",
     "addSingle": "Add single comment",
     "addToReview": "Add review comment",
@@ -510,6 +590,33 @@
   },
   "critique": {
     "title": "AI review",
+    "mergeRisk": {
+      "title": "Merge risk",
+      "levelLabel": "{level} risk",
+      "level": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "category": {
+        "alignment": "Alignment",
+        "impact": "Impact",
+        "verification": "Verification",
+        "rollbackCost": "Rollback cost",
+        "errorDetection": "Error detection"
+      },
+      "verdict": {
+        "poor": "Poor",
+        "decent": "Decent",
+        "good": "Good",
+        "large": "Large",
+        "medium": "Medium",
+        "small": "Small",
+        "high": "High",
+        "low": "Low",
+        "not-applicable": "N/A"
+      }
+    },
     "run": "Review with AI",
     "rerun": "Re-review",
     "running": "Reviewing… {time}",
@@ -517,7 +624,7 @@
     "withLens": "Reviewed through the {lens} skill",
     "usage": "Cost, tokens in and out, and time taken",
     "findingCount": "{n} finding | {n} findings",
-    "noFindings": "No bugs or risks found.",
+    "noFindings": "No inline problems found.",
     "allFiltered": "No findings of the selected severities.",
     "dropped": "{n} finding was left out: it pointed outside the diff or repeated another. | {n} findings were left out: they pointed outside the diff or repeated others.",
     "outdated": "This review is of an older commit; review again to post its findings.",
@@ -599,10 +706,22 @@
       "other": "Used {n} tool | Used {n} tools"
     },
     "verb": {
-      "thinking": { "now": "Thinking", "past": "Thought" },
-      "writing": { "now": "Writing", "past": "Wrote" },
-      "readFiles": { "now": "Reading {n} file | Reading {n} files", "past": "Read {n} file | Read {n} files" },
-      "organizing": { "now": "Organizing the groups", "past": "Organized the groups" }
+      "thinking": {
+        "now": "Thinking",
+        "past": "Thought"
+      },
+      "writing": {
+        "now": "Writing",
+        "past": "Wrote"
+      },
+      "readFiles": {
+        "now": "Reading {n} file | Reading {n} files",
+        "past": "Read {n} file | Read {n} files"
+      },
+      "organizing": {
+        "now": "Organizing the groups",
+        "past": "Organized the groups"
+      }
     },
     "usage": {
       "input": "{n} in",
@@ -622,6 +741,11 @@
     }
   },
   "settings": {
+    "experiments": {
+      "title": "Experimental",
+      "mergeRisk": "Merge risk",
+      "browserHelper": "Browser floaty"
+    },
     "browserHelper": {
       "group": "Browser",
       "title": "Browser helper",
@@ -708,20 +832,62 @@
   },
   "rules": {
     "allFiles": "All files",
-    "code": { "label": "Code", "summary": "Source changes." },
-    "other": { "label": "Other", "summary": "Other changes that don't fit an existing category." },
-    "docs": { "label": "Docs", "summary": "Documentation updates." },
-    "tests": { "label": "Tests", "summary": "Test coverage for the change." },
-    "config": { "label": "Config", "summary": "Configuration changes." },
-    "deps": { "label": "Dependencies", "summary": "Dependency version changes." },
-    "generated": { "label": "Generated", "summary": "Generated or build output changes." },
-    "types": { "label": "Types", "summary": "Type declarations." },
-    "data": { "label": "Data", "summary": "Database schema and migrations." },
-    "styles": { "label": "Styles", "summary": "Stylesheets and styling config." },
-    "scripts": { "label": "Scripts", "summary": "Build, dev and automation scripts." },
-    "ci": { "label": "CI", "summary": "CI workflows and pipelines." },
-    "i18n": { "label": "Translations", "summary": "Locale and translation files." },
-    "assets": { "label": "Assets", "summary": "Images, fonts and media." },
+    "code": {
+      "label": "Code",
+      "summary": "Source changes."
+    },
+    "other": {
+      "label": "Other",
+      "summary": "Other changes that don't fit an existing category."
+    },
+    "docs": {
+      "label": "Docs",
+      "summary": "Documentation updates."
+    },
+    "tests": {
+      "label": "Tests",
+      "summary": "Test coverage for the change."
+    },
+    "config": {
+      "label": "Config",
+      "summary": "Configuration changes."
+    },
+    "deps": {
+      "label": "Dependencies",
+      "summary": "Dependency version changes."
+    },
+    "generated": {
+      "label": "Generated",
+      "summary": "Generated or build output changes."
+    },
+    "types": {
+      "label": "Types",
+      "summary": "Type declarations."
+    },
+    "data": {
+      "label": "Data",
+      "summary": "Database schema and migrations."
+    },
+    "styles": {
+      "label": "Styles",
+      "summary": "Stylesheets and styling config."
+    },
+    "scripts": {
+      "label": "Scripts",
+      "summary": "Build, dev and automation scripts."
+    },
+    "ci": {
+      "label": "CI",
+      "summary": "CI workflows and pipelines."
+    },
+    "i18n": {
+      "label": "Translations",
+      "summary": "Locale and translation files."
+    },
+    "assets": {
+      "label": "Assets",
+      "summary": "Images, fonts and media."
+    },
     "area": "{label} · {area}",
     "rootArea": "repo root",
     "otherAreas": "other areas",
@@ -777,7 +943,10 @@
     },
     "loading": "Loading local changes…",
     "loadFailed": "Couldn't load these changes",
-    "posted": { "title": "This diff opens in the Pully app", "hint": "Diffs that agents post open only on your phone, signed in to the account." },
+    "posted": {
+      "title": "This diff opens in the Pully app",
+      "hint": "Diffs that agents post open only on your phone, signed in to the account."
+    },
     "auth": {
       "title": "Enter the code from your terminal",
       "hint": "pulls.review printed a 6-digit code in the terminal it runs in.",
@@ -842,5 +1011,130 @@
     "byFeature": "By feature",
     "byModel": "By model",
     "runsCount": "{n} run | {n} runs"
+  },
+  "aiConnections": {
+    "title": "Your connections",
+    "kinds": {
+      "claudeSubscription": "Claude subscription",
+      "chatGPTSubscription": "ChatGPT subscription",
+      "piEndpoint": "Pi endpoint"
+    },
+    "default": "Default",
+    "sharedDefault": "Shared server default",
+    "inUse": "In use",
+    "available": "Available",
+    "statusLabel": "Status",
+    "endpoint": "Endpoint",
+    "defaultModel": "Default model",
+    "providerDefault": "Provider default",
+    "capabilities": "Capabilities",
+    "modelCatalog": "Model catalog",
+    "aiTasks": "AI tasks",
+    "connecting": "Connecting…",
+    "checkConnection": "Check connection",
+    "reconnect": "Reconnect",
+    "continueConnecting": "Continue connecting",
+    "connect": "Connect",
+    "reenterKey": "Re-enter the endpoint key to retry.",
+    "updating": "Updating…",
+    "remove": "Remove connection",
+    "endpointUrl": "Endpoint URL",
+    "keepEndpoint": "Leave blank to keep the saved endpoint",
+    "endpointKey": "Endpoint key",
+    "keepKey": "Keep saved key",
+    "replaceKey": "Use a new key",
+    "noKey": "No key",
+    "changedEndpointKey": "Choose a new key or No key when changing the endpoint.",
+    "saving": "Saving…",
+    "save": "Save connection",
+    "status": {
+      "Disconnected": "Not connected",
+      "Pending": "Connecting",
+      "Unverified": "Not checked",
+      "Connected": "Connected",
+      "RefreshNeeded": "Reconnect needed",
+      "Unavailable": "Temporarily unavailable",
+      "Unsupported": "Not available"
+    },
+    "notices": {
+      "ClaudeApprovalRequired": "Connecting a Claude subscription requires approval for this service.",
+      "ChatGPTRegistrationRequired": "Connecting a ChatGPT subscription requires this service to be registered with OpenAI.",
+      "PiUnverified": "Configured, but this endpoint has not been checked.",
+      "DeploymentUnsupported": "This connection is not available from this server.",
+      "ProviderUnavailable": "The provider is temporarily unavailable. Try again later.",
+      "RefreshRequired": "Reconnect to continue using this connection."
+    },
+    "problems": {
+      "Unavailable": "Pully could not update this connection. Try again.",
+      "ConnectionChanged": "This connection changed. Refresh and try again.",
+      "AuthorizationExpired": "The connection needs to be authorized again.",
+      "InvalidEndpoint": "Use a valid HTTPS endpoint.",
+      "CredentialRejected": "The endpoint did not accept that key.",
+      "Unsupported": "This connection is not available from this server."
+    }
+  },
+  "personal": {
+    "title": "Your GitHub",
+    "connectGitHub": "Connect GitHub",
+    "notConfigured": "GitHub sign-in is not configured in this build. You can still browse public projects.",
+    "deviceUnavailable": "GitHub sign-in is temporarily unavailable on this device. You can still browse public projects.",
+    "account": "@{login}",
+    "signedIn": "Signed in as @{login}",
+    "intro": "Sign in with your GitHub account. You can keep browsing public repositories without signing in.",
+    "publicAccount": "Your account is connected. Public repositories remain available here.",
+    "continueGitHub": "Continue with GitHub",
+    "finishOnGitHub": "Finish signing in on GitHub, then return to Pully.",
+    "tryAgain": "Try again",
+    "signOut": "Sign out",
+    "cancel": "Cancel sign-in",
+    "problems": {
+      "NotConfigured": "GitHub sign-in is not available yet. You can keep browsing public repositories.",
+      "InvalidRequest": "Pully could not start GitHub sign-in. Try again.",
+      "Unauthorized": "Your Pully session is no longer valid. Sign in again.",
+      "Expired": "This sign-in has expired. Start again.",
+      "RateLimited": "Too many sign-in requests. Wait a moment, then try again.",
+      "Unavailable": "GitHub sign-in is temporarily unavailable. Try again.",
+      "Reconnect": "Reconnect your GitHub account to continue.",
+      "Denied": "GitHub sign-in was not approved. You can try again or keep browsing.",
+      "InvalidResponse": "The sign-in service could not return account data. Try again.",
+      "WebPage": "The sign-in service returned a web page. Try again later.",
+      "Redirect": "The sign-in service redirected the request. Try again later.",
+      "HttpRejected": "The sign-in service could not accept this request. Try again later.",
+      "Timeout": "GitHub sign-in took too long to respond. Try again.",
+      "Unreachable": "Pully could not reach sign-in. Check your connection and try again."
+    }
+  },
+  "personalBrowse": {
+    "pulls": "Your pull requests",
+    "repositories": "Your repositories",
+    "back": "Back",
+    "publicScope": "Showing your public repositories and open pull requests. Connect repository access to include private projects.",
+    "accountScope": "Repositories and open pull requests your GitHub account can access. Organization approval may still be required.",
+    "public": "Public",
+    "private": "Private",
+    "enablePrivate": "Include private repositories",
+    "consentBody": "GitHub’s repository permission includes read and write access. Pully uses this connection only to read repositories and pull requests. Your organization may require approval.",
+    "emptyRepositories": "No repositories found for this account.",
+    "emptyPulls": "No open pull requests found here.",
+    "incomplete": "Showing part of your GitHub results. More results may be available on GitHub.",
+    "relation": {
+      "ReviewRequested": "Waiting on you",
+      "Authored": "Authored",
+      "Involved": "Involved"
+    },
+    "problem": {
+      "InvalidRequest": "Choose a valid repository or page.",
+      "Unauthorized": "Sign in again to see your GitHub pull requests.",
+      "Reconnect": "Reconnect your GitHub account to continue.",
+      "Forbidden": "This repository or permission is no longer available. Return to your repositories or reconnect your account.",
+      "RateLimited": "GitHub’s read limit has been reached. Wait a moment, then try again.",
+      "Unavailable": "Your GitHub repositories are temporarily unavailable. Try again.",
+      "InvalidResponse": "Pully could not return your repositories. Try again.",
+      "WebPage": "The account service returned a web page. Check your connection and try again.",
+      "Redirect": "The account service sent this request elsewhere. Try again later.",
+      "HttpRejected": "The account service did not accept this request. Try again later.",
+      "Timeout": "Your repositories took too long to respond. Try again.",
+      "Unreachable": "Pully could not reach your repositories. Check your connection and try again."
+    }
   }
 }

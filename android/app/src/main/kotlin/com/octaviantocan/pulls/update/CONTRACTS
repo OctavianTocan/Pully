@@ -4,9 +4,14 @@ The updater installs only an APK whose SHA-256 matches `latest.json` and whose
 installed. Installation goes through Android's own installer and its approval.
 
 @cc [owner:OctavianTocan,label:security;architecture] updater-asks-only-its-server
-Updates come only from the configured server's `/android/latest.json` and the APK it
+Updates come only from the configured server's `/download/latest.json` and the APK it
 names, with the same Access headers as every other request. No third-party update
 service or library is in the path.
+The manifest MUST name a binary APK URL rather than the `/download` HTML page.
+Source: Tavi's 22 Oct 2026 download-page and removed direct-APK decision.
+Anonymous Explore MUST NOT start configured private-server update checks, downloads or
+installation from an old notification. A late check MUST NOT change the guest's state.
+Source: Tavi's 21 Oct 2026 signed-out public browsing and separate entry-authority plan.
 
 @cc [owner:OctavianTocan,label:product] updater-remembers-the-offer
 The phone remembers the last offer, so the update screen is there before the server
@@ -28,10 +33,12 @@ or expired installs MUST offer retry, and only the installed package version MAY
 success. Source: Tavi, 21 Oct 2026, updates stuck at installing or downloading; rule 63.
 
 @cc [owner:OctavianTocan,label:security] past-versions-install-beside
-A past version installs only from the configured server's `/android/past/`, only when
+A past version installs only from the configured server's `/download/past/`, only when
 its SHA-256 matches `index.json`, and only as its own `com.octaviantocan.pulls.v*`
 package: the installer is told the package name, so a past build can never replace
 this app. Its versionCode is offset so no update is ever offered to it.
+The canonical namespace follows Tavi's 22 Oct 2026 download-page decision; existing
+read-only history aliases MAY remain for older installed clients.
 
 @cc [owner:OctavianTocan,label:security;architecture] past-versions-get-the-server-at-launch
 A past version gets the server address and Access token only in the explicit intent

@@ -5,6 +5,54 @@ import XCTest
 
 @MainActor
 final class NativeAccountStoreTests: XCTestCase {
+    func testIdentityRevocationPrecedesPublicationAndDoesNotRotateForSameAccountRenewalOrRestore() async throws {
+        let preferences = MemoryPreferences()
+        let secrets = MemorySecrets()
+        var events: [String] = []
+        let first = try NativeAccountStore(preferences: preferences, secrets: secrets,
+            identityWillChange: { events.append("revoke") }, invalidated: { events.append("invalidate") })
+        try first.signedIn(session: "fixture-session", email: "Person@OctavianTocan.com", expectedGeneration: first.generation)
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try first.signedIn(session: "fixture-renewed-session", email: "person@octaviantocan.com", expectedGeneration: first.generation)
+        XCTAssertEqual(events, ["invalidate"])
+        events.removeAll()
+        let restored = try NativeAccountStore(preferences: preferences, secrets: secrets,
+            identityWillChange: { events.append("revoke") }, invalidated: { events.append("invalidate") })
+        XCTAssertTrue(events.isEmpty)
+        try restored.verifiedRestoredSession(email: "person@octaviantocan.com", expectedGeneration: restored.generation)
+        XCTAssertEqual(events, ["invalidate"])
+        events.removeAll()
+        try restored.updateServer(preferences.value, access: NativeAccessCredentials(clientID: "fixture-id", secret: "fixture-secret"))
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.signedIn(session: "fixture-other-session", email: "other@octaviantocan.com", expectedGeneration: restored.generation)
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.updateServer(NativeServerConfiguration(server: NativeServerAddress("https://another.example")),
+                                 access: NativeAccessCredentials(clientID: "", secret: ""))
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.signedOut()
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        events.removeAll()
+        try restored.resetCredentials()
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+    }
+
+    func testIdentityFailureRevokesBeforeCredentialCleanupEvenWhenKeychainDeletionFails() async throws {
+        let secrets = MemorySecrets()
+        var events: [String] = []
+        let store = try NativeAccountStore(preferences: MemoryPreferences(), secrets: secrets,
+            identityWillChange: { events.append("revoke") }, invalidated: { events.append("invalidate") })
+        try store.signedIn(session: "fixture-session", email: "person@octaviantocan.com", expectedGeneration: store.generation)
+        events.removeAll()
+        secrets.failRemoving = true
+        XCTAssertThrowsError(try store.signedOut())
+        XCTAssertEqual(events, ["revoke", "invalidate"])
+        XCTAssertNil(store.configuration().headers["X-Pully-Session"])
+    }
+
     func testRestoredSessionNeedsServerVerificationBeforeOrdinaryCalls() async throws {
         let preferences = MemoryPreferences()
         let secrets = MemorySecrets()
@@ -40,6 +88,26 @@ final class NativeAccountStoreTests: XCTestCase {
         // Returning to the first server does not silently resurrect its old session.
         try store.updateServer(preferences.initial, access: NativeAccessCredentials(clientID: "", secret: ""))
         XCTAssertNil(store.configuration().headers["X-Pully-Session"])
+    }
+
+    func testModelChoicePersistsWithoutChangingTheVerifiedPrivateSource() async throws {
+        let preferences = MemoryPreferences()
+        let store = try NativeAccountStore(preferences: preferences, secrets: MemorySecrets(), invalidated: {})
+        try store.updateServer(preferences.value, access: NativeAccessCredentials(clientID: "fixture-id", secret: "fixture-secret"))
+        try store.signedIn(session: "fixture-session", email: "person@octaviantocan.com", expectedGeneration: store.generation)
+        let before = store.configuration()
+        try store.updateAnalysis(engine: "codex", model: "sol", expectedGeneration: before.generation)
+        XCTAssertEqual(store.generation, before.generation)
+        XCTAssertEqual(store.configuration().headers, before.headers)
+        XCTAssertEqual(store.activeEmail, "person@octaviantocan.com")
+        XCTAssertEqual(store.configuration().engine, "codex")
+        XCTAssertEqual(store.configuration().model, "sol")
+        XCTAssertEqual(preferences.value.engine, "codex")
+        XCTAssertEqual(preferences.value.model, "sol")
+        try store.signedOut()
+        XCTAssertThrowsError(try store.updateAnalysis(engine: "pi", model: "old choice", expectedGeneration: before.generation))
+        XCTAssertEqual(store.configuration().engine, "codex")
+        XCTAssertEqual(store.configuration().model, "sol")
     }
 
     func testDifferentInstallationsOnOneOriginNeverShareSession() async throws {

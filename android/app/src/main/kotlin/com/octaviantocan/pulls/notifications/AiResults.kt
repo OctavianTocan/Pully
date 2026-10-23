@@ -26,6 +26,7 @@ import com.octaviantocan.pulls.core.parsePullKey
 import com.octaviantocan.pulls.core.retainedAiResults
 import com.octaviantocan.pulls.core.sha256Hex
 import com.octaviantocan.pulls.data.Account
+import com.octaviantocan.pulls.data.NativeEntry
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TaskState
@@ -79,6 +80,12 @@ object AiResults {
 
     /** Called on startup/resume; a denied channel clears pending ownership rather than replaying old results later. */
     @Synchronized fun sync(context: Context) {
+        if (!NativeEntry.privateConnection(context)) {
+            generation++
+            cancelNotices(context)
+            runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK) }
+            return
+        }
         if (!enabled(context)) { reset(context); return }
         if (!allowed(context)) clearFollowed(context)
         runCatching {
@@ -98,6 +105,7 @@ object AiResults {
     }
 
     @Synchronized fun source(context: Context): Source? {
+        if (!NativeEntry.privateConnection(context)) return null
         if (!enabled(context)) return null
         if (!allowed(context)) { clearFollowed(context); return null }
         return identity(context)?.let { Source(it, generation) }
@@ -153,7 +161,7 @@ object AiResults {
 
     /** Validate our source and sanitized route again when a stale or forged notification intent is opened. */
     @Synchronized fun destination(context: Context, intent: Intent?): Destination? {
-        if (intent == null || intent.getStringExtra(EXTRA_SOURCE) != identity(context) || !enabled(context)) return null
+        if (!NativeEntry.privateConnection(context) || intent == null || intent.getStringExtra(EXTRA_SOURCE) != identity(context) || !enabled(context)) return null
         val url = intent.dataString ?: return null
         val kind = intent.getStringExtra(EXTRA_KIND) ?: return null
         val followed = read(context).firstOrNull { it.route == url && it.kind == kind } ?: return null
@@ -171,7 +179,7 @@ object AiResults {
     }
 
     private fun current(context: Context, source: Source?): Boolean =
-        source != null && source.generation == generation && enabled(context) && identity(context) == source.id
+        source != null && NativeEntry.privateConnection(context) && source.generation == generation && enabled(context) && identity(context) == source.id
 
     private fun read(context: Context): List<FollowedAiResult> = runCatching {
         val array = Json.parseToJsonElement(prefs(context).getString("followed", "[]")!!) as JsonArray

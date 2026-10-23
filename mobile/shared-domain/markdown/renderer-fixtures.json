@@ -1,0 +1,1213 @@
+[
+  {
+    "id": "inline",
+    "source": "Text *emphasis* **strong** ~~deleted~~ ~single~ ` code ` and `` a ` b ``.\\*literal\\* &amp; &copy; &NotEqualTilde; &#x1F989; &#0; &unknown;\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Text",
+              "literal": "Text ",
+              "children": []
+            },
+            {
+              "type": "Emphasis",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "emphasis",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " ",
+              "children": []
+            },
+            {
+              "type": "StrongEmphasis",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "strong",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " ",
+              "children": []
+            },
+            {
+              "type": "Strikethrough",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "deleted",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " ",
+              "children": []
+            },
+            {
+              "type": "Strikethrough",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "single",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " ",
+              "children": []
+            },
+            {
+              "type": "Code",
+              "literal": "code",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": " and ",
+              "children": []
+            },
+            {
+              "type": "Code",
+              "literal": "a ` b",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": ".*literal* & © ≂̸ 🦉 � &unknown;",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "headings",
+    "source": "# Heading *one* ###\n\nTwo\n---\n\n### Three\n\n---\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Heading",
+          "level": 1,
+          "children": [
+            {
+              "type": "Text",
+              "literal": "Heading ",
+              "children": []
+            },
+            {
+              "type": "Emphasis",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "one",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Heading",
+          "level": 2,
+          "children": [
+            {
+              "type": "Text",
+              "literal": "Two",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "Heading",
+          "level": 3,
+          "children": [
+            {
+              "type": "Text",
+              "literal": "Three",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "ThematicBreak",
+          "children": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "line-breaks",
+    "source": "soft\nline  \nhard\\\nnext\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Text",
+              "literal": "soft",
+              "children": []
+            },
+            {
+              "type": "SoftLineBreak",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": "line",
+              "children": []
+            },
+            {
+              "type": "HardLineBreak",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": "hard",
+              "children": []
+            },
+            {
+              "type": "HardLineBreak",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": "next",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "tables",
+    "source": "| Left | Center | Right |\n| :--- | :---: | ---: |\n| **bold** | `a\\|b` | [link](https://example.test) |\n| short |\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "TableBlock",
+          "children": [
+            {
+              "type": "TableHead",
+              "children": [
+                {
+                  "type": "TableRow",
+                  "children": [
+                    {
+                      "type": "TableCell",
+                      "alignment": "LEFT",
+                      "children": [
+                        {
+                          "type": "Text",
+                          "literal": "Left",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "type": "TableCell",
+                      "alignment": "CENTER",
+                      "children": [
+                        {
+                          "type": "Text",
+                          "literal": "Center",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "type": "TableCell",
+                      "alignment": "RIGHT",
+                      "children": [
+                        {
+                          "type": "Text",
+                          "literal": "Right",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "TableBody",
+              "children": [
+                {
+                  "type": "TableRow",
+                  "children": [
+                    {
+                      "type": "TableCell",
+                      "alignment": "LEFT",
+                      "children": [
+                        {
+                          "type": "StrongEmphasis",
+                          "children": [
+                            {
+                              "type": "Text",
+                              "literal": "bold",
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "TableCell",
+                      "alignment": "CENTER",
+                      "children": [
+                        {
+                          "type": "Code",
+                          "literal": "a|b",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "type": "TableCell",
+                      "alignment": "RIGHT",
+                      "children": [
+                        {
+                          "type": "Link",
+                          "destination": "https://example.test",
+                          "children": [
+                            {
+                              "type": "Text",
+                              "literal": "link",
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "TableRow",
+                  "children": [
+                    {
+                      "type": "TableCell",
+                      "alignment": "LEFT",
+                      "children": [
+                        {
+                          "type": "Text",
+                          "literal": "short",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "type": "TableCell",
+                      "alignment": "CENTER",
+                      "children": []
+                    },
+                    {
+                      "type": "TableCell",
+                      "alignment": "RIGHT",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "lists",
+    "source": "- [x] Done\n- [ ] Open\n  - nested **item**\n\n3. three\n4. four\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "BulletList",
+          "children": [
+            {
+              "type": "ListItem",
+              "children": [
+                {
+                  "type": "TaskListItemMarker",
+                  "checked": true,
+                  "children": []
+                },
+                {
+                  "type": "Paragraph",
+                  "children": [
+                    {
+                      "type": "Text",
+                      "literal": "Done",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "ListItem",
+              "children": [
+                {
+                  "type": "TaskListItemMarker",
+                  "checked": false,
+                  "children": []
+                },
+                {
+                  "type": "Paragraph",
+                  "children": [
+                    {
+                      "type": "Text",
+                      "literal": "Open",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "type": "BulletList",
+                  "children": [
+                    {
+                      "type": "ListItem",
+                      "children": [
+                        {
+                          "type": "Paragraph",
+                          "children": [
+                            {
+                              "type": "Text",
+                              "literal": "nested ",
+                              "children": []
+                            },
+                            {
+                              "type": "StrongEmphasis",
+                              "children": [
+                                {
+                                  "type": "Text",
+                                  "literal": "item",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "OrderedList",
+          "start": 3,
+          "children": [
+            {
+              "type": "ListItem",
+              "children": [
+                {
+                  "type": "Paragraph",
+                  "children": [
+                    {
+                      "type": "Text",
+                      "literal": "three",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "ListItem",
+              "children": [
+                {
+                  "type": "Paragraph",
+                  "children": [
+                    {
+                      "type": "Text",
+                      "literal": "four",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "code",
+    "source": "```kt extra\nval x = \"&amp;\"\n\n```\n\n    indented\n    next\n\n  ~~~js\n  const two = 2\n  ~~~\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "FencedCodeBlock",
+          "literal": "val x = \"&amp;\"\n\n",
+          "info": "kt extra",
+          "children": []
+        },
+        {
+          "type": "IndentedCodeBlock",
+          "literal": "indented\nnext\n",
+          "children": []
+        },
+        {
+          "type": "FencedCodeBlock",
+          "literal": "const two = 2\n",
+          "info": "js",
+          "children": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "quotes",
+    "source": "> quote\n> next\n>\n> - nested\n>\n> ```txt\n> parser.ts:90\n> ```\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "BlockQuote",
+          "children": [
+            {
+              "type": "Paragraph",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "quote",
+                  "children": []
+                },
+                {
+                  "type": "SoftLineBreak",
+                  "children": []
+                },
+                {
+                  "type": "Text",
+                  "literal": "next",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "BulletList",
+              "children": [
+                {
+                  "type": "ListItem",
+                  "children": [
+                    {
+                      "type": "Paragraph",
+                      "children": [
+                        {
+                          "type": "Text",
+                          "literal": "nested",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "FencedCodeBlock",
+              "literal": "parser.ts:90\n",
+              "info": "txt",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "links-images",
+    "source": "[label *em*](https://example.test/a_b?q=1&v=2 \"title &amp;\")\n\n[![badge](badge.svg \"dark:badge-dark.svg\")](https://example.test) ![alt **bold**](image.png)\n\n[reference][id] and [id].\n\n[id]: <https://example.test/caf%C3%A9> \"Reference\"\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test/a_b?q=1&v=2",
+              "title": "title &",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "label ",
+                  "children": []
+                },
+                {
+                  "type": "Emphasis",
+                  "children": [
+                    {
+                      "type": "Text",
+                      "literal": "em",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test",
+              "children": [
+                {
+                  "type": "Image",
+                  "destination": "badge.svg",
+                  "title": "dark:badge-dark.svg",
+                  "children": [
+                    {
+                      "type": "Text",
+                      "literal": "badge",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " ",
+              "children": []
+            },
+            {
+              "type": "Image",
+              "destination": "image.png",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "alt ",
+                  "children": []
+                },
+                {
+                  "type": "StrongEmphasis",
+                  "children": [
+                    {
+                      "type": "Text",
+                      "literal": "bold",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test/caf%C3%A9",
+              "title": "Reference",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "reference",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "https://example.test/caf%C3%A9",
+              "title": "Reference",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "id",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ".",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "autolinks",
+    "source": "<https://example.test/a> <user@example.test>\n\nhttps://example.test/a_(b). www.example.test/x and user.name+tag@example.test.\n\nftp://example.test/x and custom+scheme://example.test/a_b, www.example.test:8080/ and üser@exämple.test\n\nhttps://example.test/?a=1&amp;b=2 and <https://example.test/?a=1&amp;b=2>\n\nhttps://example.test/&#x1F600; and https://example.test/&amp;amp;\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test/a",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "https://example.test/a",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "mailto:user@example.test",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "user@example.test",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test/a_(b)",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "https://example.test/a_(b)",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ". www.example.test/x and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "mailto:user.name+tag@example.test",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "user.name+tag@example.test",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ".",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "ftp://example.test/x",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "ftp://example.test/x",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "custom+scheme://example.test/a_b",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "custom+scheme://example.test/a_b",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ", www.example.test:8080/ and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "mailto:üser@exämple.test",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "üser@exämple.test",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test/?a=1&b=2",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "https://example.test/?a=1&b=2",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "https://example.test/?a=1&amp;b=2",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "https://example.test/?a=1&amp;b=2",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test/😀",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "https://example.test/😀",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "https://example.test/&amp",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "https://example.test/&amp",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ";",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "html",
+    "source": "Before <b>bold</b><br>after <!-- hidden -->\n\n<div>raw &amp; safe<br>line</div>\n\n<script>alert(\"fixture\")</script>\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Text",
+              "literal": "Before ",
+              "children": []
+            },
+            {
+              "type": "HtmlInline",
+              "literal": "<b>",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": "bold",
+              "children": []
+            },
+            {
+              "type": "HtmlInline",
+              "literal": "</b>",
+              "children": []
+            },
+            {
+              "type": "HtmlInline",
+              "literal": "<br>",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": "after ",
+              "children": []
+            },
+            {
+              "type": "HtmlInline",
+              "literal": "<!-- hidden -->",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "HtmlBlock",
+          "literal": "<div>raw &amp; safe<br>line</div>",
+          "children": []
+        },
+        {
+          "type": "HtmlBlock",
+          "literal": "<script>alert(\"fixture\")</script>",
+          "children": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "mentions",
+    "source": "Open [`parser`](src/parser.ts#L12), src/parser.ts:14 and `ReviewScreen` with `.github/ci.yml`.\n\n```kt\nparser.ts:99\n```\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Text",
+              "literal": "Open ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "src/parser.ts#L12",
+              "children": [
+                {
+                  "type": "Code",
+                  "literal": "parser",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ", src/parser.ts:14 and ",
+              "children": []
+            },
+            {
+              "type": "Code",
+              "literal": "ReviewScreen",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": " with ",
+              "children": []
+            },
+            {
+              "type": "Code",
+              "literal": ".github/ci.yml",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": ".",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "FencedCodeBlock",
+          "literal": "parser.ts:99\n",
+          "info": "kt",
+          "children": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "literal-math",
+    "source": "Price $five$ and $$ten$$ are plain words.\n\n$$\nx = 1\n$$\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Text",
+              "literal": "Price $five$ and $$ten$$ are plain words.",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Text",
+              "literal": "$$",
+              "children": []
+            },
+            {
+              "type": "SoftLineBreak",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": "x = 1",
+              "children": []
+            },
+            {
+              "type": "SoftLineBreak",
+              "children": []
+            },
+            {
+              "type": "Text",
+              "literal": "$$",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "reference-edge",
+    "source": "[Unicode][STRASSE] [broken][bad] [missing &amp;] [first][same]\n\n[Straße]: <https://example.test/a> \"&#x1F600; &NotEqualTilde;\"\n[bad]: <https://example.test/&#xFFFFFFFF;>\n[same]: /first\n[SAME]: /second\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "https://example.test/a",
+              "title": "😀 ≂̸",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "Unicode",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "https://example.test/&#xFFFFFFFF;",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "broken",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " [missing &] ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "/first",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "first",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "reference-forms",
+    "source": "[collapsed][] and [shortcut].\n\n[foo][unknown] and [after].\n\n![alt][] and ![logo] and ![*alt*][unknown].\n\n[collapsed]: /first\n[shortcut]: /next\n[foo]: /a\n[after]: /b\n[alt]: /a.png\n[logo]: /b.png\n",
+    "tree": {
+      "type": "Document",
+      "children": [
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Link",
+              "destination": "/first",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "collapsed",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "/next",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "shortcut",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ".",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Text",
+              "literal": "[foo][unknown] and ",
+              "children": []
+            },
+            {
+              "type": "Link",
+              "destination": "/b",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "after",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": ".",
+              "children": []
+            }
+          ]
+        },
+        {
+          "type": "Paragraph",
+          "children": [
+            {
+              "type": "Image",
+              "destination": "/a.png",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "alt",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " and ",
+              "children": []
+            },
+            {
+              "type": "Image",
+              "destination": "/b.png",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "logo",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": " and ![",
+              "children": []
+            },
+            {
+              "type": "Emphasis",
+              "children": [
+                {
+                  "type": "Text",
+                  "literal": "alt",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "Text",
+              "literal": "][unknown].",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

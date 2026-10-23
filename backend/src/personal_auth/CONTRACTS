@@ -1,0 +1,129 @@
+@cc [owner:OctavianTocan,label:security;architecture] personal-auth-never-adopts-operator-authority
+Personal authorization MUST use only the fixed Pully-owned OAuth configuration and
+the verified user's GitHub credential. Guest, missing, revoked, expired or failed
+personal authorization MUST NOT fall back to environment/CLI GitHub credentials,
+legacy account data or operator caches. This additive module MUST NOT activate a
+public listener or expose legacy RPC. Source: Tavi's 21 Oct 2026 any-account GitHub
+sign-in and anonymous public-browsing decision and its approved multiuser plan.
+
+@cc [owner:OctavianTocan,label:security] personal-vault-authenticates-its-stable-owner
+GitHub access and refresh tokens MUST remain server-side and encrypted at rest with
+authenticated encryption under an operator-supplied versioned key. The authenticated
+context MUST include the stable account ID, immutable GitHub subject, credential
+revision, provider and record format/key version. An unknown key, modified record or
+record copied between accounts/revisions MUST fail without returning credentials.
+No token, key or plaintext payload MAY appear in Debug output, status, logs or errors.
+Source: Tavi's 21 Oct 2026 encrypted per-user credential-vault and identity plan.
+
+@cc [owner:OctavianTocan,label:security] personal-oauth-fixed-client-and-bounded-exchange
+Authorization and token exchange MUST use the operator-configured Pully OAuth App,
+fixed GitHub.com endpoints, a fixed HTTPS callback, random state and S256 PKCE.
+Native input MUST NOT replace the app credentials, callback, provider or token URL.
+Exchange MUST refuse redirects and bound its time, response and credential sizes;
+provider error text MUST NOT escape. Every acquired access token MUST be verified
+against GitHub's authenticated user before use. Source: Tavi's 21 Oct 2026 personal
+GitHub authentication plan and GitHub's current OAuth App authorization docs.
+
+@cc [owner:OctavianTocan,label:security;product] personal-app-authority-is-not-inherited-scope
+Public-read sign-in MUST retain public-read application authority even if GitHub
+returns previously granted broader scopes. Private repository authority MUST require
+an explicit upgrade and its actual repo grant. Expiring access/refresh responses
+MUST retain both expirations and rotate the pair; reduced grants MUST NOT preserve
+broader application authority. Scope MUST NOT bypass organization approval or SSO.
+Source: Tavi's 21 Oct 2026 public-first and explicit private-access decision and the
+current GitHub OAuth App scope and refresh documentation.
+
+@cc [owner:OctavianTocan,label:security;product] personal-repository-consent-is-source-and-session-bound
+Repository consent MUST require a current personal session, fixed Pully-owned
+GitHub repo authorization, the same immutable GitHub subject and a still-current
+initiating session/revision at credential installation. Sign-out, source replacement
+or a different selected GitHub user MUST deny the upgrade. Each Pully session MUST
+authenticate its own maximum application authority; an older publicRead session
+MUST NOT inherit a later session's private access. Missing authority in older durable
+records MUST mean publicRead, and a reduced GitHub grant MUST still reduce effective
+authority. Source: Tavi's 22 Oct 2026 own-account private-access requirement while
+preserving the existing publicRead contract and canonical source isolation.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-session-is-bound-to-one-stable-user
+Persisted personal sessions MUST contain only hashes of high-entropy Pully session
+bearers. Session claims MUST authenticate their own hash, stable account, immutable
+GitHub subject, generation, expiry and provisional confirmation deadline,
+independently of credential envelopes. A
+copied or expired session MUST NOT return a credential. Sign-out MUST revoke the
+matching captured authority; unlink MUST revoke every captured authority and session
+for that account. After an awaited identity verification, the current session and
+credential revision MUST be rechecked before authority is published. Source: Tavi's
+21 Oct 2026 per-user vault, revocation and cross-user isolation decision.
+
+@cc [owner:OctavianTocan,label:security] personal-legacy-link-requires-two-current-authorities
+A legacy account link MUST require the actual authenticated legacy session and a
+verified GitHub authorization. The legacy session MUST be rechecked when installing
+the link. Email/login matching MUST NOT link identities, and an already-linked
+immutable GitHub subject MUST NOT be reassigned or silently merge accounts. Linking
+MUST NOT adopt legacy tokens, caches, account keys or unrelated data. Source: Tavi's
+21 Oct 2026 compatibility and explicit linking decision.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-auth-native-proof-stays-in-bodies
+The fixed personal-auth wire protocol MUST keep the native attempt proof and Pully
+session out of browser URLs, callback URLs, logs and errors. A native client names
+only its own random proof challenge; it MUST NOT supply provider/app configuration,
+redirects, target accounts or application authority to public sign-in. A successful
+single-use claim MAY return the newly issued Pully session once in its HTTPS body.
+Unix timestamp fields MUST use seconds and pollAfterMs MUST use milliseconds.
+Source: Tavi's 21 Oct 2026 server-owned authorization and bounded native handoff plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-attempt-is-single-use-and-proof-owned
+An OAuth attempt MUST be bounded in count, start/poll rate and lifetime. Its state
+MUST be random, stored only as a hash and consumed before code exchange. PKCE MUST
+use a separate server-owned random verifier and S256 challenge. Status, claim and
+cancel MUST require the initiating native proof using a constant-time verifier;
+wrong proof MUST NOT consume another client's valid attempt. Claim MUST publish a
+session at most once, and cancellation/expiry MUST deny late exchange or claim
+results and revoke a session created during that race. Normal browser/background
+handoff MUST NOT cancel an attempt. Source: Tavi's 21 Oct 2026 native OAuth plan.
+
+@cc [owner:OctavianTocan,label:architecture;security] personal-accepted-exchange-outlives-observer
+Once callback state or a native claim has been accepted, dropping the HTTP observer
+MUST NOT cancel the exchange/commit. Accepted work MUST remain tied to its original
+attempt and verified subject. A newly issued session MUST remain provisional until
+a bearer-authenticated session lookup confirms delivery before the original
+attempt deadline. An unconfirmed session MUST expire at that deadline and MUST NOT
+consume capacity needed by a later verified sign-in. Native clients MUST secure-store
+the bearer before confirmation and MUST confirm before publishing the new source.
+Confirmation MUST preserve one-use claim delivery and hash-only persistence; it
+MUST NOT replay the OAuth code or return a prior bearer. Explicit cancellation MUST
+retire publication authority; it MUST NOT make an already-consumed code reusable.
+Source: Tavi's 21 Oct 2026 replay, source-guard and browser-return requirements,
+clarified by the confirmed lost-claim recovery finding in the 22 Oct full auth review.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-refresh-rotates-without-resurrecting-sources
+Refresh MUST serialize per stable account and revoke old captured authority before
+using its refresh token. A rotated pair MUST be encrypted before retryable identity
+verification; unverified pairs MUST NOT create authority. Every new access token
+MUST verify the same immutable GitHub subject, and reduced scopes MUST reduce app
+authority. Concurrent refresh MUST NOT reuse a consumed token, and sign-out/unlink
+or a newer credential revision MUST deny stale publication or overwrite. A terminal
+refresh rejection MUST revoke that account's sessions; transient transport or /user
+failure MUST NOT invent a terminal rejection or discard a recoverable rotated pair.
+Source: Tavi's 21 Oct 2026 refresh/revocation and current GitHub token rotation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-http-surface-is-explicit-and-isolated
+Personal auth MUST remain an explicit router factory with no production listener or
+legacy RPC registration. Unconfigured discovery MUST report disabled without loading
+operator account/provider state. Configured handlers MUST accept only their fixed
+typed paths, reject legacy session/Access credentials, bound bodies/query data and
+return fixed credential-safe failures with no-store responses. Only a Pully personal
+bearer may authenticate personal session methods. Browser callback cookies MUST NOT
+choose identity or authorize a claim; callback content MUST contain no credentials,
+code or state and MUST forbid referrer disclosure. Source: Tavi's 21 Oct 2026 public
+auth boundary and later external registration/deployment prerequisite decision.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-host-startup-does-not-guess-authority
+The typed auth-host factory MUST accept only explicit isolated storage, validated
+Pully OAuth configuration and in-memory vault keys from trusted startup. Missing
+configuration MUST create only disabled discovery without opening storage; invalid
+configured startup MUST fail with a fixed path- and credential-safe error. It MUST
+NOT load environment/HOME defaults, seed legacy accounts or bind a listener. The
+separate listener owner MUST control the storage path and its ancestors during
+startup. Source: Tavi's 22 Oct 2026 requirement to complete concrete configured-host
+composition while preserving the 21 Oct personal/legacy authority boundary.

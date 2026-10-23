@@ -2,6 +2,7 @@
 mod citations;
 mod overview;
 mod stack;
+use crate::source::github_read::{self, GitHubRead, StateGitHubRead};
 use crate::source::github_request;
 use crate::{omit_nulls, text, AppState};
 use anyhow::{bail, Context, Result};
@@ -93,8 +94,11 @@ impl Pull {
     }
 }
 async fn graphql(state: &AppState, query: &str, variables: Value) -> Result<Value> {
-    let response = github_request(
-        state,
+    graphql_with(&StateGitHubRead(state), query, variables).await
+}
+async fn graphql_with(read: &dyn GitHubRead, query: &str, variables: Value) -> Result<Value> {
+    let response = github_read::json(
+        read,
         Method::POST,
         "/graphql",
         Some(json!({"query":query,"variables":variables})),
@@ -109,11 +113,14 @@ async fn graphql(state: &AppState, query: &str, variables: Value) -> Result<Valu
         .context("GitHub returned no GraphQL data.")
 }
 async fn pages(state: &AppState, path: &str) -> Result<Vec<Value>> {
+    pages_with(&StateGitHubRead(state), path).await
+}
+async fn pages_with(read: &dyn GitHubRead, path: &str) -> Result<Vec<Value>> {
     let mut all = Vec::new();
     for page in 1..=1000 {
         let separator = if path.contains('?') { '&' } else { '?' };
-        let value = github_request(
-            state,
+        let value = github_read::json(
+            read,
             Method::GET,
             &format!("{path}{separator}per_page=100&page={page}"),
             None,
@@ -152,12 +159,15 @@ fn github_side(value: &Value) -> Result<&'static str> {
 }
 const THREADS_QUERY: &str = r#"query ReviewThreads($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor} nodes{id isResolved comments(first:1){nodes{fullDatabaseId}}}}}}}"#;
 async fn resolutions(state: &AppState, pull: &Pull) -> Result<BTreeMap<u64, Value>> {
+    resolutions_with(&StateGitHubRead(state), pull).await
+}
+async fn resolutions_with(read: &dyn GitHubRead, pull: &Pull) -> Result<BTreeMap<u64, Value>> {
     let mut out = BTreeMap::new();
     let mut cursor = Value::Null;
     loop {
         let mut vars = pull.variables();
         vars["cursor"] = cursor.clone();
-        let data = graphql(state, THREADS_QUERY, vars).await?;
+        let data = graphql_with(read, THREADS_QUERY, vars).await?;
         let conn = &data["repository"]["pullRequest"]["reviewThreads"];
         for node in list(&conn["nodes"]) {
             if let Some(root) = number(&node["comments"]["nodes"][0]["fullDatabaseId"]) {
@@ -224,14 +234,19 @@ fn normalize_reviews(
     result
 }
 async fn review_data(state: &AppState, pull: &Pull) -> Result<Value> {
+    review_data_with(&StateGitHubRead(state), pull).await
+}
+async fn review_data_with(read: &dyn GitHubRead, pull: &Pull) -> Result<Value> {
     let comments_path = format!("{}/comments", pull.path());
     let reviews_path = format!("{}/reviews", pull.path());
-    let (comments, reviews) =
-        tokio::try_join!(pages(state, &comments_path), pages(state, &reviews_path))?;
+    let (comments, reviews) = tokio::try_join!(
+        pages_with(read, &comments_path),
+        pages_with(read, &reviews_path)
+    )?;
     let pending = reviews.iter().find(|r| r["state"] == "PENDING");
     let pending_comments = if let Some(review) = pending {
-        pages(
-            state,
+        pages_with(
+            read,
             &format!(
                 "{}/reviews/{}/comments",
                 pull.path(),
@@ -242,7 +257,7 @@ async fn review_data(state: &AppState, pull: &Pull) -> Result<Value> {
     } else {
         Vec::new()
     };
-    let resolution = resolutions(state, pull).await.unwrap_or_default();
+    let resolution = resolutions_with(read, pull).await.unwrap_or_default();
     Ok(normalize_reviews(
         &comments,
         &reviews,
@@ -293,6 +308,27 @@ fn verify_pending_head(pending: &Value, head: &str) -> Result<()> {
         .is_some_and(|commit| !commit.is_empty() && commit != head)
     {
         bail!("The pending review belongs to an older head. Reopen or discard it before posting.")
+    }
+    Ok(())
+}
+/// @cc [owner:OctavianTocan,label:security;product] github-pending-review-matches-confirmation
+/// When a client supplies pendingReviewId, Submit and Discard MUST reject a different
+/// current pending review before contacting GitHub's write endpoint. Explicit null
+/// MUST require that no pending review exists. Clients omitting the field retain
+/// their existing wire behavior. Source: the accepted 21 Oct 2026 same-app iOS review
+/// plan's drawn confirmation and current-target requirements.
+fn verify_expected_pending(args: &Value, pending: Option<&Value>) -> Result<()> {
+    let Some(expected) = args.get("pendingReviewId") else {
+        return Ok(());
+    };
+    let matches = if expected.is_null() {
+        pending.is_none()
+    } else {
+        let expected = positive(args, "pendingReviewId")?;
+        pending.and_then(|review| number(&review["id"])) == Some(expected)
+    };
+    if !matches {
+        bail!("The pending review changed. Reopen it before submitting or discarding.")
     }
     Ok(())
 }
@@ -408,6 +444,7 @@ async fn review_operation(state: &AppState, name: &str, args: &Value) -> Result<
             }
             let body = github_cites(text(args, "body"), &pull, &head);
             let pending = pending_review(state, &pull).await?;
+            verify_expected_pending(args, pending.as_ref())?;
             let has_pending = pending.is_some();
             let path = if let Some(pending) = pending {
                 verify_pending_head(&pending, &head)?;
@@ -426,7 +463,9 @@ async fn review_operation(state: &AppState, name: &str, args: &Value) -> Result<
             github_request(state, Method::POST, &path, Some(payload)).await?;
         }
         "review-discard" => {
-            if let Some(pending) = pending_review(state, &pull).await? {
+            let pending = pending_review(state, &pull).await?;
+            verify_expected_pending(args, pending.as_ref())?;
+            if let Some(pending) = pending {
                 github_request(
                     state,
                     Method::DELETE,
@@ -957,7 +996,11 @@ fn pr_state(pr: &Value) -> &'static str {
     } else if pr["state"] == "CLOSED" || !text(pr, "closedAt").is_empty() {
         "closed"
     } else if pr["state"] == "OPEN" {
-        if bool_at(pr, "isDraft") { "draft" } else { "open" }
+        if bool_at(pr, "isDraft") {
+            "draft"
+        } else {
+            "open"
+        }
     } else {
         "unknown"
     }
@@ -980,3 +1023,20 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: &Value) -> Option<R
 
 #[cfg(test)]
 mod tests;
+
+#[derive(Clone, Copy)]
+pub(crate) enum ReadKind {
+    Overview,
+    Reviews,
+}
+
+pub(crate) async fn read_with(
+    read: &dyn GitHubRead,
+    kind: ReadKind,
+    args: &Value,
+) -> Result<Value> {
+    match kind {
+        ReadKind::Overview => overview::read_with(read, args).await,
+        ReadKind::Reviews => review_data_with(read, &Pull::from(args)?).await,
+    }
+}

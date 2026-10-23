@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the debug APK and publishes it where the pulls.review server serves app updates
-# (`GET /android/pulls.apk` and `/android/latest.json`, see backend/src/transport.rs).
+# (`GET /download/pully.apk` and `/download/latest.json`; `/download` is the HTML page).
 # The installed app compares versionCode with the manifest and offers the update.
 #
 # latest.json carries android/CHANGELOG.md whole (`changelog`), so the phone can list every
@@ -19,31 +19,52 @@ cd "$(dirname "$0")/.."
 base="${1:?Pass the public URL of the server publishing this APK}"
 notes="${2:-}"
 out="${PULLS_REVIEW_ANDROID_DIR:-$HOME/.local/share/pulls-review/android}"
+repo_root="$(git rev-parse --show-toplevel)"
+source_commit="$(git rev-parse HEAD)"
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo 'Refusing to publish tracked local edits. Commit the release on a branch and publish a clean checkout.' >&2
+  exit 1
+fi
+# Strict for manual invocations too: no environment flag can turn this into a main build.
+node ../scripts/release-track.mjs
 
 # Serialize builders as well as validation and replacement. In particular, a slower
 # older checkout must recheck the manifest after a newer publisher has finished.
 mkdir -p "$out"
 exec 9>"$out/.publish.lock"
 flock -x 9
-trap 'rm -f -- "$out/pulls.apk.tmp" "$out/latest.json.tmp"' EXIT
+build_root=""
+cleanup() {
+  rm -f -- "$out/pulls.apk.tmp" "$out/latest.json.tmp"
+  if [ -n "$build_root" ]; then
+    git -C "$repo_root" worktree remove --force "$build_root/source" >/dev/null 2>&1 || true
+    rmdir "$build_root" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo 'Refusing to publish tracked local edits. Commit the release on a branch and publish a clean checkout.' >&2
   exit 1
 fi
-source_commit="$(git rev-parse HEAD)"
 export JAVA_HOME="${JAVA_HOME:-$(mise where java)}"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+build_root="$(mktemp -d "${TMPDIR:-/tmp}/pully-release-build.XXXXXX")"
+git -C "$repo_root" worktree add --detach "$build_root/source" "$source_commit" >/dev/null
+build_android="$build_root/source/android"
+# Build immutable source, so moving the caller's checkout cannot mix APK inputs.
 # A persistent Gradle daemon must not inherit the publication lock.
-./gradlew -q :app:assembleDebug 9>&-
+(cd "$build_android" && ./gradlew -q :app:assembleDebug 9>&-)
+# Refresh approval after the build, from that same immutable source checkout.
+(cd "$build_root/source" && node scripts/release-track.mjs)
 
-apk=app/build/outputs/apk/debug/app-debug.apk
+apk="$build_android/app/build/outputs/apk/debug/app-debug.apk"
 badging="$("$ANDROID_HOME"/build-tools/*/aapt2 dump badging "$apk" 2>/dev/null | head -1 || true)"
 code="$(sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" <<<"$badging")"
 name="$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<<"$badging")"
 if [ -z "$code" ]; then
-  code="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts)"
-  name="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)"
+  code="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' "$build_android/app/build.gradle.kts")"
+  name="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' "$build_android/app/build.gradle.kts")"
 fi
 sha="$(sha256sum "$apk" | cut -d' ' -f1)"
 
@@ -68,11 +89,11 @@ EOF
 mkdir -p "$out"
 cp "$apk" "$out/pulls.apk.tmp" && mv "$out/pulls.apk.tmp" "$out/pulls.apk"
 # The changelog's pictures (android/changelog/<version>/), which the update screen shows for a version not installed yet.
-if [ -d changelog ]; then
+if [ -d "$build_android/changelog" ]; then
   mkdir -p "$out/changelog"
-  cp -R changelog/. "$out/changelog/"
+  cp -R "$build_android/changelog/." "$out/changelog/"
 fi
-python3 - "$out/latest.json" "$code" "$name" "$sha" "${base%/}/android/pulls.apk" "$notes" CHANGELOG.md "$source_commit" <<'EOF'
+python3 - "$out/latest.json" "$code" "$name" "$sha" "${base%/}/download/pully.apk" "$notes" "$build_android/CHANGELOG.md" "$source_commit" <<'EOF'
 import json, os, re, sys
 path, code, name, sha, url, notes, changelog_path, source_commit = sys.argv[1:]
 changelog = open(changelog_path).read() if os.path.exists(changelog_path) else ""
@@ -104,16 +125,29 @@ with open(path + ".tmp", "w") as f:
 os.replace(path + ".tmp", path)
 EOF
 echo "published $name ($code) sha256=$sha -> $out"
-# Background historical builders have their own lock and must not keep this one.
-trap - EXIT
-exec 9>&-
 # Past versions (Settings, Advanced): every publish builds the versions not built yet, newest first, in the background
 # so the publish is not held up; the slider fills in as each one lands. Only one such run at a time: a publish during a
 # run waits for the lock and then makes its own pass, so the version it just replaced is built too. Each pass appends
 # to past/build.log. Before this ran on every publish, past/ was never made and the page said "The server did not
 # answer" (recording 16 Oct 09:50, 01:09 to 01:14; M3).
 mkdir -p "$out/past"
-PULLS_REVIEW_ANDROID_DIR="$out" python3 scripts/build-past-ui.py --index >/dev/null
+(cd "$build_root/source" && PULLS_REVIEW_ANDROID_DIR="$out" python3 android/scripts/build-past-ui.py --index >/dev/null)
 echo "--- $(date -u +%FT%TZ) publish of $name" >> "$out/past/build.log"
-nohup flock "$out/past/.lock" env PULLS_REVIEW_ANDROID_DIR="$out" nice python3 scripts/build-past-ui.py >> "$out/past/build.log" 2>&1 &
+# The background process takes ownership of this immutable checkout and its cleanup.
+# All arguments stay positional; the caller's current branch is never consulted.
+nohup bash -c '
+  set -euo pipefail
+  repo_root=$1
+  build_root=$2
+  out=$3
+  cleanup_history() {
+    git -C "$repo_root" worktree remove --force "$build_root/source" >/dev/null 2>&1 || true
+    rmdir "$build_root" 2>/dev/null || true
+  }
+  trap cleanup_history EXIT
+  flock "$out/past/.lock" env PULLS_REVIEW_ANDROID_DIR="$out" nice python3 "$build_root/source/android/scripts/build-past-ui.py"
+' pully-release-history "$repo_root" "$build_root" "$out" >> "$out/past/build.log" 2>&1 9>&- &
+build_root=""
+trap - EXIT
+exec 9>&-
 echo "building past versions in the background; log: $out/past/build.log"

@@ -21,6 +21,7 @@
     "MenuReveal": "A transition wrapper for menus and dropdowns, not a visual component. Its recipe is on the Motion page.",
     "ModalReveal": "A transition wrapper for dialogs (rule 73), not a visual component. The Tour's full-screen diagram uses it.",
     "ModalSurface": "What ModalReveal draws inside its window, split out so a test can step it; the Tour's full-screen diagram shows it.",
+    "PullsMaterialTheme": "A theme and feedback provider, not a visual component. Android and iOS render the existing UI Book controls through the same brand Material palette, indication and text style.",
     "PageBack": "Back handling, not a visual component: a back swipe moves the page with the finger and then on that way (rule 105).",
     "PhIcon": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "PrStatusIcon": "A part of the PR row from the web-port kit in Components.kt (rules 15 and 49). It moves into the mobile kit when the row does.",
@@ -50,7 +51,9 @@
     "FieldClear": "The ✕ inside a field once something is typed; the Sheet search page's typed state shows it.",
     "FootBarLayer": "The host that draws the page's foot pill once over every page (rule 196), placed in PullsApp, not a visual component. The Foot pill page shows what it draws.",
     "FootFree": "Hands a page's own bar, the diff's file bar, to the foot host in the pill's place (rule 196); it draws only what the page gives it.",
-    "rememberMessages": "Loads the shared web locale catalog from native bundled resources; it provides translation state, not a visual component."
+    "rememberMessages": "Loads the shared web locale catalog from native bundled resources; it provides translation state, not a visual component.",
+    "ModalWindow": "A required native window adapter for the existing ModalReveal motion surface, not a second component. The existing modal callers draw the unchanged surface and close control.",
+    "rememberTextCopy": "Returns the native clipboard effect for an explicit copy tap; it draws no UI. The existing code-well copy control owns its appearance and copied toast."
   },
   "components": {
     "toast": "ToastHost is one host for the whole app and draws at the bottom of the screen, so it cannot be measured inline. Its page shows the real one."

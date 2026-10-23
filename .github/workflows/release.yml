@@ -6,7 +6,22 @@ on:
       - 'v*'
 
 jobs:
+  release-source:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Require the exact verified release commit before publication
+        run: node scripts/release-track.mjs
+
   release:
+    needs: release-source
     uses: sxzz/workflows/.github/workflows/release.yml@main
     with:
       publish: true

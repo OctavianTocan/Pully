@@ -98,8 +98,13 @@ the account it runs under (architecture, Where the CLIs run).
 
 @cc [owner:OctavianTocan,label:security] server-pi-has-only-pr-tools
 A Pi job gets exactly the PR tools the CLIs get over MCP and nothing more: no shell, files
-or web. Its endpoint and key come only from the environment, and without a base URL every
-Pi job fails with how to set it up (architecture, Pi).
+or web. A LegacyPrivate Pi job's endpoint and key come only from its environment, and
+without a base URL it fails with how to set it up (architecture, Pi). By Tavi's
+21 Oct 2026 per-user provider decision and 22 Oct clarification that AI does not require
+GitHub login, a separately authorized personal/local/default AI capability MAY supply
+its own captured credential and model. That capability MUST retain its own owner,
+allowance and revocation fence; it MUST NOT adopt legacy environment/CLI authority or
+broaden the scoped PR tools.
 
 @cc [owner:OctavianTocan,label:security] server-phone-method-allowlist
 The phone may call only the methods allowed by `phone_allowed` in
@@ -163,8 +168,16 @@ The follow-up questions under an Ask answer are written each turn by a small, fa
 not the one answering (rule 99; F70).
 
 @cc [owner:OctavianTocan,label:architecture] server-serves-the-android-build
-The server serves `/android/latest.json` and `/android/pulls.apk` from its Android folder
-with `Cache-Control: no-store`, and answers 404 when no build has been published.
+The server MUST serve `/download` as an HTML page listing only Android artifacts
+actually present with valid published metadata. The latest manifest and APK MUST use
+`/download/latest.json` and `/download/pully.apk`, with `Cache-Control: no-store`;
+unpublished artifacts MUST answer 404. `/android/pulls.apk` MUST answer 404, without a
+redirect or SPA fallback. The old latest-manifest and history metadata/assets MAY
+remain read-only aliases for installed clients, but their manifest MUST name the
+new binary URL and MUST NOT name the HTML page as an installer. Historical apps MUST
+be described honestly as side-by-side versions opened through Pully. Source: Tavi's
+repeated 22 Oct 2026 request for the HTML download page, available real versions and
+removal of the old direct APK route.
 
 @cc [owner:OctavianTocan,label:product] server-new-chat-keeps-the-old-one
 The phone's "new chat" (`chat-clear`) MUST set the current chat aside in the diff's chat
@@ -244,8 +257,19 @@ not changed since the run began. Its writes MUST NOT count as views
 (server-store-answers-first; review finding 4, 15 Oct 2026).
 
 @cc [owner:OctavianTocan,label:architecture] server-session-shares-state
-RPCs, native requests, tasks and preanalysis MUST share the server's AppState storage
-and cache coordinator (server-ai-work-outlives-the-page; review finding 6, 15 Oct 2026).
+RPCs, native requests, tasks and preanalysis for one principal and credential binding
+MUST share its AppState storage and cache coordinator. Guest and personal account
+contexts MUST NOT share the legacy private server's state or another account's state.
+Tavi's 21 Oct 2026 personal-account/public-browsing decision replaces the former global
+scope; the existing LegacyPrivate context retains its shared instance
+(server-ai-work-outlives-the-page; review finding 6, 15 Oct 2026).
+
+@cc [owner:OctavianTocan,label:security;architecture] tenant-ai-never-inherits-operator-login
+Nonlegacy contexts MUST NOT start AI work, query operator model catalogs or seed the
+operator's environment account until an explicit personal provider authority and budget
+have been installed for that context. Public ingress MUST remain unavailable until its
+own allowlist, session validation and tenant isolation are implemented and reviewed.
+Source: Tavi's 21 Oct 2026 request for each user's own Claude/ChatGPT/Pi connection.
 
 @cc [owner:OctavianTocan,label:architecture] stored-opening-keeps-newer-heads
 A fetch MUST NOT replace a head stored since this opening observed the cache, including
@@ -266,7 +290,8 @@ route and MUST NOT fall back to the server's working directory.
 
 
 @cc [owner:OctavianTocan,label:product] server-past-versions-answer-empty
-`GET /android/past/index.json` answers `{ "versions": [] }` while no past version is built,
+`GET /download/past/index.json`, which the phone reads, and its `/android/past/index.json`
+alias answer `{ "versions": [] }` while no past version is built,
 never a 404, so the phone says none are built yet rather than that the server did not
 answer. `publish-apk.sh` writes the index at once and builds the past versions in the
 background, newest first, adding each to the index as it is built (recording 16 Oct 2026
@@ -359,11 +384,18 @@ parity request; main native-api.ts noteFailure behavior).
 @cc [owner:OctavianTocan,label:product;security] server-feedback-kept-for-agents
 Feedback sent from the phone (`feedback-send`, which needs the account's session) is kept
 under that account with the server's own time, the app's version and versionCode, the
-screen and pull request it was sent from, the device and its Android version, the theme and
+screen and pull request it was sent from, the device and its Android or iOS version, the theme and
 the language, and nothing the client names for itself such as the account or a status. It
 is never evicted. The account's keys read it newest first at `GET /api/v1/feedback`
 (`?status=open|done`) and `GET /api/v1/feedback/<id>`, and `PATCH` marks it `done` with an
 optional note on what was done, or `open` again; no other account sees it, and its words
 MUST NOT reach usage analytics ("a button somewhere for me to leave feedback from the app
 itself ... It obviously needs to be stored with timestamps, app version, etc": Tavi, 20 Oct
-2026 06:10).
+2026 06:10; iOS metadata added by Tavi's 21 Oct 2026 same-app iOS request).
+
+@cc [owner:OctavianTocan,label:security;architecture] rust-ios-analytics-keeps-the-existing-cleaner
+The first-party analytics endpoint MUST accept the native ios app label through the
+same event, content redaction, size, batching and retention policy as Android/web.
+Unknown app labels MUST remain rejected; enabling iOS MUST NOT bypass the cleaner or
+add a telemetry service. Source: Tavi's 21 Oct 2026 full shared iOS app request and
+root analytics-stays-on-our-server and analytics-what-not-how-much.

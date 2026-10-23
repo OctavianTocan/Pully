@@ -1,0 +1,313 @@
+package com.octaviantocan.pulls.ui.ai
+
+import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.MutableState
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.octaviantocan.pulls.core.AnalyzeChoice
+import com.octaviantocan.pulls.core.AnalyzePreset
+import com.octaviantocan.pulls.sound.Cue
+import com.octaviantocan.pulls.sound.cueClickable
+import com.octaviantocan.pulls.ui.design.CtaButton
+import com.octaviantocan.pulls.ui.design.LocalMessages
+import com.octaviantocan.pulls.ui.design.LocalPullsColors
+import com.octaviantocan.pulls.ui.design.LocalToaster
+import com.octaviantocan.pulls.ui.design.Lu
+import com.octaviantocan.pulls.ui.design.LuIcon
+import com.octaviantocan.pulls.ui.design.PullsPagedSheet
+import com.octaviantocan.pulls.ui.design.PullsSwitch
+import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.SheetCard
+import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.SheetTopGap
+import com.octaviantocan.pulls.ui.design.TOUCH
+import com.octaviantocan.pulls.ui.review.EffortPage
+import com.octaviantocan.pulls.ui.review.ModelPage
+import com.octaviantocan.pulls.ui.review.ReviewSession
+import com.octaviantocan.pulls.ui.review.analysisModelLabel
+import com.octaviantocan.pulls.ui.settings.CliCatalog
+import com.octaviantocan.pulls.ui.settings.ModelSettingsServices
+
+private fun AnalyzePage.title(): String = when (this) {
+    AnalyzePage.Main -> "Analyze changes"
+    AnalyzePage.Tour -> "No tour yet"
+    AnalyzePage.Custom -> "Custom analysis"
+    AnalyzePage.Model -> "Select model"
+    AnalyzePage.Effort, AnalyzePage.TourEffort -> "Effort"
+}
+
+/**
+ * The setup before an analysis: its model, Quick, Standard and Deep, and Custom for picking the passes one by
+ * one. Picking one runs it at once and becomes what the button runs next time. The model, its effort and the
+ * custom passes are pages inside this one sheet (rule 78), so choosing a model never closes it. The ⋯ sheet's Model
+ * row opens it on the model page ([start]), where there is nothing to go back to. The analysis, the tour, the brief
+ * and the review all run on the server, so the reviewer can leave and come back.
+ */
+@Composable
+fun AnalyzeSheet(session: ReviewSession, models: ModelSettingsServices, onClose: () -> Unit, start: AnalyzePage = AnalyzePage.Main, onTour: (() -> Unit)? = null) {
+    val actions = rememberAiSetupActions(session, models)
+    var page by remember(session, models) { mutableStateOf(start) }
+    var modelParent by remember(session, models) { mutableStateOf(start) }
+    val custom = rememberCustomAnalysis(session)
+    val go: (AnalyzePage) -> Unit = { next ->
+        if (next == AnalyzePage.Model || next == AnalyzePage.Effort) modelParent = page
+        page = next
+    }
+    // Opened straight on the model page, that page is the first one: there is no Analyze page behind it. Opened from the
+    // tour icon, the model page goes back to the tour's page.
+    val parent: (AnalyzePage) -> AnalyzePage? = {
+        when {
+            it != AnalyzePage.Model && it != AnalyzePage.Effort -> it.parent
+            start == AnalyzePage.Model -> null
+            else -> modelParent
+        }
+    }
+    // While the tour is written the sheet stays open on its progress and says so (M12).
+    val title: @Composable (AnalyzePage) -> String = { if (it == AnalyzePage.Tour && tourComing(session)) "Writing the tour" else it.title() }
+    PullsPagedSheet(onClose, page, parent = parent, onPage = { page = it }, title = title) { current ->
+        AnalyzePageContent(
+            session, current, custom, models, onPage = { next -> actions.read { go(next) } }, onClose = onClose, onTour = onTour,
+            onModelDone = { if (start == AnalyzePage.Model) onClose() else page = parent(AnalyzePage.Model) ?: AnalyzePage.Main },
+            onEffortDone = { page = parent(AnalyzePage.Effort) ?: AnalyzePage.Main },
+        )
+    }
+}
+
+/** The passes a custom analysis runs, kept by the sheet so its page and the Analyze page share them. */
+@Composable
+fun rememberCustomAnalysis(session: ReviewSession): MutableState<AnalyzeChoice> {
+    val last = session.settings.analyzeChoice
+    return remember(session, session.captureView()) { mutableStateOf(AnalyzeChoice(null, last.tour, last.brief, last.review)) }
+}
+
+/** An Analyze page's title, for a sheet that holds these pages among its own. */
+fun analyzePageTitle(page: AnalyzePage): String = page.title()
+
+/**
+ * What one of the Analyze pages holds, for its own sheet and for the pull request's actions sheet, which opens them as
+ * pages of its own (J27). [onPage] goes to another of them, [onModelDone] is where the model page goes once a model is
+ * picked, and [onClose] closes the sheet they are in.
+ */
+@Composable
+fun ColumnScope.AnalyzePageContent(
+    session: ReviewSession,
+    current: AnalyzePage,
+    custom: MutableState<AnalyzeChoice>,
+    models: ModelSettingsServices,
+    onPage: (AnalyzePage) -> Unit,
+    onModelDone: () -> Unit,
+    onClose: () -> Unit,
+    onTour: (() -> Unit)? = null,
+    onEffortDone: (() -> Unit)? = null,
+) {
+    val actions = rememberAiSetupActions(session, models)
+    val capabilities = LocalAiCapabilities.current
+    val toaster = LocalToaster.current
+    val settings = session.settings
+
+    fun run(choice: AnalyzeChoice) {
+        val started = actions.analyze(choice)
+        if (!actions.current) return
+        when (started) {
+            AnalysisStart.Unavailable -> return
+            AnalysisStart.AlreadyRunning -> toaster.show("Already analyzing")
+            AnalysisStart.Started -> toaster.show("${choice.title} analysis started. It keeps running if you leave.", cue = Cue.Loading)
+        }
+        onClose()
+    }
+
+    when (current) {
+        AnalyzePage.Main -> AnalyzeMain(session, models, actions, onRun = ::run, onCustom = { if (actions.canAnalyze(AnalyzeChoice.of(AnalyzePreset.Quick))) onPage(AnalyzePage.Custom) }, onModel = { onPage(AnalyzePage.Model) }, onEffort = { onPage(AnalyzePage.Effort) })
+        // Generate keeps the sheet open and shows the tour being written in it, with the Tour behind it filling in (M12).
+        AnalyzePage.Tour -> TourStart(session, models, actions, onModel = { onPage(AnalyzePage.Model) }, onEffort = { onPage(AnalyzePage.TourEffort) }) {
+            if (actions.generate()) onTour?.invoke()
+        }
+        AnalyzePage.Custom -> {
+            var choice by custom
+            ModelCard(session, models, { onPage(AnalyzePage.Model) }, onEffort = { onPage(AnalyzePage.Effort) }, gap = SheetTopGap)
+            SheetCard {
+                PassRow("Summary and file notes", "Always part of an analysis.", checked = true, first = true, enabled = false) {}
+                PassRow("Tour", "A walk through the change, section by section.", choice.tour, enabled = capabilities.canTour) { if (actions.canTour) choice = choice.copy(tour = it) }
+                PassRow("Brief", "A page made for this change: tables, checks, diagrams.", choice.brief, enabled = capabilities.canBrief) { if (actions.canBrief) choice = choice.copy(brief = it) }
+                PassRow("AI review", "Looks for bugs and risks, line by line.", choice.review, enabled = capabilities.canCritique) { if (actions.canCritique) choice = choice.copy(review = it) }
+            }
+            CtaButton("Analyze", { run(choice) }, Modifier.fillMaxWidth().padding(top = 16.dp), enabled = actions.canStartAnalysis(choice))
+        }
+        AnalyzePage.Model -> ModelPage(settings, models, onDone = { actions.read(onModelDone) })
+        AnalyzePage.Effort -> EffortPage(settings, models, onBack = { actions.read { onEffortDone?.invoke() ?: onPage(AnalyzePage.Main) } })
+        AnalyzePage.TourEffort -> EffortPage(settings, models, onBack = { actions.read { onPage(AnalyzePage.Tour) } })
+    }
+}
+
+/**
+ * What the tour icon opens while the pull request has no tour (rule 113): that there is none yet, the model that would
+ * write it, and Generate. Nothing on the Overview offers a tour; this sheet is the one way in, every time. Once Generate
+ * is tapped the sheet stays open and shows the tour being written, the same work log the page used to show; it may be
+ * closed, and the tour icon or the line on the Tour opens it again (M12). A tap before the pull request has loaded waits
+ * for it instead of doing nothing, so the button never looks dead (M11).
+ */
+@Composable
+private fun ColumnScope.TourStart(session: ReviewSession, models: ModelSettingsServices, actions: AiSetupActions, onModel: () -> Unit, onEffort: () -> Unit, onGenerate: () -> Unit) {
+    val c = LocalPullsColors.current
+    var waiting by remember(session, models) { mutableStateOf(false) }
+    val latestGenerate by rememberUpdatedState(onGenerate)
+    LaunchedEffect(waiting, session.key, session.loadError, actions.canGenerate) {
+        if (!waiting) return@LaunchedEffect
+        if (!actions.canGenerate) { waiting = false; return@LaunchedEffect }
+        if (session.key != null) {
+            waiting = false
+            latestGenerate()
+        } else if (session.loadError != null) {
+            // The pull request did not load, so there is nothing to wait for: Generate comes back with the reason.
+            waiting = false
+        }
+    }
+    if (waiting || tourComing(session)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(bottom = 8.dp)) {
+            if (waiting) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.octaviantocan.pulls.ui.design.BreathingDot()
+                Text("Getting the pull request ready", style = PullsType.sm, color = c.muted)
+            }
+            else TourRunning(session, Modifier)
+        }
+        return
+    }
+    // No line of what a tour is: the sheet's title and Generate say it ("this is unnecessary": recording 16 Oct 13:06,
+    // 05:22 to 05:31; O12). The first card sits the sheets' own gap under the ✕ (O11).
+    // A tour that failed says why here, where it was asked for; so does an analysis that was to write one.
+    val failed = session.taskFor("tour")?.takeIf { it.status == "failed" }?.error
+        ?: session.taskFor("analyze")?.takeIf { it.status == "failed" && "tour" in it.then }?.error
+    val unloaded = session.loadError?.takeIf { session.key == null }
+    val problem = unloaded?.let { "The pull request did not load" to it } ?: failed?.let { "The tour could not be written" to it }
+    if (problem != null) Box(Modifier.padding(start = 4.dp, end = 4.dp, top = SheetTopGap)) { ErrorBox(problem.first, problem.second) }
+    // The effort sits under the model as a row of its own, where the tour is set up ("I would maybe put the effort level
+    // here in this menu", recording 15 Oct 15:37, 13:10 to 13:17; L25).
+    ModelCard(session, models, onModel, onEffort = onEffort, gap = if (problem != null) 16.dp else SheetTopGap)
+    if (actions.canGenerate) CtaButton("Generate tour", {
+        if (actions.canGenerate) { if (session.key != null) onGenerate() else waiting = true }
+    }, Modifier.fillMaxWidth().padding(top = 16.dp))
+}
+
+/** The row that names the model an analysis or a tour runs with; a tap opens the model page. The Tour's sheet shows it too. */
+@Composable
+fun ModelCard(session: ReviewSession, models: ModelSettingsServices, onModel: () -> Unit, modifier: Modifier = Modifier, onEffort: (() -> Unit)? = null, gap: androidx.compose.ui.unit.Dp = 12.dp) {
+    val c = LocalPullsColors.current
+    if (!models.current()) return
+    val messages = LocalMessages.current
+    val actions = rememberAiSetupActions(session, models)
+    // Read each time the model page returns, so its persisted selection is the one shown before launch.
+    val config = models.configuration()
+    val catalog = key(models, config.engine, config.model) {
+        val loaded by produceState<CliCatalog?>(models.cached(config.engine)) {
+            val result = models.cached(config.engine) ?: models.fetch(config.engine).getOrNull()
+            if (models.current()) value = result
+        }
+        loaded
+    }
+    val model = AiSettingsLogic.current(catalog, config.model)
+    val efforts = model?.efforts.orEmpty()
+    // With its own Effort row the Model row names the model alone; a model with one effort has no choice to offer.
+    val effortRow = onEffort != null && efforts.size > 1
+    SheetCard(modifier, gap = gap) {
+        SheetRow("Model", { actions.read(onModel) }, first = true, iconless = true) {
+            val label = if (effortRow) analysisModelLabel(config, catalog, "", messages).substringBefore(" · ") else analysisModelLabel(config, catalog, session.settings.effort, messages)
+            Text(label, Modifier.weight(1f, fill = false), style = PullsType.sm, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+        }
+        if (effortRow) {
+            val effort = session.settings.effort.ifBlank { model?.defaultEffort.orEmpty() }
+            SheetRow("Effort", { actions.read(onEffort!!) }, iconless = true) {
+                if (effort.isNotBlank()) Text(AiSettingsLogic.effortLabel(effort) { messages.t(it) }, style = PullsType.sm, color = c.muted)
+                LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+            }
+        }
+    }
+}
+
+/** The first page: the presets, Custom, and the model they will run with. */
+@Composable
+private fun ColumnScope.AnalyzeMain(session: ReviewSession, models: ModelSettingsServices, actions: AiSetupActions, onRun: (AnalyzeChoice) -> Unit, onCustom: () -> Unit, onModel: () -> Unit, onEffort: () -> Unit) {
+    val last = session.settings.analyzeChoice
+    // Show what will run before any of the launch actions, just like Generate tour.
+    ModelCard(session, models, onModel, onEffort = onEffort, gap = SheetTopGap)
+    if (!actions.canAnalyze(AnalyzeChoice.of(AnalyzePreset.Quick))) return
+    SheetCard {
+        AnalyzePreset.entries.filter { actions.canAnalyze(AnalyzeChoice.of(it)) }.forEachIndexed { index, preset ->
+            val choice = AnalyzeChoice.of(preset)
+            AiRunRow("${preset.title} analysis", preset.blurb, first = index == 0, enabled = actions.canStartAnalysis(choice)) { onRun(choice) }
+        }
+        if (actions.canAnalyze(AnalyzeChoice.of(AnalyzePreset.Quick))) AiRunRow("Custom analysis", if (last.preset == null) last.summary() else "Pick the passes yourself.", first = false, onClick = onCustom)
+    }
+}
+
+/** An action with its output and a forward chevron; it starts work rather than selecting a saved option. */
+@Composable
+fun AiRunRow(title: String, blurb: String?, first: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+    val c = LocalPullsColors.current
+    Row(
+        Modifier.fillMaxWidth()
+            .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+            .cueClickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            // A title wraps rather than being cut (rule 2).
+            Text(title, style = PullsType.row, color = if (enabled) c.text else c.faint)
+            if (!blurb.isNullOrBlank()) Text(blurb, style = PullsType.sm, color = if (enabled) c.muted else c.faint)
+        }
+        LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+    }
+}
+
+/** A pass of the analysis with its switch. */
+@Composable
+private fun PassRow(title: String, hint: String, checked: Boolean, first: Boolean = false, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    val c = LocalPullsColors.current
+    Row(
+        Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
+            .drawBehind { if (!first) drawRect(c.borderMute, Offset(16.dp.toPx(), 0f), Size(size.width - 16.dp.toPx(), 1.dp.toPx())) }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(title, style = PullsType.row, color = c.text)
+            Text(hint, style = PullsType.sm, color = c.muted)
+        }
+        PullsSwitch(checked, onChange, title, enabled = enabled)
+    }
+}
+

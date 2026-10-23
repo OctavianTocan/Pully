@@ -8,7 +8,7 @@
  */
 
 /** Where an event came from. */
-export const ANALYTICS_APPS = ['android', 'web', 'server'] as const
+export const ANALYTICS_APPS = ['android', 'ios', 'web', 'server'] as const
 export type AnalyticsApp = typeof ANALYTICS_APPS[number]
 
 export type AnalyticsValue = string | number | boolean

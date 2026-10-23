@@ -6,11 +6,13 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 pub(crate) mod content_cache;
 mod github;
+pub(crate) mod github_read;
 mod grouping;
 mod lists;
 mod local;
 mod patch;
 pub use crate::{encode_component as enc, text as s};
+pub(crate) use github::{fetch_with as fetch_github_with, file_with as github_file_with};
 pub use github::{refresh_cached as refresh_cached_pr, token as github_token};
 pub use grouping::groups;
 pub use local::search as search_local;
@@ -259,6 +261,16 @@ fn opened_response(key: &str, diff: &Value, lite: bool, stale: bool) -> Value {
     out
 }
 pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
+    if let Err(error) = state.identity.ensure_current() {
+        return Some(Err(error));
+    }
+    handle_inner(state, name, args).await.map(|result| {
+        state.identity.ensure_current()?;
+        result
+    })
+}
+
+async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
     if state.host.checkout().is_err()
         && matches!(
             name,
@@ -318,7 +330,7 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Re
             }
             open(state, &r, &args).await
         }
-        "github-authenticated" => Ok(json!(github::token().await.is_some())),
+        "github-authenticated" => github::token(state).await.map(|token| json!(token.is_some())),
         "github-request" => github_proxy(state, &args).await,
         "repo-pulls" => lists::repo_pulls(state, &args).await,
         "my-pulls" => lists::my_pulls(state, &args)

@@ -29,10 +29,30 @@ connect/read/total timeouts and release native connections on every outcome.
 Source: accepted 21 Oct 2026 iOS plan, long-running AI suspension and recovery.
 
 @cc [owner:OctavianTocan,label:product] client-errors-identify-recovery
-An Access HTML page, account/session rejection, forbidden response, redirect,
-malformed envelope and server-declared RPC error MUST remain distinguishable.
+An HTML response, account/session rejection, forbidden RPC response, non-RPC HTTP
+failure, redirect, malformed envelope and server-declared RPC error MUST remain
+distinguishable. HTML alone MUST NOT be presented as proof of account expiry or a
+specific proxy/login cause. Only a redirect to the fixed HTTPS Cloudflare Access
+login origin/path MAY be identified as Access authorization. Failure diagnostics
+MUST retain status and bounded response-format categories without raw pages,
+redirect URLs, native exception messages or reflected credentials.
 Missing or explicit-null results MUST retain the existing null result behavior.
-Source: accepted 21 Oct 2026 iOS plan, API parity and recoverable service access.
+A genuine account-sign-in RPC 429 MUST retain fixed client-owned wait guidance for
+the backend's password lockout, without displaying the server's credential-bearing
+message. An HTML or non-RPC HTTP 429 MUST retain its actual response category instead.
+Source: 21 Oct 2026 first-run Compound review and the existing password throttle.
+Source: accepted 21 Oct 2026 iOS plan, API parity and recoverable service access;
+Tavi's 21 Oct reinstall screenshot and request for clear first-run actions.
+
+@cc [owner:OctavianTocan,label:product;security] client-account-discovery-requires-evidence
+Account discovery MUST accept only a boolean hasAccount and an optional nonempty
+string Google client ID. Malformed account-me results MUST NOT become an expired
+session. Connection checks MUST retain an established account when verification
+receives HTML, non-RPC HTTP failure, an unavailable server or invalid account data;
+an actual RPC session rejection or a different verified email MAY retire it.
+An older server's successful Pully response MAY prove connectivity, without
+inventing account capabilities. A source change MUST invalidate the whole check.
+Source: Tavi's 21 Oct 2026 reinstall screenshot and clear first-run guidance request.
 
 @cc [owner:OctavianTocan,label:security;architecture] client-native-integration-is-real
 The explicit Darwin integration run MUST exercise the production NSURLSession
@@ -40,3 +60,167 @@ transport against a nonprivate loopback fixture, including redirect refusal,
 cancellation, native deadlines and response bounds. It MUST fail when its fixture
 is absent; ordinary common tests MUST remain usable without that fixture. Source:
 Tavi's 21 Oct 2026 iOS implementation request and accepted native-adapter test plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] sign-in-belongs-to-its-opening-source
+A sign-in attempt MUST remain bound to the server, Access/account source and UI owner
+that opened it. After native account selection and before accepting a server reply,
+the controller MUST reject an obsolete owner/source; an old Google token MUST NOT be
+sent to a newly configured server. Dismissing native Google selection MUST perform no
+sign-in RPC or account commit. A successful synchronous commit MAY advance the source.
+Source: Tavi's 21 Oct 2026 maximum-reuse iOS plan and the existing account/source reset
+security boundary, preserving settings-sign-in-page's cancellation behavior.
+
+@cc [owner:OctavianTocan,label:security;architecture] native-usage-queue-is-owned-and-cancellable
+Native usage events MUST retain the existing bounded NDJSON queue, 200-event batch,
+refusal/retry and thirty-minute session rules. Loading durable events MUST merge once
+with events recorded during startup. A batch acknowledgement MUST NOT remove newer
+events, and source retirement or opting out MUST cancel the actual suspended upload.
+Native queue files MUST use opaque server/eligible-account/Access namespaces; an old
+writer MUST NOT replace a newer source's queue. Queue-file work MUST run on one serial
+native worker, and opting out MUST invalidate pending writes before removing the files.
+Source: root analytics-can-be-turned-off, analytics-what-not-how-much and Tavi's
+21 Oct 2026 full same-app iOS implementation request.
+
+@cc [owner:OctavianTocan,label:security;product] native-usage-excludes-public-and-unverified-time
+Native private usage MUST use the shared PrivateUsageClock policy and require the
+current connection's verified foreground authority. Public browsing and time spent
+awaiting verification MUST NOT enter private screen or foreground durations. Leaving
+that authority MUST settle the previous interval into its existing source queue and
+cancel uploads before source replacement; public entry MUST preserve consent and
+durable unsent events. Entering private mode after public startup MUST NOT report
+public startup/time as a cold private launch. Source: Tavi's 21 Oct 2026 independent
+Guest decision and the accepted 22 Oct 2026 native usage ownership review.
+
+@cc [owner:OctavianTocan,label:security;product] client-review-confirmations-send-their-expected-pending-review
+When supplied, a drawn review expectation MUST reach Submit or Discard as
+pendingReviewId, with explicit null for expected-none. Omitted expectations MUST
+retain older callers' wire behavior. Submit's optional drawn head MUST reach the
+existing headSha check. Source: the accepted 21 Oct same-app iOS review plan's
+current-head and drawn confirmation ownership requirements.
+@cc [owner:OctavianTocan,label:product] task-cancel-success-is-explicit
+A caller which announces that a task stopped MUST request confirmed cancellation
+and receive an actual successful RPC response before announcing it. Existing
+best-effort cleanup MAY continue to suppress noncancellation failures. Coroutine
+cancellation MUST always propagate. Source: Tavi's accepted 21 Oct 2026 complete
+native AI journey and the actual held/error Stop regression of 22 Oct 2026.
+@cc [owner:OctavianTocan,label:product;security] anonymous-native-browsing-is-independent
+Anonymous Popular, repository search and PR lists MUST use only fixed HTTPS
+api.github.com REST GETs, with no configured Pully server, Access headers, personal
+GitHub credential, session, private cache or AI authority. The shared client MUST
+check public repository visibility before requesting its PRs, strictly validate public
+data, bound queries/pages/bodies/time, refuse redirects and keep error text fixed.
+Opening/paginating a selected repository MUST retain its immutable numeric ID; a name
+reused by another repository MUST NOT replace that selected authority or append its PRs.
+Native PR visibility/read transactions MUST be serialized within their public client
+with a total deadline, so a confirmed denial cannot be undone by an older response.
+All public HTTP concurrency MUST remain bounded; no private cache is used as a fallback.
+Retired guest sources MUST reject late results/errors and retained callbacks; caller
+cancellation MUST close the active native request. HTTP quota metadata MAY contain
+only parsed nonnegative numbers. Ordinary RPC POST semantics and their larger diff
+budget MUST remain the default. Source: Tavi's 21 Oct 2026 signed-out public browsing
+request and the approved direct-native guest implementation, independent of ingress.
+
+@cc [owner:OctavianTocan,label:security] personal-sign-in-proof-is-native-and-ephemeral
+The personal GitHub sign-in ownership proof MUST encode 32 native CSPRNG bytes as
+canonical unpadded base64url. Its challenge MUST be unpadded base64url SHA256 over
+the ASCII proof, separate from the backend's OAuth state and PKCE. Proofs MUST NOT
+appear in browser URLs, diagnostics, persisted settings or ordinary usage events.
+Source: Tavi's 21 Oct 2026 personal GitHub request and the accepted personal-auth
+native protocol; backend personal_auth/wire.rs RFC7636 fixture.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-auth-client-has-separate-authority
+Personal account requests MUST use only the fixed personal-auth routes of a trusted
+HTTPS origin, separate from legacy server configuration. The native adapter MUST NOT
+inherit legacy Access headers, cookies, authenticators or shared HTTP caches. Only
+personal session/read routes and the explicit repository-consent start MAY send a validated Pully bearer; ownership proofs MUST be
+sent only in status/claim/cancel JSON bodies. GitHub credentials MUST remain on the
+server. The browser URL MUST use fixed HTTPS GitHub authorization, the captured Pully
+callback and S256. Ordinary sign-in MUST request only public-read consent; a separate
+repository-consent purpose MUST capture the verified initiating account/session and
+request only the fixed repo/offline_access grant. Source changes/cancellation MUST reject late
+results; retired cleanup MAY contact only the captured origin with its own cancelled
+attempt/session. HTTP and parse errors MUST retain fixed safe categories, and HTML
+or generic HTTP401 MUST NOT imply session expiry. Source: Tavi's 21 Oct 2026 personal
+GitHub request and the accepted personal_auth native/security boundary.
+
+@cc [owner:OctavianTocan,label:security;product] personal-sign-in-controller-owns-its-attempt
+The native UI owner MUST invoke personal sign-in actions and lifecycle changes on
+its UI dispatcher. Each attempt MUST retain its opening origin/source and native
+proof only in memory. Normal browser background MUST pause polling while retaining
+the same attempt; a bounded one-use claim already in progress MAY finish in that
+background. Cancellation, source/route retirement or the bounded deadline MUST
+clear pending authority synchronously and reject late browser/result/commit work.
+The controller MUST consume a successful claim before publishing its new session
+or source, so retirement cannot cancel that accepted session. The claim's original
+attempt deadline MUST bound its provisional session. Before bearer GET/session
+confirms delivery, the host MUST securely stage the bearer in a separate pending
+record; that record MUST NOT restore a principal on process restart. Confirmation
+MUST retain the same immutable account/GitHub identity and application authority.
+Only the confirmed session MAY be atomically promoted and published. A failed native
+stage, confirmation or commit MUST sign out that captured session; local pending
+credentials MUST be removed only after confirmed revocation. An uncertain revocation
+MUST retain a cleanup-only secure record, never an accepted account. The staging and
+cleanup ports MUST use the same UI dispatcher and preserve other accepted accounts.
+Explicit cancellation uses
+only the captured origin/proof; it MUST NOT alter a legitimate returning legacy
+account. Source: Tavi's 21 Oct 2026 personal GitHub request and accepted backend
+personal_auth native ownership/one-use-claim contract.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-secure-vault-keeps-recovery-separate
+The native personal vault MUST atomically persist pending and accepted Pully sessions
+through the host's encrypted secure-storage port. Pending credentials MUST NOT restore
+a principal after process death. Active in-process confirmation stages MUST be excluded
+from unrelated recovery cleanup; losing their owner MUST release that recovery authority.
+Promotion MUST match a staged origin, bearer, immutable account/GitHub subject and
+application authority. Native records without an authority marker MUST remain publicRead;
+a stored publicRead maximum MUST NOT restore privateRepositories authority. A
+replaced or locally signed-out accepted session MUST enter a bounded durable revocation
+queue, and MUST remain there until captured-origin server sign-out succeeds. Queue
+overflow or unavailable secure storage MUST fail closed without dropping another account
+or a recovery credential. Only verified matching account status within the securely
+stored session's maximum authority MAY become a
+visible personal profile; HTML or temporary unavailability MUST preserve saved credentials.
+Source: Tavi's 21 Oct 2026 personal GitHub request, accepted backend claim-delivery lease
+repair and the 22 Oct native secure-stage/confirm/publish plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-reads-keep-verified-account-authority
+A personal read client MUST be issued only from a currently verified personal profile
+and its matching accepted secure-vault session. Pending or merely saved credentials
+MUST NOT issue it. Every request and result MUST retain the captured origin, session,
+account/GitHub subject and current native entry; a changed vault or retired entry MUST
+reject late data and errors. Only fixed personal GET routes MAY carry that Pully bearer,
+with no legacy/Access/cookie authority or GitHub API fallback. Every successful envelope
+MUST match the captured immutable account/GitHub identity and the route's explicit
+application authority. Public-only reads MUST retain publicRead envelopes and exclude
+private data, even for an upgraded account. Account/private reads MUST require the
+separately confirmed privateRepositories session, use only the account route family,
+and require explicit repository visibility. Selected repository reads MUST retain
+their numeric repository ID and visibility. HTTP concurrency,
+body, page and total deadlines MUST remain bounded. Only a valid typed service error
+MAY identify session rejection; HTML or a generic HTTP401 MUST NOT expire the account.
+Account/capability retirement MUST synchronously clear registered page owners before
+another identity can publish data. This GitHub read capability MUST NOT gate independent
+default/provider AI. Source: Tavi's 21 Oct any-account/public browsing request,
+22 Oct explicit access to the user's private repositories,
+and the accepted 22 Oct isolated personal read protocol.
+
+@cc [owner:OctavianTocan,label:security;product] personal-rejection-revokes-before-secure-cleanup
+A current typed account/session rejection from restoration or a personal read MUST
+synchronously revoke verified authority, visible profile and every registered read
+owner before attempting fallible secure-vault retirement. A failed retirement MUST
+preserve the durable credential for recovery, without issuing old or new read handles
+until fresh matching verification. A rejection received for a superseded origin,
+bearer, verification or native source MUST NOT revoke its replacement. The source-owned
+account-recovery action MUST run only after the purge and only while that rejection
+still owns the source; HTML and generic HTTP401 MUST retain connection retry instead.
+Source: the five independently confirmed 22 Oct 2026 personal-read Compound findings
+and Tavi's any-account/private-repository and actionable first-run requirements.
+@cc [owner:OctavianTocan,label:security;architecture] personal-entry-storage-probe-is-not-authority
+A personal-entry secure-storage probe MUST read the actual native blob even when the
+vault has cached a prior successful read. Missing data MUST remain distinct from a
+failed read or present empty/corrupt data, and probe bytes MUST be cleared. Failure
+MUST NOT overwrite the vault, make an RPC or authorize browser/claim/read work. The
+probe MUST retain the existing vault format/cache and check its current source before
+and after native reading; its host MUST supply actual foreground admission before
+new account actions. Source: Tavi's 22 Oct 2026 visible native GitHub-entry request
+and accepted fixed-intent/secure-admission boundary.

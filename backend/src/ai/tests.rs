@@ -57,6 +57,61 @@ fn run() -> Arc<Run> {
 }
 
 #[tokio::test]
+async fn personal_task_ids_never_cross_account_or_revoked_source_boundaries() {
+    use crate::identity::{GitHubCredential, TenantStates};
+    let root = std::env::temp_dir().join(format!("pully-task-owners-{}", uuid::Uuid::new_v4()));
+    let tenants = TenantStates::new(root.clone(), 4).unwrap();
+    let binding = GitHubCredential::fixture("account-a", 42, "fixture-token-a");
+    let a = tenants.account(binding.clone()).await.unwrap();
+    let b = tenants
+        .account(GitHubCredential::fixture(
+            "account-b",
+            43,
+            "fixture-token-b",
+        ))
+        .await
+        .unwrap();
+    let guest = tenants.guest().await.unwrap();
+    a.jobs.runs.lock().unwrap().insert("test".into(), run());
+    assert_eq!(
+        handle(&a, "ai-task-list-all", json!({}))
+            .await
+            .unwrap()
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    for other in [&b, &guest] {
+        assert_eq!(
+            handle(other, "ai-task-list-all", json!({}))
+                .await
+                .unwrap()
+                .unwrap(),
+            json!([])
+        );
+        assert!(
+            handle(other, "ai-task-wait", json!({"id":"test","after":-1}))
+                .await
+                .unwrap()
+                .is_err()
+        );
+        assert!(handle(other, "ai-task-cancel", json!({"id":"test"}))
+            .await
+            .unwrap()
+            .is_err());
+        assert!(task_key(other, "test").is_err());
+    }
+    binding.revoke();
+    assert!(handle(&a, "ai-task-wait", json!({"id":"test","after":-1}))
+        .await
+        .unwrap()
+        .is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn admitted_task_titles_survive_wait_and_list_routes() {
     let root = std::env::temp_dir().join(format!("pulls-title-routes-{}", uuid::Uuid::new_v4()));
     let state = AppState::new(root.clone(), root.join("data")).unwrap();
@@ -725,4 +780,15 @@ async fn ai_storage_followup_reads_yield_before_completion() {
     assert_eq!(state.jobs.runs.lock().unwrap().len(), 1);
     shutdown(&state).await;
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn experimental_reviews_cannot_join_an_ordinary_running_review() {
+    let ordinary = json!({"key":"same-pr","kind":"critique","variant":"same"});
+    let mut experiment = ordinary.clone();
+    experiment["experiments"] = json!({"mergeRisk":true});
+    assert!(!same(&ordinary, &experiment, true));
+    assert!(!same(&experiment, &ordinary, true));
+    experiment["experiments"]["mergeRisk"] = json!(false);
+    assert!(same(&ordinary, &experiment, true));
 }

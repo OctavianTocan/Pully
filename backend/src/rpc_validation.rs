@@ -211,7 +211,11 @@ fn task() -> Schema {
                 ("locale", Str),
                 ("then", opt(arr(Pick(&["tour", "brief"])))),
             ]),
-            "critique" => fields.extend([("variant", Str), ("lens", opt(lens()))]),
+            "critique" => fields.extend([
+                ("variant", Str),
+                ("lens", opt(lens())),
+                ("experiments", opt(obj(vec![("mergeRisk", opt(Bool))]))),
+            ]),
             "ask" => fields.extend([
                 ("threadId", Pattern(r"^[A-Za-z0-9_-]{1,80}$")),
                 (
@@ -629,6 +633,12 @@ pub(crate) fn cache_entry(value: &Value) -> Result<Value> {
     obj(fields)
         .parse(value)
         .map_err(|_| anyhow::anyhow!("Invalid cached diff entry."))
+}
+
+pub(crate) fn canonical_reviews(value: &Value) -> Result<Value> {
+    review_data()
+        .parse(value)
+        .map_err(|_| anyhow::anyhow!("Invalid review data."))
 }
 
 pub(crate) fn cache_session(value: &Value) -> Result<Value> {

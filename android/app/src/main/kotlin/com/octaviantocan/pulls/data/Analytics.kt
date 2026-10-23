@@ -43,6 +43,8 @@ object Analytics {
 
     @Volatile private var app: Context? = null
     @Volatile private var enabled = false
+    @Volatile private var privateConnection = false
+    @Volatile private var connectionRevision = 0L
     @Volatile private var version = ""
     @Volatile private var device = ""
     @Volatile private var session = ""
@@ -67,17 +69,16 @@ object Analytics {
     private val sending = Mutex()
     private var ticker: Job? = null
 
-    private val screens = ScreenClock()
+    private val clock = PrivateUsageClock()
     @Volatile private var processStart = 0L
     @Volatile private var activityStart = 0L
     @Volatile private var activities = 0
     @Volatile private var opened = false
-    @Volatile private var frontSince: Long? = null
 
     private class Queued(val seq: Long, val line: String)
 
     /** Called from `PullsApplication.onCreate`: notes when the process started, reads the queue and sets the crash handler. */
-    fun install(context: Context, on: Boolean) {
+    fun install(context: Context, on: Boolean, privateConnection: Boolean = true) {
         processStart = SystemClock.elapsedRealtime()
         val appContext = context.applicationContext
         app = appContext
@@ -86,6 +87,8 @@ object Analytics {
         device = prefs.getString("device", null)?.takeIf(AnalyticsRules::validId) ?: newId().also { prefs.edit().putString("device", it).apply() }
         session = prefs.getString("session", null)?.takeIf(AnalyticsRules::validId) ?: newId().also { prefs.edit().putString("session", it).apply() }
         enabled = on
+        this.privateConnection = privateConnection
+        clock.setPrivateConnection(privateConnection, SystemClock.elapsedRealtime())
         io.execute { load() }
         installCrashHandler()
     }
@@ -95,7 +98,7 @@ object Analytics {
      * and on or off values belong here, never what was read or typed (analytics-what-not-how-much).
      */
     fun track(name: String, props: Map<String, Any?> = emptyMap()) {
-        if (!enabled || app == null) return
+        if (!enabled || !privateConnection || app == null) return
         val line = event(name, props).encode()
         val dropped: Int
         synchronized(lock) {
@@ -120,14 +123,14 @@ object Analytics {
     /** [name] is the screen on top now: one of a fixed set of lowercase words, never a title or a repository. */
     fun showScreen(name: String) {
         screen = name
-        emit(screens.show(name, SystemClock.elapsedRealtime()))
+        emit(clock.show(name, SystemClock.elapsedRealtime()))
     }
 
     /** `MainActivity.onCreate`: the start of a launch, for `app.open`. One [restored] after a rotation is not a launch. */
     fun activityCreated(restored: Boolean) {
         activityStart = SystemClock.elapsedRealtime()
         activities += 1
-        opened = restored
+        opened = restored || !privateConnection
     }
 
     /** The first frame of Home after a launch: sends `app.open` once for the activity. */
@@ -142,7 +145,7 @@ object Analytics {
     fun foreground() {
         val context = app ?: return
         val now = SystemClock.elapsedRealtime()
-        frontSince = now
+        clock.foreground(now)
         val prefs = prefs(context)
         val away = prefs.getLong("backgroundAt", -1L).takeIf { it >= 0 }
         val wall = System.currentTimeMillis()
@@ -152,7 +155,6 @@ object Analytics {
             prefs.edit().putString("session", next).apply()
         }
         prefs.edit().remove("backgroundAt").apply()
-        screens.resume(now)
         startTicker()
     }
 
@@ -160,13 +162,11 @@ object Analytics {
     fun background() {
         val context = app ?: return
         val now = SystemClock.elapsedRealtime()
-        emit(screens.pause(now))
-        frontSince?.let { track("app.background", "seconds" to (now - it) / 1000) }
-        frontSince = null
+        emit(clock.background(now))
         prefs(context).edit().putLong("backgroundAt", System.currentTimeMillis()).apply()
         ticker?.cancel()
         ticker = null
-        if (!enabled) return
+        if (!enabled || !privateConnection) return
         scope.launch { flush() }
         scheduleRetry(context)
     }
@@ -178,7 +178,7 @@ object Analytics {
         val context = app ?: return
         enabled = on
         if (on) {
-            if (frontSince != null) startTicker()
+            if (clock.inForeground) startTicker()
             return
         }
         ticker?.cancel()
@@ -186,6 +186,20 @@ object Analytics {
         synchronized(lock) { queue.clear() }
         io.execute { synchronized(fileLock) { queueFile(context).delete() } }
         runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK) }
+    }
+
+    /** Guest mode pauses private telemetry without changing consent or discarding a returning account's queue. */
+    fun setPrivateConnection(available: Boolean) {
+        if (privateConnection == available) return
+        emit(clock.setPrivateConnection(available, SystemClock.elapsedRealtime()))
+        connectionRevision++
+        privateConnection = available
+        ticker?.cancel()
+        ticker = null
+        val context = app ?: return
+        if (available) {
+            if (clock.inForeground) startTicker()
+        } else runCatching { WorkManager.getInstance(context).cancelUniqueWork(WORK) }
     }
 
     // --- Sending ---
@@ -196,11 +210,12 @@ object Analytics {
      */
     suspend fun flush(): Boolean {
         val context = app ?: return true
-        if (!enabled) return true
+        if (!enabled || !privateConnection) return true
+        val opening = connectionRevision
         ready.await()
         return sending.withLock {
             withContext(Dispatchers.IO) {
-                while (enabled) {
+                while (enabled && privateConnection && connectionRevision == opening) {
                     val batch = synchronized(lock) { queue.take(AnalyticsRules.BATCH).toList() }
                     if (batch.isEmpty()) return@withContext true
                     val status = runCatching {
@@ -229,7 +244,7 @@ object Analytics {
     }
 
     private fun startTicker() {
-        if (!enabled || ticker?.isActive == true) return
+        if (!enabled || !privateConnection || ticker?.isActive == true) return
         ticker = scope.launch {
             while (isActive) {
                 flush()
@@ -315,7 +330,7 @@ object Analytics {
 
     private fun recordCrash(error: Throwable) {
         val context = app ?: return
-        if (!enabled) return
+        if (!enabled || !privateConnection) return
         val line = event("crash", AnalyticsRules.crashProps(error, screen)).encode()
         synchronized(fileLock) {
             val file = queueFile(context)

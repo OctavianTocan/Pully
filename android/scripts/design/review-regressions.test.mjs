@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { describe, it } from 'vitest'
 import { composables } from './kotlin.mjs'
 
-const review = new URL('../../app/src/main/kotlin/com/octaviantocan/pulls/ui/review/', import.meta.url)
+const review = new URL('../../../mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/ui/review/', import.meta.url)
 const read = name => readFileSync(new URL(name, review), 'utf8')
 
 describe('review layout regression guards', () => {
@@ -18,8 +18,9 @@ describe('review layout regression guards', () => {
 
   it('puts both the tour question field and its dimmer inside the saved-tour guard', () => {
     const source = read('PrTourScreen.kt')
-    assert.match(source, /if \(tour != null\) SearchDim\(askFocused/)
-    assert.match(source, /if \(tour != null\) AskBar\(/)
+    assert.match(source, /val canAsk = tour != null && capabilities.canAsk && onAsk != null/)
+    assert.match(source, /if \(canAsk\) SearchDim\(askFocused/)
+    assert.match(source, /if \(canAsk\) key\(session, owner\) \{ AskBar\(/)
   })
 
   it('uses the tested highlight boundary and never caches a missing response row', () => {

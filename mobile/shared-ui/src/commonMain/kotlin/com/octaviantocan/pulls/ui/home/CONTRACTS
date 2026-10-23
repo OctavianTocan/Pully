@@ -1,6 +1,418 @@
+@cc [owner:OctavianTocan,label:product] home-search-or-ask
+The bottom pill on Home reads "Search or ask Pully" and is the one way to find a pull
+request: typing filters the list at once, a pasted link or a number opens that pull
+request, and a question can be asked from it. There is no search icon in the header and no
+"Open pull request" field elsewhere (rules 35 and 55; D7). The pill has no Ask button: it
+keeps its ✕, and while the trimmed text ends in "?" the ✕ crossfades into the send circle,
+which asks it, and back when the "?" goes. Tavi decided this in the recording of 16 Oct
+12:10, 05:03 to 05:47 (no "Ask" button "anywhere"; N8), replacing the Ask in the pill.
+
+@cc [owner:OctavianTocan,label:product;motion] home-search-dims-what-is-behind
+While the search waits for its first letter with the keyboard up, the list behind dims to
+half the sheet's scrim and a tap on it puts the keyboard away; the dim starts with the tap
+and lifts more slowly than it came. Once something is typed the matches show at full
+strength and take taps (rule 103; H12).
+
+@cc [owner:OctavianTocan,label:design] home-nothing-behind-the-pill
+Nothing white sits behind the bottom pill: the rows fade into the page under it and the
+pill carries its own shadow, on Home and on a repository's page (rule 74; F3).
+
+@cc [owner:OctavianTocan,label:product;design] home-sort-beside-search
+The Inbox's sort is a round button as tall as the search pill, beside it at the bottom,
+and its label names the order the Inbox is in. The chips over the list are the three
+filters alone (Waiting on you, Authored, All). On Tours the sort button leaves and the
+pill takes the row (rule 114; H19).
+
+@cc [owner:OctavianTocan,label:product] home-one-row-anatomy
+A pull request row is the same in the Inbox, Tours, a repository and search, after
+Claude's own list: a tinted square tile with the state's mark on the left (open, draft,
+merged and closed each in its own colour; a tour's ring in the tile on Tours), nearly as
+tall as a one-line title and the meta line with a little air above and below, and centred
+on the row when the title takes two, the title beside it on at most two lines ending in an
+ellipsis when it runs longer (`android-whole-identifiers`; Q1; rule 201), and one meta line under the title that starts with the
+number and carries the author, checks, coloured diffstat and age, in fixed columns that
+do not move when a digit or a name's length changes (rules 13, 15 and 36). A draft is told
+apart by its tile's colour and no title says "[draft]". A context-free count ("7
+sections") never replaces them. Tavi decided this in the recording of 16 Oct 12:10, 01:23
+to 03:05 (N4), replacing the number-first row. A row's title MUST NOT run to three lines,
+and a repository row does not show its labels (Tavi's pick on 17 Oct): "these
+things should never have three lines ... the icon gets squishy", with Claude's PR list as
+the reference for the tile's size (recording of 17 Oct 14:45, 00:03 to 00:59; Q1). Tavi
+said on 17 Oct at 17:14 that he meant the title on two lines ("I meant the title should
+also be in two rows"), which replaced 0.48.0's one-line title.
+
+@cc [owner:OctavianTocan,label:design] home-no-avatars-on-rows
+A row carries the author's name in its own column and no avatar or initial. The reader's
+photo lives in the Home header, and the author's on the pull request page (rule 33).
+
+@cc [owner:OctavianTocan,label:design] home-names-are-horizontal
+An author's name on a row takes one line and gives way only at its end; it never wraps or
+stacks a letter to a line. A stacked pull request shows "2/10" with the layers mark on the
+meta line right after its number, before the author (rule 111; H15, H16, H28). Tavi moved
+it there from under the number in the recording of 16 Oct 12:10, 00:49 to 01:04 (N2).
+
+@cc [owner:OctavianTocan,label:product;motion] home-swipes-commit
+On the Inbox a swipe right opens the review as a full gesture that commits on release,
+with the displaced row blurred a little (no more than the canvas's 1.3px) and nothing to
+tap after. A tap opens the pull request (rules 17 and 32; F6). No row archives on a swipe:
+Archive is only in the hold actions. Tavi decided this in the recording of 16 Oct 09:50,
+01:18 to 01:40 ("I don't think we need archive at all"; M4), replacing the left swipe to
+archive.
+
+@cc [owner:OctavianTocan,label:product;security] home-archive-only-your-own
+A pull request the person did not open has no Archive in its hold actions (recording
+15 Oct 13:54, 09:42 to 09:53; K20).
+
+@cc [owner:OctavianTocan,label:product;motion] home-left-swipe-goes-to-tours
+No Inbox row takes a left swipe: the swipe moves the Inbox on to Tours, so the pages move
+from anywhere on the list ("we can actually allow this swipe, but from anywhere":
+recording 15 Oct 15:37, 01:28 to 01:50; L1; every row since M4).
+
+@cc [owner:OctavianTocan,label:product] home-hold-opens-actions
+Holding a pull request row opens a sheet of its actions (Open on GitHub, Copy link, Start
+a tour, Open repository and, for the person's own, Archive), with the app's one hold
+feel (H17; rule 120).
+
+@cc [owner:OctavianTocan,label:product;motion] home-tours-rows-swipe-like-inbox
+Tours rows mirror the Inbox's: a swipe to the left opens the tour from the right edge, a
+swipe to the right is left free so it moves Tours back to the Inbox, a tap opens and a hold
+opens the row's actions (Open the tour, Stop or Remove). The same row anatomy; a finished
+tour's ring is a filled tick and nothing says "Read" (rules 56 and 111; H27). Tavi decided
+the direction in the recording of 16 Oct 09:50, 01:40 to 02:04 (M4): the right swipe used
+to open the review and the left one to remove.
+
+@cc [owner:OctavianTocan,label:design] home-group-heading-lines
+A repository heading has one hairline under it and none above, so the first heading has
+nothing between it and the chips (rule 75; F1).
+
+@cc [owner:OctavianTocan,label:design] home-pinned-headings-stay-whole
+Every repository heading, open or folded, sticks whole at the top of the list when it gets
+there; the next heading slides up under it and takes its place, so no heading is pushed half
+under the chips, and at rest none is left half under the pinned one. Tavi changed this from
+pushing the pinned heading away ("collapsed project categories not becoming sticky with the
+top bar": recording 15 Oct 15:37, 01:56 to 02:15; L2; H13; K19).
+
+@cc [owner:OctavianTocan,label:design] home-heading-chevrons-line-up
+A heading reads "Name (count) ⌄": the count in parentheses right after the name and the
+chevron right after the count, all on the name's line, and a long name gives way at its
+end so the count and chevron stay whole (recording 15 Oct 15:37, 02:16 to 02:37; L3). Tavi
+decided this in the recording of 16 Oct 12:10, 00:08 to 00:47 and 14:57 ("we swap it
+everywhere"; N1, N35), replacing the count and chevron at the right edge.
+
+@cc [owner:OctavianTocan,label:product] home-heading-name-opens-repository
+A tap on a repository heading folds its rows, and a tap on its name opens the repository:
+from the Inbox on its pull requests, from Tours on its tours (rule 53; H26).
+
+@cc [owner:OctavianTocan,label:product;motion] home-inbox-and-tours-side-by-side
+The Inbox and Tours, and a repository's pull requests and tours, sit side by side: they
+move the whole width with nothing fading, both in view while they move, following a drag
+anywhere nothing else takes it ("It should move like screens side by side", rule 107;
+H20).
+
+@cc [owner:OctavianTocan,label:product] home-pages-keep-their-place
+Swiping from the Inbox to Tours and back leaves each where it was: scroll, folds and what
+is open ("It brings me back to the top. It should keep me where I left off", rule 118;
+J9).
+
+@cc [owner:OctavianTocan,label:product] home-scope-chips-rearrange
+Switching the scope chips rearranges the list in place with motion. Tavi loves it: it
+MUST NOT regress to a plain swap (DESIGN.md Keep as is; walkthrough 14 Oct 12:08, 04:46).
+
+@cc [owner:OctavianTocan,label:product] home-repository-page-shows-at-once
+A repository's page shows its first screenful at once, from the phone's last copy or the
+server's store, never skeletons for seconds (H14; rule 51).
+
+@cc [owner:OctavianTocan,label:product] home-repositories-can-be-hidden
+The person chooses which repositories show. A repository switched off is left out of the
+Inbox, of Tours and of the chip counts (F19; audit 15 Oct).
+
+@cc [owner:OctavianTocan,label:product] home-repositories-toggle-all
+The Repositories sheet MUST offer an All repositories switch, with the number enabled
+out of all known repositories. Every repository is enabled by default. Switching all off
+MUST hide every known repository; switching all on MUST enable them all. A mixed state
+MUST show its enabled count and tapping its switch MUST enable all. Search MUST NOT limit
+the bulk action's scope, including when no repository matches (Tavi, 20 Oct 2026 controls
+feedback, asking to enable or disable all repositories).
+
+@cc [owner:OctavianTocan,label:product] home-profile-sheet-is-short
+The profile sheet has no Commands row, no Open GitHub profile row (a tap on the photo or
+name opens the profile), no server address under the name, no Check out a branch and no
+Refresh (H21 to H24; F15, F17). It is the reference for the right style and MUST NOT
+regress (DESIGN.md Keep as is).
+
+@cc [owner:OctavianTocan,label:product;design] home-profile-shows-github-year
+Under the photo and name the profile sheet shows the person's last year on GitHub: the
+contributions as a number over a grid of the last half year's days, commits, pull
+requests, reviews and the day streak, and the year as monthly bars. The numbers are counts
+only, come from the server's `github-stats`, and show at once from the last answer with no
+loading screen (recording 16 Oct 09:50, 02:06 to 02:16; M5).
+
+@cc [owner:OctavianTocan,label:product] home-jev-asked-only-when-sorted
+The Inbox asks for Jev's kinds and risk (`classify: true`) only while it is sorted
+Riskiest first or grouped by kind; with neither picked nothing is asked (DESIGN.md
+checklist 53; architecture, Jev).
+
+@cc [owner:OctavianTocan,label:product;design] home-rows-carry-no-jev-line
+An Inbox row shows nothing from Jev unless the list is sorted Riskiest first or grouped by
+kind, and then only one short risk word on the meta line right after the number, so the
+row is no taller than without it. A stacked row, whose place there holds "2/10", shows the
+risk only as its stack mark turning amber when the risk is high. There is no "Feature ·
+Medium risk" line under the title ("do not run it by default", rows "way too tall":
+recording 16 Oct 09:50, 00:08 to 00:37; M1; checked again for N3, recording 16 Oct 12:10,
+01:06 to 01:15). The word moved from under the number with the row's redesign (N2, N4).
+
+@cc [owner:OctavianTocan,label:product;motion] home-pull-for-commands
+Pulling the Inbox down past its top says "Pull for commands", then "Release for commands",
+and letting go opens Commands with no refresh indicator. Tavi is "very in love with
+that" (rules 52 and 117; F4).
+
+@cc [owner:OctavianTocan,label:design] home-pill-clears-the-gesture-bar
+The bottom search pill sits clear of the system gesture bar and rides on top of the
+keyboard when it is up (rules 47 and 55).
+
+@cc [owner:OctavianTocan,label:product;motion] home-bottom-bars-stay-on-pull
+Pulling a page down for Commands moves the page, not the bars pinned to the bottom of the
+screen: Ask and Review, the Diff's bar and the Tour's Ask pill stay where they are ("these
+buttons should be stuck at the bottom even if I'm starting to pull", recording 15 Oct
+15:37, 05:18 to 05:33; L9).
+
+@cc [owner:OctavianTocan,label:product;motion] home-row-tap-is-not-a-swipe
+A drag a row's swipe has taken is never also a tap: a short sideways drag springs the row
+back and opens nothing, so a row never comes back pulled aside or animating (recording
+15 Oct 15:37, 09:28 to 09:44; L16).
+
+@cc [owner:OctavianTocan,label:product] profile-numbers-at-once
+Profile's year on GitHub shows the last answer at once, kept on the phone between launches,
+and refreshes underneath; Pully asks for it a moment after it starts (recording 16 Oct 13:06, 02:56 to 03:04;
+O6, rule 178). The kept answer is the current server's; another server's MUST NOT stand in for it
+(review of PR 57).
+
+@cc [owner:OctavianTocan,label:product;design] profile-graphs-answer-a-finger
+A tap or a horizontal drag on Profile's days or months reads that day or month out in the
+big number's place, with a tick per step, and a second tap on it puts the total back (recording 16 Oct 13:06,
+03:04 to 03:18; O7, rule 179).
+
+@cc [owner:OctavianTocan,label:design] home-hold-menu-names-and-groups
+A row's hold menu is headed by its number, with a card naming the item (state, title,
+repository and author, diffstat) the sheets' gap under the ✕, then its actions in two headed
+groups, Pully's own and GitHub's (recording 16 Oct 13:06, 08:31 to 08:58; O19, rule 186).
+Every pull request's hold sheet, a tour's included, MUST offer Copy link ("a way to copy a
+PR's link in ... its hold bottom sheet": Tavi, 20 Oct 2026 12:10).
+
+@cc [owner:OctavianTocan,label:product;design] home-pr-hold-summary-shows-whole-identifiers
+A pull request's hold sheet MUST use a summary laid out for the sheet, with the complete
+title, repository and author each given their own wrapping width, never an ellipsis or
+the list row's title limit. Lifecycle and known file/change counts MUST remain readable
+in a separate wrapping area; unknown counts MUST NOT become zero. The existing Pully
+and GitHub action groups MUST retain their actions and behavior. Content taller than
+the available sheet MUST remain reachable by scrolling. This applies to the PR summary
+only; the Tours hold card and compact list rows keep their existing layout (Tavi,
+20 Oct 2026, screenshot 79142: "we should show the PRs info nicely laid out ... Here it
+needs to all be visible").
+
+@cc [owner:OctavianTocan,label:product;design] home-posted-group
+The diffs agents posted to the account are one group of their own at the top of the Inbox,
+"Posted by agents", its heading in the magenta accent, foldable like the others. Its rows
+are the Inbox's row with a magenta terminal tile, who posted it, the + and − and the age;
+a tap opens the diff and a hold offers Open and Delete. The group shows while the pull
+requests load and when they fail to, since it comes from the server. There MUST NOT be a chip, filter
+or tag for them ("we are definitely not adding any more chips ... You just group them,
+maybe somewhere specific, and you can maybe color the group": Tavi, 16 Oct 12:47).
+
+@cc [owner:OctavianTocan,label:product] home-chip-is-remembered
+The Inbox opens on the chip picked last (Waiting on you, Authored or All), kept with the
+settings the account syncs; Show closed switches to All for the moment and does not change
+it ("whichever tab I clicked on last, when I open the app again, it uses that one",
+recording of 17 Oct 13:26, 00:03 to 00:17, P1; rule 190).
+
+@cc [owner:OctavianTocan,label:product;design] home-stacks-are-one-row
+Two or more layers of one stack in the same Inbox section MUST be one row, where the first
+of them stood, with the bottom layer's title and number, the layers mark in a tile drawn
+as an outline, not filled, so it does not blend with the pull requests (Tavi, 17:54), the
+meta line's stack mark with the number of layers beside it and no words ("Just use the icon
+we were already using for stack and type a 3 next to it": Tavi, 17 Oct 17:51), their worst
+checks, summed + and − and newest age; a tap, swipe or
+hold MUST open the Stack sheet listing its layers, each opening its pull request ("group
+them into one row, and make the stack the row, and when you tap it can show you which PRs
+are in there": Tavi, 17 Oct 17:40; rule 202). A stack with one layer in the section keeps
+that pull request's own row.
+
 @cc [owner:OctavianTocan,label:design] shared-row-retains-existing-anatomy
 The shared pull request row MUST preserve Android's state tile, two-line title limit,
 number, author and fixed checks, diffstat and age columns. Its dimensions and
 typography MUST follow android/DESIGN.md rules 13, 15, 36 and 201. Source: Tavi's
 21 Oct 2026 iOS reuse decision; recordings 16 Oct 12:10 (N2, N4, N35) and 17 Oct
 14:45 (Q1), and Tavi's 17 Oct 17:14 two-row title decision.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-home-keeps-production-state
+The Inbox's Compose state, list synchronization, archive, tour index, sort and folds
+MUST use one production implementation on Android and iOS. Native storage, source
+identity, clocks and first-party analytics MUST enter through the existing store and
+small service interfaces. Source: Tavi's 21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:product] shared-home-cache-and-policies-stay-compatible
+The device list MUST show before server cache and fresh data. An old request MUST NOT
+replace a newer selection or list. Existing preference keys, JSON formats, archive
+head-based restoration, hidden-repository filtering, stable sorts and Jev grouping
+MUST remain compatible. The archive MUST keep at most 500 entries, the tour index 60
+and dismissed task IDs 100; the separate persisted tour cache keeps its existing 200
+budget. Source: the accepted 21 Oct iOS reuse plan; DESIGN.md rules 51, 53, 56, 111,
+114, 118, 190 and 202 and existing HomeLogic/InboxLogic behavior.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-home-state-belongs-to-source
+Private Inbox copies and tour/archive records MUST belong to one native server/account/
+authorization source. Invalid configuration MUST bypass persistence. A source change MUST clear old
+reactive state and deny late writes, results or reconciliation; no raw credentials MAY
+become a persistence namespace. Legacy records without provable ownership MUST NOT
+be adopted as another account's data. Source: the accepted 21 Oct iOS persistence and
+source-identity plan, preserving the review-session source boundary.
+
+@cc [owner:OctavianTocan,label:product;security] shared-home-observation-keeps-authority
+A source invalidated while a refresh/classification interval waits MUST NOT start the
+next request against a different source. Unknown tour-task snapshots MUST NOT settle
+or erase an unfinished row; later known done, failed or cancelled snapshots MAY settle
+it, with the existing stale-writing expiry unchanged. Source: the accepted 21 Oct iOS
+source-identity plan and the shared authoritative-task outcome policy.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-home-screen-caches-have-an-owner
+Repository first pages, posted diffs and profile numbers MUST belong to an explicit
+native source owner. A source change MUST clear reactive copies and reject late results
+and writes; another account or Access context MUST NOT inherit a private copy. Memory
+first-page caches MUST be bounded, while existing JSON, preference keys and the separate
+200-tour file budget remain compatible. Source: Tavi's accepted 21 Oct 2026 iOS plan
+and its native persistence/source-identity boundary.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-home-requires-native-actions
+Shared Home and repository screens MUST receive native clipboard, external GitHub,
+explicit-browser and lifecycle actions. These services MUST NOT be silently replaced
+by inert callbacks. Native lifecycle registration MUST report the current foreground
+state once and observe later start, resume and stop events until cancelled. Source:
+Tavi's accepted 21 Oct 2026 iOS plan: shared production screens with thin native adapters.
+
+@cc [owner:OctavianTocan,label:security;product] shared-home-input-and-ask-follow-source
+Ordinary route navigation MUST retain the Inbox's filter, scroll and private input.
+Changing its server/account/authorization owner MUST clear private search and Ask-open
+state and cancel its old Ask scope before another request can start. Source: the
+accepted 21 Oct 2026 iOS source-ownership plan and DESIGN.md rule 118.
+
+@cc [owner:OctavianTocan,label:security;product] shared-private-screen-state-follows-owner
+Home and repository private hold cards, sheet input and saveable searches MUST belong
+to the screen's source owner. The same owner MUST restore ordinary route state; a new
+owner MUST NOT restore old private input, including when the route was offscreen during
+the source change. Native first-screen size hints MUST use that same owner's revocable
+lease; a late old writer MUST NOT refill or clear the current source. Source: the
+accepted 21 Oct 2026 iOS source-ownership and shared-navigation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-home-stale-actions-cannot-cross-source
+A resource-opening or Ask callback retained from an invalidated source MUST NOT
+navigate or start work under replacement credentials. Back and Home MAY still clean
+up the existing route stack. Renderer capability gates MUST remain enforced for the
+current owner. Source: the accepted 21 Oct 2026 iOS source-ownership plan and existing
+shared Home observation and private-state boundaries.
+Press-to-warm MUST apply that same current-owner and renderer gate before the
+application cache captures a client source; an old row MUST NOT preload through
+replacement credentials. Source: the independent 21 Oct 2026 PR80 source review.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-native-reader-effects-belong-to-the-current-source
+Native clipboard, browser and lifecycle callbacks retained by a private reader MUST
+reject its retired account/server/Access owner. Native recognition MUST remain one
+root observer; source cancellation MAY clear a gesture but MUST NOT commit work for
+replacement credentials. Source: Tavi's accepted 21 Oct 2026 source-isolated iOS
+root and maximum-reuse native-services plan.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-relative-dates-use-the-app-language
+The shared relative-date formatter MUST keep the existing relativeTime unit and
+rounding policy and format its result in the app's selected language through native
+locale services. Android MUST retain its original ICU behavior; iOS MUST support
+named relative dates without a separate maintained translation table. Source: Tavi's
+21 Oct 2026 maximum-reuse iOS plan and the existing locale source-of-truth policy.
+
+@cc [owner:OctavianTocan,label:architecture;product] shared-home-settings-does-not-imply-ui-book-readiness
+The Home host MUST advertise Settings and UI Book route readiness independently.
+Installing the actual Settings sheet MUST NOT enable a missing UI Book renderer;
+Android MUST retain its existing complete UI Book route. Source: Tavi's accepted
+21 Oct 2026 per-renderer readiness and maximum-reuse iOS implementation plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] home-observation-is-a-revocable-read-lifetime
+Native backgrounding, source retirement and pending account verification MUST stop
+Home task/list/saved-result observations without a composition frame or a remote
+task cancellation. Resuming MUST restart reads for the current verified source;
+an earlier or cancellation-resistant result MUST NOT publish after a pause/resume
+cycle. Accepted writes MUST remain outside this disposable read lifetime. Source:
+Tavi's accepted 21 Oct 2026 foreground/resume iOS plan and shared Home source policy.
+When verification reopens that authority, the current mounted list/filter, task poll
+and saved-result observers MUST restart without another native event or a user
+refresh. An interrupted old selection MUST NOT replace the latest drawn selection.
+Source: the independent 21 Oct 2026 native verification/read-restart review.
+A repository's resumed first-page answer MUST restart an active search's remaining
+page drain, including when the old search had already consumed every page. Source:
+the independent 21 Oct 2026 repository resume/search review and current-filter rule.
+A cancelled read's late network failure MUST NOT publish a new list/profile error,
+become an ordinary unsuccessful refresh, or start its fallback request. Source:
+the independent 21 Oct 2026 read-cancellation publication review.
+
+@cc [owner:OctavianTocan,label:product;architecture] shared-inbox-ask-is-the-original-journey
+Both hosts MUST use the original Inbox Ask transcript, known pull references, streaming
+answer, merged work log, copy, redo, suggestions, stop and new-chat workflow through
+the actual inbox/task RPCs. A busy existing server answer MUST keep a new question as
+an unsent draft; a failed start MUST retain the current saved answer and unsent words.
+Send MUST NOT erase words restored by an immediately rejected or reused-task reply,
+and a newer draft entered during that request MUST remain intact.
+Source: home-search-or-ask, DESIGN.md rule 99 and Tavi's accepted 21 Oct 2026
+maximum-reuse iOS plan, applied to the original Android InboxAsk implementation.
+
+@cc [owner:OctavianTocan,label:security;product] shared-inbox-ask-keeps-source-and-drawn-controls
+One Inbox Ask controller MUST belong to one captured Repo source. Its root MUST
+synchronously erase draft, transcript, pending question, task and error references
+before replacement credentials publish. A disposed, revoked or replaced conversation's
+typing, question, redo, stop, clear, copy, link and dismissal callbacks MUST become
+inert. Root and latest drawn host readiness MUST precede paid/control RPCs. Ordinary
+sheet dismissal MUST retain the same source's conversation and draft. Source: the
+accepted 21 Oct 2026 private-source ownership and complete Inbox Ask iOS plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-inbox-observation-does-not-invent-an-outcome
+Background or sheet-disposal pauses MUST cancel only read/list/poll observation,
+never an accepted start or clear write. After a paused write's receipt, fresh
+conversation/list/poll reads MUST wait for an eligible observer; a reused task's
+unsent question MUST reconcile then without replacing a newer draft. Connection
+loss, unknown/mismatched task snapshots and missing observations MUST NOT invent
+remote failure, completion or cancellation. They MUST preserve the accepted task, offer observation retry, and
+resume from matching non-regressing authoritative task or saved-conversation data.
+Old source or operation replies MUST NOT populate the replacement. Source: the
+accepted 21 Oct 2026 Inbox Ask pause/resume and authoritative-task iOS plan.
+
+@cc [owner:OctavianTocan,label:security;product] shared-inbox-verification-and-native-foreground-are-independent
+The source verification gate MUST pause Inbox reads synchronously without rewriting
+the actual native lifecycle. Resumed sheet observation and retained sheet controls
+MUST require both a ready gate and an actually foreground mounted reader. Accepted
+server writes MUST keep their separate source lifetime. Source: the accepted
+21 Oct 2026 verified-source and Inbox pause/resume iOS plan.
+
+@cc [owner:OctavianTocan,label:product;security] shared-inbox-stop-keeps-a-rejected-task-running
+An explicit Inbox Ask Stop MUST require a successful server cancellation receipt;
+rejection MUST retain the authoritative running task and expose its error for retry.
+A visible eligible reader MUST receive the existing Error feedback. An accepted
+same-source rejection MUST remain readable after ordinary dismissal or pause without
+replaying feedback on resume; a retired source or replacement operation MUST NOT
+receive it. A queued Stop MUST recheck its drawn control before dispatch. Cleanup
+cancellation MUST retain its existing best-effort behavior. Source: Tavi's accepted
+22 Oct 2026 complete native AI Stop/error journey and the real RPC rejection review.
+Only the latest actually dispatched explicit Stop for the still-running Inbox task
+MAY publish a rejection; an unsent queued tap MUST NOT supersede an accepted receipt.
+Source: the accepted 22 Oct 2026 full Stop receipt-ordering review, finding 1.
+
+@cc [owner:OctavianTocan,label:security;product] home-write-dispatch-requires-current-verified-readiness
+Posted deletion and an explicit running-tour Stop MUST check the current source and
+verified foreground readiness before sending a new write, including a retained or
+queued callback. An accepted same-source receipt MUST still settle after an ordinary
+scene pause; a replacement source MUST NOT receive its rows, cues or errors. A failed
+or unstarted Stop MUST NOT announce that the tour stopped. Source: Tavi's accepted
+21 Oct 2026 full native review/AI journey and verified scene lifecycle plan.
+
+@cc [owner:OctavianTocan,label:architecture;security] native-dialog-back-authority-belongs-to-its-host-and-source
+A native Dialog Back bridge MUST use the host's real active-scene/root/presentation
+authority. A source-bound native adapter MUST additionally reject a retired source,
+and a host which provides no authority MUST fail closed. The adapter MUST NOT install
+a second recognizer or infer native foreground from server verification. Source: the
+accepted 22 Oct 2026 actual limitation-sheet Back completion repair, preserving
+shared-inbox-verification-and-native-foreground-are-independent.

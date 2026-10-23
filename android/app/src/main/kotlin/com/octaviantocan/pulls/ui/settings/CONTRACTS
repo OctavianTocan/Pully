@@ -26,7 +26,10 @@ Settings, Sounds has a Vibration switch, and with it off nothing vibrates (rule 
 
 @cc [owner:OctavianTocan,label:product] settings-server-is-advanced
 The server address, the Access token, Past versions and the UI Book sit under an
-Advanced row at the bottom of Settings, not on its main page (H9).
+Advanced row at the bottom of Settings, not on its main page (H9). The first-connection
+and sign-in screens MAY open the same Server settings directly so configuration can
+be corrected while normal navigation is covered. Tavi's 21 Oct 2026 reinstall/setup
+request adds this recovery entry point without moving the main Settings rows.
 
 @cc [owner:OctavianTocan,label:product] settings-model-row-names-the-model
 The Model row shows the chosen model's name and the engine's own mark in colour, never a
@@ -36,6 +39,16 @@ model ID and never a robot icon (rules 48 and 89; H7).
 Settings carries no lines that explain its rows ("Claude Code and Codex run on this
 machine...", "The server uses its own GitHub sign-in...", "Pulls asks your server for a
 new version..."): "These are just unnecessary straight up" (H8).
+
+@cc [owner:OctavianTocan,label:product;design] settings-experiments-use-mobile-rows
+Experimental features MUST use the mobile Settings sheet's plain section heading,
+grouped SheetRow controls and existing switches. They MUST NOT introduce an explanatory
+intro, decorative badges or a second navigation row just to reach the two choices.
+Browser floaty MUST keep its required consent page inside the same Settings sheet.
+This feature's settings and assessment UI MUST target the mobile app; desktop screens
+are outside the scope of this change.
+Source: Tavi, 21 Oct 2026, rejecting the experimental UI as ugly and asking for the app's
+design principles on mobile; DESIGN.md rules 49, 78, 87 and 141.
 
 @cc [owner:OctavianTocan,label:product] settings-is-the-liked-sheet
 Settings is a sheet in the mobile style, with its pages inside it. Tavi called it "much,
@@ -96,7 +109,8 @@ feature and a card per model with its share. A cost no engine reported shows "â€
 $0.00 (recording 16 Oct 13:06, 04:18 to 04:48; O9, rule 181).
 
 @cc [owner:OctavianTocan,label:product;security] settings-sign-in-page
-While the server takes a sign-in and the phone is not signed in, a sign-in page covers the
+Within the explicitly selected existing-server mode, while the server takes a sign-in
+and the phone is not signed in, a sign-in page covers the
 app, as the update screen does; signed in, it stays signed in until Sign out on the Account
 page. A server with no way to sign in, an older server or one that cannot be reached MUST
 NOT bring the page up, and a session the server no longer knows brings it back ("it
@@ -106,6 +120,19 @@ alone, and Continue shows the password field under it, for the test account. It 
 sign-up (Tavi, 16 Oct 16:52: "you should add the Google button, and then, under an email,
 only an email field. If they put in their email and they press Continue, then they can put
 in the password as well"). Closing Google's account sheet changes nothing.
+Changing the server, Access credentials or account source MUST reset retained form
+inputs and revoke pending sign-in authority before another request or session commit.
+The form's displayed server and inputs MUST belong to its opening source, including
+through a modal exit animation (21 Oct 2026 first-run review, direct server recovery).
+Tavi's 21 Oct 2026 anonymous browsing decision adds a working Browse public projects
+action to setup/sign-in; selecting it MUST preserve a legitimate saved private account
+and retire its current page/request authority without signing out.
+
+@cc [owner:OctavianTocan,label:product] settings-connection-feedback-keeps-outcome
+Saving server configuration MUST distinguish a failed connection from a check replaced
+by newer discovery. Supersession alone MUST NOT display an Unreachable error; an actual
+failure MUST keep that attempt's recovery category rather than a later global category.
+Source: Tavi's 21 Oct 2026 first-run request and review of concurrent Save/discovery.
 
 @cc [owner:OctavianTocan,label:product;security] settings-agent-keys-on-the-phone
 Settings has an Account section with the signed-in email and an Agent keys page. The page
@@ -114,7 +141,7 @@ once with Copy, and revokes one from its own page, which says what revoking does
 ("please make sure this is possible from the phone": Tavi, 16 Oct 12:47).
 
 @cc [owner:OctavianTocan,label:product;security] settings-browser-helper-consent
-The main Settings page MUST offer Browser helper as a page, with the helper off until
+Settings, Experimental MUST offer Browser helper as a page, with the helper off until
 the reader affirmatively continues past its accessibility disclosure. Before that action,
 the page MUST say that accessibility can read browser address bars and screen content,
 that the helper uses only the address-bar URL for its GitHub repository button, that it
@@ -123,7 +150,8 @@ usual server connection. It MUST say an unknown URL hides the button and browser
 varies. Continuing MAY record consent and open Android's accessibility settings, but MUST
 NOT enable the service programmatically. The consent disclosure is required permission
 information, rather than a helper line under a setting (Tavi, 18 Oct 2026, browser helper
-request).
+request). Its move into Experimental is Tavi's 21 Oct 2026 browser-floaty follow-up;
+the experiment also requires an explicit local opt-in, independently of old consent.
 
 @cc [owner:OctavianTocan,label:product;security] settings-browser-helper-status-and-stop
 The Browser helper page MUST read both Pully's consent and Android's enabled-service
@@ -131,3 +159,10 @@ state again whenever Pully resumes. Android permission alone MUST NOT display th
 as on when Pully consent is off. After consent, the page MUST offer Disable helper, which
 withdraws Pully's consent and hides the helper immediately without requiring the reader
 to change Android settings first (Tavi, 18 Oct 2026, opt-in browser helper request).
+
+@cc [owner:OctavianTocan,label:security;product] settings-palette-belongs-to-opening-android-entry
+Both public and existing-server palette sheets MUST capture their opening native entry
+and repository-source generations. A retained choice or queued wipe from either old
+generation MUST NOT edit preferences or touch SettingsSync for a replacement account.
+An eligible current picker MUST retain the shared theme wipe and immediate preference
+updates. Source: the independently confirmed 22 Oct 2026 Guest theme-ownership review.

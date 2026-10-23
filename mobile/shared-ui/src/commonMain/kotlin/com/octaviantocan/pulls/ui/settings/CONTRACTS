@@ -1,0 +1,209 @@
+@cc [owner:OctavianTocan,label:product;design] shared-sign-in-retains-the-account-page
+Both hosts MUST render the existing sign-in page: the Pully heading, Google first
+when available, then the email field alone and Continue revealing the test-account
+password field. There MUST NOT be a sign-up action. Native Google selection dismissal
+MUST leave the page signed out without an error. The supplied artwork MUST render the
+canonical Pully and Google marks. Source: settings-sign-in-page, Tavi 16 Oct 12:47 and
+16:52, and the accepted 21 Oct 2026 maximum-reuse Compose iOS plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-sign-in-input-belongs-to-its-owner
+Credential inputs and pending attempts MUST belong to the services owner that opened
+the page. Replacing that owner MUST discard the previous email/password input and
+retire its native selection/commit authority; credentials MUST NOT use saved route
+state. Native Google availability MUST require both the server audience and matching
+local iOS registration. Source: Tavi's 21 Oct 2026 iOS source/account isolation plan,
+client-invalidates-old-sources and the existing settings-sign-in-page contract.
+
+@cc [owner:OctavianTocan,label:security;architecture] live-account-retains-one-shared-client
+The native account host MUST supply secure storage and native Google selection only;
+account status, restored-session verification and sign-in/out MUST use the existing
+shared Repo methods. Restored credentials MUST appear only in the verification
+configuration until the server confirms the same email. An offline verification
+MUST retain the saved session without publishing it as active. Source: Tavi's
+21 Oct 2026 full iOS implementation request and the accepted authentication plan.
+
+@cc [owner:OctavianTocan,label:security;architecture] live-account-source-change-retires-private-routes
+Every native account/server/Access identity mutation MUST synchronously retire the
+old shared routes, caches, size lease and observers before publishing its replacement
+connection, then notify the runtime after publication. An earlier pending operation
+MUST NOT commit credentials or clear a newer account. Resume failures MUST NOT forget
+an already verified account. Source: Tavi's 21 Oct 2026 source-owned native adapter
+plan and ios-account-reset-invalidates-observers.
+
+@cc [owner:OctavianTocan,label:security;product] live-account-expiry-requires-session-rejection
+An HTTP failure during account verification MUST expire a session only for the shared
+client's typed Unauthorized error. An HTML or other invalid HTTP 401 response MUST retain
+saved credentials and MUST NOT publish a restored session before verification succeeds.
+An already verified account MUST remain available after that recoverable failure.
+Source: Tavi's accepted 21 Oct 2026 native account/error-recovery plan and
+live-account-source-change-retires-private-routes.
+
+@cc [owner:OctavianTocan,label:security;architecture] shared-server-input-and-probe-follow-the-owner
+Both hosts MUST use the existing Server URL and Access fields. Unsaved Access input
+MUST belong to the page's native source owner and MUST NOT enter saved route state.
+An old page MUST NOT save over a replacement source. Save's explicit connection probe
+MUST remain bound to the configuration just saved, without following later replacement
+credentials. Native adapters MUST retain credential storage ownership. Source: the
+accepted 21 Oct 2026 iOS native configuration and source-isolation plan, retaining
+the existing Android ServerPage and root phone-api-one-account boundary.
+
+@cc [owner:OctavianTocan,label:security;architecture] account-status-keeps-owner-eligibility
+An observed change in the server's account-enabled status MUST synchronously retire
+private routes/caches and restart verification before presenting the replacement state.
+A retained session MUST NOT make account settings or private analytics eligible while
+the server explicitly reports no account configuration. Account RPC timing MUST reach
+the host's real first-party observer, including restored-session verification. Source:
+Tavi's 21 Oct 2026 same-app iOS request, preserving Android Account.noteServer and
+root phone-api-one-account and analytics-stays-on-our-server.
+
+@cc [owner:OctavianTocan,label:security;architecture] account-observation-awaits-current-verification
+An observation-resume waiter MUST settle against the latest source's completed
+account verification and settings synchronization. Source replacement MUST wake it
+without waiting for an obsolete transport reply, and cancellation of that waiter
+MUST NOT cancel the runtime-owned probe. An offline retained Ready page MUST NOT
+count as successful fresh verification. Source: Tavi's 21 Oct 2026 foreground/resume
+iOS plan and live-account-source-change-retires-private-routes.
+The scene's read owner MUST pause immediately on background/source replacement,
+follow the latest verification without cancelling its runtime probe, and reject a
+late foreground grant after scene stop/close. Successful sign-in, server change or
+explicit retry in an already active scene MUST be able to resume current reads
+without another scene transition. Source: the same accepted native lifecycle plan.
+
+@cc [owner:OctavianTocan,label:product;design] shared-settings-use-the-original-choice-previews
+The shared palette picker, app/code font rows and layout/code samples MUST retain
+Android's real choice previews and immediate shared AppSettings updates. A selected
+font MUST draw its own sample face, palette choices MUST use the existing theme wipe
+and search, and a font choice MUST return through the containing sheet's callback.
+Native hosts MUST use these same bodies rather than redraw parallel settings screens.
+Source: settings-show-what-you-choose, settings-fonts-section, DESIGN.md rules81/126,
+and Tavi's 21 Oct 2026 maximum-reuse same-app iOS decision.
+
+@cc [owner:OctavianTocan,label:security;product] shared-model-picker-cannot-act-through-a-new-owner
+The actual Model/Effort picker MUST use the host's real catalog/configuration store.
+A retained callback or late catalog reply MUST NOT update a replacement server/account
+owner. Native kept catalogs and per-engine model memory MUST use the root's opaque
+source namespace; no source's CLI account/catalog metadata MAY seed another source.
+The existing engine tabs, chosen model, supported effort and immediate cached names
+MUST retain their Android behavior. Source: settings-model-row-names-the-model,
+client-invalidates-old-sources and Tavi's 21 Oct 2026 maximum-reuse iOS plan.
+
+@cc [owner:OctavianTocan,label:security;product] shared-account-key-pages-retire-their-private-state
+Account/key pages MUST use the real shared Repo and retain the original create/list,
+copy-once and revoke flows. Their forms, focus and effects MUST belong to the current
+services owner. A dismissed/replaced account MUST NOT copy an old secret, perform a
+new key request or accept a late key response into another owner. The host MUST clear
+the old one-time key, selected key and list synchronously before publishing replacement
+credentials; the one-time key MUST NOT use persisted or saved route state. Source:
+settings-agent-keys-on-the-phone, client-invalidates-old-sources and Tavi's 21 Oct
+2026 full shared iOS implementation request.
+
+@cc [owner:OctavianTocan,label:product;security] shared-account-signout-failure-is-recoverable
+A failed sign-out or native credential deletion MUST remain a visible, retryable
+account-page error while the current account is retained. An active attempt MUST
+not accept a duplicate tap. Cancellation, page disposal or source retirement MUST
+not publish a late failure; successful local sign-out MAY retire its own services.
+Source: Tavi's accepted 21 Oct 2026 native account/error-recovery plan and
+android-no-dead-ends, including the actual Keychain failure boundary.
+
+@cc [owner:OctavianTocan,label:security;product] shared-stats-belongs-to-its-opening-source
+The shared Stats page MUST show the same range's kept answer immediately and refresh
+through the actual analytics-summary RPC. Usage stats off MUST prevent requests and
+private cache reads. A retired owner, changed source or cancelled request MUST NOT
+commit a late response. Replacing the services owner MUST retire the entire page's
+range, chart state and producer jobs. Native summary preferences MUST use the root's
+opaque eligible-account/server/Access namespace; unmarked legacy Android summaries
+MUST NOT be assigned to an arbitrary private owner. Source: stats-at-once, existing
+settings-usage-stats-drops-queue and Tavi's 21 Oct 2026 source-isolated same-app plan.
+
+@cc [owner:OctavianTocan,label:product;design] shared-stats-preserves-usage-and-formatting
+Both hosts MUST render the original Stats totals, per-day charts, feature/model AI
+usage and unpriced-cost dash from one shared body. Counts and Gregorian dates MUST
+use the app's chosen language; dollars, compact tokens and time units MUST retain
+the existing Android formatting policy. Source: stats-ai-usage, DESIGN.md rules178/181
+and Tavi's 21 Oct 2026 maximum-reuse same-app decision.
+Integer time units MUST preserve the original Android Math.round half-boundary,
+including the representable value immediately below one half. Source: the existing
+Android millisecondRoundingRetainsTheOriginalJvmHalfBoundary proof and the actual
+22 Oct 2026 Native formatting failure under the same maximum-reuse decision.
+
+@cc [owner:OctavianTocan,label:architecture;security] shared-settings-use-one-active-source
+The root MUST provide one active model/catalog services instance to Settings, review
+and Analyze. The Settings sheet MUST use the actual shared bodies, account/key and
+Stats services, server-page factory and native feedback; no silent service fallback
+MAY replace them. Platform-only pages MUST be explicitly advertised and rendered by
+their host, with unsupported rows absent. Before replacing credentials the root MUST
+close the old settings services and their private one-time-key state. Source: Tavi's
+21 Oct 2026 full same-app iOS decision, settings-is-the-liked-sheet,
+client-invalidates-old-sources and the accepted thin-native-adapter plan.
+
+@cc [owner:OctavianTocan,label:product] shared-stats-refresh-belongs-to-the-selected-range
+Changing range or retrying MUST prevent an earlier attempt from replacing the selected
+range's current summary or error. Returning to the same range before the next frame
+MUST still refresh that selection, and an old scheduled producer MUST NOT gain the
+replacement range's authority. Source: stats-at-once and the independent 21 Oct 2026
+review preserving the original range-owned Stats state during the shared extraction.
+
+@cc [owner:OctavianTocan,label:security;product] shared-feedback-drafts-belong-to-the-source
+Settings and Commands MUST use the same actual Feedback page and source-owned draft
+and history. Dismissal and a failed send MUST retain unsent words; source/account/Access
+retirement MUST synchronously clear words and history before replacement credentials
+become usable. Old callbacks, cancelled sends and late history replies MUST NOT clear
+or populate replacement state, and an older initial refresh MUST NOT replace the
+post-send list. Source: nav-feedback-from-anywhere, client-invalidates-old-sources
+and Tavi's 21 Oct 2026 same-app iOS request.
+
+@cc [owner:OctavianTocan,label:product] settings-connection-feedback-keeps-outcome
+Saving server configuration MUST distinguish a failed connection from a check replaced
+by newer discovery. Supersession alone MUST NOT display an Unreachable error; an actual
+failure MUST keep that attempt's recovery category rather than a later global category.
+Source: Tavi's 21 Oct 2026 first-run request and review of concurrent Save/discovery.
+
+@cc [owner:OctavianTocan,label:product;security] ai-connections-keep-three-real-provider-kinds
+The shared AI connections pages MUST offer Claude subscription, ChatGPT subscription
+and Pi endpoint as distinct kinds. Their state, origin, preferred model, approval
+requirement and capabilities MUST come from the current source's real
+service/deployment policy. An unverified Pi endpoint MUST remain visibly unverified;
+unsupported or approval-pending subscription paths MUST NOT offer an invented login.
+A Pully account identifier MUST NOT be displayed as a provider email. Provider
+capabilities MUST NOT grant legacy private-review or paid-job authority. Configuring
+or using AI MUST NOT require GitHub login; anonymous/local eligibility and a labelled
+shared default MUST use actual server capabilities without implicit credential or
+paid-job fallback. Source: Tavi's approved 22 Oct 2026 multiuser/provider plan,
+three-provider decision and subsequent public AI clarification.
+
+@cc [owner:OctavianTocan,label:security;product] ai-connection-requests-keep-the-drawn-personal-owner
+Connection reads and controls MUST use a required source read gate without
+constructing a legacy private graph. New or queued writes MUST recheck their mounted
+control, current verified source and exact drawn connection ID/revision. An accepted
+same-source receipt MAY settle after ordinary dismissal or foreground pause; source
+retirement MUST synchronously clear status, errors and private input and prevent late
+publication. A stale read MUST NOT replace a mutation receipt or a newer source.
+Source: Tavi's accepted 22 Oct 2026 source-isolated provider UI and native lifecycle plan.
+
+@cc [owner:OctavianTocan,label:security;product] pi-connection-credentials-are-write-only-input
+Pi setup MUST keep, replace or clear the endpoint key explicitly. A changed endpoint
+MUST require replace or clear rather than forwarding the existing key. Read status
+MUST expose only an endpoint origin and hasCredential, never credential readback.
+The form MUST NOT reconstruct a full endpoint from that origin. Submitted keys and
+disposed-page keys MUST be cleared from input, MUST NOT enter saved route state or
+preferences, and MUST NOT appear in errors or request string representations. Only
+typed client-owned error explanations MAY reach the page. A nonempty valid preferred
+model identifier MUST be forwarded unchanged; only an empty string MAY clear it.
+Source: the actual Pi model/setup contract and Tavi's approved
+22 Oct 2026 encrypted per-user Pi connection and credential-isolation plan.
+
+@cc [owner:OctavianTocan,label:product;design] ai-connections-use-shared-locales-and-unknown-skeletons
+AI connection kind, status, form, action and recovery copy MUST use the shared
+canonical web-locale lookup. Unknown connection content MUST use the existing row
+skeletons, while a refresh MUST retain known current status and private drafts.
+Source: strings-from-web-locales, android-no-loading-screens, android-refresh-is-silent
+and Tavi's 21 Oct 2026 same-app iOS decision.
+
+@cc [owner:OctavianTocan,label:security;product] settings-theme-choice-rechecks-its-entry-owner
+A host-owned theme picker MUST reject a retired entry's retained choice, including
+retirement while its theme wipe is queued. It MUST NOT change replacement preferences
+or synchronize that old choice under the replacement account. Source: the accepted
+22 Oct 2026 iOS Guest/private lifetime boundary and shared-commands-retire-private-owner.
+The nested Settings Theme page MUST consume its SettingsServices-owned picker. Native
+palette sheets MUST retain an explicitly captured picker rather than an unowned default.
+Source: the independently confirmed 22 Oct Guest review and its approved resolution.

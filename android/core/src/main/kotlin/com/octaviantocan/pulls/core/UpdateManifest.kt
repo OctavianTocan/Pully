@@ -5,7 +5,7 @@ import kotlinx.serialization.json.Json
 import java.security.MessageDigest
 
 /**
- * What the server publishes at `/android/latest.json`. The app compares [versionCode] with its own. [notes] is
+ * What the server publishes at `/download/latest.json`. The app compares [versionCode] with its own. [notes] is
  * the new version's summary and [changelog] the whole `android/CHANGELOG.md` it was built with, so the phone
  * can list every version it has not installed yet. Manifests from before 0.17.0 have no changelog.
  */

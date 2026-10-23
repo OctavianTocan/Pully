@@ -2,19 +2,9 @@ name: iOS verify
 
 on:
   pull_request:
-    paths:
-      - mobile/**
-      - ios/**
-      - android/core/**
-      - android/app/src/main/res/font/**
-      - android/app/src/main/assets/licenses/**
-      - android/app/src/main/assets/i18n/**
-      - packages/app/src/i18n/locales/**
-      - android/build.gradle.kts
-      - android/settings.gradle.kts
-      - android/gradle/**
-      - CONTRACTS
-      - .github/workflows/ios-verify.yml
+    branches: [release]
+  push:
+    branches: [release]
   workflow_dispatch:
 
 permissions:
@@ -25,10 +15,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ios:
+  ios-release-verify:
     # Ordinary ARM64 hosted runner; this is not the paid -xlarge runner label.
     runs-on: macos-26
-    timeout-minutes: 45
+    # Cold Native compilation plus the required app/UIKit tests needs more than 45 minutes.
+    timeout-minutes: 90
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
       IOS_RUNTIME_VERSION: 26.4.1
@@ -83,14 +74,34 @@ jobs:
       - name: Test native account storage and configuration rules
         run: swift test --package-path ios/NativeServices
       - name: Test native account and Google SDK rules on the iOS simulator
+        id: native-sdk
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: ios/NativeServices
         run: |
-          xcodebuild -quiet -scheme PullyNative \
+          mkdir -p ../build
+          xcodebuild -list -json > ../build/NativeServices.schemes.json
+          pully_native_scheme=$(python3 - ../build/NativeServices.schemes.json <<'PY'
+          import json, sys
+
+          with open(sys.argv[1]) as source:
+              inventory = json.load(source)
+          schemes = inventory.get('workspace', {}).get('schemes', [])
+          aggregate = 'PullyNative-Package'
+          if schemes.count(aggregate) != 1:
+              raise SystemExit('Missing the whole PullyNative package test scheme: ' + repr(schemes))
+          print(aggregate)
+          PY
+          )
+          echo "Testing the whole native package: $pully_native_scheme"
+          xcodebuild -quiet -scheme "$pully_native_scheme" \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ../build/NativeServices \
             -resultBundlePath ../build/NativeServices.xcresult \
             -parallel-testing-enabled NO test CODE_SIGNING_ALLOWED=NO
+      - name: Print actual native SDK simulator failure evidence
+        if: ${{ !cancelled() && steps.native-sdk.outcome == 'failure' }}
+        run: |
+          python3 ios/scripts/print-shared-test-failures.py --xcresult ios/build/NativeServices.xcresult
       - name: Test actual Keychain in an ad-hoc signed simulator app host
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         run: |
@@ -155,26 +166,52 @@ jobs:
         if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
         working-directory: mobile
         run: |
-          ./gradlew :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
+          ./gradlew --continue :shared-domain:jvmTest :shared-domain:iosSimulatorArm64Test \
             :shared-client:jvmTest :shared-client:iosSimulatorArm64Test :shared-ui:iosSimulatorArm64Test \
             :shared-ui:linkDebugFrameworkIosSimulatorArm64 \
             -Ppully.iosSimulatorId=${{ steps.simulator.outputs.udid }} --no-daemon
-      - name: Build and test the unsigned iOS host
+      - name: Print actual shared test assertions after a failure
+        if: ${{ !cancelled() && steps.shared.outcome == 'failure' }}
+        run: |
+          python3 ios/scripts/print-shared-test-failures.py \
+            mobile/shared-domain/build/test-results mobile/shared-client/build/test-results \
+            mobile/shared-ui/build/test-results
+          python3 -B -m unittest discover -s ios/scripts -p 'test_shared_test_failures.py'
+      - name: Build and test the private iOS simulator host
         id: host
         if: ${{ !cancelled() && steps.shared.outcome == 'success' }}
         run: |
+          xcodebuild -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/DerivedData \
+            build CODE_SIGNING_ALLOWED=NO
+          xcodebuild -quiet -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
+            -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
+            -derivedDataPath ios/build/DerivedData \
+            -parallel-testing-enabled NO build-for-testing \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+          pully_app_host=ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app
+          codesign --verify --strict "$pully_app_host"
+          codesign --display --entitlements :- "$pully_app_host" > ios/build/PullyHost.entitlements.plist
+          python3 ios/scripts/verify-keychain-test-host.py \
+            "$pully_app_host" ios/build/PullyHost.entitlements.plist ios/build/PullyEntitlements pully-app
           xcodebuild -quiet -project ios/Pully.xcodeproj -scheme Pully -configuration Debug \
             -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}' \
             -derivedDataPath ios/build/DerivedData \
             -resultBundlePath ios/build/Pully.xcresult \
-            -parallel-testing-enabled NO \
-            test CODE_SIGNING_ALLOWED=NO
+            -parallel-testing-enabled NO test-without-building \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+      - name: Require every actual UIKit test and retain readable evidence
+        if: ${{ !cancelled() && steps.simulator.outcome == 'success' }}
+        run: |
+          python3 -B -m unittest discover -s ios/scripts -p 'test_host_test_results.py'
+          python3 ios/scripts/print-host-test-results.py ios/build/Pully.xcresult ios/build/host-test-evidence
       - name: Verify original Pully fonts and canonical locales are bundled
         if: ${{ !cancelled() && steps.host.outcome == 'success' }}
         run: |
           python3 ios/scripts/verify-bundled-fonts.py \
             ios/build/DerivedData/Build/Products/Debug-iphonesimulator/Pully.app
-      - name: Package the unsigned simulator app
+      - name: Package the private simulator app
         if: ${{ !cancelled() && steps.host.outcome == 'success' }}
         run: |
           ditto -c -k --sequesterRsrc --keepParent \
@@ -187,6 +224,23 @@ jobs:
             xcrun xcresulttool export attachments --path ios/build/Pully.xcresult \
               --output-path ios/build/screenshots
           fi
+      - name: Print actual host test failures and accessibility evidence
+        if: ${{ !cancelled() && steps.host.outcome == 'failure' }}
+        run: |
+          if test -d ios/build/Pully.xcresult; then
+            mkdir -p ios/build/diagnostics
+            xcrun xcresulttool get test-results summary --path ios/build/Pully.xcresult \
+              > ios/build/diagnostics/host-test-summary.json
+            cat ios/build/diagnostics/host-test-summary.json
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for report in sorted(Path('ios/build/screenshots').rglob('*.txt'))[:12]:
+              print('::group::' + report.name)
+              print(report.read_text(errors='replace')[:24000])
+              print('::endgroup::')
+          PY
       - name: Capture simulator screenshot and app diagnostics
         if: failure() && steps.simulator.outputs.udid != ''
         run: |
@@ -196,6 +250,18 @@ jobs:
           xcrun simctl spawn '${{ steps.simulator.outputs.udid }}' log show \
             --last 5m --style compact --predicate 'process == "Pully"' \
             > ios/build/diagnostics/pully.log 2>&1 || true
+          # Kotlin crashes from any journey in this run, not only the last five minutes.
+          xcrun simctl spawn '${{ steps.simulator.outputs.udid }}' log show \
+            --last 90m --style compact \
+            --predicate 'process == "Pully" AND eventMessage CONTAINS "Uncaught Kotlin exception"' \
+            > ios/build/diagnostics/kotlin-crashes.log 2>&1 || true
+          cat ios/build/diagnostics/kotlin-crashes.log || true
+          # The fixture's page stack as it changed, so a failed Back shows which pages it passed.
+          xcrun simctl spawn '${{ steps.simulator.outputs.udid }}' log show \
+            --last 90m --style compact \
+            --predicate 'process == "Pully" AND eventMessage CONTAINS "Pully route stack"' \
+            > ios/build/diagnostics/route-stack.log 2>&1 || true
+          cat ios/build/diagnostics/route-stack.log || true
       - name: Retain simulator test evidence
         if: always()
         uses: actions/upload-artifact@v6
@@ -203,10 +269,13 @@ jobs:
           name: ios-simulator-evidence
           path: |
             ios/build/Pully.xcresult
+            ios/build/host-test-evidence
             ios/build/NativeServices.xcresult
             ios/build/Keychain.xcresult
             ios/build/KeychainHost.entitlements.plist
             ios/build/KeychainEntitlements
+            ios/build/PullyHost.entitlements.plist
+            ios/build/PullyEntitlements
             ios/build/Pully-simulator.zip
             ios/build/screenshots
             ios/build/diagnostics

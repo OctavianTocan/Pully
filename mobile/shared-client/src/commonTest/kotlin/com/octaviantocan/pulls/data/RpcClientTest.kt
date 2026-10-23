@@ -24,6 +24,20 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class RpcClientTest {
+    @Test
+    fun nonRpc429DoesNotInventAnAccountLockoutOrExposeTheResponse() = runTest {
+        val args = buildJsonObject { put("password", "private-password") }
+        for ((response, kind) in listOf(
+            RpcResponse(429, "<html>private-password upstream throttling</html>", contentType = "text/html") to ServerErrorKind.HtmlResponse,
+            RpcResponse(429, "{}", contentType = "application/json") to ServerErrorKind.Http,
+        )) {
+            val error = assertFailsWith<ServerError> { RpcClient("https://server.example", RpcTransport { response }).call("account-sign-in", args) }
+            assertEquals(kind, error.kind)
+            assertFalse(error.message.orEmpty().contains("private-password"))
+            assertFalse(error.message.orEmpty().contains("15 minutes"))
+        }
+    }
+
     private fun json(text: String) = Json.parseToJsonElement(text)
 
     @Test
@@ -54,14 +68,17 @@ class RpcClientTest {
     @Test
     fun distinguishesAccessAccountRedirectAndInvalidEnvelopeErrors() = runTest {
         val cases = listOf(
-            RpcResponse(200, "<html>Access login</html>", "text/html") to ServerErrorKind.AccessRequired,
-            RpcResponse(403, "<html>Denied</html>") to ServerErrorKind.AccessRequired,
+            RpcResponse(200, "<html>Access login</html>", "text/html") to ServerErrorKind.HtmlResponse,
+            RpcResponse(403, "<html>Denied</html>") to ServerErrorKind.HtmlResponse,
             RpcResponse(401, """{"error":"Session expired"}""") to ServerErrorKind.Unauthorized,
             RpcResponse(403, """{"error":"Account forbidden"}""") to ServerErrorKind.Forbidden,
             RpcResponse(302, "<html>Elsewhere</html>") to ServerErrorKind.Redirect,
             RpcResponse(200, "private response that is not JSON") to ServerErrorKind.InvalidResponse,
             RpcResponse(200, "[]") to ServerErrorKind.InvalidResponse,
             RpcResponse(200, "") to ServerErrorKind.Empty,
+            RpcResponse(401, "not an RPC response") to ServerErrorKind.Http,
+            RpcResponse(403, "{}") to ServerErrorKind.Http,
+            RpcResponse(200, """{"error":{"unexpected":"shape"}}""") to ServerErrorKind.InvalidResponse,
         )
         for ((response, expected) in cases) {
             val error = assertFailsWith<ServerError> {
@@ -75,6 +92,99 @@ class RpcClientTest {
             RpcClient("https://server.example", RpcTransport { RpcResponse(200, """{"error":"The head changed"}""") }).call("pr-action")
         }
         assertEquals("The head changed", error.message)
+    }
+
+    @Test
+    fun htmlNeverClaimsAccountExpiryOrAProxyCauseItCannotKnow() = runTest {
+        for (status in listOf(200, 401, 403, 404, 502, 503)) {
+            for ((type, body) in listOf(
+                "text/html; charset=utf-8" to "private body and credential",
+                "application/xhtml+xml" to "private body and credential",
+                "application/json" to "\uFEFF  <!DOCTYPE HTML><html>private body and credential</html>",
+                "" to " \n<HTML>private body and credential</HTML>",
+            )) {
+                val failure = assertFailsWith<ServerError> {
+                    RpcClient("https://server.example", RpcTransport { RpcResponse(status, body, type) }).call("account-status")
+                }
+                assertEquals(ServerErrorKind.HtmlResponse, failure.kind)
+                assertEquals(status, failure.status)
+                assertEquals(RpcResponseFormat.Html, failure.format)
+                assertFalse(failure.message.orEmpty().contains("sign-in"))
+                assertFalse(failure.message.orEmpty().contains("private body"))
+                assertEquals(null, failure.cause)
+            }
+        }
+    }
+
+    @Test
+    fun onlyTheFixedCloudflareAccessLoginDestinationIdentifiesAccess() = runTest {
+        val destinations = listOf(
+            "https://team.cloudflareaccess.com/cdn-cgi/access/login/server.example?token=private-value" to ServerErrorKind.AccessRequired,
+            "https://team.cloudflareaccess.com:443/cdn-cgi/access/login/server.example" to ServerErrorKind.AccessRequired,
+            "https://team.cloudflareaccess.com.evil.example/cdn-cgi/access/login/server.example" to ServerErrorKind.Redirect,
+            "https://team.cloudflareaccess.com@evil.example/cdn-cgi/access/login/" to ServerErrorKind.Redirect,
+            "http://team.cloudflareaccess.com/cdn-cgi/access/login/" to ServerErrorKind.Redirect,
+            "https://team.cloudflareaccess.com/different-page" to ServerErrorKind.Redirect,
+            "https://server.example/login?next=private-value" to ServerErrorKind.Redirect,
+        )
+        for ((destination, kind) in destinations) {
+            val failure = assertFailsWith<ServerError> {
+                RpcClient("https://server.example", RpcTransport { RpcResponse(302, "", location = destination) }).call("account-status")
+            }
+            assertEquals(kind, failure.kind)
+            assertFalse(failure.message.orEmpty().contains("private-value"))
+            assertFalse(failure.message.orEmpty().contains(destination))
+        }
+    }
+
+    @Test
+    fun neverDisplaysNativeFailureMessagesOrReflectedSignInCredentials() = runTest {
+        val unreachable = assertFailsWith<RpcConnectionException> {
+            RpcClient("https://server.example", RpcTransport { throw IllegalStateException("https://server.example/?secret=private-password") }).call("account-status")
+        }
+        assertFalse(unreachable.message.orEmpty().contains("private-password"))
+        assertEquals(null, unreachable.cause)
+        val failure = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(401, """{"error":"Rejected private-password and private-session"}""")
+            }, mapOf("X-Pully-Session" to "private-session"))
+                .call("account-sign-in", buildJsonObject { put("password", "private-password") })
+        }
+        assertEquals(ServerErrorKind.Unauthorized, failure.kind)
+        assertFalse(failure.message.orEmpty().contains("private-password"))
+        assertFalse(failure.message.orEmpty().contains("private-session"))
+        val bounded = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(500, buildJsonObject { put("error", "x".repeat(5000)) }.toString())
+            }).call("read")
+        }
+        assertEquals(1200, bounded.message?.length)
+    }
+
+    @Test
+    fun reflectedSerializedCredentialsCannotBecomeReadableErrorDetails() = runTest {
+        val credential = "private\\quoted\"password\nwith-newline"
+        val args = buildJsonObject { put("email", "person@example.com"); put("password", credential) }
+        val failure = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(401, buildJsonObject { put("error", "Rejected args $args") }.toString())
+            }).call("account-sign-in", args)
+        }
+        assertEquals("Pully could not sign in. Check your account or choose another, then try again.", failure.message)
+        assertFalse(failure.message.orEmpty().contains("private"))
+        val secret = "private\\quoted\"header"
+        val reflectedHeader = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(400, buildJsonObject { put("error", "Rejected ${JsonPrimitive(secret)}") }.toString())
+            }, mapOf("Authorization" to secret)).call("read")
+        }
+        assertFalse(reflectedHeader.message.orEmpty().contains("private"))
+        val nested = assertFailsWith<ServerError> {
+            RpcClient("https://server.example", RpcTransport {
+                RpcResponse(400, buildJsonObject { put("error", "Rejected $args") }.toString())
+            }).call("future-connection", buildJsonObject { put("connection", args) })
+        }
+        assertEquals("The server could not complete this request. Try again.", nested.message)
     }
 
     @Test
