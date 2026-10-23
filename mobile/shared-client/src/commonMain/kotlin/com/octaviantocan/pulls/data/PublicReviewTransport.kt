@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
@@ -160,6 +161,9 @@ class PublicReviewTransport(private val transport: RpcTransport, private val now
                 pull.obj("head").objOrNull("repo")?.objOrNull("owner")?.textOrNull("login")?.let { put("owner", it) }
             })
             put("base", buildJsonObject { put("oid", pull.obj("base").text("sha")); put("ref", pull.obj("base").text("ref")) })
+            // GitHub's own merge answer; null while it is still working it out, which the page shows as checking.
+            put("mergeable", when ((pull["mergeable"] as? JsonPrimitive)?.booleanOrNull) { true -> "mergeable"; false -> "conflicting"; null -> "unknown" })
+            put("mergeStateStatus", pull.textOrNull("mergeable_state") ?: "unknown")
             put("viewer", buildJsonObject { put("canUpdate", false) })
             put("merge", buildJsonObject { put("methods", JsonArray(emptyList())) })
             put("commits", JsonArray(commits.map { c ->
