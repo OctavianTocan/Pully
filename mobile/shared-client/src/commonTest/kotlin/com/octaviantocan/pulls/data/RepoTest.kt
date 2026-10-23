@@ -55,6 +55,35 @@ class RepoTest {
     }
 
     @Test
+    fun aiSignInsSendOnlyTheCliAndThePastedCode() = runTest {
+        val transport = FixtureTransport { name ->
+            when (name) {
+                "ai-login-status" -> """{"account":true,"claude":{"signedIn":true,"email":"a@example.com","plan":"max"},"codex":{"signedIn":false}}"""
+                "ai-login-start" -> """{"url":"https://auth.openai.com/codex/device","code":"ABCD-EFGH","paste":false}"""
+                "ai-login-finish" -> """{"signedIn":true,"pending":false}"""
+                else -> "true"
+            }
+        }
+        val repo = Repo({ RepoConfiguration("https://server.example") }, transport)
+        val signIns = repo.aiSignIns()
+        assertEquals(AiSignIn(true, "a@example.com", "max"), signIns[AiCli.Claude])
+        assertEquals(AiSignIn(false), signIns[AiCli.Codex])
+        assertTrue(signIns.account)
+        assertEquals(AiSignInStart("https://auth.openai.com/codex/device", "ABCD-EFGH", false), repo.startAiSignIn(AiCli.Codex))
+        assertTrue(repo.finishAiSignIn(AiCli.Claude, "code#state"))
+        repo.signOutAi(AiCli.Codex)
+        assertEquals(
+            listOf(
+                "ai-login-status" to "{}",
+                "ai-login-start" to """{"engine":"codex"}""",
+                "ai-login-finish" to """{"engine":"claude","code":"code#state"}""",
+                "ai-login-sign-out" to """{"engine":"codex"}""",
+            ),
+            transport.calls.map { it.first to it.second.toString() },
+        )
+    }
+
+    @Test
     fun actionAndCritiqueBuildersRetainTheCurrentHeadAndRevision() = runTest {
         val transport = FixtureTransport { if (it == "critique-post") """{"posted":["f1"]}""" else "null" }
         val repo = Repo({ RepoConfiguration("https://server.example") }, transport)

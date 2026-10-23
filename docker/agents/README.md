@@ -42,12 +42,15 @@ and [verification notes](../../docs/RUST_BACKEND_MIGRATION.md).
    MCP-helper compatibility. To use just one provider, run `build` and its
    `login-claude` or `login-codex` command instead of `all`.
 
-Server environment credentials take precedence over saved CLI sign-ins:
-`ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` for Claude Code, and `OPENAI_API_KEY`
-for Codex. With those configured, `docker/agents/setup.sh build` is sufficient to
-prepare the image; `check` still reports saved CLI login status. Node remains in
-the image for the provider CLIs and the native server's login-copy helpers. The
-image does not build the Rust server or its Linux MCP helper.
+These are the server's own sign-ins, used by requests without a Pully account and
+by the server's background work. Everyone signed in to a Pully account signs their
+own Claude Code and Codex in from the phone (Settings, AI), and their AI runs only on
+that sign-in: each account has its own `pulls-review-agents-home-<hash>` volume,
+written only by the CLIs' own login commands (`backend/src/agent_login.rs`). There
+are no API keys: `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` and `OPENAI_API_KEY`
+are not passed to the CLIs. Node remains in the image for the provider CLIs and the
+native server's login-copy helpers. The image does not build the Rust server or its
+Linux MCP helper.
 
 GitHub credentials belong to the server: it uses `PULLS_REVIEW_GITHUB_TOKEN`,
 `GITHUB_TOKEN`, or `GH_TOKEN`, falling back to the server account's GitHub CLI

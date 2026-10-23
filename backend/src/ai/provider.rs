@@ -50,9 +50,16 @@ fn effort(id: &str) -> Option<String> {
     re.captures(id).map(|c| c[1].to_ascii_lowercase())
 }
 pub async fn catalog(state: &AppState, engine: &str) -> Result<Value> {
-    catalog_refresh(state, engine, false).await
+    catalog_refresh(state, engine, false, &crate::agent_login::AgentLogin::Server).await
 }
-pub async fn catalog_refresh(state: &AppState, engine: &str, refresh: bool) -> Result<Value> {
+/// Claude Code and Codex list the models of the caller's own subscription, so their lists are
+/// kept per login; Pi has one endpoint for the whole server.
+pub async fn catalog_refresh(
+    state: &AppState,
+    engine: &str,
+    refresh: bool,
+    login: &crate::agent_login::AgentLogin,
+) -> Result<Value> {
     anyhow::ensure!(
         state.identity.is_legacy(),
         "Connect a personal AI provider to list its models"
@@ -65,11 +72,16 @@ pub async fn catalog_refresh(state: &AppState, engine: &str, refresh: bool) -> R
     if !["pi", "claude-code", "codex"].contains(&engine) {
         bail!("Unknown AI engine");
     }
-    cached_catalog(&state.jobs, engine, refresh, async {
+    let cache_key = if engine == "pi" {
+        engine.to_owned()
+    } else {
+        format!("{engine}:{}", login.volume())
+    };
+    cached_catalog(&state.jobs, &cache_key, refresh, async {
         if engine == "pi" {
             pi_catalog(state).await
         } else {
-            crate::agent_process::catalog(engine).await
+            crate::agent_process::catalog(engine, login).await
         }
     })
     .await
@@ -226,6 +238,7 @@ pub(super) async fn run_prepared(
         let sink = Arc::new(move |patch| activity.patch(patch));
         let result = crate::agent_process::run_agent_prepared(
             request,
+            &run.login,
             run.cancel.subscribe(),
             sink,
             preparation,
@@ -244,7 +257,7 @@ pub(super) async fn run_prepared(
 }
 
 async fn pi_model(state: &AppState, wanted: &[&str], refresh: bool) -> Result<String> {
-    match catalog_refresh(state, "pi", refresh).await {
+    match catalog_refresh(state, "pi", refresh, &crate::agent_login::AgentLogin::Server).await {
         Ok(listed) => listed_pi_model(&listed, wanted).context("Pi endpoint lists no text models"),
         // Without the list, the model the phone or the server names is still worth a try.
         Err(error) => wanted.first().map(|m| (*m).to_owned()).ok_or(error),
@@ -851,6 +864,7 @@ mod tests {
             task: true,
             notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
+            login: crate::agent_login::AgentLogin::Server,
         })
     }
     #[tokio::test(start_paused = true)]
@@ -975,6 +989,7 @@ mod tests {
             task: false,
             notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
+            login: crate::agent_login::AgentLogin::Server,
         });
         let first = Activity::new(&run);
         let second = Activity::new(&run);

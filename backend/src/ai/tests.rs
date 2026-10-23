@@ -15,8 +15,8 @@ async fn idle_update_defers_running_and_reserved_work_without_cancelling() {
     }
     tokio::time::timeout(Duration::from_secs(1), wait_for_update_shutdown(&state)).await.unwrap();
     let request = json!({"engine":"pi", "system":"test", "prompt":"test"});
-    assert!(start_async(&state, request.clone(), false).await.unwrap_err().to_string().contains("shutting down"));
-    assert!(start(&state, request, false, None).unwrap_err().to_string().contains("shutting down"));
+    assert!(start_async(&state, request.clone(), false, &crate::agent_login::AgentLogin::Server).await.unwrap_err().to_string().contains("shutting down"));
+    assert!(start(&state, request, false, None, crate::agent_login::AgentLogin::Server).unwrap_err().to_string().contains("shutting down"));
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -53,6 +53,7 @@ fn run() -> Arc<Run> {
         task: true,
         notify: Notify::new().into(),
         cancel: tx,
+        login: crate::agent_login::AgentLogin::Server,
     })
 }
 
@@ -246,7 +247,8 @@ async fn shutdown_cancels_pending_http_llm_run_before_server_drain() {
     assert!(start_async(
         &state,
         json!({"engine":"pi","system":"Fixture","prompt":"Late"}),
-        false
+        false,
+        &crate::agent_login::AgentLogin::Server,
     )
     .await
     .unwrap_err()
@@ -675,7 +677,7 @@ async fn ai_storage_admission_keeps_dedup_poll_cancel_and_shutdown_responsive() 
     let state = AppState::new(root.clone(), root.join("data")).unwrap();
     let held = HeldLock::storage(&state.host.storage);
     let request = json!({"kind":"inbox","key":"inbox","question":"Why?","model":{"engine":"pi"}});
-    let mut admission = Box::pin(start_async(&state, request.clone(), true));
+    let mut admission = Box::pin(start_async(&state, request.clone(), true, &crate::agent_login::AgentLogin::Server));
     assert!(futures_util::poll!(&mut admission).is_pending());
     let id = tokio::time::timeout(Duration::from_secs(1), async {
         loop {
@@ -693,7 +695,7 @@ async fn ai_storage_admission_keeps_dedup_poll_cancel_and_shutdown_responsive() 
     })
     .await
     .expect("admission did not reserve a run without its storage lock");
-    let joined = tokio::time::timeout(Duration::from_secs(1), start_async(&state, request, true))
+    let joined = tokio::time::timeout(Duration::from_secs(1), start_async(&state, request, true, &crate::agent_login::AgentLogin::Server))
         .await
         .unwrap()
         .unwrap();
@@ -717,7 +719,7 @@ async fn ai_storage_admission_keeps_dedup_poll_cancel_and_shutdown_responsive() 
     .unwrap();
     assert_eq!(stopped, true);
     begin_shutdown(&state);
-    assert!(start_async(&state, json!({}), true).await.is_err());
+    assert!(start_async(&state, json!({}), true, &crate::agent_login::AgentLogin::Server).await.is_err());
     let error = held.assert_yields(admission).await.unwrap_err();
     assert_eq!(error.to_string(), "Stopped.");
     assert_eq!(
@@ -791,4 +793,20 @@ fn experimental_reviews_cannot_join_an_ordinary_running_review() {
     assert!(!same(&experiment, &ordinary, true));
     experiment["experiments"]["mergeRisk"] = json!(false);
     assert!(same(&ordinary, &experiment, true));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn another_persons_run_is_never_joined() {
+    use crate::agent_login::AgentLogin;
+    let root = std::env::temp_dir().join(format!("pulls-ai-login-join-{}", uuid::Uuid::new_v4()));
+    let state = AppState::new(root.clone(), root.join("data")).unwrap();
+    let request = json!({"kind":"inbox","key":"inbox","question":"Why?","model":{"engine":"pi"}});
+    let first = start(&state, request.clone(), true, None, AgentLogin::Account("a".into())).unwrap();
+    let joined = start(&state, request.clone(), true, None, AgentLogin::Account("a".into())).unwrap();
+    let other = start(&state, request, true, None, AgentLogin::Account("b".into())).unwrap();
+    assert_eq!(first, joined);
+    assert_ne!(first, other);
+    assert_eq!(lookup(&state, &other).unwrap().login, AgentLogin::Account("b".into()));
+    shutdown(&state).await;
+    std::fs::remove_dir_all(root).unwrap();
 }

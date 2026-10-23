@@ -437,6 +437,7 @@ mod tests {
             task: true,
             notify: Notify::new().into(),
             cancel,
+            login: crate::agent_login::AgentLogin::Server,
         };
         let mut ctx = context(&diff);
         ctx["allowGroupingUpdate"] = json!(true);

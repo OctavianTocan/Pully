@@ -13,6 +13,8 @@ enum class SettingsPage(val parent: SettingsPage?) {
     Sound(Main),
     Model(Main),
     Effort(Main),
+    ClaudeSignIn(Main),
+    CodexSignIn(Main),
     WhatsNew(Main),
     Stats(Main),
     Links(Main),

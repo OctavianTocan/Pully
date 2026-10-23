@@ -48,7 +48,7 @@ internal class RootJourneyWork(
 
     fun validateRead(name: String, args: JsonObject) {
         val allowed = when (name) {
-            "account-status", "account-me", "account-sign-out", "account-settings" -> emptySet()
+            "account-status", "account-me", "account-sign-out", "account-settings", "ai-login-status" -> emptySet()
             "account-sign-in" -> setOf("email", "password")
             "account-settings-merge" -> setOf("values")
             "github-pr" -> setOf("owner", "repo", "number", "lite", "fresh")

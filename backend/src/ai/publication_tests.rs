@@ -8,6 +8,7 @@ fn run() -> Arc<Run> {
         task: true,
         notify: Notify::new().into(),
         cancel: watch::channel(false).0,
+        login: crate::agent_login::AgentLogin::Server,
     })
 }
 

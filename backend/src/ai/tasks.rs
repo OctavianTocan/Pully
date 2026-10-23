@@ -1164,6 +1164,7 @@ pub(super) fn followups(state: &Arc<AppState>, run: &Run) {
             json!({"kind":kind,"key":key,"model":request["model"],"locale":request["locale"]}),
             true,
             Some(run),
+            run.login.clone(),
         );
     }
 }

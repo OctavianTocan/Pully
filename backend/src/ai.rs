@@ -195,8 +195,15 @@ pub(super) struct Run {
     pub task: bool,
     pub notify: Arc<Notify>,
     pub cancel: watch::Sender<bool>,
+    /// Whose Claude Code or Codex sign-in this run's CLI work uses; follow-ups inherit it.
+    pub login: crate::agent_login::AgentLogin,
 }
 impl Jobs {
+    /// A sign-in or sign-out changes which models that login's CLIs list.
+    pub(crate) async fn forget_catalogs(&self, login: &crate::agent_login::AgentLogin) {
+        let suffix = format!(":{}", login.volume());
+        self.catalogs.lock().await.retain(|key, _| !key.ends_with(&suffix));
+    }
     #[cfg(test)]
     pub(crate) fn hold_session_for_test(&self, key: &str) -> Arc<tokio::sync::Mutex<()>> {
         self.session(key)
@@ -535,7 +542,12 @@ async fn run_storage<T: Send + 'static>(
 }
 /// Admission stays independent of the HTTP request once queued. Its complete
 /// storage/pin transaction runs on the blocking pool, including mutex acquisition.
-async fn start_async(state: &Arc<AppState>, req: Value, task: bool) -> Result<String> {
+async fn start_async(
+    state: &Arc<AppState>,
+    req: Value,
+    task: bool,
+    login: &crate::agent_login::AgentLogin,
+) -> Result<String> {
     anyhow::ensure!(
         state.identity.is_legacy(),
         "Connect a personal AI provider before starting work"
@@ -551,9 +563,10 @@ async fn start_async(state: &Arc<AppState>, req: Value, task: bool) -> Result<St
             bail!("Server is shutting down");
         }
         let stored_state = state.clone();
+        let login = login.clone();
         handles.retain(|h| !h.is_finished());
         handles.push(tokio::task::spawn_blocking(move || {
-            let _ = send.send(start(&stored_state, req, task, None));
+            let _ = send.send(start(&stored_state, req, task, None, login));
         }));
     }
     result.await.context("AI admission stopped")?
@@ -568,6 +581,7 @@ fn start(
     mut req: Value,
     task: bool,
     parent: Option<&Run>,
+    login: crate::agent_login::AgentLogin,
 ) -> Result<String> {
     if task {
         required(&req, "key")?;
@@ -631,8 +645,10 @@ fn start(
         s["status"] == "running"
             || now_ms().saturating_sub(s["endedAt"].as_u64().unwrap_or(now_ms())) < 30 * 60 * 1000
     });
+    // Another person's run is never joined: it spends their subscription, not this one's.
     if let Some(r) = runs.values().find(|r| {
         r.task == task
+            && r.login == login
             && r.snapshot.lock().unwrap()["status"] == "running"
             && same(&req, &r.request, task)
     }) {
@@ -669,6 +685,7 @@ fn start(
         task,
         notify: Notify::new().into(),
         cancel: tx,
+        login,
     });
     // Serialize follow-up registration with Stop, but never hold this guard over I/O.
     let parent_snapshot = parent.map(|parent| parent.snapshot.lock().unwrap());
@@ -939,23 +956,38 @@ pub async fn change_chat(state: &Arc<AppState>, key: &str, id: Option<&str>) -> 
     .await
 }
 pub async fn handle(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
+    handle_as(state, name, args, &crate::agent_login::AgentLogin::Server).await
+}
+
+/// `login` comes from the request's verified Pully session, never from its arguments.
+pub async fn handle_as(
+    state: &Arc<AppState>,
+    name: &str,
+    args: Value,
+    login: &crate::agent_login::AgentLogin,
+) -> Option<Result<Value>> {
     if let Err(error) = state.identity.ensure_current() {
         return Some(Err(error));
     }
-    handle_inner(state, name, args).await.map(|result| {
+    handle_inner(state, name, args, login).await.map(|result| {
         state.identity.ensure_current()?;
         result
     })
 }
 
-async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<Result<Value>> {
+async fn handle_inner(
+    state: &Arc<AppState>,
+    name: &str,
+    args: Value,
+    login: &crate::agent_login::AgentLogin,
+) -> Option<Result<Value>> {
     let a = if args.is_array() {
         args.get(0).cloned().unwrap_or(json!({}))
     } else {
         args
     };
     let result: Result<Value> = match name {
-        "ai-task-start" | "ai-job-start" => start_async(state, a, name == "ai-task-start")
+        "ai-task-start" | "ai-job-start" => start_async(state, a, name == "ai-task-start", login)
             .await
             .map(Value::String),
         "ai-task-wait" | "ai-job-wait" => {
@@ -996,11 +1028,11 @@ async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<
             Ok(json!(rs))
         }
         "ai-models" => {
-            provider::catalog_refresh(state, text(&a, "engine"), a["refresh"] == true).await
+            provider::catalog_refresh(state, text(&a, "engine"), a["refresh"] == true, login).await
         }
         "llm-run" => {
             async {
-                let id = start_async(state, a, false).await?;
+                let id = start_async(state, a, false, login).await?;
                 let run = lookup(state, &id)?;
                 loop {
                     let notified = run.notify.notified();

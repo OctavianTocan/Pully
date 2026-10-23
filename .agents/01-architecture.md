@@ -154,11 +154,19 @@ accepts only `docker`. `PULLS_REVIEW_AGENT_IMAGE` defaults to
   RPC, storage or credentials. Source reads can include unchanged files at the
   selected revision without mounting the checkout. The listener binds
   `0.0.0.0` for Docker reachability and must not be publicly proxied.
-- Environment credentials take precedence. Otherwise a separate network-disabled
-  helper copies allowlisted authentication fields from the shared
-  `pulls-review-agents-home` login volume. The model container never mounts that
-  volume; a locked helper persists refreshes only if the original login has not
-  changed. `login-claude` and `login-codex` remain interactive operator commands.
+- There are no API keys. A separate network-disabled helper copies allowlisted
+  subscription-login fields from the login volume of whoever started the work
+  (`backend/src/agent_login.rs`): a signed-in Pully account's own
+  `pulls-review-agents-home-<hash>` volume, or, for requests without an account and
+  the server's background work, the server's `pulls-review-agents-home`. The model
+  container never mounts a login volume; a locked helper persists refreshes only if
+  the original login has not changed.
+- People sign their own Claude Code and Codex in from the phone (Settings, AI). The
+  server runs the CLI's own `claude auth login` or `codex login --device-auth` in a
+  container that has only that account's volume, hands back the provider's page
+  (and Codex's code), and passes Claude Code's pasted code to the CLI's stdin.
+  `login-claude` and `login-codex` remain the operator commands for the server's
+  own sign-in.
 - Cancelling/stopping a run kills and cleans up its container, not merely the
   Docker client, and invalidates its capability. Jobs have a 30-minute deadline.
   Missing Docker, credentials, image, bridge or helper fails explicitly. There
