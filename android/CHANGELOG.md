@@ -25,6 +25,7 @@ Browse public GitHub projects without signing in.
 - Connect GitHub sits at the top of Explore and in Settings. Until GitHub sign-in is set up for your server, it says so and lets you keep browsing.
 - Use an existing Pully account stays one tap away on Explore, and a shared Pully link offers it too.
 - When Pully cannot stop an AI task, it now tells you, and Stop stays there to try again.
+- A message raised inside a sheet, like Feedback sent or Copied the key, now shows over the sheet instead of hidden under it, and a screen reader names the Stop button.
 
 ## 0.59.0
 
