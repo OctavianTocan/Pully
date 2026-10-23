@@ -77,3 +77,15 @@ the binary URL in its `apkUrl` (`/download/pully.apk`, never the HTML page). Con
 inspect the APK version and pinned signing
 certificate, and confirm the checkout is clean and the timer's next run succeeds. This
 verifies the server's update channel; installation on a phone is a separate check.
+
+## Public listener (Explore and Connect GitHub)
+
+Connect GitHub needs the opt-in public listener (`--public-listen`, backend/src/public_server) beside the
+private server. Register a GitHub OAuth App named Pully at github.com/settings/applications/new with the
+homepage `https://prs.octaviantocan.com` and the callback
+`https://prs.octaviantocan.com/api/personal/v1/auth/github/callback`. Then run
+`scripts/pully-public-setup.sh` on the host. It asks for the app's client ID and secret without echoing
+them, writes owner-only `~/.config/pully-public/oauth.json` and a new `vault-keys.json`, and starts the
+`pully-public` user service on `127.0.0.1:8794`. Route `^/api/(public|personal)/` on the prs tunnel to that
+port and give those two paths an Access bypass; `/api/rpc` and the web app stay behind Access. The APK
+carries the origin as `pully.personalAuthOrigin` in android/gradle.properties.

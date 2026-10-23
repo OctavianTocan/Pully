@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.explore
 
+import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.ExplorePull
 import com.octaviantocan.pulls.data.ExploreRepository
 import com.octaviantocan.pulls.data.PublicBrowseClient
 import com.octaviantocan.pulls.data.RpcTransport
@@ -37,6 +39,12 @@ class GuestBrowseSession(
     fun openRepository(repository: ExploreRepository) {
         if (current && navigation.stack.lastOrNull() == Screen.Explore)
             repositories.open(repository) { navigation.stack.add(Screen.PublicRepo(it)) }
+    }
+
+    /** A public pull request opens on Pully's own review page, read from GitHub's public API, never on GitHub. */
+    fun openPull(screen: Screen.PublicRepo, pull: ExplorePull) {
+        if (current && navigation.stack.lastOrNull() === screen)
+            navigation.stack.add(Screen.Review(OpenTarget.Pull(screen.repository.owner, screen.repository.name, pull.number.toInt(), "github.com"), from = "explore"))
     }
 
     fun runFrom(screen: Screen, action: () -> Unit) {

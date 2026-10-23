@@ -49,4 +49,17 @@ class SourceStorageNamespaceTest {
         assertEquals("b335630551682c19a781afebcf4d07bf978fb1f8ac04c6bf87428ed5106870f5", sha256Utf8("README.md"))
         assertEquals("720dd3febeadb4ee85a604e326756792b18060ee86f73e81a9d6460449f74895", sha256Utf8("src/café/変更.kt"))
     }
+
+    @Test
+    fun aCloudflareSignInKeepsItsCopiesAcrossNewTokensForTheSamePerson() {
+        fun token(payload: String) = "e30." + kotlin.io.encoding.Base64.UrlSafe.withPadding(kotlin.io.encoding.Base64.PaddingOption.ABSENT)
+            .encode(payload.encodeToByteArray()) + ".sig"
+        val monday = token("""{"email":"alice@example.test","exp":1}""")
+        val tuesday = token("""{"email":"alice@example.test","exp":2}""")
+        assertEquals("alice@example.test", accessTokenIdentity(monday))
+        val namespace = sourceStorageNamespace("https://review.example", null, false, mapOf(ACCESS_TOKEN_HEADER to monday))
+        assertEquals(namespace, sourceStorageNamespace("https://review.example", null, false, mapOf(ACCESS_TOKEN_HEADER to tuesday)))
+        assertNotEquals(namespace, sourceStorageNamespace("https://review.example", null, false, mapOf(ACCESS_TOKEN_HEADER to token("""{"email":"bob@example.test"}"""))))
+        assertNull(accessTokenIdentity("not-a-token"))
+    }
 }

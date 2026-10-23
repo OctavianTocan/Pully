@@ -28,14 +28,20 @@ internal fun ConnectionSetupGate(onLeave: () -> Unit, onExplore: (() -> Unit)? =
         DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
     ) {
         var settings by remember { mutableStateOf(false) }
+        var accessSignIn by remember { mutableStateOf(false) }
         ConnectionSetupScreen(
             checking = Account.checkingConnection,
             problem = Account.connectionProblem,
             onRetry = { scope.launch { checkAccount(context) } },
             onServerSettings = { settings = true },
             onExplore = onExplore,
+            onAccessSignIn = { accessSignIn = true },
         )
         if (settings) ServerConnectionSheet(onClose = { settings = false })
+        if (accessSignIn) AccessSignInSheet(
+            onSignedIn = { accessSignIn = false; scope.launch { checkAccount(context) } },
+            onClose = { accessSignIn = false },
+        )
     }
 }
 
