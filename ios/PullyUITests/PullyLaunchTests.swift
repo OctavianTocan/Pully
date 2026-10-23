@@ -470,7 +470,9 @@ final class PullyLaunchTests: XCTestCase {
     }
 
     private func openSystemLink(_ url: URL, in app: XCUIApplication) {
-        app.open(url)
+        // Through the system, as a link tapped in another app arrives: XCUIApplication.open relaunches the app with
+        // the URL, so a running app lost its pages and a "warm" link was really a cold one.
+        XCUIDevice.shared.system.open(url)
         let confirmation = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
         if confirmation.waitForExistence(timeout: 2) { confirmation.tap() }
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
@@ -649,7 +651,14 @@ final class PullyLaunchTests: XCTestCase {
             return
         }
         filter.tap()
+        // A tap while the first rows are still arriving can be lost; one more tap, then the same selected check.
+        if !waitForSelected(filter, timeout: 5) { filter.tap() }
         assertAllSelected(in: app)
+    }
+
+    private func waitForSelected(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in element.exists && element.isSelected }, object: nil)
+        return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
     }
 
     private func allFilter(in app: XCUIApplication) -> XCUIElement {
