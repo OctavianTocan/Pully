@@ -28,6 +28,8 @@ Public pull requests open in Pully, and server sign-in works.
 ![The changes of a public pull request in Pully's diff](changelog/0.61.0/public-diff.png)
 - Pully asks once whether it may open GitHub links, and takes you to the switch Android keeps for it.
 - Use an existing Pully account can now sign in to a server behind Cloudflare Access from inside Pully, with the code it emails you.
+- Connect GitHub signs in the way gh auth login does: Pully shows a code, copies it and opens GitHub, and your organizations' repositories work without anyone approving an app.
+![Connect GitHub showing a code to enter on GitHub and a Copy code and open GitHub button](changelog/0.61.0/connect-github.png)
 
 ## 0.60.0
 
