@@ -352,8 +352,8 @@ final class PullyLaunchTests: XCTestCase {
 
     private func waitForSampleServerCompletion(since started: Date) {
         // The UI runner waits while the app is backgrounded or dead. It never advances fixture state or calls an app hook.
-        // RootJourneyWork.COMPLETION_MILLIS (28 s) plus margin.
-        waitForElapsed(since: started, seconds: 29.5)
+        // RootJourneyWork.COMPLETION_MILLIS (48 s) plus margin.
+        waitForElapsed(since: started, seconds: 49.5)
     }
 
     private func waitForElapsed(since started: Date, seconds: TimeInterval) {
@@ -958,6 +958,9 @@ extension PullyLaunchTests {
 
     private func copyAndVerifyNativeSelection(_ expected: String, editor: XCUIElement, app: XCUIApplication) {
         requireNativeEditAction("Copy", in: app).tap()
+        // Compose ends the selection after Copy, as it does on Android, so Delete would take one letter; select the
+        // words again first so Delete clears them.
+        selectAllNativeText(in: editor, app: app)
         editor.typeText(XCUIKeyboardKey.delete.rawValue)
         assertEditorValue("", editor: editor, in: app)
         pasteNativeText(into: editor, app: app)

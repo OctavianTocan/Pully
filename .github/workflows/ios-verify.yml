@@ -71,15 +71,6 @@ jobs:
           echo "udid=$pully_simulator_id" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$pully_simulator_id"
           xcrun simctl bootstatus "$pully_simulator_id" -b
-          # XCUITest types faster than a person. With autocorrection and predictions on, the keyboard held back the
-          # last letter of a typed phrase, so the journeys type with them off; the reboot makes the keyboard read it.
-          for pully_keyboard_pref in KeyboardAutocorrection KeyboardPrediction KeyboardCheckSpelling KeyboardShowPredictionBar; do
-            xcrun simctl spawn "$pully_simulator_id" defaults write com.apple.Preferences "$pully_keyboard_pref" -bool NO
-          done
-          xcrun simctl spawn "$pully_simulator_id" defaults write com.apple.Preferences DidShowContinuousPathIntroduction -bool YES
-          xcrun simctl shutdown "$pully_simulator_id"
-          xcrun simctl boot "$pully_simulator_id"
-          xcrun simctl bootstatus "$pully_simulator_id" -b
       - name: Test native account storage and configuration rules
         run: swift test --package-path ios/NativeServices
       - name: Test native account and Google SDK rules on the iOS simulator

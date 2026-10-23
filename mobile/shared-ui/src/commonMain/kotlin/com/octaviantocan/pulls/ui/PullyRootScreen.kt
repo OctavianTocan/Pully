@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
@@ -207,7 +208,8 @@ fun PullyRootScreen(
                                 }
                             }
                         }
-                        FootBarLayer(bars)
+                        // At the foot, as on Android; left unaligned it rested at the top, under the status bar.
+                        FootBarLayer(bars, Modifier.align(Alignment.BottomCenter))
                         if (readyHome != null && readySettings != null) {
                             if (navigation.stack.lastOrNull() == Screen.Settings) SettingsScreen(navigation.nav, readySettings,
                                 onGitHubAccount = onGitHubAccount?.let { action -> {

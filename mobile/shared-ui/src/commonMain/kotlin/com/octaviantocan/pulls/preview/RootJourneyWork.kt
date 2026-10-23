@@ -396,8 +396,8 @@ internal class RootJourneyWork(
         private const val SAMPLE_DATE = "2026-10-21T10:00:00Z"
         private const val PENDING_REVIEW = 7601L
         // Long enough that a slow simulator UI run still sees the task running after opening the Tour.
-        private const val WORK_MILLIS = 25_000L
-        private const val STOP_WORK_MILLIS = 45_000L
+        private const val WORK_MILLIS = 45_000L
+        private const val STOP_WORK_MILLIS = 90_000L
         private const val PASS_MILLIS = 2_000L
         /** When a started analysis and its follow-up passes are certainly done. */
         const val COMPLETION_MILLIS = WORK_MILLIS + PASS_MILLIS + 1_000L
